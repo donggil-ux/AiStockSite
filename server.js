@@ -201,6 +201,37 @@ app.get('/api/screener/:filter', async (req, res) => {
 });
 
 /**
+ * 종목 뉴스
+ * GET /api/news/:symbol?limit=12
+ */
+app.get('/api/news/:symbol', async (req, res) => {
+    const { symbol } = req.params;
+    const limit = parseInt(req.query.limit) || 12;
+    try {
+        const url  = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(symbol)}&quotesCount=0&newsCount=${limit}&enableFuzzyQuery=false`;
+        const data = await yfRequest(url);
+        const raw  = data?.news || [];
+        const news = raw.slice(0, limit).map(n => {
+            // 140x140 썸네일 우선, 없으면 original
+            const resolutions = n.thumbnail?.resolutions || [];
+            const thumb = (resolutions.find(r => r.tag === '140x140') || resolutions[0])?.url || null;
+            return {
+                uuid:          n.uuid,
+                title:         n.title,
+                link:          n.link,
+                source:        n.publisher,          // search API는 publisher 필드 사용
+                publishedTime: n.providerPublishTime,
+                thumbnail:     thumb,
+            };
+        });
+        res.json({ symbol, count: news.length, news });
+    } catch (err) {
+        console.error(`[news] ${symbol}:`, err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
  * Yahoo Finance HTML 페이지 스크래핑 (재무 데이터 보조)
  * GET /api/page/:symbol
  */
