@@ -1068,33 +1068,13 @@
         </div>
     </header>
 
-    <!-- 글로벌 마켓 날씨 위젯 -->
-    <div id="marketWeatherBar" class="mw-bar">
-        <div class="mw-card mw-skel"><div class="mw-card-name">S&amp;P 500</div>
-            <div class="mw-card-price">&nbsp;</div><div class="mw-card-chg">&nbsp;</div>
-            <svg class="mw-sparkline"></svg></div>
-        <div class="mw-card mw-skel"><div class="mw-card-name">NASDAQ</div>
-            <div class="mw-card-price">&nbsp;</div><div class="mw-card-chg">&nbsp;</div>
-            <svg class="mw-sparkline"></svg></div>
-        <div class="mw-card mw-skel"><div class="mw-card-name">KOSPI</div>
-            <div class="mw-card-price">&nbsp;</div><div class="mw-card-chg">&nbsp;</div>
-            <svg class="mw-sparkline"></svg></div>
-    </div>
-
     <!-- Welcome Screen -->
     <div class="welcome-screen" id="welcomeScreen">
-        <div class="welcome-top">
-            <h2>주식 종목 분석을 시작하세요</h2>
-            <p>종목코드 또는 티커를 입력하고 AI 기반 종합 분석을 확인하세요</p>
-            <div class="example-chips">
-                <div class="example-chip" onclick="quickSearch('005930','KR')">삼성전자</div>
-                <div class="example-chip" onclick="quickSearch('000660','KR')">SK하이닉스</div>
-                <div class="example-chip" onclick="quickSearch('AAPL','US')">Apple</div>
-                <div class="example-chip" onclick="quickSearch('TSLA','US')">Tesla</div>
-                <div class="example-chip" onclick="quickSearch('NVDA','US')">NVIDIA</div>
-                <div class="example-chip" onclick="quickSearch('035420','KR')">NAVER</div>
-            </div>
-        </div>
+        <!-- 최근 본 종목 (최상단) -->
+        <section id="recentSection" class="home-section" style="display:none;margin-top:16px">
+            <div class="hs-label">🕐 최근 본 종목</div>
+            <div class="recent-wrap" id="recentWrap"></div>
+        </section>
 
         <!-- 섹션 2: 프리마켓 스캐너 -->
         <section id="premarketScanner" class="home-section">
@@ -1123,19 +1103,13 @@
             </div>
         </section>
 
-        <!-- 섹션 4: 변동성 경보 + 최근 본 종목 -->
+        <!-- 섹션 4: 변동성 경보 -->
         <section id="recentAndAlerts" class="home-section">
-            <div id="recentSection" style="display:none">
-                <div class="hs-label">🕐 최근 본 종목</div>
-                <div class="recent-wrap" id="recentWrap"></div>
+            <div class="home-section-header">
+                <div class="home-section-title" style="font-size:13px">🔴 변동성 경보</div>
+                <div class="home-section-sub" id="volAlertSub"></div>
             </div>
-            <div style="margin-top:16px">
-                <div class="home-section-header">
-                    <div class="home-section-title" style="font-size:13px">🔴 변동성 경보</div>
-                    <div class="home-section-sub" id="volAlertSub"></div>
-                </div>
-                <div class="vol-alert-list" id="volAlertList"></div>
-            </div>
+            <div class="vol-alert-list" id="volAlertList"></div>
         </section>
 
         <!-- 미국주식 인기 TOP 100 -->
@@ -2437,7 +2411,6 @@
 
     // 페이지 로드 시 즉시 실행
     loadTop100();
-    loadMarketWeather();
     loadPremarketScanner();
     loadSwingRadar();
     loadRecentStocks();
