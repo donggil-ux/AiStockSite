@@ -848,29 +848,8 @@
         .period-selector{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 0;}
         .period-selector::-webkit-scrollbar{display:none;}
 
-        /* ===== TRADE STYLE TABS (단타/스윙) ===== */
-        .trade-style-tabs{display:flex;gap:6px;padding:8px 16px;background:var(--bg2);border-radius:var(--r);margin:4px 16px 0;position:sticky;top:0;z-index:10;}
-        .trade-style-tab{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;border:2px solid var(--border);background:transparent;color:var(--text3);border-radius:var(--r3);cursor:pointer;font-size:14px;font-weight:700;font-family:inherit;transition:all .2s;}
-        .trade-style-tab:hover{border-color:var(--text3);color:var(--text2);}
-        .trade-style-tab.active[data-tstyle="day"]{background:linear-gradient(135deg,rgba(249,115,22,.12),rgba(249,115,22,.04));border-color:#f97316;color:#f97316;}
-        .trade-style-tab.active[data-tstyle="swing"]{background:linear-gradient(135deg,rgba(139,92,246,.12),rgba(139,92,246,.04));border-color:#8b5cf6;color:#8b5cf6;}
-        .trade-style-tab svg{flex-shrink:0;}
-        .trade-style-panel{display:none;}
-        .trade-style-panel.active{display:block;}
         .trade-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:800;letter-spacing:.5px;margin-left:6px;vertical-align:middle;}
         .day-badge{background:rgba(249,115,22,.15);color:#f97316;}
-        .swing-badge{background:rgba(139,92,246,.15);color:#8b5cf6;}
-        @media(min-width:900px){
-            .trade-style-tabs{margin:4px 24px 0;padding:8px 20px;}
-            .trade-style-panel.active{display:block;}
-        }
-        @media(max-width:640px){
-            .trade-style-tabs{margin:4px 12px 0;padding:6px 10px;}
-            .trade-style-tab{font-size:12px;padding:10px 8px;gap:5px;}
-            .trade-style-tab svg{width:14px;height:14px;}
-        }
-        [data-theme="light"] .trade-style-tabs{background:var(--bg2);}
-        [data-theme="light"] .trade-style-tab{border-color:var(--border);}
         /* ===== OPTIONS CHAIN (옵션현황) ===== */
         .options-wrap{padding:20px 24px 32px;}
         .options-exp-bar{display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:6px;margin-bottom:20px;scrollbar-width:none;}
@@ -1399,18 +1378,6 @@
 
         <!-- Tab 2: 분석 -->
         <div class="tab-content" id="tabAnalysis" data-tab="analysis">
-            <!-- 단타/스윙 전환 탭 -->
-            <div class="trade-style-tabs">
-                <button class="trade-style-tab active" data-tstyle="day" onclick="switchTradeStyle('day')">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-                    단타 (Day Trading)
-                </button>
-                <button class="trade-style-tab" data-tstyle="swing" onclick="switchTradeStyle('swing')">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12c2-4 6-8 10-4s8 0 10-4"/><path d="M2 20c2-4 6-8 10-4s8 0 10-4"/></svg>
-                    스윙 (Swing Trading)
-                </button>
-            </div>
-
             <!-- 자동 분석 갱신 바 -->
             <div class="analysis-refresh-bar" id="analysisRefreshBar" style="display:none;">
                 <span class="analysis-refresh-dot"></span>
@@ -1424,7 +1391,7 @@
             <div id="rrAnalysis"></div>
 
             <!-- ===== 단타 분석 ===== -->
-            <div class="trade-style-panel active" id="tsPanelDay" data-tstyle="day">
+            <div id="tsPanelDay">
                 <div class="tab-col-left">
                     <div class="card">
                         <div class="card-title"><span class="dot" style="background:#f97316"></span>단타 종합 분석 <span class="trade-badge day-badge">DAY</span></div>
@@ -1482,61 +1449,6 @@
                 </div>
             </div>
 
-            <!-- ===== 스윙 분석 ===== -->
-            <div class="trade-style-panel" id="tsPanelSwing" data-tstyle="swing">
-                <div class="tab-col-left">
-                    <div class="card">
-                        <div class="card-title"><span class="dot" style="background:#8b5cf6"></span>스윙 종합 분석 <span class="trade-badge swing-badge">SWING</span></div>
-                        <div class="ai-score-container">
-                            <div class="ai-score-circle" id="swingScoreCircle">
-                                <div class="ai-score-number" id="swingScoreNumber">-</div>
-                                <div class="ai-score-label">스윙 점수</div>
-                            </div>
-                            <div>
-                                <div class="ai-recommendation" id="swingRecommendation">-</div>
-                                <div class="ai-summary" id="swingSummary">-</div>
-                            </div>
-                        </div>
-                        <div class="ai-details" id="swingDetails"></div>
-                        <div class="warning-box">
-                            <div class="title">스윙 투자 주의사항</div>
-                            <div class="text">스윙 매매는 2~10일의 보유 기간을 기준으로 하며, 오버나잇 리스크를 감안해야 합니다. 분할 매수/매도 전략을 활용하세요.</div>
-                        </div>
-                    </div>
-                    <div class="card">
-                        <div class="card-title"><span class="dot" style="background:var(--green)"></span>스윙 기술적 지표</div>
-                        <div class="indicator-grid" id="swingIndicatorGrid"></div>
-                    </div>
-                </div>
-                <div class="tab-col-right">
-                    <div class="card">
-                        <div class="card-title"><span class="dot" style="background:var(--cyan)"></span>스윙 진입 시점 <span class="trade-badge swing-badge">SWING</span></div>
-                        <div class="entry-card" id="swingEntryCard">
-                            <div class="entry-verdict" id="swingEntryVerdict"></div>
-                            <div class="entry-meter" id="swingEntryMeter"></div>
-                            <div class="entry-checklist" id="swingEntryChecklist"></div>
-                            <div class="entry-strategy" id="swingEntryStrategy"></div>
-                            <div class="warning-box" style="margin-top:12px">
-                                <div class="title">스윙 리스크</div>
-                                <div class="text">스윙은 -5~7% 손절 기준을 설정하고, 이동평균선을 기준으로 추세를 따라가세요.</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card">
-                        <div class="card-title"><span class="dot" style="background:var(--red)"></span>스윙 매도 시점 <span class="trade-badge swing-badge">SWING</span></div>
-                        <div class="exit-card" id="swingExitCard">
-                            <div class="exit-verdict" id="swingExitVerdict"></div>
-                            <div class="exit-meter" id="swingExitMeter"></div>
-                            <div class="exit-checklist" id="swingExitChecklist"></div>
-                            <div class="exit-strategy" id="swingExitStrategy"></div>
-                            <div class="warning-box" style="margin-top:12px">
-                                <div class="title">스윙 매도 원칙</div>
-                                <div class="text">목표가 도달 시 50% 익절 후 나머지는 트레일링 스탑으로 관리하세요.</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
 
         <!-- Tab 3: 종목정보 -->
@@ -5649,21 +5561,11 @@ Rules:
     }
 
     // ========================================
-    // AI Analysis Engine (단타 + 스윙)
+    // AI Analysis Engine (단타)
     // ========================================
-    let currentTradeStyle = 'day';
-    function switchTradeStyle(style) {
-        currentTradeStyle = style;
-        document.querySelectorAll('.trade-style-tab').forEach(t => t.classList.toggle('active', t.dataset.tstyle === style));
-        document.querySelectorAll('.trade-style-panel').forEach(p => p.classList.toggle('active', p.dataset.tstyle === style));
-        if (stockData) { renderRRAnalysis(); _applyRRGate(); }
-    }
-
     function renderAIAnalysis() {
         renderDayAnalysis();
-        renderSwingAnalysis();
         renderDayIndicators();
-        renderSwingIndicators();
         _applyRRGate();
     }
 
@@ -5792,81 +5694,6 @@ Rules:
         renderScoreCard('day', total, details, 'day');
     }
 
-    function renderSwingAnalysis() {
-        const d = getAnalysisData();
-        const { closes, price, volumes, ma5, ma20, ma60, ma120, rsi, macdLine, signalLine, histogram, bb } = d;
-        const scores = []; const details = [];
-        const c = v => v >= 60 ? 'var(--green)' : v <= 40 ? 'var(--red)' : 'var(--yellow)';
-
-        // 1. 추세 (MA20/60/120 배열) - 25%
-        let s1 = 50, t1 = '';
-        const lma20 = ma20.filter(v=>v!=null).pop(); const lma60 = ma60.filter(v=>v!=null).pop(); const lma120 = ma120.filter(v=>v!=null).pop();
-        const above20 = price > lma20; const above60 = lma20 > lma60; const above120 = lma60 > lma120;
-        const aligned = [above20, above60, above120].filter(Boolean).length;
-        if (aligned === 3) { s1 = 90; t1 = 'MA20>MA60>MA120 완벽 정배열. 스윙 매수 적합.'; }
-        else if (aligned >= 2 && above20) { s1 = 70; t1 = '중기 이평선 정배열 진행 중. 추세 전환 초기 가능성.'; }
-        else if (aligned >= 1) { s1 = 45; t1 = '이평선 혼조세. 추세 확인 후 스윙 진입.'; }
-        else { s1 = 15; t1 = '역배열 상태. 하락 추세. 스윙 매수 부적합.'; }
-        scores.push({ w: .25, s: s1 }); details.push({ title: '중기 추세 (MA20/60/120)', color: c(s1), score: s1, text: t1 });
-
-        // 2. MACD 추세 - 25%
-        const lastMACD = macdLine.filter(v=>v!=null).pop() || 0; const lastSig = signalLine.filter(v=>v!=null).pop() || 0;
-        const lastHist = histogram.filter(v=>v!=null).pop() || 0;
-        const prevHists = histogram.filter(v=>v!=null).slice(-5);
-        const histDir = prevHists.length >= 3 ? prevHists[prevHists.length-1] - prevHists[prevHists.length-3] : 0;
-        const ml = macdLine.filter(v=>v!=null); const sl = signalLine.filter(v=>v!=null);
-        const macdGolden = ml.length >= 2 && sl.length >= 2 && (ml[ml.length-2]-sl[sl.length-2]) < 0 && (lastMACD-lastSig) >= 0;
-        const macdDead = ml.length >= 2 && sl.length >= 2 && (ml[ml.length-2]-sl[sl.length-2]) > 0 && (lastMACD-lastSig) <= 0;
-        let s2 = 50, t2 = '';
-        if (macdGolden) { s2 = 90; t2 = 'MACD 골든크로스! 스윙 매수 강력 신호.'; }
-        else if (macdDead) { s2 = 10; t2 = 'MACD 데드크로스! 스윙 매도 신호.'; }
-        else if (lastMACD > lastSig && histDir > 0) { s2 = 78; t2 = 'MACD 매수세 확대. 상승 모멘텀 강화 중.'; }
-        else if (lastMACD > lastSig) { s2 = 55; t2 = 'MACD 매수 구간이나 모멘텀 약화 중.'; }
-        else if (lastMACD < lastSig && histDir < 0) { s2 = 20; t2 = 'MACD 매도세 강화. 하락 모멘텀 주의.'; }
-        else { s2 = 40; t2 = 'MACD 매도 구간. 모멘텀 변화 관찰.'; }
-        scores.push({ w: .25, s: s2 }); details.push({ title: 'MACD 추세 분석', color: c(s2), score: s2, text: t2 });
-
-        // 3. RSI 중기 강도 - 20%
-        const lastRSI = rsi.filter(v=>v!=null).pop() || 50;
-        let s3 = 50, t3 = '';
-        if (lastRSI >= 70) { s3 = 35; t3 = `RSI ${lastRSI.toFixed(1)} 과매수. 차익 실현 구간.`; }
-        else if (lastRSI >= 55) { s3 = 75; t3 = `RSI ${lastRSI.toFixed(1)} 건강한 상승. 스윙 매수/보유 적합.`; }
-        else if (lastRSI >= 40) { s3 = 55; t3 = `RSI ${lastRSI.toFixed(1)} 중립. 추세 방향 따라 판단.`; }
-        else if (lastRSI >= 30) { s3 = 65; t3 = `RSI ${lastRSI.toFixed(1)} 저점 구간. 지지 확인 후 스윙 매수 기회.`; }
-        else { s3 = 70; t3 = `RSI ${lastRSI.toFixed(1)} 과매도! 기술적 반등 스윙 기회.`; }
-        scores.push({ w: .20, s: s3 }); details.push({ title: 'RSI 중기 강도', color: c(s3), score: s3, text: t3 });
-
-        // 4. 볼린저밴드 위치 - 15%
-        const lbbu = bb.upper.filter(v=>v!=null).pop(); const lbbl = bb.lower.filter(v=>v!=null).pop(); const lbbm = bb.middle.filter(v=>v!=null).pop();
-        let s4 = 50, t4 = '';
-        if (lbbu && lbbl && lbbm) {
-            const bbPos = (price - lbbl) / (lbbu - lbbl);
-            if (bbPos >= 0.3 && bbPos <= 0.6 && price > lbbm) { s4 = 70; t4 = '밴드 중앙~상단 안정적 상승. 스윙 보유 적합.'; }
-            else if (bbPos < 0.2) { s4 = 65; t4 = '밴드 하단 근접. 지지 반등 스윙 매수 구간.'; }
-            else if (bbPos > 0.9) { s4 = 30; t4 = '밴드 상단 과열. 차익 실현 고려.'; }
-            else { s4 = 50; t4 = '밴드 중앙 부근. 방향성 확인 필요.'; }
-        }
-        scores.push({ w: .15, s: s4 }); details.push({ title: '볼린저밴드 위치', color: c(s4), score: s4, text: t4 });
-
-        // 5. 거래량 추세 - 15%
-        let s5 = 50, t5 = '';
-        if (volumes.length >= 20) {
-            const avgVol5 = volumes.slice(-5).reduce((a,b)=>a+b,0)/5;
-            const avgVol20 = volumes.slice(-20).reduce((a,b)=>a+b,0)/20;
-            const volTrend = avgVol5/avgVol20;
-            const isUp = closes[closes.length-1] >= (closes[closes.length-6] || closes[closes.length-1]);
-            if (volTrend >= 1.3 && isUp) { s5 = 80; t5 = '5일 거래량 증가 + 주가 상승. 기관/세력 매집 가능성.'; }
-            else if (volTrend >= 1.3 && !isUp) { s5 = 25; t5 = '거래량 증가 + 하락. 매도세 유입.'; }
-            else if (volTrend < 0.6 && isUp) { s5 = 60; t5 = '거래량 감소 + 소폭 상승. 조용한 매집 가능.'; }
-            else if (volTrend < 0.6) { s5 = 40; t5 = '거래량 감소 + 하락. 관심 이탈.'; }
-            else { s5 = 50; t5 = '거래량 평균 수준. 특별한 신호 없음.'; }
-        }
-        scores.push({ w: .15, s: s5 }); details.push({ title: '거래량 추세 분석', color: c(s5), score: s5, text: t5 });
-
-        const total = Math.round(scores.reduce((sum, x) => sum + x.w * x.s, 0));
-        renderScoreCard('swing', total, details, 'swing');
-    }
-
     function renderDayIndicators() {
         const d = getAnalysisData();
         const { closes, price, volumes, ma5, ma10, rsi, stoch, bb } = d;
@@ -5890,48 +5717,18 @@ Rules:
         ].map(i=>`<div class="indicator-item"><div class="indicator-label">${i.label}</div><div class="indicator-value" style="color:${i.color}">${i.value}</div><div class="indicator-signal" style="color:${i.color}">${i.signal}</div></div>`).join('');
     }
 
-    function renderSwingIndicators() {
-        const d = getAnalysisData();
-        const { closes, price, volumes, ma20, ma60, ma120, rsi, macdLine, signalLine, histogram, bb } = d;
-        const lastRSI = rsi.filter(v=>v!=null).pop() || 50;
-        const lastMACD = macdLine.filter(v=>v!=null).pop() || 0; const lastSig = signalLine.filter(v=>v!=null).pop() || 0;
-        const lastHist = histogram.filter(v=>v!=null).pop() || 0;
-        const lma20 = ma20.filter(v=>v!=null).pop(); const lma60 = ma60.filter(v=>v!=null).pop(); const lma120 = ma120.filter(v=>v!=null).pop();
-        const lbbu = bb.upper.filter(v=>v!=null).pop(); const lbbl = bb.lower.filter(v=>v!=null).pop();
-        const bbPos = lbbu && lbbl ? ((price-lbbl)/(lbbu-lbbl)*100).toFixed(0) : '-';
-        const avgVol5 = volumes.length >= 5 ? volumes.slice(-5).reduce((a,b)=>a+b,0)/5 : 0;
-        const avgVol20 = volumes.length >= 20 ? volumes.slice(-20).reduce((a,b)=>a+b,0)/20 : avgVol5;
-        const volTrend = avgVol20 > 0 ? (avgVol5/avgVol20*100).toFixed(0) : '-';
-        const maAlign = (lma20>lma60 && lma60>lma120)?'정배열':(lma20<lma60 && lma60<lma120)?'역배열':'혼조';
-        const grid = document.getElementById('swingIndicatorGrid');
-        if (!grid) return;
-        grid.innerHTML = [
-            { label: 'MA 배열', value: maAlign, signal: maAlign==='정배열'?'상승 추세':maAlign==='역배열'?'하락 추세':'방향 불확실', color: maAlign==='정배열'?'var(--green)':maAlign==='역배열'?'var(--red)':'var(--yellow)' },
-            { label: 'MACD', value: lastMACD.toFixed(2), signal: lastMACD>lastSig?'매수':'매도', color: lastMACD>lastSig?'var(--green)':'var(--red)' },
-            { label: 'MACD Sig', value: lastSig.toFixed(2), signal: lastHist>0?'양(+)':'음(-)', color: lastHist>0?'var(--green)':'var(--red)' },
-            { label: 'RSI(14)', value: lastRSI.toFixed(1), signal: lastRSI>=60?'강세':lastRSI<=40?'약세':'중립', color: lastRSI>=60?'var(--green)':lastRSI<=40?'var(--red)':'var(--yellow)' },
-            { label: 'BB 위치', value: bbPos+'%', signal: bbPos>=80?'과열':bbPos<=20?'침체':'정상', color: bbPos>=80?'var(--red)':bbPos<=20?'var(--cyan)':'var(--yellow)' },
-            { label: '거래량추세', value: volTrend+'%', signal: volTrend>=130?'증가':volTrend<=70?'감소':'보통', color: volTrend>=130?'var(--cyan)':volTrend<=70?'var(--text3)':'var(--yellow)' },
-        ].map(i=>`<div class="indicator-item"><div class="indicator-label">${i.label}</div><div class="indicator-value" style="color:${i.color}">${i.value}</div><div class="indicator-signal" style="color:${i.color}">${i.signal}</div></div>`).join('');
-    }
-
-
     // ========================================
-    // Entry/Exit Timing (단타 + 스윙)
+    // Entry/Exit Timing (단타)
     // ========================================
     function renderEntryTiming() {
         renderDayEntry();
-        renderSwingEntry();
         if (_isFallingKnife()) {
-            ['dayEntry','swingEntry'].forEach(id => {
-                const card = document.getElementById(id+'Card');
-                if (card) card.className = 'card entry-card entry-danger';
-            });
+            const card = document.getElementById('dayEntryCard');
+            if (card) card.className = 'card entry-card entry-danger';
         }
     }
     function renderExitTiming() {
         renderDayExit();
-        renderSwingExit();
     }
 
     // ========================================
@@ -5962,9 +5759,8 @@ Rules:
         const fmtP   = v => isKR ? Math.round(v).toLocaleString()+'원' : '$'+v.toFixed(2);
         const fmtPct = v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
         const price  = closes[closes.length - 1];
-        const isDay  = currentTradeStyle === 'day';
-        const period = isDay ? 20 : 60;
-        const label  = isDay ? '단타 20일' : '스윙 60일';
+        const period = 20;
+        const label  = '단타 20일';
 
         // ATR-based Stop Loss (raw nullable arrays 사용)
         const atrArr = calcATR(quotes.high, quotes.low, quotes.close, 14);
@@ -5977,8 +5773,8 @@ Rules:
         if (!res.length) {
             res = [...highs.slice(-period)].filter(h => h > price*1.005).sort((a,b)=>a-b).slice(0,2);
         }
-        const tp1 = res[0] || price * (isDay ? 1.025 : 1.05);
-        const tp2 = res[1] || price * (isDay ? 1.05  : 1.10);
+        const tp1 = res[0] || price * 1.025;
+        const tp2 = res[1] || price * 1.05;
 
         // R/R
         const risk = price - sl, reward = tp1 - price;
@@ -6058,15 +5854,15 @@ Rules:
         const atr     = atrArr.filter(v => v != null).pop() || price * 0.01;
         const sl      = price - atr * 1.5;
         const volumes = quotes.volume.filter(v => v != null);
-        const period  = currentTradeStyle === 'day' ? 20 : 60;
+        const period  = 20;
         const profile = calcVolumeProfile(closes, volumes, period, 20);
         const res     = findResistanceLevels(profile, price);
-        const tp1     = res[0] || price * (currentTradeStyle === 'day' ? 1.025 : 1.05);
+        const tp1     = res[0] || price * 1.025;
         const risk = price - sl, reward = tp1 - price;
         const rr   = risk > 0 ? reward / risk : 0;
         if (rr >= 1.5) return;
 
-        const prefix = currentTradeStyle === 'day' ? 'day' : 'swing';
+        const prefix = 'day';
         const recEl  = document.getElementById(prefix + 'Recommendation');
         const sumEl  = document.getElementById(prefix + 'Summary');
         if (recEl && !recEl.textContent.includes('매도')) {
@@ -6434,87 +6230,6 @@ Rules:
     }
 
     // =====================
-    // 스윙 진입 시점
-    // =====================
-    function renderSwingEntry() {
-        const d = getAnalysisData();
-        const { closes, volumes, highs, lows, price, ma5, ma20, ma60, ma120, rsi, macdLine, signalLine, histogram, bb } = d;
-        const isKR = currentMarket === 'KR';
-        const fmtP = v => isKR ? Math.round(v).toLocaleString() + '원' : '$' + v.toFixed(2);
-        const checks = []; let passCount = 0; let totalChecks = 0;
-
-        // 1. MA 정배열 (중기)
-        totalChecks++;
-        const lma20 = ma20.filter(v=>v!=null).pop(); const lma60 = ma60.filter(v=>v!=null).pop();
-        const lma120 = ma120.filter(v=>v!=null).pop();
-        const pma20 = ma20.filter(v=>v!=null).slice(-2)[0]; const pma60 = ma60.filter(v=>v!=null).slice(-2)[0];
-        const golden20_60 = pma20 && pma60 && pma20 <= pma60 && lma20 > lma60;
-        if (lma20 > lma60 && lma60 > lma120) { checks.push({ status:'pass', label:'MA20>60>120 정배열', desc:'중기 이평선 완벽 정배열. 스윙 매수 적합.' }); passCount++; }
-        else if (golden20_60) { checks.push({ status:'pass', label:'MA20/60 골든크로스', desc:'MA20이 MA60 상향 돌파. 추세 전환 신호.' }); passCount++; }
-        else if (lma20 > lma60) { checks.push({ status:'warn', label:'부분 정배열', desc:'MA20>MA60이나 MA120 아래. 추세 확인 필요.' }); }
-        else { checks.push({ status:'fail', label:'이평선 역배열', desc:'하락 추세. 스윙 매수 부적합.' }); }
-
-        // 2. MACD 골든크로스/매수세
-        totalChecks++;
-        const lastMACD = macdLine.filter(v=>v!=null).pop()||0; const lastSig = signalLine.filter(v=>v!=null).pop()||0;
-        const hists = histogram.filter(v=>v!=null); const lastHist = hists.pop()||0;
-        const histUp = hists.length >= 3 && hists[hists.length-1] > hists[hists.length-3];
-        const ml = macdLine.filter(v=>v!=null); const slArr = signalLine.filter(v=>v!=null);
-        const macdGolden = ml.length>=2&&slArr.length>=2&&(ml[ml.length-2]-slArr[slArr.length-2])<0&&(lastMACD-lastSig)>=0;
-        if (macdGolden) { checks.push({ status:'pass', label:'MACD 골든크로스!', desc:'강력한 스윙 매수 신호.' }); passCount++; }
-        else if (lastMACD > lastSig && histUp) { checks.push({ status:'pass', label:'MACD 매수세 확대', desc:'히스토그램 확대. 상승 모멘텀 강화.' }); passCount++; }
-        else if (lastMACD > lastSig) { checks.push({ status:'warn', label:'MACD 매수 구간', desc:'매수 신호이나 모멘텀 약화 주의.' }); }
-        else { checks.push({ status:'fail', label:'MACD 매도 구간', desc:'매도세 우위. 진입 자제.' }); }
-
-        // 3. RSI 적합 구간
-        totalChecks++;
-        const lastRSI = rsi.filter(v=>v!=null).pop()||50;
-        if (lastRSI >= 40 && lastRSI <= 60) { checks.push({ status:'pass', label:`RSI ${lastRSI.toFixed(1)} 적정`, desc:'과매수/과매도 아닌 건강한 구간. 스윙 진입 적합.' }); passCount++; }
-        else if (lastRSI < 35) { checks.push({ status:'pass', label:`RSI ${lastRSI.toFixed(1)} 과매도 반등`, desc:'과매도 구간. 지지 확인 후 스윙 매수.' }); passCount++; }
-        else if (lastRSI >= 70) { checks.push({ status:'fail', label:`RSI ${lastRSI.toFixed(1)} 과매수`, desc:'과매수. 차익 실현 구간.' }); }
-        else { checks.push({ status:'warn', label:`RSI ${lastRSI.toFixed(1)}`, desc:'중립 구간.' }); }
-
-        // 4. 거래량 추세
-        totalChecks++;
-        if (volumes.length >= 20) {
-            const avg5 = volumes.slice(-5).reduce((a,b)=>a+b,0)/5;
-            const avg20 = volumes.slice(-20).reduce((a,b)=>a+b,0)/20;
-            const vt = avg5/avg20; const isUp = closes[closes.length-1] >= (closes[closes.length-6]||closes[closes.length-1]);
-            if (vt >= 1.3 && isUp) { checks.push({ status:'pass', label:'거래량 증가+상승', desc:'매집 가능성. 스윙 매수 유리.' }); passCount++; }
-            else if (vt >= 1.3 && !isUp) { checks.push({ status:'fail', label:'거래량 증가+하락', desc:'매도세 유입. 진입 위험.' }); }
-            else { checks.push({ status:'warn', label:'거래량 보통', desc:'특별한 신호 없음.' }); }
-        }
-
-        // 5. 지지선 근접
-        totalChecks++;
-        const support = Math.min(...lows.slice(-20)); const resistance = Math.max(...highs.slice(-20));
-        const distSupport = (price-support)/support*100;
-        if (distSupport <= 5) { checks.push({ status:'pass', label:`지지선 근처 ${fmtP(support)}`, desc:`저점 대비 ${distSupport.toFixed(1)}% 위. 지지 매수 구간.` }); passCount++; }
-        else if ((resistance-price)/price*100 <= 2) { checks.push({ status:'fail', label:'저항선 근처', desc:'돌파 확인 전 진입 위험.' }); }
-        else { checks.push({ status:'warn', label:'지지/저항 중간', desc:`${fmtP(support)} ~ ${fmtP(resistance)} 사이.` }); }
-
-        // 6. 저점 상승 패턴
-        totalChecks++;
-        const r5low = lows.slice(-5).length ? Math.min(...lows.slice(-5)) : price;
-        const p5low = lows.slice(-10,-5).length ? Math.min(...lows.slice(-10,-5)) : price;
-        if (r5low > p5low && price > lma20) { checks.push({ status:'pass', label:'저점 상승+MA20 위', desc:'상승 추세 전환 확인.' }); passCount++; }
-        else if (r5low > p5low) { checks.push({ status:'warn', label:'저점 상승 중', desc:'저점 높아지나 이평선 아래.' }); }
-        else { checks.push({ status:'fail', label:'저점 하락', desc:'하락 추세 지속.' }); }
-
-        const sl = price * 0.93; const t1 = price * 1.05; const t2 = price * 1.10;
-        const rr = ((t2-price)/(price-sl)).toFixed(1);
-        const stratHtml = `
-            <div class="entry-strategy-title" style="color:#8b5cf6">스윙 진입 전략</div>
-            <div class="entry-strategy-row"><span class="entry-strategy-label">진입가</span><span class="entry-strategy-value">${fmtP(price)}</span></div>
-            <div class="entry-strategy-row"><span class="entry-strategy-label">손절 (-7%)</span><span class="entry-strategy-value" style="color:var(--red)">${fmtP(sl)}</span></div>
-            <div class="entry-strategy-row"><span class="entry-strategy-label">1차 익절 (+5%)</span><span class="entry-strategy-value" style="color:var(--green)">${fmtP(t1)}</span></div>
-            <div class="entry-strategy-row"><span class="entry-strategy-label">2차 익절 (+10%)</span><span class="entry-strategy-value" style="color:var(--green)">${fmtP(t2)}</span></div>
-            <div class="entry-strategy-row"><span class="entry-strategy-label">손익비</span><span class="entry-strategy-value" style="color:var(--cyan)">1 : ${rr}</span></div>
-            <div class="entry-strategy-row"><span class="entry-strategy-label">보유 기간</span><span class="entry-strategy-value">2~10일</span></div>`;
-        renderTimingCard('swing', 'entry', checks, passCount, totalChecks, stratHtml);
-    }
-
-    // =====================
     // 단타 매도 시점
     // =====================
     function renderDayExit() {
@@ -6598,100 +6313,6 @@ Rules:
             <div class="entry-strategy-row"><span class="entry-strategy-label">당일 수익률</span><span class="entry-strategy-value" style="color:${dayReturn>=0?'var(--green)':'var(--red)'}">${dayReturn>=0?'+':''}${dayReturn.toFixed(2)}%</span></div>
             <div class="entry-strategy-row"><span class="entry-strategy-label">청산 원칙</span><span class="entry-strategy-value" style="font-size:12px">당일 청산 원칙. 오버나잇 금지.</span></div>`;
         renderTimingCard('day', 'exit', checks, sellCount, totalChecks, stratHtml);
-    }
-
-    // =====================
-    // 스윙 매도 시점
-    // =====================
-    function renderSwingExit() {
-        const d = getAnalysisData();
-        const { closes, volumes, highs, lows, price, ma5, ma20, ma60, ma120, rsi, macdLine, signalLine, histogram, bb, stoch } = d;
-        const isKR = currentMarket === 'KR';
-        const fmtP = v => isKR ? Math.round(v).toLocaleString() + '원' : '$' + v.toFixed(2);
-
-        const checks = [];
-        let sellCount = 0;
-        let totalChecks = 0;
-        const lastRSI = rsi.filter(v=>v!=null).pop()||50;
-        const lastMACD = macdLine.filter(v=>v!=null).pop()||0; const lastSig = signalLine.filter(v=>v!=null).pop()||0;
-        const hists = histogram.filter(v=>v!=null); const histDir = hists.length>=3 ? hists[hists.length-1]-hists[hists.length-3] : 0;
-
-        // 1. MACD 데드크로스/매도세
-        totalChecks++;
-        const ml = macdLine.filter(v=>v!=null); const sll = signalLine.filter(v=>v!=null);
-        const macdDead = ml.length>=2&&sll.length>=2&&(ml[ml.length-2]-sll[sll.length-2])>0&&(lastMACD-lastSig)<=0;
-        if (macdDead) { checks.push({ status:'fail', label:'MACD 데드크로스!', desc:'스윙 매도 강력 신호.' }); sellCount++; }
-        else if (lastMACD < lastSig && histDir < 0) { checks.push({ status:'fail', label:'MACD 매도세 강화', desc:'히스토그램 확대 하락. 매도 모멘텀 강화.' }); sellCount++; }
-        else if (lastMACD > lastSig && histDir < 0) { checks.push({ status:'warn', label:'MACD 모멘텀 약화', desc:'매수세 약화 중. 매도 대비.' }); }
-        else { checks.push({ status:'pass', label:'MACD 매수세 유지', desc:'상승 추세 유지.' }); }
-
-        // 2. 이평선 역배열 전환
-        totalChecks++;
-        const lma20 = ma20.filter(v=>v!=null).pop(); const lma60 = ma60.filter(v=>v!=null).pop();
-        const pma20 = ma20.filter(v=>v!=null).slice(-2)[0]; const pma60 = ma60.filter(v=>v!=null).slice(-2)[0];
-        const deathCross20_60 = pma20 && pma60 && pma20 >= pma60 && lma20 < lma60;
-        if (lma20 < lma60 && lma60 < (ma120.filter(v=>v!=null).pop()||Infinity)) { checks.push({ status:'fail', label:'중기 이평선 역배열', desc:'MA20<MA60<MA120. 하락 추세 확정. 매도 권장.' }); sellCount++; }
-        else if (deathCross20_60) { checks.push({ status:'fail', label:'MA20/60 데드크로스', desc:'중기 하락 전환 신호.' }); sellCount++; }
-        else if (lma20 < lma60) { checks.push({ status:'warn', label:'MA20 < MA60', desc:'중기 추세 약화.' }); }
-        else { checks.push({ status:'pass', label:'이평선 정배열', desc:'상승 추세 유지.' }); }
-
-        // 3. RSI 과매수
-        totalChecks++;
-        const prevRSIs = rsi.filter(v=>v!=null).slice(-5);
-        const rsiDown = prevRSIs.length>=3 && prevRSIs[prevRSIs.length-1] < prevRSIs[prevRSIs.length-3];
-        if (lastRSI >= 75) { checks.push({ status:'fail', label:`RSI ${lastRSI.toFixed(1)} 극과매수`, desc:'즉시 일부 매도 권장.' }); sellCount++; }
-        else if (lastRSI >= 65 && rsiDown) { checks.push({ status:'fail', label:'RSI 과매수 꺾임', desc:'과매수에서 하락 시작. 차익 실현.' }); sellCount++; }
-        else if (lastRSI >= 65) { checks.push({ status:'warn', label:'RSI 과매수 주의', desc:'추가 상승 제한적.' }); }
-        else { checks.push({ status:'pass', label:'RSI 정상', desc:'과매수 아님. 보유 유지.' }); }
-
-        // 4. 볼린저밴드 상단
-        totalChecks++;
-        const lbbu = bb.upper.filter(v=>v!=null).pop(); const lbbl = bb.lower.filter(v=>v!=null).pop();
-        if (lbbu && lbbl) {
-            const bbPos = (price-lbbl)/(lbbu-lbbl);
-            if (price > lbbu) { checks.push({ status:'fail', label:'BB 상단 이탈', desc:'과매수 극단. 되돌림 매도.' }); sellCount++; }
-            else if (bbPos > 0.85) { checks.push({ status:'warn', label:'BB 상단 근접', desc:'차익 실현 고려.' }); }
-            else { checks.push({ status:'pass', label:'BB 정상 범위', desc:'밴드 내 위치.' }); }
-        }
-
-        // 5. 거래량 급증+하락
-        totalChecks++;
-        if (volumes.length >= 20) {
-            const avg3 = volumes.slice(-3).reduce((a,b)=>a+b,0)/3;
-            const avg20 = volumes.slice(-20).reduce((a,b)=>a+b,0)/20;
-            const vr = avg3/avg20; const isDown = closes[closes.length-1] < (closes[closes.length-4]||closes[closes.length-1]);
-            if (vr >= 2.0 && isDown) { checks.push({ status:'fail', label:'폭발적 거래량+급락', desc:`${Math.round(vr*100)}% 급증. 매도 물량 폭주.` }); sellCount++; }
-            else if (vr >= 1.5 && isDown) { checks.push({ status:'fail', label:'거래량 증가+하락', desc:'매도세 유입.' }); sellCount++; }
-            else { checks.push({ status:'pass', label:'거래량 정상', desc:'특별한 매도 신호 없음.' }); }
-        }
-
-        // 6. 고점 대비 하락률
-        totalChecks++;
-        const peakPrice = Math.max(...highs.slice(-20));
-        const drawdown = (peakPrice-price)/peakPrice*100;
-        if (drawdown >= 10) { checks.push({ status:'fail', label:`고점 대비 -${drawdown.toFixed(1)}%`, desc:`${fmtP(peakPrice)}에서 ${drawdown.toFixed(1)}% 하락. 손절 고려.` }); sellCount++; }
-        else if (drawdown >= 5) { checks.push({ status:'warn', label:`-${drawdown.toFixed(1)}% 조정`, desc:'반등 실패 시 매도.' }); }
-        else { checks.push({ status:'pass', label:'고점 부근', desc:'상승 추세 유지.' }); }
-
-        // 7. Stochastic 과매수
-        totalChecks++;
-        const lastK = stoch.kLine.filter(v=>v!=null).pop()||50; const lastD = stoch.dLine.filter(v=>v!=null).pop()||50;
-        const prevKs = stoch.kLine.filter(v=>v!=null).slice(-3);
-        const stochFall = prevKs.length>=2 && prevKs[prevKs.length-1] < prevKs[prevKs.length-2];
-        if (lastK >= 80 && lastK < lastD) { checks.push({ status:'fail', label:'Stochastic 데드크로스', desc:`K(${lastK.toFixed(0)})<D(${lastD.toFixed(0)}) 과매수 하락.` }); sellCount++; }
-        else if (lastK >= 80 && stochFall) { checks.push({ status:'fail', label:'Stochastic 과매수 꺾임', desc:`${lastK.toFixed(0)}에서 하락 시작.` }); sellCount++; }
-        else if (lastK >= 75) { checks.push({ status:'warn', label:'Stochastic 과매수 주의', desc:`K ${lastK.toFixed(0)} 과매수.` }); }
-        else { checks.push({ status:'pass', label:'Stochastic 정상', desc:`K ${lastK.toFixed(0)}.` }); }
-
-        const trailStop = price * 0.93; const prof1 = price * 1.05; const prof2 = price * 1.10;
-        const stratHtml = `
-            <div class="entry-strategy-title" style="color:var(--red)">스윙 매도 전략</div>
-            <div class="entry-strategy-row"><span class="entry-strategy-label">트레일링 스탑 (-7%)</span><span class="entry-strategy-value" style="color:var(--red)">${fmtP(trailStop)}</span></div>
-            <div class="entry-strategy-row"><span class="entry-strategy-label">1차 익절 (+5%)</span><span class="entry-strategy-value" style="color:var(--green)">${fmtP(prof1)}</span></div>
-            <div class="entry-strategy-row"><span class="entry-strategy-label">2차 익절 (+10%)</span><span class="entry-strategy-value" style="color:var(--green)">${fmtP(prof2)}</span></div>
-            <div class="entry-strategy-row"><span class="entry-strategy-label">고점 대비</span><span class="entry-strategy-value" style="color:${drawdown>=5?'var(--red)':'var(--text)'}">${drawdown>0?'-':''}${drawdown.toFixed(1)}%</span></div>
-            <div class="entry-strategy-row"><span class="entry-strategy-label">매도 원칙</span><span class="entry-strategy-value" style="font-size:12px">50% 익절 후 나머지 트레일링 스탑.</span></div>`;
-        renderTimingCard('swing', 'exit', checks, sellCount, totalChecks, stratHtml);
     }
 
     // ========================================
@@ -7707,7 +7328,7 @@ Rules:
         saveAiKey, setAiPrompt, runAiIndicator,
         switchAiTab, toggleAiLine, removeAiLine, clearAllAiLines,
         setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
-        toggleTheme, switchTradeStyle, showLoading, hideLoading, showToast,
+        toggleTheme, showLoading, hideLoading, showToast,
         loadOptionsDate, setOptionsFilter,
         setOptionsStrikeRange, toggleOptionsVolFilter, sortOptionsBy,
         manualAnalysisRefresh, pwaInstall,
