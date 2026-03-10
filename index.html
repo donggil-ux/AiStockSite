@@ -262,6 +262,35 @@
         .news-card.news-skel{pointer-events:none;}
         @media(max-width:640px){.news-thumb-wrap{width:62px;height:46px;border-radius:8px;}.news-title{font-size:12px;-webkit-line-clamp:3;}}
 
+        /* ===== 공매도 탭 ===== */
+        #tabShort{padding:16px 24px 24px;}
+        @media(min-width:900px){#tabShort.active{display:block;padding:16px 32px 24px;}}
+        .short-header{display:flex;justify-content:space-between;align-items:center;padding:0 0 14px;margin-bottom:4px;}
+        .short-header-title{font-size:20px;font-weight:800;color:var(--text1);}
+        .short-charts-row{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px;}
+        @media(max-width:600px){.short-charts-row{grid-template-columns:1fr;}}
+        .short-chart-card{background:var(--bg2);border-radius:var(--r);padding:20px;text-align:center;}
+        .short-chart-title{font-size:12px;font-weight:700;color:var(--text3);margin-bottom:4px;text-align:left;}
+        .short-gauge-wrap{display:flex;flex-direction:column;align-items:center;gap:4px;}
+        .short-gauge-val{font-size:22px;font-weight:900;color:var(--text1);}
+        .short-gauge-label{font-size:11px;color:var(--text3);}
+        .short-bar-chart{width:100%;display:flex;flex-direction:column;gap:4px;justify-content:center;height:100%;}
+        .short-bar-row{display:flex;align-items:center;gap:4px;}
+        .short-bar-label{font-size:11px;font-weight:600;color:var(--text3);width:32px;text-align:right;flex-shrink:0;}
+        .short-bar-bg{flex:1;height:28px;background:var(--bg3);border-radius:6px;overflow:hidden;}
+        .short-bar-fill{height:100%;border-radius:6px;transition:width .5s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;min-width:40px;}
+        .short-bar-num{font-size:11px;font-weight:700;color:#fff;white-space:nowrap;}
+        .short-stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px;}
+        @media(max-width:500px){.short-stats-grid{grid-template-columns:1fr;}}
+        .short-stat{background:var(--bg2);border-radius:var(--r);padding:14px 16px;}
+        .short-stat-label{font-size:11px;font-weight:600;color:var(--text3);margin-bottom:4px;}
+        .short-stat-value{font-size:16px;font-weight:800;color:var(--text1);}
+        .short-stat-sub{font-size:11px;margin-top:3px;}
+        .short-change-up{color:var(--red);}
+        .short-change-dn{color:var(--green);}
+        .short-date-note{font-size:11px;color:var(--text3);text-align:right;padding-top:4px;}
+        .short-nodata{padding:60px 24px;text-align:center;color:var(--text3);font-size:13px;line-height:1.8;}
+
         /* Skeleton */
         @keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
         .skel-row{display:grid;grid-template-columns:36px 1fr 100px 90px 70px;align-items:center;padding:10px 14px;gap:8px;}
@@ -484,7 +513,7 @@
         .cp-info-row{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:12px 14px;background:var(--bg3);border-radius:var(--r3);}
         .cp-info-label{font-size:12px;color:var(--text3);font-weight:600;flex-shrink:0;padding-top:1px;}
         .cp-info-value{font-size:13px;font-weight:700;text-align:right;word-break:break-word;overflow-wrap:break-word;max-width:62%;}
-        .cp-shares-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px;}
+        .cp-shares-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:4px;margin-bottom:4px;}
         .cp-shares-card{padding:14px;background:var(--bg3);border-radius:var(--r3);}
         .cp-shares-label{font-size:11px;color:var(--text3);font-weight:600;margin-bottom:4px;}
         .cp-shares-value{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;}
@@ -1171,6 +1200,7 @@
         <button class="tab-item" data-tab="company" onclick="switchTab('company')">기업</button>
         <button class="tab-item" data-tab="options" onclick="switchTab('options')">옵션</button>
         <button class="tab-item" data-tab="news" onclick="switchTab('news')">뉴스</button>
+        <button class="tab-item" data-tab="short" onclick="switchTab('short')">공매도</button>
     </nav>
 
     <!-- Main Content -->
@@ -1565,6 +1595,13 @@
                 <button class="news-refresh-btn" onclick="reloadNewsTab()">↻ 새로고침</button>
             </div>
             <div id="newsList" class="news-list"></div>
+        </div>
+        <div class="tab-content" id="tabShort" data-tab="short">
+            <div class="short-header">
+                <div class="short-header-title">📉 <span id="shortSymbolLabel"></span> 공매도 현황</div>
+                <button class="news-refresh-btn" onclick="reloadShortTab()">↻ 새로고침</button>
+            </div>
+            <div id="shortContent"></div>
         </div>
 
     </div>
@@ -2043,6 +2080,10 @@
         // 뉴스 탭 클릭 시 데이터 로드 (lazy load)
         if (tabName === 'news' && currentFullSymbol) {
             loadNewsTab(currentFullSymbol);
+        }
+        // 공매도 탭 클릭 시 데이터 로드 (lazy load)
+        if (tabName === 'short' && currentFullSymbol) {
+            loadShortTab(currentFullSymbol);
         }
     }
 
@@ -7274,7 +7315,7 @@ Rules:
             return `<a class="news-card" href="${safe}" target="_blank" rel="noopener noreferrer">
                 <div class="news-thumb-wrap">${thumb}</div>
                 <div class="news-body">
-                    <div class="news-title">${n.title || ''}</div>
+                    <div class="news-title">${n.titleKo || n.title || ''}</div>
                     <div class="news-meta"><span class="news-source">${n.source || ''}</span>${n.source ? ' · ' : ''}${ago}</div>
                 </div>
             </a>`;
@@ -7288,6 +7329,123 @@ Rules:
         if (diff < 3600)  return Math.floor(diff / 60) + '분 전';
         if (diff < 86400) return Math.floor(diff / 3600) + '시간 전';
         return Math.floor(diff / 86400) + '일 전';
+    }
+
+    // ===== 공매도 탭 =====
+    let _shortCache = {};
+    const SHORT_CACHE_MS = 10 * 60 * 1000;
+
+    async function loadShortTab(symbol) {
+        const el = document.getElementById('shortContent');
+        const label = document.getElementById('shortSymbolLabel');
+        if (!el) return;
+        if (label) label.textContent = currentSymbol;
+        if (_shortCache[symbol] && Date.now() - _shortCache[symbol].ts < SHORT_CACHE_MS) {
+            renderShortTab(_shortCache[symbol].data); return;
+        }
+        el.innerHTML = '<div class="short-nodata">데이터를 불러오는 중...</div>';
+        try {
+            const res = await fetch(`/api/summary/${encodeURIComponent(symbol)}?modules=defaultKeyStatistics`);
+            const json = await res.json();
+            const d = json?.quoteSummary?.result?.[0]?.defaultKeyStatistics || null;
+            _shortCache[symbol] = { ts: Date.now(), data: d };
+            renderShortTab(d);
+        } catch(e) {
+            el.innerHTML = '<div class="short-nodata">데이터를 불러올 수 없습니다.</div>';
+        }
+    }
+
+    function reloadShortTab() {
+        if (!currentFullSymbol) return;
+        delete _shortCache[currentFullSymbol];
+        loadShortTab(currentFullSymbol);
+    }
+
+    function _buildGaugeSVG(pct) {
+        const r = 54, cx = 70, cy = 70, strokeW = 12;
+        const arc = Math.PI * r;
+        const filled = Math.min(pct / 0.3, 1) * arc;
+        const color = pct > 0.10 ? 'var(--red)' : pct > 0.05 ? '#f59e0b' : 'var(--green)';
+        return `<svg width="140" height="80" viewBox="0 0 140 80">
+            <path d="M${cx-r},${cy} A${r},${r} 0 0,1 ${cx+r},${cy}"
+                fill="none" stroke="var(--bg3)" stroke-width="${strokeW}" stroke-linecap="round"/>
+            <path d="M${cx-r},${cy} A${r},${r} 0 0,1 ${cx+r},${cy}"
+                fill="none" stroke="${color}" stroke-width="${strokeW}" stroke-linecap="round"
+                stroke-dasharray="${arc}" stroke-dashoffset="${arc - filled}"/>
+        </svg>`;
+    }
+
+    function renderShortTab(d) {
+        const el = document.getElementById('shortContent');
+        if (!el) return;
+        if (!d || !d.sharesShort?.raw) {
+            el.innerHTML = '<div class="short-nodata">공매도 데이터가 없습니다.<br>미국 주식에서만 지원됩니다.</div>';
+            return;
+        }
+        const cur   = d.sharesShort?.raw || 0;
+        const prev  = d.sharesShortPriorMonth?.raw || 0;
+        const pct   = d.shortPercentOfFloat?.raw || 0;
+        const ratio = d.shortRatio?.raw || 0;
+        const dateStr = d.dateShortInterest?.raw
+            ? new Date(d.dateShortInterest.raw * 1000).toLocaleDateString('ko-KR') : '-';
+        const delta    = prev ? cur - prev : 0;
+        const deltaPct = prev ? (delta / prev * 100) : 0;
+        const isUp = delta > 0;
+        const changeClass = isUp ? 'short-change-up' : 'short-change-dn';
+        const changeSign  = isUp ? '▲' : '▼';
+        const fmt = n => n >= 1e8 ? (n/1e8).toFixed(2)+'억'
+                       : n >= 1e4 ? (n/1e4).toFixed(1)+'만'
+                       : n.toLocaleString();
+        const maxVal = Math.max(cur, prev) || 1;
+        const curW  = (cur  / maxVal * 100).toFixed(1);
+        const prevW = (prev / maxVal * 100).toFixed(1);
+        const barColor = isUp ? 'var(--red)' : 'var(--green)';
+
+        el.innerHTML = `
+          <div class="short-charts-row">
+            <div class="short-chart-card">
+              <div class="short-chart-title">Float 대비 공매도 비율</div>
+              <div class="short-gauge-wrap">
+                ${_buildGaugeSVG(pct)}
+                <div class="short-gauge-val">${(pct*100).toFixed(2)}%</div>
+                <div class="short-gauge-label">${pct>0.10?'⚠️ 높음':pct>0.05?'보통':'낮음'} · 30% 기준</div>
+              </div>
+            </div>
+            <div class="short-chart-card">
+              <div class="short-chart-title">공매도 잔고 비교 (전월 vs 현재)</div>
+              <div class="short-bar-chart">
+                <div class="short-bar-row">
+                  <div class="short-bar-label">전월</div>
+                  <div class="short-bar-bg">
+                    <div class="short-bar-fill" style="width:${prevW}%;background:var(--text3);">
+                      <span class="short-bar-num">${fmt(prev)}</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="short-bar-row">
+                  <div class="short-bar-label">현재</div>
+                  <div class="short-bar-bg">
+                    <div class="short-bar-fill" style="width:${curW}%;background:${barColor};">
+                      <span class="short-bar-num">${fmt(cur)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="short-stats-grid">
+            <div class="short-stat">
+              <div class="short-stat-label">공매도 잔고</div>
+              <div class="short-stat-value">${fmt(cur)}주</div>
+              ${prev ? `<div class="short-stat-sub ${changeClass}">${changeSign} ${fmt(Math.abs(delta))}주 (${Math.abs(deltaPct).toFixed(1)}%)</div>` : ''}
+            </div>
+            <div class="short-stat">
+              <div class="short-stat-label">Days to Cover</div>
+              <div class="short-stat-value">${ratio.toFixed(1)}일</div>
+              <div class="short-stat-sub" style="color:var(--text3)">공매도 청산 예상 기간</div>
+            </div>
+          </div>
+          <div class="short-date-note">기준일: ${dateStr} (FINRA 보고 기준)</div>`;
     }
 
     Object.assign(window, {
@@ -7312,7 +7470,8 @@ Rules:
         loadSwingRadar, renderSwingRadar,
         saveRecentStock, loadRecentStocks,
         loadVolAlert,
-        loadNewsTab, reloadNewsTab, renderNewsList, _newsTimeAgo
+        loadNewsTab, reloadNewsTab, renderNewsList, _newsTimeAgo,
+        loadShortTab, reloadShortTab, renderShortTab, _buildGaugeSVG
     });
     </script>
 

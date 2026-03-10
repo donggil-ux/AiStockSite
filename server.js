@@ -201,7 +201,26 @@ app.get('/api/screener/:filter', async (req, res) => {
 });
 
 /**
- * 종목 뉴스
+ * Google Translate 비공식 API를 통한 영→한 번역
+ */
+async function translateToKo(text) {
+    try {
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ko&dt=t&q=${encodeURIComponent(text)}`;
+        const r = await axios.get(url, {
+            headers: { 'User-Agent': UA },
+            timeout: 5000,
+        });
+        // 응답 형식: [[["번역문","원문",...]], ...]
+        const parts = r.data?.[0];
+        if (!parts) return text;
+        return parts.map(p => p?.[0] || '').join('');
+    } catch {
+        return text; // 번역 실패 시 원문 반환
+    }
+}
+
+/**
+ * 종목 뉴스 (제목 한글 번역 포함)
  * GET /api/news/:symbol?limit=12
  */
 app.get('/api/news/:symbol', async (req, res) => {
@@ -211,19 +230,21 @@ app.get('/api/news/:symbol', async (req, res) => {
         const url  = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(symbol)}&quotesCount=0&newsCount=${limit}&enableFuzzyQuery=false`;
         const data = await yfRequest(url);
         const raw  = data?.news || [];
-        const news = raw.slice(0, limit).map(n => {
-            // 140x140 썸네일 우선, 없으면 original
+        const mapped = raw.slice(0, limit).map(n => {
             const resolutions = n.thumbnail?.resolutions || [];
             const thumb = (resolutions.find(r => r.tag === '140x140') || resolutions[0])?.url || null;
             return {
                 uuid:          n.uuid,
                 title:         n.title,
                 link:          n.link,
-                source:        n.publisher,          // search API는 publisher 필드 사용
+                source:        n.publisher,
                 publishedTime: n.providerPublishTime,
                 thumbnail:     thumb,
             };
         });
+        // 모든 제목 병렬 번역
+        const titles = await Promise.all(mapped.map(n => translateToKo(n.title)));
+        const news = mapped.map((n, i) => ({ ...n, titleKo: titles[i] }));
         res.json({ symbol, count: news.length, news });
     } catch (err) {
         console.error(`[news] ${symbol}:`, err.message);
