@@ -655,6 +655,7 @@
             #tabOptions.active{display:block;}
             #tabNews.active{display:block;padding:16px 32px 24px;}
             #tabInfo.active,#tabCompany.active{gap:8px;}
+            #tabInfo .tab-info-top{grid-column:1/-1;padding:0 32px;}
             #tabInfo .tab-col-left,#tabCompany .tab-col-left{padding-right:0;}
             #tabInfo .tab-col-right,#tabCompany .tab-col-right{padding-left:0;}
             #tabInfo .tab-col-left .card{margin-right:0;}
@@ -1004,7 +1005,7 @@
         }
 
         /* ===== SPLIT CALC FAB ===== */
-        #calcFab{position:fixed;bottom:32px;right:16px;height:44px;padding:0 16px 0 12px;border-radius:22px;background:#eab308;color:#000;border:none;cursor:pointer;box-shadow:0 4px 20px rgba(234,179,8,.5);z-index:900;display:flex;align-items:center;gap:7px;font-size:13px;font-weight:800;font-family:inherit;white-space:nowrap;transition:transform .15s,box-shadow .15s;}
+        #calcFab{position:fixed;bottom:12px;right:16px;height:44px;padding:0 16px 0 12px;border-radius:22px;background:#eab308;color:#000;border:none;cursor:pointer;box-shadow:0 4px 20px rgba(234,179,8,.5);z-index:900;display:flex;align-items:center;gap:7px;font-size:13px;font-weight:800;font-family:inherit;white-space:nowrap;transition:transform .15s,box-shadow .15s;}
         #calcFab:hover{transform:scale(1.05);box-shadow:0 6px 28px rgba(234,179,8,.65);}
         @media(max-width:640px){#calcFab{bottom:calc(72px + env(safe-area-inset-bottom));right:14px;}}
         /* 모달 오버레이 */
@@ -1525,6 +1526,13 @@
 
         <!-- Tab 3: 종목정보 -->
         <div class="tab-content" id="tabInfo" data-tab="info">
+            <!-- 애널리스트 목표주가 (풀 와이드 상단) -->
+            <div class="tab-info-top">
+                <div class="card">
+                    <div class="card-title"><span class="dot" style="background:var(--blue)"></span>애널리스트 목표주가</div>
+                    <div id="analystTargets"><div style="text-align:center;padding:30px 0;color:var(--text3);font-size:14px;">종목 정보를 불러오면 표시됩니다.</div></div>
+                </div>
+            </div>
             <div class="tab-col-left">
                 <!-- Financial Info -->
                 <div class="card">
@@ -1533,11 +1541,6 @@
                 </div>
             </div>
             <div class="tab-col-right">
-                <!-- 애널리스트 목표주가 -->
-                <div class="card">
-                    <div class="card-title"><span class="dot" style="background:var(--blue)"></span>애널리스트 목표주가</div>
-                    <div id="analystTargets"><div style="text-align:center;padding:30px 0;color:var(--text3);font-size:14px;">종목 정보를 불러오면 표시됩니다.</div></div>
-                </div>
                 <!-- 종목별 실적 발표 일정 -->
                 <div class="card">
                     <div class="card-title"><span class="dot" style="background:var(--purple)"></span>실적 발표 일정</div>
