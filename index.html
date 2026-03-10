@@ -290,6 +290,21 @@
         .short-change-dn{color:var(--green);}
         .short-date-note{font-size:11px;color:var(--text3);text-align:right;padding-top:4px;}
         .short-nodata{padding:60px 24px;text-align:center;color:var(--text3);font-size:13px;line-height:1.8;}
+        /* 공매도 AI 분석 */
+        .short-ai-section{margin-top:4px;background:var(--bg2);border-radius:var(--r);padding:18px 20px;}
+        .short-ai-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+        .short-ai-title{font-size:14px;font-weight:800;color:var(--text1);}
+        .short-ai-badge{font-size:12px;font-weight:800;padding:4px 12px;border-radius:20px;}
+        .short-ai-verdict{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:12px;padding:10px 12px;background:var(--bg3);border-radius:10px;}
+        .short-ai-items{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
+        .short-ai-item{background:var(--bg3);border-radius:10px;padding:12px 14px;}
+        .short-ai-item-header{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+        .short-ai-item-title{font-size:12px;font-weight:700;}
+        .short-ai-item-msg{font-size:11px;color:var(--text3);line-height:1.6;padding-left:20px;}
+        .short-ai-squeeze{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg3);border-radius:10px;margin-bottom:6px;}
+        .short-ai-squeeze-label{font-size:12px;color:var(--text3);font-weight:600;}
+        .short-ai-squeeze-val{font-size:13px;font-weight:800;}
+        .short-ai-squeeze-msg{font-size:11px;color:var(--text3);line-height:1.6;padding:0 4px;}
 
         /* ===== 애널리스트 목표주가 ===== */
         .analyst-target-wrap{padding:4px 0 8px;}
@@ -7513,6 +7528,60 @@ Rules:
         loadShortTab(currentFullSymbol);
     }
 
+    function _analyzeShort(pct, ratio, deltaPct, hasPrev) {
+        const scoreColors = ['var(--green)', '#f59e0b', '#f97316', 'var(--red)'];
+        const items = [];
+        const scores = [];
+        const pctVal = pct * 100;
+
+        // ① 공매도 비율
+        let s0, lv0, icon0, msg0;
+        if (pctVal < 3)       { s0=0; lv0='낮음';   icon0='✅'; msg0=`Float의 ${pctVal.toFixed(1)}%만 공매도 중입니다. 3% 미만은 매우 낮은 수준으로 대부분 투자자가 긍정적으로 보고 있습니다.`; }
+        else if (pctVal < 5)  { s0=1; lv0='보통';   icon0='🟡'; msg0=`${pctVal.toFixed(1)}%는 보통 수준입니다. 크게 우려할 수준은 아니지만 지켜볼 필요가 있습니다.`; }
+        else if (pctVal < 10) { s0=2; lv0='높음';   icon0='⚠️'; msg0=`${pctVal.toFixed(1)}%로 높습니다. 많은 투자자가 주가 하락을 예상해 공매도를 치고 있습니다.`; }
+        else                  { s0=3; lv0='위험';   icon0='🔴'; msg0=`${pctVal.toFixed(1)}%는 매우 위험한 수준입니다! 주식 10주 중 1주 이상이 공매도 상태입니다.`; }
+        scores.push(s0);
+        items.push({ title:`공매도 비율: ${lv0} (${pctVal.toFixed(1)}%)`, msg:msg0, icon:icon0, score:s0 });
+
+        // ② Days to Cover
+        let s1, lv1, icon1, msg1;
+        if (ratio < 2)       { s1=0; lv1='낮음'; icon1='✅'; msg1=`약 ${ratio.toFixed(1)}일 내 청산 가능해 급등(쇼트 스퀴즈) 위험이 낮습니다.`; }
+        else if (ratio < 5)  { s1=1; lv1='보통'; icon1='🟡'; msg1=`청산에 ${ratio.toFixed(1)}일 소요됩니다. 공매도 압력이 다소 있습니다.`; }
+        else if (ratio < 10) { s1=2; lv1='높음'; icon1='⚠️'; msg1=`청산에 ${ratio.toFixed(1)}일 필요합니다. 호재 뉴스 시 쇼트 스퀴즈로 급등 가능성이 있습니다.`; }
+        else                 { s1=3; lv1='위험'; icon1='🔴'; msg1=`${ratio.toFixed(1)}일이나 소요됩니다! 쇼트 스퀴즈 발생 시 폭발적 급등이 나타날 수 있습니다.`; }
+        scores.push(s1);
+        items.push({ title:`청산 소요 기간: ${lv1} (${ratio.toFixed(1)}일)`, msg:msg1, icon:icon1, score:s1 });
+
+        // ③ 전월 대비 증감
+        if (hasPrev) {
+            let s2, lv2, icon2, msg2;
+            if (deltaPct < -10)     { s2=0; lv2='감소'; icon2='✅'; msg2=`지난달 대비 ${Math.abs(deltaPct).toFixed(1)}% 감소했습니다. 하락 베팅 세력이 약해지는 긍정적 신호입니다.`; }
+            else if (deltaPct < 10) { s2=1; lv2='유지'; icon2='🟡'; msg2=`지난달과 비슷한 수준을 유지하고 있습니다. 큰 변화는 없습니다.`; }
+            else if (deltaPct < 30) { s2=2; lv2='증가'; icon2='⚠️'; msg2=`지난달 대비 ${deltaPct.toFixed(1)}% 증가했습니다. 하락을 예상하는 세력이 늘고 있습니다.`; }
+            else                    { s2=3; lv2='급증'; icon2='🔴'; msg2=`지난달 대비 ${deltaPct.toFixed(1)}% 급증했습니다! 강한 하락 압력이 예상되니 주의하세요.`; }
+            scores.push(s2);
+            items.push({ title:`전월 대비: ${lv2} (${deltaPct>=0?'+':''}${deltaPct.toFixed(1)}%)`, msg:msg2, icon:icon2, score:s2 });
+        }
+
+        // 종합 판정
+        const avg = scores.reduce((a,b)=>a+b,0) / scores.length;
+        let verdict, verdictColor, verdictEmoji, verdictMsg;
+        if (avg < 0.7)      { verdict='안전'; verdictColor='var(--green)'; verdictEmoji='✅'; verdictMsg='공매도 지표가 전반적으로 안전한 수준입니다. 초보 투자자도 크게 걱정하지 않아도 됩니다.'; }
+        else if (avg < 1.5) { verdict='주의'; verdictColor='#f59e0b';     verdictEmoji='🟡'; verdictMsg='일부 지표에서 주의가 필요합니다. 매수 전 추가적인 확인을 권장합니다.'; }
+        else if (avg < 2.3) { verdict='경고'; verdictColor='#f97316';     verdictEmoji='⚠️'; verdictMsg='공매도 압력이 상당합니다. 단기 하락 가능성을 충분히 고려한 후 투자하세요.'; }
+        else                { verdict='위험'; verdictColor='var(--red)';   verdictEmoji='🔴'; verdictMsg='공매도 지표가 위험 수준입니다! 초보 투자자라면 신중하게 접근하세요.'; }
+
+        // 쇼트 스퀴즈
+        const sqLv = (pct>0.10 && ratio>5) ? '높음' : (pct>0.05 || ratio>5) ? '보통' : '낮음';
+        const sqColor = sqLv==='높음' ? '#f59e0b' : sqLv==='보통' ? 'var(--text3)' : 'var(--green)';
+        const sqMsg = sqLv==='높음'
+            ? '공매도가 많고 청산에 시간이 걸려 호재 발생 시 주가가 폭발적으로 상승(쇼트 스퀴즈)할 수 있습니다. 투기적 매수 기회가 될 수 있지만 위험도 큽니다.'
+            : sqLv==='보통' ? '쇼트 스퀴즈 가능성이 일부 있습니다. 강한 호재 뉴스 시 빠른 상승이 나타날 수 있습니다.'
+            : '현재 쇼트 스퀴즈 발생 가능성은 낮습니다.';
+
+        return { verdict, verdictColor, verdictEmoji, verdictMsg, items, sqLv, sqColor, sqMsg, scoreColors };
+    }
+
     function _buildGaugeSVG(pct) {
         const r = 54, cx = 70, cy = 70, strokeW = 12;
         const arc = Math.PI * r;
@@ -7597,7 +7666,31 @@ Rules:
               <div class="short-stat-sub" style="color:var(--text3)">공매도 청산 예상 기간</div>
             </div>
           </div>
-          <div class="short-date-note">기준일: ${dateStr} (FINRA 보고 기준)</div>`;
+          <div class="short-date-note">기준일: ${dateStr} (FINRA 보고 기준)</div>
+          ${(() => {
+            const a = _analyzeShort(pct, ratio, deltaPct, !!prev);
+            return `<div class="short-ai-section">
+              <div class="short-ai-header">
+                <div class="short-ai-title">🤖 AI 공매도 분석</div>
+                <div class="short-ai-badge" style="color:${a.verdictColor};background:${a.verdictColor}22;">${a.verdictEmoji} ${a.verdict}</div>
+              </div>
+              <div class="short-ai-verdict">${a.verdictMsg}</div>
+              <div class="short-ai-items">
+                ${a.items.map(it=>`<div class="short-ai-item">
+                  <div class="short-ai-item-header">
+                    <span>${it.icon}</span>
+                    <span class="short-ai-item-title" style="color:${a.scoreColors[it.score]};">${it.title}</span>
+                  </div>
+                  <div class="short-ai-item-msg">${it.msg}</div>
+                </div>`).join('')}
+              </div>
+              <div class="short-ai-squeeze">
+                <span class="short-ai-squeeze-label">📌 쇼트 스퀴즈 가능성</span>
+                <span class="short-ai-squeeze-val" style="color:${a.sqColor};">${a.sqLv}</span>
+              </div>
+              <div class="short-ai-squeeze-msg">${a.sqMsg}</div>
+            </div>`;
+          })()}`;
     }
 
     Object.assign(window, {
