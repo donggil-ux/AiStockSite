@@ -291,6 +291,28 @@
         .short-date-note{font-size:11px;color:var(--text3);text-align:right;padding-top:4px;}
         .short-nodata{padding:60px 24px;text-align:center;color:var(--text3);font-size:13px;line-height:1.8;}
 
+        /* ===== 애널리스트 목표주가 ===== */
+        .analyst-target-wrap{padding:4px 0 8px;}
+        .analyst-price-row{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:12px;}
+        .analyst-range-bar-wrap{margin:0 0 4px;}
+        .analyst-range-track{height:6px;background:var(--bg3);border-radius:3px;position:relative;margin-bottom:20px;}
+        .analyst-range-fill{position:absolute;top:0;left:0;right:0;height:6px;background:linear-gradient(90deg,var(--green),#f59e0b,var(--red));border-radius:3px;}
+        .analyst-marker{position:absolute;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;}
+        .analyst-marker-dot{width:12px;height:12px;border-radius:50%;border:2px solid var(--bg1);}
+        .analyst-marker-label{position:absolute;top:10px;font-size:10px;font-weight:700;white-space:nowrap;}
+        .analyst-range-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);}
+        .analyst-divider{height:1px;background:var(--border);margin:12px 0;}
+        .analyst-rec-title{font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px;}
+        .analyst-rec-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
+        .analyst-rec-label{font-size:11px;font-weight:600;color:var(--text3);width:42px;text-align:right;flex-shrink:0;}
+        .analyst-rec-bar-bg{flex:1;height:16px;background:var(--bg3);border-radius:4px;overflow:hidden;}
+        .analyst-rec-bar-fill{height:100%;border-radius:4px;transition:width .4s ease;}
+        .analyst-rec-count{font-size:10px;font-weight:700;color:var(--text3);width:56px;white-space:nowrap;}
+        .analyst-consensus{display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding:10px 12px;background:var(--bg3);border-radius:10px;}
+        .analyst-consensus-label{font-size:11px;color:var(--text3);}
+        .analyst-consensus-val{font-size:13px;font-weight:800;}
+        .analyst-nodata{padding:30px 16px;text-align:center;color:var(--text3);font-size:12px;line-height:1.8;}
+
         /* Skeleton */
         @keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
         .skel-row{display:grid;grid-template-columns:36px 1fr 100px 90px 70px;align-items:center;padding:10px 14px;gap:8px;}
@@ -1511,6 +1533,11 @@
                 </div>
             </div>
             <div class="tab-col-right">
+                <!-- 애널리스트 목표주가 -->
+                <div class="card">
+                    <div class="card-title"><span class="dot" style="background:var(--blue)"></span>애널리스트 목표주가</div>
+                    <div id="analystTargets"><div style="text-align:center;padding:30px 0;color:var(--text3);font-size:14px;">종목 정보를 불러오면 표시됩니다.</div></div>
+                </div>
                 <!-- 종목별 실적 발표 일정 -->
                 <div class="card">
                     <div class="card-title"><span class="dot" style="background:var(--purple)"></span>실적 발표 일정</div>
@@ -3008,6 +3035,7 @@
             fetchMarketSession(symbol);
             renderFinancialInfo(symbol);
             renderStockEarnings(symbol);
+            renderAnalystTargets(symbol);
             renderCompanyProfile(symbol);
 
             // 실시간 가격 업데이트 시작 (30초 간격)
@@ -5357,6 +5385,127 @@ Rules:
         catch(e) { return null; }
     }
 
+    // ========================================
+    // Analyst Price Targets
+    // ========================================
+    async function renderAnalystTargets(symbol) {
+        const el = document.getElementById('analystTargets');
+        if (!el) return;
+        if (currentMarket === 'KR') {
+            el.innerHTML = '<div class="analyst-nodata">국내 주식은 애널리스트<br>목표주가 데이터가 제공되지 않습니다.</div>';
+            return;
+        }
+        try {
+            const res = await fetch(`/api/summary/${encodeURIComponent(symbol)}?modules=financialData,recommendationTrend`);
+            const json = await res.json();
+            const r = json?.quoteSummary?.result?.[0];
+            const fd = r?.financialData || {};
+            const rt = r?.recommendationTrend?.trend?.[0] || {};
+
+            const mean   = fd.targetMeanPrice?.raw;
+            const low    = fd.targetLowPrice?.raw;
+            const high   = fd.targetHighPrice?.raw;
+            const median = fd.targetMedianPrice?.raw;
+            const nAnalysts = fd.numberOfAnalystOpinions?.raw;
+            const recMean = fd.recommendationMean?.raw;
+            const recKey  = fd.recommendationKey;
+            const curPrice = stockData?.meta?.regularMarketPrice;
+
+            if (!mean && !low && !high) {
+                el.innerHTML = '<div class="analyst-nodata">목표주가 데이터가 없습니다.<br>미국 주식에서만 지원됩니다.</div>';
+                return;
+            }
+
+            const fmtP = v => v != null ? '$' + Number(v).toFixed(2) : '-';
+            const upside = curPrice && mean ? ((mean - curPrice) / curPrice * 100) : null;
+            const upsideStr = upside != null ? (upside >= 0 ? `+${upside.toFixed(1)}%` : `${upside.toFixed(1)}%`) : '-';
+            const upsideColor = upside != null ? (upside >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--text1)';
+
+            // 가격 범위 바 마커 위치 계산
+            const rangeSz = (high || mean) - (low || mean);
+            const meanPct = rangeSz > 0 ? Math.max(2, Math.min(98, ((mean - low) / rangeSz * 100))) : 50;
+            const curPct  = rangeSz > 0 && curPrice != null
+                ? Math.max(0, Math.min(100, ((curPrice - low) / rangeSz * 100))) : null;
+
+            // 투자의견 분포
+            const sb = rt.strongBuy || 0, b = rt.buy || 0, h = rt.hold || 0;
+            const s  = rt.sell || 0, ss = rt.strongSell || 0;
+            const total = sb + b + h + s + ss;
+            const recLevels = [
+                { label: '강력매수', val: sb, color: '#22c55e' },
+                { label: '매수',    val: b,  color: '#86efac' },
+                { label: '보유',    val: h,  color: '#f59e0b' },
+                { label: '매도',    val: s,  color: '#f87171' },
+                { label: '강력매도', val: ss, color: '#ef4444' },
+            ];
+            const recKeyMap = {
+                strongBuy: '강력 매수', strong_buy: '강력 매수',
+                buy: '매수',
+                hold: '보유',
+                underperform: '매도 의견', sell: '강력 매도', strong_sell: '강력 매도'
+            };
+            const recLabelKo = recKeyMap[recKey] || recKey || '-';
+            const isBullish = recKey === 'strongBuy' || recKey === 'strong_buy' || recKey === 'buy';
+            const recColor = isBullish ? 'var(--green)' : recKey === 'hold' ? '#f59e0b' : 'var(--red)';
+
+            el.innerHTML = `
+              <div class="analyst-target-wrap">
+                <div class="analyst-price-row">
+                  <div>
+                    <div style="font-size:11px;color:var(--text3);">현재가</div>
+                    <div style="font-size:15px;font-weight:800;color:var(--text1);">${fmtP(curPrice)}</div>
+                  </div>
+                  <div style="text-align:center;">
+                    <div style="font-size:11px;color:var(--text3);">평균 목표가</div>
+                    <div style="font-size:15px;font-weight:800;color:var(--text1);">${fmtP(mean)}</div>
+                  </div>
+                  <div style="text-align:right;">
+                    <div style="font-size:11px;color:var(--text3);">상승여력</div>
+                    <div style="font-size:15px;font-weight:800;color:${upsideColor};">${upsideStr}</div>
+                  </div>
+                </div>
+                <div class="analyst-range-bar-wrap">
+                  <div class="analyst-range-track">
+                    <div class="analyst-range-fill"></div>
+                    ${curPct != null ? `<div class="analyst-marker" style="left:${curPct}%;">
+                      <div class="analyst-marker-dot" style="background:var(--text1);"></div>
+                      <div class="analyst-marker-label" style="color:var(--text3);">현재</div>
+                    </div>` : ''}
+                    <div class="analyst-marker" style="left:${meanPct}%;">
+                      <div class="analyst-marker-dot" style="background:#3b82f6;"></div>
+                      <div class="analyst-marker-label" style="color:#3b82f6;">목표</div>
+                    </div>
+                  </div>
+                  <div class="analyst-range-labels">
+                    <span>최저 ${fmtP(low)}</span>
+                    <span>중앙 ${fmtP(median)}</span>
+                    <span>최고 ${fmtP(high)}</span>
+                  </div>
+                </div>
+                ${total > 0 ? `
+                  <div class="analyst-divider"></div>
+                  <div class="analyst-rec-title">투자의견 분포 (${total}명)</div>
+                  ${recLevels.filter(rv => rv.val > 0).map(rv => {
+                    const pct = (rv.val / total * 100).toFixed(0);
+                    return `<div class="analyst-rec-row">
+                      <div class="analyst-rec-label">${rv.label}</div>
+                      <div class="analyst-rec-bar-bg">
+                        <div class="analyst-rec-bar-fill" style="width:${pct}%;background:${rv.color};"></div>
+                      </div>
+                      <div class="analyst-rec-count">${rv.val}명 (${pct}%)</div>
+                    </div>`;
+                  }).join('')}
+                ` : nAnalysts ? `<div class="analyst-divider"></div><div class="analyst-rec-title">분석가 수: ${nAnalysts}명</div>` : ''}
+                <div class="analyst-consensus">
+                  <span class="analyst-consensus-label">종합 의견</span>
+                  <span class="analyst-consensus-val" style="color:${recColor};">${recLabelKo}${recMean != null ? ` (${recMean.toFixed(1)}/5)` : ''}</span>
+                </div>
+              </div>`;
+        } catch(e) {
+            el.innerHTML = '<div class="analyst-nodata">데이터를 불러올 수 없습니다.</div>';
+        }
+    }
+
     // 기업 프로필 캐시 (같은 종목 재검색 시 즉시 표시)
     const cpCache = {};
 
@@ -7471,7 +7620,8 @@ Rules:
         saveRecentStock, loadRecentStocks,
         loadVolAlert,
         loadNewsTab, reloadNewsTab, renderNewsList, _newsTimeAgo,
-        loadShortTab, reloadShortTab, renderShortTab, _buildGaugeSVG
+        loadShortTab, reloadShortTab, renderShortTab, _buildGaugeSVG,
+        renderAnalystTargets
     });
     </script>
 
