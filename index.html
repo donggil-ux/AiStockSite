@@ -1074,6 +1074,81 @@
         .rr-knife-icon{font-size:22px;flex-shrink:0;line-height:1.3;}
         .rr-knife-title{font-size:13px;font-weight:800;color:var(--red);margin-bottom:4px;}
         .rr-knife-desc{font-size:12px;color:var(--text2);line-height:1.6;}
+
+        /* ===== Smart Money Tracker ===== */
+        .smart-money-screen{padding:16px;max-width:480px;margin:0 auto;padding-bottom:80px;}
+        .sm-disclaimer{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:10px;padding:10px 14px;font-size:11px;color:var(--text2);line-height:1.7;margin-bottom:16px;display:flex;gap:8px;align-items:flex-start;}
+        .sm-disclaimer-icon{font-size:15px;flex-shrink:0;margin-top:2px;}
+        .sm-quarter-badge{display:inline-block;background:rgba(245,158,11,.15);color:#f59e0b;border-radius:5px;padding:1px 7px;font-weight:700;font-size:11px;}
+        .sm-sub-tabs{display:flex;gap:8px;margin-bottom:16px;}
+        .sm-sub-tab{flex:1;padding:9px;border-radius:8px;border:none;background:var(--bg2);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .18s;}
+        .sm-sub-tab.active{background:var(--blue);color:#fff;}
+        .sm-panel{display:none;}.sm-panel.active{display:block;}
+        .sm-screen-title{font-size:18px;font-weight:800;color:var(--text);margin-bottom:4px;}
+        .sm-screen-sub{font-size:12px;color:var(--text3);margin-bottom:16px;}
+        /* Institution card */
+        .sm-inst-card{background:var(--bg2);border-radius:var(--r3);padding:16px;margin-bottom:10px;cursor:pointer;transition:all .15s;border:1px solid transparent;}
+        .sm-inst-card:hover{border-color:var(--blue);transform:translateY(-1px);}
+        .sm-inst-header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px;}
+        .sm-inst-rank{font-size:20px;font-weight:900;color:var(--text3);min-width:26px;line-height:1.2;}
+        .sm-inst-rank.gold{color:#f59e0b;}.sm-inst-rank.silver{color:#94a3b8;}.sm-inst-rank.bronze{color:#b45309;}
+        .sm-inst-info{flex:1;}.sm-inst-name{font-size:14px;font-weight:800;color:var(--text);line-height:1.3;}
+        .sm-inst-manager{font-size:11px;color:var(--text3);margin-top:2px;}
+        .sm-inst-aum{font-size:11px;color:var(--text3);text-align:right;line-height:1.4;}
+        .sm-inst-aum-val{font-size:14px;font-weight:700;color:var(--text);display:block;}
+        .sm-inst-metrics{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px;}
+        .sm-inst-return{padding:3px 9px;border-radius:6px;font-size:12px;font-weight:700;}
+        .sm-inst-return.pos{background:rgba(34,197,94,.12);color:var(--green);}
+        .sm-inst-return.neg{background:rgba(239,68,68,.1);color:var(--red);}
+        .sm-inst-sectors{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;}
+        .sm-sector-tag{background:var(--bg3);color:var(--text2);border-radius:5px;padding:2px 8px;font-size:11px;font-weight:600;}
+        .sm-top-buy-badge{background:rgba(59,130,246,.1);color:var(--blue);border:1px solid rgba(59,130,246,.25);border-radius:6px;padding:3px 9px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;}
+        .sm-inst-arrow{color:var(--text3);font-size:14px;align-self:center;}
+        /* Guru cards */
+        .guru-card{background:var(--bg2);border-radius:var(--r3);padding:16px;margin-bottom:10px;cursor:pointer;transition:all .15s;border:1px solid transparent;display:flex;gap:14px;align-items:flex-start;}
+        .guru-card:hover{border-color:var(--blue);transform:translateY(-1px);}
+        .guru-emoji{font-size:38px;line-height:1;flex-shrink:0;width:46px;text-align:center;padding-top:2px;}
+        .guru-info{flex:1;min-width:0;}.guru-name{font-size:15px;font-weight:800;color:var(--text);}
+        .guru-fund{font-size:11px;color:var(--text3);margin-bottom:5px;}
+        .guru-philosophy{font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:8px;}
+        .guru-tags{display:flex;gap:5px;flex-wrap:wrap;}
+        .guru-tag{background:var(--bg3);color:var(--text2);border-radius:5px;padding:2px 8px;font-size:11px;font-weight:600;}
+        .guru-aum-tag{background:rgba(59,130,246,.1);color:var(--blue);border-radius:5px;padding:2px 8px;font-size:11px;font-weight:700;}
+        .guru-ret-tag{background:rgba(34,197,94,.1);color:var(--green);border-radius:5px;padding:2px 8px;font-size:11px;font-weight:700;}
+        /* Deep Dive */
+        .sm-deep-wrap{padding:0;}
+        .sm-deep-header{display:flex;align-items:center;gap:10px;padding:4px 0 16px 0;border-bottom:1px solid var(--border);margin-bottom:14px;}
+        .sm-back-btn{background:none;border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px;color:var(--text2);font-family:inherit;font-weight:600;}
+        .sm-back-btn:hover{background:var(--bg3);}
+        .sm-deep-emoji{font-size:26px;}
+        .sm-deep-title{font-size:16px;font-weight:800;color:var(--text);flex:1;line-height:1.3;}
+        .sm-deep-subtitle{font-size:11px;color:var(--text3);}
+        .sm-holdings-filter{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px;}
+        .sm-holdings-filter::-webkit-scrollbar{display:none;}
+        .sm-hf-btn{padding:5px 13px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;}
+        .sm-hf-btn.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+        .sm-holdings-table{border-radius:var(--r3);overflow:hidden;border:1px solid var(--border);}
+        .sm-th-row{display:grid;grid-template-columns:55px 1fr 62px 72px 48px;padding:8px 12px;font-size:11px;font-weight:700;color:var(--text3);background:var(--bg2);border-bottom:1px solid var(--border);}
+        .sm-holding-row{display:grid;grid-template-columns:55px 1fr 62px 72px 48px;padding:11px 12px;font-size:12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;align-items:center;}
+        .sm-holding-row:last-child{border-bottom:none;}
+        .sm-holding-row:hover{background:var(--bg2);}
+        .sm-holding-row.rr-hl{border-left:3px solid var(--blue);padding-left:9px;}
+        .sm-tick{font-weight:800;color:var(--text);font-size:13px;}
+        .sm-wt{font-weight:700;color:var(--text);font-size:13px;}
+        .sm-wt-chg{font-size:11px;margin-top:1px;}
+        .sm-wt-chg.pos{color:var(--green);}.sm-wt-chg.neg{color:var(--red);}.sm-wt-chg.zero{color:var(--text3);}
+        .sm-avg{color:var(--text2);font-size:12px;}
+        .sm-action{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;text-align:center;}
+        .sm-action.new{background:rgba(34,197,94,.15);color:var(--green);}
+        .sm-action.add{background:rgba(59,130,246,.12);color:var(--blue);}
+        .sm-action.reduce{background:rgba(245,158,11,.12);color:#f59e0b;}
+        .sm-action.cut{background:rgba(239,68,68,.1);color:var(--red);}
+        .sm-action.hold{background:var(--bg3);color:var(--text2);}
+        .sm-chart-hint{font-size:10px;color:var(--text3);margin-top:2px;}
+        .sm-deep-insight{background:var(--bg2);border-radius:var(--r3);padding:14px 16px;margin-top:14px;}
+        .sm-insight-title{font-size:13px;font-weight:800;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+        .sm-insight-body{font-size:12px;color:var(--text2);line-height:1.8;}
+        .sm-holding-row.hidden{display:none;}
     </style>
 </head>
 <body>
@@ -1089,6 +1164,11 @@
                 <button class="side-nav-item active" onclick="goHome();closeSideNav();">
                     <span class="side-nav-item-icon">&#127968;</span>
                     <span class="side-nav-item-text">홈</span>
+                </button>
+                <button class="side-nav-item" id="sideNavSmBtn" onclick="goSmartMoney();closeSideNav();">
+                    <span class="side-nav-item-icon">&#128188;</span>
+                    <span class="side-nav-item-text">스마트 머니</span>
+                    <span class="side-nav-item-sub">13F</span>
                 </button>
             </div>
         </div>
@@ -1195,6 +1275,31 @@
                 <div class="top100-loading">데이터를 불러오는 중...</div>
             </div>
         </div>
+    </div>
+
+    <!-- Smart Money Tracker Screen -->
+    <div class="smart-money-screen" id="smartMoneyScreen" style="display:none">
+        <div class="sm-screen-title">💼 스마트 머니 추적기</div>
+        <div class="sm-screen-sub">기관투자자 13F 공시 기반 포트폴리오 분석</div>
+        <div class="sm-disclaimer">
+            <span class="sm-disclaimer-icon">⚠️</span>
+            <div>
+                <span class="sm-quarter-badge" id="smQuarterBadge">Q4 2024</span> 기준 공시 데이터입니다.
+                13F는 분기 종료 후 <strong>최대 45일 이내</strong> 제출 의무로, 실제 포지션 변경으로부터
+                <strong>최대 4.5개월</strong> 지연될 수 있습니다.
+            </div>
+        </div>
+        <!-- 서브 탭 -->
+        <div class="sm-sub-tabs">
+            <button class="sm-sub-tab active" id="smTabTop10" onclick="switchSmTab('top10')">🏆 TOP 퍼포먼스</button>
+            <button class="sm-sub-tab" id="smTabGuru" onclick="switchSmTab('guru')">👑 구루의 선택</button>
+        </div>
+        <!-- Panel A: TOP 10 -->
+        <div class="sm-panel active" id="smPanelTop10"></div>
+        <!-- Panel B: Guru -->
+        <div class="sm-panel" id="smPanelGuru"></div>
+        <!-- Deep Dive -->
+        <div id="smDeep" style="display:none"></div>
     </div>
 
     <!-- Stock Hero (대형 가격 표시) -->
@@ -2452,6 +2557,9 @@
 
     function goHome() {
         document.getElementById('welcomeScreen').style.display = '';
+        document.getElementById('smartMoneyScreen').style.display = 'none';
+        document.querySelectorAll('.side-nav-item').forEach(b => b.classList.remove('active'));
+        document.querySelector('.side-nav-item[onclick^="goHome"]')?.classList.add('active');
         document.getElementById('stockHero').classList.remove('show');
         document.getElementById('tabNav').classList.remove('show');
         document.getElementById('marketSessionInfo').classList.remove('show');
@@ -2472,6 +2580,287 @@
         loadRecentStocks();
         loadSwingRadar();
         window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ========================================
+    // Smart Money Tracker
+    // ========================================
+    let pendingSmartMoneyLine = null;
+    let smCurrentFilter = 'all';
+
+    const SM_INSTITUTIONS = [
+        {
+            id:'renaissance', name:'Renaissance Technologies', manager:'Peter Brown (Jim Simons 창업)',
+            aum:106.0, ret1q:12.4, ret1y:38.2,
+            sectors:['기술','AI','헬스케어'], topBuy:'NVDA', emoji:'🤖',
+            philosophy:'순수 퀀트 전략. 통계 패턴 기반 알고리즘 트레이딩. 마켓 뉴트럴 포지션을 통해 시장 노이즈에서 알파를 추출.',
+            tags:['퀀트','알고리즘','시장중립'],
+            holdings:[
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:8.2,wtChg:+3.1,avgPrice:495.20,action:'add'},
+                {ticker:'META',name:'Meta Platforms',wt:6.4,wtChg:+1.2,avgPrice:512.30,action:'add'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:5.9,wtChg:-0.4,avgPrice:415.80,action:'hold'},
+                {ticker:'AMZN',name:'Amazon.com',wt:5.2,wtChg:+0.8,avgPrice:188.40,action:'add'},
+                {ticker:'GOOGL',name:'Alphabet Inc',wt:4.8,wtChg:+2.1,avgPrice:168.20,action:'new'},
+                {ticker:'UNH',name:'UnitedHealth Group',wt:4.1,wtChg:-1.0,avgPrice:510.00,action:'reduce'},
+                {ticker:'LLY',name:'Eli Lilly',wt:3.8,wtChg:+0.5,avgPrice:820.50,action:'add'},
+                {ticker:'AVGO',name:'Broadcom Inc',wt:3.2,wtChg:+1.8,avgPrice:178.30,action:'new'},
+            ],
+            insight:'르네상스는 NVDA·META·GOOGL 비중을 대폭 확대했습니다. AI 인프라 수요 사이클이 장기화될 것이라는 통계 시그널을 감지한 것으로 해석됩니다. AVGO 신규 편입은 AI 반도체 공급망 확장 베팅.'
+        },
+        {
+            id:'pershing', name:'Pershing Square Capital', manager:'Bill Ackman',
+            aum:18.4, ret1q:9.8, ret1y:28.6,
+            sectors:['소비재','기술','통신'], topBuy:'GOOGL', emoji:'💼',
+            philosophy:'집중 투자 + 행동주의. 소수 고확신 종목에 집중. 기업가치 개선을 적극적으로 이사회에 요구.',
+            tags:['행동주의','집중투자','가치'],
+            holdings:[
+                {ticker:'GOOGL',name:'Alphabet Inc',wt:16.2,wtChg:+16.2,avgPrice:165.40,action:'new'},
+                {ticker:'HLT',name:'Hilton Worldwide',wt:14.3,wtChg:+0.8,avgPrice:212.30,action:'add'},
+                {ticker:'QSR',name:'Restaurant Brands',wt:12.1,wtChg:-0.5,avgPrice:62.80,action:'hold'},
+                {ticker:'CMG',name:'Chipotle Mexican Grill',wt:11.8,wtChg:+1.2,avgPrice:53.20,action:'add'},
+                {ticker:'CP',name:'Canadian Pacific Kansas City',wt:9.4,wtChg:-2.1,avgPrice:81.50,action:'reduce'},
+                {ticker:'MNST',name:'Monster Beverage',wt:8.7,wtChg:-0.3,avgPrice:51.20,action:'hold'},
+                {ticker:'LOW',name:"Lowe's Companies",wt:7.9,wtChg:+0.6,avgPrice:248.40,action:'add'},
+            ],
+            insight:'퍼싱스퀘어는 Q4에 Alphabet(GOOGL) 신규 대량 매수가 가장 눈에 띕니다. AI 광고 수익 성장과 유튜브 프리미엄 확대를 근거로 한 포지션. 행동주의 성격상 이사회 영향력 행사 가능성도 있습니다.'
+        },
+        {
+            id:'tiger', name:'Tiger Global Management', manager:'Chase Coleman',
+            aum:33.2, ret1q:8.1, ret1y:25.9,
+            sectors:['기술','성장주','AI'], topBuy:'META', emoji:'🐯',
+            philosophy:'차세대 기술 성장주 집중. 인터넷·SaaS·AI·핀테크 기업에 장기 투자. VC와 PE를 병행하는 하이브리드 펀드.',
+            tags:['성장주','기술','VC+PE'],
+            holdings:[
+                {ticker:'META',name:'Meta Platforms',wt:14.3,wtChg:+2.1,avgPrice:510.20,action:'add'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:11.2,wtChg:-0.8,avgPrice:418.60,action:'hold'},
+                {ticker:'AMZN',name:'Amazon.com',wt:9.8,wtChg:+1.4,avgPrice:189.50,action:'add'},
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:8.7,wtChg:+3.2,avgPrice:492.10,action:'add'},
+                {ticker:'SNOW',name:'Snowflake Inc',wt:6.2,wtChg:-2.8,avgPrice:142.30,action:'reduce'},
+                {ticker:'ADBE',name:'Adobe Inc',wt:5.4,wtChg:+0.9,avgPrice:488.20,action:'add'},
+                {ticker:'CRWD',name:'CrowdStrike Holdings',wt:4.8,wtChg:+1.5,avgPrice:312.40,action:'new'},
+                {ticker:'UBER',name:'Uber Technologies',wt:4.2,wtChg:+0.7,avgPrice:74.80,action:'add'},
+            ],
+            insight:'타이거 글로벌은 AI 인프라 및 엔터프라이즈 SaaS 집중 전략을 유지했습니다. META와 NVDA 비중을 추가 확대하면서 CrowdStrike를 신규 편입. SNOW 비중은 성장 둔화 우려로 축소했습니다.'
+        },
+        {
+            id:'berkshire', name:'Berkshire Hathaway', manager:'Warren Buffett',
+            aum:322.0, ret1q:5.2, ret1y:22.1,
+            sectors:['금융','소비재','에너지'], topBuy:'OXY', emoji:'🎩',
+            philosophy:'"훌륭한 기업을 공정한 가격에." 복리 효과와 경제적 해자를 중시. 수십 년 보유를 전제로 투자.',
+            tags:['가치투자','장기보유','배당'],
+            holdings:[
+                {ticker:'AAPL',name:'Apple Inc',wt:28.1,wtChg:-8.4,avgPrice:150.22,action:'reduce'},
+                {ticker:'BAC',name:'Bank of America',wt:12.2,wtChg:-1.8,avgPrice:38.40,action:'reduce'},
+                {ticker:'AXP',name:'American Express',wt:11.4,wtChg:+0.3,avgPrice:220.10,action:'hold'},
+                {ticker:'KO',name:'Coca-Cola Company',wt:8.1,wtChg:0,avgPrice:44.20,action:'hold'},
+                {ticker:'OXY',name:'Occidental Petroleum',wt:5.9,wtChg:+0.8,avgPrice:52.30,action:'add'},
+                {ticker:'CVX',name:'Chevron Corp',wt:5.4,wtChg:-0.6,avgPrice:148.90,action:'hold'},
+                {ticker:'MCO',name:"Moody's Corp",wt:5.2,wtChg:+0.2,avgPrice:428.60,action:'hold'},
+                {ticker:'SIRI',name:'Sirius XM Holdings',wt:3.1,wtChg:+3.1,avgPrice:3.05,action:'new'},
+            ],
+            insight:'버크셔는 AAPL 보유량을 절반 이하로 줄였습니다 (세금 이슈 + 밸류에이션 부담). 대신 OXY(서부석유)를 꾸준히 추가 매수. SIRI는 Liberty Media 합병 관련 신규 포지션으로 해석됩니다.'
+        },
+        {
+            id:'appaloosa', name:'Appaloosa Management', manager:'David Tepper',
+            aum:14.8, ret1q:6.4, ret1y:19.8,
+            sectors:['기술','AI','중국테크'], topBuy:'META', emoji:'🐎',
+            philosophy:'"공포를 사고 탐욕을 판다." 스트레스 자산 + 성장주 혼합. 역발상 매매와 매크로 베팅으로 유명.',
+            tags:['역발상','스트레스자산','성장'],
+            holdings:[
+                {ticker:'META',name:'Meta Platforms',wt:13.8,wtChg:+2.4,avgPrice:508.40,action:'add'},
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:11.2,wtChg:+1.8,avgPrice:488.20,action:'add'},
+                {ticker:'AMZN',name:'Amazon.com',wt:9.6,wtChg:+0.7,avgPrice:186.40,action:'add'},
+                {ticker:'BABA',name:'Alibaba Group',wt:8.4,wtChg:+3.2,avgPrice:78.20,action:'add'},
+                {ticker:'JD',name:'JD.com Inc',wt:6.8,wtChg:+6.8,avgPrice:28.40,action:'new'},
+                {ticker:'GOOGL',name:'Alphabet Inc',wt:6.2,wtChg:+1.1,avgPrice:166.80,action:'add'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:5.8,wtChg:-1.2,avgPrice:416.20,action:'reduce'},
+                {ticker:'PDD',name:'PDD Holdings',wt:4.6,wtChg:+2.1,avgPrice:102.40,action:'new'},
+            ],
+            insight:'테퍼는 중국 빅테크(BABA, JD, PDD)를 대폭 매수했습니다. "중국 부양책은 역대급"이라는 발언과 일치하는 포지션 변화. 동시에 META·NVDA·AMZN 등 미국 AI 종목도 확대 — 양 방향 베팅 전략.'
+        },
+        {
+            id:'druckenmiller', name:'Duquesne Family Office', manager:'Stan Druckenmiller',
+            aum:2.9, ret1q:7.8, ret1y:18.4,
+            sectors:['AI','기술','헬스케어'], topBuy:'NVDA', emoji:'👑',
+            philosophy:'"분산 투자는 무식한 사람을 위한 것." 고확신 집중 투자와 빠른 포지션 전환. 매크로 + 개별주 혼합.',
+            tags:['매크로','집중투자','모멘텀'],
+            holdings:[
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:19.8,wtChg:+4.2,avgPrice:476.40,action:'add'},
+                {ticker:'CPNG',name:'Coupang Inc',wt:12.4,wtChg:+12.4,avgPrice:21.80,action:'new'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:10.2,wtChg:-2.1,avgPrice:412.60,action:'reduce'},
+                {ticker:'UNH',name:'UnitedHealth Group',wt:8.6,wtChg:+1.4,avgPrice:505.20,action:'add'},
+                {ticker:'ISRG',name:'Intuitive Surgical',wt:7.4,wtChg:+2.8,avgPrice:448.80,action:'new'},
+                {ticker:'NFLX',name:'Netflix Inc',wt:6.8,wtChg:-0.4,avgPrice:738.40,action:'hold'},
+                {ticker:'GS',name:'Goldman Sachs',wt:5.2,wtChg:+1.6,avgPrice:548.20,action:'add'},
+            ],
+            insight:'드러큰밀러는 NVDA를 전체 포트폴리오의 약 20%로 최대 비중 유지. 쿠팡(CPNG)을 신규 대량 매수 — 한국 이커머스 장기 성장 베팅. ISRG 신규 편입으로 의료 로봇 섹터 진입.'
+        },
+    ];
+
+    function goSmartMoney() {
+        document.getElementById('welcomeScreen').style.display = 'none';
+        document.getElementById('smartMoneyScreen').style.display = '';
+        document.getElementById('stockHero').classList.remove('show');
+        document.getElementById('tabNav').classList.remove('show');
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        // 사이드 nav 활성 표시
+        document.querySelectorAll('.side-nav-item').forEach(b => b.classList.remove('active'));
+        document.getElementById('sideNavSmBtn')?.classList.add('active');
+        renderSmTop10();
+        renderSmGuru();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function switchSmTab(tab) {
+        document.getElementById('smTabTop10').classList.toggle('active', tab === 'top10');
+        document.getElementById('smTabGuru').classList.toggle('active', tab === 'guru');
+        document.getElementById('smPanelTop10').classList.toggle('active', tab === 'top10');
+        document.getElementById('smPanelGuru').classList.toggle('active', tab === 'guru');
+        document.getElementById('smDeep').style.display = 'none';
+    }
+
+    function renderSmTop10() {
+        const sorted = [...SM_INSTITUTIONS].sort((a, b) => b.ret1y - a.ret1y);
+        const rankClass = ['gold','silver','bronze'];
+        const panel = document.getElementById('smPanelTop10');
+        panel.innerHTML = sorted.map((inst, i) => {
+            const rank = i + 1;
+            const rc = rankClass[i] || '';
+            const rankEmoji = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+            const sectors = inst.sectors.map(s => `<span class="sm-sector-tag">${s}</span>`).join('');
+            return `<div class="sm-inst-card" onclick="smDeepDive('${inst.id}')">
+                <div class="sm-inst-header">
+                    <div class="sm-inst-rank ${rc}">${rankEmoji}</div>
+                    <div class="sm-inst-info">
+                        <div class="sm-inst-name">${inst.name}</div>
+                        <div class="sm-inst-manager">${inst.manager}</div>
+                    </div>
+                    <div class="sm-inst-aum">
+                        <span class="sm-inst-aum-val">$${inst.aum >= 100 ? (inst.aum/1000*10|0)/10 + 'T' : inst.aum + 'B'}</span>
+                        AUM
+                    </div>
+                </div>
+                <div class="sm-inst-metrics">
+                    <span class="sm-inst-return pos">1Q +${inst.ret1q}%</span>
+                    <span class="sm-inst-return pos">1Y +${inst.ret1y}%</span>
+                </div>
+                <div class="sm-inst-sectors">${sectors}</div>
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                    <span class="sm-top-buy-badge">🔼 TOP BUY: ${inst.topBuy}</span>
+                    <span class="sm-inst-arrow">›</span>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function renderSmGuru() {
+        const panel = document.getElementById('smPanelGuru');
+        panel.innerHTML = SM_INSTITUTIONS.map(inst => {
+            const tags = inst.tags.map(t => `<span class="guru-tag">${t}</span>`).join('');
+            return `<div class="guru-card" onclick="smDeepDive('${inst.id}')">
+                <div class="guru-emoji">${inst.emoji}</div>
+                <div class="guru-info">
+                    <div class="guru-name">${inst.manager.split(' (')[0]}</div>
+                    <div class="guru-fund">${inst.name}</div>
+                    <div class="guru-philosophy">${inst.philosophy}</div>
+                    <div class="guru-tags">
+                        ${tags}
+                        <span class="guru-aum-tag">AUM $${inst.aum >= 100 ? (inst.aum/1000*10|0)/10+'T' : inst.aum+'B'}</span>
+                        <span class="guru-ret-tag">1Y +${inst.ret1y}%</span>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function smDeepDive(id) {
+        const inst = SM_INSTITUTIONS.find(i => i.id === id);
+        if (!inst) return;
+        smCurrentFilter = 'all';
+        // 패널 숨기고 딥다이브 표시
+        document.querySelectorAll('.sm-panel').forEach(p => p.classList.remove('active'));
+        document.getElementById('smDeep').style.display = '';
+        document.getElementById('smDeep').innerHTML = _renderDeep(inst);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function _renderDeep(inst) {
+        const filters = [
+            {key:'all', label:'전체'},
+            {key:'new', label:'🆕 신규'},
+            {key:'add', label:'🔼 추가'},
+            {key:'reduce', label:'🔽 축소'},
+            {key:'hold', label:'유지'},
+        ];
+        const filterBtns = filters.map(f =>
+            `<button class="sm-hf-btn${f.key === smCurrentFilter ? ' active' : ''}" onclick="filterSmHoldings('${inst.id}','${f.key}')">${f.label}</button>`
+        ).join('');
+        const rows = inst.holdings.map(h => {
+            const wtChgStr = h.wtChg > 0 ? `+${h.wtChg.toFixed(1)}%` : h.wtChg < 0 ? `${h.wtChg.toFixed(1)}%` : '±0';
+            const wtChgCls = h.wtChg > 0 ? 'pos' : h.wtChg < 0 ? 'neg' : 'zero';
+            const hidden = smCurrentFilter !== 'all' && h.action !== smCurrentFilter ? ' hidden' : '';
+            return `<div class="sm-holding-row${hidden}" onclick="smChartLink('${h.ticker}',${h.avgPrice},'${inst.name}')">
+                <div>
+                    <div class="sm-tick">${h.ticker}</div>
+                    <div class="sm-chart-hint">차트 보기 ›</div>
+                </div>
+                <div>
+                    <div class="sm-wt">${h.wt.toFixed(1)}%</div>
+                    <div class="sm-wt-chg ${wtChgCls}">${wtChgStr}</div>
+                </div>
+                <div class="sm-avg">$${h.avgPrice.toFixed(2)}</div>
+                <div></div>
+                <div><span class="sm-action ${h.action}">${_smActionLabel(h.action)}</span></div>
+            </div>`;
+        }).join('');
+        return `<div class="sm-deep-wrap">
+            <div class="sm-deep-header">
+                <button class="sm-back-btn" onclick="smDeepBack()">← 뒤로</button>
+                <span class="sm-deep-emoji">${inst.emoji}</span>
+                <div>
+                    <div class="sm-deep-title">${inst.name}</div>
+                    <div class="sm-deep-subtitle">${inst.manager} · <span class="sm-quarter-badge">Q4 2024</span></div>
+                </div>
+            </div>
+            <div class="sm-holdings-filter">${filterBtns}</div>
+            <div class="sm-holdings-table">
+                <div class="sm-th-row">
+                    <div>티커</div><div>비중</div><div>평균단가</div><div></div><div>액션</div>
+                </div>
+                ${rows}
+            </div>
+            <div class="sm-deep-insight">
+                <div class="sm-insight-title">📌 운용사 관점</div>
+                <div class="sm-insight-body">${inst.insight}</div>
+            </div>
+        </div>`;
+    }
+
+    function _smActionLabel(a) {
+        return {new:'신규',add:'추가',reduce:'축소',cut:'청산',hold:'유지'}[a] || a;
+    }
+
+    function smDeepBack() {
+        document.getElementById('smDeep').style.display = 'none';
+        document.getElementById('smPanelTop10').classList.add('active');
+        document.getElementById('smTabTop10').classList.add('active');
+        document.getElementById('smTabGuru').classList.remove('active');
+        document.getElementById('smPanelGuru').classList.remove('active');
+    }
+
+    function filterSmHoldings(id, filter) {
+        smCurrentFilter = filter;
+        const inst = SM_INSTITUTIONS.find(i => i.id === id);
+        if (!inst) return;
+        document.getElementById('smDeep').innerHTML = _renderDeep(inst);
+    }
+
+    function smChartLink(ticker, avgPrice, fundName) {
+        pendingSmartMoneyLine = { price: avgPrice, label: '💼 ' + fundName.substring(0, 14) };
+        document.getElementById('smartMoneyScreen').style.display = 'none';
+        document.getElementById('welcomeScreen').style.display = 'none';
+        document.getElementById('searchInput').value = ticker;
+        searchStock();
     }
 
     // ========================================
@@ -3820,6 +4209,19 @@
 
         // 기존 AI 보조선 복원
         restoreAiOverlays();
+
+        // 스마트 머니 지지선 (홀딩 클릭 시 설정)
+        if (pendingSmartMoneyLine && lwCandleSeries) {
+            lwCandleSeries.createPriceLine({
+                price: pendingSmartMoneyLine.price,
+                color: '#f59e0b',
+                lineWidth: 2,
+                lineStyle: 2,
+                axisLabelVisible: true,
+                title: pendingSmartMoneyLine.label,
+            });
+            pendingSmartMoneyLine = null;
+        }
 
         // 드로잉 도구 이벤트 연결 + 기존 그림 다시 렌더
         hookDrawRedraw();
@@ -7321,7 +7723,8 @@ Rules:
     }
 
     Object.assign(window, {
-        closeSideNav, toggleSideNav, openSideNav, goHome,
+        closeSideNav, toggleSideNav, openSideNav, goHome, goSmartMoney,
+        switchSmTab, smDeepDive, smDeepBack, filterSmHoldings, smChartLink,
         setMarket, searchStock, setChartInterval, setPeriod,
         quickSearch, toggleFavorite, switchTab, toggleChartFullscreen,
         favSearch, removeFavorite, setTop100Filter,
