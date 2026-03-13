@@ -1130,6 +1130,7 @@
         .sm-holdings-table{border-radius:var(--r3);overflow:hidden;border:1px solid var(--border);}
         .sm-th-row{display:grid;grid-template-columns:55px 1fr 62px 72px 48px;padding:8px 12px;font-size:11px;font-weight:700;color:var(--text3);background:var(--bg2);border-bottom:1px solid var(--border);}
         .sm-holding-row{display:grid;grid-template-columns:55px 1fr 62px 72px 48px;padding:11px 12px;font-size:12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;align-items:center;}
+        .sm-shares{font-size:11px;color:var(--text-secondary);text-align:right;}
         .sm-holding-row:last-child{border-bottom:none;}
         .sm-holding-row:hover{background:var(--bg2);}
         .sm-holding-row.rr-hl{border-left:3px solid var(--blue);padding-left:9px;}
@@ -4353,6 +4354,7 @@
             const wtChgStr = h.wtChg > 0 ? `+${h.wtChg.toFixed(1)}%` : h.wtChg < 0 ? `${h.wtChg.toFixed(1)}%` : '±0';
             const wtChgCls = h.wtChg > 0 ? 'pos' : h.wtChg < 0 ? 'neg' : 'zero';
             const hidden = smCurrentFilter !== 'all' && h.action !== smCurrentFilter ? ' hidden' : '';
+            const shares = inst.aum ? _smFmtShares(inst.aum, h.wt, h.avgPrice) : '—';
             return `<div class="sm-holding-row${hidden}" onclick="smChartLink('${h.ticker}',${h.avgPrice},'${inst.name}')">
                 <div>
                     <div class="sm-tick">${h.ticker}</div>
@@ -4363,7 +4365,7 @@
                     <div class="sm-wt-chg ${wtChgCls}">${wtChgStr}</div>
                 </div>
                 <div class="sm-avg">$${h.avgPrice.toFixed(2)}</div>
-                <div></div>
+                <div class="sm-shares">${shares}</div>
                 <div><span class="sm-action ${h.action}">${_smActionLabel(h.action)}</span></div>
             </div>`;
         }).join('');
@@ -4382,7 +4384,7 @@
             <div class="sm-holdings-filter">${filterBtns}</div>
             <div class="sm-holdings-table">
                 <div class="sm-th-row">
-                    <div>티커</div><div>비중</div><div>평균단가</div><div></div><div>액션</div>
+                    <div>티커</div><div>비중</div><div>평균단가</div><div>보유수량</div><div>액션</div>
                 </div>
                 ${rows}
             </div>
@@ -4410,6 +4412,7 @@
             const wtChgStr = h.wtChg > 0 ? `+${h.wtChg.toFixed(1)}%` : h.wtChg < 0 ? `${h.wtChg.toFixed(1)}%` : '±0';
             const wtChgCls = h.wtChg > 0 ? 'pos' : h.wtChg < 0 ? 'neg' : 'zero';
             const hidden = smCurrentFilter !== 'all' && h.action !== smCurrentFilter ? ' hidden' : '';
+            const shares = _smFmtShares(inst.aum, h.wt, h.avgPrice);
             return `<div class="sm-holding-row${hidden}" onclick="smChartLink('${h.ticker}',${h.avgPrice},'${inst.name}')">
                 <div>
                     <div class="sm-tick">${h.ticker}</div>
@@ -4420,7 +4423,7 @@
                     <div class="sm-wt-chg ${wtChgCls}">${wtChgStr}</div>
                 </div>
                 <div class="sm-avg">$${h.avgPrice.toFixed(2)}</div>
-                <div></div>
+                <div class="sm-shares">${shares}</div>
                 <div><span class="sm-action ${h.action}">${_smActionLabel(h.action)}</span></div>
             </div>`;
         }).join('');
@@ -4439,7 +4442,7 @@
             <div class="sm-holdings-filter">${filterBtns}</div>
             <div class="sm-holdings-table">
                 <div class="sm-th-row">
-                    <div>티커</div><div>비중</div><div>평균단가</div><div></div><div>액션</div>
+                    <div>티커</div><div>비중</div><div>평균단가</div><div>보유수량</div><div>액션</div>
                 </div>
                 ${rows}
             </div>
@@ -4484,6 +4487,14 @@
 
     function _smActionLabel(a) {
         return {new:'신규',add:'추가',reduce:'축소',cut:'청산',hold:'유지'}[a] || a;
+    }
+    function _smFmtShares(aum, wt, avgPrice) {
+        // aum: 단위 10억달러(B), wt: %, avgPrice: $
+        const n = (aum * 1e9 * wt / 100) / avgPrice;
+        if (n >= 1e9) return `${(n/1e9).toFixed(2)}B주`;
+        if (n >= 1e6) return `${(n/1e6).toFixed(2)}M주`;
+        if (n >= 1e3) return `${Math.round(n/1e3)}K주`;
+        return `${Math.round(n)}주`;
     }
 
     function smDeepBack() {
