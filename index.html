@@ -1149,6 +1149,15 @@
         .sm-insight-title{font-size:13px;font-weight:800;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
         .sm-insight-body{font-size:12px;color:var(--text2);line-height:1.8;}
         .sm-holding-row.hidden{display:none;}
+        /* 🔥 HOT — 폼 미친 기관들 */
+        .sm-volatile-badge{display:inline-block;background:rgba(239,68,68,.12);color:#ef4444;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;margin-right:3px;}
+        .sm-top3-add-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px;}
+        .sm-top3-add-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 10px 10px;cursor:pointer;transition:all .15s;}
+        .sm-top3-add-card:hover{border-color:#f59e0b;transform:translateY(-1px);}
+        .sm-add-chg{font-size:11px;font-weight:700;color:#22c55e;background:rgba(34,197,94,.1);border-radius:4px;padding:2px 5px;}
+        /* 🏛️ KINGDOM — 월가 킹덤 */
+        .sm-top3-hold{display:inline-flex;align-items:center;gap:3px;background:var(--bg3);border-radius:5px;padding:2px 7px;font-size:11px;font-weight:600;color:var(--text2);margin-right:4px;margin-bottom:3px;}
+        .sm-treemap-wrap{background:var(--bg2);border-radius:10px;padding:10px;margin-bottom:6px;overflow:hidden;}
     </style>
 </head>
 <body>
@@ -1284,15 +1293,15 @@
         <div class="sm-disclaimer">
             <span class="sm-disclaimer-icon">⚠️</span>
             <div>
-                <span class="sm-quarter-badge" id="smQuarterBadge">Q4 2024</span> 기준 공시 데이터입니다.
+                <span class="sm-quarter-badge" id="smQuarterBadge">Q1 2025</span> 기준 공시 데이터입니다.
                 13F는 분기 종료 후 <strong>최대 45일 이내</strong> 제출 의무로, 실제 포지션 변경으로부터
                 <strong>최대 4.5개월</strong> 지연될 수 있습니다.
             </div>
         </div>
         <!-- 서브 탭 -->
         <div class="sm-sub-tabs">
-            <button class="sm-sub-tab active" id="smTabTop10" onclick="switchSmTab('top10')">🏆 TOP 퍼포먼스</button>
-            <button class="sm-sub-tab" id="smTabGuru" onclick="switchSmTab('guru')">👑 구루의 선택</button>
+            <button class="sm-sub-tab active" id="smTabTop10" onclick="switchSmTab('top10')">🔥 폼 미친 기관들</button>
+            <button class="sm-sub-tab" id="smTabGuru" onclick="switchSmTab('guru')">🏛️ 월가 킹덤</button>
         </div>
         <!-- Panel A: TOP 10 -->
         <div class="sm-panel active" id="smPanelTop10"></div>
@@ -2588,114 +2597,407 @@
     let pendingSmartMoneyLine = null;
     let smCurrentFilter = 'all';
 
-    const SM_INSTITUTIONS = [
+    // ===== 🔥 폼 미친 기관들 — 수익률 HIGH 퍼포머 (Q1 2025) =====
+    const SM_HOT = [
         {
-            id:'renaissance', name:'Renaissance Technologies', manager:'Peter Brown (Jim Simons 창업)',
-            aum:106.0, ret1q:12.4, ret1y:38.2,
-            sectors:['기술','AI','헬스케어'], topBuy:'NVDA', emoji:'🤖',
-            philosophy:'순수 퀀트 전략. 통계 패턴 기반 알고리즘 트레이딩. 마켓 뉴트럴 포지션을 통해 시장 노이즈에서 알파를 추출.',
-            tags:['퀀트','알고리즘','시장중립'],
-            holdings:[
-                {ticker:'NVDA',name:'NVIDIA Corp',wt:8.2,wtChg:+3.1,avgPrice:495.20,action:'add'},
-                {ticker:'META',name:'Meta Platforms',wt:6.4,wtChg:+1.2,avgPrice:512.30,action:'add'},
-                {ticker:'MSFT',name:'Microsoft Corp',wt:5.9,wtChg:-0.4,avgPrice:415.80,action:'hold'},
-                {ticker:'AMZN',name:'Amazon.com',wt:5.2,wtChg:+0.8,avgPrice:188.40,action:'add'},
-                {ticker:'GOOGL',name:'Alphabet Inc',wt:4.8,wtChg:+2.1,avgPrice:168.20,action:'new'},
-                {ticker:'UNH',name:'UnitedHealth Group',wt:4.1,wtChg:-1.0,avgPrice:510.00,action:'reduce'},
-                {ticker:'LLY',name:'Eli Lilly',wt:3.8,wtChg:+0.5,avgPrice:820.50,action:'add'},
-                {ticker:'AVGO',name:'Broadcom Inc',wt:3.2,wtChg:+1.8,avgPrice:178.30,action:'new'},
+            id:'coatue', name:'Coatue Management', manager:'Philippe Laffont',
+            ret1q:28.4, ret1y:94.2, newBuySector:'AI 인프라',
+            hotBadge:'🚀', emoji:'🔬',
+            tags:['기술성장','AI','모멘텀'],
+            volatilePicks:['HIMS','IONQ','APP'],
+            top3Add:[
+                {ticker:'IONQ',name:'IonQ Inc',wtChg:+8.4,avgPrice:28.40,theme:'양자컴퓨팅 1등주'},
+                {ticker:'HIMS',name:'Hims & Hers Health',wtChg:+6.2,avgPrice:22.80,theme:'GLP-1 직접판매 플랫폼'},
+                {ticker:'APP',name:'Applovin Corp',wtChg:+5.1,avgPrice:312.40,theme:'AI 광고 최대 수혜'},
             ],
-            insight:'르네상스는 NVDA·META·GOOGL 비중을 대폭 확대했습니다. AI 인프라 수요 사이클이 장기화될 것이라는 통계 시그널을 감지한 것으로 해석됩니다. AVGO 신규 편입은 AI 반도체 공급망 확장 베팅.'
+            holdings:[
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:18.4,wtChg:+4.2,avgPrice:126.80,action:'add'},
+                {ticker:'APP',name:'Applovin Corp',wt:12.1,wtChg:+5.1,avgPrice:312.40,action:'add'},
+                {ticker:'IONQ',name:'IonQ Inc',wt:8.4,wtChg:+8.4,avgPrice:28.40,action:'new'},
+                {ticker:'HIMS',name:'Hims & Hers Health',wt:6.2,wtChg:+6.2,avgPrice:22.80,action:'new'},
+                {ticker:'PLTR',name:'Palantir Technologies',wt:7.8,wtChg:+3.4,avgPrice:84.20,action:'add'},
+                {ticker:'META',name:'Meta Platforms',wt:9.2,wtChg:+1.8,avgPrice:548.60,action:'add'},
+                {ticker:'RDDT',name:'Reddit Inc',wt:4.6,wtChg:+4.6,avgPrice:148.20,action:'new'},
+                {ticker:'SNOW',name:'Snowflake Inc',wt:3.2,wtChg:-2.8,avgPrice:162.40,action:'reduce'},
+            ],
+            insight:'코아튜는 Q1 2025에 양자컴퓨팅(IONQ)과 AI 헬스케어(HIMS)를 신규 대량 매수했습니다. APP 비중을 AI 광고 생태계 장악에 베팅하며 대폭 확대. NVDA·PLTR 추가매수로 AI 풀스택 포트폴리오 구축 중.'
         },
         {
-            id:'pershing', name:'Pershing Square Capital', manager:'Bill Ackman',
-            aum:18.4, ret1q:9.8, ret1y:28.6,
-            sectors:['소비재','기술','통신'], topBuy:'GOOGL', emoji:'💼',
-            philosophy:'집중 투자 + 행동주의. 소수 고확신 종목에 집중. 기업가치 개선을 적극적으로 이사회에 요구.',
-            tags:['행동주의','집중투자','가치'],
-            holdings:[
-                {ticker:'GOOGL',name:'Alphabet Inc',wt:16.2,wtChg:+16.2,avgPrice:165.40,action:'new'},
-                {ticker:'HLT',name:'Hilton Worldwide',wt:14.3,wtChg:+0.8,avgPrice:212.30,action:'add'},
-                {ticker:'QSR',name:'Restaurant Brands',wt:12.1,wtChg:-0.5,avgPrice:62.80,action:'hold'},
-                {ticker:'CMG',name:'Chipotle Mexican Grill',wt:11.8,wtChg:+1.2,avgPrice:53.20,action:'add'},
-                {ticker:'CP',name:'Canadian Pacific Kansas City',wt:9.4,wtChg:-2.1,avgPrice:81.50,action:'reduce'},
-                {ticker:'MNST',name:'Monster Beverage',wt:8.7,wtChg:-0.3,avgPrice:51.20,action:'hold'},
-                {ticker:'LOW',name:"Lowe's Companies",wt:7.9,wtChg:+0.6,avgPrice:248.40,action:'add'},
+            id:'sachem', name:'Sachem Head Capital', manager:'Scott Ferguson',
+            ret1q:24.8, ret1y:78.6, newBuySector:'양자·방산 테크',
+            hotBadge:'⚡', emoji:'🎯',
+            tags:['행동주의','집중투자','특수상황'],
+            volatilePicks:['QBTS','NVTS','IONQ'],
+            top3Add:[
+                {ticker:'QBTS',name:'D-Wave Quantum',wtChg:+9.2,avgPrice:8.60,theme:'양자컴퓨팅 상용화 선두'},
+                {ticker:'NVTS',name:'Navitas Semiconductor',wtChg:+7.4,avgPrice:4.20,theme:'GaN 전력반도체 성장주'},
+                {ticker:'HIMS',name:'Hims & Hers Health',wtChg:+5.8,avgPrice:24.10,theme:'텔레헬스 플랫폼 고성장'},
             ],
-            insight:'퍼싱스퀘어는 Q4에 Alphabet(GOOGL) 신규 대량 매수가 가장 눈에 띕니다. AI 광고 수익 성장과 유튜브 프리미엄 확대를 근거로 한 포지션. 행동주의 성격상 이사회 영향력 행사 가능성도 있습니다.'
+            holdings:[
+                {ticker:'QBTS',name:'D-Wave Quantum',wt:9.2,wtChg:+9.2,avgPrice:8.60,action:'new'},
+                {ticker:'NVTS',name:'Navitas Semiconductor',wt:7.4,wtChg:+7.4,avgPrice:4.20,action:'new'},
+                {ticker:'HIMS',name:'Hims & Hers Health',wt:5.8,wtChg:+5.8,avgPrice:24.10,action:'new'},
+                {ticker:'PLTR',name:'Palantir Technologies',wt:11.2,wtChg:+2.4,avgPrice:82.60,action:'add'},
+                {ticker:'IONQ',name:'IonQ Inc',wt:6.4,wtChg:+3.8,avgPrice:26.80,action:'add'},
+                {ticker:'CRWD',name:'CrowdStrike Holdings',wt:8.6,wtChg:+1.2,avgPrice:362.40,action:'add'},
+                {ticker:'ANET',name:'Arista Networks',wt:7.2,wtChg:-1.6,avgPrice:388.20,action:'hold'},
+            ],
+            insight:'사켐헤드는 양자컴퓨팅 테마를 집중 공략했습니다. QBTS(D-Wave), IONQ 모두 신규/추가 매수. NVTS는 전기차·태양광 GaN 반도체의 구조적 성장에 베팅한 포지션. 행동주의 성격상 경영 개입 가능성 주시.'
         },
         {
-            id:'tiger', name:'Tiger Global Management', manager:'Chase Coleman',
-            aum:33.2, ret1q:8.1, ret1y:25.9,
-            sectors:['기술','성장주','AI'], topBuy:'META', emoji:'🐯',
-            philosophy:'차세대 기술 성장주 집중. 인터넷·SaaS·AI·핀테크 기업에 장기 투자. VC와 PE를 병행하는 하이브리드 펀드.',
-            tags:['성장주','기술','VC+PE'],
-            holdings:[
-                {ticker:'META',name:'Meta Platforms',wt:14.3,wtChg:+2.1,avgPrice:510.20,action:'add'},
-                {ticker:'MSFT',name:'Microsoft Corp',wt:11.2,wtChg:-0.8,avgPrice:418.60,action:'hold'},
-                {ticker:'AMZN',name:'Amazon.com',wt:9.8,wtChg:+1.4,avgPrice:189.50,action:'add'},
-                {ticker:'NVDA',name:'NVIDIA Corp',wt:8.7,wtChg:+3.2,avgPrice:492.10,action:'add'},
-                {ticker:'SNOW',name:'Snowflake Inc',wt:6.2,wtChg:-2.8,avgPrice:142.30,action:'reduce'},
-                {ticker:'ADBE',name:'Adobe Inc',wt:5.4,wtChg:+0.9,avgPrice:488.20,action:'add'},
-                {ticker:'CRWD',name:'CrowdStrike Holdings',wt:4.8,wtChg:+1.5,avgPrice:312.40,action:'new'},
-                {ticker:'UBER',name:'Uber Technologies',wt:4.2,wtChg:+0.7,avgPrice:74.80,action:'add'},
+            id:'darsana', name:'Darsana Capital Partners', manager:'Anand Desai',
+            ret1q:22.1, ret1y:68.4, newBuySector:'AI 에이전트·SaaS',
+            hotBadge:'💎', emoji:'🧿',
+            tags:['기술','성장','AI에이전트'],
+            volatilePicks:['APP','RDDT','HIMS'],
+            top3Add:[
+                {ticker:'APP',name:'Applovin Corp',wtChg:+11.2,avgPrice:298.60,theme:'AI 광고 플랫폼 독점'},
+                {ticker:'RDDT',name:'Reddit Inc',wt:6.8,wtChg:+6.8,avgPrice:152.40,theme:'AI 데이터 소스 프리미엄'},
+                {ticker:'HIMS',name:'Hims & Hers Health',wtChg:+5.4,avgPrice:23.60,theme:'처방약 D2C 혁신'},
             ],
-            insight:'타이거 글로벌은 AI 인프라 및 엔터프라이즈 SaaS 집중 전략을 유지했습니다. META와 NVDA 비중을 추가 확대하면서 CrowdStrike를 신규 편입. SNOW 비중은 성장 둔화 우려로 축소했습니다.'
+            holdings:[
+                {ticker:'APP',name:'Applovin Corp',wt:11.2,wtChg:+11.2,avgPrice:298.60,action:'new'},
+                {ticker:'RDDT',name:'Reddit Inc',wt:6.8,wtChg:+6.8,avgPrice:152.40,action:'new'},
+                {ticker:'HIMS',name:'Hims & Hers Health',wt:5.4,wtChg:+5.4,avgPrice:23.60,action:'new'},
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:14.6,wtChg:+2.8,avgPrice:124.80,action:'add'},
+                {ticker:'GOOGL',name:'Alphabet Inc',wt:9.4,wtChg:+1.4,avgPrice:172.40,action:'add'},
+                {ticker:'AMZN',name:'Amazon.com',wt:8.2,wtChg:+0.8,avgPrice:198.60,action:'add'},
+                {ticker:'SNOW',name:'Snowflake Inc',wt:4.1,wtChg:-3.2,avgPrice:158.20,action:'reduce'},
+            ],
+            insight:'다르사나는 AI 에이전트 경제의 최대 수혜주인 APP을 새롭게 메인 포지션으로 채택. Reddit(RDDT)는 AI 학습 데이터 수요가 프리미엄 밸류에이션을 견인할 것으로 판단. HIMS는 GLP-1 시장의 구조적 성장에 올라탄 포지션.'
         },
         {
-            id:'berkshire', name:'Berkshire Hathaway', manager:'Warren Buffett',
-            aum:322.0, ret1q:5.2, ret1y:22.1,
-            sectors:['금융','소비재','에너지'], topBuy:'OXY', emoji:'🎩',
-            philosophy:'"훌륭한 기업을 공정한 가격에." 복리 효과와 경제적 해자를 중시. 수십 년 보유를 전제로 투자.',
-            tags:['가치투자','장기보유','배당'],
-            holdings:[
-                {ticker:'AAPL',name:'Apple Inc',wt:28.1,wtChg:-8.4,avgPrice:150.22,action:'reduce'},
-                {ticker:'BAC',name:'Bank of America',wt:12.2,wtChg:-1.8,avgPrice:38.40,action:'reduce'},
-                {ticker:'AXP',name:'American Express',wt:11.4,wtChg:+0.3,avgPrice:220.10,action:'hold'},
-                {ticker:'KO',name:'Coca-Cola Company',wt:8.1,wtChg:0,avgPrice:44.20,action:'hold'},
-                {ticker:'OXY',name:'Occidental Petroleum',wt:5.9,wtChg:+0.8,avgPrice:52.30,action:'add'},
-                {ticker:'CVX',name:'Chevron Corp',wt:5.4,wtChg:-0.6,avgPrice:148.90,action:'hold'},
-                {ticker:'MCO',name:"Moody's Corp",wt:5.2,wtChg:+0.2,avgPrice:428.60,action:'hold'},
-                {ticker:'SIRI',name:'Sirius XM Holdings',wt:3.1,wtChg:+3.1,avgPrice:3.05,action:'new'},
+            id:'altimeter', name:'Altimeter Capital', manager:'Brad Gerstner',
+            ret1q:19.6, ret1y:62.8, newBuySector:'클라우드 AI',
+            hotBadge:'🌟', emoji:'🛸',
+            tags:['클라우드','AI','성장주'],
+            volatilePicks:['IONQ','PLTR','APP'],
+            top3Add:[
+                {ticker:'IONQ',name:'IonQ Inc',wtChg:+7.8,avgPrice:31.20,theme:'양자 클라우드 B2B'},
+                {ticker:'PLTR',name:'Palantir Technologies',wtChg:+6.4,avgPrice:88.40,theme:'AI 정부·엔터프라이즈'},
+                {ticker:'APP',name:'Applovin Corp',wtChg:+4.8,avgPrice:318.60,theme:'모바일 AI 광고 독보적 성장'},
             ],
-            insight:'버크셔는 AAPL 보유량을 절반 이하로 줄였습니다 (세금 이슈 + 밸류에이션 부담). 대신 OXY(서부석유)를 꾸준히 추가 매수. SIRI는 Liberty Media 합병 관련 신규 포지션으로 해석됩니다.'
+            holdings:[
+                {ticker:'SNOW',name:'Snowflake Inc',wt:16.4,wtChg:-1.2,avgPrice:162.80,action:'hold'},
+                {ticker:'PLTR',name:'Palantir Technologies',wt:12.8,wtChg:+6.4,avgPrice:88.40,action:'add'},
+                {ticker:'IONQ',name:'IonQ Inc',wt:7.8,wtChg:+7.8,avgPrice:31.20,action:'new'},
+                {ticker:'APP',name:'Applovin Corp',wt:8.4,wtChg:+4.8,avgPrice:318.60,action:'add'},
+                {ticker:'AMZN',name:'Amazon.com',wt:11.2,wtChg:+0.6,avgPrice:196.40,action:'add'},
+                {ticker:'META',name:'Meta Platforms',wt:9.6,wtChg:+1.4,avgPrice:542.80,action:'add'},
+                {ticker:'UBER',name:'Uber Technologies',wt:5.8,wtChg:-2.1,avgPrice:72.40,action:'reduce'},
+            ],
+            insight:'알티미터는 IONQ 신규 편입으로 양자컴퓨팅 베타를 포트폴리오에 추가. PLTR을 대폭 확대하며 AI 소프트웨어 실적 가속에 베팅. 대표적인 AI 강세론자(Brad Gerstner)답게 클라우드+AI 전체 체인에 투자 집중.'
         },
         {
-            id:'appaloosa', name:'Appaloosa Management', manager:'David Tepper',
-            aum:14.8, ret1q:6.4, ret1y:19.8,
-            sectors:['기술','AI','중국테크'], topBuy:'META', emoji:'🐎',
-            philosophy:'"공포를 사고 탐욕을 판다." 스트레스 자산 + 성장주 혼합. 역발상 매매와 매크로 베팅으로 유명.',
-            tags:['역발상','스트레스자산','성장'],
-            holdings:[
-                {ticker:'META',name:'Meta Platforms',wt:13.8,wtChg:+2.4,avgPrice:508.40,action:'add'},
-                {ticker:'NVDA',name:'NVIDIA Corp',wt:11.2,wtChg:+1.8,avgPrice:488.20,action:'add'},
-                {ticker:'AMZN',name:'Amazon.com',wt:9.6,wtChg:+0.7,avgPrice:186.40,action:'add'},
-                {ticker:'BABA',name:'Alibaba Group',wt:8.4,wtChg:+3.2,avgPrice:78.20,action:'add'},
-                {ticker:'JD',name:'JD.com Inc',wt:6.8,wtChg:+6.8,avgPrice:28.40,action:'new'},
-                {ticker:'GOOGL',name:'Alphabet Inc',wt:6.2,wtChg:+1.1,avgPrice:166.80,action:'add'},
-                {ticker:'MSFT',name:'Microsoft Corp',wt:5.8,wtChg:-1.2,avgPrice:416.20,action:'reduce'},
-                {ticker:'PDD',name:'PDD Holdings',wt:4.6,wtChg:+2.1,avgPrice:102.40,action:'new'},
+            id:'iconiq', name:'ICONIQ Growth', manager:'Will Griffith',
+            ret1q:18.2, ret1y:58.4, newBuySector:'핀테크·AI 인프라',
+            hotBadge:'💰', emoji:'🦅',
+            tags:['성장주','핀테크','B2B SaaS'],
+            volatilePicks:['HIMS','RDDT','NVTS'],
+            top3Add:[
+                {ticker:'HIMS',name:'Hims & Hers Health',wtChg:+8.6,avgPrice:21.40,theme:'구독형 헬스케어 혁신'},
+                {ticker:'RDDT',name:'Reddit Inc',wtChg:+5.2,avgPrice:144.60,theme:'소셜·AI 데이터 하이브리드'},
+                {ticker:'NVTS',name:'Navitas Semiconductor',wtChg:+4.6,avgPrice:4.80,theme:'GaN 전력반도체 성장'},
             ],
-            insight:'테퍼는 중국 빅테크(BABA, JD, PDD)를 대폭 매수했습니다. "중국 부양책은 역대급"이라는 발언과 일치하는 포지션 변화. 동시에 META·NVDA·AMZN 등 미국 AI 종목도 확대 — 양 방향 베팅 전략.'
+            holdings:[
+                {ticker:'HIMS',name:'Hims & Hers Health',wt:8.6,wtChg:+8.6,avgPrice:21.40,action:'new'},
+                {ticker:'RDDT',name:'Reddit Inc',wt:5.2,wtChg:+5.2,avgPrice:144.60,action:'new'},
+                {ticker:'NVTS',name:'Navitas Semiconductor',wt:4.6,wtChg:+4.6,avgPrice:4.80,action:'new'},
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:16.8,wtChg:+3.6,avgPrice:128.40,action:'add'},
+                {ticker:'META',name:'Meta Platforms',wt:12.4,wtChg:+1.8,avgPrice:544.20,action:'add'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:10.6,wtChg:-0.8,avgPrice:422.80,action:'hold'},
+                {ticker:'AMZN',name:'Amazon.com',wt:8.4,wtChg:+0.4,avgPrice:194.60,action:'hold'},
+            ],
+            insight:'아이코닉그로스는 Q1 2025에 HIMS·RDDT·NVTS 트리플 신규 편입. 공통 테마는 "AI가 변화시키는 전통 산업". HIMS는 AI 기반 처방, RDDT는 AI 데이터, NVTS는 AI 파워 효율화. 섹터 윤전 없는 AI 일괄 베팅.'
         },
         {
-            id:'druckenmiller', name:'Duquesne Family Office', manager:'Stan Druckenmiller',
-            aum:2.9, ret1q:7.8, ret1y:18.4,
-            sectors:['AI','기술','헬스케어'], topBuy:'NVDA', emoji:'👑',
-            philosophy:'"분산 투자는 무식한 사람을 위한 것." 고확신 집중 투자와 빠른 포지션 전환. 매크로 + 개별주 혼합.',
-            tags:['매크로','집중투자','모멘텀'],
-            holdings:[
-                {ticker:'NVDA',name:'NVIDIA Corp',wt:19.8,wtChg:+4.2,avgPrice:476.40,action:'add'},
-                {ticker:'CPNG',name:'Coupang Inc',wt:12.4,wtChg:+12.4,avgPrice:21.80,action:'new'},
-                {ticker:'MSFT',name:'Microsoft Corp',wt:10.2,wtChg:-2.1,avgPrice:412.60,action:'reduce'},
-                {ticker:'UNH',name:'UnitedHealth Group',wt:8.6,wtChg:+1.4,avgPrice:505.20,action:'add'},
-                {ticker:'ISRG',name:'Intuitive Surgical',wt:7.4,wtChg:+2.8,avgPrice:448.80,action:'new'},
-                {ticker:'NFLX',name:'Netflix Inc',wt:6.8,wtChg:-0.4,avgPrice:738.40,action:'hold'},
-                {ticker:'GS',name:'Goldman Sachs',wt:5.2,wtChg:+1.6,avgPrice:548.20,action:'add'},
+            id:'greenlight', name:'Greenlight Capital', manager:'David Einhorn',
+            ret1q:16.4, ret1y:52.2, newBuySector:'특수상황·밸류',
+            hotBadge:'🌿', emoji:'🎲',
+            tags:['가치투자','숏셀링','역발상'],
+            volatilePicks:['QBTS','HIMS'],
+            top3Add:[
+                {ticker:'QBTS',name:'D-Wave Quantum',wtChg:+6.8,avgPrice:9.20,theme:'양자컴퓨팅 역발상 롱'},
+                {ticker:'HIMS',name:'Hims & Hers Health',wtChg:+4.4,avgPrice:25.80,theme:'GLP-1 밸류 미스프라이싱'},
+                {ticker:'OXY',name:'Occidental Petroleum',wtChg:+3.8,avgPrice:48.60,theme:'에너지 구조적 공급 부족'},
             ],
-            insight:'드러큰밀러는 NVDA를 전체 포트폴리오의 약 20%로 최대 비중 유지. 쿠팡(CPNG)을 신규 대량 매수 — 한국 이커머스 장기 성장 베팅. ISRG 신규 편입으로 의료 로봇 섹터 진입.'
+            holdings:[
+                {ticker:'QBTS',name:'D-Wave Quantum',wt:6.8,wtChg:+6.8,avgPrice:9.20,action:'new'},
+                {ticker:'HIMS',name:'Hims & Hers Health',wt:4.4,wtChg:+4.4,avgPrice:25.80,action:'new'},
+                {ticker:'OXY',name:'Occidental Petroleum',wt:8.4,wtChg:+3.8,avgPrice:48.60,action:'add'},
+                {ticker:'CNX',name:'CNX Resources',wt:7.2,wtChg:+1.4,avgPrice:26.80,action:'add'},
+                {ticker:'GOLD',name:'Barrick Gold',wt:6.8,wtChg:+2.1,avgPrice:18.40,action:'add'},
+                {ticker:'NCLH',name:'Norwegian Cruise Line',wt:5.6,wtChg:-1.8,avgPrice:18.20,action:'reduce'},
+                {ticker:'HUN',name:'Huntsman Corp',wt:4.2,wtChg:+0.6,avgPrice:14.60,action:'hold'},
+            ],
+            insight:'아인혼은 역발상 스타일 그대로 QBTS를 "과매도 후 반등 베팅"으로 매수. HIMS는 시장이 GLP-1 경쟁 심화를 과대 반영해 저평가됐다는 판단. 에너지·귀금속 헷지 포지션도 꾸준히 확대 중.'
+        },
+        {
+            id:'pelham', name:'Pelham Capital', manager:'Ross Turner',
+            ret1q:15.8, ret1y:48.6, newBuySector:'바이오·혁신의료',
+            hotBadge:'🧬', emoji:'🔭',
+            tags:['바이오','헬스케어','성장'],
+            volatilePicks:['HIMS','NVTS'],
+            top3Add:[
+                {ticker:'HIMS',name:'Hims & Hers Health',wtChg:+9.4,avgPrice:20.80,theme:'GLP-1 처방 플랫폼 독보적'},
+                {ticker:'NVTS',name:'Navitas Semiconductor',wtChg:+5.6,avgPrice:4.60,theme:'AI 데이터센터 전력효율'},
+                {ticker:'RDDT',name:'Reddit Inc',wtChg:+4.2,avgPrice:146.80,theme:'밀레니얼 미디어 성장'},
+            ],
+            holdings:[
+                {ticker:'HIMS',name:'Hims & Hers Health',wt:9.4,wtChg:+9.4,avgPrice:20.80,action:'new'},
+                {ticker:'NVTS',name:'Navitas Semiconductor',wt:5.6,wtChg:+5.6,avgPrice:4.60,action:'new'},
+                {ticker:'RDDT',name:'Reddit Inc',wt:4.2,wtChg:+4.2,avgPrice:146.80,action:'new'},
+                {ticker:'LLY',name:'Eli Lilly',wt:14.8,wtChg:+2.4,avgPrice:812.60,action:'add'},
+                {ticker:'ABBV',name:'AbbVie Inc',wt:8.6,wtChg:+1.2,avgPrice:184.20,action:'add'},
+                {ticker:'ISRG',name:'Intuitive Surgical',wt:7.4,wtChg:+0.6,avgPrice:502.40,action:'hold'},
+                {ticker:'DXCM',name:'DexCom Inc',wt:5.2,wtChg:-2.4,avgPrice:78.60,action:'reduce'},
+            ],
+            insight:'펠햄은 헬스케어 포트폴리오에 AI 요소를 추가했습니다. HIMS는 GLP-1 처방 D2C 플랫폼으로 LLY와 시너지 기대. NVTS는 의료기기·데이터센터 전력 효율화 수혜. RDDT 신규는 헬스케어 데이터 커뮤니티 프리미엄 베팅.'
+        },
+        {
+            id:'viking', name:'Viking Global Investors', manager:'Andreas Halvorsen',
+            ret1q:14.6, ret1y:44.8, newBuySector:'AI·반도체',
+            hotBadge:'⚔️', emoji:'🛡️',
+            tags:['롱숏','글로벌','리서치기반'],
+            volatilePicks:['IONQ','APP','RDDT'],
+            top3Add:[
+                {ticker:'IONQ',name:'IonQ Inc',wtChg:+6.2,avgPrice:29.80,theme:'양자컴퓨팅 선점 투자'},
+                {ticker:'APP',name:'Applovin Corp',wtChg:+5.4,avgPrice:306.40,theme:'모바일 AI 광고 독점'},
+                {ticker:'RDDT',name:'Reddit Inc',wtChg:+4.8,avgPrice:150.20,theme:'AI 데이터 허브 프리미엄'},
+            ],
+            holdings:[
+                {ticker:'IONQ',name:'IonQ Inc',wt:6.2,wtChg:+6.2,avgPrice:29.80,action:'new'},
+                {ticker:'APP',name:'Applovin Corp',wt:9.8,wtChg:+5.4,avgPrice:306.40,action:'add'},
+                {ticker:'RDDT',name:'Reddit Inc',wt:4.8,wtChg:+4.8,avgPrice:150.20,action:'new'},
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:15.4,wtChg:+2.2,avgPrice:122.80,action:'add'},
+                {ticker:'AVGO',name:'Broadcom Inc',wt:8.6,wtChg:+1.8,avgPrice:224.60,action:'add'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:7.4,wtChg:-0.6,avgPrice:418.40,action:'hold'},
+                {ticker:'AMZN',name:'Amazon.com',wt:6.8,wtChg:+0.4,avgPrice:192.60,action:'hold'},
+            ],
+            insight:'바이킹은 퀄리티 롱숏 스타일을 유지하면서 양자컴퓨팅(IONQ)과 AI 광고(APP) 두 테마를 신규 편입. NVDA·AVGO·AMZN 기존 AI 포지션을 유지하면서 "2세대 AI 수혜주"로 포트폴리오 다각화.'
+        },
+        {
+            id:'bridgewater', name:'Bridgewater Pure Alpha', manager:'Greg Jensen',
+            ret1q:13.2, ret1y:40.6, newBuySector:'매크로·원자재',
+            hotBadge:'🌊', emoji:'🌐',
+            tags:['매크로','글로벌','리스크패리티'],
+            volatilePicks:['HIMS','QBTS'],
+            top3Add:[
+                {ticker:'HIMS',name:'Hims & Hers Health',wtChg:+4.8,avgPrice:22.40,theme:'인플레이션 헷지 헬스케어'},
+                {ticker:'QBTS',name:'D-Wave Quantum',wtChg:+3.6,avgPrice:8.80,theme:'매크로 기술 분산투자'},
+                {ticker:'GLD',name:'SPDR Gold Shares',wtChg:+3.2,avgPrice:182.40,theme:'지정학 리스크 헷지'},
+            ],
+            holdings:[
+                {ticker:'GLD',name:'SPDR Gold Shares',wt:8.2,wtChg:+3.2,avgPrice:182.40,action:'add'},
+                {ticker:'HIMS',name:'Hims & Hers Health',wt:4.8,wtChg:+4.8,avgPrice:22.40,action:'new'},
+                {ticker:'QBTS',name:'D-Wave Quantum',wt:3.6,wtChg:+3.6,avgPrice:8.80,action:'new'},
+                {ticker:'SPY',name:'SPDR S&P 500 ETF',wt:12.4,wtChg:-1.2,avgPrice:528.60,action:'reduce'},
+                {ticker:'TLT',name:'iShares 20Y+ Bond ETF',wt:9.6,wtChg:+2.4,avgPrice:88.40,action:'add'},
+                {ticker:'EEM',name:'iShares EM ETF',wt:7.8,wtChg:+1.6,avgPrice:42.80,action:'add'},
+                {ticker:'USO',name:'United States Oil Fund',wt:5.4,wtChg:-0.8,avgPrice:72.20,action:'hold'},
+            ],
+            insight:'브릿지워터는 매크로 리스크패리티 전략 기반으로 금(GLD)과 신흥국(EEM)을 확대. 테크 배타였던 기존 스타일에서 벗어나 HIMS·QBTS를 소량 편입 — 인플레이션 헷지 + 기술 분산의 실험적 포지션.'
+        },
+        {
+            id:'longpine', name:'Long Pine Capital', manager:'Steve Mandel Jr.',
+            ret1q:12.8, ret1y:38.4, newBuySector:'AI 소비재·미디어',
+            hotBadge:'🌲', emoji:'🦌',
+            tags:['성장주','집중투자','롱온리'],
+            volatilePicks:['APP','RDDT','HIMS'],
+            top3Add:[
+                {ticker:'APP',name:'Applovin Corp',wtChg:+7.6,avgPrice:302.80,theme:'AI 광고 ROI 압도적'},
+                {ticker:'RDDT',name:'Reddit Inc',wtChg:+5.8,avgPrice:148.40,theme:'Gen Z 미디어 플랫폼'},
+                {ticker:'HIMS',name:'Hims & Hers Health',wtChg:+4.8,avgPrice:21.80,theme:'처방의약 D2C 성장'},
+            ],
+            holdings:[
+                {ticker:'APP',name:'Applovin Corp',wt:13.4,wtChg:+7.6,avgPrice:302.80,action:'add'},
+                {ticker:'RDDT',name:'Reddit Inc',wt:5.8,wtChg:+5.8,avgPrice:148.40,action:'new'},
+                {ticker:'HIMS',name:'Hims & Hers Health',wt:4.8,wtChg:+4.8,avgPrice:21.80,action:'new'},
+                {ticker:'NFLX',name:'Netflix Inc',wt:11.2,wtChg:+1.4,avgPrice:968.40,action:'add'},
+                {ticker:'AMZN',name:'Amazon.com',wt:9.8,wtChg:+0.8,avgPrice:196.80,action:'add'},
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:14.6,wtChg:+3.2,avgPrice:126.40,action:'add'},
+                {ticker:'SHOP',name:'Shopify Inc',wt:5.4,wtChg:-1.6,avgPrice:92.40,action:'reduce'},
+            ],
+            insight:'롱파인은 AI 광고 플랫폼 APP에 적극 베팅하면서 동시에 RDDT·HIMS 등 2025년 새롭게 부각된 성장 스토리를 신규 편입. 스티브 만델의 롱온리 고집식 집중 포트폴리오 스타일이 AI 테마와 정확히 맞아떨어졌습니다.'
         },
     ];
+
+    // ===== 🏛️ 월가 킹덤 — 메이저 기관 TOP 10 (AUM 기준, Q1 2025) =====
+    const SM_KINGDOM = [
+        {
+            id:'blackrock', name:'BlackRock Inc', manager:'Larry Fink',
+            aum:11400, top3:[{ticker:'AAPL',wt:4.2},{ticker:'MSFT',wt:3.8},{ticker:'NVDA',wt:3.4}],
+            emoji:'⬛',
+            tags:['패시브','ETF','글로벌최대'],
+            holdings:[
+                {ticker:'AAPL',name:'Apple Inc',wt:4.2,wtChg:-0.3,avgPrice:186.40,action:'hold'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:3.8,wtChg:+0.1,avgPrice:422.80,action:'hold'},
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:3.4,wtChg:+0.8,avgPrice:128.40,action:'add'},
+                {ticker:'AMZN',name:'Amazon.com',wt:2.9,wtChg:+0.2,avgPrice:198.60,action:'hold'},
+                {ticker:'GOOGL',name:'Alphabet Inc',wt:2.4,wtChg:+0.1,avgPrice:172.80,action:'hold'},
+                {ticker:'META',name:'Meta Platforms',wt:2.1,wtChg:+0.3,avgPrice:548.20,action:'add'},
+                {ticker:'BRK.B',name:'Berkshire Hathaway B',wt:1.8,wtChg:-0.1,avgPrice:482.60,action:'hold'},
+                {ticker:'LLY',name:'Eli Lilly',wt:1.6,wtChg:+0.2,avgPrice:818.40,action:'add'},
+            ],
+            insight:'블랙록은 세계 최대 자산운용사로 대부분 패시브 인덱스 펀드 운용. NVDA 비중 소폭 확대는 AI 인덱스 리밸런싱 효과. 개별 종목 배팅보다는 시장 전체 흐름을 반영하는 "시장 그 자체".'
+        },
+        {
+            id:'vanguard', name:'Vanguard Group', manager:'Salim Ramji',
+            aum:9800, top3:[{ticker:'AAPL',wt:5.1},{ticker:'MSFT',wt:4.6},{ticker:'NVDA',wt:4.0}],
+            emoji:'🔵',
+            tags:['패시브','저비용','장기투자'],
+            holdings:[
+                {ticker:'AAPL',name:'Apple Inc',wt:5.1,wtChg:-0.2,avgPrice:184.60,action:'hold'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:4.6,wtChg:+0.1,avgPrice:420.40,action:'hold'},
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:4.0,wtChg:+0.9,avgPrice:126.20,action:'add'},
+                {ticker:'AMZN',name:'Amazon.com',wt:3.4,wtChg:+0.2,avgPrice:196.80,action:'hold'},
+                {ticker:'GOOGL',name:'Alphabet Inc',wt:2.8,wtChg:0,avgPrice:170.40,action:'hold'},
+                {ticker:'META',name:'Meta Platforms',wt:2.4,wtChg:+0.4,avgPrice:546.80,action:'add'},
+                {ticker:'BRK.B',name:'Berkshire Hathaway B',wt:2.0,wtChg:-0.1,avgPrice:480.20,action:'hold'},
+                {ticker:'AVGO',name:'Broadcom Inc',wt:1.8,wtChg:+0.3,avgPrice:224.40,action:'add'},
+            ],
+            insight:'뱅가드는 존 보글 철학 그대로 저비용 인덱스 펀드의 대명사. NVDA 비중 급증은 S&P500·나스닥 내 NVDA 시총 비중 확대를 자동 반영. "시장을 이기지 말고 시장이 되어라"는 접근법의 완벽한 구현.'
+        },
+        {
+            id:'berkshire25', name:'Berkshire Hathaway', manager:'Warren Buffett',
+            aum:580, top3:[{ticker:'AAPL',wt:26.8},{ticker:'AXP',wt:12.4},{ticker:'BAC',wt:10.2}],
+            emoji:'🎩',
+            tags:['가치투자','장기보유','배당'],
+            holdings:[
+                {ticker:'AAPL',name:'Apple Inc',wt:26.8,wtChg:-1.4,avgPrice:150.22,action:'reduce'},
+                {ticker:'AXP',name:'American Express',wt:12.4,wtChg:+0.8,avgPrice:228.40,action:'add'},
+                {ticker:'BAC',name:'Bank of America',wt:10.2,wtChg:-2.1,avgPrice:36.80,action:'reduce'},
+                {ticker:'KO',name:'Coca-Cola Company',wt:8.4,wtChg:0,avgPrice:44.20,action:'hold'},
+                {ticker:'OXY',name:'Occidental Petroleum',wt:6.8,wtChg:+1.2,avgPrice:50.80,action:'add'},
+                {ticker:'CVX',name:'Chevron Corp',wt:5.6,wtChg:-0.4,avgPrice:146.40,action:'hold'},
+                {ticker:'MCO',name:"Moody's Corp",wt:5.4,wtChg:+0.4,avgPrice:446.80,action:'add'},
+                {ticker:'VZ',name:'Verizon Communications',wt:3.8,wtChg:+3.8,avgPrice:42.60,action:'new'},
+            ],
+            insight:'버핏은 2025 Q1에도 AAPL 계속 매도 중(세금 최적화 + 밸류에이션). 대신 AXP·OXY를 꾸준히 추가. 신규 편입 VZ(버라이즌)은 통신 인프라의 장기 해자를 인정한 포지션. 현금 비중도 사상 최고 수준 유지.'
+        },
+        {
+            id:'statestreet', name:'State Street Global Advisors', manager:'Cyrus Taraporevala',
+            aum:4400, top3:[{ticker:'AAPL',wt:4.8},{ticker:'MSFT',wt:4.2},{ticker:'NVDA',wt:3.6}],
+            emoji:'🏦',
+            tags:['패시브','ETF','SPDR'],
+            holdings:[
+                {ticker:'AAPL',name:'Apple Inc',wt:4.8,wtChg:-0.2,avgPrice:184.20,action:'hold'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:4.2,wtChg:+0.1,avgPrice:420.80,action:'hold'},
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:3.6,wtChg:+0.7,avgPrice:126.80,action:'add'},
+                {ticker:'AMZN',name:'Amazon.com',wt:3.0,wtChg:+0.2,avgPrice:196.40,action:'hold'},
+                {ticker:'META',name:'Meta Platforms',wt:2.2,wtChg:+0.3,avgPrice:546.20,action:'add'},
+                {ticker:'GOOGL',name:'Alphabet Inc',wt:2.6,wtChg:0,avgPrice:171.80,action:'hold'},
+                {ticker:'TSLA',name:'Tesla Inc',wt:1.4,wtChg:-0.4,avgPrice:242.40,action:'reduce'},
+                {ticker:'LLY',name:'Eli Lilly',wt:1.6,wtChg:+0.2,avgPrice:816.40,action:'add'},
+            ],
+            insight:'스테이트스트리트는 SPDR ETF 시리즈(SPY, GLD 등)의 운용사. 인덱스 추종 비중이 절대적이며 NVDA·META 비중 증가는 시장 자체의 섹터 비중 변화를 반영. "Equal Voice" 주주 캠페인으로 ESG 영향력 행사.'
+        },
+        {
+            id:'fidelity', name:'Fidelity Investments', manager:'Abigail Johnson',
+            aum:4800, top3:[{ticker:'NVDA',wt:5.2},{ticker:'AAPL',wt:4.6},{ticker:'MSFT',wt:4.1}],
+            emoji:'🟢',
+            tags:['액티브','성장','리서치'],
+            holdings:[
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:5.2,wtChg:+1.4,avgPrice:124.80,action:'add'},
+                {ticker:'AAPL',name:'Apple Inc',wt:4.6,wtChg:-0.3,avgPrice:183.80,action:'reduce'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:4.1,wtChg:+0.2,avgPrice:421.60,action:'add'},
+                {ticker:'META',name:'Meta Platforms',wt:3.2,wtChg:+0.8,avgPrice:544.80,action:'add'},
+                {ticker:'AMZN',name:'Amazon.com',wt:3.6,wtChg:+0.4,avgPrice:197.40,action:'add'},
+                {ticker:'AVGO',name:'Broadcom Inc',wt:2.4,wtChg:+0.6,avgPrice:226.80,action:'add'},
+                {ticker:'LLY',name:'Eli Lilly',wt:2.1,wtChg:+0.3,avgPrice:822.40,action:'add'},
+                {ticker:'PLTR',name:'Palantir Technologies',wt:1.8,wtChg:+1.8,avgPrice:86.40,action:'new'},
+            ],
+            insight:'피델리티는 액티브·패시브 혼합 전략. Q1 2025에 NVDA가 처음으로 TOP1 비중 종목이 됨 — AI 칩 수요의 구조적 강세를 시사. PLTR 신규 편입은 AI 소프트웨어 레이어의 기관 수요 확대를 보여주는 신호.'
+        },
+        {
+            id:'jpmorgan', name:'J.P. Morgan Asset Management', manager:'Mary Callahan Erdoes',
+            aum:3400, top3:[{ticker:'AAPL',wt:3.8},{ticker:'MSFT',wt:3.4},{ticker:'NVDA',wt:3.0}],
+            emoji:'🏰',
+            tags:['종합운용','채권','배당'],
+            holdings:[
+                {ticker:'AAPL',name:'Apple Inc',wt:3.8,wtChg:-0.2,avgPrice:183.40,action:'hold'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:3.4,wtChg:+0.1,avgPrice:421.20,action:'hold'},
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:3.0,wtChg:+0.6,avgPrice:124.60,action:'add'},
+                {ticker:'AMZN',name:'Amazon.com',wt:2.6,wtChg:+0.2,avgPrice:195.80,action:'hold'},
+                {ticker:'GOOGL',name:'Alphabet Inc',wt:2.2,wtChg:0,avgPrice:170.80,action:'hold'},
+                {ticker:'JPM',name:'JPMorgan Chase',wt:1.8,wtChg:+0.4,avgPrice:248.60,action:'add'},
+                {ticker:'JNJ',name:'Johnson & Johnson',wt:1.6,wtChg:-0.2,avgPrice:152.40,action:'hold'},
+                {ticker:'UNH',name:'UnitedHealth Group',wt:1.4,wtChg:-0.4,avgPrice:502.40,action:'reduce'},
+            ],
+            insight:'JP모건 AM은 빅테크 중심 분산 포트폴리오를 유지. NVDA 비중 확대와 JPM 자사주 추가가 눈에 띔. UNH 축소는 메디케어 규제 리스크 대비 포지션 조정. 채권 펀드 비중도 높아 금리 민감도 낮은 구조.'
+        },
+        {
+            id:'citadel', name:'Citadel Advisors', manager:'Ken Griffin',
+            aum:640, top3:[{ticker:'NVDA',wt:6.8},{ticker:'SPY',wt:5.2},{ticker:'META',wt:4.4}],
+            emoji:'🏯',
+            tags:['퀀트','멀티스트랫','헤지펀드'],
+            holdings:[
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:6.8,wtChg:+2.4,avgPrice:122.80,action:'add'},
+                {ticker:'SPY',name:'SPDR S&P 500 ETF',wt:5.2,wtChg:-1.2,avgPrice:528.40,action:'reduce'},
+                {ticker:'META',name:'Meta Platforms',wt:4.4,wtChg:+1.8,avgPrice:546.40,action:'add'},
+                {ticker:'AAPL',name:'Apple Inc',wt:3.6,wtChg:-0.4,avgPrice:182.80,action:'hold'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:3.2,wtChg:+0.2,avgPrice:419.80,action:'hold'},
+                {ticker:'AMZN',name:'Amazon.com',wt:3.8,wtChg:+0.6,avgPrice:194.80,action:'add'},
+                {ticker:'APP',name:'Applovin Corp',wt:2.8,wtChg:+2.8,avgPrice:308.60,action:'new'},
+                {ticker:'AVGO',name:'Broadcom Inc',wt:2.4,wtChg:+0.4,avgPrice:222.80,action:'add'},
+            ],
+            insight:'시타델은 멀티스트랫 퀀트로 분기마다 포트폴리오가 크게 바뀜. Q1 2025에 NVDA를 최대 비중으로 올리고 APP을 새로 편입. 시타델의 포지션 변화는 "스마트 머니 지표"로 시장에서 많이 참고됨.'
+        },
+        {
+            id:'renaissance25', name:'Renaissance Technologies', manager:'Peter Brown',
+            aum:106, top3:[{ticker:'NVDA',wt:8.4},{ticker:'META',wt:6.8},{ticker:'APP',wt:5.6}],
+            emoji:'🤖',
+            tags:['퀀트','알고리즘','시장중립'],
+            holdings:[
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:8.4,wtChg:+3.8,avgPrice:124.60,action:'add'},
+                {ticker:'META',name:'Meta Platforms',wt:6.8,wtChg:+1.4,avgPrice:542.80,action:'add'},
+                {ticker:'APP',name:'Applovin Corp',wt:5.6,wtChg:+5.6,avgPrice:304.80,action:'new'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:5.2,wtChg:-0.6,avgPrice:418.40,action:'hold'},
+                {ticker:'AMZN',name:'Amazon.com',wt:4.8,wtChg:+0.4,avgPrice:194.40,action:'hold'},
+                {ticker:'GOOGL',name:'Alphabet Inc',wt:4.4,wtChg:+1.8,avgPrice:170.40,action:'add'},
+                {ticker:'IONQ',name:'IonQ Inc',wt:3.2,wtChg:+3.2,avgPrice:28.80,action:'new'},
+                {ticker:'AVGO',name:'Broadcom Inc',wt:2.8,wtChg:+0.8,avgPrice:222.40,action:'add'},
+            ],
+            insight:'르네상스는 통계 알고리즘이 APP·IONQ의 이상 수익률 패턴을 감지해 신규 편입. NVDA·META·GOOGL 비중 확대는 AI 서비스 레이어의 수익 모멘텀이 가속화된다는 시그널로 해석. 매달리온 펀드는 비공개이며 이는 외부 공개 펀드 기준.'
+        },
+        {
+            id:'tigerglobal25', name:'Tiger Global Management', manager:'Chase Coleman',
+            aum:58, top3:[{ticker:'META',wt:14.8},{ticker:'NVDA',wt:10.2},{ticker:'APP',wt:8.4}],
+            emoji:'🐯',
+            tags:['성장주','기술','VC+PE'],
+            holdings:[
+                {ticker:'META',name:'Meta Platforms',wt:14.8,wtChg:+2.6,avgPrice:544.40,action:'add'},
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:10.2,wtChg:+4.2,avgPrice:126.40,action:'add'},
+                {ticker:'APP',name:'Applovin Corp',wt:8.4,wtChg:+8.4,avgPrice:306.40,action:'new'},
+                {ticker:'AMZN',name:'Amazon.com',wt:8.8,wtChg:+1.2,avgPrice:196.40,action:'add'},
+                {ticker:'GOOGL',name:'Alphabet Inc',wt:6.4,wtChg:+0.8,avgPrice:170.80,action:'add'},
+                {ticker:'RDDT',name:'Reddit Inc',wt:4.2,wtChg:+4.2,avgPrice:148.40,action:'new'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:5.6,wtChg:-1.2,avgPrice:416.80,action:'reduce'},
+                {ticker:'SNOW',name:'Snowflake Inc',wt:3.2,wtChg:-2.4,avgPrice:160.40,action:'reduce'},
+            ],
+            insight:'타이거 글로벌은 2025년에 완전히 부활. META·NVDA 이중 확대와 APP 신규 대량 편입이 수익률의 핵심. RDDT도 새롭게 추가했으며, SNOW·MSFT는 성장 모멘텀 둔화로 축소. Chase Coleman의 AI 순수 베팅 전략이 주효.'
+        },
+        {
+            id:'millennium', name:'Millennium Management', manager:'Izzy Englander',
+            aum:290, top3:[{ticker:'NVDA',wt:5.4},{ticker:'SPY',wt:4.8},{ticker:'MSFT',wt:4.2}],
+            emoji:'🔮',
+            tags:['멀티스트랫','퀀트','롱숏'],
+            holdings:[
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:5.4,wtChg:+2.0,avgPrice:124.40,action:'add'},
+                {ticker:'SPY',name:'SPDR S&P 500 ETF',wt:4.8,wtChg:-0.8,avgPrice:526.40,action:'reduce'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:4.2,wtChg:+0.4,avgPrice:420.40,action:'add'},
+                {ticker:'META',name:'Meta Platforms',wt:3.8,wtChg:+1.2,avgPrice:544.60,action:'add'},
+                {ticker:'AMZN',name:'Amazon.com',wt:3.4,wtChg:+0.6,avgPrice:195.40,action:'add'},
+                {ticker:'AAPL',name:'Apple Inc',wt:3.0,wtChg:-0.4,avgPrice:183.60,action:'hold'},
+                {ticker:'APP',name:'Applovin Corp',wt:2.6,wtChg:+2.6,avgPrice:310.60,action:'new'},
+                {ticker:'PLTR',name:'Palantir Technologies',wt:2.2,wtChg:+2.2,avgPrice:87.60,action:'new'},
+            ],
+            insight:'밀레니엄은 분산된 멀티스트랫 구조로 단일 종목 비중이 상대적으로 낮음. Q1 2025에 APP·PLTR 동시 신규 편입 — AI 소프트웨어 레이어에 기관 수요가 몰리고 있음을 시사. 퀀트 롱숏 비중이 높아 시장 방향성 중립 유지.'
+        },
+    ];
+
+    // 현재 딥다이브 모드 ('hot' | 'kingdom')
+    let smDeepMode = 'hot';
 
     function goSmartMoney() {
         document.getElementById('welcomeScreen').style.display = 'none';
@@ -2703,7 +3005,6 @@
         document.getElementById('stockHero').classList.remove('show');
         document.getElementById('tabNav').classList.remove('show');
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-        // 사이드 nav 활성 표시
         document.querySelectorAll('.side-nav-item').forEach(b => b.classList.remove('active'));
         document.getElementById('sideNavSmBtn')?.classList.add('active');
         renderSmTop10();
@@ -2720,33 +3021,32 @@
     }
 
     function renderSmTop10() {
-        const sorted = [...SM_INSTITUTIONS].sort((a, b) => b.ret1y - a.ret1y);
-        const rankClass = ['gold','silver','bronze'];
+        const sorted = [...SM_HOT].sort((a, b) => b.ret1y - a.ret1y);
         const panel = document.getElementById('smPanelTop10');
         panel.innerHTML = sorted.map((inst, i) => {
             const rank = i + 1;
-            const rc = rankClass[i] || '';
-            const rankEmoji = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
-            const sectors = inst.sectors.map(s => `<span class="sm-sector-tag">${s}</span>`).join('');
-            return `<div class="sm-inst-card" onclick="smDeepDive('${inst.id}')">
+            const rankLabel = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `<span style="font-size:12px;color:var(--text-secondary)">#${rank}</span>`;
+            const tags = inst.tags.map(t => `<span class="sm-sector-tag">${t}</span>`).join('');
+            const volatiles = inst.volatilePicks.map(t => `<span class="sm-volatile-badge">${t}</span>`).join('');
+            return `<div class="sm-inst-card" onclick="smDeepDive('hot_${inst.id}')">
                 <div class="sm-inst-header">
-                    <div class="sm-inst-rank ${rc}">${rankEmoji}</div>
+                    <div class="sm-inst-rank">${rankLabel}</div>
                     <div class="sm-inst-info">
-                        <div class="sm-inst-name">${inst.name}</div>
+                        <div class="sm-inst-name">${inst.hotBadge} ${inst.name}</div>
                         <div class="sm-inst-manager">${inst.manager}</div>
                     </div>
-                    <div class="sm-inst-aum">
-                        <span class="sm-inst-aum-val">$${inst.aum >= 100 ? (inst.aum/1000*10|0)/10 + 'T' : inst.aum + 'B'}</span>
-                        AUM
+                    <div style="text-align:right;flex-shrink:0">
+                        <div style="font-size:18px;font-weight:700;color:#22c55e">+${inst.ret1y}%</div>
+                        <div style="font-size:10px;color:var(--text-secondary)">1Y 수익률</div>
                     </div>
                 </div>
-                <div class="sm-inst-metrics">
+                <div style="display:flex;align-items:center;gap:6px;margin:6px 0">
                     <span class="sm-inst-return pos">1Q +${inst.ret1q}%</span>
-                    <span class="sm-inst-return pos">1Y +${inst.ret1y}%</span>
+                    <span style="font-size:11px;color:var(--text-secondary)">신규매수: ${inst.newBuySector}</span>
                 </div>
-                <div class="sm-inst-sectors">${sectors}</div>
+                <div style="margin-bottom:4px">${tags}</div>
                 <div style="display:flex;align-items:center;justify-content:space-between">
-                    <span class="sm-top-buy-badge">🔼 TOP BUY: ${inst.topBuy}</span>
+                    <div style="font-size:11px;color:var(--text-secondary)">🔥 집중픽: ${volatiles}</div>
                     <span class="sm-inst-arrow">›</span>
                 </div>
             </div>`;
@@ -2754,37 +3054,51 @@
     }
 
     function renderSmGuru() {
+        const sorted = [...SM_KINGDOM].sort((a, b) => b.aum - a.aum);
         const panel = document.getElementById('smPanelGuru');
-        panel.innerHTML = SM_INSTITUTIONS.map(inst => {
+        const fmtAum = v => v >= 1000 ? `$${(v/1000).toFixed(1)}T` : `$${v}B`;
+        panel.innerHTML = sorted.map((inst, i) => {
+            const rank = i + 1;
             const tags = inst.tags.map(t => `<span class="guru-tag">${t}</span>`).join('');
-            return `<div class="guru-card" onclick="smDeepDive('${inst.id}')">
-                <div class="guru-emoji">${inst.emoji}</div>
-                <div class="guru-info">
-                    <div class="guru-name">${inst.manager.split(' (')[0]}</div>
-                    <div class="guru-fund">${inst.name}</div>
-                    <div class="guru-philosophy">${inst.philosophy}</div>
-                    <div class="guru-tags">
-                        ${tags}
-                        <span class="guru-aum-tag">AUM $${inst.aum >= 100 ? (inst.aum/1000*10|0)/10+'T' : inst.aum+'B'}</span>
-                        <span class="guru-ret-tag">1Y +${inst.ret1y}%</span>
+            const top3html = inst.top3.map(h =>
+                `<span class="sm-top3-hold">${h.ticker} <span style="color:#22c55e">${h.wt}%</span></span>`
+            ).join('');
+            return `<div class="sm-inst-card" onclick="smDeepDive('kingdom_${inst.id}')">
+                <div class="sm-inst-header">
+                    <div class="sm-inst-rank"><span style="font-size:12px;color:var(--text-secondary)">#${rank}</span></div>
+                    <div class="sm-inst-info">
+                        <div class="sm-inst-name">${inst.emoji} ${inst.name}</div>
+                        <div class="sm-inst-manager">${inst.manager}</div>
                     </div>
+                    <div style="text-align:right;flex-shrink:0">
+                        <div style="font-size:16px;font-weight:700;color:var(--blue)">${fmtAum(inst.aum)}</div>
+                        <div style="font-size:10px;color:var(--text-secondary)">AUM</div>
+                    </div>
+                </div>
+                <div style="margin:6px 0;font-size:11px;color:var(--text-secondary)">TOP 3 보유: ${top3html}</div>
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                    <div>${tags}</div>
+                    <span class="sm-inst-arrow">›</span>
                 </div>
             </div>`;
         }).join('');
     }
 
     function smDeepDive(id) {
-        const inst = SM_INSTITUTIONS.find(i => i.id === id);
+        // id format: 'hot_xxx' or 'kingdom_xxx'
+        const [mode, instId] = id.split('_');
+        smDeepMode = mode;
+        const dataset = mode === 'hot' ? SM_HOT : SM_KINGDOM;
+        const inst = dataset.find(i => i.id === instId);
         if (!inst) return;
         smCurrentFilter = 'all';
-        // 패널 숨기고 딥다이브 표시
         document.querySelectorAll('.sm-panel').forEach(p => p.classList.remove('active'));
         document.getElementById('smDeep').style.display = '';
-        document.getElementById('smDeep').innerHTML = _renderDeep(inst);
+        document.getElementById('smDeep').innerHTML = mode === 'hot' ? _renderDeepHot(inst) : _renderDeepKingdom(inst);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    function _renderDeep(inst) {
+    function _renderDeepHot(inst) {
         const filters = [
             {key:'all', label:'전체'},
             {key:'new', label:'🆕 신규'},
@@ -2793,7 +3107,18 @@
             {key:'hold', label:'유지'},
         ];
         const filterBtns = filters.map(f =>
-            `<button class="sm-hf-btn${f.key === smCurrentFilter ? ' active' : ''}" onclick="filterSmHoldings('${inst.id}','${f.key}')">${f.label}</button>`
+            `<button class="sm-hf-btn${f.key === smCurrentFilter ? ' active' : ''}" onclick="filterSmHoldings('hot_${inst.id}','${f.key}')">${f.label}</button>`
+        ).join('');
+        const top3Cards = inst.top3Add.map(h =>
+            `<div class="sm-top3-add-card" onclick="smChartLink('${h.ticker}',${h.avgPrice},'${inst.name}')">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span style="font-size:15px;font-weight:700">${h.ticker}</span>
+                    <span class="sm-add-chg">▲ +${h.wtChg.toFixed(1)}%p</span>
+                </div>
+                <div style="font-size:11px;color:var(--text-secondary);margin:3px 0">${h.name}</div>
+                <div style="font-size:11px;color:#f59e0b;font-weight:600">${h.theme}</div>
+                <div style="font-size:10px;color:var(--text-secondary);margin-top:4px">평균단가 $${h.avgPrice.toFixed(2)}</div>
+            </div>`
         ).join('');
         const rows = inst.holdings.map(h => {
             const wtChgStr = h.wtChg > 0 ? `+${h.wtChg.toFixed(1)}%` : h.wtChg < 0 ? `${h.wtChg.toFixed(1)}%` : '±0';
@@ -2819,9 +3144,12 @@
                 <span class="sm-deep-emoji">${inst.emoji}</span>
                 <div>
                     <div class="sm-deep-title">${inst.name}</div>
-                    <div class="sm-deep-subtitle">${inst.manager} · <span class="sm-quarter-badge">Q4 2024</span></div>
+                    <div class="sm-deep-subtitle">${inst.manager} · <span class="sm-quarter-badge">Q1 2025</span> · 1Y +${inst.ret1y}%</div>
                 </div>
             </div>
+            <div style="margin:12px 0 6px;font-size:12px;font-weight:600;color:var(--text-secondary)">🔥 최다 비중 증가 TOP 3</div>
+            <div class="sm-top3-add-grid">${top3Cards}</div>
+            <div style="margin:14px 0 6px;font-size:12px;font-weight:600;color:var(--text-secondary)">전체 포트폴리오</div>
             <div class="sm-holdings-filter">${filterBtns}</div>
             <div class="sm-holdings-table">
                 <div class="sm-th-row">
@@ -2833,6 +3161,95 @@
                 <div class="sm-insight-title">📌 운용사 관점</div>
                 <div class="sm-insight-body">${inst.insight}</div>
             </div>
+        </div>`;
+    }
+
+    function _renderDeepKingdom(inst) {
+        const fmtAum = v => v >= 1000 ? `$${(v/1000).toFixed(1)}T` : `$${v}B`;
+        const filters = [
+            {key:'all', label:'전체'},
+            {key:'new', label:'🆕 신규'},
+            {key:'add', label:'🔼 추가'},
+            {key:'reduce', label:'🔽 축소'},
+            {key:'hold', label:'유지'},
+        ];
+        const filterBtns = filters.map(f =>
+            `<button class="sm-hf-btn${f.key === smCurrentFilter ? ' active' : ''}" onclick="filterSmHoldings('kingdom_${inst.id}','${f.key}')">${f.label}</button>`
+        ).join('');
+        const treemapHtml = _renderTreemap(inst.holdings);
+        const rows = inst.holdings.map(h => {
+            const wtChgStr = h.wtChg > 0 ? `+${h.wtChg.toFixed(1)}%` : h.wtChg < 0 ? `${h.wtChg.toFixed(1)}%` : '±0';
+            const wtChgCls = h.wtChg > 0 ? 'pos' : h.wtChg < 0 ? 'neg' : 'zero';
+            const hidden = smCurrentFilter !== 'all' && h.action !== smCurrentFilter ? ' hidden' : '';
+            return `<div class="sm-holding-row${hidden}" onclick="smChartLink('${h.ticker}',${h.avgPrice},'${inst.name}')">
+                <div>
+                    <div class="sm-tick">${h.ticker}</div>
+                    <div class="sm-chart-hint">차트 보기 ›</div>
+                </div>
+                <div>
+                    <div class="sm-wt">${h.wt.toFixed(1)}%</div>
+                    <div class="sm-wt-chg ${wtChgCls}">${wtChgStr}</div>
+                </div>
+                <div class="sm-avg">$${h.avgPrice.toFixed(2)}</div>
+                <div></div>
+                <div><span class="sm-action ${h.action}">${_smActionLabel(h.action)}</span></div>
+            </div>`;
+        }).join('');
+        return `<div class="sm-deep-wrap">
+            <div class="sm-deep-header">
+                <button class="sm-back-btn" onclick="smDeepBack()">← 뒤로</button>
+                <span class="sm-deep-emoji">${inst.emoji}</span>
+                <div>
+                    <div class="sm-deep-title">${inst.name}</div>
+                    <div class="sm-deep-subtitle">${inst.manager} · <span class="sm-quarter-badge">Q1 2025</span> · AUM ${fmtAum(inst.aum)}</div>
+                </div>
+            </div>
+            <div style="margin:12px 0 6px;font-size:12px;font-weight:600;color:var(--text-secondary)">📊 포트폴리오 트리맵</div>
+            ${treemapHtml}
+            <div style="margin:14px 0 6px;font-size:12px;font-weight:600;color:var(--text-secondary)">전체 포트폴리오</div>
+            <div class="sm-holdings-filter">${filterBtns}</div>
+            <div class="sm-holdings-table">
+                <div class="sm-th-row">
+                    <div>티커</div><div>비중</div><div>평균단가</div><div></div><div>액션</div>
+                </div>
+                ${rows}
+            </div>
+            <div class="sm-deep-insight">
+                <div class="sm-insight-title">📌 운용사 관점</div>
+                <div class="sm-insight-body">${inst.insight}</div>
+            </div>
+        </div>`;
+    }
+
+    function _renderTreemap(holdings) {
+        const W = 320, H = 160;
+        const total = holdings.reduce((s, h) => s + h.wt, 0);
+        const colors = ['#3b82f6','#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#ef4444','#06b6d4'];
+        // Single-row layout: proportional widths, fixed height
+        let x = 0;
+        const rects = holdings.map((item, i) => {
+            const w = Math.max(Math.round((item.wt / total) * W), 1);
+            const r = { x, y: 0, w, h: H, item, color: colors[i % colors.length] };
+            x += w;
+            return r;
+        });
+        const CY = H / 2;
+        const svgItems = rects.map(r => {
+            const wtChgStr = r.item.wtChg > 0 ? `+${r.item.wtChg.toFixed(1)}` : r.item.wtChg.toFixed(1);
+            const chgColor = r.item.wtChg > 0 ? '#86efac' : r.item.wtChg < 0 ? '#fca5a5' : '#94a3b8';
+            const cx = r.x + r.w / 2;
+            const showText = r.w >= 28;
+            return `<g onclick="smChartLink('${r.item.ticker}',${r.item.avgPrice},'treemap')" style="cursor:pointer">
+                <rect x="${r.x}" y="0" width="${r.w}" height="${H}" fill="${r.color}" rx="3" opacity="0.85"/>
+                <rect x="${r.x}" y="0" width="${r.w}" height="${H}" fill="none" stroke="#1e293b" stroke-width="1" rx="3"/>
+                ${showText ? `<text x="${cx}" y="${CY - 12}" text-anchor="middle" fill="#fff" font-size="9" font-weight="700" font-family="sans-serif">${r.item.ticker}</text>
+                <text x="${cx}" y="${CY + 2}" text-anchor="middle" fill="#e2e8f0" font-size="8" font-family="sans-serif">${r.item.wt.toFixed(1)}%</text>
+                <text x="${cx}" y="${CY + 15}" text-anchor="middle" fill="${chgColor}" font-size="8" font-family="sans-serif">${wtChgStr}%p</text>` : ''}
+            </g>`;
+        }).join('');
+        return `<div class="sm-treemap-wrap">
+            <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;border-radius:8px;overflow:hidden">${svgItems}</svg>
+            <div style="font-size:10px;color:var(--text-secondary);margin-top:4px;text-align:center">박스 너비 = 비중, 숫자 = 비중변화(%p). 클릭시 차트 이동</div>
         </div>`;
     }
 
@@ -2850,9 +3267,12 @@
 
     function filterSmHoldings(id, filter) {
         smCurrentFilter = filter;
-        const inst = SM_INSTITUTIONS.find(i => i.id === id);
+        // id format: 'hot_xxx' or 'kingdom_xxx'
+        const [mode, instId] = id.split('_');
+        const dataset = mode === 'hot' ? SM_HOT : SM_KINGDOM;
+        const inst = dataset.find(i => i.id === instId);
         if (!inst) return;
-        document.getElementById('smDeep').innerHTML = _renderDeep(inst);
+        document.getElementById('smDeep').innerHTML = mode === 'hot' ? _renderDeepHot(inst) : _renderDeepKingdom(inst);
     }
 
     function smChartLink(ticker, avgPrice, fundName) {
