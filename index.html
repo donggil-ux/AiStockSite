@@ -701,7 +701,7 @@
         /* ===== MOBILE (≤640px) ===== */
         @media(max-width:640px){
             /* ----- Header ----- */
-            .header{padding:10px 14px 10px;}
+            .header{padding:10px 14px 10px;padding-top:calc(10px + env(safe-area-inset-top));}
             .header-top{flex-wrap:nowrap;gap:8px;margin-bottom:0;}
             .logo{font-size:17px;flex:1;}
             /* 모바일에서 검색창 숨김 (하단 내비게이션 검색 탭 사용) */
