@@ -9710,29 +9710,34 @@ Rules:
     });
     </script>
 
-    <!-- ===== 바텀 내비게이션 ===== -->
-    <nav class="bottom-nav" id="bottomNav">
-        <button class="bn-item active" id="bnHome" onclick="bnGo('home')">
-            <i class="bn-icon ri-home-5-fill" data-line="ri-home-5-line" data-fill="ri-home-5-fill"></i>
-            <span class="bn-label">홈</span>
-        </button>
-        <button class="bn-item" id="bnSearch" onclick="bnGo('search')">
-            <i class="bn-icon ri-search-2-line" data-line="ri-search-2-line" data-fill="ri-search-2-fill"></i>
-            <span class="bn-label">검색</span>
-        </button>
-        <button class="bn-item" id="bnScanner" onclick="bnGo('scanner')">
-            <i class="bn-icon ri-radar-line" data-line="ri-radar-line" data-fill="ri-radar-fill"></i>
-            <span class="bn-label">스캐너</span>
-        </button>
-        <button class="bn-item" id="bnSmartmoney" onclick="bnGo('smartmoney')">
-            <i class="bn-icon ri-briefcase-4-line" data-line="ri-briefcase-4-line" data-fill="ri-briefcase-4-fill"></i>
-            <span class="bn-label">기관</span>
-        </button>
-        <button class="bn-item" id="bnFav" onclick="bnGo('fav')">
-            <i class="bn-icon ri-star-line" data-line="ri-star-line" data-fill="ri-star-fill"></i>
-            <span class="bn-label">즐겨찾기</span>
-        </button>
-    </nav>
+    <!-- ===== 바텀 내비게이션 (BN_TABS 설정으로 관리, 최대 MAX_BN_TABS=5개) ===== -->
+    <nav class="bottom-nav" id="bottomNav"></nav>
+    <script>
+    (function initBottomNav() {
+        const MAX_BN_TABS = 5;
+        const BN_TABS = [
+            { key: 'home',       id: 'bnHome',       label: '홈',       iconLine: 'ri-home-5-line',      iconFill: 'ri-home-5-fill' },
+            { key: 'search',     id: 'bnSearch',     label: '검색',     iconLine: 'ri-search-2-line',    iconFill: 'ri-search-2-fill' },
+            { key: 'scanner',    id: 'bnScanner',    label: '스캐너',   iconLine: 'ri-radar-line',       iconFill: 'ri-radar-fill' },
+            { key: 'smartmoney', id: 'bnSmartmoney', label: '기관',     iconLine: 'ri-briefcase-4-line', iconFill: 'ri-briefcase-4-fill' },
+            { key: 'fav',        id: 'bnFav',        label: '즐겨찾기', iconLine: 'ri-star-line',        iconFill: 'ri-star-fill' },
+        ];
+
+        if (BN_TABS.length > MAX_BN_TABS) {
+            console.warn(`[BottomNav] 탭은 최대 ${MAX_BN_TABS}개까지만 허용됩니다. (현재 ${BN_TABS.length}개 → 앞 ${MAX_BN_TABS}개만 표시)`);
+        }
+
+        const nav = document.getElementById('bottomNav');
+        BN_TABS.slice(0, MAX_BN_TABS).forEach((tab, idx) => {
+            const btn = document.createElement('button');
+            btn.className = 'bn-item' + (idx === 0 ? ' active' : '');
+            btn.id = tab.id;
+            btn.setAttribute('onclick', `bnGo('${tab.key}')`);
+            btn.innerHTML = `<i class="bn-icon ${idx === 0 ? tab.iconFill : tab.iconLine}" data-line="${tab.iconLine}" data-fill="${tab.iconFill}"></i><span class="bn-label">${tab.label}</span>`;
+            nav.appendChild(btn);
+        });
+    })();
+    </script>
 
     <!-- ===== 분할 매수 FAB ===== -->
     <button id="calcFab" onclick="openCalcFab()" title="분할 매수 계산기" aria-label="분할 매수 계산기">
