@@ -1180,6 +1180,8 @@
         .scanner-filter-label:first-child{margin-top:0;}
         .scanner-chips{display:flex;flex-wrap:wrap;gap:8px;}
         .scanner-chip{background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:20px;padding:6px 16px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;}
+        .scanner-chip:disabled{opacity:.35;cursor:not-allowed;}
+        .scanner-soon{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:6px;background:rgba(245,158,11,.15);color:#f59e0b;margin-left:6px;vertical-align:middle;}
         .scanner-chip.active{background:var(--blue);color:#fff;border-color:var(--blue);}
         .scanner-skeleton{height:60px;background:var(--bg3);border-radius:var(--r3);margin:6px 0;animation:scanPulse 1.2s ease-in-out infinite;}
         @keyframes scanPulse{0%,100%{opacity:1}50%{opacity:.4}}
@@ -1358,15 +1360,15 @@
         </div>
         <!-- 필터 칩 -->
         <div class="scanner-filter-section">
-            <div class="scanner-filter-label">AI 타점 (R/R 비율)</div>
+            <div class="scanner-filter-label">AI 타점 (R/R 비율)<span class="scanner-soon">준비중</span></div>
             <div class="scanner-chips">
-                <button class="scanner-chip" data-filter="rr" data-val="1.5" onclick="toggleScannerChip(this)">R/R ≥ 1.5</button>
-                <button class="scanner-chip" data-filter="rr" data-val="2.0" onclick="toggleScannerChip(this)">R/R ≥ 2.0</button>
+                <button class="scanner-chip" data-filter="rr" data-val="1.5" disabled>R/R ≥ 1.5</button>
+                <button class="scanner-chip" data-filter="rr" data-val="2.0" disabled>R/R ≥ 2.0</button>
             </div>
-            <div class="scanner-filter-label">옵션 심리</div>
+            <div class="scanner-filter-label">옵션 심리<span class="scanner-soon">준비중</span></div>
             <div class="scanner-chips">
-                <button class="scanner-chip" data-filter="optionSentiment" data-val="bullish" onclick="toggleScannerChip(this)">📈 강한 매수</button>
-                <button class="scanner-chip" data-filter="optionSentiment" data-val="bearish" onclick="toggleScannerChip(this)">📉 강한 매도</button>
+                <button class="scanner-chip" data-filter="optionSentiment" data-val="bullish" disabled>📈 강한 매수</button>
+                <button class="scanner-chip" data-filter="optionSentiment" data-val="bearish" disabled>📉 강한 매도</button>
             </div>
             <div class="scanner-filter-label">스마트 머니 (기관 수급)</div>
             <div class="scanner-chips">
@@ -2113,29 +2115,7 @@
             if (wrap && !wrap.contains(e.target)) closeSearchDropdown();
         });
 
-        // 바텀 내비 스크롤 숨김/표시
-        (function initBottomNavScroll() {
-            let lastScrollY = window.scrollY;
-            let ticking = false;
-            window.addEventListener('scroll', () => {
-                if (!ticking) {
-                    requestAnimationFrame(() => {
-                        const nav = document.getElementById('bottomNav');
-                        if (nav) {
-                            const cur = window.scrollY;
-                            if (cur > lastScrollY + 8) {
-                                nav.classList.add('hidden');
-                            } else if (cur < lastScrollY - 4) {
-                                nav.classList.remove('hidden');
-                            }
-                            lastScrollY = cur;
-                        }
-                        ticking = false;
-                    });
-                    ticking = true;
-                }
-            }, { passive: true });
-        })();
+        // 바텀 내비는 항상 고정 표시 (스크롤 숨김 없음)
     });
 
     // 백엔드 API 베이스 URL (같은 도메인 서빙 시 빈 문자열)
@@ -4389,7 +4369,14 @@
     function bnGo(tab) {
         updateBnActive(tab);
         if (tab === 'home') {
-            goHome();
+            // 종목이 로드된 상태면 차트를 유지하고 다른 화면만 숨김 (Keep-alive)
+            if (currentSymbol) {
+                document.getElementById('smartMoneyScreen').style.display = 'none';
+                document.getElementById('alphaScannerScreen').style.display = 'none';
+                document.getElementById('welcomeScreen').style.display = 'none';
+            } else {
+                goHome();
+            }
         } else if (tab === 'search') {
             goHome();
             setTimeout(() => {
@@ -4409,6 +4396,7 @@
     }
 
     function toggleScannerChip(btn) {
+        if (btn.disabled) return;
         const filter = btn.dataset.filter;
         const val = btn.dataset.val;
         if (filter === 'rr') {
@@ -4446,6 +4434,7 @@
 
     function syncScannerChipUI() {
         document.querySelectorAll('.scanner-chip').forEach(b => {
+            if (b.disabled) return;
             const filter = b.dataset.filter;
             const val = b.dataset.val;
             if (filter === 'rr') {
