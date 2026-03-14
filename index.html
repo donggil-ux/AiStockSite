@@ -1159,6 +1159,39 @@
         /* 🏛️ KINGDOM — 월가 킹덤 */
         .sm-top3-hold{display:inline-flex;align-items:center;gap:3px;background:var(--bg3);border-radius:5px;padding:2px 7px;font-size:11px;font-weight:600;color:var(--text2);margin-right:4px;margin-bottom:3px;}
         .sm-treemap-wrap{background:var(--bg2);border-radius:10px;padding:10px;margin-bottom:6px;overflow:hidden;}
+
+        /* ===== BOTTOM NAV ===== */
+        .bottom-nav{position:fixed;bottom:0;left:0;right:0;height:calc(56px + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:var(--bg2);border-top:1px solid var(--border);display:flex;align-items:center;z-index:900;transform:translateY(0);transition:transform .3s ease;}
+        .bottom-nav.hidden{transform:translateY(100%);}
+        .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:var(--text2);font-size:10px;cursor:pointer;padding:6px 0;transition:color .15s;}
+        .bn-item.active{color:var(--blue);}
+        .bn-icon{font-size:20px;line-height:1;}
+        .bn-label{font-size:9px;font-weight:600;letter-spacing:.2px;}
+        body{padding-bottom:calc(56px + env(safe-area-inset-bottom));}
+
+        /* ===== ALPHA SCANNER ===== */
+        .alpha-scanner-screen{padding:20px 16px 32px;max-width:1000px;margin:0 auto;}
+        .scanner-presets{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 20px;}
+        .scanner-preset-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:var(--r3);padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;}
+        .scanner-preset-btn:hover,.scanner-preset-btn.active{background:var(--blue);border-color:var(--blue);color:#fff;}
+        .scanner-filter-section{background:var(--bg2);border-radius:var(--r2);padding:16px;margin-bottom:20px;}
+        .scanner-filter-label{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 8px;}
+        .scanner-filter-label:first-child{margin-top:0;}
+        .scanner-chips{display:flex;flex-wrap:wrap;gap:8px;}
+        .scanner-chip{background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:20px;padding:6px 16px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;}
+        .scanner-chip.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+        .scanner-skeleton{height:60px;background:var(--bg3);border-radius:var(--r3);margin:6px 0;animation:scanPulse 1.2s ease-in-out infinite;}
+        @keyframes scanPulse{0%,100%{opacity:1}50%{opacity:.4}}
+        .scanner-result-item{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg2);border-radius:var(--r3);margin:6px 0;cursor:pointer;border:1px solid var(--border);transition:border-color .15s;}
+        .scanner-result-item:hover{border-color:var(--blue);}
+        .scanner-ticker{font-weight:800;font-size:16px;color:var(--text);}
+        .scanner-inst{font-size:11px;color:var(--text2);margin-top:2px;}
+        .scanner-empty{text-align:center;color:var(--text2);padding:60px 20px;font-size:14px;line-height:1.7;}
+        .scanner-results-count{font-size:12px;color:var(--text2);margin-bottom:10px;}
+        .s-action-new{color:#22c55e;font-size:11px;font-weight:800;}
+        .s-action-add{color:#3b82f6;font-size:11px;font-weight:800;}
+        .s-action-hold{color:var(--text2);font-size:11px;font-weight:800;}
+        .s-action-reduce{color:#f59e0b;font-size:11px;font-weight:800;}
     </style>
 </head>
 <body>
@@ -1177,7 +1210,7 @@
                 </button>
                 <button class="side-nav-item" id="sideNavSmBtn" onclick="goSmartMoney();closeSideNav();">
                     <span class="side-nav-item-icon">&#128188;</span>
-                    <span class="side-nav-item-text">스마트 머니</span>
+                    <span class="side-nav-item-text">기관 포트폴리오</span>
                     <span class="side-nav-item-sub">13F</span>
                 </button>
             </div>
@@ -1310,6 +1343,39 @@
         <div class="sm-panel" id="smPanelGuru"></div>
         <!-- Deep Dive -->
         <div id="smDeep" style="display:none"></div>
+    </div>
+
+    <!-- Alpha Scanner Screen -->
+    <div class="alpha-scanner-screen" id="alphaScannerScreen" style="display:none">
+        <div class="sm-screen-title">🎯 알파 스캐너</div>
+        <div class="sm-screen-sub">AI R/R · 옵션 심리 · 기관 수급 교차 필터링</div>
+        <!-- 퀵 프리셋 -->
+        <div class="scanner-presets">
+            <button class="scanner-preset-btn" id="scanPresetBreakout" onclick="setScannerPreset('breakout')">🚀 바닥 탈출</button>
+            <button class="scanner-preset-btn" id="scanPresetDip" onclick="setScannerPreset('dip')">💎 눌림목 매수</button>
+            <button class="scanner-preset-btn" id="scanPresetMomentum" onclick="setScannerPreset('momentum')">⚡ 모멘텀 추격</button>
+        </div>
+        <!-- 필터 칩 -->
+        <div class="scanner-filter-section">
+            <div class="scanner-filter-label">AI 타점 (R/R 비율)</div>
+            <div class="scanner-chips">
+                <button class="scanner-chip" data-filter="rr" data-val="1.5" onclick="toggleScannerChip(this)">R/R ≥ 1.5</button>
+                <button class="scanner-chip" data-filter="rr" data-val="2.0" onclick="toggleScannerChip(this)">R/R ≥ 2.0</button>
+            </div>
+            <div class="scanner-filter-label">옵션 심리</div>
+            <div class="scanner-chips">
+                <button class="scanner-chip" data-filter="optionSentiment" data-val="bullish" onclick="toggleScannerChip(this)">📈 강한 매수</button>
+                <button class="scanner-chip" data-filter="optionSentiment" data-val="bearish" onclick="toggleScannerChip(this)">📉 강한 매도</button>
+            </div>
+            <div class="scanner-filter-label">스마트 머니 (기관 수급)</div>
+            <div class="scanner-chips">
+                <button class="scanner-chip" data-filter="smartMoney" data-val="new" onclick="toggleScannerChip(this)">🟢 신규 편입</button>
+                <button class="scanner-chip" data-filter="smartMoney" data-val="add" onclick="toggleScannerChip(this)">🔵 비중 확대</button>
+            </div>
+        </div>
+        <!-- 결과 -->
+        <div id="scannerResultsCount" class="scanner-results-count" style="display:none"></div>
+        <div id="scannerResults"></div>
     </div>
 
     <!-- Stock Hero (대형 가격 표시) -->
@@ -2045,6 +2111,30 @@
             const wrap = document.getElementById('searchWrap');
             if (wrap && !wrap.contains(e.target)) closeSearchDropdown();
         });
+
+        // 바텀 내비 스크롤 숨김/표시
+        (function initBottomNavScroll() {
+            let lastScrollY = window.scrollY;
+            let ticking = false;
+            window.addEventListener('scroll', () => {
+                if (!ticking) {
+                    requestAnimationFrame(() => {
+                        const nav = document.getElementById('bottomNav');
+                        if (nav) {
+                            const cur = window.scrollY;
+                            if (cur > lastScrollY + 8) {
+                                nav.classList.add('hidden');
+                            } else if (cur < lastScrollY - 4) {
+                                nav.classList.remove('hidden');
+                            }
+                            lastScrollY = cur;
+                        }
+                        ticking = false;
+                    });
+                    ticking = true;
+                }
+            }, { passive: true });
+        })();
     });
 
     // 백엔드 API 베이스 URL (같은 도메인 서빙 시 빈 문자열)
@@ -2158,6 +2248,15 @@
             loadShortTab(currentFullSymbol);
         }
     }
+
+    // ========================================
+    // Alpha Scanner 상태
+    // ========================================
+    let scannerFilters = { rr: null, optionSentiment: [], smartMoney: [] };
+    let scannerPreset = null;
+    let scannerResults = [];
+    let scannerLoading = false;
+    let _scannerDebounceTimer = null;
 
     // ========================================
     // US Top 100 Stocks (optimized)
@@ -2568,6 +2667,7 @@
     function goHome() {
         document.getElementById('welcomeScreen').style.display = '';
         document.getElementById('smartMoneyScreen').style.display = 'none';
+        document.getElementById('alphaScannerScreen').style.display = 'none';
         document.querySelectorAll('.side-nav-item').forEach(b => b.classList.remove('active'));
         document.querySelector('.side-nav-item[onclick^="goHome"]')?.classList.add('active');
         document.getElementById('stockHero').classList.remove('show');
@@ -4231,6 +4331,7 @@
 
     function goSmartMoney() {
         document.getElementById('welcomeScreen').style.display = 'none';
+        document.getElementById('alphaScannerScreen').style.display = 'none';
         document.getElementById('smartMoneyScreen').style.display = '';
         document.getElementById('stockHero').classList.remove('show');
         document.getElementById('tabNav').classList.remove('show');
@@ -4240,6 +4341,175 @@
         renderSmTop10();
         renderSmGuru();
         window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ========================================
+    // Alpha Scanner
+    // ========================================
+    function goScanner() {
+        document.getElementById('welcomeScreen').style.display = 'none';
+        document.getElementById('smartMoneyScreen').style.display = 'none';
+        document.getElementById('alphaScannerScreen').style.display = '';
+        document.getElementById('stockHero').classList.remove('show');
+        document.getElementById('tabNav').classList.remove('show');
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.side-nav-item').forEach(b => b.classList.remove('active'));
+        updateBnActive('scanner');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        runScannerFetch();
+    }
+
+    function updateBnActive(tab) {
+        const map = { home: 'bnHome', search: 'bnSearch', scanner: 'bnScanner', smartmoney: 'bnSmartmoney', fav: 'bnFav' };
+        document.querySelectorAll('.bn-item').forEach(b => b.classList.remove('active'));
+        const id = map[tab];
+        if (id) document.getElementById(id)?.classList.add('active');
+    }
+
+    function bnGo(tab) {
+        updateBnActive(tab);
+        if (tab === 'home') {
+            goHome();
+        } else if (tab === 'search') {
+            goHome();
+            setTimeout(() => { document.getElementById('searchInput')?.focus(); }, 100);
+        } else if (tab === 'scanner') {
+            goScanner();
+        } else if (tab === 'smartmoney') {
+            goSmartMoney();
+        } else if (tab === 'fav') {
+            openSideNav();
+        }
+    }
+
+    function toggleScannerChip(btn) {
+        const filter = btn.dataset.filter;
+        const val = btn.dataset.val;
+        if (filter === 'rr') {
+            const wasActive = btn.classList.contains('active');
+            document.querySelectorAll('[data-filter="rr"]').forEach(b => b.classList.remove('active'));
+            scannerFilters.rr = wasActive ? null : parseFloat(val);
+            if (!wasActive) btn.classList.add('active');
+        } else {
+            btn.classList.toggle('active');
+            const arr = scannerFilters[filter];
+            const idx = arr.indexOf(val);
+            idx >= 0 ? arr.splice(idx, 1) : arr.push(val);
+        }
+        scannerPreset = null;
+        document.querySelectorAll('.scanner-preset-btn').forEach(b => b.classList.remove('active'));
+        debounceScannerFetch();
+    }
+
+    function setScannerPreset(preset) {
+        const presets = {
+            breakout:  { rr: 1.5, optionSentiment: [], smartMoney: ['new'] },
+            dip:       { rr: 1.5, optionSentiment: [], smartMoney: ['add'] },
+            momentum:  { rr: 2.0, optionSentiment: [], smartMoney: [] },
+        };
+        const cfg = presets[preset];
+        if (!cfg) return;
+        scannerFilters = { rr: cfg.rr, optionSentiment: [...cfg.optionSentiment], smartMoney: [...cfg.smartMoney] };
+        scannerPreset = preset;
+        syncScannerChipUI();
+        document.querySelectorAll('.scanner-preset-btn').forEach(b => b.classList.remove('active'));
+        const presetIdMap = { breakout: 'scanPresetBreakout', dip: 'scanPresetDip', momentum: 'scanPresetMomentum' };
+        document.getElementById(presetIdMap[preset])?.classList.add('active');
+        debounceScannerFetch();
+    }
+
+    function syncScannerChipUI() {
+        document.querySelectorAll('.scanner-chip').forEach(b => {
+            const filter = b.dataset.filter;
+            const val = b.dataset.val;
+            if (filter === 'rr') {
+                b.classList.toggle('active', scannerFilters.rr === parseFloat(val));
+            } else {
+                b.classList.toggle('active', scannerFilters[filter]?.includes(val));
+            }
+        });
+    }
+
+    function debounceScannerFetch() {
+        clearTimeout(_scannerDebounceTimer);
+        _scannerDebounceTimer = setTimeout(runScannerFetch, 500);
+    }
+
+    function runScannerFetch() {
+        scannerLoading = true;
+        renderScannerResults();
+        setTimeout(() => {
+            scannerResults = filterScannerResults();
+            scannerLoading = false;
+            renderScannerResults();
+        }, 300);
+    }
+
+    function filterScannerResults() {
+        const results = [];
+        const allDatasets = [...(typeof SM_HOT !== 'undefined' ? SM_HOT : []), ...(typeof SM_KINGDOM !== 'undefined' ? SM_KINGDOM : [])];
+        allDatasets.forEach(inst => {
+            (inst.holdings || []).forEach(h => {
+                const action = (h.action || '').toLowerCase();
+                let match = true;
+                if (scannerFilters.smartMoney.length > 0) {
+                    match = match && scannerFilters.smartMoney.some(f => f.toLowerCase() === action);
+                }
+                if (match) {
+                    results.push({
+                        ticker: h.ticker,
+                        name: h.name || h.ticker,
+                        wt: h.wt,
+                        qty: h.qty,
+                        action: h.action,
+                        avgPrice: h.avgPrice,
+                        instName: inst.name
+                    });
+                }
+            });
+        });
+        // 중복 제거 — 동일 ticker 최초 1건
+        const seen = new Set();
+        return results.filter(r => {
+            if (!r.ticker || seen.has(r.ticker)) return false;
+            seen.add(r.ticker);
+            return true;
+        });
+    }
+
+    function renderScannerResults() {
+        const el = document.getElementById('scannerResults');
+        const countEl = document.getElementById('scannerResultsCount');
+        if (!el) return;
+        if (scannerLoading) {
+            if (countEl) countEl.style.display = 'none';
+            el.innerHTML = Array(5).fill('<div class="scanner-skeleton"></div>').join('');
+            return;
+        }
+        if (!scannerResults.length) {
+            if (countEl) countEl.style.display = 'none';
+            el.innerHTML = '<div class="scanner-empty">조건에 맞는 종목이 없습니다.<br>필터를 조정해 보세요.</div>';
+            return;
+        }
+        if (countEl) {
+            countEl.textContent = `${scannerResults.length}개 종목 발견`;
+            countEl.style.display = '';
+        }
+        el.innerHTML = scannerResults.map(r => {
+            const actionClass = r.action?.toLowerCase() === 'new' ? 's-action-new' : r.action?.toLowerCase() === 'add' ? 's-action-add' : '';
+            const actionLabel = r.action?.toLowerCase() === 'new' ? '🟢 신규 편입' : r.action?.toLowerCase() === 'add' ? '🔵 비중 확대' : (r.action || '');
+            const wtStr = r.wt != null ? `비중 ${r.wt}%` : '';
+            return `<div class="scanner-result-item" onclick="quickSearch('${r.ticker}','US')">
+              <div style="flex:1;min-width:0;">
+                <div class="scanner-ticker">${r.ticker}</div>
+                <div class="scanner-inst">${r.name ? r.name + ' · ' : ''}${r.instName}</div>
+              </div>
+              <div style="text-align:right;margin-left:8px;">
+                <div class="${actionClass}">${actionLabel}</div>
+                ${wtStr ? `<div style="font-size:11px;color:var(--text2);">${wtStr}</div>` : ''}
+              </div>
+            </div>`;
+        }).join('');
     }
 
     function switchSmTab(tab) {
@@ -9407,9 +9677,31 @@ Rules:
         loadVolAlert,
         loadNewsTab, reloadNewsTab, renderNewsList, _newsTimeAgo,
         loadShortTab, reloadShortTab, renderShortTab, _buildGaugeSVG,
-        renderAnalystTargets
+        renderAnalystTargets,
+        goScanner, bnGo, updateBnActive,
+        toggleScannerChip, setScannerPreset, syncScannerChipUI,
+        debounceScannerFetch, runScannerFetch, filterScannerResults, renderScannerResults
     });
     </script>
+
+    <!-- ===== 바텀 내비게이션 ===== -->
+    <nav class="bottom-nav" id="bottomNav">
+        <button class="bn-item active" id="bnHome" onclick="bnGo('home')">
+            <span class="bn-icon">🏠</span><span class="bn-label">홈</span>
+        </button>
+        <button class="bn-item" id="bnSearch" onclick="bnGo('search')">
+            <span class="bn-icon">🔍</span><span class="bn-label">검색</span>
+        </button>
+        <button class="bn-item" id="bnScanner" onclick="bnGo('scanner')">
+            <span class="bn-icon">🎯</span><span class="bn-label">스캐너</span>
+        </button>
+        <button class="bn-item" id="bnSmartmoney" onclick="bnGo('smartmoney')">
+            <span class="bn-icon">💼</span><span class="bn-label">기관</span>
+        </button>
+        <button class="bn-item" id="bnFav" onclick="bnGo('fav')">
+            <span class="bn-icon">⭐</span><span class="bn-label">즐겨찾기</span>
+        </button>
+    </nav>
 
     <!-- ===== 분할 매수 FAB ===== -->
     <button id="calcFab" onclick="openCalcFab()" title="분할 매수 계산기" aria-label="분할 매수 계산기">
