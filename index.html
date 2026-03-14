@@ -101,6 +101,14 @@
         /* 모바일 뒤로가기 버튼 & 종목명 — 기본 숨김 */
         .mob-back-btn{display:none;align-items:center;justify-content:center;background:none;border:none;color:var(--text);font-size:24px;cursor:pointer;padding:4px;flex-shrink:0;line-height:1;}
         .mob-stock-name{display:none;}
+        /* 모바일 검색 모달 */
+        .mob-search-modal{position:fixed;inset:0;z-index:950;background:var(--bg);padding-top:env(safe-area-inset-top);display:flex;flex-direction:column;overflow:hidden;}
+        .mob-search-header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0;}
+        .mob-search-header .mob-back-btn{display:flex;}
+        .mob-search-box{flex:1;display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:var(--r3);padding:9px 14px;}
+        .mob-search-box input{flex:1;background:none;border:none;color:var(--text);font-size:16px;font-family:inherit;outline:none;}
+        .mob-search-box input::placeholder{color:var(--text3);}
+        #mobSearchResults{flex:1;overflow-y:auto;}
         .logo{font-size:20px;font-weight:800;letter-spacing:-0.8px;flex-shrink:0;}
         .logo span{color:var(--blue);font-weight:800;}
         .search-wrap{flex:1;display:flex;align-items:center;gap:8px;}
@@ -2085,6 +2093,74 @@
     }
     function closeSearchDropdown() { renderDropdown('hidden', null); }
 
+    // ── 모바일 검색 모달 ──
+    const _debMobSearch = debounce(q => {
+        _renderMobDropdown(q.trim() ? 'results' : 'empty', q.trim() ? searchSuggest(q, 10) : null);
+    }, 300);
+
+    function _renderMobDropdown(mode, data) {
+        const el = document.getElementById('mobSearchResults');
+        if (!el) return;
+        let html = '';
+        if (mode === 'empty') {
+            const favs = getFavorites();
+            if (favs.length) {
+                html += `<div class="sdrop-section-title">⭐ 즐겨찾기</div>`;
+                html += favs.slice(0, 5).map((f, i) => {
+                    const meta = ASSET_META[f.symbol] || {};
+                    return _sdropItemHTML({ ticker: f.symbol, name: f.name, koreanName: f.name, market: f.market, type: meta.type || 'stock', sector: '', score: 0 }, i);
+                }).join('');
+            }
+            html += `<div class="sdrop-section-title">🔥 인기 종목</div>`;
+            if (_searchTrending === null) {
+                html += _sdropSkeletonHTML(5);
+                el.innerHTML = html;
+                if (!_searchTrendingLoading) {
+                    _searchTrendingLoading = true;
+                    _fetchSearchTrending().then(() => {
+                        const inp = document.getElementById('mobSearchInput');
+                        if (document.getElementById('mobSearchModal')?.style.display !== 'none' && inp?.value.trim() === '')
+                            _renderMobDropdown('empty', null);
+                    });
+                }
+                return;
+            } else {
+                html += _searchTrending.slice(0, 8).map((item, i) => _sdropItemHTML(item, i)).join('');
+            }
+        } else if (mode === 'results') {
+            if (!data?.length) {
+                html = `<div style="padding:14px 16px;color:var(--text3);font-size:13px;">검색 결과가 없습니다.</div>`;
+            } else {
+                html += `<div class="sdrop-section-title">🔍 검색 결과</div>`;
+                html += data.map((item, i) => _sdropItemHTML(item, i)).join('');
+            }
+        }
+        el.innerHTML = html;
+        el.querySelectorAll('.sdrop-item').forEach(row => {
+            row.addEventListener('click', () => {
+                closeSearch();
+                quickSearch(row.dataset.ticker, row.dataset.market);
+            });
+        });
+    }
+
+    function goSearch() {
+        document.getElementById('mobSearchModal').style.display = '';
+        updateBnActive('search');
+        setTimeout(() => {
+            const inp = document.getElementById('mobSearchInput');
+            if (inp) { inp.focus(); _renderMobDropdown('empty', null); }
+        }, 100);
+    }
+
+    function closeSearch() {
+        document.getElementById('mobSearchModal').style.display = 'none';
+        const inp = document.getElementById('mobSearchInput');
+        if (inp) inp.value = '';
+        const res = document.getElementById('mobSearchResults');
+        if (res) res.innerHTML = '';
+    }
+
     function _highlightDropdownItem(idx) {
         const items = _sdropItems();
         items.forEach(el => el.classList.remove('highlighted'));
@@ -2138,6 +2214,20 @@
         });
 
         // 바텀 내비는 항상 고정 표시 (스크롤 숨김 없음)
+
+        // 모바일 검색 모달 입력 이벤트
+        const mobInp = document.getElementById('mobSearchInput');
+        if (mobInp) {
+            mobInp.addEventListener('input', () => _debMobSearch(mobInp.value));
+            mobInp.addEventListener('keydown', e => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const q = mobInp.value.trim();
+                    if (q) { closeSearch(); setMarket('US'); document.getElementById('searchInput').value = q; searchStock(); }
+                }
+                if (e.key === 'Escape') closeSearch();
+            });
+        }
     });
 
     // 백엔드 API 베이스 URL (같은 도메인 서빙 시 빈 문자열)
@@ -4421,14 +4511,7 @@
                 goHome();
             }
         } else if (tab === 'search') {
-            goHome();
-            setTimeout(() => {
-                const inp = document.getElementById('searchInput');
-                if (!inp) return;
-                inp.focus();
-                if (inp.value.trim() === '') openSearchDropdown();
-                else renderDropdown('results', searchSuggest(inp.value, 8));
-            }, 200);
+            goSearch();
         } else if (tab === 'scanner') {
             goScanner();
         } else if (tab === 'smartmoney') {
@@ -9740,11 +9823,25 @@ Rules:
         loadNewsTab, reloadNewsTab, renderNewsList, _newsTimeAgo,
         loadShortTab, reloadShortTab, renderShortTab, _buildGaugeSVG,
         renderAnalystTargets,
-        goScanner, goFav, bnGo, updateBnActive,
+        goScanner, goFav, goSearch, closeSearch, bnGo, updateBnActive,
         toggleScannerChip, setScannerPreset, syncScannerChipUI,
         debounceScannerFetch, runScannerFetch, filterScannerResults, renderScannerResults
     });
     </script>
+
+    <!-- ===== 모바일 검색 모달 ===== -->
+    <div class="mob-search-modal" id="mobSearchModal" style="display:none">
+        <div class="mob-search-header">
+            <button class="mob-back-btn" onclick="closeSearch()" aria-label="닫기">
+                <i class="ri-arrow-left-s-line"></i>
+            </button>
+            <div class="mob-search-box">
+                <i class="ri-search-2-line" style="color:var(--text3);font-size:16px;flex-shrink:0;"></i>
+                <input type="text" id="mobSearchInput" placeholder="종목 입력 (예: 삼성전자, AAPL)" autocomplete="off" inputmode="search">
+            </div>
+        </div>
+        <div id="mobSearchResults"></div>
+    </div>
 
     <!-- ===== 바텀 내비게이션 (BN_TABS 설정으로 관리, 최대 MAX_BN_TABS=5개) ===== -->
     <nav class="bottom-nav" id="bottomNav"></nav>
