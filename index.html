@@ -4392,7 +4392,13 @@
             goHome();
         } else if (tab === 'search') {
             goHome();
-            setTimeout(() => { document.getElementById('searchInput')?.focus(); }, 100);
+            setTimeout(() => {
+                const inp = document.getElementById('searchInput');
+                if (!inp) return;
+                inp.focus();
+                if (inp.value.trim() === '') openSearchDropdown();
+                else renderDropdown('results', searchSuggest(inp.value, 8));
+            }, 200);
         } else if (tab === 'scanner') {
             goScanner();
         } else if (tab === 'smartmoney') {
