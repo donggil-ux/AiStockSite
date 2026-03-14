@@ -68,6 +68,9 @@
         .fav-item-code{font-size:11px;color:var(--text3);font-weight:500;}
         .fav-item-remove{width:24px;height:24px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;color:var(--text3);cursor:pointer;font-size:14px;border-radius:6px;flex-shrink:0;opacity:0;transition:all .15s;font-family:inherit;}
         .fav-item:hover .fav-item-remove{opacity:1;}
+        /* 즐겨찾기 화면에서는 삭제 버튼 항상 표시 */
+        #favScreenList .fav-item-remove{opacity:.5;}
+        #favScreenList .fav-item:hover .fav-item-remove{opacity:1;}
         .fav-item-remove:hover{color:var(--red);background:rgba(239,68,68,.1);}
         .fav-item-market{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0;}
         .fav-item-market.kr{background:rgba(59,130,246,.12);color:var(--blue);}
@@ -1391,6 +1394,13 @@
         <div id="scannerResults"></div>
     </div>
 
+    <!-- Fav Screen -->
+    <div class="smart-money-screen" id="favScreen" style="display:none">
+        <div class="sm-screen-title">⭐ 즐겨찾기</div>
+        <div class="sm-screen-sub">종목을 탭하면 바로 분석합니다</div>
+        <div id="favScreenList"></div>
+    </div>
+
     <!-- Stock Hero (대형 가격 표시) -->
     <div class="stock-hero" id="stockHero">
         <div style="display:flex;align-items:center;gap:0;">
@@ -1890,13 +1900,11 @@
 
     function renderFavList() {
         const container = document.getElementById('favList');
-        if (!container) return;
+        const screenContainer = document.getElementById('favScreenList');
+        if (!container && !screenContainer) return;
         const favs = getFavorites();
-        if (favs.length === 0) {
-            container.innerHTML = '<div class="fav-empty">즐겨찾기한 종목이 없습니다.<br>종목 분석 후 &#9734; 버튼으로 추가하세요.</div>';
-            return;
-        }
-        container.innerHTML = favs.map(f => {
+        const emptyHTML = '<div class="fav-empty">즐겨찾기한 종목이 없습니다.<br>종목 분석 후 &#9734; 버튼으로 추가하세요.</div>';
+        const itemsHTML = favs.length === 0 ? emptyHTML : favs.map(f => {
             const sym = (f.symbol||'').replace(/'/g,'&#39;');
             const mkt = (f.market||'').replace(/'/g,'&#39;');
             const name = (f.name||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -1909,19 +1917,23 @@
                 <button class="fav-item-remove" title="삭제">&times;</button>
             </div>`;
         }).join('');
-        // 이벤트 위임 (onclick 인라인 대신)
-        container.querySelectorAll('.fav-item').forEach(el => {
-            const sym = el.dataset.sym, mkt = el.dataset.mkt;
-            el.addEventListener('click', () => favSearch(sym, mkt));
-            el.querySelector('.fav-item-remove')?.addEventListener('click', e => {
-                e.stopPropagation();
-                removeFavorite(sym, mkt);
+
+        [container, screenContainer].filter(Boolean).forEach(c => {
+            c.innerHTML = itemsHTML;
+            c.querySelectorAll('.fav-item').forEach(el => {
+                const sym = el.dataset.sym, mkt = el.dataset.mkt;
+                el.addEventListener('click', () => favSearch(sym, mkt));
+                el.querySelector('.fav-item-remove')?.addEventListener('click', e => {
+                    e.stopPropagation();
+                    removeFavorite(sym, mkt);
+                });
             });
         });
     }
 
     function favSearch(symbol, market) {
         closeSideNav();
+        document.getElementById('favScreen').style.display = 'none';
         setMarket(market);
         document.getElementById('searchInput').value = symbol;
         searchStock();
@@ -2655,10 +2667,25 @@
     loadRecentStocks();
     loadVolAlert();
 
+    function goFav() {
+        document.getElementById('welcomeScreen').style.display = 'none';
+        document.getElementById('smartMoneyScreen').style.display = 'none';
+        document.getElementById('alphaScannerScreen').style.display = 'none';
+        document.getElementById('favScreen').style.display = '';
+        document.getElementById('mainHeader')?.classList.remove('stock-loaded');
+        document.getElementById('stockHero').classList.remove('show');
+        document.getElementById('tabNav').classList.remove('show');
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        updateBnActive('fav');
+        renderFavList();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
     function goHome() {
         document.getElementById('welcomeScreen').style.display = '';
         document.getElementById('smartMoneyScreen').style.display = 'none';
         document.getElementById('alphaScannerScreen').style.display = 'none';
+        document.getElementById('favScreen').style.display = 'none';
         document.getElementById('mainHeader')?.classList.remove('stock-loaded');
         document.querySelectorAll('.side-nav-item').forEach(b => b.classList.remove('active'));
         document.querySelector('.side-nav-item[onclick^="goHome"]')?.classList.add('active');
@@ -4324,6 +4351,7 @@
     function goSmartMoney() {
         document.getElementById('welcomeScreen').style.display = 'none';
         document.getElementById('alphaScannerScreen').style.display = 'none';
+        document.getElementById('favScreen').style.display = 'none';
         document.getElementById('smartMoneyScreen').style.display = '';
         document.getElementById('mainHeader')?.classList.remove('stock-loaded');
         document.getElementById('stockHero').classList.remove('show');
@@ -4342,6 +4370,7 @@
     function goScanner() {
         document.getElementById('welcomeScreen').style.display = 'none';
         document.getElementById('smartMoneyScreen').style.display = 'none';
+        document.getElementById('favScreen').style.display = 'none';
         document.getElementById('alphaScannerScreen').style.display = '';
         document.getElementById('mainHeader')?.classList.remove('stock-loaded');
         document.getElementById('stockHero').classList.remove('show');
@@ -4386,6 +4415,7 @@
             if (currentSymbol) {
                 document.getElementById('smartMoneyScreen').style.display = 'none';
                 document.getElementById('alphaScannerScreen').style.display = 'none';
+                document.getElementById('favScreen').style.display = 'none';
                 document.getElementById('welcomeScreen').style.display = 'none';
             } else {
                 goHome();
@@ -4404,7 +4434,7 @@
         } else if (tab === 'smartmoney') {
             goSmartMoney();
         } else if (tab === 'fav') {
-            openSideNav();
+            goFav();
         }
     }
 
@@ -9710,7 +9740,7 @@ Rules:
         loadNewsTab, reloadNewsTab, renderNewsList, _newsTimeAgo,
         loadShortTab, reloadShortTab, renderShortTab, _buildGaugeSVG,
         renderAnalystTargets,
-        goScanner, bnGo, updateBnActive,
+        goScanner, goFav, bnGo, updateBnActive,
         toggleScannerChip, setScannerPreset, syncScannerChipUI,
         debounceScannerFetch, runScannerFetch, filterScannerResults, renderScannerResults
     });
