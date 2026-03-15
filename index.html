@@ -425,7 +425,7 @@
         .tv-chart-wrap{position:relative;width:100%;height:580px;border-radius:0 0 8px 8px;overflow:hidden;}
         .tv-fullscreen-btn{position:absolute;top:10px;right:10px;z-index:15;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);background:rgba(17,22,32,.85);backdrop-filter:blur(8px);color:var(--text2);border-radius:8px;cursor:pointer;transition:all .15s;}
         .tv-fullscreen-btn:hover{background:var(--bg4);color:var(--text);}
-        .tv-chart-card.fullscreen{position:fixed;inset:0;z-index:9999;border-radius:0;border:none;margin:0;max-width:none;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);}
+        .tv-chart-card.fullscreen{position:fixed;top:env(safe-area-inset-top,0px);left:0;right:0;bottom:env(safe-area-inset-bottom,0px);z-index:9999;border-radius:0;border:none;margin:0;max-width:none;}
         .tv-chart-card.fullscreen .tv-chart-wrap{flex:1;height:auto!important;border-radius:0;}
         /* Chart Toolbar */
         .chart-toolbar{display:flex;align-items:center;gap:6px;padding:10px 14px;background:var(--bg2);border-radius:8px 8px 0 0;border-bottom:1px solid var(--border);flex-wrap:wrap;}
@@ -6267,12 +6267,12 @@
         iconExpand.style.display = isFull ? 'none' : '';
         iconShrink.style.display = isFull ? '' : 'none';
         document.body.style.overflow = isFull ? 'hidden' : '';
-        // 전체화면 전환 시 차트 리사이즈
+        // 전체화면 전환 시 차트 리사이즈 (iOS safe-area 레이아웃 적용 대기)
         if (lwChart) {
             setTimeout(() => {
                 const wrap = document.getElementById('tvChartWrap');
                 if (wrap) lwChart.applyOptions({ width: wrap.clientWidth, height: wrap.clientHeight });
-            }, 50);
+            }, 200);
         }
     }
 
