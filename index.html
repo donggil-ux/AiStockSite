@@ -6503,11 +6503,19 @@
         const _aiReaderBtn = document.getElementById('chartAiReaderBtn');
         if (_aiReaderBtn) _aiReaderBtn.style.display = '';
 
-        // AI 라인 복원 (기간/인터벌 변경 후에도 유지)
+        // AI 라인 복원 (세션 내 재렌더 또는 PWA 재시작 후)
         if (lwAiLastData) {
             lwAiPriceLines = [];
             lwAiTrendSeries = [];
-            drawAiChartLines(lwAiLastData.data, lwAiLastData.timestamps);
+            drawAiChartLines(lwAiLastData.data, stockData.timestamp);
+        } else if (currentSymbol) {
+            try {
+                const saved = localStorage.getItem('stockai_ai_' + currentSymbol);
+                if (saved) {
+                    const savedData = JSON.parse(saved);
+                    drawAiChartLines(savedData, stockData.timestamp);
+                }
+            } catch(e) {}
         }
 
         // 드로잉 도구 이벤트 연결 + 기존 그림 다시 렌더
@@ -10115,6 +10123,9 @@
         lwAiTrendSeries.forEach(s => { try { lwChart?.removeSeries(s); } catch(e) {} });
         lwAiTrendSeries = [];
         lwAiLastData = null;
+        if (currentSymbol) {
+            try { localStorage.removeItem('stockai_ai_' + currentSymbol); } catch(e) {}
+        }
         const btn = document.getElementById('chartAiClearBtn');
         if (btn) btn.style.display = 'none';
         const card = document.getElementById('aiSummaryCard');
@@ -10126,6 +10137,9 @@
         if (!lwChart || !lwCandleSeries) return;
         const ts = timestamps || stockData?.timestamp || [];
         lwAiLastData = { data, timestamps: ts }; // 복원용 저장
+        if (currentSymbol) {
+            try { localStorage.setItem('stockai_ai_' + currentSymbol, JSON.stringify(data)); } catch(e) {}
+        }
 
         // 수평선 (지지/저항)
         (data.levels || []).forEach(level => {
