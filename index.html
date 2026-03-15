@@ -436,6 +436,14 @@
         .chart-tb-btn.active{border-color:var(--blue);color:var(--blue);background:rgba(59,130,246,.08);}
         .chart-ai-reader-btn{border-color:var(--purple);color:var(--purple);background:rgba(167,139,250,.08);margin-right:4px;}
         .chart-ai-reader-btn:hover{background:rgba(167,139,250,.18) !important;border-color:var(--purple) !important;color:var(--purple) !important;}
+        /* AI Progress Bar */
+        .ai-progress{display:none;padding:0 14px 10px;background:var(--bg2);}
+        .ai-progress.show{display:block;}
+        .ai-progress-label{font-size:11px;color:var(--text3);margin-bottom:4px;display:flex;justify-content:space-between;}
+        .ai-progress-bar{height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;}
+        .ai-progress-fill{height:100%;background:linear-gradient(90deg,var(--purple),var(--blue));border-radius:2px;transition:width .4s ease;width:0%;}
+        .ai-progress-bar.indeterminate .ai-progress-fill{width:30%;animation:aiProgressSlide 1.2s ease-in-out infinite;}
+        @keyframes aiProgressSlide{0%{transform:translateX(-100%)}50%{transform:translateX(200%)}100%{transform:translateX(400%)}}
         .chart-tb-label{font-size:11px;color:var(--text3);font-weight:700;margin-right:4px;white-space:nowrap;}
         /* Drawing Tools */
         .draw-toolbar{display:flex;align-items:center;gap:4px;padding:6px 14px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap;}
@@ -672,6 +680,7 @@
             .sub-chart-grid{grid-template-columns:1fr 1fr;}
             .sub-chart-grid .card{margin:4px 12px;}
             .indicator-grid{grid-template-columns:repeat(3,1fr);}
+            .header{padding-left:32px;padding-right:32px;}
             .header-top{max-width:1440px;margin:0 auto;}
             .tab-nav{padding:0 32px;}
         }
@@ -1401,17 +1410,7 @@
             <div class="vol-alert-list" id="volAlertList"></div>
         </section>
 
-        <!-- Vision Scanner 진입 카드 -->
-        <div style="padding:0 16px 4px;">
-            <div class="vs-home-entry" onclick="goVisionScanner()">
-                <div class="vs-home-entry-icon">🔍</div>
-                <div class="vs-home-entry-text">
-                    <div class="vs-home-entry-title">AI 차트 판독기 <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;background:rgba(167,139,250,.15);color:var(--purple);margin-left:4px;">NEW</span></div>
-                    <div class="vs-home-entry-sub">차트 캡처본을 올리면 지지·저항선과 매물대를 자동으로 분석합니다</div>
-                </div>
-                <i class="ri-arrow-right-s-line vs-home-entry-arrow"></i>
-            </div>
-        </div>
+        <!-- Vision Scanner 진입 카드 (홈에서 숨김) -->
 
         <!-- 미국주식 인기 TOP 100 -->
         <div class="top100-section">
@@ -1696,6 +1695,16 @@
                                 <svg id="tvFsIconExpand" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
                                 <svg id="tvFsIconShrink" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
                             </button>
+                        </div>
+                    </div>
+                    <!-- AI 분석 프로그레스바 -->
+                    <div class="ai-progress" id="aiProgress">
+                        <div class="ai-progress-label">
+                            <span id="aiProgressStep">차트 캡처 중...</span>
+                            <span id="aiProgressPct"></span>
+                        </div>
+                        <div class="ai-progress-bar" id="aiProgressBar">
+                            <div class="ai-progress-fill" id="aiProgressFill"></div>
                         </div>
                     </div>
                     <div class="draw-toolbar" id="drawToolbar">
@@ -10256,6 +10265,30 @@
             .replace(/<p><\/p>/g, '');
     }
 
+    // ── AI 프로그레스바 제어 ──
+    function _aiProgressShow(step, pct) {
+        const el = document.getElementById('aiProgress');
+        const stepEl = document.getElementById('aiProgressStep');
+        const pctEl = document.getElementById('aiProgressPct');
+        const fill = document.getElementById('aiProgressFill');
+        const bar = document.getElementById('aiProgressBar');
+        if (!el) return;
+        el.classList.add('show');
+        if (stepEl) stepEl.textContent = step;
+        if (pct < 0) {
+            bar.classList.add('indeterminate');
+            if (pctEl) pctEl.textContent = '';
+        } else {
+            bar.classList.remove('indeterminate');
+            if (fill) fill.style.width = pct + '%';
+            if (pctEl) pctEl.textContent = pct + '%';
+        }
+    }
+    function _aiProgressHide() {
+        const el = document.getElementById('aiProgress');
+        if (el) el.classList.remove('show');
+    }
+
     // ── 차트 AI 판독기 — 캔버스 캡처 → Gemini 분석 → 차트에 직접 그리기 ──
     function captureChartAndAnalyze() {
         if (!lwChart || !stockData) { showToast('먼저 종목을 검색하여 차트를 로드해주세요.'); return; }
@@ -10267,6 +10300,8 @@
         const w = first.width, h = first.height;
         if (!w || !h) { showToast('차트를 잠시 후 다시 시도해주세요.'); return; }
 
+        _aiProgressShow('📸 차트 캡처 중...', 10);
+
         const offscreen = document.createElement('canvas');
         offscreen.width = w; offscreen.height = h;
         const ctx = offscreen.getContext('2d');
@@ -10276,12 +10311,13 @@
         canvases.forEach(c => { try { ctx.drawImage(c, 0, 0, w, h); } catch(e) {} });
 
         offscreen.toBlob(async blob => {
-            if (!blob) { showToast('캡처에 실패했습니다.'); return; }
+            if (!blob) { showToast('캡처에 실패했습니다.'); _aiProgressHide(); return; }
 
             const btn = document.getElementById('chartAiReaderBtn');
             if (btn) { btn.disabled = true; btn.textContent = '⏳ 분석 중...'; }
 
             clearAiChartLines();
+            _aiProgressShow('📤 데이터 전송 중...', 25);
 
             try {
                 const ts = stockData.timestamp;
@@ -10296,14 +10332,23 @@
                 fd.append('image', blob, 'chart.png');
                 fd.append('priceData', JSON.stringify(priceData));
 
+                _aiProgressShow('🤖 AI 분석 중... (약 10~30초)', -1);
+
                 const resp = await fetch('/api/chart-draw', { method: 'POST', body: fd });
+
+                _aiProgressShow('📊 결과 처리 중...', 85);
+
                 if (!resp.ok) {
                     const err = await resp.json().catch(() => ({}));
                     throw new Error(err.error || `서버 오류 (${resp.status})`);
                 }
                 const data = await resp.json();
 
+                _aiProgressShow('🎨 차트에 그리는 중...', 95);
                 drawAiChartLines(data, ts);
+
+                _aiProgressShow('✅ 분석 완료!', 100);
+                setTimeout(_aiProgressHide, 1200);
 
                 const supCnt = (data.levels || []).filter(l => l.type === 'support').length;
                 const resCnt = (data.levels || []).filter(l => l.type === 'resistance').length;
@@ -10312,6 +10357,7 @@
 
             } catch(e) {
                 showToast('AI 분석 실패: ' + e.message);
+                _aiProgressHide();
             } finally {
                 if (btn) { btn.disabled = false; btn.textContent = '🔍 AI 판독기'; }
             }
