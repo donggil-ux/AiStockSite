@@ -458,6 +458,18 @@
 
         .sub-chart-grid{display:grid;grid-template-columns:1fr;gap:0;}
         .sub-chart-grid .card{margin:4px 16px;}
+        /* AI 판독기 요약 카드 */
+        .ai-summary-card{margin:8px 16px;padding:14px 16px;background:linear-gradient(135deg,rgba(167,139,250,.08),rgba(99,102,241,.06));border:1px solid rgba(167,139,250,.25);border-radius:var(--r2);}
+        .ai-summary-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+        .ai-summary-title{font-size:13px;font-weight:700;color:var(--purple);display:flex;align-items:center;gap:6px;}
+        .ai-summary-close{background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:0;line-height:1;font-family:inherit;}
+        .ai-summary-close:hover{color:var(--text);}
+        .ai-summary-levels{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+        .ai-summary-level{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;}
+        .ai-summary-level.support{background:rgba(34,197,94,.12);color:#22c55e;border:1px solid rgba(34,197,94,.25);}
+        .ai-summary-level.resistance{background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25);}
+        .ai-summary-level.trend{background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.25);}
+        .ai-summary-text{font-size:12px;color:var(--text2);line-height:1.6;}
 
         /* ===== INDICATOR GRID ===== */
         .indicator-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
@@ -1725,6 +1737,16 @@
                     </div>
                 </div>
 
+
+                <!-- AI 판독기 요약 카드 -->
+                <div class="ai-summary-card" id="aiSummaryCard" style="display:none;">
+                    <div class="ai-summary-header">
+                        <div class="ai-summary-title">🔍 AI 판독기 분석 결과</div>
+                        <button class="ai-summary-close" onclick="clearAiChartLines()" title="닫기">&times;</button>
+                    </div>
+                    <div class="ai-summary-levels" id="aiSummaryLevels"></div>
+                    <div class="ai-summary-text" id="aiSummaryText"></div>
+                </div>
 
                 <!-- 보조 지표 2열 그리드 -->
                 <div class="sub-chart-grid">
@@ -10095,6 +10117,8 @@
         lwAiLastData = null;
         const btn = document.getElementById('chartAiClearBtn');
         if (btn) btn.style.display = 'none';
+        const card = document.getElementById('aiSummaryCard');
+        if (card) card.style.display = 'none';
     }
 
     // ── AI 차트 라인 그리기 ──
@@ -10147,6 +10171,20 @@
 
         const clearBtn = document.getElementById('chartAiClearBtn');
         if (clearBtn && (lwAiPriceLines.length || lwAiTrendSeries.length)) clearBtn.style.display = '';
+
+        // 요약 카드 업데이트
+        const card = document.getElementById('aiSummaryCard');
+        const levelsEl = document.getElementById('aiSummaryLevels');
+        const textEl = document.getElementById('aiSummaryText');
+        if (card && levelsEl && textEl) {
+            const badges = [
+                ...(data.levels || []).map(l => `<span class="ai-summary-level ${l.type === 'resistance' ? 'resistance' : 'support'}">${l.type === 'resistance' ? '↑저항' : '↓지지'} $${l.price.toFixed(2)}</span>`),
+                ...(data.trendlines || []).map(t => `<span class="ai-summary-level trend">↗ ${t.label}</span>`),
+            ].join('');
+            levelsEl.innerHTML = badges;
+            textEl.textContent = data.summary || '';
+            card.style.display = badges || data.summary ? '' : 'none';
+        }
     }
 
     // ── 차트 AI 판독기 — 캔버스 캡처 → Gemini 분석 → 차트에 직접 그리기 ──
