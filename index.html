@@ -10239,7 +10239,7 @@ Rules:
         const box = document.getElementById('vsErrorBox');
         document.getElementById('vsErrorMsg').textContent = msg;
         box.style.display = 'flex';
-        setTimeout(() => { box.style.display = 'none'; }, 5000);
+        setTimeout(() => { box.style.display = 'none'; }, 8000);
     }
 
     // ── 로딩 화면 ────────────────────────────────────────────────
@@ -10291,7 +10291,7 @@ Rules:
                 if (bar) bar.style.width = '100%';
                 if (data.error) {
                     _vsApiResult = null;
-                    setTimeout(() => { _vsShowError('AI 분석 실패: ' + data.error); vsReset(); }, 200);
+                    setTimeout(() => { vsReset(); _vsShowError('AI 분석 실패: ' + data.error); }, 200);
                 } else {
                     _vsApiResult = data;
                     setTimeout(_vsShowResult, 300);
@@ -10300,7 +10300,7 @@ Rules:
             .catch(err => {
                 clearInterval(_vsStepTimer);
                 cancelAnimationFrame(_vsRafId);
-                setTimeout(() => { _vsShowError('서버 연결 실패: ' + err.message); vsReset(); }, 200);
+                setTimeout(() => { vsReset(); _vsShowError('서버 연결 실패: ' + err.message); }, 200);
             });
     }
 
