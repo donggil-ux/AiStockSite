@@ -1212,6 +1212,98 @@
         .s-action-add{color:#3b82f6;font-size:11px;font-weight:800;}
         .s-action-hold{color:var(--text2);font-size:11px;font-weight:800;}
         .s-action-reduce{color:#f59e0b;font-size:11px;font-weight:800;}
+
+        /* ===== VISION SCANNER ===== */
+        .vs-screen{padding:20px 16px 40px;max-width:900px;margin:0 auto;}
+        .vs-screen-title{font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px;}
+        .vs-screen-sub{font-size:13px;color:var(--text2);margin-bottom:20px;}
+        /* 드롭존 */
+        .vs-dropzone{border:2px dashed var(--border);border-radius:var(--r);padding:60px 24px;display:flex;flex-direction:column;align-items:center;gap:16px;cursor:pointer;transition:all .2s;background:var(--bg2);position:relative;overflow:hidden;user-select:none;}
+        .vs-dropzone:hover,.vs-dropzone.drag-over{border-color:var(--purple);background:rgba(167,139,250,.06);box-shadow:0 0 40px -8px rgba(167,139,250,.3);}
+        .vs-dropzone-icon{width:72px;height:72px;border-radius:18px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:30px;transition:all .2s;}
+        .vs-dropzone.drag-over .vs-dropzone-icon{background:rgba(167,139,250,.15);transform:scale(1.12);}
+        .vs-dropzone-title{font-size:16px;font-weight:700;color:var(--text);text-align:center;}
+        .vs-dropzone-sub{font-size:12px;color:var(--text3);text-align:center;}
+        .vs-kbd-hint{display:flex;align-items:center;gap:6px;padding:6px 14px;background:var(--bg3);border-radius:var(--r3);border:1px solid var(--border);}
+        .vs-kbd{font-size:10px;font-family:monospace;font-weight:700;padding:2px 7px;background:var(--bg4);border-radius:4px;color:var(--text2);}
+        .vs-features{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:8px;}
+        .vs-feature-chip{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;background:var(--bg3);border:1px solid var(--border);font-size:12px;font-weight:600;color:var(--text2);}
+        .vs-error-box{display:flex;align-items:center;gap:8px;padding:12px 16px;border-radius:var(--r3);background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:var(--red);font-size:13px;margin-top:12px;}
+        /* 글로벌 드래그 오버레이 */
+        .vs-drag-overlay{position:fixed;inset:0;z-index:999;border:4px solid var(--purple);background:rgba(167,139,250,.07);pointer-events:none;display:none;align-items:center;justify-content:center;}
+        .vs-drag-overlay.show{display:flex;}
+        .vs-drag-overlay-inner{padding:40px 60px;background:var(--bg2);border-radius:var(--r);border:1px solid rgba(167,139,250,.4);box-shadow:0 0 60px rgba(167,139,250,.25);display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;}
+        /* 스캐닝 애니메이션 */
+        .vs-scanning-wrap{position:relative;width:100%;border-radius:var(--r);overflow:hidden;border:1px solid var(--border);}
+        .vs-scanning-img{width:100%;display:block;filter:blur(2px) brightness(.5);transform:scale(1.02);}
+        .vs-scanning-overlay{position:absolute;inset:0;background:rgba(10,14,20,.35);}
+        .vs-scan-grid{position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(167,139,250,.05) 3px,rgba(167,139,250,.05) 4px);pointer-events:none;}
+        .vs-laser{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--purple),transparent);box-shadow:0 0 14px 3px rgba(167,139,250,.9);animation:vsLaserScan 2.8s ease-in-out infinite;}
+        .vs-laser-trail{position:absolute;left:0;right:0;height:70px;background:linear-gradient(to bottom,rgba(167,139,250,.14),transparent);animation:vsLaserScan 2.8s ease-in-out infinite;transform:translateY(-100%);}
+        @keyframes vsLaserScan{0%{top:-4px}50%{top:calc(100% + 4px)}100%{top:-4px}}
+        .vs-scan-corner{position:absolute;width:20px;height:20px;border-color:var(--purple);border-style:solid;}
+        .vs-scan-corner.tl{top:12px;left:12px;border-width:2px 0 0 2px;}
+        .vs-scan-corner.tr{top:12px;right:12px;border-width:2px 2px 0 0;}
+        .vs-scan-corner.bl{bottom:12px;left:12px;border-width:0 0 2px 2px;}
+        .vs-scan-corner.br{bottom:12px;right:12px;border-width:0 2px 2px 0;}
+        .vs-scan-hts{position:absolute;inset:0;padding:12px 16px;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none;font-size:10px;font-family:monospace;color:rgba(167,139,250,.45);}
+        .vs-scan-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:10;}
+        .vs-scan-badge{display:flex;align-items:center;gap:12px;padding:12px 20px;background:rgba(10,14,20,.88);border:1px solid rgba(167,139,250,.3);border-radius:var(--r2);backdrop-filter:blur(8px);}
+        .vs-scan-ring{width:32px;height:32px;border-radius:50%;border:2px solid rgba(167,139,250,.2);border-top-color:var(--purple);animation:vsSpin .8s linear infinite;flex-shrink:0;}
+        @keyframes vsSpin{to{transform:rotate(360deg)}}
+        .vs-scan-step-text{font-size:11px;color:rgba(167,139,250,.8);transition:all .2s;}
+        .vs-scan-progress-wrap{width:160px;height:3px;background:rgba(255,255,255,.07);border-radius:4px;overflow:hidden;}
+        .vs-scan-progress{height:100%;background:linear-gradient(90deg,var(--purple),#7c3aed);border-radius:4px;box-shadow:0 0 8px rgba(167,139,250,.8);width:0%;}
+        .vs-step-indicator{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;padding:14px 0 4px;}
+        .vs-step-chip{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--bg3);color:var(--text3);}
+        .vs-step-chip.done{background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.3);color:var(--green);}
+        .vs-step-chip.active{background:rgba(167,139,250,.1);border-color:rgba(167,139,250,.3);color:var(--purple);}
+        /* 결과 캔버스 */
+        .vs-result-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+        .vs-result-badge{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:var(--green);font-size:12px;font-weight:700;}
+        .vs-reset-btn{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--r3);background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;}
+        .vs-reset-btn:hover{background:var(--bg4);color:var(--text);}
+        .vs-canvas-wrap{position:relative;width:100%;border-radius:var(--r);overflow:hidden;border:1px solid var(--border);}
+        .vs-canvas-img{width:100%;display:block;}
+        .vs-canvas-el{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;}
+        .vs-meta-bar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg2);border-radius:var(--r3);border:1px solid var(--border);font-size:12px;color:var(--text3);margin-bottom:14px;}
+        .vs-meta-name{color:var(--text);font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .vs-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center;}
+        .vs-legend-chip{display:flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;}
+        .vs-legend-chip.support{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:var(--green);}
+        .vs-legend-chip.resistance{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:var(--red);}
+        .vs-legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+        .vs-legend-hint{font-size:11px;color:var(--text3);margin-left:auto;}
+        /* 분석 리포트 */
+        .vs-report{margin-top:20px;background:var(--bg2);border-radius:var(--r);border:1px solid var(--border);padding:20px;}
+        .vs-report-head{display:flex;align-items:center;gap:8px;padding-bottom:14px;border-bottom:1px solid var(--border);margin-bottom:16px;font-size:14px;font-weight:700;}
+        .vs-report-body h2{font-size:15px;font-weight:800;color:var(--text);margin:14px 0 6px;}
+        .vs-report-body h2:first-child{margin-top:0;}
+        .vs-report-body h3{font-size:13px;font-weight:700;color:var(--text2);margin:10px 0 5px;}
+        .vs-report-body p{font-size:13px;color:var(--text2);line-height:1.75;margin-bottom:6px;}
+        .vs-report-body ul{margin:4px 0 10px;padding:0;}
+        .vs-report-body li{font-size:13px;color:var(--text2);list-style:none;padding:3px 0 3px 18px;position:relative;line-height:1.6;}
+        .vs-report-body li::before{content:'·';position:absolute;left:6px;color:var(--purple);}
+        .vs-report-body blockquote{border-left:2px solid var(--purple);padding-left:12px;margin:8px 0;font-size:12px;color:var(--text3);font-style:italic;}
+        .vs-report-table{width:100%;border-collapse:collapse;margin:8px 0;}
+        .vs-report-table th{font-size:11px;color:var(--text3);font-weight:700;padding:6px 10px;border-bottom:1px solid var(--border);text-align:left;}
+        .vs-report-table td{font-size:12px;color:var(--text2);padding:6px 10px;border-bottom:1px solid var(--border);}
+        .vs-report-body strong{color:var(--text);font-weight:700;}
+        /* 홈 화면 진입 카드 */
+        .vs-home-entry{display:flex;align-items:center;gap:14px;padding:16px 18px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);cursor:pointer;transition:all .15s;margin-bottom:16px;}
+        .vs-home-entry:hover{border-color:var(--purple);background:rgba(167,139,250,.05);transform:translateY(-1px);}
+        .vs-home-entry-icon{width:44px;height:44px;border-radius:12px;background:rgba(167,139,250,.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+        .vs-home-entry-text{flex:1;min-width:0;}
+        .vs-home-entry-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px;}
+        .vs-home-entry-sub{font-size:12px;color:var(--text3);}
+        .vs-home-entry-arrow{color:var(--text3);font-size:18px;}
+        @media(max-width:640px){
+            .vs-dropzone{padding:40px 16px;}
+            .vs-features{gap:6px;}
+            .vs-feature-chip{font-size:11px;padding:5px 10px;}
+            .vs-drag-overlay-inner{padding:28px 32px;}
+            .vs-screen-title{font-size:18px;}
+        }
     </style>
 </head>
 <body>
@@ -1232,6 +1324,11 @@
                     <span class="side-nav-item-icon">&#128188;</span>
                     <span class="side-nav-item-text">기관 포트폴리오</span>
                     <span class="side-nav-item-sub">13F</span>
+                </button>
+                <button class="side-nav-item" id="sideNavVsBtn" onclick="goVisionScanner();closeSideNav();">
+                    <span class="side-nav-item-icon">&#128269;</span>
+                    <span class="side-nav-item-text">AI 차트 판독기</span>
+                    <span class="side-nav-item-sub">NEW</span>
                 </button>
             </div>
         </div>
@@ -1327,6 +1424,18 @@
             <div class="vol-alert-list" id="volAlertList"></div>
         </section>
 
+        <!-- Vision Scanner 진입 카드 -->
+        <div style="padding:0 16px 4px;">
+            <div class="vs-home-entry" onclick="goVisionScanner()">
+                <div class="vs-home-entry-icon">🔍</div>
+                <div class="vs-home-entry-text">
+                    <div class="vs-home-entry-title">AI 차트 판독기 <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;background:rgba(167,139,250,.15);color:var(--purple);margin-left:4px;">NEW</span></div>
+                    <div class="vs-home-entry-sub">차트 캡처본을 올리면 지지·저항선과 매물대를 자동으로 분석합니다</div>
+                </div>
+                <i class="ri-arrow-right-s-line vs-home-entry-arrow"></i>
+            </div>
+        </div>
+
         <!-- 미국주식 인기 TOP 100 -->
         <div class="top100-section">
             <div class="top100-header">
@@ -1408,6 +1517,134 @@
         <div class="sm-screen-sub">종목을 탭하면 바로 분석합니다</div>
         <div id="favScreenList"></div>
     </div>
+
+    <!-- ===== Vision Scanner Screen ===== -->
+    <div class="vs-screen" id="visionScannerScreen" style="display:none">
+        <div class="vs-screen-title">🔍 AI 차트 판독기</div>
+        <div class="vs-screen-sub">HTS·MTS 캡처본을 올리면 AI가 지지/저항선과 매물대를 자동으로 탐지합니다</div>
+
+        <!-- State: Empty (드롭존) -->
+        <div id="vsEmpty">
+            <div class="vs-dropzone" id="vsDropzone"
+                 onclick="vsClickUpload()"
+                 ondragenter="vsDragEnter(event)"
+                 ondragover="vsDragOver(event)"
+                 ondragleave="vsDragLeave(event)"
+                 ondrop="vsDrop(event)">
+                <div class="vs-dropzone-icon" id="vsDropIcon"><i class="ri-image-add-line" style="color:var(--text3);"></i></div>
+                <div>
+                    <div class="vs-dropzone-title">차트 이미지를 드래그하거나 <span style="color:var(--purple);text-decoration:underline;text-underline-offset:3px;">클릭해서 선택</span></div>
+                    <div class="vs-dropzone-sub" style="margin-top:4px;">PNG · JPG · WEBP · 최대 20MB</div>
+                </div>
+                <div class="vs-kbd-hint">
+                    <span class="vs-kbd">Ctrl</span>
+                    <span style="font-size:11px;color:var(--text3);">+</span>
+                    <span class="vs-kbd">V</span>
+                    <span style="font-size:11px;color:var(--text2);margin-left:2px;">클립보드 이미지 바로 붙여넣기</span>
+                </div>
+                <div class="vs-features">
+                    <div class="vs-feature-chip"><i class="ri-shield-check-line" style="color:var(--green);"></i>지지선 감지</div>
+                    <div class="vs-feature-chip"><i class="ri-error-warning-line" style="color:var(--red);"></i>저항선 감지</div>
+                    <div class="vs-feature-chip"><i class="ri-bar-chart-box-line" style="color:var(--blue);"></i>매물대 분석</div>
+                    <div class="vs-feature-chip"><i class="ri-file-text-line" style="color:var(--purple);"></i>AI 종합 리포트</div>
+                </div>
+            </div>
+            <input type="file" id="vsFileInput" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" onchange="vsHandleFileInput(event)">
+            <div class="vs-error-box" id="vsErrorBox" style="display:none">
+                <i class="ri-error-warning-fill" style="font-size:16px;flex-shrink:0;"></i>
+                <span id="vsErrorMsg">오류가 발생했습니다.</span>
+            </div>
+        </div>
+
+        <!-- State: Loading (스캐닝 애니메이션) -->
+        <div id="vsLoading" style="display:none">
+            <div class="vs-scanning-wrap" id="vsScanWrap">
+                <img class="vs-scanning-img" id="vsScanImg" alt="분석 중인 차트">
+                <div class="vs-scanning-overlay"></div>
+                <div class="vs-scan-grid"></div>
+                <div class="vs-laser-trail"></div>
+                <div class="vs-laser"></div>
+                <div class="vs-scan-corner tl"></div>
+                <div class="vs-scan-corner tr"></div>
+                <div class="vs-scan-corner bl"></div>
+                <div class="vs-scan-corner br"></div>
+                <div class="vs-scan-hts">
+                    <div style="display:flex;justify-content:space-between;">
+                        <span>X:0000 Y:0000</span>
+                        <span style="animation:vsPingRec 1s ease-in-out infinite;">● REC</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;">
+                        <span>SCAN MODE: AI-VISION</span><span>FRAME: 1/1</span>
+                    </div>
+                </div>
+                <div class="vs-scan-center">
+                    <div class="vs-scan-badge">
+                        <div class="vs-scan-ring"></div>
+                        <div>
+                            <div style="font-size:12px;font-weight:700;color:#fff;line-height:1.2;">Vision Scanner</div>
+                            <div class="vs-scan-step-text" id="vsScanStepText">초기화 중…</div>
+                        </div>
+                    </div>
+                    <div class="vs-scan-progress-wrap">
+                        <div class="vs-scan-progress" id="vsScanProgress"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="vs-step-indicator">
+                <div class="vs-step-chip done" id="vsStep1"><i class="ri-eye-line"></i>이미지 인식</div>
+                <i class="ri-arrow-right-s-line" style="color:var(--text3);font-size:14px;flex-shrink:0;"></i>
+                <div class="vs-step-chip active" id="vsStep2"><i class="ri-cpu-line"></i>AI 패턴 분석</div>
+                <i class="ri-arrow-right-s-line" style="color:var(--text3);font-size:14px;flex-shrink:0;"></i>
+                <div class="vs-step-chip" id="vsStep3"><i class="ri-bar-chart-2-line"></i>리포트 생성</div>
+            </div>
+        </div>
+
+        <!-- State: Result (캔버스 오버레이 + 분석 리포트) -->
+        <div id="vsResult" style="display:none">
+            <div class="vs-meta-bar">
+                <i class="ri-image-2-line" style="flex-shrink:0;"></i>
+                <span class="vs-meta-name" id="vsMetaName">-</span>
+                <span id="vsMetaSize" style="flex-shrink:0;font-size:11px;"></span>
+                <button class="vs-reset-btn" onclick="vsReset()">
+                    <i class="ri-close-line"></i>닫기
+                </button>
+            </div>
+            <div class="vs-result-header">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <div class="vs-result-badge"><i class="ri-check-double-line"></i>분석 완료</div>
+                    <span style="font-size:12px;color:var(--text3);" id="vsZoneCount"></span>
+                </div>
+                <button class="vs-reset-btn" onclick="vsReset()">
+                    <i class="ri-refresh-line"></i>다시 분석
+                </button>
+            </div>
+            <div class="vs-canvas-wrap" id="vsCanvasWrap">
+                <img class="vs-canvas-img" id="vsResultImg" alt="분석 차트">
+                <canvas class="vs-canvas-el" id="vsCanvas"
+                        onmousemove="vsMouseMove(event)"
+                        onmouseleave="vsMouseLeave()"></canvas>
+            </div>
+            <div class="vs-legend">
+                <div class="vs-legend-chip support"><div class="vs-legend-dot" style="background:var(--green);"></div>지지 구간 <span id="vsLegSupport" style="opacity:.7;"></span></div>
+                <div class="vs-legend-chip resistance"><div class="vs-legend-dot" style="background:var(--red);"></div>저항 구간 <span id="vsLegResist" style="opacity:.7;"></span></div>
+                <span class="vs-legend-hint"><i class="ri-cursor-line"></i> 구간에 마우스를 올리면 상세 정보를 확인할 수 있습니다</span>
+            </div>
+            <div class="vs-report" id="vsReport">
+                <div class="vs-report-head"><i class="ri-file-text-line" style="color:var(--purple);"></i>AI 분석 리포트</div>
+                <div class="vs-report-body" id="vsReportBody"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vision Scanner 전역 드래그 오버레이 (어디서든 드롭 가능) -->
+    <div class="vs-drag-overlay" id="vsDragOverlay">
+        <div class="vs-drag-overlay-inner">
+            <i class="ri-drop-line" style="font-size:48px;color:var(--purple);"></i>
+            <div style="font-size:16px;font-weight:700;color:var(--text);">차트 이미지를 여기에 놓으세요</div>
+            <div style="font-size:12px;color:var(--text3);">PNG · JPG · WEBP 지원</div>
+        </div>
+    </div>
+    <style>@keyframes vsPingRec{0%,100%{opacity:1}50%{opacity:.3}}</style>
 
     <!-- Stock Hero (대형 가격 표시) -->
     <div class="stock-hero" id="stockHero">
@@ -2761,7 +2998,9 @@
         document.getElementById('welcomeScreen').style.display = 'none';
         document.getElementById('smartMoneyScreen').style.display = 'none';
         document.getElementById('alphaScannerScreen').style.display = 'none';
+        document.getElementById('visionScannerScreen').style.display = 'none';
         document.getElementById('favScreen').style.display = '';
+        window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded');
         document.getElementById('stockHero').classList.remove('show');
         document.getElementById('tabNav').classList.remove('show');
@@ -2776,6 +3015,8 @@
         document.getElementById('smartMoneyScreen').style.display = 'none';
         document.getElementById('alphaScannerScreen').style.display = 'none';
         document.getElementById('favScreen').style.display = 'none';
+        document.getElementById('visionScannerScreen').style.display = 'none';
+        window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded');
         document.querySelectorAll('.side-nav-item').forEach(b => b.classList.remove('active'));
         document.querySelector('.side-nav-item[onclick^="goHome"]')?.classList.add('active');
@@ -4442,7 +4683,9 @@
         document.getElementById('welcomeScreen').style.display = 'none';
         document.getElementById('alphaScannerScreen').style.display = 'none';
         document.getElementById('favScreen').style.display = 'none';
+        document.getElementById('visionScannerScreen').style.display = 'none';
         document.getElementById('smartMoneyScreen').style.display = '';
+        window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded');
         document.getElementById('stockHero').classList.remove('show');
         document.getElementById('tabNav').classList.remove('show');
@@ -4461,7 +4704,9 @@
         document.getElementById('welcomeScreen').style.display = 'none';
         document.getElementById('smartMoneyScreen').style.display = 'none';
         document.getElementById('favScreen').style.display = 'none';
+        document.getElementById('visionScannerScreen').style.display = 'none';
         document.getElementById('alphaScannerScreen').style.display = '';
+        window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded');
         document.getElementById('stockHero').classList.remove('show');
         document.getElementById('tabNav').classList.remove('show');
@@ -4506,7 +4751,9 @@
                 document.getElementById('smartMoneyScreen').style.display = 'none';
                 document.getElementById('alphaScannerScreen').style.display = 'none';
                 document.getElementById('favScreen').style.display = 'none';
+                document.getElementById('visionScannerScreen').style.display = 'none';
                 document.getElementById('welcomeScreen').style.display = 'none';
+                window._vsActive = false;
             } else {
                 goHome();
             }
@@ -5395,8 +5642,10 @@
                 saveRecentStock(currentSymbol, _m.longName||_m.shortName||currentSymbol, _p, _chgPct, currentMarket);
             } catch(e) {}
 
-            // Show stock UI, hide welcome
+            // Show stock UI, hide all screens
             document.getElementById('welcomeScreen').style.display = 'none';
+            document.getElementById('visionScannerScreen').style.display = 'none';
+            window._vsActive = false;
             document.getElementById('stockHero').classList.add('show');
             document.getElementById('tabNav').classList.add('show');
             switchTab('chart');
@@ -9797,6 +10046,439 @@ Rules:
           })()}`;
     }
 
+    // ============================================================
+    // VISION SCANNER — AI 차트 판독기
+    // ============================================================
+
+    // ── 상태 ─────────────────────────────────────────────────────
+    const VS_ACCEPTED = ['image/png','image/jpeg','image/webp','image/gif'];
+    const VS_MAX_MB   = 20;
+    let _vsFile        = null;   // 현재 파일
+    let _vsObjectURL   = null;   // 현재 object URL
+    let _vsNaturalW    = 0;
+    let _vsNaturalH    = 0;
+    let _vsHoveredIdx  = null;
+    let _vsZones       = [];
+    let _vsDragCounter = 0;      // drag flicker 방지
+    let _vsScanTimer   = null;
+    let _vsStepTimer   = null;
+    let _vsRafId       = null;
+
+    // ── Mock 분석 결과 (Phase 1) ─────────────────────────────────
+    // yRatio/hRatio: 이미지 높이에 대한 비율 (0~1)
+    const VS_MOCK_ZONES = [
+        { type:'resistance', xRatio:0, yRatio:.12, wRatio:1, hRatio:.026, label:'저항 ₩84,200', strength:.9  },
+        { type:'resistance', xRatio:0, yRatio:.27, wRatio:1, hRatio:.018, label:'저항 ₩81,500', strength:.6  },
+        { type:'support',    xRatio:0, yRatio:.61, wRatio:1, hRatio:.024, label:'지지 ₩73,500', strength:.85 },
+        { type:'support',    xRatio:0, yRatio:.76, wRatio:1, hRatio:.016, label:'지지 ₩70,000', strength:.5  },
+        { type:'support',    xRatio:0, yRatio:.89, wRatio:1, hRatio:.033, label:'강지지 ₩67,000', strength:1 },
+    ];
+
+    const VS_MOCK_REPORT = `## 📊 현재 구조 요약
+현재 차트는 **₩67,000 ~ ₩84,200** 구간에서 박스권을 형성하고 있습니다.
+상단 저항은 2회 이상 터치된 강한 매물대이며, 거래량 동반 돌파 시 다음 목표가는 **₩91,000** 수준입니다.
+
+## 🟢 핵심 지지 구간
+| 가격대 | 강도 | 비고 |
+|--------|------|------|
+| ₩73,500 | ★★★★☆ | 단기 지지선, 이탈 시 주의 |
+| ₩70,000 | ★★★☆☆ | 심리적 지지 구간 |
+| **₩67,000** | **★★★★★** | **강한 매물대, 핵심 지지** |
+
+## 🔴 핵심 저항 구간
+| 가격대 | 강도 | 비고 |
+|--------|------|------|
+| ₩81,500 | ★★★☆☆ | 1차 저항, 매물 소화 필요 |
+| **₩84,200** | **★★★★★** | **강한 저항, 돌파 주목** |
+
+## ⚡ 매매 전략 제안
+- **매수 관점**: ₩73,500 지지 확인 후 단기 반등 노림, 손절 ₩70,000 이탈 시
+- **돌파 매수**: ₩84,200 거래량 동반 돌파 확인 후 진입
+- **리스크**: 박스권 하단(₩67,000) 이탈 시 추가 하락 가능성 존재
+
+> ⚠️ 본 분석은 AI 보조 도구이며 투자 판단의 최종 책임은 투자자 본인에게 있습니다.`;
+
+    // ── 화면 전환 ────────────────────────────────────────────────
+    function goVisionScanner() {
+        document.getElementById('welcomeScreen').style.display       = 'none';
+        document.getElementById('smartMoneyScreen').style.display    = 'none';
+        document.getElementById('alphaScannerScreen').style.display  = 'none';
+        document.getElementById('favScreen').style.display           = 'none';
+        document.getElementById('visionScannerScreen').style.display = '';
+        document.getElementById('mainHeader')?.classList.remove('stock-loaded');
+        document.getElementById('stockHero').classList.remove('show');
+        document.getElementById('tabNav').classList.remove('show');
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.side-nav-item').forEach(b => b.classList.remove('active'));
+        document.getElementById('sideNavVsBtn')?.classList.add('active');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        // 전역 paste 리스너 활성화
+        window._vsActive = true;
+    }
+
+    // ── 초기화 ──────────────────────────────────────────────────
+    function vsReset() {
+        if (_vsObjectURL) { URL.revokeObjectURL(_vsObjectURL); _vsObjectURL = null; }
+        _vsFile = null; _vsNaturalW = 0; _vsNaturalH = 0;
+        _vsHoveredIdx = null; _vsZones = [];
+        clearTimeout(_vsScanTimer); clearInterval(_vsStepTimer); cancelAnimationFrame(_vsRafId);
+        document.getElementById('vsEmpty').style.display   = '';
+        document.getElementById('vsLoading').style.display = 'none';
+        document.getElementById('vsResult').style.display  = 'none';
+        document.getElementById('vsErrorBox').style.display = 'none';
+        document.getElementById('vsDropzone').classList.remove('drag-over');
+        document.getElementById('vsDropIcon').innerHTML = '<i class="ri-image-add-line" style="color:var(--text3);"></i>';
+        const prog = document.getElementById('vsScanProgress');
+        if (prog) prog.style.width = '0%';
+    }
+
+    // ── 파일 진입점 ─────────────────────────────────────────────
+    function vsClickUpload() { document.getElementById('vsFileInput').click(); }
+
+    function vsHandleFileInput(e) {
+        const file = e.target.files?.[0];
+        if (file) { _vsProcessFile(file); e.target.value = ''; }
+    }
+
+    // ── 드래그 앤 드롭 ─────────────────────────────────────────
+    function vsDragEnter(e) {
+        e.preventDefault();
+        _vsDragCounter++;
+        if (e.dataTransfer.items?.[0]?.kind === 'file') {
+            document.getElementById('vsDropzone').classList.add('drag-over');
+            document.getElementById('vsDropIcon').innerHTML = '<i class="ri-drop-line" style="color:var(--purple);"></i>';
+        }
+    }
+    function vsDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }
+    function vsDragLeave(e) {
+        e.preventDefault();
+        _vsDragCounter--;
+        if (_vsDragCounter <= 0) {
+            _vsDragCounter = 0;
+            document.getElementById('vsDropzone').classList.remove('drag-over');
+            document.getElementById('vsDropIcon').innerHTML = '<i class="ri-image-add-line" style="color:var(--text3);"></i>';
+        }
+    }
+    function vsDrop(e) {
+        e.preventDefault(); _vsDragCounter = 0;
+        document.getElementById('vsDropzone').classList.remove('drag-over');
+        document.getElementById('vsDropIcon').innerHTML = '<i class="ri-image-add-line" style="color:var(--text3);"></i>';
+        const file = e.dataTransfer.files?.[0];
+        if (file) _vsProcessFile(file);
+    }
+
+    // ── 전역 드래그 오버레이 (어디서든 드롭 가능) ───────────────
+    let _vsGlobalDragCount = 0;
+    document.addEventListener('dragenter', e => {
+        if (!window._vsActive) return;
+        _vsGlobalDragCount++;
+        if (e.dataTransfer?.types?.includes('Files')) {
+            document.getElementById('vsDragOverlay').classList.add('show');
+        }
+    });
+    document.addEventListener('dragleave', e => {
+        if (!window._vsActive) return;
+        _vsGlobalDragCount--;
+        if (_vsGlobalDragCount <= 0) {
+            _vsGlobalDragCount = 0;
+            document.getElementById('vsDragOverlay').classList.remove('show');
+        }
+    });
+    document.addEventListener('dragover', e => { if (window._vsActive) e.preventDefault(); });
+    document.addEventListener('drop', e => {
+        if (!window._vsActive) return;
+        e.preventDefault();
+        _vsGlobalDragCount = 0;
+        document.getElementById('vsDragOverlay').classList.remove('show');
+        const file = e.dataTransfer?.files?.[0];
+        if (file) { goVisionScanner(); _vsProcessFile(file); }
+    });
+
+    // ── 전역 Ctrl+V (클립보드 붙여넣기) ─────────────────────────
+    window.addEventListener('paste', e => {
+        if (!window._vsActive) return;
+        const target = e.target;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+        const items = Array.from(e.clipboardData?.items ?? []);
+        const imgItem = items.find(it => it.kind === 'file' && VS_ACCEPTED.includes(it.type));
+        if (imgItem) { e.preventDefault(); const f = imgItem.getAsFile(); if (f) _vsProcessFile(f); }
+    });
+
+    // ── 핵심: 파일 처리 ─────────────────────────────────────────
+    function _vsProcessFile(file) {
+        // 유효성 검사
+        if (!VS_ACCEPTED.includes(file.type)) {
+            return _vsShowError('PNG, JPG, WEBP, GIF 형식만 지원합니다.');
+        }
+        if (file.size > VS_MAX_MB * 1024 * 1024) {
+            return _vsShowError(`파일 크기는 ${VS_MAX_MB}MB 이하여야 합니다.`);
+        }
+        // 이전 URL 해제
+        if (_vsObjectURL) URL.revokeObjectURL(_vsObjectURL);
+        _vsFile = file;
+        _vsObjectURL = URL.createObjectURL(file);
+
+        // 자연 크기 측정 후 로딩 화면 진입
+        const probe = new Image();
+        probe.onload = () => {
+            _vsNaturalW = probe.naturalWidth;
+            _vsNaturalH = probe.naturalHeight;
+            _vsShowLoading();
+        };
+        probe.onerror = () => _vsShowError('이미지를 불러오는 데 실패했습니다.');
+        probe.src = _vsObjectURL;
+    }
+
+    function _vsShowError(msg) {
+        const box = document.getElementById('vsErrorBox');
+        document.getElementById('vsErrorMsg').textContent = msg;
+        box.style.display = 'flex';
+        setTimeout(() => { box.style.display = 'none'; }, 5000);
+    }
+
+    // ── 로딩 화면 ────────────────────────────────────────────────
+    function _vsShowLoading() {
+        document.getElementById('vsEmpty').style.display   = 'none';
+        document.getElementById('vsResult').style.display  = 'none';
+        document.getElementById('vsLoading').style.display = '';
+        document.getElementById('vsScanImg').src = _vsObjectURL;
+
+        // 스텝 텍스트 순환
+        const steps = ['캔들 패턴 인식 중…','거래량 프로파일 분석 중…','지지·저항 구간 탐색 중…','매물대 밀집 구간 계산 중…','AI 리포트 생성 중…'];
+        let si = 0;
+        const stepEl = document.getElementById('vsScanStepText');
+        if (stepEl) stepEl.textContent = steps[0];
+        clearInterval(_vsStepTimer);
+        _vsStepTimer = setInterval(() => {
+            si = (si + 1) % steps.length;
+            if (stepEl) {
+                stepEl.style.opacity = '0'; stepEl.style.transform = 'translateY(4px)';
+                setTimeout(() => {
+                    stepEl.textContent = steps[si];
+                    stepEl.style.opacity = '1'; stepEl.style.transform = 'translateY(0)';
+                }, 220);
+            }
+        }, 1200);
+
+        // 진행률 바 (0→95% easing)
+        const bar = document.getElementById('vsScanProgress');
+        if (bar) { bar.style.width = '0%'; }
+        let pct = 0;
+        cancelAnimationFrame(_vsRafId);
+        const tickProg = () => {
+            pct += (95 - pct) * 0.03 + 0.25;
+            if (pct >= 95) pct = 95;
+            if (bar) bar.style.width = pct + '%';
+            if (pct < 95) _vsRafId = requestAnimationFrame(tickProg);
+        };
+        _vsRafId = requestAnimationFrame(tickProg);
+
+        // Phase 1: 2초 후 결과로 전환 (실제 API 연결 시 교체)
+        clearTimeout(_vsScanTimer);
+        _vsScanTimer = setTimeout(() => {
+            clearInterval(_vsStepTimer);
+            cancelAnimationFrame(_vsRafId);
+            if (bar) bar.style.width = '100%';
+            setTimeout(_vsShowResult, 200);
+        }, 2000);
+    }
+
+    // ── 결과 화면 ────────────────────────────────────────────────
+    function _vsShowResult() {
+        _vsZones = VS_MOCK_ZONES;
+        document.getElementById('vsLoading').style.display = 'none';
+        document.getElementById('vsResult').style.display  = '';
+
+        // 메타 바
+        const sizeMB = (_vsFile.size / 1024 / 1024).toFixed(2);
+        document.getElementById('vsMetaName').textContent = _vsFile.name;
+        document.getElementById('vsMetaSize').textContent = `${_vsNaturalW}×${_vsNaturalH}px · ${sizeMB}MB`;
+
+        // 구간 카운트
+        const support    = _vsZones.filter(z => z.type === 'support').length;
+        const resistance = _vsZones.filter(z => z.type === 'resistance').length;
+        document.getElementById('vsZoneCount').textContent = `${_vsZones.length}개 구간 탐지됨`;
+        document.getElementById('vsLegSupport').textContent  = `(${support})`;
+        document.getElementById('vsLegResist').textContent   = `(${resistance})`;
+
+        // 원본 이미지 설정 → onload에서 캔버스 드로잉
+        const img = document.getElementById('vsResultImg');
+        img.onload = () => vsRedrawCanvas();
+        img.src = _vsObjectURL;
+
+        // 마크다운 리포트 렌더링
+        document.getElementById('vsReportBody').innerHTML = _vsRenderMd(VS_MOCK_REPORT);
+
+        // ResizeObserver — 창 크기 변경 시 재드로잉
+        if (window._vsResizeObs) window._vsResizeObs.disconnect();
+        window._vsResizeObs = new ResizeObserver(() => vsRedrawCanvas());
+        const wrap = document.getElementById('vsCanvasWrap');
+        if (wrap) window._vsResizeObs.observe(wrap);
+    }
+
+    // ── 캔버스 드로잉 (DPR 완전 대응) ──────────────────────────
+    function vsRedrawCanvas() {
+        const canvas = document.getElementById('vsCanvas');
+        const wrap   = document.getElementById('vsCanvasWrap');
+        if (!canvas || !wrap) return;
+
+        const dpr  = window.devicePixelRatio || 1;
+        const cssW = wrap.offsetWidth;
+        const cssH = wrap.offsetHeight;
+
+        if (canvas.width  !== Math.round(cssW * dpr) ||
+            canvas.height !== Math.round(cssH * dpr)) {
+            canvas.width  = Math.round(cssW * dpr);
+            canvas.height = Math.round(cssH * dpr);
+        }
+
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, cssW, cssH);
+
+        _vsZones.forEach((zone, idx) => {
+            const isHov   = _vsHoveredIdx === idx;
+            const str     = zone.strength ?? 0.7;
+            const isSupp  = zone.type === 'support';
+            const fillC   = isSupp ? 'rgba(34,197,94,' : 'rgba(239,68,68,';
+            const strokeC = isSupp ? '#22c55e' : '#ef4444';
+            const glowC   = isSupp ? 'rgba(34,197,94,' : 'rgba(239,68,68,';
+
+            const rx = zone.xRatio * cssW;
+            const ry = zone.yRatio * cssH;
+            const rw = zone.wRatio * cssW;
+            const rh = Math.max(zone.hRatio * cssH, 3);
+
+            ctx.save();
+            ctx.shadowColor = glowC + (isHov ? '.5)' : '.3)');
+            ctx.shadowBlur  = isHov ? 18 : 8;
+
+            // Fill
+            ctx.globalAlpha = isHov ? .5 : .2 + str * .2;
+            ctx.fillStyle   = fillC + '1)';
+            ctx.fillRect(rx, ry, rw, rh);
+
+            // 상단 가격선
+            ctx.globalAlpha = isHov ? 1 : .65 + str * .3;
+            ctx.strokeStyle = strokeC;
+            ctx.lineWidth   = isHov ? 2.5 : 1.5;
+            ctx.shadowBlur  = isHov ? 10 : 4;
+            ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx + rw, ry); ctx.stroke();
+
+            // 하단 경계선
+            ctx.lineWidth   = .8;
+            ctx.globalAlpha *= .45;
+            ctx.shadowBlur  = 0;
+            ctx.beginPath(); ctx.moveTo(rx, ry + rh); ctx.lineTo(rx + rw, ry + rh); ctx.stroke();
+
+            // 좌측 강도 바 (3px)
+            ctx.globalAlpha = .85;
+            ctx.shadowBlur  = 0;
+            ctx.fillStyle   = strokeC;
+            ctx.fillRect(rx, ry, 3, rh);
+
+            ctx.restore();
+
+            // 레이블 뱃지
+            if (zone.label) _vsDrawLabel(ctx, zone.label, rx, ry, strokeC, isHov, cssH);
+        });
+    }
+
+    function _vsDrawLabel(ctx, text, x, y, color, isHov, cssH) {
+        ctx.save();
+        ctx.font = `${isHov ? 700 : 600} 11px/1 'Pretendard', system-ui`;
+        const tw  = ctx.measureText(text).width;
+        const bw  = tw + 16, bh = 22;
+        const lx  = x + 6;
+        const ly  = (y - bh - 3 < 0) ? y + 4 : y - bh - 3;
+
+        // 배경
+        ctx.globalAlpha = isHov ? .97 : .88;
+        ctx.fillStyle   = 'rgba(10,14,20,.92)';
+        _vsRoundRect(ctx, lx, ly, bw, bh, 4);
+        ctx.fill();
+
+        // 테두리
+        ctx.strokeStyle = color;
+        ctx.lineWidth   = 1;
+        ctx.globalAlpha = isHov ? 1 : .7;
+        ctx.stroke();
+
+        // 텍스트
+        ctx.fillStyle   = color;
+        ctx.globalAlpha = 1;
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, lx + 8, ly + bh / 2);
+        ctx.restore();
+    }
+
+    function _vsRoundRect(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+    }
+
+    // ── 마우스 호버 ─────────────────────────────────────────────
+    function vsMouseMove(e) {
+        const canvas = document.getElementById('vsCanvas');
+        if (!canvas || !_vsZones.length) return;
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const cw = rect.width, ch = rect.height;
+        const idx = _vsZones.findIndex(z => {
+            const rx = z.xRatio * cw, ry = z.yRatio * ch;
+            const rw = z.wRatio * cw, rh = Math.max(z.hRatio * ch, 12);
+            return mx >= rx && mx <= rx + rw && my >= ry && my <= ry + rh;
+        });
+        const next = idx === -1 ? null : idx;
+        if (next !== _vsHoveredIdx) { _vsHoveredIdx = next; vsRedrawCanvas(); }
+    }
+    function vsMouseLeave() { _vsHoveredIdx = null; vsRedrawCanvas(); }
+
+    // ── 경량 마크다운 → HTML 렌더러 ─────────────────────────────
+    function _vsRenderMd(md) {
+        const lines = md.split('\n');
+        let html = '';
+        let inTable = false, tableRows = [];
+
+        const flushTable = () => {
+            if (!tableRows.length) return;
+            html += '<table class="vs-report-table">';
+            tableRows.forEach((row, ri) => {
+                const cells = row.split('|').filter(c => c.trim() !== '').map(c => c.trim());
+                const tag = ri === 0 ? 'th' : 'td';
+                html += '<tr>' + cells.map(c => `<${tag}>${_vsMdInline(c)}</${tag}>`).join('') + '</tr>';
+            });
+            html += '</table>';
+            tableRows = []; inTable = false;
+        };
+
+        lines.forEach(line => {
+            if (line.startsWith('## '))       { flushTable(); html += `<h2>${_vsMdInline(line.slice(3))}</h2>`; }
+            else if (line.startsWith('### ')) { flushTable(); html += `<h3>${_vsMdInline(line.slice(4))}</h3>`; }
+            else if (line.startsWith('> '))   { flushTable(); html += `<blockquote>${_vsMdInline(line.slice(2))}</blockquote>`; }
+            else if (line.startsWith('- '))   { flushTable(); html += `<ul><li>${_vsMdInline(line.slice(2))}</li></ul>`; }
+            else if (line.startsWith('|') && line.endsWith('|')) {
+                if (!line.replace(/[\|\s\-]/g,'')) return; // separator row
+                inTable = true; tableRows.push(line);
+            }
+            else if (inTable) { flushTable(); }
+            else if (line.trim() === '') { /* skip */ }
+            else { html += `<p>${_vsMdInline(line)}</p>`; }
+        });
+        flushTable();
+        // 연속 <ul> 병합
+        return html.replace(/<\/ul><ul>/g, '');
+    }
+    function _vsMdInline(t) {
+        return t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    }
+
     Object.assign(window, {
         closeSideNav, toggleSideNav, openSideNav, goHome, goSmartMoney,
         switchSmTab, smDeepDive, smDeepBack, filterSmHoldings, smChartLink,
@@ -9824,6 +10506,9 @@ Rules:
         loadShortTab, reloadShortTab, renderShortTab, _buildGaugeSVG,
         renderAnalystTargets,
         goScanner, goFav, goSearch, closeSearch, bnGo, updateBnActive,
+        goVisionScanner, vsReset, vsClickUpload, vsHandleFileInput,
+        vsDragEnter, vsDragOver, vsDragLeave, vsDrop,
+        vsMouseMove, vsMouseLeave, vsRedrawCanvas,
         toggleScannerChip, setScannerPreset, syncScannerChipUI,
         debounceScannerFetch, runScannerFetch, filterScannerResults, renderScannerResults
     });
