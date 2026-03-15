@@ -1609,11 +1609,16 @@
                     <i class="ri-close-line"></i>닫기
                 </button>
             </div>
-            <!-- 데모 모드 안내 배너 -->
-            <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:var(--r3);background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.25);margin-bottom:14px;">
-                <i class="ri-flask-line" style="color:#eab308;font-size:15px;flex-shrink:0;"></i>
-                <span style="font-size:12px;color:#eab308;font-weight:600;">데모 모드</span>
-                <span style="font-size:12px;color:var(--text3);">— 표시된 구간 위치·가격은 샘플 데이터입니다. AI API 연결 후 실제 차트가 분석됩니다.</span>
+            <!-- 데모 모드 경고 배너 -->
+            <div style="padding:14px 16px;border-radius:var(--r2);background:rgba(239,68,68,.1);border:1.5px solid rgba(239,68,68,.4);margin-bottom:16px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                    <i class="ri-error-warning-fill" style="color:var(--red);font-size:18px;flex-shrink:0;"></i>
+                    <span style="font-size:14px;color:var(--red);font-weight:800;">⚠️ 주의 — 이것은 가짜 샘플 데이터입니다</span>
+                </div>
+                <p style="font-size:12px;color:var(--text2);line-height:1.6;margin:0;">
+                    현재 표시된 <strong style="color:var(--red);">지지·저항 구간 위치와 분석 내용은 실제 차트와 전혀 무관한 Mock 데이터</strong>입니다.<br>
+                    AI API 연결 전 UI 테스트 단계이므로 <strong style="color:var(--red);">절대 투자 판단에 사용하지 마세요.</strong>
+                </p>
             </div>
             <div class="vs-result-header">
                 <div style="display:flex;align-items:center;gap:8px;">
@@ -10382,6 +10387,18 @@ Rules:
             // 레이블 뱃지
             if (zone.label) _vsDrawLabel(ctx, zone.label, rx, ry, strokeC, isHov, cssH);
         });
+
+        // ── DEMO 워터마크 (캔버스 중앙) ─────────────────────────
+        ctx.save();
+        ctx.font = `800 ${Math.max(cssW * 0.07, 18)}px/1 'Pretendard', system-ui`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.globalAlpha = 0.12;
+        ctx.fillStyle = '#ef4444';
+        ctx.translate(cssW / 2, cssH / 2);
+        ctx.rotate(-Math.PI / 8);
+        ctx.fillText('DEMO DATA', 0, 0);
+        ctx.restore();
     }
 
     function _vsDrawLabel(ctx, text, x, y, color, isHov, cssH) {
