@@ -456,55 +456,6 @@
         .sub-chart-container{height:150px;width:100%;padding:0 8px;}
         .chart-full-col{display:flex;flex-direction:column;}
 
-        /* ===== AI INDICATOR ===== */
-        .ai-ind{margin:4px 16px;}
-        .ai-ind-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
-        .ai-ind-header .card-title{margin-bottom:0;flex-shrink:0;}
-        .ai-ind-prompt-row{display:flex;gap:8px;align-items:center;flex:1;min-width:0;}
-        .ai-ind-input{flex:1;min-width:0;padding:8px 14px;border:1px solid var(--border);background:var(--bg3);color:var(--text);border-radius:8px;font-size:13px;font-family:inherit;outline:none;transition:border-color .15s;}
-        .ai-ind-input:focus{border-color:var(--blue);}
-        .ai-ind-input::placeholder{color:var(--text3);}
-        .ai-ind-send{padding:8px 16px;border:none;background:var(--purple);color:#fff;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;transition:all .15s;white-space:nowrap;flex-shrink:0;}
-        .ai-ind-send:hover{opacity:.85;}
-        .ai-ind-send:disabled{opacity:.5;cursor:not-allowed;}
-        .ai-ind-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:12px;}
-        .ai-ind-tab{padding:10px 18px;border:none;background:transparent;color:var(--text3);font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;border-bottom:2.5px solid transparent;transition:all .15s;}
-        .ai-ind-tab.active{color:var(--purple);border-bottom-color:var(--purple);}
-        .ai-ind-tab:hover:not(.active){color:var(--text2);}
-        .ai-ind-tab-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--bg4);color:var(--text3);font-size:10px;font-weight:700;margin-left:6px;}
-        .ai-ind-tab.active .ai-ind-tab-badge{background:rgba(167,139,250,.15);color:var(--purple);}
-        .ai-ind-panel{display:none;}
-        .ai-ind-panel.active{display:block;}
-        .ai-line-list{display:flex;flex-direction:column;gap:4px;}
-        .ai-line-empty{text-align:center;padding:24px 0;color:var(--text3);font-size:13px;line-height:1.7;}
-        .ai-line-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border-radius:var(--r3);transition:background .12s;}
-        .ai-line-item:hover{background:var(--bg4);}
-        .ai-line-color{width:14px;height:14px;border-radius:4px;flex-shrink:0;border:1px solid rgba(255,255,255,.1);}
-        .ai-line-info{flex:1;min-width:0;}
-        .ai-line-name{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-        .ai-line-sub{font-size:11px;color:var(--text3);margin-top:1px;}
-        .ai-line-toggle{width:36px;height:20px;border-radius:10px;border:none;cursor:pointer;position:relative;transition:background .15s;flex-shrink:0;}
-        .ai-line-toggle.on{background:var(--purple);}
-        .ai-line-toggle.off{background:var(--bg4);}
-        .ai-line-toggle::after{content:'';position:absolute;top:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s;}
-        .ai-line-toggle.on::after{left:18px;}
-        .ai-line-toggle.off::after{left:2px;}
-        .ai-line-remove{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;color:var(--text3);cursor:pointer;border-radius:6px;font-size:16px;flex-shrink:0;transition:all .12s;font-family:inherit;}
-        .ai-line-remove:hover{color:var(--red);background:rgba(239,68,68,.1);}
-        .ai-line-clear-btn{margin-top:8px;padding:8px 16px;border:1px solid var(--border);background:transparent;color:var(--text3);border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all .12s;width:100%;}
-        .ai-line-clear-btn:hover{border-color:var(--red);color:var(--red);background:rgba(239,68,68,.05);}
-        .ai-ind-chart{height:220px;width:100%;padding:0 8px;margin-top:8px;}
-        .ai-ind-status{font-size:12px;color:var(--text3);padding:8px 0;display:flex;align-items:center;gap:6px;}
-        .ai-ind-status .spinner{width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--purple);border-radius:50%;animation:spin .6s linear infinite;}
-        @keyframes spin{to{transform:rotate(360deg)}}
-        .ai-ind-key-row{display:flex;gap:8px;align-items:center;margin-bottom:10px;}
-        .ai-ind-key-input{flex:1;padding:7px 12px;border:1px solid var(--border);background:var(--bg3);color:var(--text);border-radius:8px;font-size:12px;font-family:monospace;outline:none;}
-        .ai-ind-key-input:focus{border-color:var(--purple);}
-        .ai-ind-key-btn{padding:7px 14px;border:none;background:var(--bg4);color:var(--text2);border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;}
-        .ai-ind-key-btn:hover{color:var(--text);}
-        .ai-ind-examples{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
-        .ai-ind-example{padding:5px 12px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);border-radius:20px;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;transition:all .12s;}
-        .ai-ind-example:hover{border-color:var(--purple);color:var(--purple);background:rgba(167,139,250,.08);}
         .sub-chart-grid{display:grid;grid-template-columns:1fr;gap:0;}
         .sub-chart-grid .card{margin:4px 16px;}
 
@@ -1770,46 +1721,6 @@
                     </div>
                 </div>
 
-                <!-- AI 보조지표 -->
-                <div class="card ai-ind" id="aiIndCard">
-                    <div class="ai-ind-key-row" id="aiIndKeyRow">
-                        <input type="password" class="ai-ind-key-input" id="aiIndKeyInput" placeholder="Gemini API Key 입력 (aistudio.google.com에서 무료 발급)" />
-                        <button class="ai-ind-key-btn" onclick="saveAiKey()">저장</button>
-                    </div>
-                    <div class="card-title" style="margin-bottom:0;"><span class="dot" style="background:var(--purple)"></span>AI 보조지표</div>
-                    <div class="ai-ind-tabs">
-                        <button class="ai-ind-tab active" data-aitab="generate" onclick="switchAiTab('generate')">생성</button>
-                        <button class="ai-ind-tab" data-aitab="lines" onclick="switchAiTab('lines')">보조선 <span class="ai-ind-tab-badge" id="aiLineBadge">0</span></button>
-                    </div>
-
-                    <!-- 생성 탭 -->
-                    <div class="ai-ind-panel active" id="aiPanelGenerate" data-aitab="generate">
-                        <div class="ai-ind-header">
-                            <div class="ai-ind-prompt-row">
-                                <input type="text" class="ai-ind-input" id="aiIndInput" placeholder="원하는 보조지표를 입력하세요 (예: 빗각, 엔벨로프, 일목균형표...)" onkeydown="if(event.key==='Enter')runAiIndicator()">
-                                <button class="ai-ind-send" id="aiIndSendBtn" onclick="runAiIndicator()">생성</button>
-                            </div>
-                        </div>
-                        <div class="ai-ind-examples">
-                            <button class="ai-ind-example" onclick="setAiPrompt('빗각 (기울기 추세선)')">빗각</button>
-                            <button class="ai-ind-example" onclick="setAiPrompt('엔벨로프 20일 5%')">엔벨로프</button>
-                            <button class="ai-ind-example" onclick="setAiPrompt('일목균형표')">일목균형표</button>
-                            <button class="ai-ind-example" onclick="setAiPrompt('피봇 포인트 (Pivot Point)')">피봇 포인트</button>
-                            <button class="ai-ind-example" onclick="setAiPrompt('파라볼릭 SAR')">파라볼릭 SAR</button>
-                            <button class="ai-ind-example" onclick="setAiPrompt('VWAP 밴드 ±1σ, ±2σ')">VWAP 밴드</button>
-                        </div>
-                        <div class="ai-ind-status" id="aiIndStatus" style="display:none"></div>
-                        <div class="ai-ind-chart" id="aiIndChartWrap" style="display:none"><canvas id="aiIndChart"></canvas></div>
-                    </div>
-
-                    <!-- 보조선 관리 탭 -->
-                    <div class="ai-ind-panel" id="aiPanelLines" data-aitab="lines">
-                        <div class="ai-line-list" id="aiLineList">
-                            <div class="ai-line-empty">생성된 보조선이 없습니다.<br>생성 탭에서 보조지표를 추가하세요.</div>
-                        </div>
-                        <button class="ai-line-clear-btn" id="aiLineClearAll" onclick="clearAllAiLines()" style="display:none">모든 보조선 삭제</button>
-                    </div>
-                </div>
 
                 <!-- 보조 지표 2열 그리드 -->
                 <div class="sub-chart-grid">
@@ -2065,7 +1976,6 @@
     let lwMaSeries = {};       // { ma5, ma20, ma60, ma120 }
     let lwBbUpper = null;
     let lwBbLower = null;
-    let lwAiOverlaySeries = []; // AI 보조지표 오버레이 라인들
 
     // ========================================
     // Side Navigation
@@ -3041,9 +2951,6 @@
         document.getElementById('marketSessionInfo').classList.remove('show');
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         destroyChart();
-        aiLineStore = [];
-        aiLineIdCounter = 0;
-        renderAiLineList();
         clearAllDrawings();
         document.getElementById('searchInput').value = '';
         currentSymbol = '';
@@ -6390,7 +6297,6 @@
         lwMaSeries = {};
         lwBbUpper = null;
         lwBbLower = null;
-        lwAiOverlaySeries = [];
     }
 
     function renderPriceChart() {
@@ -6548,9 +6454,6 @@
 
         // 차트 전체 보이게
         lwChart.timeScale().fitContent();
-
-        // 기존 AI 보조선 복원
-        restoreAiOverlays();
 
         // 스마트 머니 지지선 (홀딩 클릭 시 설정)
         if (pendingSmartMoneyLine && lwCandleSeries) {
@@ -6914,375 +6817,8 @@
         }
     });
 
-    // ========================================
-    // AI 보조지표 (Google Gemini API)
-    // ========================================
-    const AI_KEY_LS = 'stockai_gemini_key';
-    let aiIndChart = null;
 
-    // API 키 로드/저장
-    (function initAiKey() {
-        const saved = localStorage.getItem(AI_KEY_LS);
-        if (saved) {
-            document.getElementById('aiIndKeyInput').value = saved;
-            document.getElementById('aiIndKeyRow').style.display = 'none';
-        }
-    })();
 
-    function saveAiKey() {
-        const key = document.getElementById('aiIndKeyInput').value.trim();
-        if (!key) { showToast('API Key를 입력해주세요.'); return; }
-        localStorage.setItem(AI_KEY_LS, key);
-        document.getElementById('aiIndKeyRow').style.display = 'none';
-        showToast('API Key가 저장되었습니다.');
-    }
-
-    function getAiKey() {
-        return localStorage.getItem(AI_KEY_LS) || document.getElementById('aiIndKeyInput').value.trim();
-    }
-
-    function setAiPrompt(text) {
-        document.getElementById('aiIndInput').value = text;
-        runAiIndicator();
-    }
-
-    async function runAiIndicator() {
-        const apiKey = getAiKey();
-        if (!apiKey) {
-            document.getElementById('aiIndKeyRow').style.display = 'flex';
-            showToast('Gemini API Key를 먼저 입력해주세요. (aistudio.google.com에서 무료 발급)');
-            return;
-        }
-        if (!stockData) { showToast('먼저 종목을 검색해주세요.'); return; }
-
-        const prompt = document.getElementById('aiIndInput').value.trim();
-        if (!prompt) { showToast('보조지표를 입력해주세요.'); return; }
-
-        const btn = document.getElementById('aiIndSendBtn');
-        const statusEl = document.getElementById('aiIndStatus');
-        btn.disabled = true;
-        statusEl.style.display = 'flex';
-        statusEl.innerHTML = '<span class="spinner"></span>AI가 보조지표를 계산하고 있습니다...';
-
-        try {
-            // 주가 데이터 준비 (최근 200개로 제한)
-            const ts = stockData.timestamp;
-            const q = stockData.indicators.quote[0];
-            const len = Math.min(ts.length, 200);
-            const startIdx = ts.length - len;
-            const dates = ts.slice(startIdx).map(t => {
-                const d = new Date(t * 1000);
-                return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-            });
-            const closes = q.close.slice(startIdx);
-            const opens = q.open.slice(startIdx);
-            const highs = q.high.slice(startIdx);
-            const lows = q.low.slice(startIdx);
-            const volumes = q.volume.slice(startIdx);
-
-            const systemPrompt = `You are a stock technical analysis expert. The user will request a custom indicator.
-You must return ONLY a valid JSON object (no markdown, no explanation, no code fences).
-
-The JSON must have this exact structure:
-{
-  "title": "indicator name in Korean",
-  "datasets": [
-    {
-      "label": "line label",
-      "data": [number or null, ...],
-      "color": "#hexcolor",
-      "type": "line" or "bar",
-      "dashed": false,
-      "fill": false
-    }
-  ],
-  "annotations": []
-}
-
-Rules:
-- "data" arrays MUST have exactly ${len} elements (matching the date count)
-- Use null for insufficient data points at the beginning
-- For "빗각" (slope angle): Draw trend lines using linear regression on recent closing prices, showing the angle/slope of the trend
-- Colors should be vivid and distinct
-- Maximum 6 datasets
-- "annotations" can contain {index, text, color} for important points
-- Respond in Korean for title/labels`;
-
-            const userMsg = `주가 데이터 (최근 ${len}일):
-종가: [${closes.map(v => v != null ? v.toFixed(2) : 'null').join(',')}]
-시가: [${opens.map(v => v != null ? v.toFixed(2) : 'null').join(',')}]
-고가: [${highs.map(v => v != null ? v.toFixed(2) : 'null').join(',')}]
-저가: [${lows.map(v => v != null ? v.toFixed(2) : 'null').join(',')}]
-거래량: [${volumes.join(',')}]
-
-요청 보조지표: "${prompt}"
-
-위 데이터를 기반으로 보조지표를 계산하여 JSON으로 반환해주세요.`;
-
-            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
-            const res = await fetch(geminiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: systemPrompt + '\n\n' + userMsg }] }],
-                    generationConfig: {
-                        temperature: 0.2,
-                        maxOutputTokens: 8192,
-                        responseMimeType: 'application/json'
-                    }
-                })
-            });
-
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                const msg = err.error?.message || `API 오류 (${res.status})`;
-                if (res.status === 400 || res.status === 403) throw new Error('API Key가 유효하지 않습니다. 확인해주세요.');
-                throw new Error(msg);
-            }
-
-            const result = await res.json();
-            const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-            // JSON 파싱 (코드 펜스 제거)
-            const jsonStr = text.replace(/```json?\s*/g, '').replace(/```/g, '').trim();
-            const indicator = JSON.parse(jsonStr);
-
-            // 차트 렌더링
-            renderAiIndChart(indicator, dates);
-            statusEl.innerHTML = `✓ "${indicator.title}" 생성 완료`;
-
-        } catch(e) {
-            statusEl.innerHTML = `<span style="color:var(--red)">✗ 오류: ${e.message}</span>`;
-            if (e.message.includes('401') || e.message.includes('403') || e.message.includes('invalid') || e.message.includes('API Key')) {
-                document.getElementById('aiIndKeyRow').style.display = 'flex';
-            }
-        } finally {
-            btn.disabled = false;
-        }
-    }
-
-    // ========================================
-    // AI 보조선 관리 시스템
-    // ========================================
-    // aiLineStore: [{ id, title, datasets, dates, seriesList (LW series[]), visible }]
-    let aiLineStore = [];
-    let aiLineIdCounter = 0;
-
-    function switchAiTab(tab) {
-        document.querySelectorAll('.ai-ind-tab').forEach(t => t.classList.toggle('active', t.dataset.aitab === tab));
-        document.querySelectorAll('.ai-ind-panel').forEach(p => p.classList.toggle('active', p.dataset.aitab === tab));
-    }
-
-    function updateAiLineBadge() {
-        document.getElementById('aiLineBadge').textContent = aiLineStore.length;
-    }
-
-    function renderAiLineList() {
-        const list = document.getElementById('aiLineList');
-        const clearBtn = document.getElementById('aiLineClearAll');
-
-        if (aiLineStore.length === 0) {
-            list.innerHTML = '<div class="ai-line-empty">생성된 보조선이 없습니다.<br>생성 탭에서 보조지표를 추가하세요.</div>';
-            clearBtn.style.display = 'none';
-        } else {
-            list.innerHTML = aiLineStore.map(line => {
-                const colors = line.datasets.filter(d => d.type !== 'bar').map(d => d.color || '#a78bfa');
-                const colorDisplay = colors.length > 0 ? colors[0] : '#a78bfa';
-                const lineCount = line.datasets.filter(d => d.type !== 'bar').length;
-                return `
-                    <div class="ai-line-item" data-lineid="${line.id}">
-                        <div class="ai-line-color" style="background:${colorDisplay}"></div>
-                        <div class="ai-line-info">
-                            <div class="ai-line-name">${line.title}</div>
-                            <div class="ai-line-sub">${lineCount}개 라인</div>
-                        </div>
-                        <button class="ai-line-toggle ${line.visible ? 'on' : 'off'}" onclick="toggleAiLine(${line.id})" title="${line.visible ? '숨기기' : '보이기'}"></button>
-                        <button class="ai-line-remove" onclick="removeAiLine(${line.id})" title="삭제">&times;</button>
-                    </div>
-                `;
-            }).join('');
-            clearBtn.style.display = '';
-        }
-        updateAiLineBadge();
-    }
-
-    function addAiLineToChart(lineEntry) {
-        if (!lwChart || !stockData?.timestamp) return;
-        const ts = stockData.timestamp;
-        const startIdx = ts.length - lineEntry.dates.length;
-
-        lineEntry.seriesList = [];
-        lineEntry.datasets.forEach(ds => {
-            if (ds.type === 'bar') return;
-            const lineData = [];
-            for (let i = 0; i < ds.data.length; i++) {
-                if (ds.data[i] == null) continue;
-                const tIdx = startIdx + i;
-                if (tIdx >= ts.length) continue;
-                lineData.push({ time: ts[tIdx], value: ds.data[i] });
-            }
-            if (lineData.length === 0) return;
-
-            const series = lwChart.addLineSeries({
-                color: ds.color || '#a78bfa',
-                lineWidth: 2,
-                lineStyle: ds.dashed ? 2 : 0,
-                priceLineVisible: false,
-                lastValueVisible: true,
-                crosshairMarkerVisible: false,
-                title: ds.label,
-            });
-            series.setData(lineData);
-            lineEntry.seriesList.push(series);
-            lwAiOverlaySeries.push(series);
-        });
-    }
-
-    function removeAiLineFromChart(lineEntry) {
-        if (!lwChart) return;
-        lineEntry.seriesList.forEach(s => {
-            try { lwChart.removeSeries(s); } catch(e) {}
-            const idx = lwAiOverlaySeries.indexOf(s);
-            if (idx >= 0) lwAiOverlaySeries.splice(idx, 1);
-        });
-        lineEntry.seriesList = [];
-    }
-
-    function toggleAiLine(id) {
-        const line = aiLineStore.find(l => l.id === id);
-        if (!line) return;
-        line.visible = !line.visible;
-        if (line.visible) {
-            addAiLineToChart(line);
-        } else {
-            removeAiLineFromChart(line);
-        }
-        renderAiLineList();
-    }
-
-    function removeAiLine(id) {
-        const idx = aiLineStore.findIndex(l => l.id === id);
-        if (idx < 0) return;
-        removeAiLineFromChart(aiLineStore[idx]);
-        aiLineStore.splice(idx, 1);
-        renderAiLineList();
-    }
-
-    function clearAllAiLines() {
-        aiLineStore.forEach(line => removeAiLineFromChart(line));
-        aiLineStore = [];
-        renderAiLineList();
-    }
-
-    function clearAiOverlay() {
-        // 메인 차트에서 AI 오버레이 라인 전체 제거
-        if (lwChart) {
-            lwAiOverlaySeries.forEach(s => {
-                try { lwChart.removeSeries(s); } catch(e) {}
-            });
-        }
-        lwAiOverlaySeries = [];
-        // 차트 재생성 시 store의 seriesList도 비움
-        aiLineStore.forEach(l => { l.seriesList = []; });
-    }
-
-    // 차트 재생성 후 visible 보조선 다시 그리기
-    function restoreAiOverlays() {
-        aiLineStore.forEach(line => {
-            if (line.visible) addAiLineToChart(line);
-        });
-    }
-
-    function renderAiIndChart(indicator, dates) {
-        // 새 보조선을 store에 추가
-        const lineEntry = {
-            id: ++aiLineIdCounter,
-            title: indicator.title,
-            datasets: indicator.datasets,
-            dates: dates,
-            seriesList: [],
-            visible: true,
-        };
-        aiLineStore.push(lineEntry);
-
-        // 메인 차트에 오버레이
-        addAiLineToChart(lineEntry);
-
-        // 보조선 목록 갱신
-        renderAiLineList();
-
-        // 별도 Chart.js 차트에도 렌더링 (전체 지표 확인용)
-        const wrap = document.getElementById('aiIndChartWrap');
-        wrap.style.display = 'block';
-
-        if (aiIndChart) aiIndChart.destroy();
-
-        const chartDatasets = indicator.datasets.map(ds => ({
-            label: ds.label,
-            data: ds.data,
-            borderColor: ds.color || '#a78bfa',
-            backgroundColor: ds.fill ? (ds.color || '#a78bfa') + '20' : 'transparent',
-            borderWidth: ds.type === 'bar' ? 0 : 1.8,
-            borderDash: ds.dashed ? [5, 3] : [],
-            pointRadius: 0,
-            pointHoverRadius: 3,
-            tension: 0.1,
-            fill: ds.fill || false,
-            type: ds.type === 'bar' ? 'bar' : 'line',
-            yAxisID: ds.type === 'bar' ? 'yBar' : 'y',
-            order: ds.type === 'bar' ? 1 : 0,
-        }));
-
-        const hasBar = chartDatasets.some(d => d.type === 'bar');
-
-        const scales = {
-            x: {
-                type: 'category',
-                ticks: { color: '#4b5563', maxTicksLimit: 10, font: { size: 10 } },
-                grid: { color: 'rgba(45,58,77,0.15)' },
-            },
-            y: {
-                position: 'right',
-                ticks: { color: '#4b5563', font: { size: 10 } },
-                grid: { color: 'rgba(45,58,77,0.15)' },
-            }
-        };
-        if (hasBar) {
-            scales.yBar = {
-                position: 'left',
-                ticks: { color: '#4b5563', font: { size: 10 } },
-                grid: { drawOnChartArea: false },
-            };
-        }
-
-        aiIndChart = new Chart(document.getElementById('aiIndChart'), {
-            type: 'line',
-            data: { labels: dates, datasets: chartDatasets },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'top',
-                        labels: { color: '#94a3b8', font: { size: 11, weight: '600' }, boxWidth: 14, padding: 12 },
-                    },
-                    title: {
-                        display: true,
-                        text: indicator.title + ' (차트에 오버레이 됨)',
-                        color: '#f1f5f9',
-                        font: { size: 13, weight: '700' },
-                        padding: { bottom: 8 },
-                    },
-                },
-                scales,
-            }
-        });
-
-        // 생성 후 보조선 탭 뱃지에 숫자 표시
-        switchAiTab('lines');
-    }
 
     // ========================================
     // RSI Chart
@@ -10568,9 +10104,7 @@ Rules:
         setMarket, searchStock, setChartInterval, setPeriod,
         quickSearch, toggleFavorite, switchTab, toggleChartFullscreen,
         favSearch, removeFavorite, setTop100Filter,
-        saveAiKey, setAiPrompt, runAiIndicator,
-        switchAiTab, toggleAiLine, removeAiLine, clearAllAiLines,
-        setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
+setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         toggleTheme, showLoading, hideLoading, showToast,
         loadOptionsDate, setOptionsFilter,
         setOptionsStrikeRange, toggleOptionsVolFilter, sortOptionsBy,
