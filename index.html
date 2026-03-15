@@ -1663,6 +1663,9 @@
                             <button class="chart-tb-btn range-btn" data-range="5y" onclick="setPeriod('5y')">5년</button>
                         </div>
                         <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+                            <button class="chart-tb-btn" id="chartAiClearBtn"
+                                onclick="clearAiChartLines()" title="AI 라인 지우기"
+                                style="display:none;border-color:var(--border);color:var(--text3);">🗑 AI 라인</button>
                             <button class="chart-tb-btn chart-ai-reader-btn" id="chartAiReaderBtn"
                                 onclick="captureChartAndAnalyze()" title="차트를 캡처하여 AI로 분석"
                                 style="display:none;">🔍 AI 판독기</button>
@@ -1977,6 +1980,8 @@
     let lwMaSeries = {};       // { ma5, ma20, ma60, ma120 }
     let lwBbUpper = null;
     let lwBbLower = null;
+    let lwAiPriceLines = [];   // AI 지지/저항선 (createPriceLine refs)
+    let lwAiTrendSeries = [];  // AI 추세선 (addLineSeries refs)
 
     // ========================================
     // Side Navigation
@@ -6290,6 +6295,10 @@
 
     function destroyChart() {
         if (lwResizeObserver) { lwResizeObserver.disconnect(); lwResizeObserver = null; }
+        lwAiPriceLines = [];
+        lwAiTrendSeries = [];
+        const _clearBtn = document.getElementById('chartAiClearBtn');
+        if (_clearBtn) _clearBtn.style.display = 'none';
         if (lwChart) { lwChart.remove(); lwChart = null; }
         const _aiBtn = document.getElementById('chartAiReaderBtn');
         if (_aiBtn) _aiBtn.style.display = 'none';
@@ -10071,17 +10080,78 @@
         return t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     }
 
-    // ── 차트 AI 판독기 — 차트 캔버스 캡처 → Vision Scanner 연동 ──
+    // ── AI 차트 라인 지우기 ──
+    function clearAiChartLines() {
+        lwAiPriceLines.forEach(pl => { try { lwCandleSeries?.removePriceLine(pl); } catch(e) {} });
+        lwAiPriceLines = [];
+        lwAiTrendSeries.forEach(s => { try { lwChart?.removeSeries(s); } catch(e) {} });
+        lwAiTrendSeries = [];
+        const btn = document.getElementById('chartAiClearBtn');
+        if (btn) btn.style.display = 'none';
+    }
+
+    // ── AI 차트 라인 그리기 ──
+    function drawAiChartLines(data, timestamps) {
+        if (!lwChart || !lwCandleSeries) return;
+        const ts = timestamps || stockData?.timestamp || [];
+
+        // 수평선 (지지/저항)
+        (data.levels || []).forEach(level => {
+            try {
+                const pl = lwCandleSeries.createPriceLine({
+                    price: level.price,
+                    color: level.type === 'resistance' ? '#ef4444' : '#22c55e',
+                    lineWidth: 2,
+                    lineStyle: 2,
+                    axisLabelVisible: true,
+                    title: level.label,
+                });
+                lwAiPriceLines.push(pl);
+            } catch(e) {}
+        });
+
+        // 추세선 (빗각)
+        (data.trendlines || []).forEach(tl => {
+            if (!ts.length) return;
+            const lastIdx = ts.length - 1;
+            const fromIdx = Math.max(0, lastIdx - tl.from_bars_ago);
+            const toIdx   = Math.max(0, lastIdx - tl.to_bars_ago);
+            const fromTime = ts[fromIdx];
+            const toTime   = ts[toIdx];
+            if (!fromTime || !toTime || fromTime === toTime) return;
+            try {
+                const series = lwChart.addLineSeries({
+                    color: tl.color || '#f59e0b',
+                    lineWidth: 2,
+                    lineStyle: tl.style === 'dashed' ? 2 : 0,
+                    priceLineVisible: false,
+                    lastValueVisible: false,
+                    crosshairMarkerVisible: false,
+                    title: tl.label,
+                });
+                series.setData([
+                    { time: fromTime, value: tl.from_price },
+                    { time: toTime,   value: tl.to_price   },
+                ]);
+                lwAiTrendSeries.push(series);
+            } catch(e) {}
+        });
+
+        const clearBtn = document.getElementById('chartAiClearBtn');
+        if (clearBtn && (lwAiPriceLines.length || lwAiTrendSeries.length)) clearBtn.style.display = '';
+    }
+
+    // ── 차트 AI 판독기 — 캔버스 캡처 → Gemini 분석 → 차트에 직접 그리기 ──
     function captureChartAndAnalyze() {
-        if (!lwChart) { showToast('먼저 종목을 검색하여 차트를 로드해주세요.'); return; }
+        if (!lwChart || !stockData) { showToast('먼저 종목을 검색하여 차트를 로드해주세요.'); return; }
         const wrap = document.getElementById('tvChartWrap');
         if (!wrap) return;
         const canvases = Array.from(wrap.querySelectorAll('canvas')).filter(c => c.id !== 'drawCanvas');
         if (!canvases.length) { showToast('차트 캔버스를 찾을 수 없습니다.'); return; }
-        showToast('차트 캡처 중...');
         const first = canvases[0];
         const w = first.width, h = first.height;
         if (!w || !h) { showToast('차트를 잠시 후 다시 시도해주세요.'); return; }
+
         const offscreen = document.createElement('canvas');
         offscreen.width = w; offscreen.height = h;
         const ctx = offscreen.getContext('2d');
@@ -10089,13 +10159,47 @@
         ctx.fillStyle = isLight ? '#ffffff' : '#111620';
         ctx.fillRect(0, 0, w, h);
         canvases.forEach(c => { try { ctx.drawImage(c, 0, 0, w, h); } catch(e) {} });
-        offscreen.toBlob(blob => {
+
+        offscreen.toBlob(async blob => {
             if (!blob) { showToast('캡처에 실패했습니다.'); return; }
-            const ticker = (typeof currentFullSymbol !== 'undefined' && currentFullSymbol)
-                        || (typeof currentSymbol !== 'undefined' && currentSymbol) || 'chart';
-            const file = new File([blob], `chart_${ticker}_${Date.now()}.png`, { type: 'image/png' });
-            goVisionScanner();
-            _vsProcessFile(file);
+
+            const btn = document.getElementById('chartAiReaderBtn');
+            if (btn) { btn.disabled = true; btn.textContent = '⏳ 분석 중...'; }
+
+            clearAiChartLines();
+
+            try {
+                const ts = stockData.timestamp;
+                const q  = stockData.indicators.quote[0];
+                const dates = ts.map(t => {
+                    const d = new Date(t * 1000);
+                    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+                });
+                const priceData = { closes: q.close, highs: q.high, lows: q.low, dates };
+
+                const fd = new FormData();
+                fd.append('image', blob, 'chart.png');
+                fd.append('priceData', JSON.stringify(priceData));
+
+                const resp = await fetch('/api/chart-draw', { method: 'POST', body: fd });
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    throw new Error(err.error || `서버 오류 (${resp.status})`);
+                }
+                const data = await resp.json();
+
+                drawAiChartLines(data, ts);
+
+                const supCnt = (data.levels || []).filter(l => l.type === 'support').length;
+                const resCnt = (data.levels || []).filter(l => l.type === 'resistance').length;
+                const trdCnt = (data.trendlines || []).length;
+                showToast(`AI 분석 완료 · 지지선 ${supCnt}개 · 저항선 ${resCnt}개 · 추세선 ${trdCnt}개`);
+
+            } catch(e) {
+                showToast('AI 분석 실패: ' + e.message);
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = '🔍 AI 판독기'; }
+            }
         }, 'image/png');
     }
 
@@ -10129,7 +10233,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         vsMouseMove, vsMouseLeave, vsRedrawCanvas,
         toggleScannerChip, setScannerPreset, syncScannerChipUI,
         debounceScannerFetch, runScannerFetch, filterScannerResults, renderScannerResults,
-        captureChartAndAnalyze
+        captureChartAndAnalyze, clearAiChartLines, drawAiChartLines
     });
     </script>
 

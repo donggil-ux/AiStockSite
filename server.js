@@ -373,6 +373,107 @@ app.post('/api/vision-scan', upload.single('image'), async (req, res) => {
 });
 
 /**
+ * AI 차트 직접 그리기 — 지지선/저항선/추세선
+ * POST /api/chart-draw  (multipart/form-data, field: "image" + "priceData")
+ * 응답: { levels: [...], trendlines: [...], summary: "..." }
+ */
+app.post('/api/chart-draw', upload.single('image'), async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: '이미지 파일이 필요합니다.' });
+    if (!process.env.GEMINI_API_KEY) {
+        return res.status(503).json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다.' });
+    }
+
+    try {
+        const b64 = req.file.buffer.toString('base64');
+        const mimeType = req.file.mimetype;
+        const priceData = req.body.priceData ? JSON.parse(req.body.priceData) : null;
+
+        let priceContext = '';
+        if (priceData) {
+            const { closes, highs, lows, dates } = priceData;
+            const valid = closes.filter(v => v != null);
+            const cur = valid.at(-1)?.toFixed(2) ?? '?';
+            priceContext = `\n\n실제 가격 데이터 (${closes.length}개 봉):
+날짜(최근20): ${dates.slice(-20).join(', ')}
+종가: [${closes.map(v => v != null ? v.toFixed(2) : 'null').join(',')}]
+고가: [${highs.map(v => v != null ? v.toFixed(2) : 'null').join(',')}]
+저가: [${lows.map(v => v != null ? v.toFixed(2) : 'null').join(',')}]
+현재가: ${cur}`;
+        }
+
+        const prompt = `당신은 전문 주식 차트 기술 분석가입니다. 차트 이미지와 실제 가격 데이터를 분석하세요.${priceContext}
+
+반드시 아래 JSON 형식으로만 응답하세요. JSON 외 텍스트나 코드 펜스는 절대 포함하지 마세요.
+
+{
+  "levels": [
+    {
+      "type": "support 또는 resistance",
+      "price": 실제가격숫자,
+      "label": "설명 (예: 주요 지지선 $150)",
+      "strength": 0.5~1.0
+    }
+  ],
+  "trendlines": [
+    {
+      "label": "추세선 설명 (예: 상승 추세선)",
+      "from_bars_ago": 시작점이현재로부터몇봉전(정수),
+      "from_price": 시작점실제가격(숫자),
+      "to_bars_ago": 끝점이현재로부터몇봉전(0=현재봉,정수),
+      "to_price": 끝점실제가격(숫자),
+      "color": "#hexcolor",
+      "style": "solid 또는 dashed"
+    }
+  ],
+  "summary": "분석 요약 한국어 2-3문장"
+}
+
+규칙:
+- levels 최대 4개 (중요도 높은 순), 제공된 실제 가격 데이터 기준으로 정확한 가격 사용
+- trendlines 최대 3개 (빗각 추세선/채널)
+- 지지선 color "#22c55e", 저항선 color "#ef4444"
+- 상승추세선 color "#f59e0b", 하락추세선 color "#818cf8"
+- from_bars_ago는 항상 to_bars_ago보다 큰 값 (과거→현재 방향)`;
+
+        const model = getGenAI().getGenerativeModel({ model: 'gemini-2.5-flash' });
+        const result = await model.generateContent([
+            prompt,
+            { inlineData: { data: b64, mimeType } },
+        ]);
+
+        const raw = result.response.text().trim();
+        const json = raw.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
+        const data = JSON.parse(json);
+
+        data.levels = (data.levels || []).map(l => ({
+            type: l.type === 'resistance' ? 'resistance' : 'support',
+            price: Number(l.price),
+            label: l.label || (l.type === 'resistance' ? '저항선' : '지지선'),
+            strength: Math.max(0.3, Math.min(1, l.strength ?? 0.7)),
+        })).filter(l => l.price > 0);
+
+        data.trendlines = (data.trendlines || []).map(t => ({
+            label: t.label || '추세선',
+            from_bars_ago: Math.abs(parseInt(t.from_bars_ago) || 30),
+            from_price: Number(t.from_price),
+            to_bars_ago: Math.abs(parseInt(t.to_bars_ago) || 0),
+            to_price: Number(t.to_price),
+            color: t.color || '#f59e0b',
+            style: t.style === 'dashed' ? 'dashed' : 'solid',
+        })).filter(t => t.from_price > 0 && t.to_price > 0);
+
+        console.log(`[chart-draw] 완료: ${data.levels.length}개 레벨, ${data.trendlines.length}개 추세선`);
+        res.json(data);
+    } catch (err) {
+        console.error('[chart-draw] 오류:', err.message);
+        if (err instanceof SyntaxError) {
+            return res.status(500).json({ error: 'AI 응답 파싱 실패. 다시 시도해주세요.' });
+        }
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
  * 헬스 체크
  * GET /health
  */
