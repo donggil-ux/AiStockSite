@@ -3,12 +3,16 @@
  * Yahoo Finance API 프록시 (crumb 인증 자동 처리)
  */
 
-const express = require('express');
-const cors    = require('cors');
-const axios   = require('axios');
-const path    = require('path');
-const https   = require('https');
-const http    = require('http');
+require('dotenv').config();
+
+const express    = require('express');
+const cors       = require('cors');
+const axios      = require('axios');
+const path       = require('path');
+const https      = require('https');
+const http       = require('http');
+const multer     = require('multer');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Yahoo Finance 응답 헤더가 커서 기본 8KB 한도를 초과할 수 있음
 // 옵션체인 API는 헤더가 특히 커서 128KB로 확장
@@ -21,6 +25,19 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+
+// multer: 메모리 저장 (5MB 제한)
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 20 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        if (['image/png','image/jpeg','image/webp','image/gif'].includes(file.mimetype)) cb(null, true);
+        else cb(new Error('지원하지 않는 이미지 형식입니다.'));
+    },
+});
+
+// Google Gemini 클라이언트 (GEMINI_API_KEY 환경변수 사용)
+const genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 // ─────────────────────────────────────────────
 // 정적 파일 서빙 (프론트엔드 index.html)
@@ -275,6 +292,81 @@ app.get('/api/page/:symbol', async (req, res) => {
     } catch (err) {
         console.error(`[page] ${symbol}:`, err.message);
         res.status(500).send('');
+    }
+});
+
+/**
+ * AI 차트 판독기 — Vision Scanner
+ * POST /api/vision-scan  (multipart/form-data, field: "image")
+ * 응답: { zones: [...], summary: "마크다운 텍스트" }
+ */
+app.post('/api/vision-scan', upload.single('image'), async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: '이미지 파일이 필요합니다.' });
+    if (!process.env.GEMINI_API_KEY) {
+        return res.status(503).json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.' });
+    }
+
+    try {
+        const b64      = req.file.buffer.toString('base64');
+        const mimeType = req.file.mimetype;
+
+        const model = genai.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+        const prompt = `당신은 전문 주식 차트 기술 분석가입니다. 업로드된 차트 이미지를 분석하여 지지선과 저항선을 찾아주세요.
+
+반드시 아래 JSON 형식으로만 응답하세요. JSON 외 다른 텍스트는 절대 포함하지 마세요.
+
+{
+  "zones": [
+    {
+      "type": "support 또는 resistance",
+      "yRatio": 0~1 사이 숫자 (이미지 높이 기준 위치 비율, 위=0, 아래=1),
+      "hRatio": 0~1 사이 숫자 (구간 두께 비율, 보통 0.01~0.04),
+      "label": "구간 설명 (예: 지지 $350, 저항 ₩84,200)",
+      "strength": 0~1 사이 숫자 (구간 강도, 0.5~1.0 권장)
+    }
+  ],
+  "summary": "마크다운 형식의 분석 리포트 (## 헤딩, **볼드**, - 리스트, | 테이블 사용 가능)"
+}
+
+분석 기준:
+- 가격축은 이미지 오른쪽에 있으며, 위쪽이 높은 가격, 아래쪽이 낮은 가격입니다
+- 여러 번 터치된 수평 가격대를 지지/저항으로 식별하세요
+- 최대 6개 구간까지 반환하세요 (중요도 높은 순)
+- yRatio는 해당 가격선이 이미지 전체 높이에서 몇% 지점인지 0~1 사이 소수점으로 표현
+- summary는 한국어로 작성하고, 발견된 가격을 차트의 실제 가격축 숫자로 표기하세요`;
+
+        const result = await model.generateContent([
+            prompt,
+            { inlineData: { data: b64, mimeType } },
+        ]);
+
+        // JSON 파싱
+        const raw  = result.response.text().trim();
+        // 혹시 ```json ... ``` 래핑된 경우 제거
+        const json = raw.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
+        const data = JSON.parse(json);
+
+        // zones에 xRatio=0, wRatio=1 기본값 보정
+        data.zones = (data.zones || []).map(z => ({
+            xRatio:   0,
+            yRatio:   Math.max(0, Math.min(1, z.yRatio ?? 0.5)),
+            wRatio:   1,
+            hRatio:   Math.max(0.005, Math.min(0.08, z.hRatio ?? 0.02)),
+            type:     z.type === 'resistance' ? 'resistance' : 'support',
+            label:    z.label || (z.type === 'resistance' ? '저항 구간' : '지지 구간'),
+            strength: Math.max(0.3, Math.min(1, z.strength ?? 0.7)),
+        }));
+
+        console.log(`[vision-scan] 분석 완료: ${data.zones.length}개 구간 탐지`);
+        res.json(data);
+
+    } catch (err) {
+        console.error('[vision-scan] 오류:', err.message);
+        if (err instanceof SyntaxError) {
+            return res.status(500).json({ error: 'AI 응답 파싱 실패. 다시 시도해주세요.' });
+        }
+        res.status(500).json({ error: err.message });
     }
 });
 

@@ -1610,7 +1610,7 @@
                 </button>
             </div>
             <!-- 데모 모드 경고 배너 -->
-            <div style="padding:14px 16px;border-radius:var(--r2);background:rgba(239,68,68,.1);border:1.5px solid rgba(239,68,68,.4);margin-bottom:16px;">
+            <div id="vsDemoBanner" style="padding:14px 16px;border-radius:var(--r2);background:rgba(239,68,68,.1);border:1.5px solid rgba(239,68,68,.4);margin-bottom:16px;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
                     <i class="ri-error-warning-fill" style="color:var(--red);font-size:18px;flex-shrink:0;"></i>
                     <span style="font-size:14px;color:var(--red);font-weight:800;">⚠️ 주의 — 이것은 가짜 샘플 데이터입니다</span>
@@ -4729,7 +4729,7 @@
     }
 
     function updateBnActive(tab) {
-        const map = { home: 'bnHome', search: 'bnSearch', scanner: 'bnScanner', smartmoney: 'bnSmartmoney', fav: 'bnFav' };
+        const map = { home: 'bnHome', search: 'bnSearch', scanner: 'bnScanner', smartmoney: 'bnSmartmoney', fav: 'bnFav', vision: 'bnVision' };
         // 모든 탭 비활성화 + 아이콘 line으로
         document.querySelectorAll('.bn-item').forEach(btn => {
             btn.classList.remove('active');
@@ -10074,6 +10074,7 @@ Rules:
     let _vsScanTimer   = null;
     let _vsStepTimer   = null;
     let _vsRafId       = null;
+    let _vsApiResult   = null;   // 실제 API 응답 저장
 
     // ── Mock 분석 결과 (Phase 1) ─────────────────────────────────
     // yRatio/hRatio: 이미지 높이에 대한 비율 (0~1)
@@ -10278,21 +10279,44 @@ Rules:
         };
         _vsRafId = requestAnimationFrame(tickProg);
 
-        // Phase 1: 2초 후 결과로 전환 (실제 API 연결 시 교체)
-        clearTimeout(_vsScanTimer);
-        _vsScanTimer = setTimeout(() => {
-            clearInterval(_vsStepTimer);
-            cancelAnimationFrame(_vsRafId);
-            if (bar) bar.style.width = '100%';
-            setTimeout(_vsShowResult, 200);
-        }, 2000);
+        // Claude Vision API 호출
+        const formData = new FormData();
+        formData.append('image', _vsFile);
+
+        fetch('/api/vision-scan', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                clearInterval(_vsStepTimer);
+                cancelAnimationFrame(_vsRafId);
+                if (bar) bar.style.width = '100%';
+                if (data.error) {
+                    _vsApiResult = null;
+                    setTimeout(() => { _vsShowError('AI 분석 실패: ' + data.error); vsReset(); }, 200);
+                } else {
+                    _vsApiResult = data;
+                    setTimeout(_vsShowResult, 300);
+                }
+            })
+            .catch(err => {
+                clearInterval(_vsStepTimer);
+                cancelAnimationFrame(_vsRafId);
+                setTimeout(() => { _vsShowError('서버 연결 실패: ' + err.message); vsReset(); }, 200);
+            });
     }
 
     // ── 결과 화면 ────────────────────────────────────────────────
     function _vsShowResult() {
-        _vsZones = VS_MOCK_ZONES;
+        // API 결과 우선, 없으면 Mock
+        const isReal = !!_vsApiResult;
+        _vsZones = isReal ? _vsApiResult.zones : VS_MOCK_ZONES;
+        const report = isReal ? _vsApiResult.summary : VS_MOCK_REPORT;
+
         document.getElementById('vsLoading').style.display = 'none';
         document.getElementById('vsResult').style.display  = '';
+
+        // 데모 배너: 실제 분석이면 숨김, Mock이면 표시
+        const demoBanner = document.getElementById('vsDemoBanner');
+        if (demoBanner) demoBanner.style.display = isReal ? 'none' : '';
 
         // 메타 바
         const sizeMB = (_vsFile.size / 1024 / 1024).toFixed(2);
@@ -10312,13 +10336,16 @@ Rules:
         img.src = _vsObjectURL;
 
         // 마크다운 리포트 렌더링
-        document.getElementById('vsReportBody').innerHTML = _vsRenderMd(VS_MOCK_REPORT);
+        document.getElementById('vsReportBody').innerHTML = _vsRenderMd(report);
 
         // ResizeObserver — 창 크기 변경 시 재드로잉
         if (window._vsResizeObs) window._vsResizeObs.disconnect();
         window._vsResizeObs = new ResizeObserver(() => vsRedrawCanvas());
         const wrap = document.getElementById('vsCanvasWrap');
         if (wrap) window._vsResizeObs.observe(wrap);
+
+        // 다음 분석을 위해 API 결과 초기화
+        _vsApiResult = null;
     }
 
     // ── 캔버스 드로잉 (DPR 완전 대응) ──────────────────────────
