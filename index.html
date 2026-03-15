@@ -434,6 +434,8 @@
         .chart-tb-btn{padding:5px 12px;border:1px solid var(--border);background:transparent;color:var(--text3);border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all .12s;white-space:nowrap;}
         .chart-tb-btn:hover{border-color:var(--text3);color:var(--text2);}
         .chart-tb-btn.active{border-color:var(--blue);color:var(--blue);background:rgba(59,130,246,.08);}
+        .chart-ai-reader-btn{border-color:var(--purple);color:var(--purple);background:rgba(167,139,250,.08);margin-right:4px;}
+        .chart-ai-reader-btn:hover{background:rgba(167,139,250,.18) !important;border-color:var(--purple) !important;color:var(--purple) !important;}
         .chart-tb-label{font-size:11px;color:var(--text3);font-weight:700;margin-right:4px;white-space:nowrap;}
         /* Drawing Tools */
         .draw-toolbar{display:flex;align-items:center;gap:4px;padding:6px 14px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap;}
@@ -1708,7 +1710,10 @@
                             <button class="chart-tb-btn range-btn" data-range="1y" onclick="setPeriod('1y')">1년</button>
                             <button class="chart-tb-btn range-btn" data-range="5y" onclick="setPeriod('5y')">5년</button>
                         </div>
-                        <div style="margin-left:auto;">
+                        <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+                            <button class="chart-tb-btn chart-ai-reader-btn" id="chartAiReaderBtn"
+                                onclick="captureChartAndAnalyze()" title="차트를 캡처하여 AI로 분석"
+                                style="display:none;">🔍 AI 판독기</button>
                             <button class="tv-fullscreen-btn" id="tvFullscreenBtn" onclick="toggleChartFullscreen()" title="전체화면" style="position:static;border:none;background:transparent;">
                                 <svg id="tvFsIconExpand" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
                                 <svg id="tvFsIconShrink" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
@@ -6378,6 +6383,8 @@
     function destroyChart() {
         if (lwResizeObserver) { lwResizeObserver.disconnect(); lwResizeObserver = null; }
         if (lwChart) { lwChart.remove(); lwChart = null; }
+        const _aiBtn = document.getElementById('chartAiReaderBtn');
+        if (_aiBtn) _aiBtn.style.display = 'none';
         lwCandleSeries = null;
         lwVolumeSeries = null;
         lwMaSeries = {};
@@ -6557,6 +6564,10 @@
             });
             pendingSmartMoneyLine = null;
         }
+
+        // AI 판독기 버튼 표시
+        const _aiReaderBtn = document.getElementById('chartAiReaderBtn');
+        if (_aiReaderBtn) _aiReaderBtn.style.display = '';
 
         // 드로잉 도구 이벤트 연결 + 기존 그림 다시 렌더
         hookDrawRedraw();
@@ -10523,6 +10534,34 @@ Rules:
         return t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     }
 
+    // ── 차트 AI 판독기 — 차트 캔버스 캡처 → Vision Scanner 연동 ──
+    function captureChartAndAnalyze() {
+        if (!lwChart) { showToast('먼저 종목을 검색하여 차트를 로드해주세요.'); return; }
+        const wrap = document.getElementById('tvChartWrap');
+        if (!wrap) return;
+        const canvases = Array.from(wrap.querySelectorAll('canvas')).filter(c => c.id !== 'drawCanvas');
+        if (!canvases.length) { showToast('차트 캔버스를 찾을 수 없습니다.'); return; }
+        showToast('차트 캡처 중...');
+        const first = canvases[0];
+        const w = first.width, h = first.height;
+        if (!w || !h) { showToast('차트를 잠시 후 다시 시도해주세요.'); return; }
+        const offscreen = document.createElement('canvas');
+        offscreen.width = w; offscreen.height = h;
+        const ctx = offscreen.getContext('2d');
+        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+        ctx.fillStyle = isLight ? '#ffffff' : '#111620';
+        ctx.fillRect(0, 0, w, h);
+        canvases.forEach(c => { try { ctx.drawImage(c, 0, 0, w, h); } catch(e) {} });
+        offscreen.toBlob(blob => {
+            if (!blob) { showToast('캡처에 실패했습니다.'); return; }
+            const ticker = (typeof currentFullSymbol !== 'undefined' && currentFullSymbol)
+                        || (typeof currentSymbol !== 'undefined' && currentSymbol) || 'chart';
+            const file = new File([blob], `chart_${ticker}_${Date.now()}.png`, { type: 'image/png' });
+            goVisionScanner();
+            _vsProcessFile(file);
+        }, 'image/png');
+    }
+
     Object.assign(window, {
         closeSideNav, toggleSideNav, openSideNav, goHome, goSmartMoney,
         switchSmTab, smDeepDive, smDeepBack, filterSmHoldings, smChartLink,
@@ -10554,7 +10593,8 @@ Rules:
         vsDragEnter, vsDragOver, vsDragLeave, vsDrop,
         vsMouseMove, vsMouseLeave, vsRedrawCanvas,
         toggleScannerChip, setScannerPreset, syncScannerChipUI,
-        debounceScannerFetch, runScannerFetch, filterScannerResults, renderScannerResults
+        debounceScannerFetch, runScannerFetch, filterScannerResults, renderScannerResults,
+        captureChartAndAnalyze
     });
     </script>
 
