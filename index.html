@@ -4763,8 +4763,8 @@
             goScanner();
         } else if (tab === 'smartmoney') {
             goSmartMoney();
-        } else if (tab === 'fav') {
-            goFav();
+        } else if (tab === 'vision') {
+            goVisionScanner();
         }
     }
 
@@ -10111,6 +10111,7 @@ Rules:
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.side-nav-item').forEach(b => b.classList.remove('active'));
         document.getElementById('sideNavVsBtn')?.classList.add('active');
+        updateBnActive('vision');
         window.scrollTo({ top: 0, behavior: 'smooth' });
         // 전역 paste 리스너 활성화
         window._vsActive = true;
@@ -10538,7 +10539,7 @@ Rules:
             { key: 'search',     id: 'bnSearch',     label: '검색',     iconLine: 'ri-search-2-line',    iconFill: 'ri-search-2-fill' },
             { key: 'scanner',    id: 'bnScanner',    label: '스캐너',   iconLine: 'ri-radar-line',       iconFill: 'ri-radar-fill' },
             { key: 'smartmoney', id: 'bnSmartmoney', label: '기관',     iconLine: 'ri-briefcase-4-line', iconFill: 'ri-briefcase-4-fill' },
-            { key: 'fav',        id: 'bnFav',        label: '즐겨찾기', iconLine: 'ri-star-line',        iconFill: 'ri-star-fill' },
+            { key: 'vision',     id: 'bnVision',     label: 'AI판독기', iconLine: 'ri-eye-2-line',       iconFill: 'ri-eye-2-fill' },
         ];
 
         if (BN_TABS.length > MAX_BN_TABS) {
