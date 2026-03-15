@@ -36,8 +36,10 @@ const upload = multer({
     },
 });
 
-// Google Gemini 클라이언트 (GEMINI_API_KEY 환경변수 사용)
-const genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+// Google Gemini 클라이언트 — 요청 시점에 초기화 (모듈 크래시 방지)
+function getGenAI() {
+    return new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+}
 
 // ─────────────────────────────────────────────
 // 정적 파일 서빙 (프론트엔드 index.html)
@@ -310,7 +312,7 @@ app.post('/api/vision-scan', upload.single('image'), async (req, res) => {
         const b64      = req.file.buffer.toString('base64');
         const mimeType = req.file.mimetype;
 
-        const model = genai.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        const model = getGenAI().getGenerativeModel({ model: 'gemini-2.5-flash' });
 
         const prompt = `당신은 전문 주식 차트 기술 분석가입니다. 업로드된 차트 이미지를 분석하여 지지선과 저항선을 찾아주세요.
 
