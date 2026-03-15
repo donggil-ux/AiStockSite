@@ -1,5 +1,5 @@
 // StockAI Service Worker
-const CACHE_NAME = 'stockai-v11';
+const CACHE_NAME = 'stockai-v12';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

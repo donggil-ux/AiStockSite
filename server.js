@@ -425,7 +425,8 @@ app.post('/api/chart-draw', upload.single('image'), async (req, res) => {
       "style": "solid 또는 dashed"
     }
   ],
-  "summary": "분석 요약 한국어 2-3문장"
+  "summary": "한줄 요약 (한국어, 1문장)",
+  "report": "상세 분석 리포트 (한국어, 마크다운 형식)"
 }
 
 규칙:
@@ -433,7 +434,13 @@ app.post('/api/chart-draw', upload.single('image'), async (req, res) => {
 - trendlines 최대 3개 (빗각 추세선/채널)
 - 지지선 color "#22c55e", 저항선 color "#ef4444"
 - 상승추세선 color "#f59e0b", 하락추세선 color "#818cf8"
-- from_bars_ago는 항상 to_bars_ago보다 큰 값 (과거→현재 방향)`;
+- from_bars_ago는 항상 to_bars_ago보다 큰 값 (과거→현재 방향)
+- report는 상세 기술 분석 리포트를 마크다운으로 작성:
+  * ### 종목명 주식 기술 분석 리포트 (제목)
+  * 현재가 언급, 전체 추세 설명
+  * #### 주요 지지 및 저항 구간: 으로 각 레벨에 대해 **가격대**와 근거를 상세히 설명
+  * #### 추세 분석: 추세선의 방향과 의미 설명
+  * #### 종합 의견: 단기/중기 전망과 주의사항`;
 
         const model = getGenAI().getGenerativeModel({ model: 'gemini-2.5-flash' });
         const result = await model.generateContent([
