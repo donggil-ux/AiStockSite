@@ -1982,6 +1982,7 @@
     let lwBbLower = null;
     let lwAiPriceLines = [];   // AI 지지/저항선 (createPriceLine refs)
     let lwAiTrendSeries = [];  // AI 추세선 (addLineSeries refs)
+    let lwAiLastData = null;   // 마지막 AI 분석 결과 (차트 재렌더 후 복원용)
 
     // ========================================
     // Side Navigation
@@ -6295,10 +6296,8 @@
 
     function destroyChart() {
         if (lwResizeObserver) { lwResizeObserver.disconnect(); lwResizeObserver = null; }
-        lwAiPriceLines = [];
+        lwAiPriceLines = [];   // refs만 초기화 (데이터는 lwAiLastData에 보존)
         lwAiTrendSeries = [];
-        const _clearBtn = document.getElementById('chartAiClearBtn');
-        if (_clearBtn) _clearBtn.style.display = 'none';
         if (lwChart) { lwChart.remove(); lwChart = null; }
         const _aiBtn = document.getElementById('chartAiReaderBtn');
         if (_aiBtn) _aiBtn.style.display = 'none';
@@ -6481,6 +6480,13 @@
         // AI 판독기 버튼 표시
         const _aiReaderBtn = document.getElementById('chartAiReaderBtn');
         if (_aiReaderBtn) _aiReaderBtn.style.display = '';
+
+        // AI 라인 복원 (기간/인터벌 변경 후에도 유지)
+        if (lwAiLastData) {
+            lwAiPriceLines = [];
+            lwAiTrendSeries = [];
+            drawAiChartLines(lwAiLastData.data, lwAiLastData.timestamps);
+        }
 
         // 드로잉 도구 이벤트 연결 + 기존 그림 다시 렌더
         hookDrawRedraw();
@@ -10086,6 +10092,7 @@
         lwAiPriceLines = [];
         lwAiTrendSeries.forEach(s => { try { lwChart?.removeSeries(s); } catch(e) {} });
         lwAiTrendSeries = [];
+        lwAiLastData = null;
         const btn = document.getElementById('chartAiClearBtn');
         if (btn) btn.style.display = 'none';
     }
@@ -10094,6 +10101,7 @@
     function drawAiChartLines(data, timestamps) {
         if (!lwChart || !lwCandleSeries) return;
         const ts = timestamps || stockData?.timestamp || [];
+        lwAiLastData = { data, timestamps: ts }; // 복원용 저장
 
         // 수평선 (지지/저항)
         (data.levels || []).forEach(level => {
