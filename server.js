@@ -412,7 +412,9 @@ app.post('/api/chart-draw', upload.single('image'), async (req, res) => {
 
         const prompt = `당신은 전문 주식 차트 기술 분석가입니다. 차트 이미지와 실제 가격 데이터를 분석하세요.${priceContext}
 
-반드시 아래 JSON 형식으로만 응답하세요. JSON 외 텍스트나 코드 펜스는 절대 포함하지 마세요.
+이미지를 1000×1000 좌표 그리드로 취급하세요. x=0은 차트 왼쪽 끝, x=1000은 오른쪽 끝, y=0은 위(고가), y=1000은 아래(저가)입니다. 모든 추세선 좌표는 이 그리드 기준으로 반환하세요.
+
+반드시 아래 JSON 형식으로만 응답하세요.
 
 {
   "levels": [
@@ -426,12 +428,9 @@ app.post('/api/chart-draw', upload.single('image'), async (req, res) => {
   "trendlines": [
     {
       "label": "추세선 설명 (예: 상승 추세선)",
-      "from_bars_ago": 시작점이현재로부터몇봉전(정수),
-      "from_price": 시작점실제가격(숫자),
-      "to_bars_ago": 끝점이현재로부터몇봉전(0=현재봉,정수),
-      "to_price": 끝점실제가격(숫자),
-      "color": "#hexcolor",
-      "style": "solid 또는 dashed"
+      "type": "uptrend 또는 downtrend",
+      "point1": { "x": 0~1000, "y": 0~1000 },
+      "point2": { "x": 0~1000, "y": 0~1000 }
     }
   ],
   "summary": "한줄 요약 (한국어, 1문장)",
@@ -440,10 +439,8 @@ app.post('/api/chart-draw', upload.single('image'), async (req, res) => {
 
 규칙:
 - levels 최대 4개 (중요도 높은 순), 제공된 실제 가격 데이터 기준으로 정확한 가격 사용
-- trendlines 최대 3개 (빗각 추세선/채널)
-- 지지선 color "#22c55e", 저항선 color "#ef4444"
-- 상승추세선 color "#f59e0b", 하락추세선 color "#818cf8"
-- from_bars_ago는 항상 to_bars_ago보다 큰 값 (과거→현재 방향)
+- trendlines 최대 3개 (추세선의 핵심 Pivot 꼬리 2개를 정확히 짚을 것)
+- point1은 항상 더 과거(왼쪽, x가 작은) 점, point2는 더 최근(오른쪽, x가 큰) 점
 - report는 상세 기술 분석 리포트를 마크다운으로 작성:
   * ### 종목명 주식 기술 분석 리포트 (제목)
   * 현재가 언급, 전체 추세 설명
@@ -451,7 +448,13 @@ app.post('/api/chart-draw', upload.single('image'), async (req, res) => {
   * #### 추세 분석: 추세선의 방향과 의미 설명
   * #### 종합 의견: 단기/중기 전망과 주의사항`;
 
-        const model = getGenAI().getGenerativeModel({ model: 'gemini-2.5-flash' });
+        const model = getGenAI().getGenerativeModel({
+            model: 'gemini-2.5-flash',
+            generationConfig: {
+                temperature: 0.1,
+                responseMimeType: 'application/json',
+            },
+        });
         const result = await model.generateContent([
             prompt,
             { inlineData: { data: b64, mimeType } },
@@ -470,13 +473,10 @@ app.post('/api/chart-draw', upload.single('image'), async (req, res) => {
 
         data.trendlines = (data.trendlines || []).map(t => ({
             label: t.label || '추세선',
-            from_bars_ago: Math.abs(parseInt(t.from_bars_ago) || 30),
-            from_price: Number(t.from_price),
-            to_bars_ago: Math.abs(parseInt(t.to_bars_ago) || 0),
-            to_price: Number(t.to_price),
-            color: t.color || '#f59e0b',
-            style: t.style === 'dashed' ? 'dashed' : 'solid',
-        })).filter(t => t.from_price > 0 && t.to_price > 0);
+            type: t.type === 'downtrend' ? 'downtrend' : 'uptrend',
+            point1: { x: Math.max(0, Math.min(1000, Number(t.point1?.x ?? 0))), y: Math.max(0, Math.min(1000, Number(t.point1?.y ?? 0))) },
+            point2: { x: Math.max(0, Math.min(1000, Number(t.point2?.x ?? 1000))), y: Math.max(0, Math.min(1000, Number(t.point2?.y ?? 0))) },
+        })).filter(t => t.point1.x < t.point2.x);
 
         console.log(`[chart-draw] 완료: ${data.levels.length}개 레벨, ${data.trendlines.length}개 추세선`);
         res.json(data);

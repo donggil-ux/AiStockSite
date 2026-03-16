@@ -2029,9 +2029,10 @@
     let lwMaSeries = {};       // { ma5, ma20, ma60, ma120 }
     let lwBbUpper = null;
     let lwBbLower = null;
-    let lwAiPriceLines = [];   // AI 지지/저항선 (createPriceLine refs)
-    let lwAiTrendSeries = [];  // AI 추세선 (addLineSeries refs)
-    let lwAiLastData = null;   // 마지막 AI 분석 결과 (차트 재렌더 후 복원용)
+    let lwAiPriceLines = [];        // AI 지지/저항선 (createPriceLine refs)
+    let lwAiTrendSeries = [];       // AI 추세선 legacy (사용 안함, 하위호환)
+    let lwAiCanvasTrendlines = [];  // AI 추세선 (canvas Ray 방식, 1000×1000 좌표)
+    let lwAiLastData = null;        // 마지막 AI 분석 결과 (차트 재렌더 후 복원용)
 
     // ========================================
     // Side Navigation
@@ -6345,8 +6346,9 @@
 
     function destroyChart() {
         if (lwResizeObserver) { lwResizeObserver.disconnect(); lwResizeObserver = null; }
-        lwAiPriceLines = [];   // refs만 초기화 (데이터는 lwAiLastData에 보존)
+        lwAiPriceLines = [];        // refs만 초기화 (데이터는 lwAiLastData에 보존)
         lwAiTrendSeries = [];
+        lwAiCanvasTrendlines = [];
         if (lwChart) { lwChart.remove(); lwChart = null; }
         const _aiBtn = document.getElementById('chartAiReaderBtn');
         if (_aiBtn) _aiBtn.style.display = 'none';
@@ -6674,6 +6676,30 @@
     // 피보나치 되돌림 레벨
     const FIB_LEVELS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
 
+    // ── AI 추세선 canvas Ray 드로잉 ──
+    // tl: { point1: {x,y}, point2: {x,y} }  — 1000×1000 그리드 기준
+    function drawAiTrendlineOnCanvas(ctx, canvas, tl) {
+        const x1 = (tl.point1.x / 1000) * canvas.width;
+        const y1 = (tl.point1.y / 1000) * canvas.height;
+        const x2 = (tl.point2.x / 1000) * canvas.width;
+        const y2 = (tl.point2.y / 1000) * canvas.height;
+        const dx = x2 - x1;
+        if (Math.abs(dx) < 0.5) return; // 수직선 스킵
+        const slope = (y2 - y1) / dx;
+        // Ray: point1 → 우측 끝(x = canvas.width)
+        const xEnd = canvas.width;
+        const yEnd = slope * (xEnd - x1) + y1;
+        ctx.save();
+        ctx.strokeStyle = '#FACC15';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(xEnd, yEnd);
+        ctx.stroke();
+        ctx.restore();
+    }
+
     function redrawCanvas() {
         const canvas = document.getElementById('drawCanvas');
         if (!canvas) return;
@@ -6687,6 +6713,11 @@
 
         // 기존 드로잉 오브젝트 그리기
         drawObjects.forEach(obj => drawObject(ctx, obj, canvas, isLight));
+
+        // AI 추세선 (canvas Ray, 1000×1000 좌표계)
+        if (lwAiCanvasTrendlines.length) {
+            lwAiCanvasTrendlines.forEach(tl => drawAiTrendlineOnCanvas(ctx, canvas, tl));
+        }
 
         // 미리보기 그리기
         if (drawState && drawPreview) {
@@ -10164,7 +10195,9 @@
         lwAiPriceLines = [];
         lwAiTrendSeries.forEach(s => { try { lwChart?.removeSeries(s); } catch(e) {} });
         lwAiTrendSeries = [];
+        lwAiCanvasTrendlines = [];
         lwAiLastData = null;
+        setTimeout(redrawCanvas, 50);
         if (currentSymbol) {
             try { localStorage.removeItem('stockai_ai_' + currentSymbol); } catch(e) {}
             fetch('/api/ai-analysis/' + encodeURIComponent(currentSymbol), { method: 'DELETE' }).catch(() => {});
@@ -10205,32 +10238,14 @@
             } catch(e) {}
         });
 
-        // 추세선 (빗각)
+        // 추세선 (빗각 — canvas Ray, 1000×1000 좌표계)
+        lwAiCanvasTrendlines = [];
         (data.trendlines || []).forEach(tl => {
-            if (!ts.length) return;
-            const lastIdx = ts.length - 1;
-            const fromIdx = Math.max(0, lastIdx - tl.from_bars_ago);
-            const toIdx   = Math.max(0, lastIdx - tl.to_bars_ago);
-            const fromTime = ts[fromIdx];
-            const toTime   = ts[toIdx];
-            if (!fromTime || !toTime || fromTime === toTime) return;
-            try {
-                const series = lwChart.addLineSeries({
-                    color: tl.color || '#f59e0b',
-                    lineWidth: 2,
-                    lineStyle: tl.style === 'dashed' ? 2 : 0,
-                    priceLineVisible: false,
-                    lastValueVisible: false,
-                    crosshairMarkerVisible: false,
-                    title: tl.label,
-                });
-                series.setData([
-                    { time: fromTime, value: tl.from_price },
-                    { time: toTime,   value: tl.to_price   },
-                ]);
-                lwAiTrendSeries.push(series);
-            } catch(e) {}
+            if (tl.point1 && tl.point2 && tl.point1.x < tl.point2.x) {
+                lwAiCanvasTrendlines.push(tl);
+            }
         });
+        if (lwAiCanvasTrendlines.length) setTimeout(redrawCanvas, 50);
 
         const clearBtn = document.getElementById('chartAiClearBtn');
         if (clearBtn && (lwAiPriceLines.length || lwAiTrendSeries.length)) clearBtn.style.display = '';
