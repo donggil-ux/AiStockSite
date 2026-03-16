@@ -6530,19 +6530,34 @@
         const _aiReaderBtn = document.getElementById('chartAiReaderBtn');
         if (_aiReaderBtn) _aiReaderBtn.style.display = '';
 
-        // AI 라인 복원 (세션 내 재렌더 또는 PWA 재시작 후)
+        // AI 라인 복원 (세션 내 재렌더 or PWA 재시작 후)
         if (lwAiLastData && lwAiLastData.symbol === currentSymbol) {
+            // 1순위: 메모리 (같은 세션 내 재렌더)
             lwAiPriceLines = [];
             lwAiTrendSeries = [];
             drawAiChartLines(lwAiLastData.data, stockData.timestamp);
         } else if (currentSymbol) {
-            try {
-                const saved = localStorage.getItem('stockai_ai_' + currentSymbol);
-                if (saved) {
-                    const savedData = JSON.parse(saved);
-                    drawAiChartLines(savedData, stockData.timestamp);
-                }
-            } catch(e) {}
+            // 2순위: 서버(Supabase) → 크로스 기기 동기화
+            // 3순위: localStorage 폴백
+            const _restoreSymbol = currentSymbol;
+            const _restoreTs = stockData.timestamp;
+            const _localFallback = () => {
+                try {
+                    const saved = localStorage.getItem('stockai_ai_' + _restoreSymbol);
+                    if (saved && currentSymbol === _restoreSymbol) {
+                        drawAiChartLines(JSON.parse(saved), _restoreTs);
+                    }
+                } catch(e) {}
+            };
+            fetch('/api/ai-analysis/' + encodeURIComponent(_restoreSymbol))
+                .then(r => r.ok ? r.json() : null)
+                .then(serverData => {
+                    if (!serverData || currentSymbol !== _restoreSymbol) { _localFallback(); return; }
+                    drawAiChartLines(serverData, _restoreTs);
+                    // 서버 데이터를 로컬에도 동기화
+                    try { localStorage.setItem('stockai_ai_' + _restoreSymbol, JSON.stringify(serverData)); } catch(e) {}
+                })
+                .catch(_localFallback);
         }
 
         // 드로잉 도구 이벤트 연결 + 기존 그림 다시 렌더
@@ -10166,6 +10181,12 @@
         lwAiLastData = { data, timestamps: ts, symbol: currentSymbol }; // 복원용 저장
         if (currentSymbol) {
             try { localStorage.setItem('stockai_ai_' + currentSymbol, JSON.stringify(data)); } catch(e) {}
+            // 서버(Supabase)에도 저장 → 크로스 기기/PWA 동기화
+            fetch('/api/ai-analysis/' + encodeURIComponent(currentSymbol), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            }).catch(() => {});
         }
 
         // 수평선 (지지/저항)

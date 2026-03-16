@@ -13,6 +13,7 @@ const https      = require('https');
 const http       = require('http');
 const multer     = require('multer');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { createClient } = require('@supabase/supabase-js');
 
 // Yahoo Finance 응답 헤더가 커서 기본 8KB 한도를 초과할 수 있음
 // 옵션체인 API는 헤더가 특히 커서 128KB로 확장
@@ -39,6 +40,14 @@ const upload = multer({
 // Google Gemini 클라이언트 — 요청 시점에 초기화 (모듈 크래시 방지)
 function getGenAI() {
     return new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+}
+
+// Supabase 클라이언트 — 환경변수 미설정 시 null 반환 (graceful degradation)
+function getSupabase() {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_ANON_KEY;
+    if (!url || !key) return null;
+    return createClient(url, key);
 }
 
 // ─────────────────────────────────────────────
@@ -476,6 +485,43 @@ app.post('/api/chart-draw', upload.single('image'), async (req, res) => {
         if (err instanceof SyntaxError) {
             return res.status(500).json({ error: 'AI 응답 파싱 실패. 다시 시도해주세요.' });
         }
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * AI 분석 결과 저장/로드 (크로스 기기 동기화)
+ * GET  /api/ai-analysis/:symbol  → 저장된 분석 결과 조회
+ * POST /api/ai-analysis/:symbol  → 분석 결과 저장 (upsert)
+ */
+app.get('/api/ai-analysis/:symbol', async (req, res) => {
+    const supabase = getSupabase();
+    if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+    const symbol = req.params.symbol.toUpperCase();
+    try {
+        const { data, error } = await supabase
+            .from('ai_analysis')
+            .select('data')
+            .eq('symbol', symbol)
+            .single();
+        if (error || !data) return res.status(404).json({ error: 'not found' });
+        res.json(data.data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/ai-analysis/:symbol', async (req, res) => {
+    const supabase = getSupabase();
+    if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+    const symbol = req.params.symbol.toUpperCase();
+    try {
+        const { error } = await supabase
+            .from('ai_analysis')
+            .upsert({ symbol, data: req.body, updated_at: new Date().toISOString() });
+        if (error) throw new Error(error.message);
+        res.json({ ok: true });
+    } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
