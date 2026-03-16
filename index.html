@@ -10296,19 +10296,25 @@
         if (!wrap) return;
         const canvases = Array.from(wrap.querySelectorAll('canvas')).filter(c => c.id !== 'drawCanvas');
         if (!canvases.length) { showToast('차트 캔버스를 찾을 수 없습니다.'); return; }
+
+        // 시작 시점 심볼·데이터 고정 — async 중 종목 전환되어도 오염되지 않음
+        const capturedSymbol = currentSymbol;
+        const capturedTs = stockData.timestamp.slice();
+        const capturedQ  = stockData.indicators.quote[0];
+
         const first = canvases[0];
-        const w = first.width, h = first.height;
-        if (!w || !h) { showToast('차트를 잠시 후 다시 시도해주세요.'); return; }
+        // 항상 고정 해상도(800×450)로 캡처 → PWA/데스크탑 동일한 이미지 전달
+        const TARGET_W = 800, TARGET_H = 450;
 
         _aiProgressShow('📸 차트 캡처 중...', 10);
 
         const offscreen = document.createElement('canvas');
-        offscreen.width = w; offscreen.height = h;
+        offscreen.width = TARGET_W; offscreen.height = TARGET_H;
         const ctx = offscreen.getContext('2d');
         const isLight = document.documentElement.getAttribute('data-theme') === 'light';
         ctx.fillStyle = isLight ? '#ffffff' : '#111620';
-        ctx.fillRect(0, 0, w, h);
-        canvases.forEach(c => { try { ctx.drawImage(c, 0, 0, w, h); } catch(e) {} });
+        ctx.fillRect(0, 0, TARGET_W, TARGET_H);
+        canvases.forEach(c => { try { ctx.drawImage(c, 0, 0, TARGET_W, TARGET_H); } catch(e) {} });
 
         offscreen.toBlob(async blob => {
             if (!blob) { showToast('캡처에 실패했습니다.'); _aiProgressHide(); return; }
@@ -10316,17 +10322,22 @@
             const btn = document.getElementById('chartAiReaderBtn');
             if (btn) { btn.disabled = true; btn.textContent = '⏳ 분석 중...'; }
 
-            clearAiChartLines();
+            // 현재 심볼 라인만 지우기 (localStorage는 분석 완료 후 덮어씀)
+            lwAiPriceLines.forEach(pl => { try { lwCandleSeries?.removePriceLine(pl); } catch(e) {} });
+            lwAiPriceLines = [];
+            lwAiTrendSeries.forEach(s => { try { lwChart?.removeSeries(s); } catch(e) {} });
+            lwAiTrendSeries = [];
+            const _clearBtn = document.getElementById('chartAiClearBtn');
+            if (_clearBtn) _clearBtn.style.display = 'none';
+
             _aiProgressShow('📤 데이터 전송 중...', 25);
 
             try {
-                const ts = stockData.timestamp;
-                const q  = stockData.indicators.quote[0];
-                const dates = ts.map(t => {
+                const dates = capturedTs.map(t => {
                     const d = new Date(t * 1000);
                     return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
                 });
-                const priceData = { closes: q.close, highs: q.high, lows: q.low, dates };
+                const priceData = { closes: capturedQ.close, highs: capturedQ.high, lows: capturedQ.low, dates };
 
                 const fd = new FormData();
                 fd.append('image', blob, 'chart.png');
@@ -10344,8 +10355,15 @@
                 }
                 const data = await resp.json();
 
+                // 분석 중 종목이 바뀌었으면 현재 종목에 적용하지 않음
+                if (capturedSymbol !== currentSymbol) {
+                    showToast(`${capturedSymbol} 분석 완료 (현재 종목과 다르므로 표시 생략)`);
+                    _aiProgressHide();
+                    return;
+                }
+
                 _aiProgressShow('🎨 차트에 그리는 중...', 95);
-                drawAiChartLines(data, ts);
+                drawAiChartLines(data, capturedTs);
 
                 _aiProgressShow('✅ 분석 완료!', 100);
                 setTimeout(_aiProgressHide, 1200);
