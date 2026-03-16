@@ -526,6 +526,19 @@ app.post('/api/ai-analysis/:symbol', async (req, res) => {
     }
 });
 
+app.delete('/api/ai-analysis/:symbol', async (req, res) => {
+    const supabase = getSupabase();
+    if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+    const symbol = req.params.symbol.toUpperCase();
+    try {
+        const { error } = await supabase.from('ai_analysis').delete().eq('symbol', symbol);
+        if (error) throw new Error(error.message);
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 /**
  * 헬스 체크
  * GET /health

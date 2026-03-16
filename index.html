@@ -10167,6 +10167,7 @@
         lwAiLastData = null;
         if (currentSymbol) {
             try { localStorage.removeItem('stockai_ai_' + currentSymbol); } catch(e) {}
+            fetch('/api/ai-analysis/' + encodeURIComponent(currentSymbol), { method: 'DELETE' }).catch(() => {});
         }
         const btn = document.getElementById('chartAiClearBtn');
         if (btn) btn.style.display = 'none';
