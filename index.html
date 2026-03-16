@@ -6531,7 +6531,7 @@
         if (_aiReaderBtn) _aiReaderBtn.style.display = '';
 
         // AI 라인 복원 (세션 내 재렌더 또는 PWA 재시작 후)
-        if (lwAiLastData) {
+        if (lwAiLastData && lwAiLastData.symbol === currentSymbol) {
             lwAiPriceLines = [];
             lwAiTrendSeries = [];
             drawAiChartLines(lwAiLastData.data, stockData.timestamp);
@@ -10163,7 +10163,7 @@
     function drawAiChartLines(data, timestamps) {
         if (!lwChart || !lwCandleSeries) return;
         const ts = timestamps || stockData?.timestamp || [];
-        lwAiLastData = { data, timestamps: ts }; // 복원용 저장
+        lwAiLastData = { data, timestamps: ts, symbol: currentSymbol }; // 복원용 저장
         if (currentSymbol) {
             try { localStorage.setItem('stockai_ai_' + currentSymbol, JSON.stringify(data)); } catch(e) {}
         }
