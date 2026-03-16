@@ -437,6 +437,10 @@
         .chart-ai-reader-btn{border-color:var(--purple);color:var(--purple);background:rgba(167,139,250,.08);margin-right:4px;}
         .chart-ai-reader-btn:hover{background:rgba(167,139,250,.18) !important;border-color:var(--purple) !important;color:var(--purple) !important;}
         /* AI Progress Bar */
+        /* AI 추세선 삭제 버튼 */
+        .ai-trendline-del{position:absolute;display:none;align-items:center;gap:4px;background:#1e1b2e;border:1px solid #FACC15;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;color:#FACC15;cursor:pointer;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,.5);pointer-events:all;white-space:nowrap;}
+        .ai-trendline-del.show{display:flex;}
+        .ai-trendline-del:hover{background:#2d2640;}
         .ai-progress{display:none;padding:0 14px 10px;background:var(--bg2);}
         .ai-progress.show{display:block;}
         .ai-progress-label{font-size:11px;color:var(--text3);margin-bottom:4px;display:flex;justify-content:space-between;}
@@ -1754,6 +1758,7 @@
                     </div>
                     <div class="tv-chart-wrap" id="tvChartWrap">
                         <canvas class="draw-canvas" id="drawCanvas"></canvas>
+                        <div class="ai-trendline-del" id="aiTrendDeleteBtn" onclick="deleteSelectedAiTrendline()">✕ 추세선 삭제</div>
                     </div>
                 </div>
 
@@ -2033,6 +2038,7 @@
     let lwAiTrendSeries = [];       // AI 추세선 legacy (사용 안함, 하위호환)
     let lwAiCanvasTrendlines = [];  // AI 추세선 (canvas Ray 방식, 1000×1000 좌표)
     let lwAiLastData = null;        // 마지막 AI 분석 결과 (차트 재렌더 후 복원용)
+    let selectedAiTrendlineIdx = -1; // 현재 선택된 AI 추세선 인덱스
 
     // ========================================
     // Side Navigation
@@ -6676,9 +6682,72 @@
     // 피보나치 되돌림 레벨
     const FIB_LEVELS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
 
+    // ── AI 추세선 hit-test ──
+    // 클릭 좌표(cx, cy)가 tl 선과 HIT_THRESHOLD px 이내인지 반환
+    function hitTestAiTrendline(canvas, tl, cx, cy) {
+        const HIT_THRESHOLD = 9;
+        const x1 = (tl.point1.x / 1000) * canvas.width;
+        const y1 = (tl.point1.y / 1000) * canvas.height;
+        const dx01 = (tl.point2.x - tl.point1.x) / 1000 * canvas.width;
+        const dy01 = (tl.point2.y - tl.point1.y) / 1000 * canvas.height;
+        if (Math.abs(dx01) < 0.5) return false;
+        const slope = dy01 / dx01;
+        const xEnd = canvas.width;
+        const yEnd = slope * (xEnd - x1) + y1;
+        // 선분 (x1,y1)→(xEnd,yEnd)까지의 거리
+        const segDx = xEnd - x1, segDy = yEnd - y1;
+        const lenSq = segDx * segDx + segDy * segDy;
+        if (lenSq < 1) return false;
+        // 클릭 점의 선 위 t (0~1 내에 있어야 선분 범위)
+        const t = Math.max(0, Math.min(1, ((cx - x1) * segDx + (cy - y1) * segDy) / lenSq));
+        const nearX = x1 + t * segDx, nearY = y1 + t * segDy;
+        const dist = Math.sqrt((cx - nearX) ** 2 + (cy - nearY) ** 2);
+        return dist <= HIT_THRESHOLD;
+    }
+
+    // ── AI 추세선 삭제 버튼 표시/숨김 ──
+    function _showAiTrendDeleteBtn(canvasEl, cx, cy) {
+        const btn = document.getElementById('aiTrendDeleteBtn');
+        if (!btn) return;
+        const wrap = canvasEl.parentElement;
+        const wRect = wrap.getBoundingClientRect();
+        const cRect = canvasEl.getBoundingClientRect();
+        const relX = cx + (cRect.left - wRect.left);
+        const relY = cy + (cRect.top - wRect.top);
+        btn.style.left = Math.min(relX + 8, wRect.width - 120) + 'px';
+        btn.style.top  = Math.max(relY - 32, 4) + 'px';
+        btn.classList.add('show');
+    }
+    function _hideAiTrendDeleteBtn() {
+        const btn = document.getElementById('aiTrendDeleteBtn');
+        if (btn) btn.classList.remove('show');
+        selectedAiTrendlineIdx = -1;
+    }
+
+    // ── 선택된 AI 추세선 삭제 ──
+    function deleteSelectedAiTrendline() {
+        if (selectedAiTrendlineIdx < 0 || selectedAiTrendlineIdx >= lwAiCanvasTrendlines.length) {
+            _hideAiTrendDeleteBtn(); return;
+        }
+        lwAiCanvasTrendlines.splice(selectedAiTrendlineIdx, 1);
+        _hideAiTrendDeleteBtn();
+        redrawCanvas();
+        // lwAiLastData 동기화 및 저장
+        if (lwAiLastData) {
+            lwAiLastData.data.trendlines = [...lwAiCanvasTrendlines];
+            if (currentSymbol) {
+                try { localStorage.setItem('stockai_ai_' + currentSymbol, JSON.stringify(lwAiLastData.data)); } catch(e) {}
+                fetch('/api/ai-analysis/' + encodeURIComponent(currentSymbol), {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(lwAiLastData.data),
+                }).catch(() => {});
+            }
+        }
+    }
+
     // ── AI 추세선 canvas Ray 드로잉 ──
     // tl: { point1: {x,y}, point2: {x,y} }  — 1000×1000 그리드 기준
-    function drawAiTrendlineOnCanvas(ctx, canvas, tl) {
+    function drawAiTrendlineOnCanvas(ctx, canvas, tl, isSelected) {
         const x1 = (tl.point1.x / 1000) * canvas.width;
         const y1 = (tl.point1.y / 1000) * canvas.height;
         const x2 = (tl.point2.x / 1000) * canvas.width;
@@ -6686,17 +6755,29 @@
         const dx = x2 - x1;
         if (Math.abs(dx) < 0.5) return; // 수직선 스킵
         const slope = (y2 - y1) / dx;
-        // Ray: point1 → 우측 끝(x = canvas.width)
         const xEnd = canvas.width;
         const yEnd = slope * (xEnd - x1) + y1;
         ctx.save();
-        ctx.strokeStyle = '#FACC15';
-        ctx.lineWidth = 2;
+        if (isSelected) {
+            // 선택 상태: 밝은 노란+글로우 효과
+            ctx.shadowColor = '#FACC15';
+            ctx.shadowBlur = 8;
+            ctx.strokeStyle = '#fff176';
+            ctx.lineWidth = 3;
+        } else {
+            ctx.strokeStyle = '#FACC15';
+            ctx.lineWidth = 2;
+        }
         ctx.setLineDash([]);
         ctx.beginPath();
         ctx.moveTo(x1, y1);
         ctx.lineTo(xEnd, yEnd);
         ctx.stroke();
+        // 시작점 원형 마커
+        ctx.beginPath();
+        ctx.arc(x1, y1, isSelected ? 5 : 3, 0, Math.PI * 2);
+        ctx.fillStyle = isSelected ? '#fff176' : '#FACC15';
+        ctx.fill();
         ctx.restore();
     }
 
@@ -6716,7 +6797,7 @@
 
         // AI 추세선 (canvas Ray, 1000×1000 좌표계)
         if (lwAiCanvasTrendlines.length) {
-            lwAiCanvasTrendlines.forEach(tl => drawAiTrendlineOnCanvas(ctx, canvas, tl));
+            lwAiCanvasTrendlines.forEach((tl, i) => drawAiTrendlineOnCanvas(ctx, canvas, tl, i === selectedAiTrendlineIdx));
         }
 
         // 미리보기 그리기
@@ -6857,6 +6938,24 @@
         if (!canvas) return;
 
         canvas.addEventListener('mousedown', function(e) {
+            // drawTool 비활성 상태 → AI 추세선 hit-test
+            if (drawTool === 'none' && lwAiCanvasTrendlines.length) {
+                const { x, y } = getCanvasXY(e);
+                let hit = -1;
+                for (let i = 0; i < lwAiCanvasTrendlines.length; i++) {
+                    if (hitTestAiTrendline(canvas, lwAiCanvasTrendlines[i], x, y)) { hit = i; break; }
+                }
+                if (hit >= 0) {
+                    selectedAiTrendlineIdx = hit;
+                    redrawCanvas();
+                    _showAiTrendDeleteBtn(canvas, x, y);
+                    e.stopPropagation();
+                    return;
+                } else {
+                    _hideAiTrendDeleteBtn();
+                    redrawCanvas();
+                }
+            }
             if (drawTool === 'none' || !lwChart) return;
             const { x, y } = getCanvasXY(e);
             const chart = canvasToChart(x, y);
@@ -10449,7 +10548,8 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         vsMouseMove, vsMouseLeave, vsRedrawCanvas,
         toggleScannerChip, setScannerPreset, syncScannerChipUI,
         debounceScannerFetch, runScannerFetch, filterScannerResults, renderScannerResults,
-        captureChartAndAnalyze, clearAiChartLines, drawAiChartLines, toggleAiReport
+        captureChartAndAnalyze, clearAiChartLines, drawAiChartLines, toggleAiReport,
+        deleteSelectedAiTrendline
     });
     </script>
 
