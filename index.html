@@ -2520,7 +2520,6 @@
         if (currentSymbol) searchStock();
     }
 
-    function setChartType() {}
 
     function getTimeUnit() {
         switch (currentInterval) {
@@ -6733,7 +6732,8 @@
         _hideAiTrendDeleteBtn();
         redrawCanvas();
         // lwAiLastData 동기화 및 저장
-        if (lwAiLastData) {
+        // [Fix-E] .data null 체크 추가
+        if (lwAiLastData && lwAiLastData.data) {
             lwAiLastData.data.trendlines = [...lwAiCanvasTrendlines];
             if (currentSymbol) {
                 try { localStorage.setItem('stockai_ai_' + currentSymbol, JSON.stringify(lwAiLastData.data)); } catch(e) {}
@@ -6785,6 +6785,8 @@
         const canvas = document.getElementById('drawCanvas');
         if (!canvas) return;
         const wrap = document.getElementById('tvChartWrap');
+        // [Fix-D] wrap 또는 유효한 크기가 없으면 조기 종료 (null crash 방지)
+        if (!wrap || !wrap.clientWidth || !wrap.clientHeight) return;
         canvas.width = wrap.clientWidth;
         canvas.height = wrap.clientHeight;
         const ctx = canvas.getContext('2d');
@@ -6984,11 +6986,16 @@
             };
         });
 
+        // [Fix-D] requestAnimationFrame 스로틀링 — mousemove마다 redraw 방지
+        let _rafPending = false;
         canvas.addEventListener('mousemove', function(e) {
             if (!drawState) return;
             const { x, y } = getCanvasXY(e);
             drawPreview = { x, y };
-            redrawCanvas();
+            if (!_rafPending) {
+                _rafPending = true;
+                requestAnimationFrame(() => { redrawCanvas(); _rafPending = false; });
+            }
         });
 
         canvas.addEventListener('mouseup', function(e) {
@@ -10580,10 +10587,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
             { key: 'vision',     id: 'bnVision',     label: 'AI판독기', iconLine: 'ri-eye-2-line',       iconFill: 'ri-eye-2-fill' },
         ];
 
-        if (BN_TABS.length > MAX_BN_TABS) {
-            console.warn(`[BottomNav] 탭은 최대 ${MAX_BN_TABS}개까지만 허용됩니다. (현재 ${BN_TABS.length}개 → 앞 ${MAX_BN_TABS}개만 표시)`);
-        }
-
+        // [Fix-C] 프로덕션 console.warn 제거 — 한도 초과 시 slice()로 자동 처리됨
         const nav = document.getElementById('bottomNav');
         BN_TABS.slice(0, MAX_BN_TABS).forEach((tab, idx) => {
             const btn = document.createElement('button');

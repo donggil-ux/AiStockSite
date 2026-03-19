@@ -37,18 +37,37 @@ const upload = multer({
     },
 });
 
-// Google Gemini 클라이언트 — 요청 시점에 초기화 (모듈 크래시 방지)
+// [Fix-F] 시작 시 필수 env var 누락 경고
+if (!process.env.GEMINI_API_KEY)  console.warn('⚠️  GEMINI_API_KEY 환경변수가 없습니다.');
+if (!process.env.SUPABASE_URL)    console.warn('⚠️  SUPABASE_URL 환경변수가 없습니다.');
+if (!process.env.SUPABASE_ANON_KEY) console.warn('⚠️  SUPABASE_ANON_KEY 환경변수가 없습니다.');
+
+// [Fix-F] 싱글턴 캐싱 — 매 요청마다 인스턴스 재생성 방지
+let _genAI = null;
 function getGenAI() {
-    return new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+    if (!_genAI) _genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+    return _genAI;
 }
 
-// Supabase 클라이언트 — 환경변수 미설정 시 null 반환 (graceful degradation)
+// [Fix-F] _supabase = null(미설정) or createClient 인스턴스 — 최초 1회만 생성
+let _supabase;
 function getSupabase() {
+    if (_supabase !== undefined) return _supabase;
     const url = process.env.SUPABASE_URL;
     const key = process.env.SUPABASE_ANON_KEY;
-    if (!url || !key) return null;
-    return createClient(url, key);
+    _supabase = (url && key) ? createClient(url, key) : null;
+    return _supabase;
 }
+
+// [Fix-F] 입력값 화이트리스트 검증 헬퍼
+const SYMBOL_RE      = /^[A-Z0-9.\-\^]{1,20}$/i;
+const VALID_RANGES   = new Set(['1d','5d','1mo','3mo','6mo','1y','2y','5y','10y','ytd','max']);
+const VALID_INTERVALS= new Set(['1m','2m','5m','15m','30m','60m','90m','1h','1d','5d','1wk','1mo','3mo']);
+const VALID_FILTERS  = new Set(['day_gainers','day_losers','most_actives']);
+function validSymbol(s) { return s && SYMBOL_RE.test(s); }
+function validRange(r)  { return !r || VALID_RANGES.has(r); }
+function validInterval(i){ return !i || VALID_INTERVALS.has(i); }
+function validFilter(f) { return f && VALID_FILTERS.has(f); }
 
 // ─────────────────────────────────────────────
 // 정적 파일 서빙 (프론트엔드 index.html)
@@ -147,6 +166,10 @@ async function yfRequest(url) {
 app.get('/api/chart/:symbol', async (req, res) => {
     const { symbol } = req.params;
     const { range = '6mo', interval = '1d', includePrePost = 'false' } = req.query;
+    // [Fix-F] 입력 검증
+    if (!validSymbol(symbol)) return res.status(400).json({ error: 'invalid symbol' });
+    if (!validRange(range))   return res.status(400).json({ error: 'invalid range' });
+    if (!validInterval(interval)) return res.status(400).json({ error: 'invalid interval' });
     try {
         const url  = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=${includePrePost}`;
         const data = await yfRequest(url);
@@ -181,6 +204,8 @@ app.get('/api/quote', async (req, res) => {
 app.get('/api/summary/:symbol', async (req, res) => {
     const { symbol } = req.params;
     const { modules = 'defaultKeyStatistics,financialData,summaryDetail,price' } = req.query;
+    // [Fix-F] 입력 검증
+    if (!validSymbol(symbol)) return res.status(400).json({ error: 'invalid symbol' });
     try {
         const url  = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${encodeURIComponent(modules)}`;
         const data = await yfRequest(url);
@@ -199,6 +224,9 @@ app.get('/api/summary/:symbol', async (req, res) => {
 app.get('/api/options/:symbol', async (req, res) => {
     const { symbol } = req.params;
     const { date } = req.query;
+    // [Fix-F] 입력 검증 — date는 Unix 숫자 타임스탬프만 허용
+    if (!validSymbol(symbol)) return res.status(400).json({ error: 'invalid symbol' });
+    if (date && !/^\d{1,13}$/.test(date)) return res.status(400).json({ error: 'invalid date' });
     try {
         let url = `https://query2.finance.yahoo.com/v7/finance/options/${encodeURIComponent(symbol)}`;
         if (date) url += `?date=${date}`;
@@ -218,6 +246,8 @@ app.get('/api/options/:symbol', async (req, res) => {
 app.get('/api/screener/:filter', async (req, res) => {
     const { filter } = req.params;
     const { count = 100 } = req.query;
+    // [Fix-F] 화이트리스트 필터 검증
+    if (!validFilter(filter)) return res.status(400).json({ error: 'invalid filter' });
     try {
         const url  = `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&lang=en-US&region=US&scrIds=${filter}&count=${count}`;
         const data = await yfRequest(url);
