@@ -2040,6 +2040,19 @@
     let lwAiLastData = null;        // 마지막 AI 분석 결과 (차트 재렌더 후 복원용)
     let selectedAiTrendlineIdx = -1; // 현재 선택된 AI 추세선 인덱스
 
+    // [Fix-B] localStorage AI 분석 헬퍼 — 5곳에 흩어진 중복 try/catch 패턴 통합
+    const _AI_LS_PREFIX = 'stockai_ai_';
+    function _aiLsSave(symbol, data) {
+        if (!symbol) return;
+        try { localStorage.setItem(_AI_LS_PREFIX + symbol, JSON.stringify(data)); } catch(e) {}
+    }
+    function _aiLsLoad(symbol) {
+        try { return JSON.parse(localStorage.getItem(_AI_LS_PREFIX + symbol)); } catch(e) { return null; }
+    }
+    function _aiLsRemove(symbol) {
+        try { localStorage.removeItem(_AI_LS_PREFIX + symbol); } catch(e) {}
+    }
+
     // ========================================
     // Side Navigation
     // ========================================
@@ -2055,17 +2068,10 @@
         document.getElementById('sideNav').classList.remove('open');
         document.getElementById('sideNavBackdrop').classList.remove('show');
     }
-    // window에 명시적 노출 + addEventListener 이중 바인딩
+    // [Fix-B] window 노출 — HTML onclick="closeSideNav()" 처리용 (addEventListener 이중 바인딩 제거)
     window.closeSideNav = closeSideNav;
     window.toggleSideNav = toggleSideNav;
     window.openSideNav = openSideNav;
-    document.querySelector('.side-nav-close')?.addEventListener('click', function(e) {
-        e.stopPropagation();
-        closeSideNav();
-    });
-    document.getElementById('sideNavBackdrop')?.addEventListener('click', function() {
-        closeSideNav();
-    });
     // 사이드바는 항상 닫힌 상태로 시작 (수동으로 햄버거 버튼 클릭 시 열림)
 
     // ========================================
@@ -2404,18 +2410,20 @@
     function handleSearchKeydown(e) {
         const drop = document.getElementById('searchDropdown');
         const isOpen = drop?.classList.contains('open');
+        // [Fix-B] _sdropItems() DOM 쿼리를 한 번만 실행해 캐싱
+        const items = isOpen ? _sdropItems() : null;
         switch(e.key) {
             case 'Enter':
                 e.preventDefault();
                 if (isOpen && _dropdownHighlightIdx >= 0) {
-                    _sdropItems()[_dropdownHighlightIdx]?.click();
+                    items[_dropdownHighlightIdx]?.click();
                 } else { closeSearchDropdown(); searchStock(); }
                 break;
             case 'Escape': closeSearchDropdown(); document.getElementById('searchInput').blur(); break;
             case 'ArrowDown':
                 e.preventDefault();
                 if (!isOpen) openSearchDropdown();
-                else _highlightDropdownItem(Math.min(_dropdownHighlightIdx+1, _sdropItems().length-1));
+                else _highlightDropdownItem(Math.min(_dropdownHighlightIdx+1, items.length-1));
                 break;
             case 'ArrowUp':
                 e.preventDefault();
@@ -6549,20 +6557,15 @@
             const _restoreSymbol = currentSymbol;
             const _restoreTs = stockData.timestamp;
             const _localFallback = () => {
-                try {
-                    const saved = localStorage.getItem('stockai_ai_' + _restoreSymbol);
-                    if (saved && currentSymbol === _restoreSymbol) {
-                        drawAiChartLines(JSON.parse(saved), _restoreTs);
-                    }
-                } catch(e) {}
+                const saved = _aiLsLoad(_restoreSymbol);
+                if (saved && currentSymbol === _restoreSymbol) drawAiChartLines(saved, _restoreTs);
             };
             fetch('/api/ai-analysis/' + encodeURIComponent(_restoreSymbol))
                 .then(r => r.ok ? r.json() : null)
                 .then(serverData => {
                     if (!serverData || currentSymbol !== _restoreSymbol) { _localFallback(); return; }
                     drawAiChartLines(serverData, _restoreTs);
-                    // 서버 데이터를 로컬에도 동기화
-                    try { localStorage.setItem('stockai_ai_' + _restoreSymbol, JSON.stringify(serverData)); } catch(e) {}
+                    _aiLsSave(_restoreSymbol, serverData); // 서버 데이터를 로컬에도 동기화
                 })
                 .catch(_localFallback);
         }
@@ -6736,7 +6739,7 @@
         if (lwAiLastData && lwAiLastData.data) {
             lwAiLastData.data.trendlines = [...lwAiCanvasTrendlines];
             if (currentSymbol) {
-                try { localStorage.setItem('stockai_ai_' + currentSymbol, JSON.stringify(lwAiLastData.data)); } catch(e) {}
+                _aiLsSave(currentSymbol, lwAiLastData.data);
                 fetch('/api/ai-analysis/' + encodeURIComponent(currentSymbol), {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(lwAiLastData.data),
@@ -10305,7 +10308,7 @@
         lwAiLastData = null;
         setTimeout(redrawCanvas, 50);
         if (currentSymbol) {
-            try { localStorage.removeItem('stockai_ai_' + currentSymbol); } catch(e) {}
+            _aiLsRemove(currentSymbol);
             fetch('/api/ai-analysis/' + encodeURIComponent(currentSymbol), { method: 'DELETE' }).catch(() => {});
         }
         const btn = document.getElementById('chartAiClearBtn');
@@ -10320,7 +10323,7 @@
         const ts = timestamps || stockData?.timestamp || [];
         lwAiLastData = { data, timestamps: ts, symbol: currentSymbol }; // 복원용 저장
         if (currentSymbol) {
-            try { localStorage.setItem('stockai_ai_' + currentSymbol, JSON.stringify(data)); } catch(e) {}
+            _aiLsSave(currentSymbol, data);
             // 서버(Supabase)에도 저장 → 크로스 기기/PWA 동기화
             fetch('/api/ai-analysis/' + encodeURIComponent(currentSymbol), {
                 method: 'POST',
