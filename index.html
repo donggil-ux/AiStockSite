@@ -1725,7 +1725,7 @@
                         <button class="draw-tb-btn" id="drawBtnLine" onclick="setDrawTool('line')" title="추세선">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="20" x2="20" y2="4"/></svg>
                         </button>
-                        <button class="draw-tb-btn" id="drawBtnHLine" onclick="setDrawTool('hline')" title="수평선">
+                        <button class="draw-tb-btn" id="drawBtnHline" onclick="setDrawTool('hline')" title="수평선">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="2" y1="12" x2="22" y2="12"/></svg>
                         </button>
                         <button class="draw-tb-btn" id="drawBtnRay" onclick="setDrawTool('ray')" title="반직선 (레이)">
@@ -6382,6 +6382,8 @@
         destroyChart();
         wrap.innerHTML = '';
 
+        // [Bug-fix] stockData 구조 방어 체크 (API 응답 누락 시 crash 방지)
+        if (!stockData || !stockData.indicators || !stockData.indicators.quote) return;
         const ts = stockData.timestamp;
         const q = stockData.indicators.quote[0];
         if (!ts || !q) return;
@@ -6730,10 +6732,12 @@
 
     // ── 선택된 AI 추세선 삭제 ──
     function deleteSelectedAiTrendline() {
-        if (selectedAiTrendlineIdx < 0 || selectedAiTrendlineIdx >= lwAiCanvasTrendlines.length) {
+        // [Bug-fix] 인덱스를 _hide 전에 캡처 (rapid click 레이스 방지)
+        const idx = selectedAiTrendlineIdx;
+        if (idx < 0 || idx >= lwAiCanvasTrendlines.length) {
             _hideAiTrendDeleteBtn(); return;
         }
-        lwAiCanvasTrendlines.splice(selectedAiTrendlineIdx, 1);
+        lwAiCanvasTrendlines.splice(idx, 1);
         _hideAiTrendDeleteBtn();
         redrawCanvas();
         // lwAiLastData 동기화 및 저장
@@ -8639,109 +8643,8 @@
         if (wrap) wrap.innerHTML = '';
     }
 
-    function _calcSplit() {
-        const sc = window._sc;
-        if (!sc) return;
-        const budget   = parseFloat(document.getElementById('calcBudget').value) || 0;
-        const firstAmt = parseFloat(document.getElementById('calcFirst').value)  || 0;
-        const mode     = document.getElementById('calcMode').value;
-
-        if (!budget) {
-            document.getElementById('calcTableBody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;font-size:13px;">💡 총 예산을 입력하면 자동 계산됩니다</td></tr>';
-            document.getElementById('calcSummary').innerHTML = '';
-            return;
-        }
-
-        const isKR  = sc.isKR;
-        const fmtP  = v => isKR ? Math.round(v).toLocaleString()+'원' : '$'+v.toFixed(2);
-        const fmtA  = v => isKR ? Math.round(v).toLocaleString()+'원' : '$'+(v<1000 ? v.toFixed(2) : Math.round(v).toLocaleString());
-        const fmtSh = v => isKR ? Math.round(v).toLocaleString()+'주' : (v>=1 ? v.toFixed(2) : v.toFixed(4))+'주';
-
-        // Allocation weights
-        const allW = { equal:[20,20,20,20,20], pyramid:[10,15,20,25,30], front:[30,25,20,15,10] };
-        const remW = { equal:[25,25,25,25],     pyramid:[15,20,30,35],   front:[35,30,20,15]   };
-
-        let amounts;
-        if (firstAmt > 0) {
-            const rem  = Math.max(0, budget - firstAmt);
-            const rw   = remW[mode];
-            const rwS  = rw.reduce((a,b)=>a+b,0);
-            amounts    = [firstAmt, ...rw.map(w => rem * w / rwS)];
-        } else {
-            amounts = allW[mode].map(w => budget * w / 100);
-        }
-
-        let cumShares = 0, cumInvested = 0;
-        const rows = sc.prices.map((price, i) => {
-            const amt    = amounts[i];
-            const shares = price > 0 ? amt / price : 0;
-            cumShares   += shares;
-            cumInvested += amt;
-            return { price, amt, shares, cumInvested, avgP: cumShares > 0 ? cumInvested / cumShares : 0 };
-        });
-
-        const badges = [
-            'background:rgba(34,197,94,.22);color:var(--green)',
-            'background:rgba(34,197,94,.14);color:var(--green)',
-            'background:rgba(234,179,8,.18);color:var(--yellow)',
-            'background:rgba(234,179,8,.12);color:var(--yellow)',
-            'background:rgba(239,68,68,.18);color:var(--red)'
-        ];
-
-        document.getElementById('calcTableBody').innerHTML = rows.map((r, i) =>
-            `<tr>
-                <td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;${badges[i]}">${i+1}차</span></td>
-                <td>${fmtP(r.price)}</td>
-                <td style="font-weight:600">${fmtA(r.amt)}</td>
-                <td style="color:var(--text2)">${fmtSh(r.shares)}</td>
-                <td style="color:var(--text3);font-size:12px">${fmtA(r.cumInvested)}</td>
-                <td style="font-weight:800;color:var(--cyan)">${fmtP(r.avgP)}</td>
-            </tr>`
-        ).join('');
-
-        // Summary
-        const finalAvg = rows[rows.length-1].avgP;
-        const totalSh  = cumShares;
-        const tp1      = sc.tp1;
-        const slPrice  = sc.sl;
-
-        let html = `<div class="sc-summary">
-            <div class="sc-sum-item">
-                <div class="sc-sum-label">총 투자금액</div>
-                <div class="sc-sum-val">${fmtA(budget)}</div>
-            </div>
-            <div class="sc-sum-item">
-                <div class="sc-sum-label">전량 매수시 평균가</div>
-                <div class="sc-sum-val" style="color:var(--cyan)">${fmtP(finalAvg)}</div>
-            </div>`;
-
-        if (tp1 && tp1 > finalAvg) {
-            const profit = (tp1 - finalAvg) * totalSh;
-            const pct    = (tp1 - finalAvg) / finalAvg * 100;
-            html += `<div class="sc-sum-item" style="border:1px solid rgba(34,197,94,.25);background:rgba(34,197,94,.05);">
-                <div class="sc-sum-label">TP1 (${fmtP(tp1)}) 도달시 수익</div>
-                <div class="sc-sum-val" style="color:var(--green)">+${fmtA(profit)} <small style="font-size:11px">(+${pct.toFixed(1)}%)</small></div>
-            </div>`;
-        }
-        if (slPrice && slPrice < finalAvg) {
-            const loss = (slPrice - finalAvg) * totalSh;
-            const pct  = (slPrice - finalAvg) / finalAvg * 100;
-            html += `<div class="sc-sum-item" style="border:1px solid rgba(239,68,68,.25);background:rgba(239,68,68,.05);">
-                <div class="sc-sum-label">손절 (${fmtP(slPrice)}) 도달시 손실</div>
-                <div class="sc-sum-val" style="color:var(--red)">${fmtA(loss)} <small style="font-size:11px">(${pct.toFixed(1)}%)</small></div>
-            </div>`;
-        }
-        html += `</div>`;
-
-        if (tp1 && slPrice && tp1 > finalAvg && slPrice < finalAvg) {
-            const rr  = (tp1 - finalAvg) / (finalAvg - slPrice);
-            const col = rr >= 2 ? 'var(--green)' : rr >= 1.5 ? 'var(--yellow)' : 'var(--red)';
-            html += `<div style="text-align:center;margin-top:10px;padding:9px;background:var(--bg3);border-radius:var(--r2);font-size:13px;color:var(--text2);">
-                평균매수가 기준 손익비 <span style="font-weight:800;font-size:16px;color:${col};margin-left:4px;">1 : ${rr.toFixed(2)}</span>
-            </div>`;
-        }
-        document.getElementById('calcSummary').innerHTML = html;
-    }
+    // [Bug-fix] _calcSplit() 제거 — FAB 계산기(_calcSplitFab)로 완전 대체됨
+    // 존재하지 않는 DOM ID(calcBudget/calcFirst/calcMode/calcTableBody/calcSummary) 참조하여 crash
 
     // =====================
     // 단타 매도 시점
@@ -10544,7 +10447,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         handleSearchKeydown, openSearchDropdown, closeSearchDropdown, searchSuggest, levenshtein,
         renderRRAnalysis, _applyRRGate, _isFallingKnife,
         detectBullishDivergence, _detectOBVPanic,
-        renderSplitCalc, _calcSplit,
+        renderSplitCalc,
         openCalcFab, closeCalcFab, _calcSplitFab, _fabCommaFmt,
         loadMarketWeather, renderMarketWeather, drawSparkline,
         loadPremarketScanner, renderPremarketScanner,
