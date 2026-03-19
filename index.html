@@ -1942,6 +1942,11 @@
                     <div class="card-title"><span class="dot" style="background:var(--cyan)"></span>주요 투자 기관</div>
                     <div id="companyHolders"><div class="cp-empty">종목을 검색하면 표시됩니다.</div></div>
                 </div>
+                <!-- 내부자 지분 현황 -->
+                <div class="card">
+                    <div class="card-title"><span class="dot" style="background:var(--yellow)"></span>내부자 지분 현황</div>
+                    <div id="companyInsiderHolders"><div class="cp-empty">종목을 검색하면 표시됩니다.</div></div>
+                </div>
             </div>
         </div>
 
@@ -7962,6 +7967,7 @@
         const exEl = document.getElementById('companyExecutives');
         const hdEl = document.getElementById('companyHolders');
         const inEl = document.getElementById('companyInsider');
+        const ihEl = document.getElementById('companyInsiderHolders');
         if (!ovEl) return;
 
         const fmtMoney = v => { if(v==null||isNaN(v)) return '-'; if(v>=1e9) return '$'+(v/1e9).toFixed(1)+'B'; if(v>=1e6) return '$'+(v/1e6).toFixed(1)+'M'; if(v>=1e3) return '$'+(v/1e3).toFixed(0)+'K'; return '$'+Number(v).toLocaleString(); };
@@ -7970,22 +7976,24 @@
 
         // 캐시 히트 → 즉시 렌더
         if (cpCache[symbol]) {
-            renderCPData(cpCache[symbol], ovEl, exEl, hdEl, inEl, fmtMoney, fmtShares, fmtCap);
+            renderCPData(cpCache[symbol], ovEl, exEl, hdEl, inEl, ihEl, fmtMoney, fmtShares, fmtCap);
             return;
         }
 
-        ovEl.innerHTML = exEl.innerHTML = hdEl.innerHTML = inEl.innerHTML = '<div class="cp-empty" style="display:flex;align-items:center;justify-content:center;gap:8px;"><div class="spinner" style="width:16px;height:16px;border-width:2px;"></div> 불러오는 중...</div>';
+        const loading = '<div class="cp-empty" style="display:flex;align-items:center;justify-content:center;gap:8px;"><div class="spinner" style="width:16px;height:16px;border-width:2px;"></div> 불러오는 중...</div>';
+        ovEl.innerHTML = exEl.innerHTML = hdEl.innerHTML = inEl.innerHTML = loading;
+        if (ihEl) ihEl.innerHTML = loading;
 
         // 단일 API 호출, 프록시 레이스
-        const modules = 'assetProfile,majorHoldersBreakdown,institutionOwnership,insiderTransactions,price';
+        const modules = 'assetProfile,majorHoldersBreakdown,institutionOwnership,insiderTransactions,insiderHolders,price';
         const data = await fetchRace(`https://query1.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=${modules}`, 5000);
         const r = data?.quoteSummary?.result?.[0];
 
         if (r) cpCache[symbol] = r;
-        renderCPData(r, ovEl, exEl, hdEl, inEl, fmtMoney, fmtShares, fmtCap);
+        renderCPData(r, ovEl, exEl, hdEl, inEl, ihEl, fmtMoney, fmtShares, fmtCap);
     }
 
-    function renderCPData(r, ovEl, exEl, hdEl, inEl, fmtMoney, fmtShares, fmtCap) {
+    function renderCPData(r, ovEl, exEl, hdEl, inEl, ihEl, fmtMoney, fmtShares, fmtCap) {
         // === 개요 (기본정보 + 지분구성 + 거버넌스) ===
         try {
             const ap = r?.assetProfile || {};
@@ -8076,6 +8084,24 @@
             html += '</tbody></table></div>';
             inEl.innerHTML = html;
         } catch(e) { inEl.innerHTML = '<div class="cp-empty">내부자 거래 정보를 불러올 수 없습니다.</div>'; }
+
+        // === 내부자 지분 현황 ===
+        if (ihEl) {
+            try {
+                const holders = r?.insiderHolders?.holders || [];
+                if (!holders.length) throw 0;
+                let html = '<div class="cp-holder-list">';
+                holders.forEach((h, i) => {
+                    const direct = h.positionDirect?.raw ?? 0;
+                    const indirect = h.positionIndirect?.raw ?? 0;
+                    const total = direct + indirect;
+                    const dateStr = h.positionSummaryDate?.fmt || '-';
+                    html += `<div class="cp-holder-item"><div class="cp-holder-rank">${i+1}</div><div class="cp-holder-name"><div style="font-weight:600">${h.name||'-'}</div><div style="font-size:11px;color:var(--text3)">${h.relation||'-'}</div></div><div style="text-align:right"><div class="cp-holder-shares" style="color:var(--yellow)">${fmtShares(total)}</div>${indirect>0?`<div style="font-size:11px;color:var(--text3)">간접 ${fmtShares(indirect)}</div>`:''}<div style="font-size:10px;color:var(--text3)">${dateStr}</div></div></div>`;
+                });
+                html += '</div>';
+                ihEl.innerHTML = html;
+            } catch(e) { ihEl.innerHTML = '<div class="cp-empty">내부자 지분 정보를 불러올 수 없습니다.</div>'; }
+        }
     }
 
     // ========================================
