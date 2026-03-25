@@ -1905,6 +1905,11 @@
                     <div class="card-title"><span class="dot" style="background:var(--yellow)"></span>재무 정보</div>
                     <div class="finance-grid" id="financeGrid"></div>
                 </div>
+                <!-- Statistics (Yahoo Finance Statistics 탭 전체 항목) -->
+                <div class="card">
+                    <div class="card-title"><span class="dot" style="background:var(--green)"></span>상세 통계</div>
+                    <div class="finance-grid" id="statisticsGrid"><div style="text-align:center;padding:30px 0;color:var(--text3);font-size:14px;">종목 정보를 불러오면 표시됩니다.</div></div>
+                </div>
             </div>
             <div class="tab-col-right">
                 <!-- 종목별 실적 발표 일정 -->
@@ -5676,6 +5681,7 @@
             // 추가 API 호출이 필요한 것들은 병렬로 실행 (await 안 함 → UI 블로킹 없음)
             fetchMarketSession(symbol);
             renderFinancialInfo(symbol);
+            renderStatisticsInfo(symbol);
             renderStockEarnings(symbol);
             renderAnalystTargets(symbol);
             renderCompanyProfile(symbol);
@@ -5696,9 +5702,10 @@
     // Render Stock Header
     // ========================================
     function renderStockHeader(symbol) {
+        if (!stockData?.indicators?.quote?.[0]) return;
         const meta = stockData.meta;
         const quotes = stockData.indicators.quote[0];
-        const closes = quotes.close.filter(v => v != null);
+        const closes = (quotes.close ?? []).filter(v => v != null);
         // meta에서 실시간 가격 우선 사용 (차트 데이터보다 정확)
         const price = meta.regularMarketPrice ?? closes[closes.length - 1];
         const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? (closes.length > 1 ? closes[closes.length - 2] : price);
@@ -5732,8 +5739,10 @@
         const changeText = isKR
             ? `${sign}${Math.round(change).toLocaleString()}원 (${sign}${changePercent.toFixed(2)}%)`
             : `${sign}$${change.toFixed(2)} (${sign}${changePercent.toFixed(2)}%)`;
-        changeEl.textContent = changeText;
-        changeEl.className = 'stock-change ' + (change > 0 ? 'up' : change < 0 ? 'down' : 'flat');
+        if (changeEl) {
+            changeEl.textContent = changeText;
+            changeEl.className = 'stock-change ' + (change > 0 ? 'up' : change < 0 ? 'down' : 'flat');
+        }
         document.getElementById('stockPrice').style.color = change > 0 ? 'var(--red)' : change < 0 ? 'var(--blue)' : 'var(--text)';
     }
 
@@ -5742,6 +5751,7 @@
     // ========================================
     async function fetchMarketSession(symbol) {
         const container = document.getElementById('marketSessionInfo');
+        if (!container) return;
         container.innerHTML = '';
         container.classList.remove('show');
 
@@ -6353,13 +6363,7 @@
         }
     }
 
-    // ESC 키로 전체화면 해제
-    document.addEventListener('keydown', e => {
-        if (e.key === 'Escape') {
-            const card = document.getElementById('tvChartCard');
-            if (card?.classList.contains('fullscreen')) toggleChartFullscreen();
-        }
-    });
+    // ESC 키 처리 → 통합 keydown 핸들러로 이동 (하단 참고)
 
     // 차트 리사이즈 옵저버
     let lwResizeObserver = null;
@@ -6595,7 +6599,6 @@
     }
 
     function renderVolumeChart() {}
-    function toggleMA() {}
 
     // ========================================
     // Chart Drawing Tools (차트 드로잉 도구)
@@ -7048,13 +7051,7 @@
         });
     }
 
-    // Ctrl+Z 단축키
-    document.addEventListener('keydown', e => {
-        if (e.ctrlKey && e.key === 'z') {
-            undoDraw();
-            e.preventDefault();
-        }
-    });
+    // Ctrl+Z 단축키 → 통합 keydown 핸들러로 이동 (하단 참고)
 
 
 
@@ -7666,6 +7663,115 @@
 
         // API 결과로 그리드 업데이트
         renderGrid();
+    }
+
+    // ========================================
+    // Statistics Info (Yahoo Finance Statistics 탭 전체 항목)
+    // ========================================
+    async function renderStatisticsInfo(symbol) {
+        const grid = document.getElementById('statisticsGrid');
+        if (!grid) return;
+
+        const isKR = currentMarket === 'KR';
+
+        const fmtPct = v => (v == null || isNaN(v)) ? null : (v * 100).toFixed(2) + '%';
+        const fmtNum = (v, decimals = 2) => (v == null || isNaN(v)) ? null : Number(v).toFixed(decimals);
+        const fmtCap = v => {
+            if (v == null || isNaN(v)) return null;
+            if (isKR) {
+                if (v >= 1e12) return (v / 1e12).toFixed(1) + '조원';
+                if (v >= 1e8)  return (v / 1e8).toFixed(0) + '억원';
+                return Math.round(v).toLocaleString() + '원';
+            }
+            if (v >= 1e12) return '$' + (v / 1e12).toFixed(2) + 'T';
+            if (v >= 1e9)  return '$' + (v / 1e9).toFixed(1) + 'B';
+            if (v >= 1e6)  return '$' + (v / 1e6).toFixed(0) + 'M';
+            return '$' + Number(v).toLocaleString();
+        };
+        const fmtP = v => {
+            if (v == null || isNaN(v)) return null;
+            return isKR ? Math.round(v).toLocaleString() + '원' : '$' + Number(v).toFixed(2);
+        };
+        const fmtShares = v => {
+            if (v == null || isNaN(v)) return null;
+            if (v >= 1e8) return (v / 1e8).toFixed(2) + '억주';
+            if (v >= 1e4) return (v / 1e4).toFixed(0) + '만주';
+            return Math.round(v).toLocaleString() + '주';
+        };
+        const fmtDate = v => (v == null || v === 0) ? null : new Date(v * 1000).toLocaleDateString('ko-KR');
+
+        const sectionHtml = title => `<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;padding:14px 0 6px;border-bottom:1px solid var(--border);margin-bottom:4px;">${title}</div>`;
+        const rowHtml = (label, value) => value == null ? '' : `<div class="finance-item"><span class="finance-label">${label}</span><span class="finance-value">${value}</span></div>`;
+
+        // 로딩 표시
+        grid.innerHTML = '<div style="text-align:center;padding:20px 0;color:var(--text3);font-size:14px;">로딩 중...</div>';
+
+        try {
+            const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=defaultKeyStatistics,summaryDetail,financialData,price,calendarEvents`;
+            const data = await fetchRace(url, 10000);
+            const r = data?.quoteSummary?.result?.[0];
+
+            if (!r) {
+                grid.innerHTML = '<div style="text-align:center;padding:20px 0;color:var(--text3);font-size:14px;">데이터를 불러올 수 없습니다.</div>';
+                return;
+            }
+
+            const ks = r.defaultKeyStatistics || {};
+            const sd = r.summaryDetail || {};
+            const fd = r.financialData || {};
+
+            // ── 섹션 1: 밸류에이션 ──
+            const valuation = [
+                sectionHtml('밸류에이션'),
+                rowHtml('기업가치 (EV)',     fmtCap(ks.enterpriseValue?.raw)),
+                rowHtml('PEG Ratio',         fmtNum(ks.pegRatio?.raw)),
+                rowHtml('PSR (주가매출비율)', fmtNum(ks.priceToSalesTrailing12Months?.raw)),
+                rowHtml('EV / Revenue',       fmtNum(ks.enterpriseToRevenue?.raw)),
+                rowHtml('EV / EBITDA',        fmtNum(ks.enterpriseToEbitda?.raw)),
+            ].join('');
+
+            // ── 섹션 2: 재무 하이라이트 ──
+            const financial = [
+                sectionHtml('재무 하이라이트'),
+                rowHtml('영업이익률',       fmtPct(fd.operatingMargins?.raw)),
+                rowHtml('순이익률',         fmtPct(fd.profitMargins?.raw)),
+                rowHtml('ROA',              fmtPct(fd.returnOnAssets?.raw)),
+                rowHtml('ROE',              fmtPct(fd.returnOnEquity?.raw)),
+                rowHtml('매출 (연간)',       fmtCap(fd.totalRevenue?.raw)),
+                rowHtml('EBITDA',           fmtCap(fd.ebitda?.raw)),
+                rowHtml('총현금',           fmtCap(fd.totalCash?.raw)),
+                rowHtml('총부채',           fmtCap(fd.totalDebt?.raw)),
+                rowHtml('부채/자본 (D/E)',  fd.debtToEquity?.raw != null ? fmtNum(fd.debtToEquity.raw) + '%' : null),
+                rowHtml('유동비율',         fmtNum(fd.currentRatio?.raw)),
+                rowHtml('영업현금흐름',     fmtCap(fd.operatingCashflow?.raw)),
+                rowHtml('잉여현금흐름 (FCF)', fmtCap(fd.freeCashflow?.raw)),
+                rowHtml('분기 매출성장률',  fmtPct(fd.revenueGrowth?.raw)),
+            ].join('');
+
+            // ── 섹션 3: 거래 정보 ──
+            const weekChange52 = ks['52WeekChange']?.raw;
+            const trading = [
+                sectionHtml('거래 정보'),
+                rowHtml('52주 등락률',      weekChange52 != null ? (weekChange52 >= 0 ? '+' : '') + fmtPct(weekChange52) : null),
+                rowHtml('50일 이동평균',    fmtP(sd.fiftyDayAverage?.raw)),
+                rowHtml('200일 이동평균',   fmtP(sd.twoHundredDayAverage?.raw)),
+                rowHtml('발행주식수',       fmtShares(ks.sharesOutstanding?.raw)),
+                rowHtml('유통주식수 (Float)', fmtShares(ks.floatShares?.raw)),
+                rowHtml('내부자 보유 비율', fmtPct(ks.heldPercentInsiders?.raw)),
+                rowHtml('기관 보유 비율',   fmtPct(ks.heldPercentInstitutions?.raw)),
+                rowHtml('공매도 비율 (Float)', fmtPct(ks.shortPercentOfFloat?.raw)),
+                rowHtml('공매도 커버일수',  ks.shortRatio?.raw != null ? fmtNum(ks.shortRatio.raw) + '일' : null),
+                rowHtml('배당금 (연간)',    sd.dividendRate?.raw != null ? fmtP(sd.dividendRate.raw) : null),
+                rowHtml('배당 수익률',      fmtPct(sd.dividendYield?.raw)),
+                rowHtml('배당성향',         fmtPct(sd.payoutRatio?.raw)),
+                rowHtml('배당락일',         fmtDate(sd.exDividendDate?.raw)),
+                rowHtml('최근 주식분할',    ks.lastSplitFactor || null),
+            ].join('');
+
+            grid.innerHTML = valuation + financial + trading;
+        } catch (e) {
+            grid.innerHTML = '<div style="text-align:center;padding:20px 0;color:var(--text3);font-size:14px;">데이터를 불러올 수 없습니다.</div>';
+        }
     }
 
     // ========================================
@@ -8777,8 +8883,19 @@
         setTimeout(() => toast.classList.remove('show'), 3500);
     }
 
-    // Keyboard shortcut
+    // 통합 키보드 단축키 핸들러 (ESC / Ctrl+Z / /)
     document.addEventListener('keydown', (e) => {
+        // ESC: 전체화면 해제
+        if (e.key === 'Escape') {
+            const card = document.getElementById('tvChartCard');
+            if (card?.classList.contains('fullscreen')) toggleChartFullscreen();
+        }
+        // Ctrl+Z: 차트 드로잉 실행취소
+        if (e.ctrlKey && e.key === 'z') {
+            undoDraw();
+            e.preventDefault();
+        }
+        // /: 검색창 포커스
         if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
             e.preventDefault();
             document.getElementById('searchInput').focus();
@@ -9281,7 +9398,7 @@
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('/sw.js').catch(() => {});
-        });
+        }, { once: true });
     }
 
     // onclick 핸들러 함수를 window에 명시적 노출 (스코프 안전장치)

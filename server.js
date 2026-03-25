@@ -351,7 +351,9 @@ app.post('/api/vision-scan', upload.single('image'), async (req, res) => {
         const b64      = req.file.buffer.toString('base64');
         const mimeType = req.file.mimetype;
 
-        const model = getGenAI().getGenerativeModel({ model: 'gemini-2.5-flash' });
+        const genAI = getGenAI();
+        if (!genAI) return res.status(503).json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다.' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
         const prompt = `당신은 전문 주식 차트 기술 분석가입니다. 업로드된 차트 이미지를 분석하여 지지선과 저항선을 찾아주세요.
 
@@ -422,10 +424,18 @@ app.post('/api/chart-draw', upload.single('image'), async (req, res) => {
         return res.status(503).json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다.' });
     }
 
+    let priceData = null;
+    if (req.body.priceData) {
+        try {
+            priceData = JSON.parse(req.body.priceData);
+        } catch (e) {
+            return res.status(400).json({ error: 'priceData JSON 형식이 올바르지 않습니다.' });
+        }
+    }
+
     try {
         const b64 = req.file.buffer.toString('base64');
         const mimeType = req.file.mimetype;
-        const priceData = req.body.priceData ? JSON.parse(req.body.priceData) : null;
 
         let priceContext = '';
         if (priceData) {
@@ -478,7 +488,9 @@ app.post('/api/chart-draw', upload.single('image'), async (req, res) => {
   * #### 추세 분석: 추세선의 방향과 의미 설명
   * #### 종합 의견: 단기/중기 전망과 주의사항`;
 
-        const model = getGenAI().getGenerativeModel({
+        const genAI = getGenAI();
+        if (!genAI) return res.status(503).json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다.' });
+        const model = genAI.getGenerativeModel({
             model: 'gemini-2.5-flash',
             generationConfig: {
                 temperature: 0.1,
