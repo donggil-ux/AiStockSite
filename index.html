@@ -2031,6 +2031,7 @@
     let currentPeriod = '6mo';
     let currentInterval = '1d';
     let currentSymbol = '';
+    let _historySkip = false; // popstate 중 searchStock 재호출 시 중복 pushState 방지
     let currentFullSymbol = '';  // Yahoo Finance용 풀 심볼 (예: NVDA, 005930.KS)
     let liveUpdateTimer      = null;  // 실시간 가격 업데이트 타이머 (30초)
     let analysisRefreshTimer = null;  // 분석 자동 갱신 타이머 (5분)
@@ -2449,6 +2450,9 @@
 
     // 이벤트 바인딩 (DOM 준비 후 실행)
     window.addEventListener('DOMContentLoaded', () => {
+        // 초기 홈 상태를 history에 기록 (뒤로가기 기준점)
+        history.replaceState({ view: 'home' }, '', location.href);
+
         const inp = document.getElementById('searchInput');
         if (!inp) return;
         inp.addEventListener('focus', () => {
@@ -5639,6 +5643,15 @@
 
             stockData = data.chart.result[0];
             currentFullSymbol = symbol;  // 실시간 업데이트용 풀 심볼 저장
+
+            // 브라우저 뒤로가기 지원 — popstate 재호출 시에는 skip
+            if (!_historySkip) {
+                history.pushState(
+                    { view: 'stock', symbol: currentSymbol, market: currentMarket },
+                    '',
+                    `?s=${encodeURIComponent(currentSymbol)}`
+                );
+            }
 
             // 최근 본 종목 저장
             try {
@@ -8882,6 +8895,23 @@
         toast.classList.add('show');
         setTimeout(() => toast.classList.remove('show'), 3500);
     }
+
+    // 브라우저 뒤로가기 (홈 ↔ 종목) 지원
+    window.addEventListener('popstate', e => {
+        const state = e.state;
+        if (!state || state.view === 'home') {
+            // 뒤로가기 → 홈으로
+            _historySkip = true;
+            goHome();
+            _historySkip = false;
+        } else if (state.view === 'stock' && state.symbol) {
+            // 앞으로가기 → 종목 복원
+            _historySkip = true;
+            setMarket(state.market);
+            document.getElementById('searchInput').value = state.symbol;
+            searchStock().finally(() => { _historySkip = false; });
+        }
+    });
 
     // 통합 키보드 단축키 핸들러 (ESC / Ctrl+Z / /)
     document.addEventListener('keydown', (e) => {
