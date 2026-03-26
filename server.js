@@ -311,6 +311,79 @@ app.get('/api/news/:symbol', async (req, res) => {
 });
 
 /**
+ * 소셜 피드 — StockTwits 종목별 스트림
+ * GET /api/stocktwits/:symbol
+ */
+app.get('/api/stocktwits/:symbol', async (req, res) => {
+    const { symbol } = req.params;
+    if (!validSymbol(symbol)) return res.status(400).json({ error: 'invalid symbol' });
+    try {
+        const r = await fetch(
+            `https://api.stocktwits.com/api/2/streams/symbol/${encodeURIComponent(symbol)}.json?limit=20`,
+            { headers: { 'User-Agent': 'StockAI/1.0' } }
+        );
+        if (!r.ok) return res.status(r.status).json({ error: 'StockTwits 데이터 없음' });
+        res.json(await r.json());
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * 소셜 피드 — Reddit 종목별 검색
+ * GET /api/reddit/:symbol
+ */
+app.get('/api/reddit/:symbol', async (req, res) => {
+    const { symbol } = req.params;
+    if (!validSymbol(symbol)) return res.status(400).json({ error: 'invalid symbol' });
+    try {
+        const q = encodeURIComponent(symbol);
+        const r = await fetch(
+            `https://www.reddit.com/r/wallstreetbets+stocks+investing/search.json?q=${q}&sort=new&restrict_sr=on&limit=15&t=week`,
+            { headers: { 'User-Agent': 'StockAI/1.0' } }
+        );
+        if (!r.ok) return res.status(r.status).json({ error: 'Reddit 데이터 없음' });
+        res.json(await r.json());
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * 소셜 피드 — StockTwits 트렌딩 (홈용)
+ * GET /api/stocktwits-trending
+ */
+app.get('/api/stocktwits-trending', async (_req, res) => {
+    try {
+        const r = await fetch(
+            'https://api.stocktwits.com/api/2/streams/trending.json?limit=10',
+            { headers: { 'User-Agent': 'StockAI/1.0' } }
+        );
+        if (!r.ok) return res.status(r.status).json({ error: 'StockTwits 트렌딩 없음' });
+        res.json(await r.json());
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * 소셜 피드 — Reddit HOT 게시글 (홈용)
+ * GET /api/reddit-hot
+ */
+app.get('/api/reddit-hot', async (_req, res) => {
+    try {
+        const r = await fetch(
+            'https://www.reddit.com/r/wallstreetbets+stocks+investing/hot.json?limit=8',
+            { headers: { 'User-Agent': 'StockAI/1.0' } }
+        );
+        if (!r.ok) return res.status(r.status).json({ error: 'Reddit 데이터 없음' });
+        res.json(await r.json());
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
  * Yahoo Finance HTML 페이지 스크래핑 (재무 데이터 보조)
  * GET /api/page/:symbol
  */
