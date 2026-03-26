@@ -441,6 +441,28 @@
         .tab-item{padding:14px 4px;margin-right:24px;font-size:15px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;transition:all .2s;font-family:inherit;background:none;border-top:none;border-left:none;border-right:none;white-space:nowrap;flex-shrink:0;}
         .tab-item.active{color:var(--text);border-bottom-color:var(--text);}
         .tab-item:hover:not(.active){color:var(--text2);}
+        .tab-order-btn{position:sticky;right:0;padding:14px 20px 14px 8px;font-size:15px;color:var(--text3);cursor:pointer;background:color-mix(in srgb, var(--bg) 95%, transparent);backdrop-filter:blur(20px);border:none;flex-shrink:0;transition:color .15s;font-family:inherit;}
+        .tab-order-btn:hover{color:var(--blue);}
+        /* 탭 순서 모달 */
+        .tab-order-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;backdrop-filter:blur(2px);}
+        .tab-order-overlay.show{display:block;}
+        .tab-order-modal{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-radius:20px 20px 0 0;padding:20px 20px 34px;z-index:1000;max-height:80vh;overflow-y:auto;}
+        .tab-order-modal.show{display:block;animation:slideUp .25s ease;}
+        @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+        .tab-order-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+        .tab-order-title{font-size:17px;font-weight:800;color:var(--text1);}
+        .tab-order-close{font-size:20px;color:var(--text3);cursor:pointer;background:none;border:none;font-family:inherit;padding:4px 8px;}
+        .tab-order-hint{font-size:12px;color:var(--text3);margin-bottom:16px;}
+        .tab-order-list{display:flex;flex-direction:column;gap:6px;}
+        .tab-order-item{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;background:var(--bg3);cursor:grab;user-select:none;transition:background .12s, opacity .15s;}
+        .tab-order-item:active{cursor:grabbing;}
+        .tab-order-item.dragging{opacity:.4;background:var(--bg4);}
+        .tab-order-item.drag-over{background:rgba(59,130,246,.12);outline:2px dashed var(--blue);}
+        .tab-order-handle{font-size:18px;color:var(--text3);flex-shrink:0;line-height:1;}
+        .tab-order-label{font-size:15px;font-weight:700;color:var(--text1);flex:1;}
+        .tab-order-actions{display:flex;gap:10px;margin-top:20px;}
+        .tab-order-save{flex:1;padding:14px;background:var(--blue);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;}
+        .tab-order-reset{padding:14px 18px;background:var(--bg3);color:var(--text2);border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;}
 
         /* ===== TAB CONTENT ===== */
         .tab-content{display:none;padding:0 0 8px;}
@@ -1704,7 +1726,23 @@
         <button class="tab-item" data-tab="news" onclick="switchTab('news')">뉴스</button>
         <button class="tab-item" data-tab="social" onclick="switchTab('social')">소셜</button>
         <button class="tab-item" data-tab="short" onclick="switchTab('short')">공매도</button>
+        <button class="tab-order-btn" onclick="openTabOrderModal()" title="탭 순서 설정">⚙</button>
     </nav>
+
+    <!-- 탭 순서 설정 모달 -->
+    <div class="tab-order-overlay" id="tabOrderOverlay" onclick="closeTabOrderModal()"></div>
+    <div class="tab-order-modal" id="tabOrderModal">
+        <div class="tab-order-header">
+            <span class="tab-order-title">탭 순서 설정</span>
+            <button class="tab-order-close" onclick="closeTabOrderModal()">✕</button>
+        </div>
+        <div class="tab-order-hint">드래그하여 순서를 변경하세요</div>
+        <div class="tab-order-list" id="tabOrderList"></div>
+        <div class="tab-order-actions">
+            <button class="tab-order-reset" onclick="resetTabOrder()">기본값으로</button>
+            <button class="tab-order-save" onclick="saveTabOrder()">저장</button>
+        </div>
+    </div>
 
     <!-- Main Content -->
     <div class="main-content" id="mainContent">
@@ -2080,8 +2118,8 @@
     // State
     // ========================================
     let currentMarket = 'US';
-    let currentPeriod = '6mo';
-    let currentInterval = '1d';
+    let currentPeriod   = localStorage.getItem('stockai_chart_period')   || '6mo';
+    let currentInterval = localStorage.getItem('stockai_chart_interval') || '1d';
     let currentSymbol = '';
     let _historySkip = false; // popstate 중 searchStock 재호출 시 중복 pushState 방지
     let currentFullSymbol = '';  // Yahoo Finance용 풀 심볼 (예: NVDA, 005930.KS)
@@ -2566,12 +2604,14 @@
 
     function setPeriod(period) {
         currentPeriod = period;
+        try { localStorage.setItem('stockai_chart_period', period); } catch(e) {}
         document.querySelectorAll('.range-btn').forEach(b => b.classList.toggle('active', b.dataset.range === period));
         if (currentSymbol) searchStock();
     }
 
     function setChartInterval(interval) {
         currentInterval = interval;
+        try { localStorage.setItem('stockai_chart_interval', interval); } catch(e) {}
         document.querySelectorAll('.interval-btn').forEach(b => b.classList.toggle('active', b.dataset.interval === interval));
 
         // 봉 타입에 맞게 기간 버튼 표시/숨김 및 기본 기간 설정
@@ -3057,6 +3097,12 @@
             }).join('');
         }catch(e){if(listEl)listEl.innerHTML='';}
     }
+
+    // 저장된 차트 설정으로 버튼 active 상태 초기화
+    document.querySelectorAll('.range-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.range === currentPeriod));
+    document.querySelectorAll('.interval-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.interval === currentInterval));
 
     // 페이지 로드 시 즉시 실행
     loadTop100();
@@ -9702,6 +9748,7 @@
     const NEWS_CACHE_MS = 5 * 60 * 1000; // 5분
 
     async function loadNewsTab(symbol) {
+        document.getElementById('stockHero')?.classList.add('show');
         const list  = document.getElementById('newsList');
         const label = document.getElementById('newsSymbolLabel');
         if (!list) return;
@@ -9772,6 +9819,138 @@
         if (diff < 86400) return Math.floor(diff / 3600) + '시간 전';
         return Math.floor(diff / 86400) + '일 전';
     }
+
+    // ========================================
+    // 탭 순서 설정
+    // ========================================
+    const TAB_ORDER_KEY = 'stockai_tab_order';
+    const TAB_DEFS = [
+        { tab: 'chart',    label: '차트' },
+        { tab: 'analysis', label: '분석' },
+        { tab: 'info',     label: '종목정보' },
+        { tab: 'company',  label: '기업' },
+        { tab: 'options',  label: '옵션' },
+        { tab: 'news',     label: '뉴스' },
+        { tab: 'social',   label: '소셜' },
+        { tab: 'short',    label: '공매도' },
+    ];
+
+    function loadTabOrder() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(TAB_ORDER_KEY));
+            if (!Array.isArray(saved) || saved.length < 2) return;
+            const nav = document.getElementById('tabNav');
+            if (!nav) return;
+            // tab-order-btn을 제외한 탭 버튼만 순서 적용
+            const btns = [...nav.querySelectorAll('.tab-item')];
+            saved.forEach(tabName => {
+                const btn = btns.find(b => b.dataset.tab === tabName);
+                if (btn) nav.insertBefore(btn, nav.querySelector('.tab-order-btn'));
+            });
+        } catch(e) {}
+    }
+
+    function openTabOrderModal() {
+        const list = document.getElementById('tabOrderList');
+        if (!list) return;
+        // 현재 탭 순서 기준으로 목록 렌더
+        const nav = document.getElementById('tabNav');
+        const currentOrder = [...nav.querySelectorAll('.tab-item')].map(b => b.dataset.tab);
+        list.innerHTML = currentOrder.map(tabName => {
+            const def = TAB_DEFS.find(d => d.tab === tabName);
+            const label = def?.label || tabName;
+            return `<div class="tab-order-item" draggable="true" data-tab="${tabName}">
+                <span class="tab-order-handle">⠿</span>
+                <span class="tab-order-label">${label}</span>
+            </div>`;
+        }).join('');
+        initTabOrderDrag(list);
+        document.getElementById('tabOrderOverlay').classList.add('show');
+        document.getElementById('tabOrderModal').classList.add('show');
+    }
+
+    function closeTabOrderModal() {
+        document.getElementById('tabOrderOverlay').classList.remove('show');
+        document.getElementById('tabOrderModal').classList.remove('show');
+    }
+
+    function saveTabOrder() {
+        const list = document.getElementById('tabOrderList');
+        if (!list) return;
+        const newOrder = [...list.querySelectorAll('.tab-order-item')].map(el => el.dataset.tab);
+        try { localStorage.setItem(TAB_ORDER_KEY, JSON.stringify(newOrder)); } catch(e) {}
+        // DOM 탭 버튼 순서 적용
+        const nav = document.getElementById('tabNav');
+        const orderBtn = nav.querySelector('.tab-order-btn');
+        newOrder.forEach(tabName => {
+            const btn = nav.querySelector(`.tab-item[data-tab="${tabName}"]`);
+            if (btn) nav.insertBefore(btn, orderBtn);
+        });
+        closeTabOrderModal();
+    }
+
+    function resetTabOrder() {
+        try { localStorage.removeItem(TAB_ORDER_KEY); } catch(e) {}
+        // 기본 순서 복원
+        const nav = document.getElementById('tabNav');
+        const orderBtn = nav.querySelector('.tab-order-btn');
+        TAB_DEFS.forEach(({ tab }) => {
+            const btn = nav.querySelector(`.tab-item[data-tab="${tab}"]`);
+            if (btn) nav.insertBefore(btn, orderBtn);
+        });
+        closeTabOrderModal();
+    }
+
+    function initTabOrderDrag(list) {
+        let dragged = null;
+
+        // ── Desktop drag ──
+        list.addEventListener('dragstart', e => {
+            dragged = e.target.closest('.tab-order-item');
+            if (dragged) dragged.classList.add('dragging');
+        });
+        list.addEventListener('dragover', e => {
+            e.preventDefault();
+            const target = e.target.closest('.tab-order-item');
+            if (target && target !== dragged) {
+                const rect = target.getBoundingClientRect();
+                if (e.clientY < rect.top + rect.height / 2) list.insertBefore(dragged, target);
+                else list.insertBefore(dragged, target.nextSibling);
+            }
+        });
+        list.addEventListener('dragend', () => {
+            if (dragged) dragged.classList.remove('dragging');
+            dragged = null;
+        });
+
+        // ── Mobile touch ──
+        list.addEventListener('touchstart', e => {
+            const item = e.target.closest('.tab-order-item');
+            if (!item) return;
+            dragged = item;
+            dragged.classList.add('dragging');
+        }, { passive: true });
+
+        list.addEventListener('touchmove', e => {
+            if (!dragged) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            const target = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('.tab-order-item');
+            if (target && target !== dragged) {
+                const rect = target.getBoundingClientRect();
+                if (touch.clientY < rect.top + rect.height / 2) list.insertBefore(dragged, target);
+                else list.insertBefore(dragged, target.nextSibling);
+            }
+        }, { passive: false });
+
+        list.addEventListener('touchend', () => {
+            if (dragged) dragged.classList.remove('dragging');
+            dragged = null;
+        });
+    }
+
+    // 페이지 로드 시 저장된 탭 순서 적용
+    loadTabOrder();
 
     // ========================================
     // 소셜 피드 탭 (StockTwits + Reddit)
@@ -10854,6 +11033,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         saveRecentStock, loadRecentStocks,
         loadVolAlert,
         loadNewsTab, reloadNewsTab, renderNewsList, _newsTimeAgo,
+        openTabOrderModal, closeTabOrderModal, saveTabOrder, resetTabOrder,
         switchSocialSub, loadSocialTab, loadStockTwits, loadReddit, reloadSocialTab, loadSocialHot,
         loadShortTab, reloadShortTab, renderShortTab, _buildGaugeSVG,
         renderAnalystTargets,
