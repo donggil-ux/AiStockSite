@@ -277,10 +277,12 @@
         .news-card.news-skel{pointer-events:none;}
         @media(max-width:640px){.news-thumb-wrap{width:62px;height:46px;border-radius:8px;}.news-title{font-size:12px;-webkit-line-clamp:3;}}
         /* ── 소셜 피드 ── */
-        .social-sub-tabs{display:flex;gap:6px;margin-bottom:14px;}
-        .social-sub-tab{font-size:12px;font-weight:700;padding:5px 14px;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--text3);cursor:pointer;transition:all .15s;}
-        .social-sub-tab.active{background:var(--bg3);color:var(--text1);border-color:var(--border);}
-        .social-feed{display:flex;flex-direction:column;gap:2px;}
+        .social-sub-tabs{display:flex;gap:2px;background:var(--bg3);border-radius:10px;padding:3px;}
+        .social-sub-tab{font-size:12px;font-weight:700;padding:5px 14px;border-radius:7px;border:none;background:transparent;color:var(--text3);cursor:pointer;transition:all .15s;}
+        .social-sub-tab.active{background:var(--bg);color:var(--text1);box-shadow:0 1px 3px rgba(0,0,0,.15);}
+        .social-feed{display:flex;flex-direction:column;gap:0;}
+        .social-divider{border:none;border-top:1px solid var(--border);opacity:.4;margin:0;}
+        .social-source{font-size:11px;color:var(--text3);margin-bottom:10px;}
         .st-card{padding:14px 12px;border-radius:var(--r3);background:transparent;transition:background .12s;}
         .st-card:hover{background:var(--bg3);}
         .st-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
@@ -10033,8 +10035,8 @@
 
     function renderStockTwits(feed, data) {
         const msgs = data?.messages || [];
-        if (!msgs.length) { feed.innerHTML = '<div class="news-empty">게시물이 없습니다.</div>'; return; }
-        feed.innerHTML = msgs.map((m, idx) => {
+        if (!msgs.length) { feed.innerHTML = '<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">게시물이 없습니다.</div></div>'; return; }
+        const cards = msgs.map((m, idx) => {
             const sent = m.sentiment?.basic;
             const badge = sent === 'Bullish' ? '<span class="st-badge bull">🐂 강세</span>'
                         : sent === 'Bearish' ? '<span class="st-badge bear">🐻 약세</span>' : '';
@@ -10053,7 +10055,8 @@
                 <div class="st-body" data-original="${m.body.replace(/"/g,'&quot;')}">${body}</div>
                 <button class="st-translate-btn" onclick="toggleStTranslate(this)">번역 보기</button>
             </div>`;
-        }).join('');
+        });
+        feed.innerHTML = cards.join('<hr class="social-divider">');
     }
 
     async function loadReddit(symbol) {
@@ -10078,7 +10081,9 @@
     function renderReddit(feed, data) {
         const posts = data?.data?.children || [];
         if (!posts.length) { feed.innerHTML = '<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">게시물이 없습니다.</div></div>'; return; }
-        feed.innerHTML = posts.map(({ data: p }) =>
+        const subs = [...new Set(posts.map(({ data: p }) => 'r/' + p.subreddit))].join(' · ');
+        const source = `<div class="social-source">📌 ${subs}</div>`;
+        const cards = posts.map(({ data: p }) =>
             `<a class="rd-card" href="https://reddit.com${p.permalink}" target="_blank" rel="noopener noreferrer">
                 <div class="rd-sub">r/${p.subreddit}</div>
                 <div class="rd-title">${p.title.replace(/</g,'&lt;')}</div>
@@ -10088,7 +10093,8 @@
                     <span>${_newsTimeAgo(p.created_utc)}</span>
                 </div>
             </a>`
-        ).join('');
+        );
+        feed.innerHTML = source + cards.join('<hr class="social-divider">');
     }
 
     function reloadSocialTab() {
