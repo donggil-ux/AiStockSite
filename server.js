@@ -311,6 +311,21 @@ app.get('/api/news/:symbol', async (req, res) => {
 });
 
 /**
+ * 텍스트 번역 (영→한)
+ * GET /api/translate?text=...
+ */
+app.get('/api/translate', async (req, res) => {
+    const text = req.query.text;
+    if (!text || text.length > 500) return res.status(400).json({ error: 'invalid' });
+    try {
+        const translated = await translateToKo(text);
+        res.json({ translated });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
  * 소셜 피드 — StockTwits 종목별 스트림
  * GET /api/stocktwits/:symbol
  */

@@ -293,6 +293,9 @@
         .st-badge.bear{background:rgba(239,68,68,.15);color:#ef4444;}
         .st-body{font-size:13px;color:var(--text1);line-height:1.55;word-break:break-word;}
         .st-ticker{color:var(--blue);font-weight:700;}
+        .st-translate-btn{margin-top:8px;font-size:11px;font-weight:700;color:var(--blue);cursor:pointer;background:none;border:none;padding:0;font-family:inherit;opacity:.8;transition:opacity .15s;}
+        .st-translate-btn:hover{opacity:1;}
+        .st-translated{margin-top:6px;font-size:13px;color:var(--text2);line-height:1.55;border-left:2px solid var(--blue);padding-left:10px;}
         .rd-card{padding:14px 12px;border-radius:var(--r3);background:transparent;text-decoration:none;color:inherit;display:block;transition:background .12s;}
         .rd-card:hover{background:var(--bg3);}
         .rd-sub{font-size:11px;font-weight:700;color:var(--blue);margin-bottom:5px;}
@@ -1093,7 +1096,10 @@
         .sc-input-group input,.sc-input-group select{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);padding:8px 12px;font-size:13px;color:var(--text1);outline:none;font-family:inherit;width:100%;box-sizing:border-box;}
         .sc-input-group input:focus,.sc-input-group select:focus{border-color:var(--cyan);}
         .sc-tbl{width:100%;border-collapse:collapse;font-size:13px;}
-        .sc-tbl th{padding:7px 10px;text-align:right;font-weight:600;font-size:11px;color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap;}
+        .sc-tbl th{padding:7px 10px;text-align:right;font-weight:500;font-size:11px;color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap;}
+        .sc-tbl th:nth-child(1){min-width:40px;}
+        .sc-tbl th:nth-child(2),.sc-tbl th:nth-child(3),.sc-tbl th:nth-child(5),.sc-tbl th:nth-child(6){min-width:90px;}
+        .sc-tbl th:nth-child(4){min-width:60px;}
         .sc-tbl th:first-child{text-align:left;}
         .sc-tbl td{padding:9px 10px;text-align:right;border-bottom:1px solid rgba(255,255,255,.04);white-space:nowrap;}
         .sc-tbl td:first-child{text-align:left;}
@@ -1106,7 +1112,14 @@
 
         /* ===== R/R ANALYSIS CARD ===== */
         .rr-basis-badge{font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;
-            background:rgba(34,211,238,.12);color:var(--cyan);margin-left:auto;}
+            background:rgba(34,211,238,.12);color:var(--cyan);margin-left:auto;
+            position:relative;cursor:help;}
+        .rr-basis-badge::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 7px);right:0;
+            background:var(--bg4);color:var(--text1);font-size:11px;font-weight:500;line-height:1.5;
+            padding:7px 10px;border-radius:8px;white-space:nowrap;pointer-events:none;
+            opacity:0;transition:opacity .15s;z-index:200;border:1px solid var(--border);
+            box-shadow:0 4px 12px rgba(0,0,0,.3);}
+        .rr-basis-badge:hover::after{opacity:1;}
         .rr-action-row{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;
             padding:14px;background:var(--bg3);border-radius:var(--r3);}
         .rr-action-badge{font-size:14px;font-weight:800;padding:6px 14px;border-radius:20px;white-space:nowrap;flex-shrink:0;}
@@ -2388,7 +2401,11 @@
             }
         } else if (mode === 'results') {
             if (!data?.length) {
-                html = `<div style="padding:14px 16px;color:var(--text3);font-size:13px;">검색 결과가 없습니다.</div>`;
+                html = `<div style="padding:24px 16px;text-align:center;">
+                    <div style="font-size:22px;margin-bottom:8px;">🔍</div>
+                    <div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:5px;">검색 결과가 없습니다.</div>
+                    <div style="font-size:12px;color:var(--text3);line-height:1.6;">티커 심볼로 검색해 주세요<br><span style="color:var(--blue);font-weight:600;">예: AAPL, TSLA, 005930</span></div>
+                </div>`;
             } else {
                 html += `<div class="sdrop-section-title">🔍 검색 결과</div>`;
                 html += data.map((item,i) => _sdropItemHTML(item,i)).join('');
@@ -2467,7 +2484,11 @@
             }
         } else if (mode === 'results') {
             if (!data?.length) {
-                html = `<div style="padding:14px 16px;color:var(--text3);font-size:13px;">검색 결과가 없습니다.</div>`;
+                html = `<div style="padding:24px 16px;text-align:center;">
+                    <div style="font-size:22px;margin-bottom:8px;">🔍</div>
+                    <div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:5px;">검색 결과가 없습니다.</div>
+                    <div style="font-size:12px;color:var(--text3);line-height:1.6;">티커 심볼로 검색해 주세요<br><span style="color:var(--blue);font-weight:600;">예: AAPL, TSLA, 005930</span></div>
+                </div>`;
             } else {
                 html += `<div class="sdrop-section-title">🔍 검색 결과</div>`;
                 html += data.map((item, i) => _sdropItemHTML(item, i)).join('');
@@ -2688,6 +2709,9 @@
         if (tabName === 'short' && currentFullSymbol) {
             loadShortTab(currentFullSymbol);
         }
+        // 선택된 탭이 항상 뷰포트 안에 보이도록 스크롤
+        const activeTabBtn = document.querySelector(`.tab-item[data-tab="${tabName}"]`);
+        if (activeTabBtn) activeTabBtn.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
     }
 
     // ========================================
@@ -3061,12 +3085,13 @@
         if(!r.length){sec.style.display='none';return;}
         sec.style.display='';
         wrap.innerHTML=r.map(x=>{
-            const cls=x.change>0?'up':x.change<0?'down':'flat';
+            const chgNum=Number(x.change||0);
+            const cls=chgNum>0?'up':chgNum<0?'down':'flat';
             const safe=(x.symbol||'').replace(/'/g,"\\'");
             const mkt=(x.market||'').replace(/'/g,"\\'");
             return `<div class="recent-chip" onclick="quickSearch('${safe}','${mkt}')">
                 <div class="recent-chip-sym">${x.symbol}</div>
-                <div class="recent-chip-chg ${cls}">${x.change>=0?'+':''}${Number(x.change||0).toFixed(2)}%</div>
+                <div class="recent-chip-chg ${cls}">${chgNum>=0?'+':''}${chgNum.toFixed(2)}%</div>
             </div>`;
         }).join('');
     }
@@ -8578,7 +8603,7 @@
         el.innerHTML = `<div class="card rr-card">
             <div class="card-title">
                 <span class="dot" style="background:var(--cyan)"></span>손익비 (R/R) 분석
-                <span class="rr-basis-badge">${label}</span>
+                <span class="rr-basis-badge" data-tip="최근 20일 단타 매매 기준으로 산출된 손익비 분석입니다." title="최근 20일 단타 매매 기준으로 산출된 손익비 분석입니다.">${label}</span>
             </div>
             ${fkHtml}
             <div class="rr-action-row">
@@ -9997,17 +10022,20 @@
         }
     }
 
+    const _stTranslCache = new Map(); // msgId → 번역문
+
     function renderStockTwits(feed, data) {
         const msgs = data?.messages || [];
         if (!msgs.length) { feed.innerHTML = '<div class="news-empty">게시물이 없습니다.</div>'; return; }
-        feed.innerHTML = msgs.map(m => {
+        feed.innerHTML = msgs.map((m, idx) => {
             const sent = m.sentiment?.basic;
             const badge = sent === 'Bullish' ? '<span class="st-badge bull">🐂 강세</span>'
                         : sent === 'Bearish' ? '<span class="st-badge bear">🐻 약세</span>' : '';
             const ago  = _newsTimeAgo(new Date(m.created_at).getTime() / 1000);
             const likes = m.likes?.total ? `♥ ${m.likes.total}` : '';
             const body = m.body.replace(/</g,'&lt;').replace(/\$([A-Z]{1,5})/g,'<span class="st-ticker">$$$1</span>').replace(/\n/g,'<br>');
-            return `<div class="st-card">
+            const msgId = m.id || idx;
+            return `<div class="st-card" data-st-id="${msgId}">
                 <div class="st-header">
                     <img class="st-avatar" src="${m.user?.avatar_url||''}" onerror="this.style.display='none'" alt="">
                     <span class="st-user">@${m.user?.username||'?'}</span>
@@ -10015,7 +10043,8 @@
                     <span class="st-time">${ago}</span>
                     <span class="st-likes">${likes}</span>
                 </div>
-                <div class="st-body">${body}</div>
+                <div class="st-body" data-original="${m.body.replace(/"/g,'&quot;')}">${body}</div>
+                <button class="st-translate-btn" onclick="toggleStTranslate(this)">번역 보기</button>
             </div>`;
         }).join('');
     }
@@ -10063,6 +10092,50 @@
         } else {
             delete _socialCache['rd_' + currentFullSymbol];
             loadReddit(currentFullSymbol);
+        }
+    }
+
+    async function toggleStTranslate(btn) {
+        const card = btn.closest('.st-card');
+        const bodyEl = card.querySelector('.st-body');
+        const originalText = bodyEl.dataset.original;
+        let translEl = card.querySelector('.st-translated');
+
+        // 번역 표시 중이면 원문으로 토글
+        if (translEl) {
+            const showing = translEl.style.display !== 'none';
+            translEl.style.display = showing ? 'none' : '';
+            btn.textContent = showing ? '번역 보기' : '원문 보기';
+            return;
+        }
+
+        // 캐시 확인
+        const cacheKey = originalText.slice(0, 80);
+        if (_stTranslCache.has(cacheKey)) {
+            translEl = document.createElement('div');
+            translEl.className = 'st-translated';
+            translEl.textContent = _stTranslCache.get(cacheKey);
+            card.insertBefore(translEl, btn);
+            btn.textContent = '원문 보기';
+            return;
+        }
+
+        btn.textContent = '⏳';
+        btn.disabled = true;
+        try {
+            const res = await fetch(`/api/translate?text=${encodeURIComponent(originalText)}`);
+            if (!res.ok) throw new Error();
+            const { translated } = await res.json();
+            _stTranslCache.set(cacheKey, translated);
+            translEl = document.createElement('div');
+            translEl.className = 'st-translated';
+            translEl.textContent = translated;
+            card.insertBefore(translEl, btn);
+            btn.textContent = '원문 보기';
+        } catch {
+            btn.textContent = '번역 실패';
+        } finally {
+            btn.disabled = false;
         }
     }
 
@@ -11034,7 +11107,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         loadVolAlert,
         loadNewsTab, reloadNewsTab, renderNewsList, _newsTimeAgo,
         openTabOrderModal, closeTabOrderModal, saveTabOrder, resetTabOrder,
-        switchSocialSub, loadSocialTab, loadStockTwits, loadReddit, reloadSocialTab, loadSocialHot,
+        switchSocialSub, loadSocialTab, loadStockTwits, loadReddit, reloadSocialTab, loadSocialHot, toggleStTranslate,
         loadShortTab, reloadShortTab, renderShortTab, _buildGaugeSVG,
         renderAnalystTargets,
         goScanner, goFav, goSearch, closeSearch, bnGo, updateBnActive,
