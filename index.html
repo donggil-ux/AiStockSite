@@ -3024,7 +3024,13 @@
     // ========================================
     function loadSwingRadar() {
         const items = top100Cache['day_gainers']?.items;
-        if (!items?.length) return;
+        if (!items?.length) {
+            const listEl = document.getElementById('swingRadarList');
+            if (listEl && !listEl.querySelector('.swing-row')) {
+                listEl.innerHTML = '<div class="swing-empty" style="font-size:12px;color:var(--text3);padding:12px 0">로딩 중...</div>';
+            }
+            return;
+        }
         renderSwingRadar(items);
     }
 
@@ -3149,6 +3155,7 @@
     }
 
     function goHome() {
+        history.replaceState({ view: 'home' }, '', '/');
         document.getElementById('welcomeScreen').style.display = '';
         document.getElementById('smartMoneyScreen').style.display = 'none';
         document.getElementById('alphaScannerScreen').style.display = 'none';
@@ -9126,6 +9133,13 @@
     let _optionsSortDir = 'asc';
     let _optionsExpDates = [];
 
+    function _normalizeOpt(o) {
+        const n = v => { if (v == null) return null; if (typeof v === 'object' && 'raw' in v) return Number(v.raw); return +v || 0; };
+        return { ...o, strike: n(o.strike), lastPrice: n(o.lastPrice), bid: n(o.bid), ask: n(o.ask),
+            change: n(o.change), percentChange: n(o.percentChange), volume: n(o.volume),
+            openInterest: n(o.openInterest), impliedVolatility: n(o.impliedVolatility) };
+    }
+
     async function renderOptionsTab(symbol) {
         const emptyEl   = document.getElementById('optionsEmpty');
         const contentEl = document.getElementById('optionsContent');
@@ -9174,8 +9188,8 @@
             // 첫 번째 만기일 데이터 렌더
             const opt = chain.options?.[0];
             if (!opt) throw new Error('옵션 체인 없음');
-            _optionsAllCalls = opt.calls || [];
-            _optionsAllPuts  = opt.puts  || [];
+            _optionsAllCalls = (opt.calls || []).map(_normalizeOpt);
+            _optionsAllPuts  = (opt.puts  || []).map(_normalizeOpt);
 
             const firstTs = _optionsExpDates[0];
             if (firstTs) {
@@ -9209,8 +9223,8 @@
             const data = await res.json();
             const opt  = data?.optionChain?.result?.[0]?.options?.[0];
             if (!opt) throw new Error('데이터 없음');
-            _optionsAllCalls = opt.calls || [];
-            _optionsAllPuts  = opt.puts  || [];
+            _optionsAllCalls = (opt.calls || []).map(_normalizeOpt);
+            _optionsAllPuts  = (opt.puts  || []).map(_normalizeOpt);
             renderOptionsChain();
             renderOptionsSummary();
         } catch(e) {
