@@ -345,65 +345,6 @@ app.get('/api/stocktwits/:symbol', async (req, res) => {
 });
 
 /**
- * 소셜 피드 — Reddit 종목별 검색 (3단계 fallback)
- * GET /api/reddit/:symbol
- * 응답: { posts: [...], source: 'r/...' }
- */
-app.get('/api/reddit/:symbol', async (req, res) => {
-    const { symbol } = req.params;
-    if (!validSymbol(symbol)) return res.status(400).json({ error: 'invalid symbol' });
-
-    // KR 시장 suffix 제거 (005930.KS → 005930)
-    const ticker = symbol.replace(/\.(KS|KQ|T|L|HK)$/i, '');
-    const hdrs = { 'User-Agent': 'StockAI/1.0', 'Accept': 'application/json' };
-    const FALLBACK_SUBS = ['wallstreetbets', 'stocks', 'investing', 'StockMarket'];
-
-    function fmtPosts(data) {
-        return (data?.data?.children || []).map(({ data: p }) => ({
-            id: p.id, title: p.title, author: p.author,
-            score: p.score, num_comments: p.num_comments,
-            created_utc: p.created_utc,
-            url: `https://reddit.com${p.permalink}`,
-            selftext: (p.selftext || '').slice(0, 300),
-            subreddit: p.subreddit,
-        }));
-    }
-
-    // 1차: 종목 전용 서브레딧
-    try {
-        const r = await fetch(`https://www.reddit.com/r/${ticker}/new.json?limit=20`, { headers: hdrs });
-        const data = await r.json();
-        const posts = fmtPosts(data);
-        if (!data.error && posts.length > 0) return res.json({ posts, source: `r/${ticker}` });
-    } catch (_) {}
-
-    // 2차: 주요 서브레딧에서 키워드 검색
-    for (const sub of FALLBACK_SUBS) {
-        try {
-            const q = encodeURIComponent(ticker);
-            const r = await fetch(
-                `https://www.reddit.com/r/${sub}/search.json?q=${q}&sort=new&restrict_sr=true&limit=15`,
-                { headers: hdrs }
-            );
-            const data = await r.json();
-            const posts = fmtPosts(data);
-            if (!data.error && posts.length > 0) return res.json({ posts, source: `r/${sub}` });
-        } catch (_) {}
-    }
-
-    // 3차: 전체 Reddit 검색
-    try {
-        const q = encodeURIComponent(ticker + ' stock');
-        const r = await fetch(`https://www.reddit.com/search.json?q=${q}&sort=new&limit=15`, { headers: hdrs });
-        const data = await r.json();
-        const posts = fmtPosts(data);
-        if (!data.error && posts.length > 0) return res.json({ posts, source: 'reddit' });
-    } catch (_) {}
-
-    res.status(404).json({ posts: [], error: 'No Reddit data found' });
-});
-
-/**
  * 소셜 피드 — StockTwits 트렌딩 (홈용)
  * GET /api/stocktwits-trending
  */
@@ -414,23 +355,6 @@ app.get('/api/stocktwits-trending', async (_req, res) => {
             { headers: { 'User-Agent': 'StockAI/1.0' } }
         );
         if (!r.ok) return res.status(r.status).json({ error: 'StockTwits 트렌딩 없음' });
-        res.json(await r.json());
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-/**
- * 소셜 피드 — Reddit HOT 게시글 (홈용)
- * GET /api/reddit-hot
- */
-app.get('/api/reddit-hot', async (_req, res) => {
-    try {
-        const r = await fetch(
-            'https://www.reddit.com/r/wallstreetbets+stocks+investing/hot.json?limit=8',
-            { headers: { 'User-Agent': 'StockAI/1.0' } }
-        );
-        if (!r.ok) return res.status(r.status).json({ error: 'Reddit 데이터 없음' });
         res.json(await r.json());
     } catch (err) {
         res.status(500).json({ error: err.message });

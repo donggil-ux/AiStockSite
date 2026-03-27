@@ -277,12 +277,8 @@
         .news-card.news-skel{pointer-events:none;}
         @media(max-width:640px){.news-thumb-wrap{width:62px;height:46px;border-radius:8px;}.news-title{font-size:12px;-webkit-line-clamp:3;}}
         /* ── 소셜 피드 ── */
-        .social-sub-tabs{display:flex;gap:2px;background:var(--bg3);border-radius:10px;padding:3px;}
-        .social-sub-tab{font-size:12px;font-weight:700;padding:5px 14px;border-radius:7px;border:none;background:transparent;color:var(--text3);cursor:pointer;transition:all .15s;}
-        .social-sub-tab.active{background:var(--bg);color:var(--text1);box-shadow:0 1px 3px rgba(0,0,0,.15);}
-        .social-feed{display:flex;flex-direction:column;gap:0;}
+        .social-feed{display:flex;flex-direction:column;gap:0;min-height:300px;}
         .social-divider{border:none;border-top:1px solid var(--border);opacity:.4;margin:0;}
-        .social-source{font-size:11px;color:var(--text3);margin-bottom:10px;}
         .st-card{padding:14px 12px;border-radius:var(--r3);background:transparent;transition:background .12s;}
         .st-card:hover{background:var(--bg3);}
         .st-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
@@ -298,12 +294,6 @@
         .st-translate-btn{margin-top:8px;font-size:11px;font-weight:700;color:var(--blue);cursor:pointer;background:none;border:none;padding:0;font-family:inherit;opacity:.8;transition:opacity .15s;}
         .st-translate-btn:hover{opacity:1;}
         .st-translated{margin-top:6px;font-size:13px;color:var(--text2);line-height:1.55;border-left:2px solid var(--blue);padding-left:10px;}
-        .rd-card{padding:14px 12px;border-radius:var(--r3);background:transparent;text-decoration:none;color:inherit;display:block;transition:background .12s;}
-        .rd-card:hover{background:var(--bg3);}
-        .rd-sub{font-size:11px;font-weight:700;color:var(--blue);margin-bottom:5px;}
-        .rd-title{font-size:13px;font-weight:700;color:var(--text1);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:6px;}
-        .rd-meta{display:flex;gap:12px;font-size:11px;color:var(--text3);font-weight:600;}
-        .rd-score{color:var(--red);}
         .social-empty{padding:40px 16px;text-align:center;color:var(--text3);}
         .social-empty-icon{font-size:32px;margin-bottom:8px;}
         .social-empty-text{font-size:13px;line-height:1.6;}
@@ -1075,8 +1065,8 @@
         #calcFab:hover{transform:scale(1.05);box-shadow:0 6px 28px rgba(234,179,8,.65);}
         @media(max-width:640px){#calcFab{bottom:calc(72px + env(safe-area-inset-bottom));right:14px;}}
         /* 모달 오버레이 */
-        #calcFabOverlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:901;display:none;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;}
-        #calcFabOverlay.open{display:flex;}
+        #calcFabOverlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:901;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;opacity:0;pointer-events:none;transition:opacity .18s ease;}
+        #calcFabOverlay.open{opacity:1;pointer-events:auto;}
         /* 모달 박스 — GoFundMe 스타일 */
         #calcFabModal{background:#ffffff;border-radius:20px;width:100%;max-width:460px;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.18);overflow:hidden;position:relative;}
         [data-theme="dark"] #calcFabModal{background:#1e2130;}
@@ -2105,14 +2095,10 @@
         </div>
         <div class="tab-content" id="tabSocial" data-tab="social" style="padding:16px 24px 24px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                <div class="social-sub-tabs">
-                    <button class="social-sub-tab active" onclick="switchSocialSub('stocktwits')">StockTwits</button>
-                    <button class="social-sub-tab" onclick="switchSocialSub('reddit')">Reddit</button>
-                </div>
+                <span style="font-size:13px;font-weight:700;color:var(--text2);">StockTwits</span>
                 <button class="news-refresh-btn" onclick="reloadSocialTab()">↻ 새로고침</button>
             </div>
             <div id="stockTwitsFeed" class="social-feed"></div>
-            <div id="redditFeed" class="social-feed" style="display:none"></div>
         </div>
         <div class="tab-content" id="tabShort" data-tab="short">
             <div class="short-header">
@@ -9987,29 +9973,13 @@
     loadTabOrder();
 
     // ========================================
-    // 소셜 피드 탭 (StockTwits + Reddit)
+    // 소셜 피드 탭 (StockTwits)
     // ========================================
-    let _currentSocialSub = 'stocktwits';
     const _socialCache = {};
     const SOCIAL_CACHE_MS = 5 * 60 * 1000;
 
-    function switchSocialSub(sub) {
-        _currentSocialSub = sub;
-        document.querySelectorAll('.social-sub-tab').forEach(b =>
-            b.classList.toggle('active', b.textContent.toLowerCase().replace(' ','').includes(sub.toLowerCase().replace(' ','')))
-        );
-        const stFeed = document.getElementById('stockTwitsFeed');
-        const rdFeed = document.getElementById('redditFeed');
-        if (stFeed) stFeed.style.display = sub === 'stocktwits' ? '' : 'none';
-        if (rdFeed) rdFeed.style.display = sub === 'reddit' ? '' : 'none';
-        if (!currentFullSymbol) return;
-        if (sub === 'stocktwits') loadStockTwits(currentFullSymbol);
-        if (sub === 'reddit') loadReddit(currentFullSymbol);
-    }
-
     function loadSocialTab(symbol) {
-        if (_currentSocialSub === 'stocktwits') loadStockTwits(symbol);
-        else loadReddit(symbol);
+        loadStockTwits(symbol);
     }
 
     async function loadStockTwits(symbol) {
@@ -10048,7 +10018,7 @@
                         : sent === 'Bearish' ? '<span class="st-badge bear">🐻 약세</span>' : '';
             const ago  = _newsTimeAgo(new Date(m.created_at).getTime() / 1000);
             const likes = m.likes?.total ? `♥ ${m.likes.total}` : '';
-            const body = m.body.replace(/</g,'&lt;').replace(/\$([A-Z]{1,5})/g,'<span class="st-ticker">$$$1</span>').replace(/\n/g,'<br>');
+            const body = (m.body||'').replace(/</g,'&lt;').replace(/\$([A-Z]{1,5})/g,'<span class="st-ticker">$$$1</span>').replace(/\n/g,'<br>');
             const msgId = m.id || idx;
             return `<div class="st-card" data-st-id="${msgId}">
                 <div class="st-header">
@@ -10065,52 +10035,10 @@
         feed.innerHTML = cards.join('<hr class="social-divider">');
     }
 
-    async function loadReddit(symbol) {
-        const feed = document.getElementById('redditFeed');
-        if (!feed) return;
-        const cKey = 'rd_' + symbol;
-        if (_socialCache[cKey] && Date.now() - _socialCache[cKey].ts < SOCIAL_CACHE_MS) {
-            renderReddit(feed, _socialCache[cKey].data); return;
-        }
-        feed.innerHTML = '<div class="social-empty"><div class="social-empty-text">로딩 중...</div></div>';
-        try {
-            const res = await fetch(`/api/reddit/${encodeURIComponent(symbol)}`);
-            if (!res.ok) throw new Error(res.status);
-            const data = await res.json();
-            _socialCache[cKey] = { ts: Date.now(), data };
-            renderReddit(feed, data);
-        } catch {
-            feed.innerHTML = '<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">Reddit 데이터를 불러올 수 없습니다.</div></div>';
-        }
-    }
-
-    function renderReddit(feed, data) {
-        const posts = data?.posts || [];
-        if (!posts.length) { feed.innerHTML = '<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">게시물이 없습니다.</div></div>'; return; }
-        const sourceHtml = data?.source ? `<div class="social-source">📌 ${data.source}</div>` : '';
-        const cards = posts.map(p =>
-            `<a class="rd-card" href="${p.url}" target="_blank" rel="noopener noreferrer">
-                <div class="rd-sub">r/${p.subreddit}</div>
-                <div class="rd-title">${p.title.replace(/</g,'&lt;')}</div>
-                <div class="rd-meta">
-                    <span class="rd-score">▲ ${p.score.toLocaleString()}</span>
-                    <span>💬 ${p.num_comments.toLocaleString()}</span>
-                    <span>${_newsTimeAgo(p.created_utc)}</span>
-                </div>
-            </a>`
-        );
-        feed.innerHTML = sourceHtml + cards.join('<hr class="social-divider">');
-    }
-
     function reloadSocialTab() {
         if (!currentFullSymbol) return;
-        if (_currentSocialSub === 'stocktwits') {
-            delete _socialCache['st_' + currentFullSymbol];
-            loadStockTwits(currentFullSymbol);
-        } else {
-            delete _socialCache['rd_' + currentFullSymbol];
-            loadReddit(currentFullSymbol);
-        }
+        delete _socialCache['st_' + currentFullSymbol];
+        loadStockTwits(currentFullSymbol);
     }
 
     async function toggleStTranslate(btn) {
@@ -10167,18 +10095,11 @@
             renderSocialHot(_socialHotCache.items); return;
         }
         list.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px 0;">로딩 중...</div>';
-        const [stRes, rdRes] = await Promise.allSettled([
-            fetch('/api/stocktwits-trending').then(r => r.ok ? r.json() : null).catch(() => null),
-            fetch('/api/reddit-hot').then(r => r.ok ? r.json() : null).catch(() => null),
-        ]);
+        const stData = await fetch('/api/stocktwits-trending').then(r => r.ok ? r.json() : null).catch(() => null);
         const items = [];
-        (stRes.value?.messages || []).slice(0, 5).forEach(m => {
+        (stData?.messages || []).slice(0, 8).forEach(m => {
             items.push({ type: 'st', text: m.body, user: m.user?.username,
                 sentiment: m.sentiment?.basic, symbol: m.symbols?.[0]?.symbol, likes: m.likes?.total });
-        });
-        (rdRes.value?.data?.children || []).slice(0, 5).forEach(({ data: p }) => {
-            items.push({ type: 'rd', title: p.title, sub: p.subreddit, score: p.score,
-                comments: p.num_comments, url: `https://reddit.com${p.permalink}` });
         });
         _socialHotCache.ts = Date.now();
         _socialHotCache.items = items;
@@ -10193,21 +10114,13 @@
             return;
         }
         list.innerHTML = items.map(item => {
-            if (item.type === 'st') {
-                const badge = item.sentiment === 'Bullish' ? '<span class="st-badge bull">🐂</span>'
-                            : item.sentiment === 'Bearish' ? '<span class="st-badge bear">🐻</span>' : '';
-                return `<div class="social-hot-card">
-                    <div class="social-hot-source">StockTwits ${badge}${item.symbol ? ` <b>$${item.symbol}</b>` : ''}</div>
-                    <div class="social-hot-title">${item.text.replace(/</g,'&lt;')}</div>
-                    <div class="social-hot-meta">@${item.user||'?'}${item.likes ? ` · ♥ ${item.likes}` : ''}</div>
-                </div>`;
-            } else {
-                return `<a class="social-hot-card" href="${item.url}" target="_blank" rel="noopener noreferrer">
-                    <div class="social-hot-source">Reddit · r/${item.sub}</div>
-                    <div class="social-hot-title">${item.title.replace(/</g,'&lt;')}</div>
-                    <div class="social-hot-meta" style="color:var(--red);">▲ ${item.score.toLocaleString()} · 💬 ${item.comments}</div>
-                </a>`;
-            }
+            const badge = item.sentiment === 'Bullish' ? '<span class="st-badge bull">🐂</span>'
+                        : item.sentiment === 'Bearish' ? '<span class="st-badge bear">🐻</span>' : '';
+            return `<div class="social-hot-card">
+                <div class="social-hot-source">StockTwits ${badge}${item.symbol ? ` <b>$${item.symbol}</b>` : ''}</div>
+                <div class="social-hot-title">${(item.text||'').replace(/</g,'&lt;')}</div>
+                <div class="social-hot-meta">@${item.user||'?'}${item.likes ? ` · ♥ ${item.likes}` : ''}</div>
+            </div>`;
         }).join('');
     }
 
@@ -11125,7 +11038,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         loadVolAlert,
         loadNewsTab, reloadNewsTab, renderNewsList, _newsTimeAgo,
         openTabOrderModal, closeTabOrderModal, saveTabOrder, resetTabOrder,
-        switchSocialSub, loadSocialTab, loadStockTwits, loadReddit, reloadSocialTab, loadSocialHot, toggleStTranslate,
+        loadSocialTab, loadStockTwits, reloadSocialTab, loadSocialHot, toggleStTranslate,
         loadShortTab, reloadShortTab, renderShortTab, _buildGaugeSVG,
         renderAnalystTargets,
         goScanner, goFav, goSearch, closeSearch, bnGo, updateBnActive,
