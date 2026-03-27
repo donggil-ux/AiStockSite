@@ -10019,15 +10019,21 @@
         if (_socialCache[cKey] && Date.now() - _socialCache[cKey].ts < SOCIAL_CACHE_MS) {
             renderStockTwits(feed, _socialCache[cKey].data); return;
         }
-        feed.innerHTML = '<div class="news-empty">로딩 중...</div>';
+        feed.innerHTML = '<div class="social-empty"><div class="social-empty-text">로딩 중...</div></div>';
+        let done = false;
         try {
             const res = await fetch(`/api/stocktwits/${encodeURIComponent(symbol)}`);
             if (!res.ok) throw new Error(res.status);
             const data = await res.json();
             _socialCache[cKey] = { ts: Date.now(), data };
             renderStockTwits(feed, data);
+            done = true;
         } catch {
-            feed.innerHTML = '<div class="news-empty">StockTwits 데이터가 없습니다.<br><span style="font-size:11px;color:var(--text3)">KR 종목은 지원하지 않을 수 있습니다.</span></div>';
+            feed.innerHTML = '<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">StockTwits 데이터가 없습니다.<br><span style="font-size:11px;color:var(--text3)">KR 종목은 지원하지 않을 수 있습니다.</span></div></div>';
+            done = true;
+        } finally {
+            // 로딩 중 상태가 예외로 인해 잔류하는 경우 안전하게 해제
+            if (!done) feed.innerHTML = '<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">데이터를 불러올 수 없습니다.</div></div>';
         }
     }
 
@@ -10079,12 +10085,11 @@
     }
 
     function renderReddit(feed, data) {
-        const posts = data?.data?.children || [];
+        const posts = data?.posts || [];
         if (!posts.length) { feed.innerHTML = '<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">게시물이 없습니다.</div></div>'; return; }
-        const subs = [...new Set(posts.map(({ data: p }) => 'r/' + p.subreddit))].join(' · ');
-        const source = `<div class="social-source">📌 ${subs}</div>`;
-        const cards = posts.map(({ data: p }) =>
-            `<a class="rd-card" href="https://reddit.com${p.permalink}" target="_blank" rel="noopener noreferrer">
+        const sourceHtml = data?.source ? `<div class="social-source">📌 ${data.source}</div>` : '';
+        const cards = posts.map(p =>
+            `<a class="rd-card" href="${p.url}" target="_blank" rel="noopener noreferrer">
                 <div class="rd-sub">r/${p.subreddit}</div>
                 <div class="rd-title">${p.title.replace(/</g,'&lt;')}</div>
                 <div class="rd-meta">
@@ -10094,7 +10099,7 @@
                 </div>
             </a>`
         );
-        feed.innerHTML = source + cards.join('<hr class="social-divider">');
+        feed.innerHTML = sourceHtml + cards.join('<hr class="social-divider">');
     }
 
     function reloadSocialTab() {
