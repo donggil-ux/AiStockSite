@@ -433,7 +433,7 @@
         .session-time{font-size:10px;color:var(--text3);margin-top:2px;}
 
         /* ===== TAB NAVIGATION - 토스 스타일 ===== */
-        .tab-nav{display:none;position:sticky;top:0;z-index:90;background:color-mix(in srgb, var(--bg) 95%, transparent);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 24px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+        .tab-nav{display:none;position:sticky;top:0;z-index:1001;background:color-mix(in srgb, var(--bg) 95%, transparent);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 24px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
         .tab-nav::-webkit-scrollbar{display:none;}
         .tab-nav.show{display:flex;}
         .tab-item{padding:14px 4px;margin-right:24px;font-size:15px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2.5px solid transparent;transition:all .2s;font-family:inherit;background:none;border-top:none;border-left:none;border-right:none;white-space:nowrap;flex-shrink:0;}
@@ -1068,7 +1068,7 @@
         #calcFabOverlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:901;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;opacity:0;pointer-events:none;transition:opacity .18s ease;}
         #calcFabOverlay.open{opacity:1;pointer-events:auto;}
         /* 모달 박스 — GoFundMe 스타일 */
-        #calcFabModal{background:#ffffff;border-radius:20px;width:100%;max-width:460px;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.18);overflow:hidden;position:relative;}
+        #calcFabModal{background:#ffffff;border-radius:20px;width:100%;max-width:540px;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.18);overflow:hidden;position:relative;}
         [data-theme="dark"] #calcFabModal{background:#1e2130;}
         /* 닫기 버튼 — 우상단 고정 */
         .fab-close{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,.06);border:none;color:#555;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;line-height:1;z-index:1;transition:background .15s;}
@@ -1096,9 +1096,9 @@
         .sc-input-group input:focus,.sc-input-group select:focus{border-color:var(--cyan);}
         .sc-tbl{width:100%;border-collapse:collapse;font-size:13px;}
         .sc-tbl th{padding:7px 10px;text-align:right;font-weight:500;font-size:11px;color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap;}
-        .sc-tbl th:nth-child(1){min-width:40px;}
-        .sc-tbl th:nth-child(2),.sc-tbl th:nth-child(3),.sc-tbl th:nth-child(5),.sc-tbl th:nth-child(6){min-width:90px;}
-        .sc-tbl th:nth-child(4){min-width:60px;}
+        .sc-tbl th:nth-child(1){min-width:36px;}
+        .sc-tbl th:nth-child(2),.sc-tbl th:nth-child(3),.sc-tbl th:nth-child(5),.sc-tbl th:nth-child(6){min-width:72px;}
+        .sc-tbl th:nth-child(4){min-width:52px;}
         .sc-tbl th:first-child{text-align:left;}
         .sc-tbl td{padding:9px 10px;text-align:right;border-bottom:1px solid rgba(255,255,255,.04);white-space:nowrap;}
         .sc-tbl td:first-child{text-align:left;}
@@ -9575,6 +9575,7 @@
     // ===========================
     function openCalcFab() {
         document.getElementById('calcFabOverlay').classList.add('open');
+        document.getElementById('calcFab').style.display = 'none'; // 모달 열림 중 FAB 숨김
         document.body.style.overflow = 'hidden'; // 뒤 스크롤 차단
         // 현재 종목 라벨
         const lbl = document.getElementById('fabStockLabel');
@@ -9587,7 +9588,9 @@
 
     function closeCalcFab() {
         document.getElementById('calcFabOverlay').classList.remove('open');
+        document.getElementById('calcFab').style.display = ''; // FAB 복원
         document.body.style.overflow = '';
+        hideLoading(); // 혹시 잔류하는 로딩 오버레이 강제 해제
     }
 
     // 숫자 입력 콤마 포매팅 헬퍼
@@ -9663,7 +9666,7 @@
             <div style="overflow-x:auto;">
                 <table class="sc-tbl">
                     <thead><tr>
-                        <th>차수</th><th>진입가</th><th>투자금액</th><th>수량</th><th>누적투자</th><th>평균매수가</th>
+                        <th>차수</th><th>진입가</th><th>투자액</th><th>수량</th><th>누계</th><th>평단가</th>
                     </tr></thead>
                     <tbody id="fabTableBody">
                         <tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;font-size:13px;">💡 예산을 입력하면 자동 계산됩니다</td></tr>
@@ -9826,7 +9829,7 @@
         const list = document.getElementById('newsList');
         if (!list) return;
         if (!items || !items.length) {
-            list.innerHTML = '<div class="news-empty">관련 뉴스가 없습니다.</div>';
+            list.innerHTML = '<div class="news-empty">해당 종목 관련 최신 뉴스가 없습니다.</div>';
             return;
         }
         list.innerHTML = items.map(n => {

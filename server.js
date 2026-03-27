@@ -285,10 +285,20 @@ app.get('/api/news/:symbol', async (req, res) => {
     const { symbol } = req.params;
     const limit = parseInt(req.query.limit) || 12;
     try {
-        const url  = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(symbol)}&quotesCount=0&newsCount=${limit}&enableFuzzyQuery=false`;
+        const fetchCount = Math.min(limit * 2, 25); // 필터링 여유분 확보
+        const url  = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(symbol)}&quotesCount=0&newsCount=${fetchCount}&enableFuzzyQuery=false`;
         const data = await yfRequest(url);
         const raw  = data?.news || [];
-        const mapped = raw.slice(0, limit).map(n => {
+        // relatedTickers 기준으로 해당 종목 관련 기사만 필터링
+        const symBase = symbol.replace(/\.(KS|KQ|T|L|PA|AS|DE|SW|HK)$/i, '').toUpperCase();
+        const relevant = raw.filter(n =>
+            !n.relatedTickers?.length ||
+            n.relatedTickers.some(t => {
+                const tu = t.toUpperCase();
+                return tu === symBase || tu === symbol.toUpperCase();
+            })
+        );
+        const mapped = relevant.slice(0, limit).map(n => {
             const resolutions = n.thumbnail?.resolutions || [];
             const thumb = (resolutions.find(r => r.tag === '140x140') || resolutions[0])?.url || null;
             return {
