@@ -224,6 +224,29 @@
         .swing-ai-btn{padding:5px 10px;background:transparent;color:var(--text3);border:1px solid var(--border);border-radius:8px;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;transition:all .15s;white-space:nowrap;}
         .swing-ai-btn:hover{border-color:var(--blue);color:var(--blue);background:rgba(59,130,246,.06);}
         .swing-empty{padding:24px;text-align:center;color:var(--text3);font-size:13px;background:var(--bg2);border-radius:var(--r2);}
+        /* ===== 시장 온도계 ===== */
+        .thermo-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;border-radius:var(--r2);font-size:13px;flex-wrap:wrap;}
+        .thermo-left{font-weight:600;color:var(--text);white-space:nowrap;}
+        .thermo-right{font-size:12px;color:var(--text2);flex:1;min-width:0;}
+        .thermo-up{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);}
+        .thermo-down{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);}
+        .thermo-flat{background:var(--bg2);border:1px solid var(--border);}
+        /* ===== AI 추천 / 즐겨찾기 요약 카드 ===== */
+        .section-header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;}
+        .section-title{font-size:13px;font-weight:700;color:var(--text2);}
+        .section-sub{font-size:11px;color:var(--text3);}
+        .ai-rec-list{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 8px;scrollbar-width:none;}
+        .ai-rec-list::-webkit-scrollbar{display:none;}
+        .ai-rec-card{flex:0 0 150px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:12px;cursor:pointer;transition:all .2s;}
+        .ai-rec-card:hover{background:var(--bg3);border-color:var(--blue);}
+        .ai-rec-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+        .ai-rec-sym{font-size:15px;font-weight:800;color:var(--text);}
+        .ai-rec-name{font-size:11px;color:var(--text3);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .ai-rec-price{font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px;}
+        .ai-rec-chg{font-size:12px;font-weight:600;}
+        .ai-badge{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;letter-spacing:.3px;white-space:nowrap;}
+        .ai-badge.buy{background:rgba(34,197,94,.2);color:var(--green);}
+        .ai-badge.watch{background:rgba(234,179,8,.2);color:var(--yellow);}
 
         /* ===== RECENT + VOL ALERT ===== */
         .recent-wrap{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 0 4px;}
@@ -1443,6 +1466,9 @@
 
     <!-- Welcome Screen -->
     <div class="welcome-screen" id="welcomeScreen">
+        <!-- 섹션 2: 시장 온도계 -->
+        <div id="marketThermometer" style="display:none;padding:8px 16px 4px;"></div>
+
         <!-- 최근 본 종목 (최상단) -->
         <section id="recentSection" class="home-section" style="display:none;margin-top:16px">
             <div class="hs-label">🕐 최근 본 종목</div>
@@ -1461,6 +1487,25 @@
                 <div class="scanner-placeholder"><div class="sp-icon">⏳</div>
                     <div class="sp-title">데이터 로딩 중...</div></div>
             </div>
+        </section>
+
+        <!-- 섹션 1: 오늘의 AI 추천 종목 -->
+        <section id="aiRecommendSection" class="home-section">
+            <div class="section-header">
+                <span class="section-title">🤖 오늘의 AI 추천 종목</span>
+                <span class="section-sub">R/R ≥ 2.0 기준</span>
+            </div>
+            <div id="aiRecommendList" class="ai-rec-list">
+                <div class="swing-empty">데이터 로딩 중...</div>
+            </div>
+        </section>
+
+        <!-- 섹션 3: 내 즐겨찾기 요약 -->
+        <section id="favSummarySection" class="home-section" style="display:none;">
+            <div class="section-header">
+                <span class="section-title">⭐ 내 즐겨찾기 지금 상태</span>
+            </div>
+            <div id="favSummaryList" class="ai-rec-list"></div>
         </section>
 
         <!-- 섹션 3: 스윙 R/R 타점 레이더 -->
@@ -2780,7 +2825,7 @@
                 top100Cache[filter] = { items, ts: Date.now() };
                 saveTop100LS();
                 if (top100Filter === filter) renderTop100(items);
-                if (filter === 'day_gainers') renderSwingRadar(items);
+                if (filter === 'day_gainers') { renderSwingRadar(items); renderAIRecommend(items); }
                 return;
             }
         } catch(e) {}
@@ -2798,7 +2843,7 @@
                 top100Cache[filter] = { items, ts: Date.now() };
                 saveTop100LS();
                 if (top100Filter === filter) renderTop100(items);
-                if (filter === 'day_gainers') renderSwingRadar(items);
+                if (filter === 'day_gainers') { renderSwingRadar(items); renderAIRecommend(items); }
                 return;
             }
         } catch(e) {}
@@ -3079,6 +3124,126 @@
         }catch(e){}
     }
 
+    // ========================================
+    // 섹션2: 시장 온도계 (S&P500 기반)
+    // ========================================
+    async function loadMarketThermometer() {
+        const el = document.getElementById('marketThermometer');
+        if (!el) return;
+        try {
+            const data = await fetchRace(
+                'https://query1.finance.yahoo.com/v7/finance/quote?symbols=%5EGSPC', 5000);
+            const q = data?.quoteResponse?.result?.[0];
+            if (!q) return;
+            const chg = q.regularMarketChangePercent || 0;
+            const sign = chg >= 0 ? '+' : '';
+            let icon, state, comment, cls;
+            if (chg >= 0.5) {
+                icon = '🟢'; state = '상승장'; cls = 'thermo-up';
+                comment = '오늘 시장은 우호적입니다. 손익비 좋은 종목 진입을 고려해보세요.';
+            } else if (chg <= -0.5) {
+                icon = '🔴'; state = '하락장'; cls = 'thermo-down';
+                comment = '오늘은 전반적으로 하락 중입니다. 신규 진입보다 기존 보유 종목 관리에 집중하세요.';
+            } else {
+                icon = '🟡'; state = '보합'; cls = 'thermo-flat';
+                comment = '시장이 방향을 잡지 못하고 있어요. 관망하거나 소량 진입을 권장합니다.';
+            }
+            el.innerHTML = `<div class="thermo-banner ${cls}">
+                <span class="thermo-left">${icon} S&P500 <strong>${sign}${chg.toFixed(2)}%</strong> · ${state}</span>
+                <span class="thermo-right">${comment}</span>
+            </div>`;
+            el.style.display = '';
+        } catch(e) { /* 조용히 숨김 */ }
+    }
+
+    // ========================================
+    // 섹션1: 오늘의 AI 추천 종목
+    // ========================================
+    function renderAIRecommend(items) {
+        const el  = document.getElementById('aiRecommendList');
+        if (!el) return;
+        const picks = (items || []).map(q => {
+            const p = q.regularMarketPrice, h = q.fiftyTwoWeekHigh;
+            if (!p || !h || h <= p) return null;
+            const rr = (h - p) / (p * 0.05);
+            return rr >= 2.0 ? {...q, _rr: rr} : null;
+        }).filter(Boolean).sort((a,b) => b._rr - a._rr).slice(0, 3);
+
+        if (!picks.length) {
+            el.innerHTML = '<div class="swing-empty">오늘은 R/R 2.0 이상 종목이 없어요. 관망을 권장합니다.</div>';
+            return;
+        }
+        el.innerHTML = picks.map(q => {
+            const sym  = (q.symbol || '').replace(/'/g, "\\'");
+            const chg  = q.regularMarketChangePercent || 0;
+            const chgCls = chg > 0 ? 'up' : chg < 0 ? 'down' : 'flat';
+            const chgStr = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+            const price  = q.regularMarketPrice ? '$' + q.regularMarketPrice.toFixed(2) : '-';
+            return `<div class="ai-rec-card" onclick="quickSearch('${sym}','US')">
+                <div class="ai-rec-top">
+                    <span class="ai-rec-sym">${q.symbol}</span>
+                    <span class="ai-badge buy">매수 적기</span>
+                </div>
+                <div class="ai-rec-name">${q.shortName || q.symbol}</div>
+                <div class="ai-rec-price">${price}</div>
+                <div class="ai-rec-chg ${chgCls}">${chgStr}</div>
+                <div class="rr-badge good" style="margin-top:6px;">R/R ${q._rr.toFixed(1)}</div>
+            </div>`;
+        }).join('');
+    }
+
+    function loadAIRecommend() {
+        renderAIRecommend(top100Cache['day_gainers']?.items || []);
+    }
+
+    // ========================================
+    // 섹션3: 내 즐겨찾기 요약
+    // ========================================
+    async function loadFavSummary() {
+        const sec = document.getElementById('favSummarySection');
+        const el  = document.getElementById('favSummaryList');
+        if (!sec || !el) return;
+        const favs = getFavorites();
+        const usFavs = favs.filter(f => f.market === 'US');
+        if (!usFavs.length) { sec.style.display = 'none'; return; }
+        sec.style.display = '';
+        // 스켈레톤
+        el.innerHTML = usFavs.map(() =>
+            '<div class="ai-rec-card" style="min-height:110px;opacity:.35;pointer-events:none;background:var(--bg3);"></div>'
+        ).join('');
+        try {
+            const symbols = usFavs.map(f => encodeURIComponent(f.symbol)).join(',');
+            const data = await fetchRace(
+                `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`, 6000);
+            const quotes = data?.quoteResponse?.result || [];
+            if (!quotes.length) { sec.style.display = 'none'; return; }
+            // R/R 보강 맵 (day_gainers 캐시 활용)
+            const rrMap = {};
+            (top100Cache['day_gainers']?.items || []).forEach(q => {
+                const p = q.regularMarketPrice, h = q.fiftyTwoWeekHigh;
+                if (p && h && h > p) rrMap[q.symbol] = (h - p) / (p * 0.05);
+            });
+            el.innerHTML = quotes.map(q => {
+                const sym    = (q.symbol || '').replace(/'/g, "\\'");
+                const chg    = q.regularMarketChangePercent || 0;
+                const chgCls = chg > 0 ? 'up' : chg < 0 ? 'down' : 'flat';
+                const chgStr = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+                const price  = q.regularMarketPrice ? '$' + q.regularMarketPrice.toFixed(2) : '-';
+                const rr     = rrMap[q.symbol];
+                const rrHtml = rr
+                    ? `<div class="rr-badge ${rr>=3?'excellent':rr>=2?'good':'ok'}" style="margin-top:6px;">R/R ${rr.toFixed(1)}</div>`
+                    : '';
+                return `<div class="ai-rec-card" onclick="quickSearch('${sym}','US')">
+                    <div class="ai-rec-sym">${q.symbol}</div>
+                    <div class="ai-rec-name">${q.shortName || q.symbol}</div>
+                    <div class="ai-rec-price">${price}</div>
+                    <div class="ai-rec-chg ${chgCls}">${chgStr}</div>
+                    ${rrHtml}
+                </div>`;
+            }).join('');
+        } catch(e) { sec.style.display = 'none'; }
+    }
+
     function loadRecentStocks(){
         const wrap=document.getElementById('recentWrap');
         const sec=document.getElementById('recentSection');
@@ -3138,6 +3303,9 @@
     loadRecentStocks();
     loadSocialHot();
     loadVolAlert();
+    loadMarketThermometer();
+    loadAIRecommend();
+    loadFavSummary();
 
     function goFav() {
         document.getElementById('welcomeScreen').style.display = 'none';
@@ -3184,6 +3352,9 @@
         loadRecentStocks();
         loadSwingRadar();
         loadSocialHot();
+        loadMarketThermometer();
+        loadAIRecommend();
+        loadFavSummary();
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -11056,6 +11227,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         loadMarketWeather, renderMarketWeather, drawSparkline,
         loadPremarketScanner, renderPremarketScanner,
         loadSwingRadar, renderSwingRadar,
+        loadMarketThermometer, renderAIRecommend, loadAIRecommend, loadFavSummary,
         saveRecentStock, loadRecentStocks,
         loadVolAlert,
         loadNewsTab, reloadNewsTab, renderNewsList, _newsTimeAgo,
