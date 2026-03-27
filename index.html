@@ -3177,7 +3177,8 @@
         stockData = null;
         stopLiveUpdate();
         stopAnalysisRefresh();
-        // 캐시 있으면 즉시 렌더, 없으면 스켈레톤 + 프리로드
+        // 홈 이동 시 top100 캐시 만료 → 강제 재fetch (수치 데이터 미렌더링 방지)
+        TOP100_FILTERS.forEach(f => { if (top100Cache[f]) top100Cache[f].ts = 0; });
         loadTop100();
         loadRecentStocks();
         loadSwingRadar();
@@ -9277,7 +9278,7 @@
         const pcrColor = pcrNum >= 1 ? 'var(--red)' : 'var(--green)';
         const callPct = totalCallOI + totalPutOI > 0 ? (totalCallOI / (totalCallOI + totalPutOI) * 100).toFixed(0) : 50;
         const putPct  = 100 - callPct;
-        const fmtK = v => v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v;
+        const fmtK = v => !v ? '-' : v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : v;
 
         summaryEl.innerHTML = `
             <div class="options-stat">

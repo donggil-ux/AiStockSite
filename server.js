@@ -228,8 +228,8 @@ app.get('/api/options/:symbol', async (req, res) => {
     if (!validSymbol(symbol)) return res.status(400).json({ error: 'invalid symbol' });
     if (date && !/^\d{1,13}$/.test(date)) return res.status(400).json({ error: 'invalid date' });
     try {
-        let url = `https://query1.finance.yahoo.com/v7/finance/options/${encodeURIComponent(symbol)}?formatted=false`;
-        if (date) url += `&date=${date}`;
+        let url = `https://query2.finance.yahoo.com/v7/finance/options/${encodeURIComponent(symbol)}`;
+        if (date) url += `?date=${date}`;
         const data = await yfRequest(url);
         res.json(data);
     } catch (err) {
