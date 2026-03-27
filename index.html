@@ -698,7 +698,8 @@
 
 
         /* ===== LOADING ===== */
-        .loading-overlay{display:none;position:fixed;inset:0;background:color-mix(in srgb, var(--bg) 90%, transparent);z-index:1000;justify-content:center;align-items:center;flex-direction:column;gap:18px;backdrop-filter:blur(12px);}
+        .loading-overlay{display:none;position:fixed;inset:0;background:color-mix(in srgb, var(--bg) 96%, transparent);z-index:1000;justify-content:center;align-items:center;flex-direction:column;gap:18px;}
+        /* backdrop-filter 제거: Safari에서 position:sticky tab-nav가 blur에 의해 덮이는 compositing 버그 방지 */
         .loading-overlay.active{display:flex;}
         .spinner{width:40px;height:40px;border:3px solid var(--bg4);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;}
         @keyframes spin{to{transform:rotate(360deg);}}
@@ -9585,6 +9586,9 @@
             lbl.textContent = sym ? '— ' + sym : '';
         }
         renderCalcFabContent();
+        // 스크롤 위치 초기화 — 이전 열기 상태 복원 방지 (renderCalcFabContent 이후 실행)
+        const fabBody = document.getElementById('calcFabBody');
+        if (fabBody) fabBody.scrollTop = 0;
     }
 
     function closeCalcFab() {

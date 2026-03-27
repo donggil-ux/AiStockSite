@@ -219,18 +219,46 @@ app.get('/api/summary/:symbol', async (req, res) => {
 /**
  * 옵션 체인 데이터
  * GET /api/options/:symbol?date={timestamp}
- * date: Unix timestamp (생략 시 가장 가까운 만기일)
  */
 app.get('/api/options/:symbol', async (req, res) => {
     const { symbol } = req.params;
     const { date } = req.query;
-    // [Fix-F] 입력 검증 — date는 Unix 숫자 타임스탬프만 허용
     if (!validSymbol(symbol)) return res.status(400).json({ error: 'invalid symbol' });
     if (date && !/^\d{1,13}$/.test(date)) return res.status(400).json({ error: 'invalid date' });
+    
     try {
         let url = `https://query2.finance.yahoo.com/v7/finance/options/${encodeURIComponent(symbol)}`;
         if (date) url += `?date=${date}`;
+        
         const data = await yfRequest(url);
+        
+        // [Bug Fix] openInterest 파싱 보정
+        // Yahoo Finance API는 openInterest를 숫자 또는 {raw, fmt} 객체로 줄 수 있음
+        // 프론트엔드에서 일관되게 처리할 수 있도록 서버에서 숫자로 표준화하여 전달
+        if (data?.optionChain?.result?.[0]?.options) {
+            data.optionChain.result[0].options.forEach(opt => {
+                const normalize = (arr) => {
+                    if (!arr) return;
+                    arr.forEach(o => {
+                        // openInterest가 객체인 경우 raw 값을 사용, 아니면 숫자형 변환
+                        if (o.openInterest && typeof o.openInterest === 'object' && 'raw' in o.openInterest) {
+                            o.openInterest = o.openInterest.raw;
+                        } else {
+                            o.openInterest = Number(o.openInterest) || 0;
+                        }
+                        // volume도 같은 방식으로 보정
+                        if (o.volume && typeof o.volume === 'object' && 'raw' in o.volume) {
+                            o.volume = o.volume.raw;
+                        } else {
+                            o.volume = Number(o.volume) || 0;
+                        }
+                    });
+                };
+                normalize(opt.calls);
+                normalize(opt.puts);
+            });
+        }
+        
         res.json(data);
     } catch (err) {
         console.error(`[options] ${symbol}:`, err.message);
