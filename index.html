@@ -698,6 +698,12 @@
         .entry-check-text{flex:1;}
         .entry-check-label{font-weight:700;}
         .entry-check-desc{color:var(--text2);font-size:12px;margin-top:2px;}
+        .checklist-toggle-btn{display:flex;align-items:center;gap:5px;width:100%;padding:7px 0 3px;background:none;border:none;border-bottom:1px dashed var(--border);cursor:pointer;color:var(--text3);font-size:12px;font-weight:600;letter-spacing:.3px;transition:color .15s;}
+        .checklist-toggle-btn:hover{color:var(--blue);}
+        .toggle-label{flex:1;text-align:left;}
+        .checklist-toggle-arrow{font-size:10px;transition:transform .22s;}
+        .checklist-toggle-btn.open .checklist-toggle-arrow{transform:rotate(180deg);}
+        .checklist-body{display:flex;flex-direction:column;gap:6px;overflow:hidden;transition:max-height .25s ease;}
         .entry-strategy{margin-top:8px;background:var(--bg3);border-radius:var(--r3);padding:14px;}
         .entry-strategy-title{font-size:14px;font-weight:700;margin-bottom:8px;color:var(--cyan);}
         .entry-strategy-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;}
@@ -2018,10 +2024,6 @@
                             </div>
                         </div>
                         <div class="ai-details" id="dayDetails"></div>
-                        <div class="warning-box">
-                            <div class="title">단타 투자 주의사항</div>
-                            <div class="text">단타 매매는 짧은 시간 내 빠른 판단이 필요하며, 손절 기준을 철저히 지켜야 합니다. 거래 수수료와 슬리피지를 고려하세요.</div>
-                        </div>
                     </div>
                     <div class="card">
                         <div class="card-title"><span class="dot" style="background:var(--green)"></span>단타 기술적 지표</div>
@@ -2037,10 +2039,6 @@
                             <div class="entry-meter" id="dayEntryMeter"></div>
                             <div class="entry-checklist" id="dayEntryChecklist"></div>
                             <div class="entry-strategy" id="dayEntryStrategy"></div>
-                            <div class="warning-box" style="margin-top:12px">
-                                <div class="title">단타 리스크</div>
-                                <div class="text">단타는 -2~3% 손절이 철칙입니다. 목표 수익률에 도달하면 미련 없이 익절하세요.</div>
-                            </div>
                         </div>
                     </div>
                     <div class="card">
@@ -2050,10 +2048,6 @@
                             <div class="exit-meter" id="dayExitMeter"></div>
                             <div class="exit-checklist" id="dayExitChecklist"></div>
                             <div class="exit-strategy" id="dayExitStrategy"></div>
-                            <div class="warning-box" style="margin-top:12px">
-                                <div class="title">단타 매도 원칙</div>
-                                <div class="text">단타는 당일 청산이 원칙입니다. 오버나잇 리스크를 최소화하세요.</div>
-                            </div>
                         </div>
                     </div>
                     </div>
@@ -6479,6 +6473,26 @@
     const DYNAMIC_BAND_LOOKBACK = 50; // 동적 밴드 계산 기준 캔들 수
     const DIVERGENCE_LOOKBACK  = 10;  // 다이버전스 탐지 범위
     const RSI_CENTER_LINE      = 50;  // RSI 중심선
+    // RSI 5구간 경계값 (전체 레이블 판정에 통일 적용)
+    const RSI_OVERSOLD    = 30;  // 이하: 과매도
+    const RSI_WEAK_LOW    = 31;  // ~44: 약세
+    const RSI_NEUTRAL_LOW = 45;  // ~55: 중립
+    const RSI_STRONG_LOW  = 56;  // ~69: 강세
+    const RSI_OVERBOUGHT  = 70;  // 이상: 과매수
+
+    // RSI 5구간 레이블 헬퍼 — [label, signalKey, cssColor] 반환
+    function rsiZoneLabel(rsi) {
+        if (rsi >= RSI_OVERBOUGHT)  return ['과매수', 'sell',    'var(--red)'];
+        if (rsi >= RSI_STRONG_LOW)  return ['강세',   'buy',     'var(--green)'];
+        if (rsi >= RSI_NEUTRAL_LOW) return ['중립',   'neutral', 'var(--yellow)'];
+        if (rsi >  RSI_OVERSOLD)    return ['약세',   'sell',    'var(--red)'];
+        return                             ['과매도', 'buy',     'var(--green)'];
+    }
+
+    // ── 단타 손익비 상수 ──────────────────────────────────────────────
+    const DAYTRADING_SL_MULTIPLIER = 0.7;   // 손절 ATR 배수 (단타 기준)
+    const TP2_ATR_MULTIPLIER       = 2.5;   // TP2 ATR 배수
+    const FORCED_SELL_THRESHOLD    = -0.02; // 당일 -2% 이하 시 강제 즉시 청산
 
     // ── MACD 모멘텀 시그널 분석 (레이너 테오 최적화 전략) ──────────────
     const PULLBACK_THRESHOLD = 0.05;  // 눌림목 허용 범위 ±5%
@@ -8001,7 +8015,7 @@
             return price > maVal ? ['상향 돌파', 'buy'] : ['하향 돌파', 'sell'];
         }
 
-        const rsiSignal = lastRSI > 70 ? ['과매수', 'sell'] : lastRSI < 30 ? ['과매도', 'buy'] : ['중립', 'neutral'];
+        const rsiSignal = rsiZoneLabel(lastRSI);
         const macdSignalText = lastMACD > lastSignal ? ['매수 신호', 'buy'] : ['매도 신호', 'sell'];
 
         // Stochastic signal
@@ -8820,8 +8834,7 @@
         const rsi = calcRSI(closes);
         const { macdLine, signalLine, histogram } = calcMACD(closes);
         const bb = calcBollingerBands(closes);
-        const stoch = calcStochastic(highs, lows, closes);
-        return { quotes, closes, volumes, highs, lows, price, ma5, ma10, ma20, ma60, ma120, rsi, macdLine, signalLine, histogram, bb, stoch };
+        return { quotes, closes, volumes, highs, lows, price, ma5, ma10, ma20, ma60, ma120, rsi, macdLine, signalLine, histogram, bb };
     }
 
     function renderScoreCard(prefix, totalScore, details, type) {
@@ -8863,7 +8876,7 @@
 
     function renderDayAnalysis() {
         const d = getAnalysisData();
-        const { closes, price, volumes, ma20, rsi, macdLine, signalLine, histogram, bb, stoch, highs, lows } = d;
+        const { closes, price, volumes, ma20, rsi, macdLine, signalLine, histogram, bb, highs, lows } = d;
         const scores = []; const details = [];
         const c = v => v >= 60 ? 'var(--green)' : v <= 40 ? 'var(--red)' : 'var(--yellow)';
 
@@ -8881,7 +8894,7 @@
         else if (lastADX >= 20 && price > lma20) { s1 = 70; t1 = `ADX ${lastADX.toFixed(1)} 추세 형성 중 + MA20 위. 진입 가능 조건 접근.`; }
         else if (lastADX >= 25 && price <= lma20) { s1 = 20; t1 = `ADX ${lastADX.toFixed(1)} 강한 하락 추세. MA20 하위. 진입 금지.`; }
         else { s1 = 35; t1 = `ADX ${lastADX.toFixed(1)} 횡보장(Ranging). 추세 미형성. 퀀트 단타 부적합.`; }
-        scores.push({ w: .30, s: s1 }); details.push({ title: '추세 강도 (ADX+MA20)', color: c(s1), score: s1, text: t1 });
+        scores.push({ w: .35, s: s1 }); details.push({ title: '추세 강도 (ADX+MA20)', color: c(s1), score: s1, text: t1 });
 
         // 2. 모멘텀 (RSI 모멘텀 존 + MACD) - 30%
         const lastRSI = rsi.filter(v=>v!=null).pop() || 50;
@@ -8891,10 +8904,10 @@
         let s2 = 50, t2 = '';
         if (lastRSI >= 50 && lastRSI <= 65 && lastMACD > lastSig && lastHist > 0) { s2 = 92; t2 = `RSI ${lastRSI.toFixed(1)} 모멘텀 존 + MACD 이중 확인. 퀀트 진입 최고 신호.`; }
         else if (lastRSI >= 45 && lastRSI <= 70 && lastMACD > lastSig) { s2 = 75; t2 = `RSI ${lastRSI.toFixed(1)} 적정 + MACD 매수 구간. 모멘텀 유효.`; }
-        else if (lastRSI > 70) { s2 = 25; t2 = `RSI ${lastRSI.toFixed(1)} 과매수 초과. 퀀트 진입 금지 구간.`; }
-        else if (lastRSI < 40) { s2 = 30; t2 = `RSI ${lastRSI.toFixed(1)} 약세. 모멘텀 부재. 추세 추종 불가.`; }
+        else if (lastRSI >= RSI_OVERBOUGHT) { s2 = 25; t2 = `RSI ${lastRSI.toFixed(1)} 과매수(≥${RSI_OVERBOUGHT}). 퀀트 진입 금지 구간.`; }
+        else if (lastRSI < RSI_NEUTRAL_LOW) { s2 = 30; t2 = `RSI ${lastRSI.toFixed(1)} 약세(${RSI_WEAK_LOW}~44). 모멘텀 부재. 추세 추종 불가.`; }
         else { s2 = 45; t2 = `RSI ${lastRSI.toFixed(1)} / MACD 조건 미충족. 방향성 확인 필요.`; }
-        scores.push({ w: .30, s: s2 }); details.push({ title: '모멘텀 (RSI 존+MACD)', color: c(s2), score: s2, text: t2 });
+        scores.push({ w: .35, s: s2 }); details.push({ title: '모멘텀 (RSI 존+MACD)', color: c(s2), score: s2, text: t2 });
 
         // 3. 거래량 품질 (RVOL) - 25%
         const isUp = closes[closes.length-1] >= (closes[closes.length-2] || closes[closes.length-1]);
@@ -8915,19 +8928,7 @@
             else if (bbPos > 1.0) { s4 = 20; t4 = `BB 상단 이탈. 극단적 과매수. 퀀트 진입 금지.`; }
             else { s4 = 35; t4 = `BB 포지션 ${(bbPos*100).toFixed(0)}% — 하단 구간. 추세 미형성.`; }
         }
-        scores.push({ w: .10, s: s4 }); details.push({ title: 'BB 진입 구간', color: c(s4), score: s4, text: t4 });
-
-        // 5. Stochastic 모멘텀 확인 - 5%
-        const lastK = stoch.kLine.filter(v=>v!=null).pop() || 50;
-        const lastD = stoch.dLine.filter(v=>v!=null).pop() || 50;
-        const prevK = stoch.kLine.filter(v=>v!=null).slice(-2)[0] || 50;
-        const kCrossUp = prevK <= lastD && lastK > lastD;
-        let s5 = 50, t5 = '';
-        if (kCrossUp && lastK >= 40 && lastK <= 75) { s5 = 90; t5 = `Stochastic K(${lastK.toFixed(0)}) 골든크로스 + 모멘텀 존. 추세 추종 진입 타이밍.`; }
-        else if (lastK > lastD && lastK >= 40 && lastK <= 75) { s5 = 72; t5 = `K(${lastK.toFixed(0)}) > D(${lastD.toFixed(0)}) 모멘텀 존. 상승 모멘텀 유효.`; }
-        else if (lastK > 80) { s5 = 25; t5 = `K ${lastK.toFixed(0)} 과매수. 단기 조정 가능성.`; }
-        else { s5 = 40; t5 = `K ${lastK.toFixed(0)} 모멘텀 조건 미충족.`; }
-        scores.push({ w: .05, s: s5 }); details.push({ title: 'Stochastic 모멘텀', color: c(s5), score: s5, text: t5 });
+        scores.push({ w: .05, s: s4 }); details.push({ title: 'BB 진입 구간', color: c(s4), score: s4, text: t4 });
 
         const total = Math.round(scores.reduce((sum, x) => sum + x.w * x.s, 0));
         renderScoreCard('day', total, details, 'day');
@@ -8935,10 +8936,8 @@
 
     function renderDayIndicators() {
         const d = getAnalysisData();
-        const { closes, price, volumes, ma5, ma10, rsi, stoch, bb } = d;
+        const { closes, price, volumes, ma5, ma10, rsi, bb } = d;
         const lastRSI = rsi.filter(v=>v!=null).pop() || 50;
-        const lastK = stoch.kLine.filter(v=>v!=null).pop() || 50;
-        const lastD = stoch.dLine.filter(v=>v!=null).pop() || 50;
         const lma5 = ma5.filter(v=>v!=null).pop(); const lma10 = ma10.filter(v=>v!=null).pop();
         const volNow = volumes[volumes.length-1] || 0;
         const avgVol20 = volumes.length >= 20 ? volumes.slice(-20).reduce((a,b)=>a+b,0)/20 : volNow;
@@ -8947,9 +8946,7 @@
         const grid = document.getElementById('dayIndicatorGrid');
         if (!grid) return;
         grid.innerHTML = [
-            { label: 'RSI(14)', value: lastRSI.toFixed(1), signal: lastRSI>=70?'매도':lastRSI<=30?'매수':'중립', color: lastRSI>=70?'var(--red)':lastRSI<=30?'var(--green)':'var(--yellow)' },
-            { label: 'Stoch K', value: lastK.toFixed(1), signal: lastK>=80?'과매수':lastK<=20?'과매도':'중립', color: lastK>=80?'var(--red)':lastK<=20?'var(--green)':'var(--yellow)' },
-            { label: 'Stoch D', value: lastD.toFixed(1), signal: lastK>lastD?'매수 우위':'매도 우위', color: lastK>lastD?'var(--green)':'var(--red)' },
+            { label: 'RSI(14)', value: lastRSI.toFixed(1), signal: rsiZoneLabel(lastRSI)[0], color: rsiZoneLabel(lastRSI)[2] },
             { label: 'MA5/MA10', value: lma5>lma10?'정배열':'역배열', signal: lma5>lma10?'상승':'하락', color: lma5>lma10?'var(--green)':'var(--red)' },
             { label: '거래량비', value: volRatio+'%', signal: volRatio>=150?'급증':volRatio<=50?'감소':'보통', color: volRatio>=150?'var(--cyan)':volRatio<=50?'var(--text3)':'var(--yellow)' },
             { label: '전일 대비', value: chg1+'%', signal: parseFloat(chg1)>=0?'상승':'하락', color: parseFloat(chg1)>=0?'var(--green)':'var(--red)' },
@@ -9004,7 +9001,7 @@
         // ATR-based Stop Loss (raw nullable arrays 사용)
         const atrArr = calcATR(quotes.high, quotes.low, quotes.close, 14);
         const atr    = atrArr.filter(v => v != null).pop() || price * 0.01;
-        const sl     = price - atr * 1.5;
+        const sl     = price - atr * DAYTRADING_SL_MULTIPLIER;
 
         // Volume Profile → TP1, TP2
         const profile = calcVolumeProfile(closes, volumes, period, 20);
@@ -9013,7 +9010,7 @@
             res = [...highs.slice(-period)].filter(h => h > price*1.005).sort((a,b)=>a-b).slice(0,2);
         }
         const tp1 = res[0] || price * 1.025;
-        const tp2 = res[1] || price * 1.05;
+        const tp2 = res[1] || (price + atr * TP2_ATR_MULTIPLIER);
 
         // R/R
         const risk = price - sl, reward = tp1 - price;
@@ -9063,10 +9060,10 @@
                 <div class="rr-row"><span class="rr-label">1차 목표가 (TP1)</span>
                     <span class="rr-value" style="color:var(--green)">${fmtP(tp1)}
                     <span class="rr-pct">${fmtPct((tp1-price)/price*100)}</span></span></div>
-                <div class="rr-row"><span class="rr-label">2차 목표가 (TP2)</span>
+                <div class="rr-row"><span class="rr-label">2차 목표가 (TP2 · ATR×2.5)</span>
                     <span class="rr-value" style="color:var(--green)">${fmtP(tp2)}
                     <span class="rr-pct">${fmtPct((tp2-price)/price*100)}</span></span></div>
-                <div class="rr-row"><span class="rr-label">손절가 (SL · ATR×1.5)</span>
+                <div class="rr-row"><span class="rr-label">손절가 (SL · ATR×0.7)</span>
                     <span class="rr-value" style="color:var(--red)">${fmtP(sl)}
                     <span class="rr-pct">${fmtPct((sl-price)/price*100)}</span></span></div>
                 <div class="rr-row"><span class="rr-label">ATR(14) 일평균 변동폭</span>
@@ -9238,7 +9235,7 @@
         const price   = closes[closes.length - 1];
         const atrArr  = calcATR(quotes.high, quotes.low, quotes.close, 14);
         const atr     = atrArr.filter(v => v != null).pop() || price * 0.01;
-        const sl      = price - atr * 1.5;
+        const sl      = price - atr * DAYTRADING_SL_MULTIPLIER;
         const volumes = quotes.volume.filter(v => v != null);
         const period  = 20;
         const profile = calcVolumeProfile(closes, volumes, period, 20);
@@ -9335,11 +9332,29 @@
         }
         const iconMap = { pass: '&#10003;', fail: '&#10007;', warn: '!' };
         const cEl = document.getElementById(elId + 'Checklist');
-        if (cEl) cEl.innerHTML = checks.map(ck => `
-            <div class="entry-check-item"><div class="entry-check-icon ${ck.status}">${iconMap[ck.status]}</div><div class="entry-check-text"><div class="entry-check-label">${ck.label}</div><div class="entry-check-desc">${ck.desc}</div></div></div>
-        `).join('');
+        if (cEl) cEl.innerHTML = `
+            <button class="checklist-toggle-btn" onclick="toggleChecklist(this)"><span class="toggle-label">상세 조건 보기</span><span class="checklist-toggle-arrow">▾</span></button>
+            <div class="checklist-body" style="max-height:0;">${checks.map(ck => `
+            <div class="entry-check-item"><div class="entry-check-icon ${ck.status}">${iconMap[ck.status]}</div><div class="entry-check-text"><div class="entry-check-label">${ck.label}</div><div class="entry-check-desc">${ck.desc}</div></div></div>`).join('')}
+            </div>`;
         const sEl = document.getElementById(elId + 'Strategy');
         if (sEl) sEl.innerHTML = strategyHtml;
+    }
+
+    function toggleChecklist(btn) {
+        const body = btn.nextElementSibling;
+        const lbl  = btn.querySelector('.toggle-label');
+        const isOpen = btn.classList.contains('open');
+        if (isOpen) {
+            body.style.maxHeight = body.scrollHeight + 'px';
+            requestAnimationFrame(() => { body.style.maxHeight = '0'; });
+            btn.classList.remove('open');
+            if (lbl) lbl.textContent = '상세 조건 보기';
+        } else {
+            body.style.maxHeight = body.scrollHeight + 'px';
+            btn.classList.add('open');
+            if (lbl) lbl.textContent = '접기';
+        }
     }
 
     // =====================
@@ -9347,7 +9362,7 @@
     // =====================
     function renderDayEntry() {
         const d = getAnalysisData();
-        const { closes, volumes, highs, lows, price, ma20, rsi, bb, stoch, macdLine, signalLine, histogram } = d;
+        const { closes, volumes, highs, lows, price, ma20, rsi, bb, macdLine, signalLine, histogram } = d;
         const isKR = currentMarket === 'KR';
         const fmtP = v => isKR ? Math.round(v).toLocaleString()+'원' : '$'+v.toFixed(2);
         const fmtPct = (v, base) => v && base
@@ -9380,14 +9395,11 @@
         const bbUpper  = bb.upper.filter(v=>v!=null).pop();
         const bbLower  = bb.lower.filter(v=>v!=null).pop();
         const bbMid    = bb.middle.filter(v=>v!=null).pop();
-        const lastK    = stoch.kLine.filter(v=>v!=null).pop() || 50;
-        const prevK    = stoch.kLine.filter(v=>v!=null).slice(-2)[0] || 50;
-        const lastD    = stoch.dLine.filter(v=>v!=null).pop() || 50;
 
         // 목표가 / 손절
         const tp1 = price * 1.02;  // +2% 빠른 익절
-        const tp2 = bbMid || null; // BB 중심선 (MA20)
-        const sl  = price - atr;   // ATR 1x 손절
+        const tp2 = price + atr * TP2_ATR_MULTIPLIER; // ATR×2.5 목표가
+        const sl  = price - atr * DAYTRADING_SL_MULTIPLIER; // ATR×0.7 손절
 
         // 6개 체크
         const checks = []; let passCount = 0, totalChecks = 0;
@@ -9428,10 +9440,11 @@
             checks.push({ status:'warn', label:`RSI ${lastRSI.toFixed(1)} — 모멘텀 존 하단`, desc:'진입 가능하나 50 돌파 확인 권장.' });
         } else if (lastRSI > 65 && lastRSI <= 70) {
             checks.push({ status:'warn', label:`RSI ${lastRSI.toFixed(1)} — 모멘텀 존 상단`, desc:'진입 가능하나 과매수 근접. 빠른 익절 준비.' });
-        } else if (lastRSI > 70) {
-            checks.push({ status:'fail', label:`RSI ${lastRSI.toFixed(1)} — 과매수 (>70)`, desc:'과매수 극단. 퀀트 신규 진입 금지.' });
+        } else if (lastRSI >= RSI_OVERBOUGHT) {
+            checks.push({ status:'fail', label:`RSI ${lastRSI.toFixed(1)} — 과매수 (≥${RSI_OVERBOUGHT})`, desc:'과매수 극단. 퀀트 신규 진입 금지.' });
         } else {
-            checks.push({ status:'fail', label:`RSI ${lastRSI.toFixed(1)} — 모멘텀 부재 (<45)`, desc:'약세 구간. 추세 추종 조건 미충족.' });
+            const [rsiLbl] = rsiZoneLabel(lastRSI);
+            checks.push({ status:'fail', label:`RSI ${lastRSI.toFixed(1)} — ${rsiLbl} (<${RSI_NEUTRAL_LOW})`, desc:'약세/과매도 구간. 추세 추종 조건 미충족.' });
         }
 
         // D. MACD 이중 확인 (MACD > Signal AND Hist > 0)
@@ -9463,20 +9476,6 @@
             checks.push({ status:'warn', label:'BB 데이터 없음', desc:'볼린저밴드 계산 불가.' });
         }
 
-        // F. Stochastic 크로스오버 (K>D, 40≤K≤75)
-        totalChecks++;
-        const kCrossUp = prevK <= lastD && lastK > lastD;
-        if (kCrossUp && lastK >= 40 && lastK <= 75) {
-            checks.push({ status:'pass', label:`Stochastic 골든크로스 K${lastK.toFixed(0)}>D${lastD.toFixed(0)}`, desc:'모멘텀 존에서 K>D 크로스오버. 추세 추종 진입 타이밍.' });
-            passCount++;
-        } else if (lastK > lastD && lastK >= 40 && lastK <= 75) {
-            checks.push({ status:'warn', label:`K(${lastK.toFixed(0)}) > D(${lastD.toFixed(0)}) 모멘텀 존`, desc:'진입 가능하나 크로스오버 직후 아님.' });
-        } else if (lastK > 75) {
-            checks.push({ status:'fail', label:`Stochastic K ${lastK.toFixed(0)} — 과매수`, desc:'모멘텀 존 초과. 조정 후 재진입 대기.' });
-        } else {
-            checks.push({ status:'fail', label:`Stochastic K ${lastK.toFixed(0)} — 조건 미충족`, desc:'K≤40 또는 K<D. 모멘텀 확인 필요.' });
-        }
-
         const stratHtml = `
             <div class="entry-strategy-title" style="color:var(--cyan)">추세 추종 모멘텀 전략 (퀀트 단타)</div>
             <div class="entry-strategy-row">
@@ -9488,7 +9487,7 @@
                 <span class="entry-strategy-value" style="color:var(--green)">${fmtP(tp1)} <small style="color:var(--text2)">+2.0%</small></span>
             </div>
             <div class="entry-strategy-row">
-                <span class="entry-strategy-label">2차 목표 (BB 중심선)</span>
+                <span class="entry-strategy-label">2차 목표가 (TP2 · ATR×2.5)</span>
                 <span class="entry-strategy-value" style="color:var(--green)">${tp2 ? fmtP(tp2) : 'N/A'} <small style="color:var(--text2)">${fmtPct(tp2,price)}</small></span>
             </div>
             <div class="entry-strategy-row">
@@ -9519,9 +9518,47 @@
     // =====================
     function renderDayExit() {
         const d = getAnalysisData();
-        const { closes, volumes, highs, lows, price, ma20, rsi, stoch, bb, macdLine, signalLine } = d;
+        const { closes, volumes, highs, lows, price, ma20, rsi, bb, macdLine, signalLine } = d;
         const isKR = currentMarket === 'KR';
         const fmtP = v => isKR ? Math.round(v).toLocaleString() + '원' : '$' + v.toFixed(2);
+
+        // ── 강제 즉시 청산 우선 체크 (다른 조건과 무관하게 최우선 적용) ──
+        const prevClose0 = closes[closes.length - 2] || closes[closes.length - 1];
+        const dayReturn0 = (price - prevClose0) / prevClose0;
+        if (dayReturn0 <= FORCED_SELL_THRESHOLD) {
+            const lossStr = (dayReturn0 * 100).toFixed(2);
+            const threshStr = (FORCED_SELL_THRESHOLD * 100).toFixed(0);
+            const forcedChecks = [{
+                status: 'fail',
+                label:  `${lossStr}% — 손절 기준(${threshStr}%) 초과`,
+                desc:   `즉시 전량 청산하세요. 추가 손실을 막아야 합니다.`,
+            }];
+            const forcedStratHtml = `
+                <div class="entry-strategy-title" style="color:var(--red)">⚠️ 강제 청산 알림</div>
+                <div class="entry-strategy-row">
+                    <span class="entry-strategy-label">당일 수익률</span>
+                    <span class="entry-strategy-value" style="color:var(--red)">${lossStr}%</span>
+                </div>
+                <div class="entry-strategy-row">
+                    <span class="entry-strategy-label">손절 기준</span>
+                    <span class="entry-strategy-value" style="color:var(--red)">${threshStr}%</span>
+                </div>
+                <div class="entry-strategy-row">
+                    <span class="entry-strategy-label">청산 원칙</span>
+                    <span class="entry-strategy-value" style="font-size:12px">즉시 전량 청산. 이유 묻지 말 것.</span>
+                </div>`;
+            renderTimingCard('day', 'exit', forcedChecks, 1, 1, forcedStratHtml);
+            // renderTimingCard의 verdict 텍스트를 강제 override
+            const vEl = document.getElementById('dayExitVerdict');
+            if (vEl) {
+                const titleEl = vEl.querySelector('.entry-title');
+                const subEl   = vEl.querySelector('.entry-subtitle');
+                if (titleEl) titleEl.textContent = '즉시 전량 청산';
+                if (subEl)   subEl.textContent   = `손절 기준(${threshStr}%) 초과. 즉시 전량 청산하세요.`;
+            }
+            return; // 이하 기존 조건 분기 실행하지 않음
+        }
+
         const checks = []; let sellCount = 0; let totalChecks = 0;
 
         // 1. RSI ≥ 70 과매수 이탈
@@ -11641,6 +11678,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         handleSearchKeydown, openSearchDropdown, closeSearchDropdown, searchSuggest, levenshtein,
         renderRRAnalysis, renderRSIMomentum, analyzeRSIDynamic,
         renderMACDSignal, analyzeMACDRayner, _applyRRGate, _isFallingKnife,
+        toggleChecklist,
         detectBullishDivergence, _detectOBVPanic,
         renderSplitCalc,
         openCalcFab, closeCalcFab, _calcSplitFab, _fabCommaFmt,
