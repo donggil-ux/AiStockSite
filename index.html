@@ -1186,6 +1186,20 @@
         .macd-reason-label{font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;}
         .macd-reason-text{font-size:13px;color:var(--text1);line-height:1.65;}
         .macd-disclaimer{font-size:11px;color:var(--text3);line-height:1.6;padding-top:10px;border-top:1px solid var(--border);margin-top:4px;}
+        /* ── RSI 모멘텀 진단 카드 ── */
+        .rsi-signal-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+        .rsi-signal-badge{font-size:15px;font-weight:800;padding:8px 18px;border-radius:24px;letter-spacing:-.3px;}
+        .rsi-signal-buy {background:rgba(34,197,94,.15); color:var(--green); border:1px solid rgba(34,197,94,.3);}
+        .rsi-signal-sell{background:rgba(239,68,68,.15);  color:var(--red);   border:1px solid rgba(239,68,68,.4);}
+        .rsi-signal-hold{background:rgba(148,163,184,.1); color:var(--text2); border:1px solid var(--border);}
+        .rsi-diverg-badge{font-size:12px;font-weight:700;padding:4px 10px;border-radius:12px;}
+        .rsi-diverg-bull{background:rgba(34,197,94,.1);  color:var(--green);}
+        .rsi-diverg-bear{background:rgba(239,68,68,.1);  color:var(--red);}
+        .rsi-diverg-none{background:rgba(148,163,184,.08);color:var(--text3);}
+        .rsi-reason-box{background:var(--bg3);border-radius:var(--r3);padding:12px 14px;margin-bottom:12px;}
+        .rsi-reason-label{font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;}
+        .rsi-reason-text{font-size:13px;color:var(--text1);line-height:1.65;}
+        .rsi-disclaimer{font-size:11px;color:var(--text3);line-height:1.6;padding-top:10px;border-top:1px solid var(--border);margin-top:4px;}
 
         /* ===== Smart Money Tracker ===== */
         .smart-money-screen{padding:16px;max-width:1000px;margin:0 auto;padding-bottom:80px;}
@@ -1981,6 +1995,9 @@
 
             <!-- R/R Analysis Card: 단타/스윙 공통, 항상 노출 -->
             <div id="rrAnalysis"></div>
+
+            <!-- RSI 모멘텀 진단 (동적 밴드 + 다이버전스) -->
+            <div id="rsiMomentum"></div>
 
             <!-- MACD 모멘텀 시그널 (레이너 테오 전략) -->
             <div id="macdSignal"></div>
@@ -6035,6 +6052,7 @@
             renderExitTiming();
             renderAIAnalysis();
             renderRRAnalysis();
+            renderRSIMomentum();
             renderMACDSignal();
             renderVolumeChart();
 
@@ -6290,6 +6308,7 @@
             renderExitTiming();
             renderAIAnalysis();
             renderRRAnalysis();
+            renderRSIMomentum();
             renderMACDSignal();
             renderVolumeChart();
             updateAnalysisTimestamp();
@@ -6455,6 +6474,12 @@
         return { macdLine, signalLine, histogram };
     }
 
+    // ── RSI 모멘텀 진단 상수 ──────────────────────────────────────────
+    const RSI_PERIOD           = 14;  // RSI 계산 기간
+    const DYNAMIC_BAND_LOOKBACK = 50; // 동적 밴드 계산 기준 캔들 수
+    const DIVERGENCE_LOOKBACK  = 10;  // 다이버전스 탐지 범위
+    const RSI_CENTER_LINE      = 50;  // RSI 중심선
+
     // ── MACD 모멘텀 시그널 분석 (레이너 테오 최적화 전략) ──────────────
     const PULLBACK_THRESHOLD = 0.05;  // 눌림목 허용 범위 ±5%
     const LOOKBACK_CANDLES   = 30;    // 골든크로스 탐색 캔들 수
@@ -6566,6 +6591,95 @@
             currentMomentum,
             reason,
             chartData: { macdHistogram: histNow, ema60: ema60Now },
+        };
+    }
+
+    // ── RSI 모멘텀 진단 (동적 밴드 + 다이버전스) ──────────────────────
+    function analyzeRSIDynamic(closes, highs, lows) {
+        const n = closes.length;
+        const minLen = RSI_PERIOD + DYNAMIC_BAND_LOOKBACK;
+        if (n < minLen) return null;
+
+        // 1. RSI(14) — 기존 calcRSI() 재사용
+        const rsiArr = calcRSI(closes, RSI_PERIOD);
+        const validRSI = rsiArr.filter(v => v != null);
+        if (validRSI.length < DYNAMIC_BAND_LOOKBACK) return null;
+
+        const currentRSI = rsiArr[n - 1];
+        if (currentRSI == null) return null;
+
+        // 2. 동적 밴드 — 최근 DYNAMIC_BAND_LOOKBACK개 RSI 값, 오름차순 정렬
+        const recentRSI = rsiArr.slice(-DYNAMIC_BAND_LOOKBACK).filter(v => v != null);
+        const sorted = [...recentRSI].sort((a, b) => a - b);
+        const upperIdx = Math.floor(sorted.length * 0.8);
+        const lowerIdx = Math.floor(sorted.length * 0.2);
+        const dynamicUpperBand = sorted[upperIdx] ?? 70;
+        const dynamicLowerBand = sorted[lowerIdx] ?? 30;
+
+        // 3. 다이버전스 감지 (최근 DIVERGENCE_LOOKBACK 캔들)
+        const dStart = n - DIVERGENCE_LOOKBACK;
+        const prevLow  = Math.min(...lows.slice(dStart, n - 1).filter(v => v != null));
+        const prevHigh = Math.max(...highs.slice(dStart, n - 1).filter(v => v != null));
+        const prevRSILow  = Math.min(...rsiArr.slice(dStart, n - 1).filter(v => v != null));
+        const prevRSIHigh = Math.max(...rsiArr.slice(dStart, n - 1).filter(v => v != null));
+        const curLow  = lows[n - 1];
+        const curHigh = highs[n - 1];
+
+        let divergenceType = '없음';
+        if (curLow < prevLow && currentRSI > prevRSILow) {
+            divergenceType = '상승'; // 가격 저점↓, RSI 저점↑
+        } else if (curHigh > prevHigh && currentRSI < prevRSIHigh) {
+            divergenceType = '하락'; // 가격 고점↑, RSI 고점↓
+        }
+
+        // 4. 중심선 위치 (기준: >55 상단 / <45 하단 / 나머지 중립)
+        let centerLinePosition;
+        if (currentRSI > 55)      centerLinePosition = '상단';
+        else if (currentRSI < 45) centerLinePosition = '하단';
+        else                       centerLinePosition = '중립';
+
+        // 5. RSI 구간
+        let rsiZone;
+        if (currentRSI >= dynamicUpperBand)     rsiZone = '과매수';
+        else if (currentRSI <= dynamicLowerBand) rsiZone = '과매도';
+        else                                      rsiZone = '중립구간';
+
+        // 6. 시그널 판단
+        const prevRSI = rsiArr[n - 2] ?? currentRSI;
+        // 동적 하단 밴드 상향 돌파: 이전 캔들 ≤ lowerBand AND 현재 캔들 > lowerBand
+        const lowerBandBreakout = prevRSI <= dynamicLowerBand && currentRSI > dynamicLowerBand;
+        // 동적 상단 밴드 하향 이탈: 이전 캔들 ≥ upperBand AND 현재 캔들 < upperBand
+        const upperBandBreakdown = prevRSI >= dynamicUpperBand && currentRSI < dynamicUpperBand;
+
+        const isBuySignal =
+            (divergenceType === '상승' && centerLinePosition === '상단') ||
+            lowerBandBreakout;
+
+        const isSellSignal = !isBuySignal && (
+            (divergenceType === '하락' && centerLinePosition === '하단') ||
+            upperBandBreakdown
+        );
+
+        // 7. reason
+        let reason;
+        if (isBuySignal) {
+            reason = `RSI ${currentRSI.toFixed(1)}, ${divergenceType !== '없음' ? divergenceType + ' 다이버전스 감지. ' : ''}동적 하단 밴드(${dynamicLowerBand.toFixed(1)}) 반등으로 매수 시그널.`;
+        } else if (isSellSignal) {
+            reason = `RSI ${currentRSI.toFixed(1)}, 동적 상단 밴드(${dynamicUpperBand.toFixed(1)}) 근접 및 하락 다이버전스 감지. 익절 또는 관망 권장.`;
+        } else {
+            reason = `RSI ${currentRSI.toFixed(1)}, 뚜렷한 시그널 없음. 중심선(${RSI_CENTER_LINE}) 돌파 여부를 추가 관찰하세요.`;
+        }
+
+        return {
+            isBuySignal,
+            isSellSignal,
+            currentRSI,
+            dynamicUpperBand,
+            dynamicLowerBand,
+            centerLinePosition,
+            divergenceType,
+            rsiZone,
+            reason,
         };
     }
 
@@ -9032,6 +9146,89 @@
         </div>`;
     }
 
+    function renderRSIMomentum() {
+        const el = document.getElementById('rsiMomentum');
+        if (!el || !stockData) return;
+        const quotes  = stockData.indicators.quote[0];
+        const closes  = quotes.close.filter(v => v != null);
+        const highs   = quotes.high.filter(v => v != null);
+        const lows    = quotes.low.filter(v => v != null);
+
+        const minLen = RSI_PERIOD + DYNAMIC_BAND_LOOKBACK;
+        if (closes.length < minLen) {
+            el.innerHTML = `<div class="card" style="padding:20px 24px;">
+                <div class="card-title">
+                    <span class="dot" style="background:var(--yellow)"></span>RSI 모멘텀 진단
+                    <span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:4px;">동적 밴드 · 다이버전스</span>
+                </div>
+                <p style="font-size:13px;color:var(--text2);margin:0;">분석 데이터가 부족합니다 (최소 ${minLen}일 데이터 필요)</p>
+            </div>`;
+            return;
+        }
+
+        const result = analyzeRSIDynamic(closes, highs, lows);
+        if (!result) { el.innerHTML = ''; return; }
+
+        const { isBuySignal, isSellSignal, currentRSI,
+                dynamicUpperBand, dynamicLowerBand,
+                centerLinePosition, divergenceType, rsiZone, reason } = result;
+
+        // 시그널 배지
+        let sigClass, sigLabel;
+        if (isBuySignal && !isSellSignal)      { sigClass = 'rsi-signal-buy';  sigLabel = '🟢 매수 시그널'; }
+        else if (isSellSignal && !isBuySignal) { sigClass = 'rsi-signal-sell'; sigLabel = '🔴 매도 · 익절 시그널'; }
+        else                                   { sigClass = 'rsi-signal-hold'; sigLabel = '⚪ 관망'; }
+
+        // 다이버전스 배지
+        let divClass, divLabel;
+        if (divergenceType === '상승')      { divClass = 'rsi-diverg-bull'; divLabel = '🟢 상승 다이버전스 감지'; }
+        else if (divergenceType === '하락') { divClass = 'rsi-diverg-bear'; divLabel = '🔴 하락 다이버전스 감지'; }
+        else                                { divClass = 'rsi-diverg-none'; divLabel = '다이버전스 없음'; }
+
+        // RSI 수치 색상
+        const rsiColor = currentRSI >= dynamicUpperBand ? 'var(--red)'
+                       : currentRSI <= dynamicLowerBand ? 'var(--green)'
+                       : 'var(--text1)';
+
+        el.innerHTML = `<div class="card">
+            <div class="card-title">
+                <span class="dot" style="background:var(--yellow)"></span>RSI 모멘텀 진단
+                <span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:4px;">동적 밴드(${DYNAMIC_BAND_LOOKBACK}일) · 다이버전스</span>
+            </div>
+            <div class="rsi-signal-header">
+                <span class="rsi-signal-badge ${sigClass}">${sigLabel}</span>
+                <span class="rsi-diverg-badge ${divClass}">${divLabel}</span>
+            </div>
+            <div class="rsi-reason-box">
+                <div class="rsi-reason-label">AI 판단 근거</div>
+                <div class="rsi-reason-text">${reason}</div>
+            </div>
+            <div class="rr-table">
+                <div class="rr-row">
+                    <span class="rr-label">현재 RSI</span>
+                    <span class="rr-value" style="color:${rsiColor}">${currentRSI.toFixed(1)}</span>
+                </div>
+                <div class="rr-row">
+                    <span class="rr-label">동적 상단 밴드 <span style="font-size:11px;font-weight:400;color:var(--text3)">(이 종목 과매수 기준)</span></span>
+                    <span class="rr-value" style="color:var(--red)">${dynamicUpperBand.toFixed(1)}</span>
+                </div>
+                <div class="rr-row">
+                    <span class="rr-label">동적 하단 밴드 <span style="font-size:11px;font-weight:400;color:var(--text3)">(이 종목 과매도 기준)</span></span>
+                    <span class="rr-value" style="color:var(--green)">${dynamicLowerBand.toFixed(1)}</span>
+                </div>
+                <div class="rr-row">
+                    <span class="rr-label">RSI 구간</span>
+                    <span class="rr-value">${rsiZone}</span>
+                </div>
+                <div class="rr-row">
+                    <span class="rr-label">중심선(${RSI_CENTER_LINE}) 위치</span>
+                    <span class="rr-value">${centerLinePosition}</span>
+                </div>
+            </div>
+            <div class="rsi-disclaimer">동적 밴드는 최근 ${DYNAMIC_BAND_LOOKBACK}일 RSI 분포 기준으로 자동 계산됩니다. 투자 결정은 본인 판단 하에 진행하세요.</div>
+        </div>`;
+    }
+
     // R/R Gate: 기술적 매수 추천이지만 R/R < 1.5이면 '관망'으로 강제 변환
     function _applyRRGate() {
         if (!stockData) return;
@@ -11442,7 +11639,8 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         setOptionsStrikeRange, toggleOptionsVolFilter, sortOptionsBy,
         manualAnalysisRefresh, pwaInstall,
         handleSearchKeydown, openSearchDropdown, closeSearchDropdown, searchSuggest, levenshtein,
-        renderRRAnalysis, renderMACDSignal, analyzeMACDRayner, _applyRRGate, _isFallingKnife,
+        renderRRAnalysis, renderRSIMomentum, analyzeRSIDynamic,
+        renderMACDSignal, analyzeMACDRayner, _applyRRGate, _isFallingKnife,
         detectBullishDivergence, _detectOBVPanic,
         renderSplitCalc,
         openCalcFab, closeCalcFab, _calcSplitFab, _fabCommaFmt,
