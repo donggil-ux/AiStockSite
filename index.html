@@ -1172,6 +1172,20 @@
         .rr-knife-icon{font-size:22px;flex-shrink:0;line-height:1.3;}
         .rr-knife-title{font-size:13px;font-weight:800;color:var(--red);margin-bottom:4px;}
         .rr-knife-desc{font-size:12px;color:var(--text2);line-height:1.6;}
+        /* ── MACD 모멘텀 시그널 카드 ── */
+        .macd-signal-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+        .macd-signal-badge{font-size:15px;font-weight:800;padding:8px 18px;border-radius:24px;letter-spacing:-.3px;}
+        .macd-signal-buy {background:rgba(34,197,94,.15); color:var(--green); border:1px solid rgba(34,197,94,.3);}
+        .macd-signal-sell{background:rgba(239,68,68,.15);  color:var(--red);   border:1px solid rgba(239,68,68,.4);}
+        .macd-signal-hold{background:rgba(148,163,184,.1); color:var(--text2); border:1px solid var(--border);}
+        .macd-momentum-badge{font-size:12px;font-weight:700;padding:4px 10px;border-radius:12px;}
+        .macd-momentum-up {background:rgba(34,197,94,.1);  color:var(--green);}
+        .macd-momentum-dn {background:rgba(239,68,68,.1);  color:var(--red);}
+        .macd-momentum-neu{background:rgba(148,163,184,.08);color:var(--text3);}
+        .macd-reason-box{background:var(--bg3);border-radius:var(--r3);padding:12px 14px;margin-bottom:12px;}
+        .macd-reason-label{font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;}
+        .macd-reason-text{font-size:13px;color:var(--text1);line-height:1.65;}
+        .macd-disclaimer{font-size:11px;color:var(--text3);line-height:1.6;padding-top:10px;border-top:1px solid var(--border);margin-top:4px;}
 
         /* ===== Smart Money Tracker ===== */
         .smart-money-screen{padding:16px;max-width:1000px;margin:0 auto;padding-bottom:80px;}
@@ -1967,6 +1981,9 @@
 
             <!-- R/R Analysis Card: 단타/스윙 공통, 항상 노출 -->
             <div id="rrAnalysis"></div>
+
+            <!-- MACD 모멘텀 시그널 (레이너 테오 전략) -->
+            <div id="macdSignal"></div>
 
             <!-- ===== 단타 분석 ===== -->
             <div id="tsPanelDay">
@@ -6018,6 +6035,7 @@
             renderExitTiming();
             renderAIAnalysis();
             renderRRAnalysis();
+            renderMACDSignal();
             renderVolumeChart();
 
             // 추가 API 호출이 필요한 것들은 병렬로 실행 (await 안 함 → UI 블로킹 없음)
@@ -6272,6 +6290,7 @@
             renderExitTiming();
             renderAIAnalysis();
             renderRRAnalysis();
+            renderMACDSignal();
             renderVolumeChart();
             updateAnalysisTimestamp();
         } catch(e) { /* 네트워크 오류 시 조용히 무시 */ }
@@ -6434,6 +6453,120 @@
         const signalLine = calcEMA(macdLine.map(v => v ?? 0), 9);
         const histogram = macdLine.map((v, i) => (v != null && signalLine[i] != null) ? v - signalLine[i] : null);
         return { macdLine, signalLine, histogram };
+    }
+
+    // ── MACD 모멘텀 시그널 분석 (레이너 테오 최적화 전략) ──────────────
+    const PULLBACK_THRESHOLD = 0.05;  // 눌림목 허용 범위 ±5%
+    const LOOKBACK_CANDLES   = 30;    // 골든크로스 탐색 캔들 수
+
+    function analyzeMACDRayner(closes, volumes) {
+        const n = closes.length;
+        if (n < 60) return null;
+
+        // 1. 60 EMA
+        const ema60 = calcEMA(closes, 60);
+
+        // 2. MACD (Fast=1, Slow=60, Signal=9)
+        //    EMA(1) = close 자체이므로: macdLine = close - ema60
+        const macdLine   = closes.map((c, i) => ema60[i] != null ? c - ema60[i] : null);
+        const signalLine = calcEMA(macdLine.map(v => v ?? 0), 9);
+        const histogram  = macdLine.map((v, i) =>
+            (v != null && signalLine[i] != null) ? v - signalLine[i] : null);
+
+        // 3. 20일 평균 거래량
+        const recentVols = volumes.slice(-20).filter(v => v != null);
+        const volAvg20   = recentVols.length
+            ? recentVols.reduce((a, b) => a + b, 0) / recentVols.length : 0;
+
+        const last     = n - 1;
+        const histNow  = histogram[last];
+        const histPrev = histogram[last - 1];
+        const ema60Now = ema60[last];
+        if (histNow == null || histPrev == null || ema60Now == null) return null;
+
+        // 4. 골든크로스 탐색 (최근 LOOKBACK_CANDLES 캔들)
+        const searchStart = Math.max(1, n - LOOKBACK_CANDLES);
+        let crossIdx = -1;
+        for (let i = n - 1; i >= searchStart; i--) {
+            if (ema60[i] != null && ema60[i - 1] != null
+                    && closes[i - 1] < ema60[i - 1] && closes[i] >= ema60[i]) {
+                crossIdx = i;
+                break;
+            }
+        }
+
+        // 5. 매수 조건 판단
+        let isBuySignal = false;
+        const buyParts  = [];
+
+        if (crossIdx !== -1 && crossIdx < last) {
+            // ① 거래량 필터 (골든크로스 캔들)
+            const volFilter = volumes[crossIdx] != null && volumes[crossIdx] > volAvg20;
+
+            // ② 눌림목 감지: crossIdx+1 ~ last-1 구간에서 close가 ema60 ±5% 이내
+            let pullbackIdx = -1;
+            for (let j = crossIdx + 1; j < last; j++) {
+                if (ema60[j] == null) continue;
+                if (Math.abs(closes[j] - ema60[j]) / ema60[j] <= PULLBACK_THRESHOLD) {
+                    pullbackIdx = j;
+                    break;
+                }
+            }
+
+            if (pullbackIdx !== -1) {
+                // ③ 재상승 확인: 현재 close > pullback 구간의 local high
+                let localHigh = -Infinity;
+                for (let j = pullbackIdx; j < last; j++) {
+                    if (closes[j] != null) localHigh = Math.max(localHigh, closes[j]);
+                }
+                const rebound = closes[last] > localHigh;
+
+                // ④ 모멘텀 강화: |hist 현재| > |hist 골든크로스 시점|
+                const histCross    = histogram[crossIdx];
+                const momentumBoost = histCross != null
+                    && Math.abs(histNow) > Math.abs(histCross);
+
+                isBuySignal = volFilter && rebound && momentumBoost;
+                if (isBuySignal) {
+                    buyParts.push('60 EMA 돌파 후 눌림목 지지 확인');
+                    buyParts.push('거래량 동반 상승');
+                    buyParts.push('재상승 완료 및 MACD 모멘텀 강화로 매수 시그널 발생.');
+                }
+            }
+        }
+
+        // 6. 매도 조건 (매수 시그널 없을 때만)
+        const isSellSignal = !isBuySignal
+            && Math.abs(histNow) < Math.abs(histPrev);
+
+        // 7. 모멘텀 상태
+        let currentMomentum;
+        const absNow  = Math.abs(histNow);
+        const absPrev = Math.abs(histPrev);
+        if (absNow > absPrev)      currentMomentum = '강화';
+        else if (absNow < absPrev) currentMomentum = '약화';
+        else                        currentMomentum = '중립';
+
+        // 8. reason
+        let reason;
+        if (isBuySignal) {
+            reason = buyParts.join(', ');
+            if (!reason.endsWith('.')) reason += '.';
+        } else if (isSellSignal) {
+            reason = 'MACD 히스토그램 모멘텀 약화. 보유 포지션 청산 또는 관망 권장.';
+        } else if (crossIdx !== -1) {
+            reason = `최근 ${LOOKBACK_CANDLES}캔들 내 60 EMA 골든크로스 감지. 눌림목 또는 재상승 조건 미충족 — 추세 진행 중 대기.`;
+        } else {
+            reason = `최근 ${LOOKBACK_CANDLES}캔들 내 60 EMA 돌파 없음. 현재 관망 구간.`;
+        }
+
+        return {
+            isBuySignal,
+            isSellSignal,
+            currentMomentum,
+            reason,
+            chartData: { macdHistogram: histNow, ema60: ema60Now },
+        };
     }
 
     function calcBollingerBands(closes, period = 20, mult = 2) {
@@ -8832,6 +8965,70 @@
                 <span class="rr-legend-dot" style="background:var(--yellow)"></span><span>1.5~2.0 분할매수</span>
                 <span class="rr-legend-dot" style="background:var(--red)"></span><span>&lt; 1.5 관망</span>
             </div>
+        </div>`;
+    }
+
+    function renderMACDSignal() {
+        const el = document.getElementById('macdSignal');
+        if (!el || !stockData) return;
+        const quotes  = stockData.indicators.quote[0];
+        const closes  = quotes.close.filter(v => v != null);
+        const volumes = quotes.volume.filter(v => v != null);
+
+        if (closes.length < 60) {
+            el.innerHTML = `<div class="card" style="padding:20px 24px;">
+                <div class="card-title">
+                    <span class="dot" style="background:var(--purple)"></span>MACD 모멘텀 시그널
+                    <span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:4px;">Rayner Teo</span>
+                </div>
+                <p style="font-size:13px;color:var(--text2);margin:0;">분석 데이터가 부족합니다 (최소 60일 데이터 필요)</p>
+            </div>`;
+            return;
+        }
+
+        const result = analyzeMACDRayner(closes, volumes);
+        if (!result) { el.innerHTML = ''; return; }
+
+        const { isBuySignal, isSellSignal, currentMomentum, reason, chartData } = result;
+
+        // 시그널 배지
+        let sigClass, sigLabel;
+        if (isBuySignal && !isSellSignal)       { sigClass = 'macd-signal-buy';  sigLabel = '🟢 매수 시그널'; }
+        else if (isSellSignal && !isBuySignal)   { sigClass = 'macd-signal-sell'; sigLabel = '🔴 매도 시그널'; }
+        else                                     { sigClass = 'macd-signal-hold'; sigLabel = '⚪ 관망'; }
+
+        // 모멘텀 배지
+        let momClass, momLabel;
+        if (currentMomentum === '강화')      { momClass = 'macd-momentum-up';  momLabel = '↑ 강화'; }
+        else if (currentMomentum === '약화') { momClass = 'macd-momentum-dn';  momLabel = '↓ 약화'; }
+        else                                 { momClass = 'macd-momentum-neu'; momLabel = '→ 중립'; }
+
+        const histColor = chartData.macdHistogram >= 0 ? 'var(--green)' : 'var(--red)';
+
+        el.innerHTML = `<div class="card">
+            <div class="card-title">
+                <span class="dot" style="background:var(--purple)"></span>MACD 모멘텀 시그널
+                <span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:4px;">Rayner Teo · Fast=1 / Slow=60 / Signal=9</span>
+            </div>
+            <div class="macd-signal-header">
+                <span class="macd-signal-badge ${sigClass}">${sigLabel}</span>
+                <span class="macd-momentum-badge ${momClass}">모멘텀 ${momLabel}</span>
+            </div>
+            <div class="macd-reason-box">
+                <div class="macd-reason-label">AI 판단 근거</div>
+                <div class="macd-reason-text">${reason}</div>
+            </div>
+            <div class="rr-table">
+                <div class="rr-row">
+                    <span class="rr-label">MACD 히스토그램</span>
+                    <span class="rr-value" style="color:${histColor}">${chartData.macdHistogram.toFixed(4)}</span>
+                </div>
+                <div class="rr-row">
+                    <span class="rr-label">60 EMA</span>
+                    <span class="rr-value">${chartData.ema60.toFixed(2)}</span>
+                </div>
+            </div>
+            <div class="macd-disclaimer">본 시그널은 투자 참고용입니다. 투자 결정은 본인 판단 하에 진행하세요.</div>
         </div>`;
     }
 
@@ -11245,7 +11442,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         setOptionsStrikeRange, toggleOptionsVolFilter, sortOptionsBy,
         manualAnalysisRefresh, pwaInstall,
         handleSearchKeydown, openSearchDropdown, closeSearchDropdown, searchSuggest, levenshtein,
-        renderRRAnalysis, _applyRRGate, _isFallingKnife,
+        renderRRAnalysis, renderMACDSignal, analyzeMACDRayner, _applyRRGate, _isFallingKnife,
         detectBullishDivergence, _detectOBVPanic,
         renderSplitCalc,
         openCalcFab, closeCalcFab, _calcSplitFab, _fabCommaFmt,
