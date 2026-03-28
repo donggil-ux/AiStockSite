@@ -225,9 +225,11 @@
         .swing-ai-btn:hover{border-color:var(--blue);color:var(--blue);background:rgba(59,130,246,.06);}
         .swing-empty{padding:24px;text-align:center;color:var(--text3);font-size:13px;background:var(--bg2);border-radius:var(--r2);}
         /* ===== 시장 온도계 ===== */
-        .thermo-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;border-radius:var(--r2);font-size:13px;flex-wrap:wrap;}
-        .thermo-left{font-weight:600;color:var(--text);white-space:nowrap;}
-        .thermo-right{font-size:12px;color:var(--text2);flex:1;min-width:0;}
+        .thermo-banner{padding:10px 16px;border-radius:var(--r2);font-size:13px;}
+        .thermo-indices{display:flex;gap:6px 20px;flex-wrap:wrap;align-items:center;margin-bottom:5px;}
+        .thermo-idx{font-weight:600;color:var(--text);white-space:nowrap;}
+        .thermo-idx-name{color:var(--text3);font-weight:500;margin-right:2px;}
+        .thermo-comment{font-size:12px;color:var(--text2);line-height:1.4;}
         .thermo-up{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);}
         .thermo-down{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);}
         .thermo-flat{background:var(--bg2);border:1px solid var(--border);}
@@ -3125,35 +3127,58 @@
     }
 
     // ========================================
-    // 섹션2: 시장 온도계 (S&P500 기반)
+    // 섹션2: 시장 온도계 (S&P500 + 나스닥 + VIX)
     // ========================================
     async function loadMarketThermometer() {
         const el = document.getElementById('marketThermometer');
         if (!el) return;
-        try {
-            const data = await fetchRace(
-                'https://query1.finance.yahoo.com/v7/finance/quote?symbols=%5EGSPC', 5000);
-            const q = data?.quoteResponse?.result?.[0];
-            if (!q) return;
+        const [spRes, ndRes, vixRes] = await Promise.allSettled([
+            fetchRace('https://query1.finance.yahoo.com/v7/finance/quote?symbols=%5EGSPC', 5000),
+            fetchRace('https://query1.finance.yahoo.com/v7/finance/quote?symbols=%5EIXIC', 5000),
+            fetchRace('https://query1.finance.yahoo.com/v7/finance/quote?symbols=%5EVIX',  5000),
+        ]);
+        const sp  = spRes.status  === 'fulfilled' ? spRes.value?.quoteResponse?.result?.[0]  : null;
+        const nd  = ndRes.status  === 'fulfilled' ? ndRes.value?.quoteResponse?.result?.[0]  : null;
+        const vix = vixRes.status === 'fulfilled' ? vixRes.value?.quoteResponse?.result?.[0] : null;
+        if (!sp && !nd && !vix) return;
+
+        function idxHtml(label, q, isVix) {
+            if (!q) return `<span class="thermo-idx">— <span class="thermo-idx-name">${label}</span> -</span>`;
+            if (isVix) {
+                const v = q.regularMarketPrice || 0;
+                const icon = v < 15 ? '🟢' : v < 25 ? '🟡' : '🔴';
+                return `<span class="thermo-idx">${icon} <span class="thermo-idx-name">${label}</span> <strong>${v.toFixed(1)}</strong></span>`;
+            }
             const chg = q.regularMarketChangePercent || 0;
             const sign = chg >= 0 ? '+' : '';
-            let icon, state, comment, cls;
-            if (chg >= 0.5) {
-                icon = '🟢'; state = '상승장'; cls = 'thermo-up';
-                comment = '오늘 시장은 우호적입니다. 손익비 좋은 종목 진입을 고려해보세요.';
-            } else if (chg <= -0.5) {
-                icon = '🔴'; state = '하락장'; cls = 'thermo-down';
-                comment = '오늘은 전반적으로 하락 중입니다. 신규 진입보다 기존 보유 종목 관리에 집중하세요.';
-            } else {
-                icon = '🟡'; state = '보합'; cls = 'thermo-flat';
-                comment = '시장이 방향을 잡지 못하고 있어요. 관망하거나 소량 진입을 권장합니다.';
-            }
-            el.innerHTML = `<div class="thermo-banner ${cls}">
-                <span class="thermo-left">${icon} S&P500 <strong>${sign}${chg.toFixed(2)}%</strong> · ${state}</span>
-                <span class="thermo-right">${comment}</span>
-            </div>`;
-            el.style.display = '';
-        } catch(e) { /* 조용히 숨김 */ }
+            const icon = chg >= 0.5 ? '🟢' : chg <= -0.5 ? '🔴' : '🟡';
+            return `<span class="thermo-idx">${icon} <span class="thermo-idx-name">${label}</span> <strong>${sign}${chg.toFixed(2)}%</strong></span>`;
+        }
+
+        const spChg  = sp?.regularMarketChangePercent  || 0;
+        const ndChg  = nd?.regularMarketChangePercent  || 0;
+        const vixVal = vix?.regularMarketPrice || 0;
+        const spUp = spChg >= 0.5, spDown = spChg <= -0.5;
+        const ndUp = ndChg >= 0.5, ndDown = ndChg <= -0.5;
+        const vixHigh = vixVal >= 20;
+
+        let comment;
+        if      (spUp  && ndUp  && !vixHigh) comment = '오늘 시장은 전반적으로 우호적입니다. 손익비 좋은 종목 진입을 고려해보세요.';
+        else if (spUp  && ndDown)            comment = '오늘 기술주는 약세입니다. NVDA·AAPL 등 나스닥 종목은 신중하게 접근하세요.';
+        else if (spDown && ndDown && !vixHigh) comment = '전반적으로 하락 중이지만 공포 수준은 낮습니다. 기다리면 기회가 올 수 있어요.';
+        else if (spDown && ndDown && vixHigh)  comment = '시장 변동성이 높습니다. 신규 진입보다 기존 보유 종목 관리에 집중하세요.';
+        else                                   comment = '시장이 방향을 잡지 못하고 있어요. 관망하거나 소량 진입을 권장합니다.';
+
+        const cls = spChg >= 0.5 ? 'thermo-up' : spChg <= -0.5 ? 'thermo-down' : 'thermo-flat';
+        el.innerHTML = `<div class="thermo-banner ${cls}">
+            <div class="thermo-indices">
+                ${idxHtml('S&P500', sp,  false)}
+                ${idxHtml('나스닥',  nd,  false)}
+                ${idxHtml('VIX',    vix, true)}
+            </div>
+            <div class="thermo-comment">${comment}</div>
+        </div>`;
+        el.style.display = '';
     }
 
     // ========================================
