@@ -229,18 +229,18 @@
         .rr-calc-status.good{background:rgba(34,197,94,.18);color:var(--green);}
         .rr-calc-status.ok{background:rgba(234,179,8,.18);color:var(--yellow);}
         .rr-calc-status.bad{background:rgba(239,68,68,.18);color:var(--red);}
-        .rr-calc-body{display:flex;gap:14px;align-items:flex-start;}
+        .rr-calc-body{display:flex;gap:12px;align-items:flex-start;}
         .rr-calc-left{flex:1;display:flex;flex-direction:column;gap:10px;min-width:0;}
-        .rr-inp-grp{display:flex;flex-direction:column;gap:4px;}
-        .rr-inp-lbl{font-size:11px;font-weight:600;color:var(--text3);}
-        .rr-inp-row{display:flex;gap:6px;align-items:center;}
-        .rr-inp-field{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);padding:8px 10px;color:var(--text);font-size:13px;font-weight:600;outline:none;transition:border-color .15s;-moz-appearance:textfield;min-width:0;width:100%;font-family:inherit;}
+        .rr-inp-grp{display:flex;flex-direction:column;gap:6px;}
+        .rr-inp-lbl{font-size:12px;font-weight:600;color:var(--text3);}
+        .rr-inp-row{display:flex;gap:8px;align-items:center;}
+        .rr-inp-field{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);padding:13px 14px;color:var(--text);font-size:16px;font-weight:600;outline:none;transition:border-color .15s;-moz-appearance:textfield;min-width:0;width:100%;font-family:inherit;}
         .rr-inp-field::-webkit-outer-spin-button,.rr-inp-field::-webkit-inner-spin-button{-webkit-appearance:none;}
         .rr-inp-field:focus{border-color:var(--blue);}
         .rr-inp-field.tp{border-left:3px solid rgba(34,197,94,.55);}
         .rr-inp-field.entry{border-left:3px solid rgba(148,163,184,.5);}
         .rr-inp-field.sl{border-left:3px solid rgba(239,68,68,.55);}
-        .rr-auto-btn{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);border-radius:6px;padding:6px 8px;color:var(--blue);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit;transition:all .15s;flex-shrink:0;}
+        .rr-auto-btn{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);border-radius:8px;padding:10px 12px;color:var(--blue);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit;transition:all .15s;flex-shrink:0;}
         .rr-auto-btn:hover{background:rgba(59,130,246,.22);}
         .rr-calc-summary{background:var(--bg3);border-radius:var(--r2);padding:10px 12px;display:flex;flex-direction:column;gap:5px;}
         .rr-sum-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;}
@@ -250,15 +250,15 @@
         .rr-sum-val.dn{color:var(--red);}
         .rr-sum-sep{height:1px;background:var(--border);margin:2px 0;}
         .rr-ratio-num{font-size:16px;font-weight:800;transition:color .2s;}
-        .rr-vbar-col{width:76px;display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;}
-        .rr-vtag{font-size:10px;font-weight:700;text-align:center;white-space:nowrap;max-width:76px;overflow:hidden;text-overflow:ellipsis;}
+        .rr-vbar-col{width:100px;display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;}
+        .rr-vtag{font-size:11px;font-weight:700;text-align:center;white-space:nowrap;max-width:96px;overflow:hidden;text-overflow:ellipsis;}
         .rr-vtag.tp{color:var(--green);}
         .rr-vtag.sl{color:var(--red);}
-        .rr-vbar-track{width:60px;height:188px;display:flex;flex-direction:column;border-radius:10px;overflow:hidden;flex-shrink:0;}
+        .rr-vbar-track{width:72px;height:240px;display:flex;flex-direction:column;border-radius:10px;overflow:hidden;flex-shrink:0;}
         .rr-vbar-green{flex:1;background:rgba(34,197,94,.18);border:1px solid rgba(34,197,94,.3);border-bottom:none;border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:center;transition:flex .28s ease;overflow:hidden;}
         .rr-vbar-red{flex:1;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.28);border-top:none;border-radius:0 0 10px 10px;display:flex;align-items:center;justify-content:center;transition:flex .28s ease;overflow:hidden;}
         .rr-vbar-div{height:2px;background:var(--text);flex-shrink:0;}
-        .rr-vbar-pct{font-size:10px;font-weight:800;line-height:1;}
+        .rr-vbar-pct{font-size:11px;font-weight:800;line-height:1;}
         .rr-vbar-green .rr-vbar-pct{color:var(--green);}
         .rr-vbar-red .rr-vbar-pct{color:var(--red);}
         .rr-vbar-ph{width:60px;height:188px;background:var(--bg3);border-radius:10px;border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;}
@@ -707,7 +707,7 @@
         .ai-score-container{display:flex;align-items:center;gap:24px;margin-bottom:24px;}
         .ai-score-circle{width:110px;height:110px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;flex-shrink:0;}
         .ai-score-circle::before{content:'';position:absolute;inset:0;border-radius:50%;padding:4px;background:conic-gradient(var(--score-color) calc(var(--score)*3.6deg),var(--bg3) 0deg);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;}
-        .ai-score-number{font-size:32px;font-weight:800;letter-spacing:-1.5px;}
+        .ai-score-number{font-size:52px;font-weight:800;letter-spacing:-2px;line-height:1;}
         .ai-score-label{font-size:11px;color:var(--text3);font-weight:500;}
         .ai-recommendation{font-size:22px;font-weight:800;margin-bottom:6px;letter-spacing:-.5px;}
         .ai-summary{font-size:14px;color:var(--text2);line-height:1.7;}
@@ -2014,16 +2014,8 @@
                         <div class="sub-chart-container"><canvas id="macdChart"></canvas></div>
                     </div>
                     <div class="card">
-                        <div class="card-title"><span class="dot" style="background:var(--yellow)"></span>Stochastic (14, 3)</div>
-                        <div class="sub-chart-container"><canvas id="stochChart"></canvas></div>
-                    </div>
-                    <div class="card">
                         <div class="card-title"><span class="dot" style="background:var(--green)"></span>ADX (14) / DI</div>
                         <div class="sub-chart-container"><canvas id="adxChart"></canvas></div>
-                    </div>
-                    <div class="card">
-                        <div class="card-title"><span class="dot" style="background:var(--red)"></span>CCI (20)</div>
-                        <div class="sub-chart-container"><canvas id="cciChart"></canvas></div>
                     </div>
                     <div class="card">
                         <div class="card-title"><span class="dot" style="background:#e879f9"></span>OBV (On Balance Volume)</div>
@@ -2298,9 +2290,7 @@
     let analysisRefreshTimer = null;  // 분석 자동 갱신 타이머 (5분)
     let rsiChart = null;
     let macdChart = null;
-    let stochChart = null;
     let adxChart = null;
-    let cciChart = null;
     let obvChart = null;
     let stockData = null;
 
@@ -6125,9 +6115,7 @@
             renderTechnicalIndicators();
             renderRSIChart();
             renderMACDChart();
-            renderStochChart();
             renderADXChart();
-            renderCCIChart();
             renderOBVChart();
             renderEntryTiming();
             renderAIAnalysis();
@@ -6381,9 +6369,7 @@
             renderTechnicalIndicators();
             renderRSIChart();
             renderMACDChart();
-            renderStochChart();
             renderADXChart();
-            renderCCIChart();
             renderOBVChart();
             renderEntryTiming();
             renderAIAnalysis();
@@ -7886,54 +7872,6 @@
     }
 
     // ========================================
-    // Stochastic Chart
-    // ========================================
-    function renderStochChart() {
-        if (stochChart) stochChart.destroy();
-        const timestamps = stockData.timestamp;
-        const q = stockData.indicators.quote[0];
-        const labels = timestamps.map(t => new Date(t * 1000));
-        const { kLine, dLine } = calcStochastic(q.high, q.low, q.close);
-
-        const ctx = document.getElementById('stochChart').getContext('2d');
-        stochChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels,
-                datasets: [
-                    { label: '%K', data: kLine, borderColor: '#3b82f6', borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0.1 },
-                    { label: '%D', data: dLine, borderColor: '#ef4444', borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0.1, borderDash: [3,3] }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { display: true, position: 'top', labels: { color: '#94a3b8', boxWidth: 12, padding: 8, font: { size: 11 } } } },
-                scales: {
-                    x: { type: 'time', display: false },
-                    y: { min: 0, max: 100, position: 'right', grid: { color: 'rgba(45,58,77,0.3)' }, ticks: { color: '#64748b', stepSize: 25 } }
-                }
-            },
-            plugins: [{
-                id: 'stochLines',
-                beforeDraw(chart) {
-                    const { ctx, chartArea: { left, right, top, bottom }, scales: { y } } = chart;
-                    const y80 = y.getPixelForValue(80), y20 = y.getPixelForValue(20);
-                    ctx.save();
-                    ctx.setLineDash([4,4]);
-                    ctx.strokeStyle = 'rgba(239,68,68,0.4)';
-                    ctx.beginPath(); ctx.moveTo(left, y80); ctx.lineTo(right, y80); ctx.stroke();
-                    ctx.strokeStyle = 'rgba(59,130,246,0.4)';
-                    ctx.beginPath(); ctx.moveTo(left, y20); ctx.lineTo(right, y20); ctx.stroke();
-                    ctx.fillStyle = 'rgba(239,68,68,0.04)';
-                    ctx.fillRect(left, top, right-left, y80-top);
-                    ctx.fillStyle = 'rgba(59,130,246,0.04)';
-                    ctx.fillRect(left, y20, right-left, bottom-y20);
-                    ctx.restore();
-                }
-            }]
-        });
-    }
-
     // ========================================
     // ADX Chart
     // ========================================
@@ -7970,46 +7908,6 @@
                     const y25 = y.getPixelForValue(25);
                     ctx.save(); ctx.setLineDash([4,4]); ctx.strokeStyle='rgba(245,158,11,0.4)';
                     ctx.beginPath(); ctx.moveTo(left,y25); ctx.lineTo(right,y25); ctx.stroke(); ctx.restore();
-                }
-            }]
-        });
-    }
-
-    // ========================================
-    // CCI Chart
-    // ========================================
-    function renderCCIChart() {
-        if (cciChart) cciChart.destroy();
-        const timestamps = stockData.timestamp;
-        const q = stockData.indicators.quote[0];
-        const labels = timestamps.map(t => new Date(t * 1000));
-        const cci = calcCCI(q.high, q.low, q.close);
-
-        const ctx = document.getElementById('cciChart').getContext('2d');
-        cciChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels,
-                datasets: [{ label: 'CCI(20)', data: cci, borderColor: '#06b6d4', borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0.1 }]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { type: 'time', display: false },
-                    y: { position: 'right', grid: { color: 'rgba(45,58,77,0.3)' }, ticks: { color: '#64748b' } }
-                }
-            },
-            plugins: [{
-                id: 'cciZones',
-                beforeDraw(chart) {
-                    const { ctx, chartArea: { left, right, top, bottom }, scales: { y } } = chart;
-                    const y100 = y.getPixelForValue(100), ym100 = y.getPixelForValue(-100), y0 = y.getPixelForValue(0);
-                    ctx.save(); ctx.setLineDash([4,4]);
-                    ctx.strokeStyle='rgba(239,68,68,0.4)'; ctx.beginPath(); ctx.moveTo(left,y100); ctx.lineTo(right,y100); ctx.stroke();
-                    ctx.strokeStyle='rgba(59,130,246,0.4)'; ctx.beginPath(); ctx.moveTo(left,ym100); ctx.lineTo(right,ym100); ctx.stroke();
-                    ctx.strokeStyle='rgba(100,116,139,0.3)'; ctx.setLineDash([2,2]); ctx.beginPath(); ctx.moveTo(left,y0); ctx.lineTo(right,y0); ctx.stroke();
-                    ctx.restore();
                 }
             }]
         });
@@ -8068,11 +7966,9 @@
         const rsi = calcRSI(closes);
         const { macdLine, signalLine } = calcMACD(closes);
         const bb = calcBollingerBands(closes);
-        const { kLine, dLine } = calcStochastic(highs, lows, closes);
         const { adx } = calcADX(highs, lows, closes);
         const atr = calcATR(highs, lows, closes);
         const vwap = calcVWAP(highs, lows, closes, volumes);
-        const cci = calcCCI(highs, lows, closes);
         const wr = calcWilliamsR(highs, lows, closes);
         const mfi = calcMFI(highs, lows, closes, volumes);
 
@@ -8085,12 +7981,9 @@
         const lastMA20 = ma20.filter(v => v != null).pop();
         const lastMA60 = ma60.filter(v => v != null).pop();
         const lastMA120 = ma120.filter(v => v != null).pop();
-        const lastK = kLine.filter(v => v != null).pop();
-        const lastD = dLine.filter(v => v != null).pop();
         const lastADX = adx.filter(v => v != null).pop();
         const lastATR = atr.filter(v => v != null).pop();
         const lastVWAP = vwap.filter(v => v != null).pop();
-        const lastCCI = cci.filter(v => v != null).pop();
         const lastWR = wr.filter(v => v != null).pop();
         const lastMFI = mfi.filter(v => v != null).pop();
 
@@ -8105,17 +7998,11 @@
         const rsiSignal = rsiZoneLabel(lastRSI);
         const macdSignalText = lastMACD > lastSignal ? ['매수 신호', 'buy'] : ['매도 신호', 'sell'];
 
-        // Stochastic signal
-        const stochSig = lastK > 80 ? ['과매수', 'sell'] : lastK < 20 ? ['과매도', 'buy'] : lastK > lastD ? ['매수세', 'buy'] : ['매도세', 'sell'];
-
         // ADX signal
         const adxSig = lastADX == null ? ['N/A', 'neutral'] : lastADX >= 25 ? ['강한 추세', 'buy'] : ['추세 약함', 'neutral'];
 
         // VWAP signal
         const vwapSig = lastVWAP == null ? ['N/A', 'neutral'] : price > lastVWAP ? ['VWAP 위', 'buy'] : ['VWAP 아래', 'sell'];
-
-        // CCI signal
-        const cciSig = lastCCI == null ? ['N/A', 'neutral'] : lastCCI > 100 ? ['과매수', 'sell'] : lastCCI < -100 ? ['과매도', 'buy'] : ['중립', 'neutral'];
 
         // Williams %R signal
         const wrSig = lastWR == null ? ['N/A', 'neutral'] : lastWR > -20 ? ['과매수', 'sell'] : lastWR < -80 ? ['과매도', 'buy'] : ['중립', 'neutral'];
@@ -8126,9 +8013,7 @@
         const indicators = [
             { label: 'RSI (14)', value: lastRSI ? lastRSI.toFixed(1) : '-', signal: rsiSignal },
             { label: 'MACD', value: lastMACD ? lastMACD.toFixed(2) : '-', signal: macdSignalText },
-            { label: 'Stoch %K', value: lastK ? lastK.toFixed(1) : '-', signal: stochSig },
             { label: 'ADX (14)', value: lastADX ? lastADX.toFixed(1) : '-', signal: adxSig },
-            { label: 'CCI (20)', value: lastCCI ? lastCCI.toFixed(1) : '-', signal: cciSig },
             { label: 'W %R (14)', value: lastWR ? lastWR.toFixed(1) : '-', signal: wrSig },
             { label: 'MFI (14)', value: lastMFI ? lastMFI.toFixed(1) : '-', signal: mfiSig },
             { label: 'VWAP', value: fmt(lastVWAP), signal: vwapSig },
@@ -9040,8 +8925,8 @@
         const totalScore = Math.round(metrics.reduce((sum, m) => sum + m.w * m.score, 0));
 
         // 점수 원형 + recommendation 업데이트 (renderScoreCard 로직 인라인)
-        const recColor = totalScore >= 75 ? 'var(--green)' : totalScore >= 60 ? 'var(--green)' : totalScore >= 45 ? 'var(--yellow)' : 'var(--red)';
-        const recText  = totalScore >= 75 ? '강력 진입' : totalScore >= 60 ? '진입 가능' : totalScore >= 45 ? '관망' : totalScore >= 30 ? '위험' : '매수 금지';
+        const recColor = totalScore >= 80 ? 'var(--green)' : totalScore >= 50 ? 'var(--yellow)' : 'var(--red)';
+        const recText  = totalScore >= 80 ? '강력 진입' : totalScore >= 65 ? '진입 가능' : totalScore >= 50 ? '관망' : totalScore >= 30 ? '위험' : '매수 금지';
         const recDesc  = totalScore >= 75 ? '단기 모멘텀이 매우 강합니다. 거래량 동반 상승으로 빠른 수익 기회가 있습니다.'
                        : totalScore >= 60 ? '단기 지표가 긍정적입니다. 분봉 흐름을 확인하고 타이트한 손절로 진입하세요.'
                        : totalScore >= 45 ? '단기 방향성이 불확실합니다. 명확한 돌파 또는 지지 확인 후 진입하세요.'
@@ -9450,10 +9335,15 @@
         if (!stockData) return;
         const d = getAnalysisData();
         if (!d) return;
-        const entryEl = document.getElementById('rrCalcEntry');
-        if (!entryEl) return;
         const isKR = currentMarket === 'KR';
-        entryEl.value = isKR ? Math.round(d.price) : d.price.toFixed(2);
+        const price = d.price;
+        const fmt = v => isKR ? Math.round(v) : parseFloat(v.toFixed(2));
+        const entryEl = document.getElementById('rrCalcEntry');
+        const tpEl    = document.getElementById('rrCalcTp');
+        const slEl    = document.getElementById('rrCalcSl');
+        if (entryEl) entryEl.value = fmt(price);
+        if (tpEl)    tpEl.value    = fmt(price * 1.1);
+        if (slEl)    slEl.value    = fmt(price * 0.95);
         calcRRWidget();
     }
 
