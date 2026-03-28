@@ -739,6 +739,18 @@
         .entry-check-text{flex:1;}
         .entry-check-label{font-weight:700;}
         .entry-check-desc{color:var(--text2);font-size:12px;margin-top:2px;}
+        /* ===== 단타 통합 분석 지표 행 ===== */
+        .day-unified-item{background:var(--bg3);border-radius:var(--r3);padding:12px 14px;margin-bottom:8px;}
+        .day-unified-header{display:flex;align-items:center;gap:10px;margin-bottom:5px;}
+        .day-unified-icon{flex-shrink:0;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;}
+        .day-unified-icon.pass{background:rgba(34,197,94,.15);color:var(--green);}
+        .day-unified-icon.warn{background:rgba(234,179,8,.15);color:var(--yellow);}
+        .day-unified-icon.fail{background:rgba(239,68,68,.15);color:var(--red);}
+        .day-unified-title{flex:1;font-size:13px;font-weight:700;}
+        .day-unified-score{font-size:12px;color:var(--text3);font-weight:600;white-space:nowrap;}
+        .day-unified-desc{font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:6px;}
+        .day-unified-bar{height:4px;background:var(--bg4,var(--bg2));border-radius:2px;overflow:hidden;}
+        .day-unified-bar-fill{height:100%;border-radius:2px;transition:width .6s ease;}
         .checklist-toggle-btn{display:flex;align-items:center;gap:5px;width:100%;padding:7px 0 3px;background:none;border:none;border-bottom:1px dashed var(--border);cursor:pointer;color:var(--text3);font-size:12px;font-weight:600;letter-spacing:.3px;transition:color .15s;}
         .checklist-toggle-btn:hover{color:var(--blue);}
         .toggle-label{flex:1;text-align:left;}
@@ -2106,42 +2118,28 @@
             <!-- MACD 모멘텀 시그널 (레이너 테오 전략) -->
             <div id="macdSignal"></div>
 
-            <!-- ===== 단타 분석 ===== -->
-            <div id="tsPanelDay">
-                <div class="tab-col-left">
-                    <div class="card">
-                        <div class="card-title"><span class="dot" style="background:#f97316"></span>단타 종합 분석 <span class="trade-badge day-badge">DAY</span></div>
-                        <div class="ai-score-container">
-                            <div class="ai-score-circle" id="dayScoreCircle">
-                                <div class="ai-score-number" id="dayScoreNumber">-</div>
-                                <div class="ai-score-label">단타 점수</div>
-                            </div>
-                            <div>
-                                <div class="ai-recommendation" id="dayRecommendation">-</div>
-                                <div class="ai-summary" id="daySummary">-</div>
-                            </div>
+            <!-- ===== 단타 분석 (통합) ===== -->
+            <div id="tsPanelDay" style="padding:0 16px;">
+                <div class="card">
+                    <div class="card-title"><span class="dot" style="background:#f97316"></span>단타 분석 <span class="trade-badge day-badge">DAY</span></div>
+                    <div class="ai-score-container">
+                        <div class="ai-score-circle" id="dayScoreCircle">
+                            <div class="ai-score-number" id="dayScoreNumber">-</div>
+                            <div class="ai-score-label">단타 점수</div>
                         </div>
-                        <div class="ai-details" id="dayDetails"></div>
-                    </div>
-                    <div class="card">
-                        <div class="card-title"><span class="dot" style="background:var(--green)"></span>단타 기술적 지표</div>
-                        <div class="indicator-grid" id="dayIndicatorGrid"></div>
-                    </div>
-                </div>
-                <div class="tab-col-right">
-                    <div class="entry-exit-row">
-                    <div class="card">
-                        <div class="card-title"><span class="dot" style="background:var(--cyan)"></span>단타 진입 시점 <span class="trade-badge day-badge">DAY</span></div>
-                        <div class="entry-card" id="dayEntryCard">
-                            <div class="entry-verdict" id="dayEntryVerdict"></div>
-                            <div class="entry-meter" id="dayEntryMeter"></div>
-                            <div class="entry-checklist" id="dayEntryChecklist"></div>
-                            <div class="entry-strategy" id="dayEntryStrategy"></div>
+                        <div>
+                            <div class="ai-recommendation" id="dayRecommendation">-</div>
+                            <div class="ai-summary" id="daySummary">-</div>
                         </div>
                     </div>
-                    </div>
-                    <div id="splitCalcWrap"></div>
+                    <div id="dayUnifiedChecklist"></div>
+                    <div class="entry-strategy" id="dayEntryStrategy"></div>
                 </div>
+                <div class="card">
+                    <div class="card-title"><span class="dot" style="background:var(--green)"></span>단타 기술적 지표</div>
+                    <div class="indicator-grid" id="dayIndicatorGrid"></div>
+                </div>
+                <div id="splitCalcWrap"></div>
             </div>
 
         </div>
@@ -8906,9 +8904,7 @@
     // AI Analysis Engine (단타)
     // ========================================
     function renderAIAnalysis() {
-        renderDayAnalysis();
         renderDayIndicators();
-        _applyRRGate();
     }
 
     function getAnalysisData() {
@@ -8963,64 +8959,138 @@
         }
     }
 
-    function renderDayAnalysis() {
+    // =====================
+    // 단타 통합 분석 (종합 분석 + 진입 시점 합산)
+    // =====================
+    function renderDayUnified() {
+        if (!stockData) return;
         const d = getAnalysisData();
-        const { closes, price, volumes, ma20, rsi, macdLine, signalLine, histogram, bb, highs, lows } = d;
-        const scores = []; const details = [];
-        const c = v => v >= 60 ? 'var(--green)' : v <= 40 ? 'var(--red)' : 'var(--yellow)';
+        const { closes, volumes, highs, lows, price, ma20, rsi, macdLine, signalLine, histogram, bb } = d;
+        const isKR = currentMarket === 'KR';
+        const fmtP = v => isKR ? Math.round(v).toLocaleString() + '원' : '$' + v.toFixed(2);
+        const fmtPct = (v, base) => v && base ? ((v-base)/base*100 > 0?'+':'') + ((v-base)/base*100).toFixed(1)+'%' : '';
 
-        // RVOL & ADX 공통 계산
-        const rvol = volumes.length >= 20
-            ? (volumes[volumes.length-1] || 0) / (volumes.slice(-20).reduce((a,b)=>a+b,0) / 20)
-            : 1;
+        // ATR
+        const _q = stockData.indicators.quote[0];
+        const atr = calcATR(_q.high, _q.low, _q.close).filter(v=>v!=null).pop() || 0;
+
+        // 공통 지표 계산
         const adxResult = calcADX(highs, lows, closes);
-        const lastADX = adxResult.adx.filter(v=>v!=null).pop() || 0;
-        const lma20 = ma20.filter(v=>v!=null).pop() || 0;
+        const lastADX   = adxResult.adx.filter(v=>v!=null).pop() || 0;
+        const prevADX   = adxResult.adx.filter(v=>v!=null).slice(-2)[0] || 0;
+        const lma20     = ma20.filter(v=>v!=null).pop() || 0;
+        const rvol      = volumes.length >= 20
+            ? (volumes[volumes.length-1]||0) / (volumes.slice(-20).reduce((a,b)=>a+b,0)/20) : 1;
+        const isUp      = closes[closes.length-1] >= (closes[closes.length-2] || closes[closes.length-1]);
+        const lastRSI   = rsi.filter(v=>v!=null).pop() || 50;
+        const lastMACD  = macdLine.filter(v=>v!=null).pop() || 0;
+        const lastSig   = signalLine.filter(v=>v!=null).pop() || 0;
+        const lastHist  = histogram.filter(v=>v!=null).pop() || 0;
+        const bbUpper   = bb.upper.filter(v=>v!=null).pop();
+        const bbLower   = bb.lower.filter(v=>v!=null).pop();
+        const colorOf   = s => s >= 60 ? 'var(--green)' : s <= 40 ? 'var(--red)' : 'var(--yellow)';
+        const iconOf    = s => s === 'pass' ? '✓' : s === 'warn' ? '!' : '✗';
 
-        // 1. 추세 강도 (ADX + MA20) - 30%
-        let s1 = 50, t1 = '';
-        if (lastADX >= 25 && price > lma20) { s1 = 90; t1 = `ADX ${lastADX.toFixed(1)} + 가격 MA20 상위. 강한 상승 추세. 퀀트 진입 최적 조건.`; }
-        else if (lastADX >= 20 && price > lma20) { s1 = 70; t1 = `ADX ${lastADX.toFixed(1)} 추세 형성 중 + MA20 위. 진입 가능 조건 접근.`; }
-        else if (lastADX >= 25 && price <= lma20) { s1 = 20; t1 = `ADX ${lastADX.toFixed(1)} 강한 하락 추세. MA20 하위. 진입 금지.`; }
-        else { s1 = 35; t1 = `ADX ${lastADX.toFixed(1)} 횡보장(Ranging). 추세 미형성. 퀀트 단타 부적합.`; }
-        scores.push({ w: .35, s: s1 }); details.push({ title: '추세 강도 (ADX+MA20)', color: c(s1), score: s1, text: t1 });
+        const metrics = [];
 
-        // 2. 모멘텀 (RSI 모멘텀 존 + MACD) - 30%
-        const lastRSI = rsi.filter(v=>v!=null).pop() || 50;
-        const lastMACD = macdLine.filter(v=>v!=null).pop() || 0;
-        const lastSig  = signalLine.filter(v=>v!=null).pop() || 0;
-        const lastHist = histogram.filter(v=>v!=null).pop() || 0;
-        let s2 = 50, t2 = '';
-        if (lastRSI >= 50 && lastRSI <= 65 && lastMACD > lastSig && lastHist > 0) { s2 = 92; t2 = `RSI ${lastRSI.toFixed(1)} 모멘텀 존 + MACD 이중 확인. 퀀트 진입 최고 신호.`; }
-        else if (lastRSI >= 45 && lastRSI <= 70 && lastMACD > lastSig) { s2 = 75; t2 = `RSI ${lastRSI.toFixed(1)} 적정 + MACD 매수 구간. 모멘텀 유효.`; }
-        else if (lastRSI >= RSI_OVERBOUGHT) { s2 = 25; t2 = `RSI ${lastRSI.toFixed(1)} 과매수(≥${RSI_OVERBOUGHT}). 퀀트 진입 금지 구간.`; }
-        else if (lastRSI < RSI_NEUTRAL_LOW) { s2 = 30; t2 = `RSI ${lastRSI.toFixed(1)} 약세(${RSI_WEAK_LOW}~44). 모멘텀 부재. 추세 추종 불가.`; }
-        else { s2 = 45; t2 = `RSI ${lastRSI.toFixed(1)} / MACD 조건 미충족. 방향성 확인 필요.`; }
-        scores.push({ w: .35, s: s2 }); details.push({ title: '모멘텀 (RSI 존+MACD)', color: c(s2), score: s2, text: t2 });
+        // 1. 추세 강도 (ADX+MA20) — weight 35%
+        let s1 = 50, status1 = 'fail', desc1 = '';
+        if (lastADX >= 25 && price > lma20)      { s1 = 90; status1 = 'pass'; desc1 = `ADX ${lastADX.toFixed(1)} + 가격 MA20 상위. 강한 상승 추세. 퀀트 진입 최적 조건.`; }
+        else if (lastADX >= 20 && price > lma20) { s1 = 70; status1 = 'warn'; desc1 = `ADX ${lastADX.toFixed(1)} 추세 형성 중 + MA20 상위. 진입 가능 조건 접근.`; }
+        else if (lastADX < 20)                   { s1 = 35; status1 = 'fail'; desc1 = `ADX ${lastADX.toFixed(1)} 횡보장(Ranging). 추세 미형성. 퀀트 단타 부적합.`; }
+        else                                     { s1 = 20; status1 = 'fail'; desc1 = `ADX ${lastADX.toFixed(1)} 강한 하락 추세. 가격(${fmtP(price)}) < MA20(${fmtP(lma20)}). 진입 금지.`; }
+        metrics.push({ status: status1, title: '추세 강도 (ADX+MA20)', score: s1, color: colorOf(s1), desc: desc1, w: .35 });
 
-        // 3. 거래량 품질 (RVOL) - 25%
-        const isUp = closes[closes.length-1] >= (closes[closes.length-2] || closes[closes.length-1]);
-        let s3 = 50, t3 = '';
-        if (rvol >= 2.0 && isUp) { s3 = 95; t3 = `RVOL ${rvol.toFixed(1)}x 폭발적 + 상승. 기관/세력 매수 강력 신호.`; }
-        else if (rvol >= 1.5 && isUp) { s3 = 80; t3 = `RVOL ${rvol.toFixed(1)}x 평균 이상. 기관 참여 확인. 퀀트 조건 충족.`; }
-        else if (rvol >= 0.8) { s3 = 50; t3 = `RVOL ${rvol.toFixed(1)}x 보통. 기관 참여 불명확.`; }
-        else { s3 = 25; t3 = `RVOL ${rvol.toFixed(1)}x 거래량 급감. 유동성 없음. 퀀트 진입 불가.`; }
-        scores.push({ w: .25, s: s3 }); details.push({ title: '거래량 품질 (RVOL)', color: c(s3), score: s3, text: t3 });
+        // 2. RVOL 거래량 — weight 25%
+        let s2 = 50, status2 = 'warn', desc2 = '';
+        if (rvol >= 2.0 && isUp)  { s2 = 95; status2 = 'pass'; desc2 = `RVOL ${rvol.toFixed(1)}x 폭발적 + 상승. 기관/세력 매수 강력 신호.`; }
+        else if (rvol >= 1.5)     { s2 = 80; status2 = 'pass'; desc2 = `RVOL ${rvol.toFixed(1)}x 평균 이상. 기관 참여 확인. 퀀트 조건 충족.`; }
+        else if (rvol >= 0.8)     { s2 = 50; status2 = 'warn'; desc2 = `RVOL ${rvol.toFixed(1)}x 보통. 기관 참여 불명확. 거래량 증가 확인 후 진입.`; }
+        else                      { s2 = 20; status2 = 'fail'; desc2 = `RVOL ${rvol.toFixed(1)}x 거래량 급감. 유동성 없음. 퀀트 진입 불가.`; }
+        metrics.push({ status: status2, title: 'RVOL 거래량', score: s2, color: colorOf(s2), desc: desc2, w: .125 });
 
-        // 4. BB 적정 진입 구간 (40~80%) - 10%
-        const lbbu = bb.upper.filter(v=>v!=null).pop(); const lbbl = bb.lower.filter(v=>v!=null).pop();
-        let s4 = 50, t4 = '';
-        if (lbbu && lbbl && (lbbu - lbbl) > 0) {
-            const bbPos = (price - lbbl) / (lbbu - lbbl);
-            if (bbPos >= 0.40 && bbPos <= 0.80) { s4 = 82; t4 = `BB 포지션 ${(bbPos*100).toFixed(0)}% — 적정 진입 구간(40~80%). 오버슈트 위험 낮음.`; }
-            else if (bbPos > 0.80 && bbPos <= 1.0) { s4 = 40; t4 = `BB 포지션 ${(bbPos*100).toFixed(0)}% — 상단 근접. 과매수 주의.`; }
-            else if (bbPos > 1.0) { s4 = 20; t4 = `BB 상단 이탈. 극단적 과매수. 퀀트 진입 금지.`; }
-            else { s4 = 35; t4 = `BB 포지션 ${(bbPos*100).toFixed(0)}% — 하단 구간. 추세 미형성.`; }
+        // 3. RSI 모멘텀 존 — weight 17.5%
+        let s3 = 50, status3 = 'fail', desc3 = '';
+        if (lastRSI >= 50 && lastRSI <= 65)      { s3 = 92; status3 = 'pass'; desc3 = `RSI ${lastRSI.toFixed(1)} 모멘텀 존(50~65). 퀀트 진입 최고 신호.`; }
+        else if (lastRSI >= 45 && lastRSI < 50)  { s3 = 65; status3 = 'warn'; desc3 = `RSI ${lastRSI.toFixed(1)} 모멘텀 존 하단. 50 돌파 확인 권장.`; }
+        else if (lastRSI > 65 && lastRSI < RSI_OVERBOUGHT) { s3 = 55; status3 = 'warn'; desc3 = `RSI ${lastRSI.toFixed(1)} 모멘텀 존 상단. 과매수 근접. 빠른 익절 준비.`; }
+        else if (lastRSI >= RSI_OVERBOUGHT)      { s3 = 20; status3 = 'fail'; desc3 = `RSI ${lastRSI.toFixed(1)} 과매수(≥${RSI_OVERBOUGHT}). 퀀트 신규 진입 금지.`; }
+        else { const [lb] = rsiZoneLabel(lastRSI); s3 = 28; status3 = 'fail'; desc3 = `RSI ${lastRSI.toFixed(1)} ${lb}(<${RSI_NEUTRAL_LOW}). 추세 추종 조건 미충족.`; }
+        metrics.push({ status: status3, title: 'RSI 모멘텀 존', score: s3, color: colorOf(s3), desc: desc3, w: .175 });
+
+        // 4. MACD 이중 확인 — weight 17.5%
+        let s4 = 50, status4 = 'fail', desc4 = '';
+        if (lastMACD > lastSig && lastHist > 0)      { s4 = 92; status4 = 'pass'; desc4 = `MACD > Signal + 히스토그램 양수. 모멘텀 가속 중.`; }
+        else if (lastMACD > lastSig && lastHist <= 0) { s4 = 55; status4 = 'warn'; desc4 = `MACD > Signal이나 히스토그램 감소 중. 모멘텀 약화 주의.`; }
+        else                                          { s4 = 20; status4 = 'fail'; desc4 = `MACD < Signal. 하락 모멘텀. 진입 금지.`; }
+        metrics.push({ status: status4, title: 'MACD 이중 확인', score: s4, color: colorOf(s4), desc: desc4, w: .175 });
+
+        // 5. BB 진입 구간 — weight 5%
+        let s5 = 50, status5 = 'warn', desc5 = '';
+        if (bbUpper && bbLower && (bbUpper-bbLower) > 0) {
+            const bbPos = (price-bbLower)/(bbUpper-bbLower);
+            if (bbPos >= 0.40 && bbPos <= 0.80)      { s5 = 82; status5 = 'pass'; desc5 = `BB 포지션 ${(bbPos*100).toFixed(0)}% — 적정 진입 구간(40~80%).`; }
+            else if (bbPos > 0.80 && bbPos <= 1.0)   { s5 = 40; status5 = 'warn'; desc5 = `BB 포지션 ${(bbPos*100).toFixed(0)}% — 상단 근접. 과매수 주의.`; }
+            else if (bbPos > 1.0)                    { s5 = 15; status5 = 'fail'; desc5 = `BB 상단 이탈. 극단적 과매수. 퀀트 진입 금지.`; }
+            else                                     { s5 = 35; status5 = 'fail'; desc5 = `BB 포지션 ${(bbPos*100).toFixed(0)}% — 하단 구간. 추세 미형성.`; }
         }
-        scores.push({ w: .05, s: s4 }); details.push({ title: 'BB 진입 구간', color: c(s4), score: s4, text: t4 });
+        metrics.push({ status: status5, title: 'BB 진입 구간', score: s5, color: colorOf(s5), desc: desc5, w: .05 });
 
-        const total = Math.round(scores.reduce((sum, x) => sum + x.w * x.s, 0));
-        renderScoreCard('day', total, details, 'day');
+        // 종합 점수 (가중치 합산)
+        const totalScore = Math.round(metrics.reduce((sum, m) => sum + m.w * m.score, 0));
+
+        // 점수 원형 + recommendation 업데이트 (renderScoreCard 로직 인라인)
+        const recColor = totalScore >= 75 ? 'var(--green)' : totalScore >= 60 ? 'var(--green)' : totalScore >= 45 ? 'var(--yellow)' : 'var(--red)';
+        const recText  = totalScore >= 75 ? '강력 진입' : totalScore >= 60 ? '진입 가능' : totalScore >= 45 ? '관망' : totalScore >= 30 ? '위험' : '매수 금지';
+        const recDesc  = totalScore >= 75 ? '단기 모멘텀이 매우 강합니다. 거래량 동반 상승으로 빠른 수익 기회가 있습니다.'
+                       : totalScore >= 60 ? '단기 지표가 긍정적입니다. 분봉 흐름을 확인하고 타이트한 손절로 진입하세요.'
+                       : totalScore >= 45 ? '단기 방향성이 불확실합니다. 명확한 돌파 또는 지지 확인 후 진입하세요.'
+                       : totalScore >= 30 ? '단기 하락 모멘텀이 우세합니다. 반등 확인 전까지 매수를 자제하세요.'
+                       : '단기 급락 위험이 높습니다. 거래량 감소와 함께 하락 추세가 강화되고 있습니다.';
+        const circle = document.getElementById('dayScoreCircle');
+        if (circle) { circle.style.setProperty('--score', totalScore); circle.style.setProperty('--score-color', recColor); }
+        const numEl = document.getElementById('dayScoreNumber');  if (numEl) { numEl.textContent = totalScore; numEl.style.color = recColor; }
+        const recEl = document.getElementById('dayRecommendation'); if (recEl) { recEl.textContent = recText;  recEl.style.color = recColor; }
+        const sumEl = document.getElementById('daySummary');       if (sumEl)  sumEl.textContent = recDesc;
+
+        // 통합 지표 행 렌더
+        const elU = document.getElementById('dayUnifiedChecklist');
+        if (elU) elU.innerHTML = metrics.map(m => `
+            <div class="day-unified-item">
+                <div class="day-unified-header">
+                    <div class="day-unified-icon ${m.status}">${iconOf(m.status)}</div>
+                    <div class="day-unified-title" style="color:${m.color}">${m.title}</div>
+                    <div class="day-unified-score">${m.score}점</div>
+                </div>
+                <div class="day-unified-desc">${m.desc}</div>
+                <div class="day-unified-bar"><div class="day-unified-bar-fill" style="width:${m.score}%;background:${m.color}"></div></div>
+            </div>`).join('');
+
+        // 전략 박스
+        const sl  = price - atr * DAYTRADING_SL_MULTIPLIER;
+        const tp1 = price * 1.02;
+        const tp2 = price + atr * TP2_ATR_MULTIPLIER;
+        const stratEl = document.getElementById('dayEntryStrategy');
+        if (stratEl) stratEl.innerHTML = `
+            <div class="entry-strategy-title" style="color:var(--cyan)">추세 추종 모멘텀 전략 (퀀트 단타)</div>
+            <div class="entry-strategy-row"><span class="entry-strategy-label">손절가 (ATR×${DAYTRADING_SL_MULTIPLIER})</span><span class="entry-strategy-value" style="color:var(--red)">${fmtP(sl)} <small style="color:var(--text2)">${fmtPct(sl,price)}</small></span></div>
+            <div class="entry-strategy-row"><span class="entry-strategy-label">1차 익절 (+2%)</span><span class="entry-strategy-value" style="color:var(--green)">${fmtP(tp1)} <small style="color:var(--text2)">+2.0%</small></span></div>
+            <div class="entry-strategy-row"><span class="entry-strategy-label">2차 목표가 (ATR×${TP2_ATR_MULTIPLIER})</span><span class="entry-strategy-value" style="color:var(--green)">${fmtP(tp2)} <small style="color:var(--text2)">${fmtPct(tp2,price)}</small></span></div>
+            <div class="entry-strategy-row"><span class="entry-strategy-label">보유 기간</span><span class="entry-strategy-value">당일 청산 원칙. 오버나잇 금지.</span></div>`;
+
+        // R/R 게이트 적용
+        _applyRRGate();
+
+        // Falling Knife 경고 (카드 border 색상 변경)
+        if (_isFallingKnife()) {
+            const card = document.getElementById('dayUnifiedChecklist')?.closest('.card');
+            if (card) card.style.borderColor = 'var(--red)';
+        }
+
+        // 분할 매수 계산기 데이터 전달
+        const e1 = price, e2 = price - atr*0.3, e3 = price - atr*0.6, e4 = price - atr*1.0, e5 = price - atr*1.5;
+        window._sc = { prices: [e1, e2, e3, e4, e5], tp1, tp2, sl, isKR };
+        renderSplitCalc();
     }
 
     function renderDayIndicators() {
@@ -9046,11 +9116,7 @@
     // Entry/Exit Timing (단타)
     // ========================================
     function renderEntryTiming() {
-        renderDayEntry();
-        if (_isFallingKnife()) {
-            const card = document.getElementById('dayEntryCard');
-            if (card) card.className = 'card entry-card entry-danger';
-        }
+        renderDayUnified();
     }
     // ========================================
     // 손익비(R/R) 분석 카드
@@ -9520,150 +9586,6 @@
             btn.classList.add('open');
             if (lbl) lbl.textContent = '접기';
         }
-    }
-
-    // =====================
-    // 단타 진입 시점 (과매도 기술적 반등)
-    // =====================
-    function renderDayEntry() {
-        const d = getAnalysisData();
-        const { closes, volumes, highs, lows, price, ma20, rsi, bb, macdLine, signalLine, histogram } = d;
-        const isKR = currentMarket === 'KR';
-        const fmtP = v => isKR ? Math.round(v).toLocaleString()+'원' : '$'+v.toFixed(2);
-        const fmtPct = (v, base) => v && base
-            ? ((v-base)/base*100 > 0 ? '+' : '') + ((v-base)/base*100).toFixed(1)+'%' : '';
-
-        // ATR 계산 (분할 진입가 산출용)
-        const _q = stockData.indicators.quote[0];
-        const atrRaw = calcATR(_q.high, _q.low, _q.close);
-        const atr = atrRaw.filter(v => v != null).pop() || 0;
-
-        // 5단계 분할 진입가 (ATR 기반)
-        const e1 = price;
-        const e2 = price - atr * 0.3;
-        const e3 = price - atr * 0.6;
-        const e4 = price - atr * 1.0;
-        const e5 = price - atr * 1.5;
-
-        // 퀀트 지표 계산
-        const adxRes = calcADX(highs, lows, closes);
-        const lastADX = adxRes.adx.filter(v=>v!=null).pop() || 0;
-        const lma20   = ma20.filter(v=>v!=null).pop() || 0;
-        const rvol    = volumes.length >= 20
-            ? (volumes[volumes.length-1] || 0) / (volumes.slice(-20).reduce((a,b)=>a+b,0) / 20)
-            : 1;
-        const lastRSI  = rsi.filter(v=>v!=null).pop() || 50;
-        const lastMACD = macdLine.filter(v=>v!=null).pop() || 0;
-        const lastSig  = signalLine.filter(v=>v!=null).pop() || 0;
-        const histClean = histogram.filter(v=>v!=null);
-        const histNow   = histClean[histClean.length-1] || 0;
-        const bbUpper  = bb.upper.filter(v=>v!=null).pop();
-        const bbLower  = bb.lower.filter(v=>v!=null).pop();
-        const bbMid    = bb.middle.filter(v=>v!=null).pop();
-
-        // 목표가 / 손절
-        const tp1 = price * 1.02;  // +2% 빠른 익절
-        const tp2 = price + atr * TP2_ATR_MULTIPLIER; // ATR×2.5 목표가
-        const sl  = price - atr * DAYTRADING_SL_MULTIPLIER; // ATR×0.7 손절
-
-        // 6개 체크
-        const checks = []; let passCount = 0, totalChecks = 0;
-
-        // A. 추세 필터 (ADX + MA20)
-        totalChecks++;
-        if (lastADX >= 25 && price > lma20) {
-            checks.push({ status:'pass', label:`추세 확인 — ADX ${lastADX.toFixed(1)} + MA20 상위`, desc:'강한 상승 추세 확인. 추세 추종 진입 조건 충족.' });
-            passCount++;
-        } else if (lastADX >= 20 && price > lma20) {
-            checks.push({ status:'warn', label:`추세 형성 중 — ADX ${lastADX.toFixed(1)}`, desc:'추세 형성 중이나 ADX 25 미만. 확인 후 진입.' });
-        } else if (lastADX < 20) {
-            checks.push({ status:'fail', label:`횡보장 — ADX ${lastADX.toFixed(1)} (≤20)`, desc:'추세 없음. 퀀트 추세 추종 전략 부적합.' });
-        } else {
-            checks.push({ status:'fail', label:`MA20 하위 — 하락 추세`, desc:`가격(${fmtP(price)}) < MA20(${fmtP(lma20)}). 매수 금지.` });
-        }
-
-        // B. 기관 볼륨 (RVOL ≥ 1.5x)
-        totalChecks++;
-        if (rvol >= 2.0) {
-            checks.push({ status:'pass', label:`RVOL ${rvol.toFixed(1)}x — 폭발적 거래량`, desc:'20일 평균 대비 2배 이상. 기관/세력 강한 매수 참여.' });
-            passCount++;
-        } else if (rvol >= 1.5) {
-            checks.push({ status:'pass', label:`RVOL ${rvol.toFixed(1)}x — 기관 참여 확인`, desc:'평균 대비 1.5x 이상. 기관 볼륨 조건 충족.' });
-            passCount++;
-        } else if (rvol >= 0.8) {
-            checks.push({ status:'warn', label:`RVOL ${rvol.toFixed(1)}x — 평균 수준`, desc:'기관 참여 불명확. 거래량 증가 확인 후 진입.' });
-        } else {
-            checks.push({ status:'fail', label:`RVOL ${rvol.toFixed(1)}x — 거래량 부족`, desc:'유동성 없음. 퀀트 진입 조건 미충족.' });
-        }
-
-        // C. RSI 모멘텀 존 (45~65)
-        totalChecks++;
-        if (lastRSI >= 50 && lastRSI <= 65) {
-            checks.push({ status:'pass', label:`RSI ${lastRSI.toFixed(1)} — 모멘텀 존 (50~65)`, desc:'과매수/과매도 아닌 상승 모멘텀 구간. 퀀트 진입 최적.' });
-            passCount++;
-        } else if (lastRSI >= 45 && lastRSI < 50) {
-            checks.push({ status:'warn', label:`RSI ${lastRSI.toFixed(1)} — 모멘텀 존 하단`, desc:'진입 가능하나 50 돌파 확인 권장.' });
-        } else if (lastRSI > 65 && lastRSI <= 70) {
-            checks.push({ status:'warn', label:`RSI ${lastRSI.toFixed(1)} — 모멘텀 존 상단`, desc:'진입 가능하나 과매수 근접. 빠른 익절 준비.' });
-        } else if (lastRSI >= RSI_OVERBOUGHT) {
-            checks.push({ status:'fail', label:`RSI ${lastRSI.toFixed(1)} — 과매수 (≥${RSI_OVERBOUGHT})`, desc:'과매수 극단. 퀀트 신규 진입 금지.' });
-        } else {
-            const [rsiLbl] = rsiZoneLabel(lastRSI);
-            checks.push({ status:'fail', label:`RSI ${lastRSI.toFixed(1)} — ${rsiLbl} (<${RSI_NEUTRAL_LOW})`, desc:'약세/과매도 구간. 추세 추종 조건 미충족.' });
-        }
-
-        // D. MACD 이중 확인 (MACD > Signal AND Hist > 0)
-        totalChecks++;
-        if (lastMACD > lastSig && histNow > 0) {
-            checks.push({ status:'pass', label:'MACD 이중 확인 — 매수 모멘텀', desc:`MACD(${lastMACD.toFixed(3)}) > Signal + 히스토그램 양수. 모멘텀 가속 중.` });
-            passCount++;
-        } else if (lastMACD > lastSig && histNow <= 0) {
-            checks.push({ status:'warn', label:'MACD 매수세 (히스토그램 수렴)', desc:'MACD > Signal이나 히스토그램 감소 중. 모멘텀 약화 주의.' });
-        } else {
-            checks.push({ status:'fail', label:'MACD 매도 구간', desc:`MACD < Signal. 하락 모멘텀. 진입 금지.` });
-        }
-
-        // E. BB 적정 진입 구간 (40~80%)
-        totalChecks++;
-        if (bbUpper && bbLower && (bbUpper - bbLower) > 0) {
-            const bbPos = (price - bbLower) / (bbUpper - bbLower);
-            if (bbPos >= 0.40 && bbPos <= 0.80) {
-                checks.push({ status:'pass', label:`BB 포지션 ${(bbPos*100).toFixed(0)}% — 적정 구간`, desc:'오버슈트 위험 낮은 적정 진입 구간(40~80%).' });
-                passCount++;
-            } else if (bbPos > 0.80 && bbPos <= 1.0) {
-                checks.push({ status:'warn', label:`BB 포지션 ${(bbPos*100).toFixed(0)}% — 상단 근접`, desc:'과매수 주의. 진입 시 빠른 익절 전략 필요.' });
-            } else if (bbPos > 1.0) {
-                checks.push({ status:'fail', label:'BB 상단 이탈 — 진입 금지', desc:'극단적 과매수. 퀀트 진입 금지.' });
-            } else {
-                checks.push({ status:'fail', label:`BB 포지션 ${(bbPos*100).toFixed(0)}% — 하단 구간`, desc:'하락 추세 영역. 추세 추종 조건 미충족.' });
-            }
-        } else {
-            checks.push({ status:'warn', label:'BB 데이터 없음', desc:'볼린저밴드 계산 불가.' });
-        }
-
-        const stratHtml = `
-            <div class="entry-strategy-title" style="color:var(--cyan)">추세 추종 모멘텀 전략 (퀀트 단타)</div>
-            <div class="entry-strategy-row">
-                <span class="entry-strategy-label">손절가 (ATR 1x)</span>
-                <span class="entry-strategy-value" style="color:var(--red)">${fmtP(sl)} <small style="color:var(--text2)">${fmtPct(sl,price)}</small></span>
-            </div>
-            <div class="entry-strategy-row">
-                <span class="entry-strategy-label">1차 익절 (+2%)</span>
-                <span class="entry-strategy-value" style="color:var(--green)">${fmtP(tp1)} <small style="color:var(--text2)">+2.0%</small></span>
-            </div>
-            <div class="entry-strategy-row">
-                <span class="entry-strategy-label">2차 목표가 (TP2 · ATR×2.5)</span>
-                <span class="entry-strategy-value" style="color:var(--green)">${tp2 ? fmtP(tp2) : 'N/A'} <small style="color:var(--text2)">${fmtPct(tp2,price)}</small></span>
-            </div>
-            <div class="entry-strategy-row">
-                <span class="entry-strategy-label">보유 기간</span>
-                <span class="entry-strategy-value">당일 청산 원칙. 오버나잇 금지.</span>
-            </div>`;
-
-        // 분할 매수 계산기에 데이터 전달
-        window._sc = { prices: [e1, e2, e3, e4, e5], tp1, tp2, sl, isKR };
-        renderTimingCard('day', 'entry', checks, passCount, totalChecks, stratHtml);
-        renderSplitCalc();
     }
 
     // =====================
@@ -11718,6 +11640,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         setOptionsStrikeRange, toggleOptionsVolFilter, sortOptionsBy,
         manualAnalysisRefresh, pwaInstall,
         handleSearchKeydown, openSearchDropdown, closeSearchDropdown, searchSuggest, levenshtein,
+        renderDayUnified,
         renderRRAnalysis, renderRSIMomentum, analyzeRSIDynamic,
         renderMACDSignal, analyzeMACDRayner, _applyRRGate, _isFallingKnife,
         toggleChecklist,

@@ -2,11 +2,16 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "stockai",
+      "name": "StockAI Server (production)",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["server.js"],
-      "port": 3000,
-      "autoPort": false
+      "runtimeArgs": ["--max-http-header-size=65536", "server.js"],
+      "port": 3000
+    },
+    {
+      "name": "StockAI Server (dev / nodemon)",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["nodemon", "--exec", "node --max-http-header-size=65536", "server.js"],
+      "port": 3000
     }
   ]
 }
