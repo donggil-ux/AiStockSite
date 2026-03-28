@@ -221,6 +221,48 @@
         .rr-badge.excellent{background:rgba(34,197,94,.15);color:var(--green);}
         .rr-badge.good{background:rgba(234,179,8,.15);color:var(--yellow);}
         .rr-badge.ok{background:rgba(59,130,246,.12);color:var(--blue);}
+        /* ===== R/R 손익비 계산기 위젯 ===== */
+        .rr-calc-inner{padding:14px;}
+        .rr-calc-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+        .rr-calc-ttl{font-size:13px;font-weight:700;color:var(--text2);}
+        .rr-calc-status{font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;background:var(--bg3);color:var(--text3);white-space:nowrap;}
+        .rr-calc-status.good{background:rgba(34,197,94,.18);color:var(--green);}
+        .rr-calc-status.ok{background:rgba(234,179,8,.18);color:var(--yellow);}
+        .rr-calc-status.bad{background:rgba(239,68,68,.18);color:var(--red);}
+        .rr-calc-body{display:flex;gap:14px;align-items:flex-start;}
+        .rr-calc-left{flex:1;display:flex;flex-direction:column;gap:10px;min-width:0;}
+        .rr-inp-grp{display:flex;flex-direction:column;gap:4px;}
+        .rr-inp-lbl{font-size:11px;font-weight:600;color:var(--text3);}
+        .rr-inp-row{display:flex;gap:6px;align-items:center;}
+        .rr-inp-field{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);padding:8px 10px;color:var(--text);font-size:13px;font-weight:600;outline:none;transition:border-color .15s;-moz-appearance:textfield;min-width:0;width:100%;font-family:inherit;}
+        .rr-inp-field::-webkit-outer-spin-button,.rr-inp-field::-webkit-inner-spin-button{-webkit-appearance:none;}
+        .rr-inp-field:focus{border-color:var(--blue);}
+        .rr-inp-field.tp{border-left:3px solid rgba(34,197,94,.55);}
+        .rr-inp-field.entry{border-left:3px solid rgba(148,163,184,.5);}
+        .rr-inp-field.sl{border-left:3px solid rgba(239,68,68,.55);}
+        .rr-auto-btn{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);border-radius:6px;padding:6px 8px;color:var(--blue);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit;transition:all .15s;flex-shrink:0;}
+        .rr-auto-btn:hover{background:rgba(59,130,246,.22);}
+        .rr-calc-summary{background:var(--bg3);border-radius:var(--r2);padding:10px 12px;display:flex;flex-direction:column;gap:5px;}
+        .rr-sum-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;}
+        .rr-sum-lbl{color:var(--text3);}
+        .rr-sum-val{font-weight:700;}
+        .rr-sum-val.up{color:var(--green);}
+        .rr-sum-val.dn{color:var(--red);}
+        .rr-sum-sep{height:1px;background:var(--border);margin:2px 0;}
+        .rr-ratio-num{font-size:16px;font-weight:800;transition:color .2s;}
+        .rr-vbar-col{width:76px;display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;}
+        .rr-vtag{font-size:10px;font-weight:700;text-align:center;white-space:nowrap;max-width:76px;overflow:hidden;text-overflow:ellipsis;}
+        .rr-vtag.tp{color:var(--green);}
+        .rr-vtag.sl{color:var(--red);}
+        .rr-vbar-track{width:60px;height:188px;display:flex;flex-direction:column;border-radius:10px;overflow:hidden;flex-shrink:0;}
+        .rr-vbar-green{flex:1;background:rgba(34,197,94,.18);border:1px solid rgba(34,197,94,.3);border-bottom:none;border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:center;transition:flex .28s ease;overflow:hidden;}
+        .rr-vbar-red{flex:1;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.28);border-top:none;border-radius:0 0 10px 10px;display:flex;align-items:center;justify-content:center;transition:flex .28s ease;overflow:hidden;}
+        .rr-vbar-div{height:2px;background:var(--text);flex-shrink:0;}
+        .rr-vbar-pct{font-size:10px;font-weight:800;line-height:1;}
+        .rr-vbar-green .rr-vbar-pct{color:var(--green);}
+        .rr-vbar-red .rr-vbar-pct{color:var(--red);}
+        .rr-vbar-ph{width:60px;height:188px;background:var(--bg3);border-radius:10px;border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;}
+        .rr-vbar-ph span{font-size:10px;color:var(--text3);text-align:center;line-height:1.6;}
         .swing-ai-btn{padding:5px 10px;background:transparent;color:var(--text3);border:1px solid var(--border);border-radius:8px;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;transition:all .15s;white-space:nowrap;}
         .swing-ai-btn:hover{border-color:var(--blue);color:var(--blue);background:rgba(59,130,246,.06);}
         .swing-empty{padding:24px;text-align:center;color:var(--text3);font-size:13px;background:var(--bg2);border-radius:var(--r2);}
@@ -2041,13 +2083,67 @@
                             <div class="entry-strategy" id="dayEntryStrategy"></div>
                         </div>
                     </div>
-                    <div class="card">
-                        <div class="card-title"><span class="dot" style="background:var(--red)"></span>단타 매도 시점 <span class="trade-badge day-badge">DAY</span></div>
-                        <div class="exit-card" id="dayExitCard">
-                            <div class="exit-verdict" id="dayExitVerdict"></div>
-                            <div class="exit-meter" id="dayExitMeter"></div>
-                            <div class="exit-checklist" id="dayExitChecklist"></div>
-                            <div class="exit-strategy" id="dayExitStrategy"></div>
+                    <div class="card" id="rrCalcWidgetCard">
+                        <div class="card-title"><span class="dot" style="background:var(--blue)"></span>R/R 손익비 계산기 <span class="trade-badge day-badge">DAY</span></div>
+                        <div class="rr-calc-inner">
+                            <div class="rr-calc-hdr">
+                                <span class="rr-calc-ttl">📊 손익비 (Risk / Reward)</span>
+                                <span class="rr-calc-status" id="rrCalcBadge">계산 대기</span>
+                            </div>
+                            <div class="rr-calc-body">
+                                <div class="rr-calc-left">
+                                    <div class="rr-inp-grp">
+                                        <label class="rr-inp-lbl">🎯 목표 익절가 (TP)</label>
+                                        <div class="rr-inp-row">
+                                            <input type="number" id="rrCalcTp" class="rr-inp-field tp" placeholder="목표가 입력" step="any" oninput="calcRRWidget()">
+                                        </div>
+                                    </div>
+                                    <div class="rr-inp-grp">
+                                        <label class="rr-inp-lbl">⬛ 진입가 (현재가)</label>
+                                        <div class="rr-inp-row">
+                                            <input type="number" id="rrCalcEntry" class="rr-inp-field entry" placeholder="진입가 입력" step="any" oninput="calcRRWidget()">
+                                            <button class="rr-auto-btn" onclick="rrWidgetAutoFill()">현재가</button>
+                                        </div>
+                                    </div>
+                                    <div class="rr-inp-grp">
+                                        <label class="rr-inp-lbl">🛑 손절가 (SL)</label>
+                                        <div class="rr-inp-row">
+                                            <input type="number" id="rrCalcSl" class="rr-inp-field sl" placeholder="손절가 입력" step="any" oninput="calcRRWidget()">
+                                        </div>
+                                    </div>
+                                    <div class="rr-calc-summary" id="rrCalcSummary" style="display:none;">
+                                        <div class="rr-sum-row">
+                                            <span class="rr-sum-lbl">기대 수익</span>
+                                            <span class="rr-sum-val up" id="rrCalcReward">—</span>
+                                        </div>
+                                        <div class="rr-sum-row">
+                                            <span class="rr-sum-lbl">감수 리스크</span>
+                                            <span class="rr-sum-val dn" id="rrCalcRisk">—</span>
+                                        </div>
+                                        <div class="rr-sum-sep"></div>
+                                        <div class="rr-sum-row">
+                                            <span class="rr-sum-lbl" style="font-weight:700;color:var(--text)">R/R 비율</span>
+                                            <span class="rr-ratio-num" id="rrCalcRatio">—</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="rr-vbar-col">
+                                    <span class="rr-vtag tp" id="rrCalcTpTag">TP</span>
+                                    <div class="rr-vbar-ph" id="rrCalcPh">
+                                        <span>값 입력 시<br>시각화</span>
+                                    </div>
+                                    <div class="rr-vbar-track" id="rrCalcTrack" style="display:none;">
+                                        <div class="rr-vbar-green" id="rrCalcGreen">
+                                            <span class="rr-vbar-pct" id="rrCalcRwdPct"></span>
+                                        </div>
+                                        <div class="rr-vbar-div"></div>
+                                        <div class="rr-vbar-red" id="rrCalcRed">
+                                            <span class="rr-vbar-pct" id="rrCalcRskPct"></span>
+                                        </div>
+                                    </div>
+                                    <span class="rr-vtag sl" id="rrCalcSlTag">SL</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     </div>
@@ -6043,9 +6139,9 @@
             renderCCIChart();
             renderOBVChart();
             renderEntryTiming();
-            renderExitTiming();
             renderAIAnalysis();
             renderRRAnalysis();
+            rrWidgetAutoFill();
             renderRSIMomentum();
             renderMACDSignal();
             renderVolumeChart();
@@ -6299,9 +6395,9 @@
             renderCCIChart();
             renderOBVChart();
             renderEntryTiming();
-            renderExitTiming();
             renderAIAnalysis();
             renderRRAnalysis();
+            rrWidgetAutoFill();
             renderRSIMomentum();
             renderMACDSignal();
             renderVolumeChart();
@@ -9226,6 +9322,86 @@
         </div>`;
     }
 
+    // =====================
+    // R/R 손익비 계산기 위젯
+    // =====================
+    function calcRRWidget() {
+        const entry = parseFloat(document.getElementById('rrCalcEntry')?.value);
+        const tp    = parseFloat(document.getElementById('rrCalcTp')?.value);
+        const sl    = parseFloat(document.getElementById('rrCalcSl')?.value);
+        const badge   = document.getElementById('rrCalcBadge');
+        const summary = document.getElementById('rrCalcSummary');
+        const track   = document.getElementById('rrCalcTrack');
+        const ph      = document.getElementById('rrCalcPh');
+
+        const valid = !isNaN(entry) && !isNaN(tp) && !isNaN(sl)
+                   && entry > 0 && tp > entry && sl >= 0 && sl < entry;
+
+        if (!valid) {
+            if (badge)   { badge.textContent = '계산 대기'; badge.className = 'rr-calc-status'; }
+            if (summary) summary.style.display = 'none';
+            if (track)   track.style.display   = 'none';
+            if (ph)      ph.style.display       = 'flex';
+            return;
+        }
+
+        const isKR   = currentMarket === 'KR';
+        const fmtP   = v => isKR ? Math.round(v).toLocaleString() + '원' : '$' + v.toFixed(2);
+        const fmtPct = v => (v >= 0 ? '+' : '') + (v * 100).toFixed(2) + '%';
+
+        const reward = tp - entry;
+        const risk   = entry - sl;
+        const rr     = reward / risk;
+        const total  = reward + risk;
+
+        // 결과 텍스트
+        const rewardEl = document.getElementById('rrCalcReward');
+        const riskEl   = document.getElementById('rrCalcRisk');
+        const ratioEl  = document.getElementById('rrCalcRatio');
+        if (rewardEl) rewardEl.textContent = `+${fmtP(reward)} (${fmtPct(reward / entry)})`;
+        if (riskEl)   riskEl.textContent   = `-${fmtP(risk)} (${fmtPct(-risk / entry)})`;
+        if (ratioEl) {
+            ratioEl.textContent = rr.toFixed(2) + ' : 1';
+            ratioEl.style.color = rr >= 2.0 ? 'var(--green)' : rr >= 1.5 ? 'var(--yellow)' : 'var(--red)';
+        }
+
+        // 상단 배지
+        if (badge) {
+            if      (rr >= 2.0) { badge.textContent = `R/R ${rr.toFixed(2)} ✓ 진입 적합`; badge.className = 'rr-calc-status good'; }
+            else if (rr >= 1.5) { badge.textContent = `R/R ${rr.toFixed(2)} 조건부 고려`;  badge.className = 'rr-calc-status ok';   }
+            else                { badge.textContent = `R/R ${rr.toFixed(2)} 진입 비권장`;  badge.className = 'rr-calc-status bad';  }
+        }
+
+        // 세로 바 시각화
+        const greenEl  = document.getElementById('rrCalcGreen');
+        const redEl    = document.getElementById('rrCalcRed');
+        const rwdPctEl = document.getElementById('rrCalcRwdPct');
+        const rskPctEl = document.getElementById('rrCalcRskPct');
+        const tpTagEl  = document.getElementById('rrCalcTpTag');
+        const slTagEl  = document.getElementById('rrCalcSlTag');
+        if (greenEl)  greenEl.style.flex  = ((reward / total) * 100).toString();
+        if (redEl)    redEl.style.flex    = ((risk   / total) * 100).toString();
+        if (rwdPctEl) rwdPctEl.textContent = fmtPct(reward / entry);
+        if (rskPctEl) rskPctEl.textContent = fmtPct(-risk / entry);
+        if (tpTagEl)  tpTagEl.textContent  = fmtP(tp);
+        if (slTagEl)  slTagEl.textContent  = fmtP(sl);
+
+        if (summary) { summary.style.display = 'flex'; summary.style.flexDirection = 'column'; }
+        if (track)   { track.style.display   = 'flex'; track.style.flexDirection   = 'column'; }
+        if (ph)      ph.style.display = 'none';
+    }
+
+    function rrWidgetAutoFill() {
+        if (!stockData) return;
+        const d = getAnalysisData();
+        if (!d) return;
+        const entryEl = document.getElementById('rrCalcEntry');
+        if (!entryEl) return;
+        const isKR = currentMarket === 'KR';
+        entryEl.value = isKR ? Math.round(d.price) : d.price.toFixed(2);
+        calcRRWidget();
+    }
+
     // R/R Gate: 기술적 매수 추천이지만 R/R < 1.5이면 '관망'으로 강제 변환
     function _applyRRGate() {
         if (!stockData) return;
@@ -11679,6 +11855,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         renderRRAnalysis, renderRSIMomentum, analyzeRSIDynamic,
         renderMACDSignal, analyzeMACDRayner, _applyRRGate, _isFallingKnife,
         toggleChecklist,
+        calcRRWidget, rrWidgetAutoFill,
         detectBullishDivergence, _detectOBVPanic,
         renderSplitCalc,
         openCalcFab, closeCalcFab, _calcSplitFab, _fabCommaFmt,
