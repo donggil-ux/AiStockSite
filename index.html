@@ -96,7 +96,7 @@
         }
 
         /* ===== HEADER - 토스증권 스타일 ===== */
-        .header{position:sticky;top:0;z-index:100;background:color-mix(in srgb, var(--bg) 92%, transparent);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);padding:16px 20px 12px;padding-top:calc(16px + env(safe-area-inset-top));}
+        .header{position:sticky;top:0;z-index:1100;background:color-mix(in srgb, var(--bg) 92%, transparent);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);padding:16px 20px 12px;padding-top:calc(16px + env(safe-area-inset-top));}
         .header-top{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
         /* 모바일 뒤로가기 버튼 & 종목명 — 기본 숨김 */
         .mob-back-btn{display:none;align-items:center;justify-content:center;background:none;border:none;color:var(--text);font-size:24px;cursor:pointer;padding:4px;flex-shrink:0;line-height:1;}
@@ -6103,6 +6103,7 @@
             window._vsActive = false;
             document.getElementById('stockHero').classList.add('show');
             document.getElementById('tabNav').classList.add('show');
+            window.scrollTo(0, 0);
             switchTab('chart');
 
             // 즉시 렌더링 → 로딩 해제
@@ -11514,6 +11515,7 @@
                 _aiProgressHide();
             } finally {
                 if (btn) { btn.disabled = false; btn.textContent = '🔍 AI 판독기'; }
+                _aiProgressHide();
             }
         }, 'image/png');
     }
