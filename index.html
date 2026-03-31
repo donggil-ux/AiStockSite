@@ -292,6 +292,20 @@
         .ai-badge{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;letter-spacing:.3px;white-space:nowrap;}
         .ai-badge.buy{background:rgba(34,197,94,.2);color:var(--green);}
         .ai-badge.watch{background:rgba(234,179,8,.2);color:var(--yellow);}
+        .ai-rec-more-btn{font-size:12px;font-weight:600;color:var(--blue);background:none;border:none;cursor:pointer;padding:0;flex-shrink:0;}
+        .ai-rec-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1050;}
+        .ai-rec-modal-overlay.show{display:block;}
+        .ai-rec-modal{position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-radius:20px 20px 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom));z-index:1051;height:calc(100vh - env(safe-area-inset-top) - 20px);display:flex;flex-direction:column;animation:slideUp .25s ease;}
+        .ai-rec-modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-shrink:0;}
+        .ai-rec-modal-title{font-size:15px;font-weight:700;color:var(--text);}
+        .ai-rec-modal-close{background:none;border:none;font-size:20px;color:var(--text3);cursor:pointer;padding:0 4px;}
+        .ai-rec-modal-list{overflow-y:auto;display:flex;flex-direction:column;gap:8px;}
+        .ai-rec-modal-item{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg3);border-radius:var(--r2);cursor:pointer;}
+        .ai-rec-modal-item:active{opacity:.7;}
+        .ai-rec-modal-sym{font-size:14px;font-weight:800;color:var(--text);width:52px;flex-shrink:0;}
+        .ai-rec-modal-info{flex:1;min-width:0;}
+        .ai-rec-modal-name{font-size:12px;color:var(--text2);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .ai-rec-modal-reason{font-size:11px;color:var(--text3);margin-top:2px;line-height:1.35;word-break:keep-all;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 
         /* ===== RECENT + VOL ALERT ===== */
         .recent-wrap{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 0 4px;}
@@ -1575,12 +1589,22 @@
         <section id="aiRecommendSection" class="home-section">
             <div class="section-header">
                 <span class="section-title">🤖 오늘의 AI 추천 종목</span>
-                <span class="section-sub">Claude AI 퀀트 스크리닝</span>
+                <button class="ai-rec-more-btn" id="aiRecMoreBtn" onclick="openAIRecModal()" style="display:none;">전체 보기 ›</button>
             </div>
             <div id="aiRecommendList" class="ai-rec-list">
                 <div class="swing-empty">데이터 로딩 중...</div>
             </div>
         </section>
+
+        <!-- AI 추천 전체 보기 모달 -->
+        <div class="ai-rec-modal-overlay" id="aiRecModalOverlay" onclick="closeAIRecModal()"></div>
+        <div class="ai-rec-modal" id="aiRecModal" style="display:none;">
+            <div class="ai-rec-modal-header">
+                <span class="ai-rec-modal-title">🤖 매수 추천 전체 종목</span>
+                <button class="ai-rec-modal-close" onclick="closeAIRecModal()">✕</button>
+            </div>
+            <div class="ai-rec-modal-list" id="aiRecModalList"></div>
+        </div>
 
         <!-- 섹션 3: 내 즐겨찾기 요약 -->
         <section id="favSummarySection" class="home-section" style="display:none;">
@@ -3337,29 +3361,55 @@
         }
     }
 
+    let _aiRecBuyList = [];
+
     function renderAIRecommendCards(picks) {
         const el = document.getElementById('aiRecommendList');
-        if (!el || !picks?.length) {
-            if (el) el.innerHTML = '<div class="swing-empty">추천 종목 없음</div>';
+        _aiRecBuyList = (picks || []).filter(p => p.signal === 'buy');
+        if (!el || !_aiRecBuyList.length) {
+            if (el) el.innerHTML = '<div class="swing-empty">매수 추천 종목 없음</div>';
             return;
         }
-        const sigMap = {
-            buy:   { cls: 'signal-buy',     label: '매수' },
-            watch: { cls: 'signal-neutral',  label: '관망' },
-            avoid: { cls: 'signal-sell',     label: '회피' }
-        };
-        el.innerHTML = picks.map(p => {
-            const sig = sigMap[p.signal] || sigMap.watch;
+        el.innerHTML = _aiRecBuyList.map(p => {
             const sym = (p.ticker || '').replace(/'/g, "\\'");
             return `<div class="ai-rec-card" onclick="quickSearch('${sym}','US')">
                 <div class="ai-rec-top">
                     <span class="ai-rec-sym">${p.ticker}</span>
-                    <span class="indicator-signal ${sig.cls}">${sig.label}</span>
+                    <span class="indicator-signal signal-buy">매수</span>
                 </div>
                 <div class="ai-rec-name">${p.name}</div>
                 <div class="ai-rec-reason">${p.reason}</div>
             </div>`;
         }).join('');
+        const moreBtn = document.getElementById('aiRecMoreBtn');
+        if (moreBtn) moreBtn.style.display = 'block';
+    }
+
+    function openAIRecModal() {
+        const overlay = document.getElementById('aiRecModalOverlay');
+        const modal   = document.getElementById('aiRecModal');
+        const list    = document.getElementById('aiRecModalList');
+        if (!modal || !list) return;
+        list.innerHTML = _aiRecBuyList.map(p => {
+            const sym = (p.ticker || '').replace(/'/g, "\\'");
+            return `<div class="ai-rec-modal-item" onclick="closeAIRecModal();quickSearch('${sym}','US')">
+                <span class="ai-rec-modal-sym">${p.ticker}</span>
+                <div class="ai-rec-modal-info">
+                    <div class="ai-rec-modal-name">${p.name}</div>
+                    <div class="ai-rec-modal-reason">${p.reason}</div>
+                </div>
+                <span class="indicator-signal signal-buy" style="flex-shrink:0;">매수</span>
+            </div>`;
+        }).join('');
+        overlay.classList.add('show');
+        modal.style.display = 'flex';
+    }
+
+    function closeAIRecModal() {
+        const overlay = document.getElementById('aiRecModalOverlay');
+        const modal   = document.getElementById('aiRecModal');
+        if (overlay) overlay.classList.remove('show');
+        if (modal)   modal.style.display = 'none';
     }
 
     // ========================================
@@ -11579,7 +11629,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         loadMarketWeather, renderMarketWeather, drawSparkline,
         loadPremarketScanner, renderPremarketScanner,
         loadSwingRadar, renderSwingRadar,
-        loadMarketThermometer, renderAIRecommend, loadAIRecommend, renderAIRecommendCards, loadFavSummary,
+        loadMarketThermometer, renderAIRecommend, loadAIRecommend, renderAIRecommendCards, openAIRecModal, closeAIRecModal, loadFavSummary,
         saveRecentStock, loadRecentStocks,
         loadVolAlert,
         loadNewsTab, reloadNewsTab, renderNewsList, _newsTimeAgo,
