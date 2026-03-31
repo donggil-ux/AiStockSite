@@ -14,6 +14,7 @@ const http       = require('http');
 const multer     = require('multer');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { createClient } = require('@supabase/supabase-js');
+const Anthropic = require('@anthropic-ai/sdk');
 
 // Yahoo Finance 응답 헤더가 커서 기본 8KB 한도를 초과할 수 있음
 // 옵션체인 API는 헤더가 특히 커서 128KB로 확장
@@ -48,6 +49,16 @@ function getGenAI() {
     if (!_genAI) _genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
     return _genAI;
 }
+
+let _anthropic = null;
+function getAnthropic() {
+    if (!_anthropic) _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    return _anthropic;
+}
+
+// AI 추천 종목 인메모리 캐시 (6시간 TTL)
+let _aiRecCache = { data: null, ts: 0 };
+const AI_REC_TTL = 6 * 60 * 60 * 1000;
 
 // [Fix-F] _supabase = null(미설정) or createClient 인스턴스 — 최초 1회만 생성
 let _supabase;
@@ -617,6 +628,54 @@ app.post('/api/chart-draw', upload.single('image'), async (req, res) => {
             return res.status(500).json({ error: 'AI 응답 파싱 실패. 다시 시도해주세요.' });
         }
         res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * AI 추천 종목 (Claude 퀀트 스크리닝, 6h 캐시)
+ * GET /api/ai-recommend → [{ticker, name, reason, signal}] 60~80개
+ */
+app.get('/api/ai-recommend', async (req, res) => {
+    try {
+        if (_aiRecCache.data && Date.now() - _aiRecCache.ts < AI_REC_TTL) {
+            return res.json(_aiRecCache.data);
+        }
+
+        const client = getAnthropic();
+        const msg = await client.messages.create({
+            model: 'claude-haiku-4-5-20251001',
+            max_tokens: 4096,
+            messages: [{
+                role: 'user',
+                content: `You are a quant-based stock screener AI analyst.
+Return a JSON array of 60-80 US stocks (NYSE/NASDAQ) meeting these criteria:
+- Market cap >= $500M
+- High average daily trading volume (top tier)
+- RSI <= 30 OR 5-day MA crossed above 20-day MA recently
+- Diverse sectors: Tech, Healthcare, Finance, Energy, Consumer, Industrials
+- No duplicate tickers
+
+Output ONLY a valid JSON array. No explanation, no markdown fences, no extra text.
+Each item must have exactly these fields:
+- ticker (string): stock ticker symbol
+- name (string): company name in English
+- reason (string): 1-2 line recommendation reason in Korean
+- signal (string): one of "buy", "watch", "avoid"
+
+Start your response with [ and end with ]`
+            }]
+        });
+
+        const raw = msg.content[0].text.trim();
+        const jsonStr = raw.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
+        const picks = JSON.parse(jsonStr);
+
+        _aiRecCache = { data: picks, ts: Date.now() };
+        res.json(picks);
+    } catch (e) {
+        console.error('[ai-recommend]', e.message);
+        if (_aiRecCache.data) return res.json(_aiRecCache.data);
+        res.status(500).json({ error: e.message });
     }
 });
 
