@@ -2933,7 +2933,7 @@
                 top100Cache[filter] = { items, ts: Date.now() };
                 saveTop100LS();
                 if (top100Filter === filter) renderTop100(items);
-                if (filter === 'day_gainers') { renderSwingRadar(items); renderAIRecommend(items); }
+                if (filter === 'day_gainers') { renderSwingRadar(items); }
                 return;
             }
         } catch(e) {}
@@ -2951,7 +2951,7 @@
                 top100Cache[filter] = { items, ts: Date.now() };
                 saveTop100LS();
                 if (top100Filter === filter) renderTop100(items);
-                if (filter === 'day_gainers') { renderSwingRadar(items); renderAIRecommend(items); }
+                if (filter === 'day_gainers') { renderSwingRadar(items); }
                 return;
             }
         } catch(e) {}

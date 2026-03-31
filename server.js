@@ -3,7 +3,7 @@
  * Yahoo Finance API 프록시 (crumb 인증 자동 처리)
  */
 
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
 const express    = require('express');
 const cors       = require('cors');
@@ -632,7 +632,7 @@ app.post('/api/chart-draw', upload.single('image'), async (req, res) => {
 });
 
 /**
- * AI 추천 종목 (Claude 퀀트 스크리닝, 6h 캐시)
+ * AI 추천 종목 (Gemini 퀀트 스크리닝, 6h 캐시)
  * GET /api/ai-recommend → [{ticker, name, reason, signal}] 60~80개
  */
 app.get('/api/ai-recommend', async (req, res) => {
@@ -641,13 +641,9 @@ app.get('/api/ai-recommend', async (req, res) => {
             return res.json(_aiRecCache.data);
         }
 
-        const client = getAnthropic();
-        const msg = await client.messages.create({
-            model: 'claude-haiku-4-5-20251001',
-            max_tokens: 4096,
-            messages: [{
-                role: 'user',
-                content: `You are a quant-based stock screener AI analyst.
+        const genAI = getGenAI();
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        const prompt = `You are a quant-based stock screener AI analyst.
 Return a JSON array of 60-80 US stocks (NYSE/NASDAQ) meeting these criteria:
 - Market cap >= $500M
 - High average daily trading volume (top tier)
@@ -662,11 +658,10 @@ Each item must have exactly these fields:
 - reason (string): 1-2 line recommendation reason in Korean
 - signal (string): one of "buy", "watch", "avoid"
 
-Start your response with [ and end with ]`
-            }]
-        });
+Start your response with [ and end with ]`;
 
-        const raw = msg.content[0].text.trim();
+        const result = await model.generateContent(prompt);
+        const raw = result.response.text().trim();
         const jsonStr = raw.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
         const picks = JSON.parse(jsonStr);
 
