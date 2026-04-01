@@ -675,6 +675,52 @@ Start your response with [ and end with ]`;
 });
 
 /**
+ * 오늘의 핫 종목 (Gemini, 6h 캐시)
+ * GET /api/hot-stocks → {institution:[...], value:[...], momentum:[...]}
+ */
+let _hotStocksCache = { data: null, ts: 0 };
+const HOT_TTL = 6 * 60 * 60 * 1000;
+
+app.get('/api/hot-stocks', async (req, res) => {
+    try {
+        if (_hotStocksCache.data && Date.now() - _hotStocksCache.ts < HOT_TTL) {
+            return res.json(_hotStocksCache.data);
+        }
+        const genAI = getGenAI();
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        const prompt = `You are a quantitative stock analyst for US equities.
+Return a JSON object with exactly 3 keys: institution, value, momentum.
+Each key maps to an array of exactly 5 stock objects.
+
+Criteria:
+- institution: stocks with new significant 13F institutional buying (hedge funds, mutual funds, pension)
+- value: stocks with low P/E (<15), low P/B (<1.5), dividend yield >2%, market cap >$10B
+- momentum: stocks with 5-day MA above 20-day MA, RSI between 50-70, high volume vs 20-day avg
+
+Each stock object must have:
+- ticker (string): NYSE/NASDAQ ticker
+- name (string): company name in English
+- reason (string): 1-line reason in Korean (why this stock fits the category)
+- signal (string): "buy" or "watch"
+
+No duplicate tickers across categories.
+Output ONLY valid JSON starting with { and ending with }.`;
+
+        const result = await model.generateContent(prompt);
+        const raw = result.response.text().trim();
+        const jsonStr = raw.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
+        const data = JSON.parse(jsonStr);
+
+        _hotStocksCache = { data, ts: Date.now() };
+        res.json(data);
+    } catch (e) {
+        console.error('[hot-stocks]', e.message);
+        if (_hotStocksCache.data) return res.json(_hotStocksCache.data);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+/**
  * AI 분석 결과 저장/로드 (크로스 기기 동기화)
  * GET  /api/ai-analysis/:symbol  → 저장된 분석 결과 조회
  * POST /api/ai-analysis/:symbol  → 분석 결과 저장 (upsert)

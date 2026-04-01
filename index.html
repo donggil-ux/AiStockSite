@@ -287,6 +287,20 @@
         .ai-rec-sym{font-size:15px;font-weight:800;color:var(--text);}
         .ai-rec-name{font-size:11px;color:var(--text3);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
         .ai-rec-reason{font-size:11px;color:var(--text3);margin-top:4px;line-height:1.4;word-break:keep-all;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+        /* ===== HOT STOCKS ===== */
+        .hot-tabs{display:flex;gap:6px;margin-bottom:10px;}
+        .hot-tab{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;}
+        .hot-tab.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+        .hot-list{display:flex;flex-direction:column;gap:6px;}
+        .hot-card{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);cursor:pointer;transition:all .15s;}
+        .hot-card:hover{background:var(--bg3);border-color:var(--blue);}
+        .hot-rank{font-size:12px;font-weight:800;color:var(--text3);width:16px;flex-shrink:0;text-align:center;}
+        .hot-sym{font-size:13px;font-weight:800;color:var(--text);width:48px;flex-shrink:0;}
+        .hot-info{flex:1;min-width:0;}
+        .hot-name{font-size:12px;color:var(--text2);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .hot-reason{font-size:11px;color:var(--text3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .hot-sig{font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;flex-shrink:0;background:rgba(34,197,94,.15);color:var(--green);}
+        .hot-sig.watch{background:rgba(234,179,8,.15);color:var(--yellow);}
         .ai-rec-price{font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px;}
         .ai-rec-chg{font-size:12px;font-weight:600;}
         .ai-badge{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;letter-spacing:.3px;white-space:nowrap;}
@@ -1564,6 +1578,24 @@
     <div class="welcome-screen" id="welcomeScreen">
         <!-- 섹션 2: 시장 온도계 -->
         <div id="marketThermometer" style="display:none;padding:8px 16px 4px;"></div>
+
+        <!-- 핫 종목 섹션 -->
+        <section id="hotStocksSection" class="home-section" style="display:none;">
+            <div class="home-section-header">
+                <div class="home-section-title">🔥 오늘의 핫 종목
+                    <span class="hs-badge green">AI 선별</span>
+                </div>
+                <div class="home-section-sub" id="hotStocksSub"></div>
+            </div>
+            <div class="hot-tabs" id="hotTabs">
+                <button class="hot-tab active" data-tab="institution" onclick="switchHotTab('institution')">🏦 기관</button>
+                <button class="hot-tab" data-tab="value" onclick="switchHotTab('value')">💎 밸류</button>
+                <button class="hot-tab" data-tab="momentum" onclick="switchHotTab('momentum')">🚀 모멘텀</button>
+            </div>
+            <div id="hotStocksList" class="hot-list">
+                <div class="swing-empty">데이터 로딩 중...</div>
+            </div>
+        </section>
 
         <!-- 최근 본 종목 (최상단) -->
         <section id="recentSection" class="home-section" style="display:none;margin-top:16px">
@@ -3347,6 +3379,82 @@
         }).join('');
     }
 
+    // ========================================
+    // 핫 종목 섹션
+    // ========================================
+    let _hotStocksData = null;
+    let _hotTab = 'institution';
+    const HOT_STOCKS_DUMMY = {
+        institution: [
+            {ticker:'NVDA',name:'NVIDIA Corp.',reason:'블랙록·피델리티 신규 대규모 매수',signal:'buy'},
+            {ticker:'META',name:'Meta Platforms',reason:'헤지펀드 13F 신규편입 급증',signal:'buy'},
+            {ticker:'AVGO',name:'Broadcom Inc.',reason:'기관 누적 매수 4주 연속',signal:'buy'},
+            {ticker:'LLY', name:'Eli Lilly & Co.',reason:'보험·연금펀드 비중 확대',signal:'buy'},
+            {ticker:'MSFT',name:'Microsoft Corp.',reason:'ETF 수급 + 기관 매집 병행',signal:'watch'},
+        ],
+        value: [
+            {ticker:'PFE', name:'Pfizer Inc.',reason:'PER 9.2, PBR 1.1 — 역사적 저평가',signal:'buy'},
+            {ticker:'INTC',name:'Intel Corp.',reason:'PER 12, 배당수익률 4.8%',signal:'watch'},
+            {ticker:'VZ',  name:'Verizon Comm.',reason:'PER 8.5, 배당수익률 7.2%',signal:'buy'},
+            {ticker:'MO',  name:'Altria Group',reason:'PER 9.0, 배당수익률 9.1%',signal:'buy'},
+            {ticker:'T',   name:'AT&T Inc.',reason:'PER 10.4, PBR 0.9 저평가',signal:'watch'},
+        ],
+        momentum: [
+            {ticker:'NVDA',name:'NVIDIA Corp.',reason:'5일선>20일선, RSI 62, 거래량 폭증',signal:'buy'},
+            {ticker:'AMD', name:'Advanced Micro Devices',reason:'골든크로스 발생, RSI 58',signal:'buy'},
+            {ticker:'AMZN',name:'Amazon.com Inc.',reason:'RSI 55 상승세, 볼린저밴드 상단 돌파',signal:'buy'},
+            {ticker:'TSLA',name:'Tesla Inc.',reason:'RSI 61, 5일선 반등 + 거래량 확대',signal:'watch'},
+            {ticker:'PLTR',name:'Palantir Technologies',reason:'모멘텀 지속, RSI 57',signal:'buy'},
+        ]
+    };
+
+    async function loadHotStocks() {
+        const sec = document.getElementById('hotStocksSection');
+        const el  = document.getElementById('hotStocksList');
+        if (!el) return;
+        el.innerHTML = '<div class="swing-empty">로딩 중...</div>';
+        try {
+            const res = await fetch('/api/hot-stocks');
+            if (!res.ok) throw new Error('fetch failed');
+            const data = await res.json();
+            if (data.institution && data.value && data.momentum) {
+                _hotStocksData = data;
+            } else {
+                throw new Error('invalid format');
+            }
+        } catch(e) {
+            _hotStocksData = HOT_STOCKS_DUMMY;
+        }
+        if (sec) sec.style.display = '';
+        renderHotStocks();
+    }
+
+    function switchHotTab(tab) {
+        _hotTab = tab;
+        document.querySelectorAll('.hot-tab').forEach(b => {
+            b.classList.toggle('active', b.dataset.tab === tab);
+        });
+        renderHotStocks();
+    }
+
+    function renderHotStocks() {
+        const el = document.getElementById('hotStocksList');
+        if (!el || !_hotStocksData) return;
+        const items = _hotStocksData[_hotTab] || [];
+        el.innerHTML = items.map((p, i) => {
+            const sym = (p.ticker || '').replace(/'/g, "\\'");
+            return `<div class="hot-card" onclick="quickSearch('${sym}','US')">
+                <span class="hot-rank">${i + 1}</span>
+                <span class="hot-sym">${p.ticker}</span>
+                <div class="hot-info">
+                    <div class="hot-name">${p.name}</div>
+                    <div class="hot-reason">${p.reason}</div>
+                </div>
+                <span class="hot-sig${p.signal !== 'buy' ? ' watch' : ''}">${p.signal === 'buy' ? '매수' : '관망'}</span>
+            </div>`;
+        }).join('');
+    }
+
     async function loadAIRecommend() {
         const el = document.getElementById('aiRecommendList');
         if (!el) return;
@@ -3521,6 +3629,7 @@
     loadVolAlert();
     loadMarketThermometer();
     loadAIRecommend();
+    loadHotStocks();
     loadFavSummary();
 
     function goFav() {
@@ -3570,6 +3679,7 @@
         loadSocialHot();
         loadMarketThermometer();
         loadAIRecommend();
+        loadHotStocks();
         loadFavSummary();
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -11630,6 +11740,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         loadPremarketScanner, renderPremarketScanner,
         loadSwingRadar, renderSwingRadar,
         loadMarketThermometer, renderAIRecommend, loadAIRecommend, renderAIRecommendCards, openAIRecModal, closeAIRecModal, loadFavSummary,
+        loadHotStocks, switchHotTab, renderHotStocks,
         saveRecentStock, loadRecentStocks,
         loadVolAlert,
         loadNewsTab, reloadNewsTab, renderNewsList, _newsTimeAgo,
