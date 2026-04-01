@@ -97,7 +97,14 @@
 
         /* ===== HEADER - 토스증권 스타일 ===== */
         .header{position:sticky;top:0;z-index:1100;background:color-mix(in srgb, var(--bg) 92%, transparent);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);padding:16px 20px 12px;padding-top:calc(16px + env(safe-area-inset-top));}
-        .header-top{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+        .header-top{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+        /* ===== HEADER QUICK NAV ===== */
+        .header-qnav{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;}
+        .header-qnav::-webkit-scrollbar{display:none;}
+        .hqnav-item{display:flex;align-items:center;gap:4px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit;transition:all .15s;flex-shrink:0;}
+        .hqnav-item:hover{background:var(--bg4);color:var(--text);}
+        .hqnav-item.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+        #mainHeader.stock-loaded .header-qnav{display:none;}
         /* 모바일 뒤로가기 버튼 & 종목명 — 기본 숨김 */
         .mob-back-btn{display:none;align-items:center;justify-content:center;background:none;border:none;color:var(--text);font-size:24px;cursor:pointer;padding:4px;flex-shrink:0;line-height:1;}
         .mob-stock-name{display:none;}
@@ -863,7 +870,7 @@
         @media(max-width:640px){
             /* ----- Header ----- */
             .header{padding:10px 14px 10px;padding-top:calc(10px + env(safe-area-inset-top));}
-            .header-top{flex-wrap:nowrap;gap:8px;margin-bottom:0;}
+            .header-top{flex-wrap:nowrap;gap:8px;margin-bottom:6px;}
             .logo{font-size:17px;flex:1;}
             /* 모바일에서 검색창 숨김 (하단 내비게이션 검색 탭 사용) */
             #searchWrap{display:none !important;}
@@ -1572,6 +1579,11 @@
             <button class="hamburger-btn" id="themeHeaderBtn" onclick="toggleTheme()" title="테마 변경">&#9790;</button>
             <button class="hamburger-btn" onclick="toggleSideNav()" title="메뉴">&#9776;</button>
         </div>
+        <nav class="header-qnav" id="headerQNav">
+            <button class="hqnav-item active" id="hqHome" onclick="goHome()">🏠 홈</button>
+            <button class="hqnav-item" id="hqSm" onclick="goSmartMoney()">💼 기관 13F</button>
+            <button class="hqnav-item" id="hqVs" onclick="goVisionScanner()">🔍 AI 차트판독기</button>
+        </nav>
     </header>
 
     <!-- Welcome Screen -->
@@ -3659,6 +3671,8 @@
         document.getElementById('mainHeader')?.classList.remove('stock-loaded');
         document.querySelectorAll('.side-nav-item').forEach(b => b.classList.remove('active'));
         document.querySelector('.side-nav-item[onclick^="goHome"]')?.classList.add('active');
+        document.querySelectorAll('.hqnav-item').forEach(b => b.classList.remove('active'));
+        document.getElementById('hqHome')?.classList.add('active');
         document.getElementById('stockHero').classList.remove('show');
         document.getElementById('tabNav').classList.remove('show');
         document.getElementById('marketSessionInfo').classList.remove('show');
@@ -5334,6 +5348,8 @@
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.side-nav-item').forEach(b => b.classList.remove('active'));
         document.getElementById('sideNavSmBtn')?.classList.add('active');
+        document.querySelectorAll('.hqnav-item').forEach(b => b.classList.remove('active'));
+        document.getElementById('hqSm')?.classList.add('active');
         renderSmTop10();
         renderSmGuru();
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -11078,6 +11094,8 @@
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.side-nav-item').forEach(b => b.classList.remove('active'));
         document.getElementById('sideNavVsBtn')?.classList.add('active');
+        document.querySelectorAll('.hqnav-item').forEach(b => b.classList.remove('active'));
+        document.getElementById('hqVs')?.classList.add('active');
         updateBnActive('vision');
         window.scrollTo({ top: 0, behavior: 'smooth' });
         // 전역 paste 리스너 활성화
