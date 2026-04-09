@@ -104,6 +104,7 @@ let _crumb     = null;
 let _cookies   = null;
 let _crumbTime = 0;
 const CRUMB_TTL = 60 * 60 * 1000; // 1시간마다 갱신
+let _crumbPromise = null; // single-flight: 동시 갱신 요청 중복 방지
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
@@ -111,7 +112,13 @@ async function getCrumb() {
     if (_crumb && Date.now() - _crumbTime < CRUMB_TTL) {
         return { crumb: _crumb, cookies: _cookies };
     }
+    // 이미 갱신 중이면 같은 Promise를 재사용 → Yahoo Finance 중복 요청 방지
+    if (_crumbPromise) return _crumbPromise;
+    _crumbPromise = _fetchCrumb().finally(() => { _crumbPromise = null; });
+    return _crumbPromise;
+}
 
+async function _fetchCrumb() {
     // Step 1: Yahoo Finance 홈 접속 → 세션 쿠키 획득
     const r1 = await axios.get('https://finance.yahoo.com/', {
         headers: {
@@ -296,7 +303,7 @@ app.get('/api/options/:symbol', async (req, res) => {
  */
 app.get('/api/screener/:filter', async (req, res) => {
     const { filter } = req.params;
-    const { count = 100 } = req.query;
+    const count = Math.min(parseInt(req.query.count, 10) || 100, 250);
     // [Fix-F] 화이트리스트 필터 검증
     if (!validFilter(filter)) return res.status(400).json({ error: 'invalid filter' });
     try {
