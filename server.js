@@ -25,10 +25,22 @@ const httpsAgent = new https.Agent({ maxHeaderSize: MAX_HEADER });
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+const allowedOrigins = [
+    'http://localhost:3000',
+    'https://stockss.vercel.app',
+    /\.vercel\.app$/,
+];
+app.use(cors({
+    origin: (origin, cb) => {
+        if (!origin) return cb(null, true); // same-origin / curl
+        if (allowedOrigins.some(o => o instanceof RegExp ? o.test(origin) : o === origin)) return cb(null, true);
+        cb(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+}));
 app.use(express.json());
 
-// multer: 메모리 저장 (5MB 제한)
+// multer: 메모리 저장 (20MB 제한)
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 20 * 1024 * 1024 },
@@ -322,7 +334,7 @@ async function translateToKo(text) {
  */
 app.get('/api/news/:symbol', async (req, res) => {
     const { symbol } = req.params;
-    const limit = parseInt(req.query.limit) || 12;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 12, 100);
     try {
         const fetchCount = Math.min(limit * 2, 25); // 필터링 여유분 확보
         const url  = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(symbol)}&quotesCount=0&newsCount=${fetchCount}&enableFuzzyQuery=false`;

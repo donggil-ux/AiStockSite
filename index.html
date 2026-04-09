@@ -132,7 +132,7 @@
 
 
         /* ===== WELCOME SCREEN ===== */
-        .welcome-screen{padding:0 0 80px;}
+        .welcome-screen{padding:0 0 24px;}
         .welcome-top{text-align:center;padding:80px 24px 48px;}
         .welcome-screen h2{font-size:28px;font-weight:800;margin-bottom:8px;letter-spacing:-1px;line-height:1.3;}
         .welcome-screen p{color:var(--text3);font-size:15px;margin-bottom:40px;}
@@ -504,7 +504,7 @@
         }
 
         /* ===== MAIN CONTENT ===== */
-        .main-content{padding:0 0 100px;}
+        .main-content{padding:0 0 24px;}
 
         /* ===== STOCK HERO - 토스 대형 가격 표시 ===== */
         .stock-hero{padding:28px 24px 20px;display:none;}
@@ -1697,15 +1697,6 @@
                 <div class="top100-loading">데이터를 불러오는 중...</div>
             </div>
         </div>
-
-        <!-- 소셜 HOT -->
-        <div class="home-section" id="socialHotSection" style="margin-top:8px;">
-            <div class="home-section-header">
-                <span class="home-section-title">소셜 HOT</span>
-                <span class="home-section-sub" style="font-size:12px;color:var(--text3);font-weight:500;">투자자 실시간 반응</span>
-            </div>
-            <div id="socialHotList" class="social-hot-list"></div>
-        </div>
     </div>
 
     <!-- Smart Money Tracker Screen -->
@@ -1953,7 +1944,7 @@
     </div>
 
     <!-- Main Content -->
-    <div class="main-content" id="mainContent">
+    <div class="main-content" id="mainContent" style="display:none;">
         <!-- Tab 1: 차트 (풀 너비) -->
         <div class="tab-content" id="tabChart" data-tab="chart">
             <div class="chart-full-col">
@@ -3457,10 +3448,10 @@
             const sym = (p.ticker || '').replace(/'/g, "\\'");
             return `<div class="hot-card" onclick="quickSearch('${sym}','US')">
                 <span class="hot-rank">${i + 1}</span>
-                <span class="hot-sym">${p.ticker}</span>
+                <span class="hot-sym">${escHtml(p.ticker)}</span>
                 <div class="hot-info">
-                    <div class="hot-name">${p.name}</div>
-                    <div class="hot-reason">${p.reason}</div>
+                    <div class="hot-name">${escHtml(p.name)}</div>
+                    <div class="hot-reason">${escHtml(p.reason)}</div>
                 </div>
                 <span class="hot-sig${p.signal !== 'buy' ? ' watch' : ''}">${p.signal === 'buy' ? '매수' : '관망'}</span>
             </div>`;
@@ -3494,11 +3485,11 @@
             const sym = (p.ticker || '').replace(/'/g, "\\'");
             return `<div class="ai-rec-card" onclick="quickSearch('${sym}','US')">
                 <div class="ai-rec-top">
-                    <span class="ai-rec-sym">${p.ticker}</span>
+                    <span class="ai-rec-sym">${escHtml(p.ticker)}</span>
                     <span class="indicator-signal signal-buy">매수</span>
                 </div>
-                <div class="ai-rec-name">${p.name}</div>
-                <div class="ai-rec-reason">${p.reason}</div>
+                <div class="ai-rec-name">${escHtml(p.name)}</div>
+                <div class="ai-rec-reason">${escHtml(p.reason)}</div>
             </div>`;
         }).join('');
         const moreBtn = document.getElementById('aiRecMoreBtn');
@@ -3513,10 +3504,10 @@
         list.innerHTML = _aiRecBuyList.map(p => {
             const sym = (p.ticker || '').replace(/'/g, "\\'");
             return `<div class="ai-rec-modal-item" onclick="closeAIRecModal();quickSearch('${sym}','US')">
-                <span class="ai-rec-modal-sym">${p.ticker}</span>
+                <span class="ai-rec-modal-sym">${escHtml(p.ticker)}</span>
                 <div class="ai-rec-modal-info">
-                    <div class="ai-rec-modal-name">${p.name}</div>
-                    <div class="ai-rec-modal-reason">${p.reason}</div>
+                    <div class="ai-rec-modal-name">${escHtml(p.name)}</div>
+                    <div class="ai-rec-modal-reason">${escHtml(p.reason)}</div>
                 </div>
                 <span class="indicator-signal signal-buy" style="flex-shrink:0;">매수</span>
             </div>`;
@@ -3667,6 +3658,7 @@
         document.getElementById('alphaScannerScreen').style.display = 'none';
         document.getElementById('favScreen').style.display = 'none';
         document.getElementById('visionScannerScreen').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'none';
         window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded');
         document.querySelectorAll('.side-nav-item').forEach(b => b.classList.remove('active'));
@@ -6061,6 +6053,11 @@
     }
 
     // ========================================
+    // HTML 이스케이프 유틸 (XSS 방지)
+    function escHtml(str) {
+        return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
     // Levenshtein 거리 (퍼지 검색용)
     // ========================================
     function levenshtein(a, b) {
@@ -6315,6 +6312,7 @@
             window._vsActive = false;
             document.getElementById('stockHero').classList.add('show');
             document.getElementById('tabNav').classList.add('show');
+            document.getElementById('mainContent').style.display = '';
             window.scrollTo(0, 0);
             switchTab('chart');
 
@@ -6538,13 +6536,15 @@
             if (livePrice != null) {
                 const priceEl = document.getElementById('stockPrice');
                 const changeEl = document.getElementById('stockChange');
-                priceEl.textContent = fmtP(livePrice);
+                if (priceEl) priceEl.textContent = fmtP(livePrice);
                 const sign = liveChg >= 0 ? '+' : '';
-                changeEl.textContent = isKR
-                    ? `${sign}${Math.round(liveChg).toLocaleString()}원 (${sign}${livePct.toFixed(2)}%)`
-                    : `${sign}$${liveChg.toFixed(2)} (${sign}${livePct.toFixed(2)}%)`;
-                changeEl.className = 'stock-change ' + (liveChg > 0 ? 'up' : liveChg < 0 ? 'down' : 'flat');
-                priceEl.style.color = liveChg > 0 ? 'var(--red)' : liveChg < 0 ? 'var(--blue)' : 'var(--text)';
+                if (changeEl) {
+                    changeEl.textContent = isKR
+                        ? `${sign}${Math.round(liveChg).toLocaleString()}원 (${sign}${livePct.toFixed(2)}%)`
+                        : `${sign}$${liveChg.toFixed(2)} (${sign}${livePct.toFixed(2)}%)`;
+                    changeEl.className = 'stock-change ' + (liveChg > 0 ? 'up' : liveChg < 0 ? 'down' : 'flat');
+                }
+                if (priceEl) priceEl.style.color = liveChg > 0 ? 'var(--red)' : liveChg < 0 ? 'var(--blue)' : 'var(--text)';
             }
         } catch(e) {
             // 실패해도 무시 - 메인 기능에 영향 없음
