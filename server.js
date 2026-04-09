@@ -379,6 +379,59 @@ app.get('/api/news/:symbol', async (req, res) => {
 });
 
 /**
+ * YouTube 관련 영상 검색
+ * GET /api/youtube/:symbol?company=NVIDIA+Corp&limit=8
+ */
+const _ytServerCache = {};
+const YT_SERVER_TTL  = 6 * 60 * 60 * 1000; // 6h
+
+app.get('/api/youtube/:symbol', async (req, res) => {
+    const { symbol } = req.params;
+    if (!validSymbol(symbol)) return res.status(400).json({ error: 'invalid symbol' });
+
+    const company = (req.query.company || '').slice(0, 100);
+    const limit   = Math.min(parseInt(req.query.limit, 10) || 8, 20);
+
+    const ckey = `${symbol}_${limit}`;
+    if (_ytServerCache[ckey] && Date.now() - _ytServerCache[ckey].ts < YT_SERVER_TTL) {
+        return res.json(_ytServerCache[ckey].data);
+    }
+
+    if (!process.env.YOUTUBE_API_KEY) {
+        return res.status(503).json({ error: 'YouTube API key not configured' });
+    }
+
+    // KR 종목은 한국어 키워드, US는 영어 키워드로 검색
+    const isKR = symbol.includes('.KS') || symbol.includes('.KQ');
+    const baseSym = symbol.replace(/\.(KS|KQ)$/i, '');
+    const q = isKR
+        ? `${company || baseSym} 주가 전망 주식 분석`
+        : `${company || baseSym} ${baseSym} stock analysis earnings`;
+
+    try {
+        const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(q)}&type=video&maxResults=${limit}&order=relevance&key=${process.env.YOUTUBE_API_KEY}`;
+        const { data } = await axios.get(url, { timeout: 10000 });
+
+        const videos = (data.items || []).map(item => ({
+            videoId:     item.id.videoId,
+            title:       item.snippet.title,
+            channel:     item.snippet.channelTitle,
+            publishedAt: item.snippet.publishedAt,
+            thumbnail:   item.snippet.thumbnails?.medium?.url
+                      || item.snippet.thumbnails?.default?.url
+                      || null,
+        }));
+
+        const result = { symbol, count: videos.length, videos };
+        _ytServerCache[ckey] = { ts: Date.now(), data: result };
+        res.json(result);
+    } catch (err) {
+        console.error(`[youtube] ${symbol}:`, err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
  * 텍스트 번역 (영→한)
  * GET /api/translate?text=...
  */
