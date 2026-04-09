@@ -872,6 +872,17 @@
         .toast{position:fixed;bottom:36px;left:50%;transform:translateX(-50%) translateY(120px);background:var(--bg3);border:1px solid var(--red);color:var(--red);padding:14px 28px;border-radius:16px;font-size:14px;font-weight:600;z-index:2000;transition:transform .3s cubic-bezier(.16,1,.3,1);max-width:90%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.5);}
         .toast.show{transform:translateX(-50%) translateY(0);}
 
+        /* ===== SNACKBAR (상단 고정, 타입별 스타일) ===== */
+        .snackbar{position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-120%);z-index:3000;min-width:260px;max-width:90vw;padding:11px 20px;border-radius:12px;font-size:13px;font-weight:600;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.35);transition:transform .3s cubic-bezier(.16,1,.3,1);pointer-events:none;white-space:pre-line;}
+        .snackbar.show{transform:translateX(-50%) translateY(0);}
+        .snackbar.error{background:rgba(239,68,68,.13);border:1px solid rgba(239,68,68,.4);color:#ef4444;}
+        .snackbar.warning{background:rgba(234,179,8,.13);border:1px solid rgba(234,179,8,.4);color:#ca8a04;}
+        .snackbar.success{background:rgba(34,197,94,.13);border:1px solid rgba(34,197,94,.4);color:#16a34a;}
+        .snackbar.info{background:var(--bg3);border:1px solid var(--border);color:var(--text2);}
+        [data-theme="light"] .snackbar{box-shadow:0 8px 32px rgba(0,0,0,.12);}
+        [data-theme="light"] .snackbar.warning{color:#92400e;}
+        [data-theme="light"] .snackbar.success{color:#166534;}
+
         /* ===== SCROLLBAR ===== */
         ::-webkit-scrollbar{width:3px;}
         ::-webkit-scrollbar-track{background:transparent;}
@@ -2396,8 +2407,10 @@
     <div class="loading-text" id="loadingText">데이터를 불러오는 중...</div>
 </div>
 
-<!-- Toast -->
+<!-- Toast (하단) -->
 <div class="toast" id="toast"></div>
+<!-- Snackbar (상단 고정, 타입별) -->
+<div class="snackbar" id="snackbar"></div>
 
     <script>
     // ========================================
@@ -9790,6 +9803,47 @@
         setTimeout(() => toast.classList.remove('show'), 3500);
     }
 
+    /**
+     * 상단 고정 스낵바 표시
+     * @param {string} msg       표시할 메시지
+     * @param {'error'|'warning'|'success'|'info'} type  색상 타입 (기본: 'error')
+     * @param {number} duration  노출 시간(ms) (기본: 4000)
+     */
+    function showSnackbar(msg, type = 'error', duration = 4000) {
+        const el = document.getElementById('snackbar');
+        if (!el) return;
+        clearTimeout(el._snackTimer);
+        el.textContent = msg;
+        el.className = `snackbar ${type} show`;
+        el._snackTimer = setTimeout(() => el.classList.remove('show'), duration);
+    }
+
+    /** AI 판독기 버튼 n초 쿨다운 (카운트다운 텍스트 표시) */
+    let _aiCooldownActive = false;
+    function startAiCooldown(seconds = 8) {
+        _aiCooldownActive = true;
+        let remaining = seconds;
+        const _setBtn = (dis, txt) => {
+            const b = document.getElementById('chartAiReaderBtn');
+            if (!b) return;
+            b.disabled = dis;
+            b.textContent = txt;
+            b.style.cursor = dis ? 'not-allowed' : '';
+            b.style.opacity = dis ? '0.5' : '';
+        };
+        _setBtn(true, `재시도 가능 ${remaining}초 후`);
+        const iv = setInterval(() => {
+            remaining--;
+            if (remaining <= 0) {
+                clearInterval(iv);
+                _aiCooldownActive = false;
+                _setBtn(false, '🔍 AI 판독기');
+            } else {
+                _setBtn(true, `재시도 가능 ${remaining}초 후`);
+            }
+        }, 1000);
+    }
+
     // 브라우저 뒤로가기 (홈 ↔ 종목) 지원
     window.addEventListener('popstate', e => {
         const state = e.state;
@@ -12091,12 +12145,24 @@
                 showToast(`AI 분석 완료 · 지지선 ${supCnt}개 · 저항선 ${resCnt}개 · 추세선 ${trdCnt}개`);
 
             } catch(e) {
-                showToast('AI 분석 실패: ' + e.message);
                 _aiProgressHide();
+                const raw = e.message || '';
+                const is503 = raw.includes('503') || raw.includes('high demand') || raw.includes('Service Unavailable') || raw.includes('UNAVAILABLE');
+                if (is503) {
+                    showSnackbar('AI 서버가 일시적으로 혼잡합니다.\n잠시 후 다시 시도해주세요. (503)', 'warning', 5000);
+                    startAiCooldown(8);
+                } else {
+                    showSnackbar('AI 분석 중 오류가 발생했습니다. 다시 시도해주세요.', 'error', 4000);
+                }
             } finally {
-                if (btn) { btn.disabled = false; btn.textContent = '🔍 AI 판독기'; }
-                // _aiProgressHide 는 성공 시 setTimeout(1200ms), 실패 시 catch 에서 처리
-                // finally 에서 즉시 호출하면 "✅ 완료" 메시지가 바로 사라지므로 호출 안 함
+                // 쿨다운 중이면 startAiCooldown 이 버튼을 관리하므로 건드리지 않음
+                if (!_aiCooldownActive && btn) {
+                    btn.disabled = false;
+                    btn.textContent = '🔍 AI 판독기';
+                    btn.style.cursor = '';
+                    btn.style.opacity = '';
+                }
+                // 진행바는 성공 시 setTimeout(1200ms) 로 처리, 실패 시 catch 에서 처리
             }
         }, 'image/png');
     }
@@ -12108,7 +12174,7 @@
         quickSearch, toggleFavorite, switchTab, toggleChartFullscreen,
         favSearch, removeFavorite, setTop100Filter,
 setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
-        toggleTheme, showLoading, hideLoading, showToast,
+        toggleTheme, showLoading, hideLoading, showToast, showSnackbar,
         loadOptionsDate, setOptionsFilter,
         setOptionsStrikeRange, toggleOptionsVolFilter, sortOptionsBy,
         manualAnalysisRefresh, pwaInstall,
