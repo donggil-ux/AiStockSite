@@ -12095,7 +12095,8 @@
                 _aiProgressHide();
             } finally {
                 if (btn) { btn.disabled = false; btn.textContent = '🔍 AI 판독기'; }
-                _aiProgressHide();
+                // _aiProgressHide 는 성공 시 setTimeout(1200ms), 실패 시 catch 에서 처리
+                // finally 에서 즉시 호출하면 "✅ 완료" 메시지가 바로 사라지므로 호출 안 함
             }
         }, 'image/png');
     }

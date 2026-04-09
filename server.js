@@ -727,7 +727,7 @@ function normalizeChartAnalysis(d) {
 }
 
 /**
- * AI 추천 종목 (Gemini 퀀트 스크리닝, 6h 캐시)
+ * AI 추천 종목 (Gemini 퀀트 스크리닝, 24h 캐시)
  * GET /api/ai-recommend → [{ticker, name, reason, signal}] 60~80개
  */
 app.get('/api/ai-recommend', async (req, res) => {
@@ -770,7 +770,7 @@ Start your response with [ and end with ]`;
 });
 
 /**
- * 오늘의 핫 종목 (Gemini, 6h 캐시)
+ * 오늘의 핫 종목 (Gemini, 24h 캐시)
  * GET /api/hot-stocks → {institution:[...], value:[...], momentum:[...]}
  */
 let _hotStocksCache = { data: null, ts: 0 };
