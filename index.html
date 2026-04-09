@@ -10943,14 +10943,19 @@
         try {
             const company = stockData?.meta?.longName || stockData?.meta?.shortName || '';
             const res = await fetch(`/api/youtube/${encodeURIComponent(symbol)}?company=${encodeURIComponent(company)}&limit=8`);
-            if (!res.ok) throw new Error(res.status);
+            if (!res.ok) {
+                const body = await res.text().catch(() => '(no body)');
+                console.error(`[YouTube] ❌ HTTP ${res.status} for ${symbol}:`, body);
+                throw new Error(`HTTP ${res.status}: ${body}`);
+            }
             const data  = await res.json();
             const items = data.videos || [];
-            if (!items.length) throw new Error('empty');
+            console.log(`[YouTube] ✅ ${symbol}: ${items.length}개 영상 수신`);
+            if (!items.length) throw new Error('empty response');
             _ytCache[symbol] = { ts: Date.now(), items };
             renderYouTubeCards(items);
-        } catch {
-            // API 키 없거나 에러 → YouTube 검색 링크 제공
+        } catch(err) {
+            console.error('[YouTube] fetch 실패:', err.message);
             renderYouTubeEmpty(currentSymbol || symbol);
         }
     }

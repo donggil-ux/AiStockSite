@@ -398,7 +398,8 @@ app.get('/api/youtube/:symbol', async (req, res) => {
     }
 
     if (!process.env.YOUTUBE_API_KEY) {
-        return res.status(503).json({ error: 'YouTube API key not configured' });
+        console.error('[youtube] ❌ YOUTUBE_API_KEY 환경변수가 없습니다. Vercel 환경변수를 확인하세요.');
+        return res.status(503).json({ error: 'YouTube API key not configured', hint: 'Set YOUTUBE_API_KEY in Vercel environment variables and redeploy' });
     }
 
     // KR 종목은 한국어 키워드, US는 영어 키워드로 검색
@@ -426,8 +427,17 @@ app.get('/api/youtube/:symbol', async (req, res) => {
         _ytServerCache[ckey] = { ts: Date.now(), data: result };
         res.json(result);
     } catch (err) {
-        console.error(`[youtube] ${symbol}:`, err.message);
-        res.status(500).json({ error: err.message });
+        const ytStatus  = err.response?.status;
+        const ytData    = err.response?.data;
+        console.error(`[youtube] ❌ ${symbol} — HTTP ${ytStatus || 'N/A'}:`, ytData || err.message);
+        if (ytStatus === 403) {
+            console.error('[youtube] 403 원인: API 키 제한(도메인/IP) 또는 할당량 초과. Google Cloud Console 확인 필요.');
+        }
+        res.status(500).json({
+            error:  err.message,
+            ytStatus,
+            ytError: ytData?.error?.message || null,
+        });
     }
 });
 
@@ -865,15 +875,31 @@ app.get('*', (req, res) => {
 // Vercel은 module.exports = app 만 사용 (listen 불필요)
 // 로컬 실행 시에만 app.listen() 호출
 // ─────────────────────────────────────────────
+function logEnvStatus() {
+    const keys = [
+        ['YOUTUBE_API_KEY',   process.env.YOUTUBE_API_KEY],
+        ['GEMINI_API_KEY',    process.env.GEMINI_API_KEY],
+        ['SUPABASE_URL',      process.env.SUPABASE_URL],
+        ['ANTHROPIC_API_KEY', process.env.ANTHROPIC_API_KEY],
+    ];
+    console.log('\n🔑 환경변수 상태:');
+    keys.forEach(([name, val]) => {
+        console.log(`  ${val ? '✅' : '❌'} ${name}${val ? ' (set)' : ' (missing!)'}`);
+    });
+    console.log('');
+}
+
 if (require.main === module) {
     // 로컬 실행
     app.listen(PORT, () => {
         console.log(`\n🚀 StockAI Server  →  http://localhost:${PORT}`);
-        console.log(`📡 Health check    →  http://localhost:${PORT}/health\n`);
+        console.log(`📡 Health check    →  http://localhost:${PORT}/health`);
+        logEnvStatus();
         getCrumb().catch(err => console.error('⚠️  Initial crumb fetch 실패:', err.message));
     });
 } else {
     // Vercel 서버리스: cold start 시 crumb 미리 발급
+    logEnvStatus();
     getCrumb().catch(() => {});
 }
 
