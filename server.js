@@ -69,9 +69,9 @@ function getAnthropic() {
     return _anthropic;
 }
 
-// AI 추천 종목 인메모리 캐시 (6시간 TTL)
+// AI 추천 종목 인메모리 캐시 (24시간 TTL — 무료 쿼터 절약)
 let _aiRecCache = { data: null, ts: 0 };
-const AI_REC_TTL = 6 * 60 * 60 * 1000;
+const AI_REC_TTL = 24 * 60 * 60 * 1000;
 
 // [Fix-F] _supabase = null(미설정) or createClient 인스턴스 — 최초 1회만 생성
 let _supabase;
@@ -774,7 +774,7 @@ Start your response with [ and end with ]`;
  * GET /api/hot-stocks → {institution:[...], value:[...], momentum:[...]}
  */
 let _hotStocksCache = { data: null, ts: 0 };
-const HOT_TTL = 6 * 60 * 60 * 1000;
+const HOT_TTL = 24 * 60 * 60 * 1000; // 24시간 — 무료 쿼터 절약
 
 app.get('/api/hot-stocks', async (req, res) => {
     try {
