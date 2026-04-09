@@ -1956,7 +1956,7 @@
         <button class="tab-item" data-tab="news" onclick="switchTab('news')">뉴스</button>
         <button class="tab-item" data-tab="social" onclick="switchTab('social')">소셜</button>
         <button class="tab-item" data-tab="short" onclick="switchTab('short')">공매도</button>
-        <button class="tab-item" data-tab="youtube" onclick="switchTab('youtube')">📺 유튜브</button>
+        <button class="tab-item" data-tab="youtube" onclick="switchTab('youtube')">유튜브</button>
         <button class="tab-order-btn" onclick="openTabOrderModal()" title="탭 순서 설정">⚙</button>
     </nav>
 
@@ -2358,7 +2358,7 @@
         <!-- Tab 9: YouTube -->
         <div class="tab-content" id="tabYoutube" data-tab="youtube">
             <div class="yt-header">
-                <div class="yt-header-title">📺 <span id="ytSymbolLabel"></span> 관련 영상</div>
+                <div class="yt-header-title"><span id="ytSymbolLabel"></span> 관련 영상</div>
                 <button class="news-refresh-btn" onclick="reloadYouTubeTab()">↻ 새로고침</button>
             </div>
             <div id="ytVideoGrid" class="yt-grid"></div>
@@ -10979,12 +10979,12 @@
         if (!grid) return;
         const q = encodeURIComponent((sym || '') + ' stock analysis');
         grid.innerHTML = `<div class="yt-empty" style="grid-column:1/-1">
-            <div class="yt-empty-icon">📺</div>
+            <div class="yt-empty-icon">▶</div>
             <div style="margin-bottom:14px;color:var(--text2)">YouTube API가 연결되지 않았습니다.</div>
             <a href="https://www.youtube.com/results?search_query=${q}"
                target="_blank" rel="noopener noreferrer"
                style="display:inline-block;padding:10px 20px;background:var(--blue);color:#fff;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;">
-                📺 YouTube에서 ${escHtml(sym || '')} 검색하기
+                YouTube에서 ${escHtml(sym || '')} 검색하기
             </a>
         </div>`;
     }
@@ -10994,7 +10994,7 @@
         if (!grid) return;
         if (!videos?.length) {
             grid.innerHTML = `<div class="yt-empty">
-                <div class="yt-empty-icon">📺</div>
+                <div class="yt-empty-icon">▶</div>
                 현재 관련된 영상을 불러올 수 없습니다.<br>
                 <span style="font-size:11px;color:var(--text3)">잠시 후 다시 시도해주세요</span>
             </div>`;
