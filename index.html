@@ -380,21 +380,29 @@
         .news-card.news-skel{pointer-events:none;}
         @media(max-width:640px){.news-thumb-wrap{width:62px;height:46px;border-radius:8px;}.news-title{font-size:12px;-webkit-line-clamp:3;}}
         /* ===== YOUTUBE TAB ===== */
-        .yt-header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px 10px;}
+        /* ===== YOUTUBE TAB ===== */
+        .yt-header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px 12px;}
         .yt-header-title{font-size:13px;font-weight:700;color:var(--text2);}
-        .yt-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 16px 20px;}
-        @media(max-width:600px){.yt-grid{grid-template-columns:1fr;}}
-        .yt-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;text-decoration:none;color:inherit;}
+        /* Responsive grid — mobile:1col / tablet(≥768):2col / desktop(≥1280):3col */
+        .yt-grid{display:grid;grid-template-columns:1fr;gap:16px;padding:0 20px 28px;box-sizing:border-box;width:100%;}
+        @media(min-width:768px){.yt-grid{grid-template-columns:1fr 1fr;}}
+        @media(min-width:1280px){.yt-grid{grid-template-columns:repeat(3,1fr);}}
+        /* Card — <article> wrapper */
+        .yt-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;transition:transform .15s,box-shadow .15s,border-color .15s,background .15s;display:flex;flex-direction:column;}
         .yt-card:hover{background:var(--bg3);border-color:var(--blue);transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.25);}
+        /* <a> fills entire card area */
+        .yt-link{display:flex;flex-direction:column;flex:1;text-decoration:none;color:inherit;cursor:pointer;}
+        /* Thumbnail 16:9 */
         .yt-thumb-wrap{position:relative;width:100%;aspect-ratio:16/9;background:var(--bg4);overflow:hidden;flex-shrink:0;}
         .yt-thumb{width:100%;height:100%;object-fit:cover;display:block;}
         .yt-ext-icon{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.65);color:#fff;font-size:10px;padding:3px 5px;border-radius:4px;opacity:0;transition:opacity .15s;font-weight:700;}
         .yt-card:hover .yt-ext-icon{opacity:1;}
-        .yt-info{padding:10px 12px 12px;flex:1;display:flex;flex-direction:column;gap:4px;}
-        .yt-title{font-size:12px;font-weight:700;color:var(--text);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-        .yt-meta{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:2px;}
-        .yt-channel{font-size:11px;color:var(--blue);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px;}
-        .yt-date{font-size:11px;color:var(--text3);}
+        /* Info */
+        .yt-info{padding:10px 12px 12px;flex:1;display:flex;flex-direction:column;gap:4px;min-width:0;}
+        .yt-title{font-size:13px;font-weight:700;color:var(--text);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+        .yt-meta{display:flex;align-items:center;gap:5px;flex-wrap:nowrap;margin-top:4px;min-width:0;overflow:hidden;}
+        .yt-channel{font-size:11px;color:var(--blue);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;}
+        .yt-date{font-size:11px;color:var(--text3);white-space:nowrap;flex-shrink:0;}
         .yt-empty{padding:48px 24px;text-align:center;color:var(--text3);font-size:13px;grid-column:1/-1;}
         .yt-empty-icon{font-size:32px;margin-bottom:8px;}
         .yt-card.yt-skel{pointer-events:none;}
@@ -10929,20 +10937,20 @@
             renderYouTubeCards(_ytCache[symbol].items); return;
         }
 
-        // 스켈레톤 (6개)
-        grid.innerHTML = Array(6).fill(0).map(() => `
-            <div class="yt-card yt-skel">
+        // 스켈레톤 (9개 — 3×3 grid fill)
+        grid.innerHTML = Array(9).fill(0).map(() => `
+            <article class="yt-card yt-skel">
                 <div class="yt-thumb-wrap skel-block yt-skel-thumb"></div>
                 <div class="yt-info" style="gap:8px">
-                    <div class="skel-block" style="height:12px;width:95%;border-radius:4px"></div>
-                    <div class="skel-block" style="height:12px;width:72%;border-radius:4px"></div>
-                    <div class="skel-block" style="height:10px;width:45%;border-radius:4px;margin-top:4px"></div>
+                    <div class="skel-block" style="height:13px;width:95%;border-radius:4px"></div>
+                    <div class="skel-block" style="height:13px;width:72%;border-radius:4px"></div>
+                    <div class="skel-block" style="height:11px;width:45%;border-radius:4px;margin-top:4px"></div>
                 </div>
-            </div>`).join('');
+            </article>`).join('');
 
         try {
             const company = stockData?.meta?.longName || stockData?.meta?.shortName || '';
-            const res = await fetch(`/api/youtube/${encodeURIComponent(symbol)}?company=${encodeURIComponent(company)}&limit=8`);
+            const res = await fetch(`/api/youtube/${encodeURIComponent(symbol)}?company=${encodeURIComponent(company)}&limit=9`);
             if (!res.ok) {
                 const body = await res.text().catch(() => '(no body)');
                 console.error(`[YouTube] ❌ HTTP ${res.status} for ${symbol}:`, body);
@@ -10998,17 +11006,19 @@
             const thumb = v.thumbnail
                 ? `<img class="yt-thumb" src="${escHtml(v.thumbnail)}" alt="" loading="lazy" onerror="this.style.opacity='.15'">`
                 : '';
-            return `<a class="yt-card" href="${escHtml(url)}" target="_blank" rel="noopener noreferrer" onclick="_ytLogClick('${escHtml(v.videoId)}')">
-                <div class="yt-thumb-wrap">${thumb}<span class="yt-ext-icon">↗</span></div>
-                <div class="yt-info">
-                    <div class="yt-title">${escHtml(v.title)}</div>
-                    <div class="yt-meta">
-                        <span class="yt-channel">${escHtml(v.channel)}</span>
-                        <span style="color:var(--text3)">·</span>
-                        <span class="yt-date">${ago}</span>
+            return `<article class="yt-card">
+                <a class="yt-link" href="${escHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="${escHtml(v.title)}" onclick="_ytLogClick('${escHtml(v.videoId)}')">
+                    <div class="yt-thumb-wrap">${thumb}<span class="yt-ext-icon">↗</span></div>
+                    <div class="yt-info">
+                        <div class="yt-title">${escHtml(v.title)}</div>
+                        <div class="yt-meta">
+                            <span class="yt-channel">${escHtml(v.channel)}</span>
+                            <span style="color:var(--text3);flex-shrink:0">·</span>
+                            <span class="yt-date">${ago}</span>
+                        </div>
                     </div>
-                </div>
-            </a>`;
+                </a>
+            </article>`;
         }).join('');
     }
 
