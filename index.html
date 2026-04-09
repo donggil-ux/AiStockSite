@@ -384,7 +384,7 @@
         .yt-header-title{font-size:13px;font-weight:700;color:var(--text2);}
         .yt-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 16px 20px;}
         @media(max-width:600px){.yt-grid{grid-template-columns:1fr;}}
-        .yt-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;}
+        .yt-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;text-decoration:none;color:inherit;}
         .yt-card:hover{background:var(--bg3);border-color:var(--blue);transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.25);}
         .yt-thumb-wrap{position:relative;width:100%;aspect-ratio:16/9;background:var(--bg4);overflow:hidden;flex-shrink:0;}
         .yt-thumb{width:100%;height:100%;object-fit:cover;display:block;}
@@ -861,6 +861,7 @@
             #tabNews.active{display:block;padding:16px 32px 24px;}
             #tabSocial.active{display:block;}
             #tabShort.active{display:block;}
+            #tabYoutube.active{display:block;}
             #tabInfo.active,#tabCompany.active{gap:8px;}
             #tabInfo .tab-info-top{grid-column:1/-1;padding:0 32px;}
             #tabInfo .tab-col-left,#tabCompany .tab-col-left{padding-right:0;}
@@ -884,6 +885,7 @@
             #tabNews.active{display:block;}
             #tabSocial.active{display:block;}
             #tabShort.active{display:block;}
+            #tabYoutube.active{display:block;}
             .tv-chart-wrap{height:700px;}
         }
 
@@ -10613,12 +10615,16 @@
             if (!Array.isArray(saved) || saved.length < 2) return;
             const nav = document.getElementById('tabNav');
             if (!nav) return;
-            // tab-order-btn을 제외한 탭 버튼만 순서 적용
             const btns = [...nav.querySelectorAll('.tab-item')];
+            const orderBtn = nav.querySelector('.tab-order-btn');
+            // 저장된 순서대로 먼저 이동
             saved.forEach(tabName => {
                 const btn = btns.find(b => b.dataset.tab === tabName);
-                if (btn) nav.insertBefore(btn, nav.querySelector('.tab-order-btn'));
+                if (btn) nav.insertBefore(btn, orderBtn);
             });
+            // 저장된 순서에 없는 새 탭(youtube 등)은 맨 뒤에 붙임
+            btns.filter(b => !saved.includes(b.dataset.tab))
+                .forEach(btn => nav.insertBefore(btn, orderBtn));
         } catch(e) {}
     }
 
@@ -10912,16 +10918,6 @@
     const _ytCache = {};
     const YT_CACHE_MS = 30 * 60 * 1000; // 30분 캐시
 
-    // YouTube API 키 미설정 시 UI 미리보기용 Mock 데이터
-    const YT_MOCK = [
-        { videoId:'dR5W5HhUwKY', title:'NVIDIA Stock Analysis: Is NVDA Still a Buy in 2025?',      channel:'Stock Analysis',       publishedAt: new Date(Date.now()-2*86400*1000).toISOString() },
-        { videoId:'o7QWj2sHQdQ', title:'AAPL Earnings Deep Dive — What the Numbers Actually Mean',  channel:'InvestorsWatching',    publishedAt: new Date(Date.now()-5*86400*1000).toISOString() },
-        { videoId:'k5dASn9CC9M', title:'Tesla Stock: Bull vs Bear Case for 2025',                   channel:'Ticker Symbol: YOU',   publishedAt: new Date(Date.now()-7*86400*1000).toISOString() },
-        { videoId:'YwVn2z7NKGY', title:'Amazon AWS Revenue Breakdown — Hidden Value Explained',     channel:'Joseph Carlson',       publishedAt: new Date(Date.now()-10*86400*1000).toISOString() },
-        { videoId:'e3g9wILCMOo', title:'META Platforms: Why Institutions Are Buying Aggressively', channel:'The Financial Mentor', publishedAt: new Date(Date.now()-14*86400*1000).toISOString() },
-        { videoId:'y4jxKW5cWQk', title:'Microsoft Stock Analysis — Azure Growth + AI Opportunity', channel:'Andrei Jikh',          publishedAt: new Date(Date.now()-21*86400*1000).toISOString() },
-    ];
-
     async function loadYouTubeTab(symbol) {
         const grid  = document.getElementById('ytVideoGrid');
         const label = document.getElementById('ytSymbolLabel');
@@ -10954,9 +10950,8 @@
             _ytCache[symbol] = { ts: Date.now(), items };
             renderYouTubeCards(items);
         } catch {
-            // API 키 없거나 에러 → Mock fallback
-            _ytCache[symbol] = { ts: Date.now(), items: YT_MOCK };
-            renderYouTubeCards(YT_MOCK);
+            // API 키 없거나 에러 → YouTube 검색 링크 제공
+            renderYouTubeEmpty(currentSymbol || symbol);
         }
     }
 
@@ -10964,6 +10959,21 @@
         if (!currentFullSymbol) return;
         delete _ytCache[currentFullSymbol];
         loadYouTubeTab(currentFullSymbol);
+    }
+
+    function renderYouTubeEmpty(sym) {
+        const grid = document.getElementById('ytVideoGrid');
+        if (!grid) return;
+        const q = encodeURIComponent((sym || '') + ' stock analysis');
+        grid.innerHTML = `<div class="yt-empty" style="grid-column:1/-1">
+            <div class="yt-empty-icon">📺</div>
+            <div style="margin-bottom:14px;color:var(--text2)">YouTube API가 연결되지 않았습니다.</div>
+            <a href="https://www.youtube.com/results?search_query=${q}"
+               target="_blank" rel="noopener noreferrer"
+               style="display:inline-block;padding:10px 20px;background:var(--blue);color:#fff;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;">
+                📺 YouTube에서 ${escHtml(sym || '')} 검색하기
+            </a>
+        </div>`;
     }
 
     function renderYouTubeCards(videos) {
@@ -10983,7 +10993,7 @@
             const thumb = v.thumbnail
                 ? `<img class="yt-thumb" src="${escHtml(v.thumbnail)}" alt="" loading="lazy" onerror="this.style.opacity='.15'">`
                 : '';
-            return `<div class="yt-card" onclick="_ytLogClick('${escHtml(v.videoId)}');window.open('${escHtml(url)}','_blank','noopener,noreferrer')">
+            return `<a class="yt-card" href="${escHtml(url)}" target="_blank" rel="noopener noreferrer" onclick="_ytLogClick('${escHtml(v.videoId)}')">
                 <div class="yt-thumb-wrap">${thumb}<span class="yt-ext-icon">↗</span></div>
                 <div class="yt-info">
                     <div class="yt-title">${escHtml(v.title)}</div>
@@ -10993,7 +11003,7 @@
                         <span class="yt-date">${ago}</span>
                     </div>
                 </div>
-            </div>`;
+            </a>`;
         }).join('');
     }
 
