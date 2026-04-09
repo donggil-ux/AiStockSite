@@ -15,6 +15,7 @@ const multer     = require('multer');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { createClient } = require('@supabase/supabase-js');
 const Anthropic = require('@anthropic-ai/sdk');
+const { SYSTEM_ROLE, OUTPUT_CONTRACT, buildUserPrompt } = require('./chartReaderPrompt');
 
 // Yahoo Finance 응답 헤더가 커서 기본 8KB 한도를 초과할 수 있음
 // 옵션체인 API는 헤더가 특히 커서 128KB로 확장
@@ -606,112 +607,124 @@ app.post('/api/chart-draw', upload.single('image'), async (req, res) => {
         return res.status(503).json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다.' });
     }
 
-    let priceData = null;
+    // priceData 파싱 — 신규 ctx 스키마(ohlcv + indicators + series) 또는 구 포맷(closes/highs/lows/dates)
+    let ctx = null;
     if (req.body.priceData) {
-        try {
-            priceData = JSON.parse(req.body.priceData);
-        } catch (e) {
-            return res.status(400).json({ error: 'priceData JSON 형식이 올바르지 않습니다.' });
-        }
+        try { ctx = JSON.parse(req.body.priceData); }
+        catch (e) { return res.status(400).json({ error: 'priceData JSON 형식이 올바르지 않습니다.' }); }
     }
+    // 하위호환: 구 포맷으로 들어오면 최소한의 ctx 로 변환
+    if (ctx && !ctx.ohlcv && Array.isArray(ctx.closes)) {
+        const N = ctx.closes.length;
+        const cur = [...ctx.closes].reverse().find(v => v != null);
+        ctx = {
+            symbol: ctx.symbol || '?',
+            name: ctx.name || '',
+            interval: ctx.interval || '1d',
+            currency: ctx.currency || 'USD',
+            currentPrice: cur,
+            ohlcv: Array.from({ length: N }, (_, i) => ({
+                d: ctx.dates?.[i], o: null, h: ctx.highs?.[i], l: ctx.lows?.[i], c: ctx.closes[i], v: null,
+            })),
+            indicators: {},
+            series: { rsi: [], macdHist: [] },
+        };
+    }
+    if (!ctx || !ctx.currentPrice) {
+        return res.status(400).json({ error: 'priceData.currentPrice 필수' });
+    }
+
+    const stream = req.query.stream === '1';
+    const fullPrompt = `${SYSTEM_ROLE}\n\n${OUTPUT_CONTRACT}\n\n${buildUserPrompt(ctx)}`;
+
+    const genAI = getGenAI();
+    if (!genAI) return res.status(503).json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다.' });
+    const model = genAI.getGenerativeModel({
+        model: 'gemini-2.5-flash',
+        generationConfig: {
+            temperature: 0.2,
+            responseMimeType: 'application/json',
+        },
+    });
+    const parts = [
+        fullPrompt,
+        { inlineData: { data: req.file.buffer.toString('base64'), mimeType: req.file.mimetype } },
+    ];
+
+    const parseJsonLoose = raw => {
+        const cleaned = String(raw).trim()
+            .replace(/^```json\s*/i, '')
+            .replace(/^```\s*/i, '')
+            .replace(/\s*```$/i, '')
+            .trim();
+        return JSON.parse(cleaned);
+    };
 
     try {
-        const b64 = req.file.buffer.toString('base64');
-        const mimeType = req.file.mimetype;
+        if (stream) {
+            res.setHeader('Content-Type', 'text/event-stream');
+            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('Connection', 'keep-alive');
+            res.flushHeaders?.();
 
-        let priceContext = '';
-        if (priceData) {
-            const { closes, highs, lows, dates } = priceData;
-            const valid = closes.filter(v => v != null);
-            const cur = valid.at(-1)?.toFixed(2) ?? '?';
-            priceContext = `\n\n실제 가격 데이터 (${closes.length}개 봉):
-날짜(최근20): ${dates.slice(-20).join(', ')}
-종가: [${closes.map(v => v != null ? v.toFixed(2) : 'null').join(',')}]
-고가: [${highs.map(v => v != null ? v.toFixed(2) : 'null').join(',')}]
-저가: [${lows.map(v => v != null ? v.toFixed(2) : 'null').join(',')}]
-현재가: ${cur}`;
+            const result = await model.generateContentStream(parts);
+            let buf = '';
+            for await (const chunk of result.stream) {
+                const t = chunk.text();
+                if (!t) continue;
+                buf += t;
+                res.write(`data: ${JSON.stringify({ chunk: t })}\n\n`);
+            }
+
+            let data;
+            try { data = normalizeChartAnalysis(parseJsonLoose(buf)); }
+            catch (e) {
+                res.write(`data: ${JSON.stringify({ error: 'AI 응답 파싱 실패: ' + e.message })}\n\n`);
+                return res.end();
+            }
+            console.log(`[chart-draw:stream] 완료: levels=${data.levels.length} trendlines=${data.trendlines.length}`);
+            res.write(`data: ${JSON.stringify({ done: true, data })}\n\n`);
+            res.end();
+        } else {
+            const result = await model.generateContent(parts);
+            const data = normalizeChartAnalysis(parseJsonLoose(result.response.text()));
+            console.log(`[chart-draw] 완료: levels=${data.levels.length} trendlines=${data.trendlines.length}`);
+            res.json(data);
         }
-
-        const prompt = `당신은 전문 주식 차트 기술 분석가입니다. 차트 이미지와 실제 가격 데이터를 분석하세요.${priceContext}
-
-이미지를 1000×1000 좌표 그리드로 취급하세요. x=0은 차트 왼쪽 끝, x=1000은 오른쪽 끝, y=0은 위(고가), y=1000은 아래(저가)입니다. 모든 추세선 좌표는 이 그리드 기준으로 반환하세요.
-
-반드시 아래 JSON 형식으로만 응답하세요.
-
-{
-  "levels": [
-    {
-      "type": "support 또는 resistance",
-      "price": 실제가격숫자,
-      "label": "설명 (예: 주요 지지선 $150)",
-      "strength": 0.5~1.0
-    }
-  ],
-  "trendlines": [
-    {
-      "label": "추세선 설명 (예: 상승 추세선)",
-      "type": "uptrend 또는 downtrend",
-      "point1": { "x": 0~1000, "y": 0~1000 },
-      "point2": { "x": 0~1000, "y": 0~1000 }
-    }
-  ],
-  "summary": "한줄 요약 (한국어, 1문장)",
-  "report": "상세 분석 리포트 (한국어, 마크다운 형식)"
-}
-
-규칙:
-- levels 최대 4개 (중요도 높은 순), 제공된 실제 가격 데이터 기준으로 정확한 가격 사용
-- trendlines 최대 3개 (추세선의 핵심 Pivot 꼬리 2개를 정확히 짚을 것)
-- point1은 항상 더 과거(왼쪽, x가 작은) 점, point2는 더 최근(오른쪽, x가 큰) 점
-- report는 상세 기술 분석 리포트를 마크다운으로 작성:
-  * ### 종목명 주식 기술 분석 리포트 (제목)
-  * 현재가 언급, 전체 추세 설명
-  * #### 주요 지지 및 저항 구간: 으로 각 레벨에 대해 **가격대**와 근거를 상세히 설명
-  * #### 추세 분석: 추세선의 방향과 의미 설명
-  * #### 종합 의견: 단기/중기 전망과 주의사항`;
-
-        const genAI = getGenAI();
-        if (!genAI) return res.status(503).json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다.' });
-        const model = genAI.getGenerativeModel({
-            model: 'gemini-2.5-flash',
-            generationConfig: {
-                temperature: 0.1,
-                responseMimeType: 'application/json',
-            },
-        });
-        const result = await model.generateContent([
-            prompt,
-            { inlineData: { data: b64, mimeType } },
-        ]);
-
-        const raw = result.response.text().trim();
-        const json = raw.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
-        const data = JSON.parse(json);
-
-        data.levels = (data.levels || []).map(l => ({
-            type: l.type === 'resistance' ? 'resistance' : 'support',
-            price: Number(l.price),
-            label: l.label || (l.type === 'resistance' ? '저항선' : '지지선'),
-            strength: Math.max(0.3, Math.min(1, l.strength ?? 0.7)),
-        })).filter(l => l.price > 0);
-
-        data.trendlines = (data.trendlines || []).map(t => ({
-            label: t.label || '추세선',
-            type: t.type === 'downtrend' ? 'downtrend' : 'uptrend',
-            point1: { x: Math.max(0, Math.min(1000, Number(t.point1?.x ?? 0))), y: Math.max(0, Math.min(1000, Number(t.point1?.y ?? 0))) },
-            point2: { x: Math.max(0, Math.min(1000, Number(t.point2?.x ?? 1000))), y: Math.max(0, Math.min(1000, Number(t.point2?.y ?? 0))) },
-        })).filter(t => t.point1.x < t.point2.x);
-
-        console.log(`[chart-draw] 완료: ${data.levels.length}개 레벨, ${data.trendlines.length}개 추세선`);
-        res.json(data);
     } catch (err) {
         console.error('[chart-draw] 오류:', err.message);
-        if (err instanceof SyntaxError) {
+        if (stream) {
+            try { res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`); res.end(); } catch {}
+        } else if (err instanceof SyntaxError) {
             return res.status(500).json({ error: 'AI 응답 파싱 실패. 다시 시도해주세요.' });
+        } else {
+            res.status(500).json({ error: err.message });
         }
-        res.status(500).json({ error: err.message });
     }
 });
+
+/** Gemini 응답 정규화 — levels/trendlines 검증 + analysis passthrough */
+function normalizeChartAnalysis(d) {
+    d = d || {};
+    d.levels = (d.levels || []).map(l => ({
+        type: l.type === 'resistance' ? 'resistance' : 'support',
+        price: Number(l.price),
+        label: l.label || (l.type === 'resistance' ? '저항선' : '지지선'),
+        strength: Math.max(0.3, Math.min(1, l.strength ?? 0.7)),
+    })).filter(l => l.price > 0);
+
+    const clamp = (v, def) => Math.max(0, Math.min(1000, Number(v ?? def)));
+    d.trendlines = (d.trendlines || []).map(t => ({
+        label: t.label || '추세선',
+        type: t.type === 'downtrend' ? 'downtrend' : 'uptrend',
+        point1: { x: clamp(t.point1?.x, 0),    y: clamp(t.point1?.y, 0) },
+        point2: { x: clamp(t.point2?.x, 1000), y: clamp(t.point2?.y, 0) },
+    })).filter(t => t.point1.x < t.point2.x);
+
+    d.summary = d.summary || '';
+    d.analysis = d.analysis || null;
+    return d;
+}
 
 /**
  * AI 추천 종목 (Gemini 퀀트 스크리닝, 6h 캐시)

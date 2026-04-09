@@ -677,6 +677,28 @@
         .ai-summary-report-inner strong{color:var(--text);font-weight:700;}
         .ai-summary-report-inner hr{border:none;border-top:1px solid var(--border);margin:12px 0;}
 
+        /* ===== AI 분석 리포트 (구조화 카드) ===== */
+        .ar-section{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r3);padding:12px 14px;margin-bottom:10px;}
+        .ar-section:last-child{margin-bottom:0;}
+        .ar-section h4{font-size:13px;font-weight:800;color:var(--text);margin:0 0 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;line-height:1.4;}
+        .ar-section p{font-size:12px;color:var(--text2);line-height:1.65;margin:4px 0;}
+        .ar-kv{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:12px;margin:0;}
+        .ar-kv dt{color:var(--text3);font-weight:600;align-self:center;}
+        .ar-kv dd{color:var(--text);margin:0;font-weight:700;align-self:center;word-break:break-word;}
+        .ar-price{display:inline-block;padding:2px 8px;border-radius:6px;font-weight:800;font-size:11px;font-variant-numeric:tabular-nums;}
+        .ar-price.up{background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.3);}
+        .ar-price.down{background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);}
+        .ar-price.neutral{background:var(--bg4);color:var(--text);border:1px solid var(--border);}
+        .ar-scenario{background:var(--bg2);border-left:3px solid var(--border);border-radius:8px;padding:10px 12px;margin:8px 0 0;}
+        .ar-scenario.bull{border-left-color:#22c55e;background:rgba(34,197,94,.06);}
+        .ar-scenario.bear{border-left-color:#ef4444;background:rgba(239,68,68,.06);}
+        .ar-scenario-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-weight:800;font-size:12px;gap:8px;flex-wrap:wrap;}
+        .ar-scenario-rr{font-size:11px;padding:2px 8px;border-radius:4px;background:var(--bg4);color:var(--text);white-space:nowrap;}
+        .ar-conv{font-size:10px;padding:2px 6px;border-radius:4px;margin-left:4px;font-weight:800;letter-spacing:.3px;}
+        .ar-conv.high{background:rgba(34,197,94,.2);color:#22c55e;}
+        .ar-conv.medium{background:rgba(234,179,8,.2);color:#eab308;}
+        .ar-conv.low{background:rgba(239,68,68,.2);color:#ef4444;}
+
         /* ===== INDICATOR GRID ===== */
         .indicator-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
         .indicator-item{background:var(--bg3);border-radius:var(--r3);padding:14px;transition:background .15s;}
@@ -11736,8 +11758,11 @@
             textEl.textContent = data.summary || '';
             card.style.display = badges || data.summary || data.report ? '' : 'none';
 
-            // 상세 리포트
-            if (data.report && reportInner && toggleBtn) {
+            // 상세 리포트 — 신규 analysis 구조 우선, 없으면 구 report 마크다운 폴백
+            if (data.analysis && reportInner && toggleBtn) {
+                renderAnalysisReport(data.analysis);
+                toggleBtn.style.display = '';
+            } else if (data.report && reportInner && toggleBtn) {
                 reportInner.innerHTML = _aiMdToHtml(data.report);
                 toggleBtn.style.display = '';
             } else if (toggleBtn) {
@@ -11759,7 +11784,7 @@
         btn.querySelector('svg').nextSibling.textContent = isOpen ? ' 상세 리포트 접기' : ' 상세 분석 리포트 보기';
     }
 
-    // ── 마크다운→HTML 간이 변환 ──
+    // ── 마크다운→HTML 간이 변환 (레거시 data.report 폴백용) ──
     function _aiMdToHtml(md) {
         return md
             .replace(/#### (.+)/g, '<h4>$1</h4>')
@@ -11770,6 +11795,165 @@
             .replace(/^/, '<p>').replace(/$/, '</p>')
             .replace(/<p><h([34])>/g, '<h$1>').replace(/<\/h([34])><\/p>/g, '</h$1>')
             .replace(/<p><\/p>/g, '');
+    }
+
+    // ── 구조화 분석 리포트 렌더러 (data.analysis → 4섹션 카드 HTML) ──
+    function renderAnalysisReport(a) {
+        const host = document.getElementById('aiSummaryReportInner');
+        if (!host || !a) return;
+        const fmt = v => (v == null || isNaN(Number(v))) ? '-' : Number(v).toFixed(2);
+        const price = (v, dir = 'neutral') => `<span class="ar-price ${dir}">${fmt(v)}</span>`;
+
+        const t = a.trend || {};
+        const trendHtml = `
+            <div class="ar-section">
+                <h4>📈 추세 &amp; 구조</h4>
+                <dl class="ar-kv">
+                    <dt>주요 추세</dt><dd>${escHtml(t.primary || '-')}</dd>
+                    <dt>타임프레임</dt><dd>${escHtml(t.timeframe || '-')}</dd>
+                    <dt>구조</dt><dd>${escHtml(t.structure || '-')}</dd>
+                </dl>
+                ${t.commentary ? `<p>${escHtml(t.commentary)}</p>` : ''}
+            </div>`;
+
+        const kl = a.keyLevels || {};
+        const levelsHtml = `
+            <div class="ar-section">
+                <h4>🎯 핵심 가격대</h4>
+                <dl class="ar-kv">
+                    <dt>즉시 저항</dt><dd>${price(kl.immediateResistance, 'down')}</dd>
+                    <dt>즉시 지지</dt><dd>${price(kl.immediateSupport, 'up')}</dd>
+                    <dt>주요 저항</dt><dd>${price(kl.majorResistance, 'down')}</dd>
+                    <dt>주요 지지</dt><dd>${price(kl.majorSupport, 'up')}</dd>
+                </dl>
+                ${kl.rationale ? `<p>${escHtml(kl.rationale)}</p>` : ''}
+            </div>`;
+
+        const ind = a.indicators || {};
+        const indHtml = `
+            <div class="ar-section">
+                <h4>📊 지표 해석</h4>
+                <p><strong>RSI:</strong> ${escHtml(ind.rsi || '-')}</p>
+                <p><strong>MACD:</strong> ${escHtml(ind.macd || '-')}</p>
+                <p><strong>이동평균:</strong> ${escHtml(ind.ma || '-')}</p>
+                <p><strong>ATR:</strong> ${escHtml(ind.atr || '-')}</p>
+                <p><strong>거래량:</strong> ${escHtml(ind.volume || '-')}</p>
+            </div>`;
+
+        const sc = a.scenarios || {};
+        const scenarioCard = (key, d) => {
+            if (!d) return '';
+            const cls = key === 'bull' ? 'bull' : 'bear';
+            const icon = key === 'bull' ? '🟢 상방' : '🔴 하방';
+            const conv = String(d.conviction || 'medium').toLowerCase();
+            const convCls = ['high','medium','low'].includes(conv) ? conv : 'medium';
+            return `
+                <div class="ar-scenario ${cls}">
+                    <div class="ar-scenario-head">
+                        <span>${icon} 시나리오 <span class="ar-conv ${convCls}">${convCls.toUpperCase()}</span></span>
+                        <span class="ar-scenario-rr">R/R ${escHtml(d.rr || '-')}</span>
+                    </div>
+                    <dl class="ar-kv">
+                        <dt>트리거</dt><dd>${escHtml(d.trigger || '-')}</dd>
+                        <dt>진입</dt><dd>${price(d.entry)}</dd>
+                        <dt>손절</dt><dd>${price(d.stopLoss, 'down')}</dd>
+                        <dt>TP1</dt><dd>${price(d.tp1, 'up')}</dd>
+                        <dt>TP2</dt><dd>${price(d.tp2, 'up')}</dd>
+                    </dl>
+                    ${d.rationale ? `<p>${escHtml(d.rationale)}</p>` : ''}
+                </div>`;
+        };
+        const biasKey = String(sc.bias || 'neutral').toLowerCase();
+        const biasCls = biasKey === 'bull' ? 'high' : (biasKey === 'bear' ? 'low' : 'medium');
+        const biasLabel = biasKey === 'bull' ? '상방' : (biasKey === 'bear' ? '하방' : '중립');
+        const planHtml = `
+            <div class="ar-section">
+                <h4>⚔️ 실전 트레이드 플랜 <span class="ar-conv ${biasCls}">편향: ${biasLabel}</span></h4>
+                ${scenarioCard('bull', sc.bull)}
+                ${scenarioCard('bear', sc.bear)}
+            </div>`;
+
+        host.innerHTML = trendHtml + levelsHtml + indHtml + planHtml;
+    }
+
+    // ── 차트 컨텍스트 JSON 조립 (OHLCV + 지표 최신값 + 시계열) ──
+    function buildChartContextJson() {
+        if (!stockData || !stockData.indicators || !stockData.indicators.quote) return null;
+        const q = stockData.indicators.quote[0];
+        const closes = q.close || [];
+        const highs  = q.high  || [];
+        const lows   = q.low   || [];
+        const opens  = q.open  || [];
+        const vols   = q.volume|| [];
+        const dates  = (stockData.timestamp || []).map(t => {
+            const d = new Date(t * 1000);
+            return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+        });
+
+        const lastVal = arr => {
+            if (!arr) return null;
+            for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != null) return arr[i];
+            return null;
+        };
+        const r2 = v => (v == null || isNaN(v)) ? null : +Number(v).toFixed(2);
+        const r2arr = arr => (arr || []).map(r2);
+
+        const sma20  = calcSMA(closes, 20);
+        const sma50  = calcSMA(closes, 50);
+        const sma200 = calcSMA(closes, 200);
+        const rsi    = calcRSI(closes, 14);
+        const macd   = calcMACD(closes);
+        const bb     = calcBollingerBands(closes, 20, 2);
+        const atr    = calcATR(highs, lows, closes, 14);
+
+        const cur    = lastVal(closes);
+        const atrV   = lastVal(atr);
+
+        // 최근 80개 봉만 (토큰 절약 + 소수점 2자리 압축)
+        const N = Math.min(80, closes.length);
+        const start = closes.length - N;
+        const ohlcv = [];
+        for (let i = start; i < closes.length; i++) {
+            ohlcv.push({
+                d: dates[i],
+                o: r2(opens[i]),
+                h: r2(highs[i]),
+                l: r2(lows[i]),
+                c: r2(closes[i]),
+                v: vols[i] != null ? Math.round(vols[i]) : null,
+            });
+        }
+
+        return {
+            symbol: currentSymbol,
+            name: stockData.meta?.longName || stockData.meta?.shortName || '',
+            interval: (typeof currentInterval !== 'undefined' ? currentInterval : '1d') || '1d',
+            currency: stockData.meta?.currency || 'USD',
+            currentPrice: r2(cur),
+            ohlcv,
+            indicators: {
+                sma20:  r2(lastVal(sma20)),
+                sma50:  r2(lastVal(sma50)),
+                sma200: r2(lastVal(sma200)),
+                rsi14:  r2(lastVal(rsi)),
+                macd: {
+                    line:   r2(lastVal(macd.macdLine)),
+                    signal: r2(lastVal(macd.signalLine)),
+                    hist:   r2(lastVal(macd.histogram)),
+                },
+                bb: {
+                    upper:  r2(lastVal(bb.upper)),
+                    middle: r2(lastVal(bb.middle)),
+                    lower:  r2(lastVal(bb.lower)),
+                },
+                atr14:  r2(atrV),
+                atrPct: (atrV && cur) ? +(atrV / cur * 100).toFixed(2) : null,
+            },
+            series: {
+                rsi:      r2arr(rsi.slice(-20)),
+                macdHist: r2arr(macd.histogram.slice(-20)),
+            },
+        };
     }
 
     // ── AI 프로그레스바 제어 ──
@@ -11840,11 +12024,8 @@
             _aiProgressShow('📤 데이터 전송 중...', 25);
 
             try {
-                const dates = capturedTs.map(t => {
-                    const d = new Date(t * 1000);
-                    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-                });
-                const priceData = { closes: capturedQ.close, highs: capturedQ.high, lows: capturedQ.low, dates };
+                // 신규: 지표 + OHLCV 조립 (구 포맷 closes/highs/lows/dates 는 서버에서 하위호환 처리)
+                const priceData = buildChartContextJson() || {};
 
                 const fd = new FormData();
                 fd.append('image', blob, 'chart.png');
@@ -11852,15 +12033,44 @@
 
                 _aiProgressShow('🤖 AI 분석 중... (약 10~30초)', -1);
 
-                const resp = await fetch('/api/chart-draw', { method: 'POST', body: fd });
-
-                _aiProgressShow('📊 결과 처리 중...', 85);
-
+                // SSE 스트리밍 엔드포인트 호출
+                const resp = await fetch('/api/chart-draw?stream=1', { method: 'POST', body: fd });
                 if (!resp.ok) {
                     const err = await resp.json().catch(() => ({}));
                     throw new Error(err.error || `서버 오류 (${resp.status})`);
                 }
-                const data = await resp.json();
+
+                const reader = resp.body.getReader();
+                const dec = new TextDecoder();
+                let buf = '', finalData = null, streamedAny = false;
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    buf += dec.decode(value, { stream: true });
+                    const parts = buf.split('\n\n');
+                    buf = parts.pop();
+                    for (const part of parts) {
+                        const line = part.trim();
+                        if (!line.startsWith('data:')) continue;
+                        let msg;
+                        try { msg = JSON.parse(line.slice(5).trim()); }
+                        catch { continue; }
+                        if (msg.error) throw new Error(msg.error);
+                        if (msg.done) {
+                            finalData = msg.data;
+                        } else if (msg.chunk) {
+                            // 사용자에게는 "생성 중" 피드백만 — JSON raw 는 숨김
+                            if (!streamedAny) {
+                                _aiProgressShow('🤖 AI 생성 중... (스트리밍)', -1);
+                                streamedAny = true;
+                            }
+                        }
+                    }
+                }
+                if (!finalData) throw new Error('AI 응답이 비어있습니다.');
+
+                _aiProgressShow('📊 결과 처리 중...', 85);
 
                 // 분석 중 종목이 바뀌었으면 현재 종목에 적용하지 않음
                 if (capturedSymbol !== currentSymbol) {
@@ -11870,14 +12080,14 @@
                 }
 
                 _aiProgressShow('🎨 차트에 그리는 중...', 95);
-                drawAiChartLines(data, capturedTs);
+                drawAiChartLines(finalData, capturedTs);
 
                 _aiProgressShow('✅ 분석 완료!', 100);
                 setTimeout(_aiProgressHide, 1200);
 
-                const supCnt = (data.levels || []).filter(l => l.type === 'support').length;
-                const resCnt = (data.levels || []).filter(l => l.type === 'resistance').length;
-                const trdCnt = (data.trendlines || []).length;
+                const supCnt = (finalData.levels || []).filter(l => l.type === 'support').length;
+                const resCnt = (finalData.levels || []).filter(l => l.type === 'resistance').length;
+                const trdCnt = (finalData.trendlines || []).length;
                 showToast(`AI 분석 완료 · 지지선 ${supCnt}개 · 저항선 ${resCnt}개 · 추세선 ${trdCnt}개`);
 
             } catch(e) {
@@ -11930,6 +12140,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         toggleScannerChip, setScannerPreset, syncScannerChipUI,
         debounceScannerFetch, runScannerFetch, filterScannerResults, renderScannerResults,
         captureChartAndAnalyze, clearAiChartLines, drawAiChartLines, toggleAiReport,
+        renderAnalysisReport, buildChartContextJson,
         deleteSelectedAiTrendline
     });
     </script>
