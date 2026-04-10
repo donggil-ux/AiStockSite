@@ -47,6 +47,9 @@ const OUTPUT_CONTRACT = `
     "scenarios": {
       "bull": {
         "trigger":    "상방 트리거 가격/조건",
+        "buy1":       number,
+        "buy2":       number,
+        "buy3":       number,
         "entry":      number,
         "stopLoss":   number,
         "tp1":        number,
@@ -56,6 +59,9 @@ const OUTPUT_CONTRACT = `
       },
       "bear": {
         "trigger":    "하방 트리거 가격/조건",
+        "buy1":       number,
+        "buy2":       number,
+        "buy3":       number,
         "entry":      number,
         "stopLoss":   number,
         "tp1":        number,
@@ -72,9 +78,12 @@ const OUTPUT_CONTRACT = `
 규칙:
 - levels 최대 4개 (중요도 순), trendlines 최대 3개 (기존 차트 오버레이 호환)
 - 모든 가격 필드는 ctx.currentPrice 와 동일한 통화의 숫자값 (문자열 금지)
-- scenarios.bull/bear 의 entry·stopLoss·tp1·tp2 는 ATR 기반으로 계산
-  · SL 은 진입 대비 최소 1×ATR 폭
-  · TP1 은 진입 대비 최소 1.5×ATR 폭
+- scenarios.bull/bear 의 buy1·buy2·buy3·stopLoss·tp1·tp2 는 ATR 기반으로 계산
+  · bull: buy1 > buy2 > buy3 > stopLoss (각 간격 최소 0.5×ATR)
+  · bear: buy1 < buy2 < buy3 < stopLoss (숏 관점, 각 간격 최소 0.5×ATR)
+  · entry = buy1 (하위호환)
+  · SL 은 buy3 대비 최소 1×ATR 폭
+  · TP1 은 buy1 대비 최소 1.5×ATR 폭
 - R/R 비율이 1:1.5 미만이면 해당 시나리오의 conviction 을 "low" 로 낮추고 rationale 에 이유 명시
 - 지표·가격 수치는 반드시 제공된 ctx 값을 그대로 인용 (자체 계산 금지)
 - point1 은 항상 더 과거(왼쪽, x 가 작은) 점, point2 는 더 최근(오른쪽, x 가 큰) 점

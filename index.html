@@ -2440,6 +2440,7 @@
     let lwAiPriceLines = [];        // AI 지지/저항선 (createPriceLine refs)
     let lwAiTrendSeries = [];       // AI 추세선 legacy (사용 안함, 하위호환)
     let lwAiCanvasTrendlines = [];  // AI 추세선 (canvas Ray 방식, 1000×1000 좌표)
+    let lwClientTrendlines = [];    // 클라이언트 계산 스윙 추세선 {time1,price1,time2,price2,type,label,color}
     let lwAiLastData = null;        // 마지막 AI 분석 결과 (차트 재렌더 후 복원용)
     let selectedAiTrendlineIdx = -1; // 현재 선택된 AI 추세선 인덱스
 
@@ -7788,6 +7789,33 @@
             lwAiCanvasTrendlines.forEach((tl, i) => drawAiTrendlineOnCanvas(ctx, canvas, tl, i === selectedAiTrendlineIdx));
         }
 
+        // 클라이언트 스윙 추세선 (time+price → 실좌표 변환)
+        if (lwClientTrendlines.length) {
+            lwClientTrendlines.forEach(tl => {
+                const p1 = chartToCanvas(tl.time1, tl.price1);
+                const p2 = chartToCanvas(tl.time2, tl.price2);
+                if (!p1 || !p2) return;
+                const dx = p2.x - p1.x;
+                if (Math.abs(dx) < 0.5) return;
+                const slope = (p2.y - p1.y) / dx;
+                const xEnd = canvas.width;
+                const yEnd = p1.y + slope * (xEnd - p1.x);
+                ctx.save();
+                ctx.strokeStyle = tl.color;
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([8, 4]);
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(xEnd, yEnd);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.font = '600 10px Pretendard, sans-serif';
+                ctx.fillStyle = tl.color;
+                ctx.fillText(tl.label, Math.min(p1.x + 6, canvas.width - 60), p1.y - 4);
+                ctx.restore();
+            });
+        }
+
         // 미리보기 그리기
         if (drawState && drawPreview) {
             drawPreviewObj(ctx, canvas, isLight);
@@ -11745,6 +11773,7 @@
         lwAiTrendSeries.forEach(s => { try { lwChart?.removeSeries(s); } catch(e) {} });
         lwAiTrendSeries = [];
         lwAiCanvasTrendlines = [];
+        lwClientTrendlines = [];
         lwAiLastData = null;
         setTimeout(redrawCanvas, 50);
         if (currentSymbol) {
@@ -11787,6 +11816,38 @@
             } catch(e) {}
         });
 
+        // 분할 매수가 + 손절가 수평선
+        const _bull = data.analysis?.scenarios?.bull;
+        const _bear = data.analysis?.scenarios?.bear;
+        const _bias = data.analysis?.scenarios?.bias;
+        const _scenario = _bias === 'bear' ? _bear : _bull;
+        const BUY_COLORS = ['#f59e0b', '#fb923c', '#f97316'];
+        const SL_COLOR   = '#dc2626';
+        ['buy1', 'buy2', 'buy3'].forEach((key, idx) => {
+            const price = _scenario?.[key];
+            if (!price || price <= 0) return;
+            try {
+                const pl = lwCandleSeries.createPriceLine({
+                    price,
+                    color: BUY_COLORS[idx],
+                    lineWidth: 1, lineStyle: 2, axisLabelVisible: true,
+                    title: `${idx+1}차 매수 ${currentMarket === 'KR' ? Math.round(price).toLocaleString() : price.toFixed(2)}`,
+                });
+                lwAiPriceLines.push(pl);
+            } catch(e) {}
+        });
+        const _slPrice = _scenario?.stopLoss;
+        if (_slPrice && _slPrice > 0) {
+            try {
+                const pl = lwCandleSeries.createPriceLine({
+                    price: _slPrice, color: SL_COLOR, lineWidth: 2, lineStyle: 0,
+                    axisLabelVisible: true,
+                    title: `손절 ${currentMarket === 'KR' ? Math.round(_slPrice).toLocaleString() : _slPrice.toFixed(2)}`,
+                });
+                lwAiPriceLines.push(pl);
+            } catch(e) {}
+        }
+
         // 추세선 (빗각 — canvas Ray, 1000×1000 좌표계)
         lwAiCanvasTrendlines = [];
         (data.trendlines || []).forEach(tl => {
@@ -11794,10 +11855,14 @@
                 lwAiCanvasTrendlines.push(tl);
             }
         });
-        if (lwAiCanvasTrendlines.length) setTimeout(redrawCanvas, 50);
+
+        // 클라이언트 스윙 추세선 (OHLCV 선형회귀)
+        lwClientTrendlines = calcSwingTrendlines(90, 3);
+
+        if (lwAiCanvasTrendlines.length || lwClientTrendlines.length) setTimeout(redrawCanvas, 50);
 
         const clearBtn = document.getElementById('chartAiClearBtn');
-        if (clearBtn && (lwAiPriceLines.length || lwAiTrendSeries.length)) clearBtn.style.display = '';
+        if (clearBtn && (lwAiPriceLines.length || lwAiTrendSeries.length || lwClientTrendlines.length)) clearBtn.style.display = '';
 
         // 요약 카드 업데이트
         const card = document.getElementById('aiSummaryCard');
@@ -11912,7 +11977,9 @@
                     </div>
                     <dl class="ar-kv">
                         <dt>트리거</dt><dd>${escHtml(d.trigger || '-')}</dd>
-                        <dt>진입</dt><dd>${price(d.entry)}</dd>
+                        <dt>1차 매수</dt><dd>${price(d.buy1 ?? d.entry)}</dd>
+                        <dt>2차 매수</dt><dd>${price(d.buy2)}</dd>
+                        <dt>3차 매수</dt><dd>${price(d.buy3)}</dd>
                         <dt>손절</dt><dd>${price(d.stopLoss, 'down')}</dd>
                         <dt>TP1</dt><dd>${price(d.tp1, 'up')}</dd>
                         <dt>TP2</dt><dd>${price(d.tp2, 'up')}</dd>
@@ -12037,7 +12104,55 @@
         if (el) el.classList.remove('show');
     }
 
-    // ── 차트 AI 판독기 — 캔버스 캡처 → Gemini 분석 → 차트에 직접 그리기 ──
+    // ── 클라이언트 스윙 추세선 계산 (OHLCV 기반 선형회귀) ──
+    function calcSwingTrendlines(period = 90, swingWin = 3) {
+        if (!stockData) return [];
+        const q = stockData.indicators.quote[0];
+        const ts = stockData.timestamp;
+        const N = ts.length;
+        const start = Math.max(0, N - period);
+        const highs = [], lows = [];
+
+        for (let i = start + swingWin; i < N - swingWin; i++) {
+            const h = q.high[i], l = q.low[i];
+            if (h == null || l == null) continue;
+            let isHigh = true, isLow = true;
+            for (let k = 1; k <= swingWin; k++) {
+                if ((q.high[i-k] ?? -Infinity) >= h || (q.high[i+k] ?? -Infinity) >= h) isHigh = false;
+                if ((q.low[i-k]  ?? Infinity)  <= l || (q.low[i+k]  ?? Infinity)  <= l) isLow  = false;
+            }
+            if (isHigh) highs.push({ t: ts[i], p: h, i });
+            if (isLow)  lows.push({ t: ts[i], p: l, i });
+        }
+
+        const result = [];
+        const fitLine = (pts, type) => {
+            if (pts.length < 2) return;
+            const use = pts.slice(-4);
+            const n = use.length;
+            const sx  = use.reduce((a, p) => a + p.i, 0);
+            const sy  = use.reduce((a, p) => a + p.p, 0);
+            const sxy = use.reduce((a, p) => a + p.i * p.p, 0);
+            const sx2 = use.reduce((a, p) => a + p.i * p.i, 0);
+            const d = n * sx2 - sx * sx;
+            if (Math.abs(d) < 1e-9) return;
+            const m = (n * sxy - sx * sy) / d;
+            const b = (sy - m * sx) / n;
+            const i1 = use[0].i, i2 = N - 1;
+            result.push({
+                time1: ts[i1], price1: m * i1 + b,
+                time2: ts[i2], price2: m * i2 + b,
+                type,
+                label: type === 'downtrend' ? '하락추세' : '상승추세',
+                color: type === 'downtrend' ? '#f87171' : '#4ade80',
+            });
+        };
+        fitLine(highs, 'downtrend');
+        fitLine(lows,  'uptrend');
+        return result;
+    }
+
+    // ── 차트 AI 차트분석 — 캔버스 캡처 → Gemini 분석 → 차트에 직접 그리기 ──
     function captureChartAndAnalyze() {
         if (!lwChart || !stockData) { showToast('먼저 종목을 검색하여 차트를 로드해주세요.'); return; }
         const wrap = document.getElementById('tvChartWrap');
