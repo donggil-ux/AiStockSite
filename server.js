@@ -536,7 +536,7 @@ app.post('/api/vision-scan', upload.single('image'), async (req, res) => {
 
         const genAI = getGenAI();
         if (!genAI) return res.status(503).json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다.' });
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
         const prompt = `당신은 전문 주식 차트 기술 분석가입니다. 업로드된 차트 이미지를 분석하여 지지선과 저항선을 찾아주세요.
 
@@ -686,7 +686,7 @@ app.post('/api/chart-draw', upload.single('image'), async (req, res) => {
         try {
             const genAI = getGenAI();
             const model = genAI.getGenerativeModel({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-2.0-flash',
                 generationConfig: { temperature: 0.2 },
             });
             const parts = [fullPrompt, { inlineData: { data: imageBase64, mimeType } }];
@@ -784,7 +784,7 @@ app.get('/api/ai-recommend', async (req, res) => {
         }
 
         const genAI = getGenAI();
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
         const prompt = `You are a quant-based stock screener AI analyst.
 Return a JSON array of 60-80 US stocks (NYSE/NASDAQ) meeting these criteria:
 - Market cap >= $500M
@@ -829,7 +829,7 @@ app.get('/api/hot-stocks', async (req, res) => {
             return res.json(_hotStocksCache.data);
         }
         const genAI = getGenAI();
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
         const prompt = `You are a quantitative stock analyst for US equities.
 Return a JSON object with exactly 3 keys: institution, value, momentum.
 Each key maps to an array of exactly 5 stock objects.
