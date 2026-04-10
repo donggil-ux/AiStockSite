@@ -612,9 +612,12 @@ const parseJsonLoose = raw => {
     return JSON.parse(cleaned);
 };
 
-function is503(err) {
-    const msg = err?.message || '';
-    return err?.status === 503 || msg.includes('503') || msg.toLowerCase().includes('high demand') || msg.toLowerCase().includes('overloaded');
+function isGeminiRetryable(err) {
+    const msg = (err?.message || '').toLowerCase();
+    return err?.status === 503 || err?.status === 429
+        || msg.includes('503') || msg.includes('429')
+        || msg.includes('high demand') || msg.includes('overloaded')
+        || msg.includes('resource exhausted') || msg.includes('too many requests');
 }
 
 /** Anthropic Claude(haiku)로 이미지+프롬프트 분석, 결과 텍스트 반환 */
@@ -681,10 +684,10 @@ app.post('/api/chart-draw', upload.single('image'), async (req, res) => {
     const sseDone = (data) => { sseSend({ done: true, data }); res.end(); };
     const sseError = (msg) => { sseSend({ error: msg }); res.end(); };
 
-    // ── Gemini 시도 ──────────────────────────────────────────────
+    // ── Gemini 시도 (429/503 시 2초 대기 후 1회 재시도) ──────────
     let geminiSucceeded = false;
     if (process.env.GEMINI_API_KEY) {
-        try {
+        const tryGemini = async () => {
             const genAI = getGenAI();
             const model = genAI.getGenerativeModel({
                 model: 'gemini-2.0-flash',
@@ -710,11 +713,22 @@ app.post('/api/chart-draw', upload.single('image'), async (req, res) => {
                 console.log(`[chart-draw:gemini] 완료: levels=${data.levels.length} trendlines=${data.trendlines.length}`);
                 res.json(data);
             }
+        };
+
+        try {
+            await tryGemini();
             geminiSucceeded = true;
         } catch (err) {
-            if (is503(err)) {
-                console.warn('[chart-draw] Gemini 503 → Anthropic Claude 폴백');
-                sseSend({ fallback: 'claude', chunk: '' }); // 클라이언트에 폴백 알림
+            if (isGeminiRetryable(err)) {
+                console.warn(`[chart-draw] Gemini ${err?.status || 'error'} → 2초 후 재시도`);
+                await new Promise(r => setTimeout(r, 2000));
+                try {
+                    await tryGemini();
+                    geminiSucceeded = true;
+                } catch (err2) {
+                    console.warn(`[chart-draw] Gemini 재시도 실패 → Anthropic Claude 폴백`);
+                    sseSend({ fallback: 'claude', chunk: '' });
+                }
             } else {
                 console.error('[chart-draw:gemini] 오류:', err.message);
                 if (stream) { sseError(err.message); return; }
