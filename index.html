@@ -700,64 +700,70 @@
         .ar-conv.low{background:rgba(239,68,68,.2);color:#ef4444;}
 
         /* ===== ECONOMIC INDICATORS SCREEN ===== */
-        .eco-screen{max-width:700px;margin:0 auto;padding:16px 16px 80px;}
-        .eco-header{margin-bottom:16px;}
-        .eco-title{font-size:20px;font-weight:800;color:var(--text);margin:0 0 4px;}
-        .eco-sub{font-size:13px;color:var(--text3);margin:0;}
-
-        /* 카운트다운 배너 */
-        .eco-countdown-bar{display:flex;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r3);padding:12px 16px;margin-bottom:16px;gap:16px;}
-        .eco-countdown-item{display:flex;flex-direction:column;gap:3px;flex:1;}
-        .eco-countdown-label{font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
-        .eco-countdown-val{font-size:14px;font-weight:800;color:var(--purple);}
-        .eco-countdown-divider{width:1px;height:32px;background:var(--border);}
-
-        /* KPI 카드 행 */
-        .eco-kpi-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
-        .eco-kpi-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r3);padding:14px 16px;}
-        .eco-kpi-label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
-        .eco-kpi-sub{font-size:10px;font-weight:400;color:var(--text3);}
-        .eco-kpi-value{font-size:28px;font-weight:900;font-variant-numeric:tabular-nums;color:var(--text);letter-spacing:-.5px;line-height:1.1;}
-        .eco-kpi-change{font-size:13px;font-weight:700;margin-top:4px;}
-        .eco-kpi-date{font-size:11px;color:var(--text3);margin-top:2px;}
-        .eco-kpi-yoy-row{display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
-        .eco-kpi-yoy-label{font-size:10px;color:var(--text3);font-weight:600;}
-        .eco-kpi-yoy-val{font-size:12px;font-weight:800;color:var(--text2);}
-
-        /* 탭 */
-        .eco-tabs{display:flex;gap:6px;margin-bottom:12px;}
-        .eco-tab{padding:7px 18px;border-radius:20px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;}
-        .eco-tab.active{background:var(--purple);color:#fff;border-color:var(--purple);}
-
-        /* 공통 카드 */
-        .eco-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r3);padding:14px 16px;margin-bottom:12px;}
-        .eco-card-title{font-size:13px;font-weight:800;color:var(--text);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
-
-        /* 차트 */
-        .eco-chart-wrap{position:relative;height:220px;}
-        .eco-chart-wrap canvas{width:100%!important;height:100%!important;}
-
-        /* 테이블 */
-        .eco-table-wrap{overflow-x:auto;}
-        .eco-table{width:100%;border-collapse:collapse;font-size:12px;}
-        .eco-table th{text-align:left;color:var(--text3);font-weight:700;padding:6px 8px;border-bottom:1px solid var(--border);}
-        .eco-table td{padding:8px 8px;border-bottom:1px solid var(--border);color:var(--text2);}
-        .eco-table tr:last-child td{border-bottom:none;}
-
-        /* 섹터 뱃지 */
-        .eco-sector-wrap{display:flex;flex-wrap:wrap;gap:8px;}
-        .sector-badge{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid transparent;}
-        .sector-positive{background:rgba(34,197,94,.12);color:#22c55e;border-color:rgba(34,197,94,.25);}
-        .sector-negative{background:rgba(239,68,68,.12);color:#ef4444;border-color:rgba(239,68,68,.25);}
-        .sector-neutral{background:var(--bg3);color:var(--text2);border-color:var(--border);}
-
-        /* AI 분석 */
-        .eco-ai-card{}
-        .eco-ai-btn{padding:5px 12px;border-radius:8px;border:1px solid var(--purple);background:transparent;color:var(--purple);font-size:11px;font-weight:700;cursor:pointer;transition:all .15s;}
-        .eco-ai-btn:hover{background:var(--purple);color:#fff;}
-        .eco-ai-btn:disabled{opacity:.5;cursor:not-allowed;}
-        .eco-ai-body{font-size:13px;color:var(--text2);line-height:1.7;min-height:40px;}
-        .eco-loading{color:var(--text3);font-size:12px;}
+        #economicSection{max-width:1200px;margin:0 auto;padding:24px 20px;}
+        .economic-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
+        .economic-header h2{font-size:1.4rem;font-weight:700;margin:0;}
+        .economic-tab-group{display:flex;gap:8px;}
+        .economic-tab-btn{padding:8px 20px;border-radius:20px;border:none;cursor:pointer;font-size:.9rem;font-weight:600;transition:all .2s;background:var(--bg2);color:var(--text2);}
+        .economic-tab-btn.active{background:#6366f1;color:#fff;}
+        .economic-top-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+        .economic-card{background:var(--bg2);border-radius:16px;padding:20px 24px;border:1px solid var(--border);}
+        .economic-card-label{font-size:.78rem;color:var(--text2);font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;}
+        .economic-card-value{font-size:2.2rem;font-weight:800;line-height:1.1;margin-bottom:6px;color:var(--text);}
+        .economic-card-mom{font-size:.9rem;font-weight:600;margin-bottom:4px;}
+        .economic-card-date{font-size:.78rem;color:var(--text2);}
+        .economic-card-yoy{margin-top:10px;font-size:.85rem;color:var(--text2);}
+        .release-date-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);}
+        .release-date-item:last-child{border-bottom:none;}
+        .release-d-badge{font-size:1.3rem;font-weight:800;color:#6366f1;}
+        .economic-chart-section{background:var(--bg2);border-radius:16px;padding:20px 24px;border:1px solid var(--border);margin-bottom:20px;}
+        .economic-chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;}
+        .economic-chart-title{font-size:1rem;font-weight:700;color:var(--text);}
+        .chart-toggle-group{display:flex;gap:6px;}
+        .chart-toggle-btn{padding:5px 14px;border-radius:12px;border:1px solid var(--border);cursor:pointer;font-size:.8rem;font-weight:600;background:transparent;color:var(--text2);transition:all .2s;}
+        .chart-toggle-btn.active{background:#6366f1;color:#fff;border-color:#6366f1;}
+        #economicChartCanvas{width:100%!important;height:260px!important;}
+        .economic-bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+        .economic-history-section{background:var(--bg2);border-radius:16px;padding:20px 24px;border:1px solid var(--border);}
+        .economic-history-section h3{font-size:.95rem;font-weight:700;margin-bottom:14px;color:var(--text);}
+        .history-table-wrapper{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+        .history-table{width:100%;border-collapse:collapse;font-size:.85rem;}
+        .history-table th{text-align:left;padding:8px 10px;color:var(--text2);font-weight:600;border-bottom:1px solid var(--border);white-space:nowrap;}
+        .history-table td{padding:10px 10px;border-bottom:1px solid var(--border);white-space:nowrap;color:var(--text2);}
+        .history-table tr:last-child td{border-bottom:none;}
+        .economic-right-section{display:flex;flex-direction:column;gap:16px;}
+        .economic-sector-section,.economic-ai-section{background:var(--bg2);border-radius:16px;padding:20px 24px;border:1px solid var(--border);}
+        .economic-sector-section h3,.economic-ai-section h3{font-size:.95rem;font-weight:700;margin-bottom:14px;color:var(--text);}
+        .sector-badges-wrap{display:flex;flex-wrap:wrap;gap:8px;}
+        .sector-badge{display:inline-flex;align-items:center;gap:4px;padding:6px 14px;border-radius:20px;font-size:.82rem;font-weight:600;}
+        .sector-positive{background:rgba(34,197,94,.15);color:#22c55e;}
+        .sector-negative{background:rgba(239,68,68,.15);color:#ef4444;}
+        .sector-neutral{background:rgba(234,179,8,.15);color:#eab308;}
+        .ai-analysis-text{font-size:.88rem;line-height:1.7;color:var(--text);}
+        .ai-generate-btn{margin-top:12px;padding:8px 18px;background:#6366f1;color:#fff;border:none;border-radius:10px;font-size:.85rem;font-weight:600;cursor:pointer;transition:opacity .2s;}
+        .ai-generate-btn:hover{opacity:.85;}
+        .ai-generate-btn:disabled{opacity:.5;cursor:not-allowed;}
+        .eco-loading{color:var(--text2);font-size:.85rem;}
+        @media(max-width:1279px){
+          .economic-bottom-grid{grid-template-columns:1fr;}
+          .economic-right-section{flex-direction:row;flex-wrap:wrap;}
+          .economic-sector-section,.economic-ai-section{flex:1;min-width:280px;}
+        }
+        @media(max-width:767px){
+          #economicSection{padding:16px 12px;}
+          .economic-header{flex-direction:column;align-items:flex-start;}
+          .economic-tab-group{width:100%;}
+          .economic-tab-btn{flex:1;text-align:center;}
+          .economic-top-grid{grid-template-columns:1fr;}
+          .economic-card-value{font-size:1.7rem;}
+          #economicChartCanvas{height:200px!important;}
+          .economic-chart-header{flex-direction:column;align-items:flex-start;}
+          .economic-bottom-grid{grid-template-columns:1fr;}
+          .economic-right-section{flex-direction:column;}
+          .economic-sector-section,.economic-ai-section{min-width:unset;}
+          .history-table{font-size:.78rem;}
+          .sector-badge{font-size:.75rem;padding:5px 10px;}
+        }
 
         /* ===== INDICATOR GRID ===== */
         .indicator-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
@@ -1895,96 +1901,77 @@
     </div>
 
     <!-- ===== Economic Indicators Screen ===== -->
-    <div class="eco-screen" id="economicScreen" style="display:none">
-        <div class="eco-header">
-            <h2 class="eco-title">📊 경제지표</h2>
-            <p class="eco-sub">CPI · PPI 실시간 데이터 & 시장 영향 분석</p>
-        </div>
-
-        <!-- 카운트다운 배너 -->
-        <div class="eco-countdown-bar">
-            <div class="eco-countdown-item">
-                <span class="eco-countdown-label">다음 CPI 발표</span>
-                <span class="eco-countdown-val" id="cpiCountdown">—</span>
-            </div>
-            <div class="eco-countdown-divider"></div>
-            <div class="eco-countdown-item">
-                <span class="eco-countdown-label">다음 PPI 발표</span>
-                <span class="eco-countdown-val" id="ppiCountdown">—</span>
+    <section id="economicSection" style="display:none;">
+        <div class="economic-header">
+            <h2>📊 경제지표</h2>
+            <div class="economic-tab-group">
+                <button class="economic-tab-btn active" id="ecoTabCpi" onclick="switchEcoTab('cpi')">CPI</button>
+                <button class="economic-tab-btn" id="ecoTabPpi" onclick="switchEcoTab('ppi')">PPI</button>
             </div>
         </div>
 
-        <!-- CPI + PPI 최신값 카드 -->
-        <div class="eco-kpi-row">
-            <!-- CPI 카드 -->
-            <div class="eco-kpi-card">
-                <div class="eco-kpi-label">CPI <span class="eco-kpi-sub">소비자물가지수</span></div>
-                <div class="eco-kpi-value" id="cpiLatestValue">—</div>
-                <div class="eco-kpi-change" id="cpiMoM">—</div>
-                <div class="eco-kpi-date" id="cpiDate">—</div>
-                <div class="eco-kpi-yoy-row">
-                    <span class="eco-kpi-yoy-label">YoY</span>
-                    <span class="eco-kpi-yoy-val" id="cpiYoY">—</span>
+        <div class="economic-top-grid">
+            <div class="economic-card">
+                <div class="economic-card-label">CPI 소비자물가지수</div>
+                <div class="economic-card-value" id="cpiLatestValue">—</div>
+                <div class="economic-card-mom" id="cpiMoM">—</div>
+                <div class="economic-card-date" id="cpiDate">—</div>
+                <div class="economic-card-yoy">YoY <span id="cpiYoY">—</span></div>
+            </div>
+            <div class="economic-card">
+                <div class="economic-card-label">PPI 생산자물가지수</div>
+                <div class="economic-card-value" id="ppiLatestValue">—</div>
+                <div class="economic-card-mom" id="ppiMoM">—</div>
+                <div class="economic-card-date" id="ppiDate">—</div>
+                <div class="economic-card-yoy">YoY <span id="ppiYoY">—</span></div>
+            </div>
+            <div class="economic-card">
+                <div class="economic-card-label">다음 발표일</div>
+                <div class="release-date-item">
+                    <span>CPI</span>
+                    <span class="release-d-badge" id="cpiCountdown">—</span>
                 </div>
-            </div>
-            <!-- PPI 카드 -->
-            <div class="eco-kpi-card">
-                <div class="eco-kpi-label">PPI <span class="eco-kpi-sub">생산자물가지수</span></div>
-                <div class="eco-kpi-value" id="ppiLatestValue">—</div>
-                <div class="eco-kpi-change" id="ppiMoM">—</div>
-                <div class="eco-kpi-date" id="ppiDate">—</div>
-                <div class="eco-kpi-yoy-row">
-                    <span class="eco-kpi-yoy-label">YoY</span>
-                    <span class="eco-kpi-yoy-val" id="ppiYoY">—</span>
+                <div class="release-date-item">
+                    <span>PPI</span>
+                    <span class="release-d-badge" id="ppiCountdown">—</span>
                 </div>
             </div>
         </div>
 
-        <!-- 탭 전환 (CPI / PPI) -->
-        <div class="eco-tabs">
-            <button class="eco-tab active" id="ecoTabCpi" onclick="switchEcoTab('cpi')">CPI 추이</button>
-            <button class="eco-tab" id="ecoTabPpi" onclick="switchEcoTab('ppi')">PPI 추이</button>
+        <div class="economic-chart-section">
+            <div class="economic-chart-header">
+                <div class="economic-chart-title" id="ecoChartTitle">CPI YoY 변화율 (%)</div>
+                <div class="chart-toggle-group">
+                    <button class="chart-toggle-btn active" id="ecoChartYoY" onclick="switchEcoChartMode('yoy')">YoY</button>
+                    <button class="chart-toggle-btn" id="ecoChartMoMBtn" onclick="switchEcoChartMode('mom')">MoM</button>
+                </div>
+            </div>
+            <canvas id="economicChartCanvas"></canvas>
         </div>
 
-        <!-- 차트 영역 -->
-        <div class="eco-card">
-            <div class="eco-card-title" id="ecoChartTitle">CPI YoY 변화율 (%)</div>
-            <div class="eco-chart-wrap">
-                <canvas id="economicChart"></canvas>
+        <div class="economic-bottom-grid">
+            <div class="economic-history-section">
+                <h3>📋 최근 발표 이력</h3>
+                <div class="history-table-wrapper">
+                    <table class="history-table">
+                        <thead><tr><th>발표일</th><th>지수값</th><th>MoM</th><th>YoY</th></tr></thead>
+                        <tbody id="ecoHistoryTable"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="economic-right-section">
+                <div class="economic-sector-section">
+                    <h3>🏭 섹터별 영향도</h3>
+                    <div class="sector-badges-wrap" id="sectorImpactArea"></div>
+                </div>
+                <div class="economic-ai-section">
+                    <h3>🤖 AI 시장 영향 분석</h3>
+                    <div class="ai-analysis-text" id="ecoAiBody">분석 버튼을 눌러 AI 코멘트를 생성하세요.</div>
+                    <button class="ai-generate-btn" id="ecoAiBtn" onclick="generateEconomicAI()">분석 생성</button>
+                </div>
             </div>
         </div>
-
-        <!-- 히스토리 테이블 -->
-        <div class="eco-card">
-            <div class="eco-card-title">📋 최근 발표 이력</div>
-            <div class="eco-table-wrap">
-                <table class="eco-table">
-                    <thead>
-                        <tr><th>발표일</th><th>지수값</th><th>MoM 변화</th></tr>
-                    </thead>
-                    <tbody id="ecoHistoryTable"></tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- 섹터 영향도 -->
-        <div class="eco-card">
-            <div class="eco-card-title">🏭 섹터별 영향도</div>
-            <div class="eco-sector-wrap" id="sectorImpactArea">
-                <span class="eco-loading">데이터 로딩 중...</span>
-            </div>
-        </div>
-
-        <!-- AI 시장 분석 -->
-        <div class="eco-card eco-ai-card">
-            <div class="eco-card-title">🤖 AI 시장 영향 분석
-                <button class="eco-ai-btn" id="ecoAiBtn" onclick="generateEconomicAI()">분석 생성</button>
-            </div>
-            <div class="eco-ai-body" id="ecoAiBody">
-                <span class="eco-loading">분석 버튼을 눌러 AI 코멘트를 생성하세요.</span>
-            </div>
-        </div>
-    </div>
+    </section>
 
     <!-- ===== Vision Scanner Screen ===== -->
     <div class="vs-screen" id="visionScannerScreen" style="display:none">
@@ -3897,7 +3884,7 @@
         document.getElementById('alphaScannerScreen').style.display = 'none';
         document.getElementById('favScreen').style.display = 'none';
         document.getElementById('visionScannerScreen').style.display = 'none';
-        document.getElementById('economicScreen').style.display = 'none';
+        document.getElementById('economicSection').style.display = 'none';
         document.getElementById('mainContent').style.display = 'none';
         window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded');
@@ -5572,7 +5559,7 @@
         document.getElementById('alphaScannerScreen').style.display = 'none';
         document.getElementById('favScreen').style.display = 'none';
         document.getElementById('visionScannerScreen').style.display = 'none';
-        document.getElementById('economicScreen').style.display = 'none';
+        document.getElementById('economicSection').style.display = 'none';
         document.getElementById('smartMoneyScreen').style.display = '';
         window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded');
@@ -11510,7 +11497,7 @@
         document.getElementById('smartMoneyScreen').style.display    = 'none';
         document.getElementById('alphaScannerScreen').style.display  = 'none';
         document.getElementById('favScreen').style.display           = 'none';
-        document.getElementById('economicScreen').style.display      = 'none';
+        document.getElementById('economicSection').style.display      = 'none';
         document.getElementById('visionScannerScreen').style.display = '';
         document.getElementById('mainHeader')?.classList.remove('stock-loaded');
         document.getElementById('stockHero').classList.remove('show');
@@ -11551,7 +11538,7 @@
         document.getElementById('favScreen').style.display           = 'none';
         document.getElementById('visionScannerScreen').style.display = 'none';
         document.getElementById('mainContent').style.display         = 'none';
-        document.getElementById('economicScreen').style.display      = '';
+        document.getElementById('economicSection').style.display      = '';
         window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded');
         document.getElementById('stockHero').classList.remove('show');
@@ -11655,24 +11642,43 @@
         const tbody = document.getElementById('ecoHistoryTable');
         if (!obs || !tbody) return;
         const momArr = _ecoCalcMoM(obs);
+        const yoyArr = _ecoCalcYoY(obs);
+        const yoyMap = {};
+        yoyArr.forEach(item => { yoyMap[item.date] = item.val; });
         tbody.innerHTML = momArr.slice(0, 8).map(item => {
-            const color = item.val > 0 ? '#ef4444' : '#22c55e';
+            const momColor = item.val > 0 ? '#ef4444' : '#22c55e';
+            const yoyVal = yoyMap[item.date];
+            const yoyColor = yoyVal != null ? (yoyVal > 0 ? '#ef4444' : '#22c55e') : '';
+            const yoyStr = yoyVal != null
+                ? `<span style="color:${yoyColor};font-weight:700">${yoyVal > 0 ? '▲' : '▼'} ${Math.abs(yoyVal).toFixed(2)}%</span>`
+                : '—';
             return `<tr>
                 <td>${item.date}</td>
                 <td>${parseFloat(obs.find(o => o.date === item.date)?.value || 0).toFixed(1)}</td>
-                <td style="color:${color};font-weight:700">${item.val > 0 ? '▲' : '▼'} ${Math.abs(item.val).toFixed(2)}%</td>
+                <td style="color:${momColor};font-weight:700">${item.val > 0 ? '▲' : '▼'} ${Math.abs(item.val).toFixed(2)}%</td>
+                <td>${yoyStr}</td>
             </tr>`;
         }).join('');
     }
 
-    function _ecoRenderChart(tab) {
-        const obs = _ecoData?.[tab];
-        const canvas = document.getElementById('economicChart');
-        if (!obs || !canvas) return;
+    let _ecoChartMode = 'yoy'; // 'yoy' | 'mom'
 
-        const yoyArr = _ecoCalcYoY(obs).reverse();
-        const labels = yoyArr.map(d => d.date.slice(0, 7)); // YYYY-MM
-        const values = yoyArr.map(d => parseFloat(d.val.toFixed(2)));
+    function _ecoRenderChart(tab, mode) {
+        const obs = _ecoData?.[tab];
+        const canvas = document.getElementById('economicChartCanvas');
+        if (!obs || !canvas) return;
+        if (mode) _ecoChartMode = mode;
+
+        let dataArr, labelSuffix;
+        if (_ecoChartMode === 'mom') {
+            dataArr = _ecoCalcMoM(obs).reverse();
+            labelSuffix = 'MoM (%)';
+        } else {
+            dataArr = _ecoCalcYoY(obs).reverse();
+            labelSuffix = 'YoY (%)';
+        }
+        const labels = dataArr.map(d => d.date.slice(0, 7));
+        const values = dataArr.map(d => parseFloat(d.val.toFixed(2)));
 
         const isLight = document.documentElement.getAttribute('data-theme') === 'light';
         const gridColor = isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)';
@@ -11685,7 +11691,7 @@
             data: {
                 labels,
                 datasets: [{
-                    label: tab === 'cpi' ? 'CPI YoY (%)' : 'PPI YoY (%)',
+                    label: (tab === 'cpi' ? 'CPI' : 'PPI') + ' ' + labelSuffix,
                     data: values,
                     borderColor: '#6366f1',
                     backgroundColor: 'rgba(99,102,241,0.12)',
@@ -11717,9 +11723,16 @@
             },
         });
 
-        // 차트 타이틀 업데이트
         const titleEl = document.getElementById('ecoChartTitle');
-        if (titleEl) titleEl.textContent = tab === 'cpi' ? 'CPI YoY 변화율 (%)' : 'PPI YoY 변화율 (%)';
+        const tabLabel = tab === 'cpi' ? 'CPI' : 'PPI';
+        if (titleEl) titleEl.textContent = `${tabLabel} ${_ecoChartMode === 'mom' ? 'MoM' : 'YoY'} 변화율 (%)`;
+    }
+
+    function switchEcoChartMode(mode) {
+        _ecoChartMode = mode;
+        document.getElementById('ecoChartYoY')?.classList.toggle('active', mode === 'yoy');
+        document.getElementById('ecoChartMoMBtn')?.classList.toggle('active', mode === 'mom');
+        _ecoRenderChart(_ecoTab, mode);
     }
 
     function _ecoRenderSectors(cpiMoM) {
@@ -12756,7 +12769,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         captureChartAndAnalyze, clearAiChartLines, drawAiChartLines, toggleAiReport,
         renderAnalysisReport, buildChartContextJson,
         deleteSelectedAiTrendline,
-        goEconomic, switchEcoTab, generateEconomicAI,
+        goEconomic, switchEcoTab, switchEcoChartMode, generateEconomicAI,
     });
     </script>
 
