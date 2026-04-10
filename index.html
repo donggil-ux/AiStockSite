@@ -12115,6 +12115,9 @@
                         if (msg.error) throw new Error(msg.error);
                         if (msg.done) {
                             finalData = msg.data;
+                        } else if (msg.fallback) {
+                            // Gemini 503 → Claude 폴백 알림
+                            _aiProgressShow('🔄 Claude로 재시도 중...', -1);
                         } else if (msg.chunk) {
                             // 사용자에게는 "생성 중" 피드백만 — JSON raw 는 숨김
                             if (!streamedAny) {

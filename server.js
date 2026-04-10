@@ -600,12 +600,41 @@ app.post('/api/vision-scan', upload.single('image'), async (req, res) => {
  * AI 차트 직접 그리기 — 지지선/저항선/추세선
  * POST /api/chart-draw  (multipart/form-data, field: "image" + "priceData")
  * 응답: { levels: [...], trendlines: [...], summary: "..." }
+ * Gemini 503 시 Anthropic Claude 자동 폴백
  */
+const parseJsonLoose = raw => {
+    const cleaned = String(raw).trim()
+        .replace(/^```json\s*/i, '')
+        .replace(/^```\s*/i, '')
+        .replace(/\s*```$/i, '')
+        .trim();
+    return JSON.parse(cleaned);
+};
+
+function is503(err) {
+    const msg = err?.message || '';
+    return err?.status === 503 || msg.includes('503') || msg.toLowerCase().includes('high demand') || msg.toLowerCase().includes('overloaded');
+}
+
+/** Anthropic Claude(haiku)로 이미지+프롬프트 분석, 결과 텍스트 반환 */
+async function callAnthropicChartDraw(imageBase64, mimeType, fullPrompt) {
+    const anthropic = getAnthropic();
+    const msg = await anthropic.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 4096,
+        messages: [{
+            role: 'user',
+            content: [
+                { type: 'image', source: { type: 'base64', media_type: mimeType, data: imageBase64 } },
+                { type: 'text', text: fullPrompt },
+            ],
+        }],
+    });
+    return msg.content.find(b => b.type === 'text')?.text || '';
+}
+
 app.post('/api/chart-draw', upload.single('image'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: '이미지 파일이 필요합니다.' });
-    if (!process.env.GEMINI_API_KEY) {
-        return res.status(503).json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다.' });
-    }
 
     // priceData 파싱 — 신규 ctx 스키마(ohlcv + indicators + series) 또는 구 포맷(closes/highs/lows/dates)
     let ctx = null;
@@ -636,71 +665,88 @@ app.post('/api/chart-draw', upload.single('image'), async (req, res) => {
 
     const stream = req.query.stream === '1';
     const fullPrompt = `${SYSTEM_ROLE}\n\n${OUTPUT_CONTRACT}\n\n${buildUserPrompt(ctx)}`;
+    const imageBase64 = req.file.buffer.toString('base64');
+    const mimeType = req.file.mimetype;
 
-    const genAI = getGenAI();
-    if (!genAI) return res.status(503).json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다.' });
-    const model = genAI.getGenerativeModel({
-        model: 'gemini-2.5-flash',
-        generationConfig: {
-            temperature: 0.2,
-            // responseMimeType 미지정 → 텍스트 모드로 청크 스트리밍 가능
-            // JSON 파싱은 done 수신 후 parseJsonLoose() 로 처리
-        },
-    });
-    const parts = [
-        fullPrompt,
-        { inlineData: { data: req.file.buffer.toString('base64'), mimeType: req.file.mimetype } },
-    ];
+    // SSE 헤더 설정 (stream 모드)
+    if (stream) {
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders?.();
+    }
 
-    const parseJsonLoose = raw => {
-        const cleaned = String(raw).trim()
-            .replace(/^```json\s*/i, '')
-            .replace(/^```\s*/i, '')
-            .replace(/\s*```$/i, '')
-            .trim();
-        return JSON.parse(cleaned);
-    };
+    const sseSend = obj => { if (stream) res.write(`data: ${JSON.stringify(obj)}\n\n`); };
+    const sseDone = (data) => { sseSend({ done: true, data }); res.end(); };
+    const sseError = (msg) => { sseSend({ error: msg }); res.end(); };
+
+    // ── Gemini 시도 ──────────────────────────────────────────────
+    let geminiSucceeded = false;
+    if (process.env.GEMINI_API_KEY) {
+        try {
+            const genAI = getGenAI();
+            const model = genAI.getGenerativeModel({
+                model: 'gemini-2.5-flash',
+                generationConfig: { temperature: 0.2 },
+            });
+            const parts = [fullPrompt, { inlineData: { data: imageBase64, mimeType } }];
+
+            if (stream) {
+                const result = await model.generateContentStream(parts);
+                let buf = '';
+                for await (const chunk of result.stream) {
+                    const t = chunk.text();
+                    if (!t) continue;
+                    buf += t;
+                    sseSend({ chunk: t });
+                }
+                const data = normalizeChartAnalysis(parseJsonLoose(buf));
+                console.log(`[chart-draw:gemini:stream] 완료: levels=${data.levels.length} trendlines=${data.trendlines.length}`);
+                sseDone(data);
+            } else {
+                const result = await model.generateContent(parts);
+                const data = normalizeChartAnalysis(parseJsonLoose(result.response.text()));
+                console.log(`[chart-draw:gemini] 완료: levels=${data.levels.length} trendlines=${data.trendlines.length}`);
+                res.json(data);
+            }
+            geminiSucceeded = true;
+        } catch (err) {
+            if (is503(err)) {
+                console.warn('[chart-draw] Gemini 503 → Anthropic Claude 폴백');
+                sseSend({ fallback: 'claude', chunk: '' }); // 클라이언트에 폴백 알림
+            } else {
+                console.error('[chart-draw:gemini] 오류:', err.message);
+                if (stream) { sseError(err.message); return; }
+                return res.status(500).json({ error: err.message });
+            }
+        }
+    }
+
+    if (geminiSucceeded) return;
+
+    // ── Anthropic Claude 폴백 ────────────────────────────────────
+    if (!process.env.ANTHROPIC_API_KEY) {
+        const msg = 'AI 서비스가 일시적으로 불안정합니다. 잠시 후 다시 시도해주세요.';
+        if (stream) { sseError(msg); return; }
+        return res.status(503).json({ error: msg });
+    }
 
     try {
+        console.log('[chart-draw:claude] 분석 시작');
+        const text = await callAnthropicChartDraw(imageBase64, mimeType, fullPrompt);
+        const data = normalizeChartAnalysis(parseJsonLoose(text));
+        console.log(`[chart-draw:claude] 완료: levels=${data.levels.length} trendlines=${data.trendlines.length}`);
         if (stream) {
-            res.setHeader('Content-Type', 'text/event-stream');
-            res.setHeader('Cache-Control', 'no-cache');
-            res.setHeader('Connection', 'keep-alive');
-            res.flushHeaders?.();
-
-            const result = await model.generateContentStream(parts);
-            let buf = '';
-            for await (const chunk of result.stream) {
-                const t = chunk.text();
-                if (!t) continue;
-                buf += t;
-                res.write(`data: ${JSON.stringify({ chunk: t })}\n\n`);
-            }
-
-            let data;
-            try { data = normalizeChartAnalysis(parseJsonLoose(buf)); }
-            catch (e) {
-                res.write(`data: ${JSON.stringify({ error: 'AI 응답 파싱 실패: ' + e.message })}\n\n`);
-                return res.end();
-            }
-            console.log(`[chart-draw:stream] 완료: levels=${data.levels.length} trendlines=${data.trendlines.length}`);
-            res.write(`data: ${JSON.stringify({ done: true, data })}\n\n`);
-            res.end();
+            sseSend({ chunk: text });
+            sseDone(data);
         } else {
-            const result = await model.generateContent(parts);
-            const data = normalizeChartAnalysis(parseJsonLoose(result.response.text()));
-            console.log(`[chart-draw] 완료: levels=${data.levels.length} trendlines=${data.trendlines.length}`);
             res.json(data);
         }
     } catch (err) {
-        console.error('[chart-draw] 오류:', err.message);
-        if (stream) {
-            try { res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`); res.end(); } catch {}
-        } else if (err instanceof SyntaxError) {
-            return res.status(500).json({ error: 'AI 응답 파싱 실패. 다시 시도해주세요.' });
-        } else {
-            res.status(500).json({ error: err.message });
-        }
+        console.error('[chart-draw:claude] 오류:', err.message);
+        const msg = 'AI 분석에 실패했습니다. 잠시 후 다시 시도해주세요.';
+        if (stream) { sseError(msg); return; }
+        res.status(500).json({ error: msg });
     }
 });
 
