@@ -357,6 +357,7 @@
             .mw-bar{padding:0 32px 14px;gap:12px;}
             .mw-card{min-width:156px;}
             .home-section{padding:0 32px;}
+            #economicSection{padding:24px 32px;}
             .scanner-card{width:236px;}
         }
 
@@ -700,14 +701,14 @@
         .ar-conv.low{background:rgba(239,68,68,.2);color:#ef4444;}
 
         /* ===== ECONOMIC INDICATORS SCREEN ===== */
-        #economicSection{max-width:1200px;margin:0 auto;padding:24px 20px;}
+        #economicSection{max-width:1200px;margin:0 auto;padding:24px 16px;}
         .economic-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
         .economic-header h2{font-size:1.4rem;font-weight:700;margin:0;}
         .economic-tab-group{display:flex;gap:8px;}
         .economic-tab-btn{padding:8px 20px;border-radius:20px;border:none;cursor:pointer;font-size:.9rem;font-weight:600;transition:all .2s;background:var(--bg2);color:var(--text2);}
         .economic-tab-btn.active{background:#6366f1;color:#fff;}
         .economic-top-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
-        .economic-card{background:var(--bg2);border-radius:16px;padding:20px 24px;border:1px solid var(--border);}
+        .economic-card{background:var(--bg2);border-radius:var(--r);padding:24px;}
         .economic-card-label{font-size:.78rem;color:var(--text2);font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;}
         .economic-card-value{font-size:2.2rem;font-weight:800;line-height:1.1;margin-bottom:6px;color:var(--text);}
         .economic-card-mom{font-size:.9rem;font-weight:600;margin-bottom:4px;}
@@ -716,7 +717,7 @@
         .release-date-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);}
         .release-date-item:last-child{border-bottom:none;}
         .release-d-badge{font-size:1.3rem;font-weight:800;color:#6366f1;}
-        .economic-chart-section{background:var(--bg2);border-radius:16px;padding:20px 24px;border:1px solid var(--border);margin-bottom:20px;}
+        .economic-chart-section{background:var(--bg2);border-radius:var(--r);padding:24px;margin-bottom:20px;}
         .economic-chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;}
         .economic-chart-title{font-size:1rem;font-weight:700;color:var(--text);}
         .chart-toggle-group{display:flex;gap:6px;}
@@ -724,7 +725,7 @@
         .chart-toggle-btn.active{background:#6366f1;color:#fff;border-color:#6366f1;}
         #economicChartCanvas{width:100%!important;height:260px!important;}
         .economic-bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
-        .economic-history-section{background:var(--bg2);border-radius:16px;padding:20px 24px;border:1px solid var(--border);}
+        .economic-history-section{background:var(--bg2);border-radius:var(--r);padding:24px;}
         .economic-history-section h3{font-size:.95rem;font-weight:700;margin-bottom:14px;color:var(--text);}
         .history-table-wrapper{overflow-x:auto;-webkit-overflow-scrolling:touch;}
         .history-table{width:100%;border-collapse:collapse;font-size:.85rem;}
@@ -732,7 +733,7 @@
         .history-table td{padding:10px 10px;border-bottom:1px solid var(--border);white-space:nowrap;color:var(--text2);}
         .history-table tr:last-child td{border-bottom:none;}
         .economic-right-section{display:flex;flex-direction:column;gap:16px;}
-        .economic-sector-section,.economic-ai-section{background:var(--bg2);border-radius:16px;padding:20px 24px;border:1px solid var(--border);}
+        .economic-sector-section,.economic-ai-section{background:var(--bg2);border-radius:var(--r);padding:24px;}
         .economic-sector-section h3,.economic-ai-section h3{font-size:.95rem;font-weight:700;margin-bottom:14px;color:var(--text);}
         .sector-badges-wrap{display:flex;flex-wrap:wrap;gap:8px;}
         .sector-badge{display:inline-flex;align-items:center;gap:4px;padding:6px 14px;border-radius:20px;font-size:.82rem;font-weight:600;}
@@ -750,7 +751,7 @@
           .economic-sector-section,.economic-ai-section{flex:1;min-width:280px;}
         }
         @media(max-width:767px){
-          #economicSection{padding:16px 12px;}
+          #economicSection{padding:16px 16px;}
           .economic-header{flex-direction:column;align-items:flex-start;}
           .economic-tab-group{width:100%;}
           .economic-tab-btn{flex:1;text-align:center;}
@@ -1120,6 +1121,7 @@
         [data-theme="light"] .market-toggle{background:var(--bg3);}
         [data-theme="light"] .toast{background:var(--bg2);border-color:var(--red);color:var(--red);box-shadow:0 12px 40px rgba(0,0,0,.12);}
         [data-theme="light"] .card{background:var(--bg2);box-shadow:0 1px 3px rgba(0,0,0,.05);}
+        [data-theme="light"] .economic-card,[data-theme="light"] .economic-chart-section,[data-theme="light"] .economic-history-section,[data-theme="light"] .economic-sector-section,[data-theme="light"] .economic-ai-section{box-shadow:0 1px 3px rgba(0,0,0,.05);}
         [data-theme="light"] .chart-toolbar{background:var(--bg2);}
         [data-theme="light"] .draw-toolbar{background:var(--bg2);}
         [data-theme="light"] .top100-row{background:var(--bg2);}
