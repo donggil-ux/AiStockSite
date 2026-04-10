@@ -11706,7 +11706,7 @@
                 },
                 scales: {
                     y: {
-                        ticks: { callback: v => `${v}%`, color: textColor, font: { size: 10 } },
+                        ticks: { callback: v => `${parseFloat(v).toFixed(1)}%`, color: textColor, font: { size: 10 } },
                         grid: { color: gridColor },
                     },
                     x: {
