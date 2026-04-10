@@ -55,6 +55,7 @@ const upload = multer({
 if (!process.env.GEMINI_API_KEY)  console.warn('⚠️  GEMINI_API_KEY 환경변수가 없습니다.');
 if (!process.env.SUPABASE_URL)    console.warn('⚠️  SUPABASE_URL 환경변수가 없습니다.');
 if (!process.env.SUPABASE_ANON_KEY) console.warn('⚠️  SUPABASE_ANON_KEY 환경변수가 없습니다.');
+if (!process.env.FRED_API_KEY)    console.warn('⚠️  FRED_API_KEY 환경변수가 없습니다. 경제지표 기능이 비활성화됩니다.');
 
 // [Fix-F] 싱글턴 캐싱 — 매 요청마다 인스턴스 재생성 방지
 let _genAI = null;
@@ -923,6 +924,81 @@ app.get('/health', (req, res) => {
         uptime: Math.floor(process.uptime()) + 's',
         timestamp: new Date().toISOString(),
     });
+});
+
+// ─────────────────────────────────────────────
+// FRED API 프록시 (CPI / PPI 경제지표)
+// ─────────────────────────────────────────────
+const FRED_CACHE = {};
+const FRED_TTL   = 6 * 60 * 60 * 1000; // 6시간 캐시
+
+const VALID_FRED_SERIES = new Set(['CPIAUCSL', 'PPIACO']);
+
+app.get('/api/fred/:seriesId', async (req, res) => {
+    const { seriesId } = req.params;
+    if (!VALID_FRED_SERIES.has(seriesId)) {
+        return res.status(400).json({ error: '지원하지 않는 시리즈 ID입니다.' });
+    }
+    const apiKey = process.env.FRED_API_KEY;
+    if (!apiKey) return res.status(503).json({ error: 'FRED_API_KEY가 설정되지 않았습니다.' });
+
+    const cached = FRED_CACHE[seriesId];
+    if (cached && Date.now() - cached.ts < FRED_TTL) {
+        return res.json(cached.data);
+    }
+
+    try {
+        const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${seriesId}&api_key=${apiKey}&file_type=json&limit=36&sort_order=desc`;
+        const resp = await axios.get(url, { timeout: 10000 });
+        const observations = resp.data.observations || [];
+        FRED_CACHE[seriesId] = { data: { observations }, ts: Date.now() };
+        console.log(`[fred] ${seriesId} ${observations.length}개 조회 완료`);
+        res.json({ observations });
+    } catch (err) {
+        console.error('[fred] 오류:', err.message);
+        res.status(502).json({ error: 'FRED 데이터 조회 실패: ' + err.message });
+    }
+});
+
+// ─────────────────────────────────────────────
+// AI 경제지표 분석 (Gemini)
+// ─────────────────────────────────────────────
+app.post('/api/economic-ai', async (req, res) => {
+    const { cpiObs, ppiObs } = req.body;
+    if (!cpiObs || !ppiObs) return res.status(400).json({ error: 'cpiObs, ppiObs 필수' });
+
+    const latestCPI = cpiObs[0], prevCPI = cpiObs[1];
+    const latestPPI = ppiObs[0];
+    if (!latestCPI || !prevCPI || !latestPPI) return res.status(400).json({ error: '데이터 부족' });
+
+    const cpiMoM = (((parseFloat(latestCPI.value) - parseFloat(prevCPI.value)) / parseFloat(prevCPI.value)) * 100).toFixed(2);
+    const prevYearCPI = cpiObs[12];
+    const cpiYoY = prevYearCPI
+        ? (((parseFloat(latestCPI.value) - parseFloat(prevYearCPI.value)) / parseFloat(prevYearCPI.value)) * 100).toFixed(2)
+        : 'N/A';
+
+    const prompt = `당신은 매크로 경제 전문 애널리스트입니다.
+다음 최신 경제지표를 바탕으로 주식 시장 영향을 분석해주세요.
+
+[최신 CPI] ${latestCPI.value} (${latestCPI.date}) / 전월 대비: ${cpiMoM}% / 전년 대비: ${cpiYoY}%
+[최신 PPI] ${latestPPI.value} (${latestPPI.date})
+
+분석 형식:
+1. 인플레이션 방향성 판단 (1문장)
+2. 연준 금리 정책 영향 전망 (1문장)
+3. 수혜 섹터 / 피해 섹터 (간결하게)
+
+한국어로 3~4문장 이내로 작성하고, 수치를 직접 인용하세요.`;
+
+    try {
+        const genAI = getGenAI();
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash', generationConfig: { temperature: 0.4 } });
+        const result = await model.generateContent(prompt);
+        res.json({ comment: result.response.text().trim() });
+    } catch (err) {
+        console.error('[economic-ai] 오류:', err.message);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // index.html fallback (SPA 라우팅)
