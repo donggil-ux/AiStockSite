@@ -11816,33 +11816,51 @@
             } catch(e) {}
         });
 
-        // 분할 매수가 + 손절가 수평선
+        // 분할 매수가 + 손절가 수평선 — 반등·하락 관점 동시 표시
         const _bull = data.analysis?.scenarios?.bull;
         const _bear = data.analysis?.scenarios?.bear;
-        const _bias = data.analysis?.scenarios?.bias;
-        const _scenario = _bias === 'bear' ? _bear : _bull;
-        const BUY_COLORS = ['#f59e0b', '#fb923c', '#f97316'];
-        const SL_COLOR   = '#dc2626';
+        const SL_COLOR = '#dc2626';
+        const _fmtP = p => currentMarket === 'KR' ? Math.round(p).toLocaleString() : p.toFixed(2);
+
+        // 반등 관점 (bull): 초록 계열
+        const BOUNCE_COLORS = ['#4ade80', '#22c55e', '#16a34a'];
         ['buy1', 'buy2', 'buy3'].forEach((key, idx) => {
-            const price = _scenario?.[key];
+            const price = _bull?.[key];
             if (!price || price <= 0) return;
             try {
                 const pl = lwCandleSeries.createPriceLine({
-                    price,
-                    color: BUY_COLORS[idx],
+                    price, color: BOUNCE_COLORS[idx],
                     lineWidth: 1, lineStyle: 2, axisLabelVisible: true,
-                    title: `${idx+1}차 매수 ${currentMarket === 'KR' ? Math.round(price).toLocaleString() : price.toFixed(2)}`,
+                    title: `반등 ${idx+1}차 ${_fmtP(price)}`,
                 });
                 lwAiPriceLines.push(pl);
             } catch(e) {}
         });
-        const _slPrice = _scenario?.stopLoss;
+
+        // 하락 관점 (bear): 주황 계열
+        const FALL_COLORS = ['#f59e0b', '#fb923c', '#f97316'];
+        ['buy1', 'buy2', 'buy3'].forEach((key, idx) => {
+            const price = _bear?.[key];
+            if (!price || price <= 0) return;
+            try {
+                const pl = lwCandleSeries.createPriceLine({
+                    price, color: FALL_COLORS[idx],
+                    lineWidth: 1, lineStyle: 2, axisLabelVisible: true,
+                    title: `하락 ${idx+1}차 ${_fmtP(price)}`,
+                });
+                lwAiPriceLines.push(pl);
+            } catch(e) {}
+        });
+
+        // 손절가 (두 시나리오 중 낮은 값 하나만 표시)
+        const _slBull = _bull?.stopLoss, _slBear = _bear?.stopLoss;
+        const _slPrice = (_slBull && _slBear) ? Math.min(_slBull, _slBear) : (_slBull || _slBear);
         if (_slPrice && _slPrice > 0) {
             try {
                 const pl = lwCandleSeries.createPriceLine({
                     price: _slPrice, color: SL_COLOR, lineWidth: 2, lineStyle: 0,
                     axisLabelVisible: true,
-                    title: `손절 ${currentMarket === 'KR' ? Math.round(_slPrice).toLocaleString() : _slPrice.toFixed(2)}`,
+                    title: `손절 ${_fmtP(_slPrice)}`,
                 });
                 lwAiPriceLines.push(pl);
             } catch(e) {}
@@ -11966,7 +11984,7 @@
         const scenarioCard = (key, d) => {
             if (!d) return '';
             const cls = key === 'bull' ? 'bull' : 'bear';
-            const icon = key === 'bull' ? '🟢 상방' : '🔴 하방';
+            const icon = key === 'bull' ? '🟢 반등 관점' : '🟠 하락 관점';
             const conv = String(d.conviction || 'medium').toLowerCase();
             const convCls = ['high','medium','low'].includes(conv) ? conv : 'medium';
             return `
