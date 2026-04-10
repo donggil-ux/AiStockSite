@@ -2042,7 +2042,7 @@
                                 style="display:none;border-color:var(--border);color:var(--text3);">🗑 AI 라인</button>
                             <button class="chart-tb-btn chart-ai-reader-btn" id="chartAiReaderBtn"
                                 onclick="captureChartAndAnalyze()" title="차트를 캡처하여 AI로 분석"
-                                style="display:none;">🔍 AI 판독기</button>
+                                style="display:none;">🔍 AI 차트분석</button>
                             <button class="tv-fullscreen-btn" id="tvFullscreenBtn" onclick="toggleChartFullscreen()" title="전체화면" style="position:static;border:none;background:transparent;">
                                 <svg id="tvFsIconExpand" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
                                 <svg id="tvFsIconShrink" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
@@ -2114,7 +2114,7 @@
                 <!-- AI 판독기 요약 카드 -->
                 <div class="ai-summary-card" id="aiSummaryCard" style="display:none;">
                     <div class="ai-summary-header">
-                        <div class="ai-summary-title">🔍 AI 판독기 분석 결과</div>
+                        <div class="ai-summary-title">🔍 AI 차트분석 결과</div>
                         <button class="ai-summary-close" onclick="clearAiChartLines()" title="닫기">&times;</button>
                     </div>
                     <div class="ai-summary-levels" id="aiSummaryLevels"></div>
@@ -9840,7 +9840,7 @@
                 clearInterval(_aiCooldownIv);
                 _aiCooldownIv = null;
                 _aiCooldownActive = false;
-                _setBtn(false, '🔍 AI 판독기');
+                _setBtn(false, '🔍 AI 차트분석');
             } else {
                 _setBtn(true, `재시도 가능 ${remaining}초 후`);
             }
@@ -12163,7 +12163,7 @@
                 // 쿨다운 중이면 startAiCooldown 이 버튼을 관리하므로 건드리지 않음
                 if (!_aiCooldownActive && btn) {
                     btn.disabled = false;
-                    btn.textContent = '🔍 AI 판독기';
+                    btn.textContent = '🔍 AI 차트분석';
                     btn.style.cursor = '';
                     btn.style.opacity = '';
                 }
@@ -12241,7 +12241,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
             { key: 'search',     id: 'bnSearch',     label: '검색',     iconLine: 'ri-search-2-line',    iconFill: 'ri-search-2-fill' },
             { key: 'scanner',    id: 'bnScanner',    label: '스캐너',   iconLine: 'ri-radar-line',       iconFill: 'ri-radar-fill' },
             { key: 'smartmoney', id: 'bnSmartmoney', label: '기관',     iconLine: 'ri-briefcase-4-line', iconFill: 'ri-briefcase-4-fill' },
-            { key: 'vision',     id: 'bnVision',     label: 'AI판독기', iconLine: 'ri-eye-2-line',       iconFill: 'ri-eye-2-fill' },
+            { key: 'vision',     id: 'bnVision',     label: 'AI 차트분석', iconLine: 'ri-eye-2-line',       iconFill: 'ri-eye-2-fill' },
         ];
 
         // [Fix-C] 프로덕션 console.warn 제거 — 한도 초과 시 slice()로 자동 처리됨
