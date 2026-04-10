@@ -1693,7 +1693,7 @@
             </div>
         </section>
 
-        <!-- 섹션 1: 오늘의 AI 추천 종목 -->
+        <!-- [DISABLED] 🤖 AI 추천 종목 — Gemini 쿼터 절약을 위해 임시 비활성화
         <section id="aiRecommendSection" class="home-section">
             <div class="section-header">
                 <span class="section-title">🤖 오늘의 AI 추천 종목</span>
@@ -1704,7 +1704,6 @@
             </div>
         </section>
 
-        <!-- AI 추천 전체 보기 모달 -->
         <div class="ai-rec-modal-overlay" id="aiRecModalOverlay" onclick="closeAIRecModal()"></div>
         <div class="ai-rec-modal" id="aiRecModal" style="display:none;">
             <div class="ai-rec-modal-header">
@@ -1713,6 +1712,7 @@
             </div>
             <div class="ai-rec-modal-list" id="aiRecModalList"></div>
         </div>
+        -->
 
         <!-- 섹션 3: 내 즐겨찾기 요약 -->
         <section id="favSummarySection" class="home-section" style="display:none;">
@@ -3711,7 +3711,7 @@
     loadSocialHot();
     loadVolAlert();
     loadMarketThermometer();
-    loadAIRecommend();
+    // loadAIRecommend(); // [DISABLED] 쿼터 절약
     loadHotStocks();
     loadFavSummary();
 
@@ -3764,7 +3764,7 @@
         loadSwingRadar();
         loadSocialHot();
         loadMarketThermometer();
-        loadAIRecommend();
+        // loadAIRecommend(); // [DISABLED] 쿼터 절약
         loadHotStocks();
         loadFavSummary();
         window.scrollTo({ top: 0, behavior: 'smooth' });
