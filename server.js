@@ -643,7 +643,8 @@ app.post('/api/chart-draw', upload.single('image'), async (req, res) => {
         model: 'gemini-2.5-flash',
         generationConfig: {
             temperature: 0.2,
-            responseMimeType: 'application/json',
+            // responseMimeType 미지정 → 텍스트 모드로 청크 스트리밍 가능
+            // JSON 파싱은 done 수신 후 parseJsonLoose() 로 처리
         },
     });
     const parts = [
@@ -703,27 +704,27 @@ app.post('/api/chart-draw', upload.single('image'), async (req, res) => {
     }
 });
 
-/** Gemini 응답 정규화 — levels/trendlines 검증 + analysis passthrough */
-function normalizeChartAnalysis(d) {
-    d = d || {};
-    d.levels = (d.levels || []).map(l => ({
-        type: l.type === 'resistance' ? 'resistance' : 'support',
-        price: Number(l.price),
-        label: l.label || (l.type === 'resistance' ? '저항선' : '지지선'),
-        strength: Math.max(0.3, Math.min(1, l.strength ?? 0.7)),
-    })).filter(l => l.price > 0);
-
+/** Gemini 응답 정규화 — levels/trendlines 검증 + analysis passthrough (새 객체 반환, 입력 불변) */
+function normalizeChartAnalysis(raw) {
+    const d = raw || {};
     const clamp = (v, def) => Math.max(0, Math.min(1000, Number(v ?? def)));
-    d.trendlines = (d.trendlines || []).map(t => ({
-        label: t.label || '추세선',
-        type: t.type === 'downtrend' ? 'downtrend' : 'uptrend',
-        point1: { x: clamp(t.point1?.x, 0),    y: clamp(t.point1?.y, 0) },
-        point2: { x: clamp(t.point2?.x, 1000), y: clamp(t.point2?.y, 0) },
-    })).filter(t => t.point1.x < t.point2.x);
-
-    d.summary = d.summary || '';
-    d.analysis = d.analysis || null;
-    return d;
+    return {
+        ...d,
+        summary: d.summary || '',
+        analysis: d.analysis || null,
+        levels: (d.levels || []).map(l => ({
+            type: l.type === 'resistance' ? 'resistance' : 'support',
+            price: Number(l.price),
+            label: l.label || (l.type === 'resistance' ? '저항선' : '지지선'),
+            strength: Math.max(0.3, Math.min(1, l.strength ?? 0.7)),
+        })).filter(l => l.price > 0),
+        trendlines: (d.trendlines || []).map(t => ({
+            label: t.label || '추세선',
+            type: t.type === 'downtrend' ? 'downtrend' : 'uptrend',
+            point1: { x: clamp(t.point1?.x, 0),    y: clamp(t.point1?.y, 0) },
+            point2: { x: clamp(t.point2?.x, 1000), y: clamp(t.point2?.y, 0) },
+        })).filter(t => t.point1.x < t.point2.x),
+    };
 }
 
 /**

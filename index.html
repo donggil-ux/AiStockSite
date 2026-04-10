@@ -9820,7 +9820,9 @@
 
     /** AI 판독기 버튼 n초 쿨다운 (카운트다운 텍스트 표시) */
     let _aiCooldownActive = false;
+    let _aiCooldownIv = null;
     function startAiCooldown(seconds = 8) {
+        clearInterval(_aiCooldownIv); // 기존 interval 정리 (중복 호출 방어)
         _aiCooldownActive = true;
         let remaining = seconds;
         const _setBtn = (dis, txt) => {
@@ -9832,10 +9834,11 @@
             b.style.opacity = dis ? '0.5' : '';
         };
         _setBtn(true, `재시도 가능 ${remaining}초 후`);
-        const iv = setInterval(() => {
+        _aiCooldownIv = setInterval(() => {
             remaining--;
             if (remaining <= 0) {
-                clearInterval(iv);
+                clearInterval(_aiCooldownIv);
+                _aiCooldownIv = null;
                 _aiCooldownActive = false;
                 _setBtn(false, '🔍 AI 판독기');
             } else {
@@ -12042,10 +12045,9 @@
         const canvases = Array.from(wrap.querySelectorAll('canvas')).filter(c => c.id !== 'drawCanvas');
         if (!canvases.length) { showToast('차트 캔버스를 찾을 수 없습니다.'); return; }
 
-        // 시작 시점 심볼·데이터 고정 — async 중 종목 전환되어도 오염되지 않음
+        // 시작 시점 심볼·타임스탬프 고정 — async 중 종목 전환되어도 오염되지 않음
         const capturedSymbol = currentSymbol;
         const capturedTs = stockData.timestamp.slice();
-        const capturedQ  = stockData.indicators.quote[0];
 
         const first = canvases[0];
         // 항상 고정 해상도(800×450)로 캡처 → PWA/데스크탑 동일한 이미지 전달
