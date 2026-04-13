@@ -615,7 +615,7 @@ const parseJsonLoose = raw => {
 function isGeminiRetryable(err) {
     const msg = (err?.message || '').toLowerCase();
     return err?.status === 503 || err?.status === 429
-        || msg.includes('503') || msg.includes('429')
+        || msg.includes('[503 ') || msg.includes('[429 ')
         || msg.includes('high demand') || msg.includes('overloaded')
         || msg.includes('resource exhausted') || msg.includes('too many requests');
 }
@@ -720,13 +720,19 @@ app.post('/api/chart-draw', upload.single('image'), async (req, res) => {
             geminiSucceeded = true;
         } catch (err) {
             if (isGeminiRetryable(err)) {
-                console.warn(`[chart-draw] Gemini ${err?.status || 'error'} → 2초 후 재시도`);
-                await new Promise(r => setTimeout(r, 2000));
-                try {
-                    await tryGemini();
-                    geminiSucceeded = true;
-                } catch (err2) {
-                    console.warn(`[chart-draw] Gemini 재시도 실패 → Anthropic Claude 폴백`);
+                if (!stream) {
+                    // non-stream: 2초 대기 후 1회 재시도 (응답 미전송 상태라 안전)
+                    console.warn(`[chart-draw] Gemini ${err?.status || 'error'} → 2초 후 재시도`);
+                    await new Promise(r => setTimeout(r, 2000));
+                    try {
+                        await tryGemini();
+                        geminiSucceeded = true;
+                    } catch (err2) {
+                        console.warn('[chart-draw] Gemini 재시도 실패 → Anthropic Claude 폴백');
+                    }
+                } else {
+                    // stream: 이미 응답 헤더 전송됨 → 재시도 없이 바로 Claude 폴백
+                    console.warn(`[chart-draw:stream] Gemini ${err?.status || 'error'} → Anthropic Claude 폴백`);
                     sseSend({ fallback: 'claude', chunk: '' });
                 }
             } else {
@@ -975,11 +981,25 @@ app.get('/api/fred/:seriesId', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-// AI 경제지표 분석 (Gemini)
+// AI 경제지표 분석 (Gemini, IP당 1분 1회 제한)
 // ─────────────────────────────────────────────
+const _ecoAiRateMap = new Map(); // ip → last call timestamp
+const ECO_AI_RATE_MS = 60 * 1000; // 1분
+
 app.post('/api/economic-ai', async (req, res) => {
+    // IP rate limit
+    const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip;
+    const now = Date.now();
+    const last = _ecoAiRateMap.get(ip) || 0;
+    if (now - last < ECO_AI_RATE_MS) {
+        return res.status(429).json({ error: '요청이 너무 잦습니다. 1분 후 다시 시도해주세요.' });
+    }
+    _ecoAiRateMap.set(ip, now);
+
     const { cpiObs, ppiObs } = req.body;
-    if (!cpiObs || !ppiObs) return res.status(400).json({ error: 'cpiObs, ppiObs 필수' });
+    if (!Array.isArray(cpiObs) || !Array.isArray(ppiObs)) {
+        return res.status(400).json({ error: 'cpiObs, ppiObs는 배열이어야 합니다.' });
+    }
 
     const latestCPI = cpiObs[0], prevCPI = cpiObs[1];
     const latestPPI = ppiObs[0];
@@ -1004,14 +1024,31 @@ app.post('/api/economic-ai', async (req, res) => {
 
 한국어로 3~4문장 이내로 작성하고, 수치를 직접 인용하세요.`;
 
-    try {
+    const runGemini = async () => {
         const genAI = getGenAI();
         const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash', generationConfig: { temperature: 0.4 } });
         const result = await model.generateContent(prompt);
-        res.json({ comment: result.response.text().trim() });
+        return result.response.text().trim();
+    };
+
+    try {
+        const comment = await runGemini();
+        res.json({ comment });
     } catch (err) {
-        console.error('[economic-ai] 오류:', err.message);
-        res.status(500).json({ error: err.message });
+        if (isGeminiRetryable(err)) {
+            console.warn('[economic-ai] Gemini 429/503 → 2초 후 재시도');
+            await new Promise(r => setTimeout(r, 2000));
+            try {
+                const comment = await runGemini();
+                res.json({ comment });
+            } catch (err2) {
+                console.error('[economic-ai] 재시도 실패:', err2.message);
+                res.status(503).json({ error: 'AI 서비스가 일시적으로 불안정합니다. 잠시 후 다시 시도해주세요.' });
+            }
+        } else {
+            console.error('[economic-ai] 오류:', err.message);
+            res.status(500).json({ error: err.message });
+        }
     }
 });
 
