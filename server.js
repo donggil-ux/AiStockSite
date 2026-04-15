@@ -39,7 +39,7 @@ app.use(cors({
     },
     credentials: true,
 }));
-app.use(express.json());
+app.use(express.json({ limit: '64kb' })); // ai-analysis 저장 남용 방지
 
 // multer: 메모리 저장 (20MB 제한)
 const upload = multer({
@@ -219,8 +219,13 @@ app.get('/api/chart/:symbol', async (req, res) => {
 app.get('/api/quote', async (req, res) => {
     const { symbols } = req.query;
     if (!symbols) return res.status(400).json({ error: 'symbols 파라미터가 필요합니다.' });
+    // 개별 심볼 검증 + 최대 20개 제한
+    const symList = symbols.split(',').map(s => s.trim()).filter(Boolean);
+    if (symList.length === 0 || symList.length > 20) return res.status(400).json({ error: 'symbols: 1~20개 사이' });
+    if (!symList.every(validSymbol)) return res.status(400).json({ error: 'invalid symbol in list' });
+    const validatedSymbols = symList.join(',');
     try {
-        const url  = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}`;
+        const url  = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(validatedSymbols)}`;
         const data = await yfRequest(url);
         res.json(data);
     } catch (err) {
@@ -500,6 +505,7 @@ app.get('/api/stocktwits-trending', async (_req, res) => {
  */
 app.get('/api/page/:symbol', async (req, res) => {
     const { symbol } = req.params;
+    if (!validSymbol(symbol)) return res.status(400).json({ error: 'invalid symbol' });
     try {
         const { cookies } = await getCrumb();
         const r = await axios.get(`https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}/`, {
@@ -985,6 +991,14 @@ app.get('/api/fred/:seriesId', async (req, res) => {
 // ─────────────────────────────────────────────
 const _ecoAiRateMap = new Map(); // ip → last call timestamp
 const ECO_AI_RATE_MS = 60 * 1000; // 1분
+
+// 5분마다 만료된 rate-limit 항목 정리 (메모리 누수 방지)
+setInterval(() => {
+    const cutoff = Date.now() - ECO_AI_RATE_MS;
+    for (const [ip, ts] of _ecoAiRateMap) {
+        if (ts < cutoff) _ecoAiRateMap.delete(ip);
+    }
+}, 5 * 60 * 1000).unref();
 
 app.post('/api/economic-ai', async (req, res) => {
     // IP rate limit
