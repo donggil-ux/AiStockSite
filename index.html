@@ -1463,6 +1463,21 @@
         /* Deep Dive */
         .sm-deep-wrap{padding:0;}
         .sm-deep-header{display:flex;align-items:center;gap:10px;padding:4px 0 16px 0;border-bottom:1px solid var(--border);margin-bottom:14px;}
+        /* Guru (SEC EDGAR 13F 실데이터) 상태 뱃지 */
+        .guru-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;white-space:nowrap;line-height:1.4;}
+        .guru-badge.new{background:#d1fae5;color:#065f46;}
+        .guru-badge.add{background:#dbeafe;color:#1e40af;}
+        .guru-badge.reduce{background:#fef3c7;color:#92400e;}
+        .guru-badge.sold{background:#fee2e2;color:#991b1b;}
+        .guru-badge.hold{background:var(--bg3);color:var(--text3);}
+        [data-theme="dark"] .guru-badge.new{background:#064e3b;color:#6ee7b7;}
+        [data-theme="dark"] .guru-badge.add{background:#1e3a8a;color:#93c5fd;}
+        [data-theme="dark"] .guru-badge.reduce{background:#78350f;color:#fcd34d;}
+        [data-theme="dark"] .guru-badge.sold{background:#7f1d1d;color:#fca5a5;}
+        .sm-table{border-collapse:collapse;font-size:12px;}
+        .sm-table th{padding:8px 10px;font-size:11px;font-weight:700;color:var(--text3);background:var(--bg2);border-bottom:1px solid var(--border);text-align:left;}
+        .sm-table td{padding:9px 10px;border-bottom:1px solid var(--border);}
+        .sm-table tbody tr:hover{background:var(--bg2);}
         .sm-back-btn{background:none;border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px;color:var(--text2);font-family:inherit;font-weight:600;}
         .sm-back-btn:hover{background:var(--bg3);}
         .sm-deep-emoji{font-size:26px;}
@@ -1853,11 +1868,14 @@
         <div class="sm-sub-tabs">
             <button class="sm-sub-tab active" id="smTabTop10" onclick="switchSmTab('top10')">🔥 폼 미친 기관들</button>
             <button class="sm-sub-tab" id="smTabGuru" onclick="switchSmTab('guru')">🏛️ 월가 킹덤</button>
+            <button class="sm-sub-tab" id="smTabReal" onclick="switchSmTab('real')">💎 Guru</button>
         </div>
         <!-- Panel A: TOP 10 -->
         <div class="sm-panel active" id="smPanelTop10"></div>
-        <!-- Panel B: Guru -->
+        <!-- Panel B: Guru (킹덤 하드코딩) -->
         <div class="sm-panel" id="smPanelGuru"></div>
+        <!-- Panel C: 실데이터 Guru (SEC EDGAR 13F) -->
+        <div class="sm-panel" id="smPanelReal"></div>
         <!-- Deep Dive -->
         <div id="smDeep" style="display:none"></div>
     </div>
@@ -2310,6 +2328,9 @@
 
             <!-- R/R Analysis Card: 단타/스윙 공통, 항상 노출 -->
             <div id="rrAnalysis"></div>
+
+            <!-- 💎 보유 Guru (SEC EDGAR 13F 실데이터) -->
+            <div id="guruHolders" style="display:none"></div>
 
             <!-- R/R 손익비 계산기 위젯 -->
             <div class="card" id="rrCalcWidgetCard">
@@ -5783,9 +5804,12 @@
     function switchSmTab(tab) {
         document.getElementById('smTabTop10').classList.toggle('active', tab === 'top10');
         document.getElementById('smTabGuru').classList.toggle('active', tab === 'guru');
+        document.getElementById('smTabReal')?.classList.toggle('active', tab === 'real');
         document.getElementById('smPanelTop10').classList.toggle('active', tab === 'top10');
         document.getElementById('smPanelGuru').classList.toggle('active', tab === 'guru');
+        document.getElementById('smPanelReal')?.classList.toggle('active', tab === 'real');
         document.getElementById('smDeep').style.display = 'none';
+        if (tab === 'real') renderGuruReal();
     }
 
     function renderSmTop10() {
@@ -6021,6 +6045,259 @@
             <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;border-radius:8px;overflow:hidden">${svgItems}</svg>
             <div style="font-size:10px;color:var(--text-secondary);margin-top:4px;text-align:center">박스 너비 = 비중, 숫자 = 비중변화(%p). 클릭시 차트 이동</div>
         </div>`;
+    }
+
+    // ════════════════════════════════════════════════════
+    // Guru (SEC EDGAR 13F 실데이터)
+    // ════════════════════════════════════════════════════
+    let _guruCache = { list: null, ts: 0 };
+    const _GURU_TTL = 5 * 60 * 1000;
+
+    function _guruFmtUSD(v) {
+        if (v == null) return '-';
+        const n = Number(v);
+        if (n >= 1e12) return `$${(n/1e12).toFixed(2)}T`;
+        if (n >= 1e9)  return `$${(n/1e9).toFixed(2)}B`;
+        if (n >= 1e6)  return `$${(n/1e6).toFixed(1)}M`;
+        if (n >= 1e3)  return `$${(n/1e3).toFixed(0)}K`;
+        return `$${n}`;
+    }
+    function _guruFmtShares(n) {
+        if (n == null) return '-';
+        n = Number(n);
+        if (n >= 1e9) return `${(n/1e9).toFixed(2)}B`;
+        if (n >= 1e6) return `${(n/1e6).toFixed(2)}M`;
+        if (n >= 1e3) return `${(n/1e3).toFixed(0)}K`;
+        return `${n}`;
+    }
+    function _guruBadge(action) {
+        const map = {
+            NEW:    { cls: 'new',    label: '🆕 신규' },
+            ADD:    { cls: 'add',    label: '🔵 증가' },
+            REDUCE: { cls: 'reduce', label: '🟡 감소' },
+            SOLD:   { cls: 'sold',   label: '🔴 청산' },
+            HOLD:   { cls: 'hold',   label: '⚪ 유지' },
+        };
+        const b = map[action] || map.HOLD;
+        return `<span class="guru-badge ${b.cls}">${b.label}</span>`;
+    }
+
+    async function renderGuruReal() {
+        const panel = document.getElementById('smPanelReal');
+        if (!panel) return;
+        const now = Date.now();
+        if (!_guruCache.list || now - _guruCache.ts > _GURU_TTL) {
+            panel.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-secondary)">💎 Guru 데이터를 불러오는 중...</div>`;
+            try {
+                const r = await fetch('/api/guru');
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                _guruCache.list = await r.json();
+                _guruCache.ts = now;
+            } catch (e) {
+                panel.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-secondary)">
+                    ⚠️ Guru 데이터를 불러올 수 없습니다.<br><small>${escHtml(e.message)}</small>
+                </div>`;
+                return;
+            }
+        }
+        const list = _guruCache.list || [];
+        if (!list.length) {
+            panel.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-secondary)">
+                💎 아직 크롤링된 Guru가 없습니다.<br>
+                <small style="opacity:.7">관리자가 <code>/api/guru-refresh/:cik</code>로 데이터를 동기화해야 합니다.</small>
+            </div>`;
+            return;
+        }
+        panel.innerHTML = list.map(g => {
+            const top3 = (g.top3 || []).map(t =>
+                `<span class="sm-sector-tag">${escHtml(t.ticker)} ${(t.weight||0).toFixed(1)}%</span>`
+            ).join('');
+            const aum = _guruFmtUSD(g.aum_usd);
+            const filed = g.last_filed_at ? g.last_filed_at : '—';
+            return `<div class="sm-inst-card" onclick="guruDeepDiveReal('${g.cik}')">
+                <div class="sm-inst-header">
+                    <div class="sm-inst-rank" style="font-size:28px">${g.emoji || '💎'}</div>
+                    <div class="sm-inst-info">
+                        <div class="sm-inst-name">${escHtml(g.name)}</div>
+                        <div class="sm-inst-manager">${escHtml(g.manager || '')}</div>
+                    </div>
+                    <div style="text-align:right;flex-shrink:0">
+                        <div style="font-size:14px;font-weight:700">${aum}</div>
+                        <div style="font-size:10px;color:var(--text-secondary)">AUM · ${filed}</div>
+                    </div>
+                </div>
+                <div class="sm-sector-tags" style="margin-top:8px">${top3 || '<span style="color:var(--text-secondary);font-size:11px">보유 종목 없음</span>'}</div>
+            </div>`;
+        }).join('');
+    }
+
+    async function guruDeepDiveReal(cik, quarter) {
+        const deep = document.getElementById('smDeep');
+        deep.style.display = '';
+        document.getElementById('smPanelTop10').classList.remove('active');
+        document.getElementById('smPanelGuru').classList.remove('active');
+        document.getElementById('smPanelReal').classList.remove('active');
+        deep.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-secondary)">불러오는 중...</div>`;
+        try {
+            const [metaR, posR] = await Promise.all([
+                fetch(`/api/guru/${cik}`),
+                fetch(`/api/guru/${cik}/positions${quarter ? '?quarter=' + encodeURIComponent(quarter) : ''}`),
+            ]);
+            if (!metaR.ok) throw new Error('guru meta HTTP ' + metaR.status);
+            if (!posR.ok)  throw new Error('positions HTTP ' + posR.status);
+            const meta = await metaR.json();
+            const pos = await posR.json();
+            _renderGuruDeep(meta, pos);
+        } catch (e) {
+            deep.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-secondary)">
+                ⚠️ ${escHtml(e.message)}
+                <div><button class="sm-back-btn" onclick="guruDeepBack()" style="margin-top:12px">← 돌아가기</button></div>
+            </div>`;
+        }
+    }
+
+    function _renderGuruDeep(meta, pos) {
+        const deep = document.getElementById('smDeep');
+        const positions = (pos.positions || []).filter(p => p.ticker || p.name);
+        const currentQ = pos.quarter;
+        const quarters = meta.quarters || [];
+
+        // Treemap용 데이터 — 상위 8개
+        const top8 = positions.slice(0, 8).filter(p => p.ticker);
+        const treemapData = top8.map(p => ({
+            ticker: p.ticker,
+            wt: Number(p.weight) || 0,
+            wtChg: 0, // 13F 실데이터에서는 비중변화 계산 생략 (prev_shares로 간접 표시)
+            avgPrice: 0, // 평단 없음
+        }));
+        const tmTotal = treemapData.reduce((s, h) => s + h.wt, 0);
+        const treemapHtml = tmTotal > 0 ? _renderGuruTreemap(treemapData) : '';
+
+        const qOptions = quarters.map(q =>
+            `<option value="${q.quarter}" ${q.quarter === currentQ ? 'selected' : ''}>${q.quarter} (${q.filing_date})</option>`
+        ).join('');
+
+        const rows = positions.map((p, i) => {
+            const ticker = p.ticker ? `<a href="#" onclick="event.preventDefault();smChartLink('${p.ticker}',0,'${escHtml(meta.name||'Guru')}')" style="color:var(--accent);font-weight:600">${escHtml(p.ticker)}</a>`
+                                     : `<span style="color:var(--text-secondary)">—</span>`;
+            const deltaShares = (p.prev_shares != null && p.shares != null) ? (p.shares - p.prev_shares) : 0;
+            const deltaStr = deltaShares === 0 ? '—' :
+                deltaShares > 0 ? `<span style="color:#22c55e">+${_guruFmtShares(deltaShares)}</span>` :
+                `<span style="color:#ef4444">${_guruFmtShares(deltaShares)}</span>`;
+            return `<tr>
+                <td style="font-size:10px;color:var(--text-secondary)">${i+1}</td>
+                <td>${ticker}<div style="font-size:10px;color:var(--text-secondary)">${escHtml((p.name||'').slice(0,30))}</div></td>
+                <td style="text-align:right;font-weight:600">${Number(p.weight||0).toFixed(2)}%</td>
+                <td style="text-align:right">${_guruFmtUSD(p.value_usd)}</td>
+                <td style="text-align:right">${_guruFmtShares(p.shares)}</td>
+                <td style="text-align:center">${_guruBadge(p.action)}</td>
+                <td style="text-align:right;font-size:11px">${deltaStr}</td>
+            </tr>`;
+        }).join('');
+
+        deep.innerHTML = `<div class="sm-deep-wrap">
+            <button class="sm-back-btn" onclick="guruDeepBack()">← 돌아가기</button>
+            <div class="sm-deep-header" style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+                <div style="font-size:40px">${meta.emoji || '💎'}</div>
+                <div style="flex:1">
+                    <div style="font-size:20px;font-weight:700">${escHtml(meta.name)}</div>
+                    <div style="font-size:12px;color:var(--text-secondary)">${escHtml(meta.manager || '')} · CIK ${meta.cik}</div>
+                </div>
+                <div style="text-align:right">
+                    <div style="font-size:16px;font-weight:700">${_guruFmtUSD(meta.aum_usd)}</div>
+                    <div style="font-size:10px;color:var(--text-secondary)">최신: ${meta.last_filed_at || '—'}</div>
+                </div>
+            </div>
+            <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <label style="font-size:12px;color:var(--text-secondary)">분기 선택:</label>
+                <select onchange="guruDeepDiveReal('${meta.cik}', this.value)" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text)">${qOptions || `<option>${currentQ||'—'}</option>`}</select>
+                <span style="font-size:11px;color:var(--text-secondary)">※ 13F는 분기 종료 후 최대 45일 지연</span>
+            </div>
+            ${treemapHtml ? `<div style="margin-bottom:16px">
+                <div style="font-size:13px;font-weight:600;margin-bottom:6px">Top 8 포트폴리오 비중</div>
+                ${treemapHtml}
+            </div>` : ''}
+            ${positions.length ? `<div class="sm-table-wrap" style="overflow-x:auto">
+                <table class="sm-table" style="width:100%">
+                    <thead><tr>
+                        <th>#</th><th>종목</th><th style="text-align:right">비중</th>
+                        <th style="text-align:right">평가액</th><th style="text-align:right">주식수</th>
+                        <th style="text-align:center">상태</th><th style="text-align:right">지난분기 변화</th>
+                    </tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>` : `<div style="padding:30px;text-align:center;color:var(--text-secondary)">해당 분기 보유 종목이 없습니다.</div>`}
+        </div>`;
+    }
+
+    function _renderGuruTreemap(holdings) {
+        const W = 320, H = 140;
+        const total = holdings.reduce((s, h) => s + h.wt, 0);
+        if (total <= 0) return '';
+        const colors = ['#3b82f6','#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#ef4444','#06b6d4'];
+        let x = 0;
+        const rects = holdings.map((item, i) => {
+            const w = Math.max(Math.round((item.wt / total) * W), 1);
+            const r = { x, w, item, color: colors[i % colors.length] };
+            x += w;
+            return r;
+        });
+        const CY = H / 2;
+        const svgItems = rects.map(r => {
+            const cx = r.x + r.w / 2;
+            const showText = r.w >= 30;
+            return `<g onclick="smChartLink('${r.item.ticker}',0,'Guru')" style="cursor:pointer">
+                <rect x="${r.x}" y="0" width="${r.w}" height="${H}" fill="${r.color}" rx="3" opacity="0.85"/>
+                <rect x="${r.x}" y="0" width="${r.w}" height="${H}" fill="none" stroke="#1e293b" stroke-width="1" rx="3"/>
+                ${showText ? `<text x="${cx}" y="${CY - 6}" text-anchor="middle" fill="#fff" font-size="10" font-weight="700" font-family="sans-serif">${r.item.ticker}</text>
+                <text x="${cx}" y="${CY + 10}" text-anchor="middle" fill="#e2e8f0" font-size="9" font-family="sans-serif">${r.item.wt.toFixed(1)}%</text>` : ''}
+            </g>`;
+        }).join('');
+        return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;border-radius:8px;overflow:hidden">${svgItems}</svg>`;
+    }
+
+    function guruDeepBack() {
+        document.getElementById('smDeep').style.display = 'none';
+        document.getElementById('smPanelReal').classList.add('active');
+        document.getElementById('smTabReal').classList.add('active');
+        document.getElementById('smTabTop10').classList.remove('active');
+        document.getElementById('smTabGuru').classList.remove('active');
+        document.getElementById('smPanelTop10').classList.remove('active');
+        document.getElementById('smPanelGuru').classList.remove('active');
+    }
+
+    // 종목 상세: 보유 Guru 칩
+    async function renderGuruHolders(ticker) {
+        const box = document.getElementById('guruHolders');
+        if (!box || !ticker) return;
+        box.innerHTML = '';
+        box.style.display = 'none';
+        try {
+            const r = await fetch(`/api/guru/by-ticker/${encodeURIComponent(ticker.toUpperCase())}`);
+            if (!r.ok) return;
+            const list = await r.json();
+            if (!Array.isArray(list) || !list.length) return;
+            const chips = list.map(g => {
+                const badge = _guruBadge(g.action);
+                return `<button class="chip" onclick="goSmartMoneyAndOpen('${g.cik}')" style="display:inline-flex;align-items:center;gap:6px;margin:3px">
+                    <span>${g.emoji || '💎'}</span>
+                    <span>${escHtml(g.name || g.manager || g.cik)}</span>
+                    <span style="opacity:.75;font-size:11px">${Number(g.weight||0).toFixed(1)}%</span>
+                    ${badge}
+                </button>`;
+            }).join('');
+            box.innerHTML = `<div class="card">
+                <div style="font-size:14px;font-weight:700;margin-bottom:8px">💎 이 종목을 보유 중인 Guru (${list.length}명)</div>
+                <div>${chips}</div>
+                <div style="font-size:10px;color:var(--text-secondary);margin-top:8px">※ 분기 기준, 최대 45일 지연</div>
+            </div>`;
+            box.style.display = '';
+        } catch {}
+    }
+
+    function goSmartMoneyAndOpen(cik) {
+        goSmartMoney();
+        setTimeout(() => { switchSmTab('real'); guruDeepDiveReal(cik); }, 50);
     }
 
     function _smActionLabel(a) {
@@ -6561,6 +6838,7 @@
             renderEntryTiming();
             renderAIAnalysis();
             renderRRAnalysis();
+            try { if (typeof renderGuruHolders === 'function' && typeof currentSymbol !== 'undefined') renderGuruHolders(currentSymbol); } catch {}
             rrWidgetAutoFill();
             renderRSIMomentum();
             renderMACDSignal();
@@ -6817,6 +7095,7 @@
             renderEntryTiming();
             renderAIAnalysis();
             renderRRAnalysis();
+            try { if (typeof renderGuruHolders === 'function' && typeof currentSymbol !== 'undefined') renderGuruHolders(currentSymbol); } catch {}
             rrWidgetAutoFill();
             renderRSIMomentum();
             renderMACDSignal();
@@ -12732,6 +13011,7 @@
     Object.assign(window, {
         closeSideNav, toggleSideNav, openSideNav, goHome, goSmartMoney,
         switchSmTab, smDeepDive, smDeepBack, filterSmHoldings, smChartLink,
+        renderGuruReal, guruDeepDiveReal, guruDeepBack, renderGuruHolders, goSmartMoneyAndOpen,
         setMarket, searchStock, setChartInterval, setPeriod,
         quickSearch, toggleFavorite, switchTab, toggleChartFullscreen,
         favSearch, removeFavorite, setTop100Filter,

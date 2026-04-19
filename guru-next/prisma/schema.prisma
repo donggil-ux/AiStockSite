@@ -1,0 +1,111 @@
+// Guru Portfolio — SEC 13F 기반 부자들의 포트폴리오
+// Prisma schema for PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ────────────────────────────────────────────
+// 투자 대가 마스터
+// ────────────────────────────────────────────
+model Guru {
+  id          String   @id @default(cuid())
+  cik         String   @unique // SEC CIK (10-digit zero-padded)
+  name        String              // 펀드명 (Berkshire Hathaway)
+  manager     String?             // 매니저명 (Warren Buffett)
+  emoji       String   @default("💎")
+  bio         String?  @db.Text   // 한줄 소개
+  tags        String[] @default([])  // ['value','long-term','macro']
+  foundedYear Int?
+  aumUsd      BigInt?             // 최신 분기 AUM
+  lastFiledAt DateTime?           // 최신 13F 공시일
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  portfolios  GuruPortfolio[]
+
+  @@index([aumUsd(sort: Desc)])
+  @@map("guru")
+}
+
+// ────────────────────────────────────────────
+// 분기별 포트폴리오 스냅샷
+// ────────────────────────────────────────────
+model GuruPortfolio {
+  id          String   @id @default(cuid())
+  guruId      String
+  quarter     String             // '2025Q4'
+  filingDate  DateTime
+  accession   String             // EDGAR accession no.
+  totalValue  BigInt             // 해당 분기 총 평가액 (USD)
+  positionCnt Int      @default(0)
+  newCnt      Int      @default(0)  // NEW 종목 수
+  soldCnt     Int      @default(0)  // SOLD OUT 종목 수
+  createdAt   DateTime @default(now())
+
+  guru        Guru     @relation(fields: [guruId], references: [id], onDelete: Cascade)
+  positions   Position[]
+
+  @@unique([guruId, quarter])
+  @@index([quarter])
+  @@map("guru_portfolio")
+}
+
+// ────────────────────────────────────────────
+// 보유 종목 (분기별 포지션)
+// ────────────────────────────────────────────
+enum PositionAction {
+  NEW
+  ADD
+  REDUCE
+  HOLD
+  SOLD
+}
+
+model Position {
+  id           String         @id @default(cuid())
+  portfolioId  String
+  stockId      String
+  cusip        String         // 원본 13F CUSIP
+  shares       BigInt
+  valueUsd     BigInt
+  weight       Decimal        @db.Decimal(7, 3)   // % (0.000~100.000)
+  action       PositionAction @default(HOLD)
+  prevShares   BigInt?                             // 직전 분기 주식수
+  avgEntryEst  Decimal?       @db.Decimal(12, 4)   // 역산 추정 평단 (nullable)
+  createdAt    DateTime       @default(now())
+
+  portfolio    GuruPortfolio  @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  stock        Stock          @relation(fields: [stockId], references: [id])
+
+  @@unique([portfolioId, cusip])
+  @@index([stockId])
+  @@index([action])
+  @@map("position")
+}
+
+// ────────────────────────────────────────────
+// 종목 기본 정보 (CUSIP → Ticker 매핑 + 메타)
+// ────────────────────────────────────────────
+model Stock {
+  id          String   @id @default(cuid())
+  cusip       String   @unique
+  ticker      String?              // nullable (OpenFIGI 미매핑 시)
+  name        String
+  sector      String?
+  industry    String?
+  exchange    String?
+  logoUrl     String?
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  positions   Position[]
+
+  @@index([ticker])
+  @@map("stock")
+}

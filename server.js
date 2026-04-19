@@ -1066,6 +1066,429 @@ app.post('/api/economic-ai', async (req, res) => {
     }
 });
 
+// ═══════════════════════════════════════════════════════════════
+// Guru Portfolio — SEC EDGAR 13F-HR 기반 부자들의 포트폴리오
+// ═══════════════════════════════════════════════════════════════
+const { XMLParser } = require('fast-xml-parser');
+
+const SEC_UA = process.env.SEC_USER_AGENT || 'StockAI research rkd687@gmail.com';
+const CIK_RE = /^\d{10}$/;
+const QUARTER_RE = /^\d{4}Q[1-4]$/;
+const TICKER_RE = /^[A-Z0-9.\-]{1,10}$/;
+
+function validCIK(s)     { return s && CIK_RE.test(s); }
+function validQuarter(s) { return s && QUARTER_RE.test(s); }
+function validTicker(s)  { return s && TICKER_RE.test(s); }
+
+// 간격 sleep
+const _sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+// filingDate(YYYY-MM-DD) → 'YYYYQn' (보고기준 분기; 45일 지연 감안해 filing 3개월 전으로 잡음)
+function quarterFromReportPeriod(periodOfReport) {
+    // periodOfReport 형식: 'YYYY-MM-DD' (예: '2025-12-31')
+    if (!periodOfReport) return null;
+    const [y, m] = periodOfReport.split('-').map(Number);
+    if (!y || !m) return null;
+    const q = Math.ceil(m / 3);
+    return `${y}Q${q}`;
+}
+
+// SEC submissions API: 최근 13F 파일링 메타 조회
+async function edgarFetchFilings(cik) {
+    const url = `https://data.sec.gov/submissions/CIK${cik}.json`;
+    const { data } = await axios.get(url, {
+        headers: { 'User-Agent': SEC_UA, 'Accept': 'application/json' },
+        timeout: 15000,
+    });
+    const recent = data.filings && data.filings.recent;
+    if (!recent) return [];
+    const out = [];
+    const forms = recent.form || [];
+    const accs  = recent.accessionNumber || [];
+    const dates = recent.filingDate || [];
+    const primaries = recent.primaryDocument || [];
+    const reportPeriods = recent.reportDate || [];
+    for (let i = 0; i < forms.length; i++) {
+        if (forms[i] === '13F-HR' || forms[i] === '13F-HR/A') {
+            out.push({
+                accession: accs[i],
+                filingDate: dates[i],
+                primaryDoc: primaries[i],
+                reportPeriod: reportPeriods[i],
+                form: forms[i],
+            });
+        }
+    }
+    return out;
+}
+
+// 파일링의 infotable XML을 찾아 다운로드
+async function edgarFetchInfoTable(cik, accession) {
+    const accNoDash = accession.replace(/-/g, '');
+    // 인덱스 JSON 조회로 information table 파일명 탐색
+    const idxUrl = `https://www.sec.gov/Archives/edgar/data/${parseInt(cik, 10)}/${accNoDash}/`;
+    const idxJsonUrl = idxUrl + 'index.json';
+    const { data: idx } = await axios.get(idxJsonUrl, {
+        headers: { 'User-Agent': SEC_UA },
+        timeout: 15000,
+    });
+    const items = (idx.directory && idx.directory.item) || [];
+    // information table은 보통 'infotable.xml' 또는 두 번째 XML(primary는 form XML)
+    let infoTable = items.find(it => /infotable\.xml$/i.test(it.name) || /informationtable\.xml$/i.test(it.name));
+    if (!infoTable) {
+        // 후보: .xml 중 'primary_doc' 아닌 것
+        const xmls = items.filter(it => /\.xml$/i.test(it.name) && !/primary_doc/i.test(it.name));
+        infoTable = xmls[0];
+    }
+    if (!infoTable) throw new Error(`infotable not found in ${accession}`);
+    const xmlUrl = idxUrl + infoTable.name;
+    const { data: xml } = await axios.get(xmlUrl, {
+        headers: { 'User-Agent': SEC_UA },
+        responseType: 'text',
+        timeout: 20000,
+    });
+    return xml;
+}
+
+function parse13FHR(xml) {
+    const parser = new XMLParser({
+        ignoreAttributes: true,
+        removeNSPrefix: true,
+        parseTagValue: false,
+        trimValues: true,
+    });
+    const obj = parser.parse(xml);
+    // 구조: informationTable > infoTable[]
+    const root = obj.informationTable || obj.InformationTable || obj;
+    let rows = root.infoTable || root.InfoTable || [];
+    if (!Array.isArray(rows)) rows = [rows];
+    return rows.map(r => {
+        const sh = r.shrsOrPrnAmt || {};
+        return {
+            nameOfIssuer: String(r.nameOfIssuer || '').trim(),
+            titleOfClass: String(r.titleOfClass || '').trim(),
+            cusip: String(r.cusip || '').trim().toUpperCase(),
+            value: Number(r.value || 0), // USD; 2022Q3+ 단위는 정확한 달러 (이전은 천달러)
+            sshPrnamt: Number(sh.sshPrnamt || 0),
+            sshPrnamtType: String(sh.sshPrnamtType || '').trim(),
+        };
+    }).filter(r => r.cusip);
+}
+
+// CUSIP → Ticker 매핑 (OpenFIGI + Supabase 캐시)
+async function cusipToTicker(cusips) {
+    const supabase = getSupabase();
+    const result = {}; // cusip → {ticker, name, exchange}
+
+    if (supabase && cusips.length) {
+        const { data: cached } = await supabase
+            .from('cusip_ticker')
+            .select('cusip,ticker,name,exchange')
+            .in('cusip', cusips);
+        (cached || []).forEach(c => { result[c.cusip] = c; });
+    }
+
+    const missing = cusips.filter(c => !(c in result));
+    if (!missing.length) return result;
+
+    // OpenFIGI batch (최대 100개씩), 무키 25req/6s → 안전하게 250ms 간격
+    const figiKey = process.env.OPENFIGI_API_KEY;
+    for (let i = 0; i < missing.length; i += 100) {
+        const batch = missing.slice(i, i + 100);
+        try {
+            const { data } = await axios.post(
+                'https://api.openfigi.com/v3/mapping',
+                batch.map(c => ({ idType: 'ID_CUSIP', idValue: c })),
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(figiKey ? { 'X-OPENFIGI-APIKEY': figiKey } : {}),
+                    },
+                    timeout: 15000,
+                }
+            );
+            const rows = [];
+            data.forEach((item, idx) => {
+                const cusip = batch[idx];
+                if (item && item.data && item.data.length) {
+                    // 미국 주식(Common Stock) 우선
+                    const us = item.data.find(d => d.exchCode && /US|UN|UQ|UR|UA|UF|UV|UW/.test(d.exchCode)) || item.data[0];
+                    const rec = {
+                        cusip,
+                        ticker: us.ticker || null,
+                        name: us.name || null,
+                        exchange: us.exchCode || null,
+                    };
+                    result[cusip] = rec;
+                    rows.push(rec);
+                } else {
+                    // 매핑 실패도 캐시 (null ticker)
+                    const rec = { cusip, ticker: null, name: null, exchange: null };
+                    result[cusip] = rec;
+                    rows.push(rec);
+                }
+            });
+            if (supabase && rows.length) {
+                await supabase.from('cusip_ticker').upsert(rows, { onConflict: 'cusip' });
+            }
+        } catch (e) {
+            console.warn('[OpenFIGI] batch failed:', e.message);
+        }
+        if (i + 100 < missing.length) await _sleep(300);
+    }
+    return result;
+}
+
+// Guru 1명 — 최근 N개 분기 크롤링 + Supabase upsert
+async function refreshGuru(cik, { quarters = 2 } = {}) {
+    const supabase = getSupabase();
+    if (!supabase) throw new Error('Supabase not configured');
+
+    const filings = await edgarFetchFilings(cik);
+    if (!filings.length) return { ok: false, reason: 'no 13F filings' };
+
+    // 최신 순 → quarters개만
+    const targets = filings.slice(0, quarters);
+    let totalPositions = 0;
+    let latestFilingDate = null;
+    let latestTotalValue = 0;
+
+    for (const f of targets) {
+        await _sleep(150); // SEC rate limit
+        const xml = await edgarFetchInfoTable(cik, f.accession);
+        const rows = parse13FHR(xml);
+        const quarter = quarterFromReportPeriod(f.reportPeriod) || quarterFromReportPeriod(f.filingDate);
+        if (!quarter) continue;
+
+        // CUSIP 매핑
+        const uniqueCusips = [...new Set(rows.map(r => r.cusip))];
+        const mapping = await cusipToTicker(uniqueCusips);
+
+        // CUSIP별 집계 (같은 발행사 여러 시리즈 합산)
+        const agg = {};
+        rows.forEach(r => {
+            if (!agg[r.cusip]) agg[r.cusip] = { cusip: r.cusip, name: r.nameOfIssuer, shares: 0, value: 0 };
+            agg[r.cusip].shares += r.sshPrnamt;
+            agg[r.cusip].value  += r.value;
+        });
+        const aggRows = Object.values(agg);
+        const totalValue = aggRows.reduce((s, r) => s + r.value, 0);
+
+        // 직전 분기 조회 (action 계산용)
+        const { data: prev } = await supabase
+            .from('guru_position')
+            .select('cusip,shares')
+            .eq('cik', cik)
+            .lt('quarter', quarter)
+            .order('quarter', { ascending: false })
+            .limit(500);
+        const prevMap = {};
+        (prev || []).forEach(p => {
+            // 가장 최근 분기의 shares만 유지
+            if (!(p.cusip in prevMap)) prevMap[p.cusip] = p.shares;
+        });
+
+        // guru_quarter upsert
+        await supabase.from('guru_quarter').upsert({
+            cik, quarter,
+            filing_date: f.filingDate,
+            accession: f.accession,
+            total_value: totalValue,
+        }, { onConflict: 'cik,quarter' });
+
+        // guru_position upsert
+        const positions = aggRows.map(r => {
+            const m = mapping[r.cusip] || {};
+            const prevShares = prevMap[r.cusip] || 0;
+            let action = 'HOLD';
+            if (prevShares === 0 && r.shares > 0) action = 'NEW';
+            else if (r.shares === 0 && prevShares > 0) action = 'SOLD';
+            else if (prevShares > 0) {
+                const chg = (r.shares - prevShares) / prevShares;
+                if (chg >= 0.10) action = 'ADD';
+                else if (chg <= -0.10) action = 'REDUCE';
+            }
+            const weight = totalValue > 0 ? (r.value / totalValue) * 100 : 0;
+            return {
+                cik, quarter,
+                cusip: r.cusip,
+                ticker: m.ticker || null,
+                name: r.name || m.name || null,
+                shares: r.shares,
+                value_usd: r.value,
+                weight: Number(weight.toFixed(3)),
+                action,
+                prev_shares: prevShares,
+            };
+        });
+
+        // 청크 단위 upsert (큰 portfolio 대비)
+        for (let i = 0; i < positions.length; i += 200) {
+            const chunk = positions.slice(i, i + 200);
+            const { error } = await supabase
+                .from('guru_position')
+                .upsert(chunk, { onConflict: 'cik,quarter,cusip' });
+            if (error) throw new Error(error.message);
+        }
+        totalPositions += positions.length;
+        if (!latestFilingDate || f.filingDate > latestFilingDate) {
+            latestFilingDate = f.filingDate;
+            latestTotalValue = totalValue;
+        }
+    }
+
+    // guru 메타 갱신
+    await supabase.from('guru').update({
+        last_filed_at: latestFilingDate,
+        aum_usd: latestTotalValue,
+    }).eq('cik', cik);
+
+    return { ok: true, positions: totalPositions, latestFilingDate };
+}
+
+// ──────── Admin: Guru refresh ────────
+app.post('/api/guru-refresh/:cik', async (req, res) => {
+    const cik = req.params.cik;
+    if (!validCIK(cik)) return res.status(400).json({ error: 'invalid CIK (10 digits required)' });
+    const token = req.get('X-Admin-Token');
+    if (!process.env.ADMIN_TOKEN || token !== process.env.ADMIN_TOKEN) {
+        return res.status(401).json({ error: 'unauthorized' });
+    }
+    try {
+        const quarters = Math.min(parseInt(req.query.quarters || '2', 10) || 2, 8);
+        const result = await refreshGuru(cik, { quarters });
+        res.json(result);
+    } catch (e) {
+        console.error('[guru-refresh]', cik, e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ──────── GET: Guru list ────────
+app.get('/api/guru', async (_req, res) => {
+    const supabase = getSupabase();
+    if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+    try {
+        const { data: gurus, error } = await supabase
+            .from('guru')
+            .select('cik,name,manager,emoji,tags,aum_usd,last_filed_at')
+            .order('aum_usd', { ascending: false, nullsFirst: false });
+        if (error) throw new Error(error.message);
+
+        // 각 Guru의 최신 분기 Top3 티커 조회
+        const out = [];
+        for (const g of (gurus || [])) {
+            const { data: top } = await supabase
+                .from('guru_position')
+                .select('ticker,weight,quarter')
+                .eq('cik', g.cik)
+                .order('quarter', { ascending: false })
+                .order('weight', { ascending: false })
+                .limit(20);
+            const latestQ = top && top.length ? top[0].quarter : null;
+            const top3 = (top || [])
+                .filter(t => t.quarter === latestQ && t.ticker)
+                .slice(0, 3)
+                .map(t => ({ ticker: t.ticker, weight: t.weight }));
+            out.push({ ...g, top3, latest_quarter: latestQ });
+        }
+        res.json(out);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ──────── GET: Guru 단건 메타 + 분기 목록 ────────
+app.get('/api/guru/:cik', async (req, res) => {
+    const cik = req.params.cik;
+    if (!validCIK(cik)) return res.status(400).json({ error: 'invalid CIK' });
+    const supabase = getSupabase();
+    if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+    try {
+        const { data: guru, error: e1 } = await supabase
+            .from('guru').select('*').eq('cik', cik).single();
+        if (e1 || !guru) return res.status(404).json({ error: 'guru not found' });
+
+        const { data: quarters } = await supabase
+            .from('guru_quarter')
+            .select('quarter,filing_date,total_value')
+            .eq('cik', cik)
+            .order('quarter', { ascending: false });
+        res.json({ ...guru, quarters: quarters || [] });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ──────── GET: Guru 분기별 holdings ────────
+app.get('/api/guru/:cik/positions', async (req, res) => {
+    const cik = req.params.cik;
+    if (!validCIK(cik)) return res.status(400).json({ error: 'invalid CIK' });
+    const supabase = getSupabase();
+    if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+    try {
+        let quarter = req.query.quarter;
+        if (quarter && !validQuarter(quarter)) return res.status(400).json({ error: 'invalid quarter' });
+        if (!quarter) {
+            const { data: latest } = await supabase
+                .from('guru_quarter').select('quarter')
+                .eq('cik', cik).order('quarter', { ascending: false }).limit(1);
+            if (!latest || !latest.length) return res.json({ quarter: null, positions: [] });
+            quarter = latest[0].quarter;
+        }
+        const { data, error } = await supabase
+            .from('guru_position')
+            .select('cusip,ticker,name,shares,value_usd,weight,action,prev_shares')
+            .eq('cik', cik).eq('quarter', quarter)
+            .order('weight', { ascending: false });
+        if (error) throw new Error(error.message);
+        res.json({ quarter, positions: data || [] });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ──────── GET: 티커로 보유 Guru 역조회 ────────
+app.get('/api/guru/by-ticker/:ticker', async (req, res) => {
+    const ticker = (req.params.ticker || '').toUpperCase();
+    if (!validTicker(ticker)) return res.status(400).json({ error: 'invalid ticker' });
+    const supabase = getSupabase();
+    if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+    try {
+        // 각 Guru의 최신 분기에서 해당 티커 보유한 것만
+        const { data, error } = await supabase
+            .from('guru_position')
+            .select('cik,quarter,weight,value_usd,shares,action,guru(name,manager,emoji)')
+            .eq('ticker', ticker)
+            .order('quarter', { ascending: false });
+        if (error) throw new Error(error.message);
+
+        // Guru별로 최신 분기만 유지
+        const seen = new Set();
+        const out = [];
+        (data || []).forEach(r => {
+            if (seen.has(r.cik)) return;
+            seen.add(r.cik);
+            out.push({
+                cik: r.cik,
+                quarter: r.quarter,
+                name: r.guru && r.guru.name,
+                manager: r.guru && r.guru.manager,
+                emoji: (r.guru && r.guru.emoji) || '💎',
+                weight: r.weight,
+                value_usd: r.value_usd,
+                shares: r.shares,
+                action: r.action,
+            });
+        });
+        // 비중 내림차순
+        out.sort((a, b) => (b.weight || 0) - (a.weight || 0));
+        res.json(out);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // index.html fallback (SPA 라우팅)
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
