@@ -1476,6 +1476,19 @@
         .guru-home-card{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:opacity .12s;}
         .guru-home-card:last-child{border-bottom:none;}
         .guru-home-card:hover{opacity:.8;}
+        /* 전체 보기 버튼 — 배경 없음 */
+        .home-section-more{background:none;border:none;font-size:12px;font-weight:600;color:var(--text3);cursor:pointer;padding:2px 0;transition:color .15s;}
+        .home-section-more:hover{color:var(--text);}
+        /* Guru 홈 스켈레톤 */
+        .guru-home-skel-card{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);}
+        .guru-home-skel-card:last-child{border-bottom:none;}
+        .guru-skel-avatar{width:44px;height:44px;border-radius:50%;flex-shrink:0;}
+        .guru-skel-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;}
+        .guru-skel-name{height:13px;border-radius:4px;width:50%;}
+        .guru-skel-manager{height:11px;border-radius:4px;width:35%;}
+        .guru-skel-chips{display:flex;gap:6px;margin-top:2px;}
+        .guru-skel-chip{height:18px;border-radius:6px;width:52px;}
+        .guru-skel-aum{width:44px;height:14px;border-radius:4px;flex-shrink:0;}
         .guru-home-emoji{font-size:28px;line-height:1;flex-shrink:0;width:44px;height:44px;display:flex;align-items:center;justify-content:center;}
         .guru-photo{width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--bg3);display:block;}
         .guru-photo-lg{width:56px;height:56px;}
@@ -6412,7 +6425,21 @@
         const list = document.getElementById('guruHomeList');
         if (!sec || !list) return;
         sec.style.display = '';
-        list.innerHTML = '<div class="swing-empty">불러오는 중...</div>';
+        // 스켈레톤 UI — guru-home-card 레이아웃과 동일한 구조
+        const guruSkel = `<div class="guru-home-skel-card">
+            <div class="guru-skel-avatar skel-block"></div>
+            <div class="guru-skel-info">
+                <div class="guru-skel-name skel-block"></div>
+                <div class="guru-skel-manager skel-block"></div>
+                <div class="guru-skel-chips">
+                    <div class="guru-skel-chip skel-block"></div>
+                    <div class="guru-skel-chip skel-block"></div>
+                    <div class="guru-skel-chip skel-block"></div>
+                </div>
+            </div>
+            <div class="guru-skel-aum skel-block"></div>
+        </div>`;
+        list.innerHTML = guruSkel.repeat(5);
         try {
             const r = await fetch('/api/guru');
             if (!r.ok) throw new Error('HTTP ' + r.status);
