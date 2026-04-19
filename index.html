@@ -168,6 +168,8 @@
         .top100-change.flat{color:var(--text3);}
         .top100-vol{font-size:11px;color:var(--text3);font-weight:600;text-align:right;}
         .top100-loading{text-align:center;padding:60px 0;color:var(--text3);font-size:14px;}
+        .top100-more-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:13px 0;margin-top:4px;border:1px dashed var(--border);border-radius:var(--r3);background:transparent;color:var(--text3);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;font-family:inherit;}
+        .top100-more-btn:hover{border-color:var(--blue);color:var(--blue);background:rgba(59,130,246,.06);}
         /* ===== MARKET WEATHER BAR ===== */
         .mw-bar{display:flex;gap:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0 16px 12px;}
         .mw-bar::-webkit-scrollbar{display:none;}
@@ -3368,20 +3370,72 @@
             <div>#</div><div>종목</div><div style="text-align:right">현재가</div><div style="text-align:right">등락률</div><div style="text-align:right">거래량</div>
         </div>`;
 
-        items.forEach((q, i) => {
+        const INITIAL_LIMIT = 30;
+        _top100AllItems = items; // 더 보기용 전체 데이터 저장
+
+        const buildRow = (q, i) => {
             const symbol = q.symbol || '';
             const name = q.shortName || q.longName || symbol;
             const price = q.regularMarketPrice;
             const chg = q.regularMarketChangePercent;
             const vol = q.regularMarketVolume;
-
             const chgCls = chg > 0 ? 'up' : chg < 0 ? 'down' : 'flat';
             const chgText = chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '-';
             const priceText = price != null ? `$${price.toFixed(2)}` : '-';
             const rankCls = i < 3 ? 'top3' : '';
-
-            html += `<div class="top100-row" onclick="quickSearch('${symbol}','US')">
+            return `<div class="top100-row" onclick="quickSearch('${symbol}','US')">
                 <div class="top100-rank ${rankCls}">${i + 1}</div>
+                <div class="top100-info">
+                    <div class="top100-symbol">${symbol}</div>
+                    <div class="top100-name">${name}</div>
+                </div>
+                <div class="top100-price">${priceText}</div>
+                <div class="top100-change ${chgCls}">${chgText}</div>
+                <div class="top100-vol">${fmtVol(vol)}</div>
+            </div>`;
+        };
+
+        const visible = items.slice(0, INITIAL_LIMIT);
+        const rest = items.slice(INITIAL_LIMIT);
+
+        visible.forEach((q, i) => { html += buildRow(q, i); });
+
+        if (rest.length > 0) {
+            html += `<button class="top100-more-btn" id="top100MoreBtn" onclick="showMoreTop100()">
+                나머지 ${rest.length}개 더 보기 ↓
+            </button>`;
+        }
+
+        grid.innerHTML = html;
+    }
+
+    let _top100AllItems = [];
+    function showMoreTop100() {
+        const grid = document.getElementById('top100Grid');
+        const btn  = document.getElementById('top100MoreBtn');
+        if (!grid || !btn || !_top100AllItems.length) return;
+
+        const fmtVol = v => {
+            if (v == null) return '-';
+            if (v >= 1e9) return (v/1e9).toFixed(1) + 'B';
+            if (v >= 1e6) return (v/1e6).toFixed(1) + 'M';
+            if (v >= 1e3) return (v/1e3).toFixed(0) + 'K';
+            return v.toLocaleString();
+        };
+
+        let extra = '';
+        _top100AllItems.slice(30).forEach((q, i) => {
+            const idx = 30 + i;
+            const symbol = q.symbol || '';
+            const name = q.shortName || q.longName || symbol;
+            const price = q.regularMarketPrice;
+            const chg = q.regularMarketChangePercent;
+            const vol = q.regularMarketVolume;
+            const chgCls = chg > 0 ? 'up' : chg < 0 ? 'down' : 'flat';
+            const chgText = chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '-';
+            const priceText = price != null ? `$${price.toFixed(2)}` : '-';
+            extra += `<div class="top100-row" onclick="quickSearch('${symbol}','US')">
+                <div class="top100-rank">${idx + 1}</div>
                 <div class="top100-info">
                     <div class="top100-symbol">${symbol}</div>
                     <div class="top100-name">${name}</div>
@@ -3392,7 +3446,7 @@
             </div>`;
         });
 
-        grid.innerHTML = html;
+        btn.outerHTML = extra;
     }
 
     // ========================================
@@ -13227,7 +13281,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         loadPremarketScanner, renderPremarketScanner,
         loadSwingRadar, renderSwingRadar,
         loadMarketThermometer, renderAIRecommend, loadAIRecommend, renderAIRecommendCards, openAIRecModal, closeAIRecModal, loadFavSummary,
-        loadHotStocks, switchHotTab, renderHotStocks,
+        loadHotStocks, switchHotTab, renderHotStocks, showMoreTop100,
         saveRecentStock, loadRecentStocks,
         loadVolAlert,
         loadNewsTab, reloadNewsTab, renderNewsList, _newsTimeAgo,
