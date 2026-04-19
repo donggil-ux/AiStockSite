@@ -6144,17 +6144,28 @@
     }
 
     // 인물 아바타: photo_url 있으면 <img>, 실패/없음 → 이모지 폴백
+    // 이미지 로드 실패 시 이모지로 교체 (onerror 속성 이스케이프 없이 전역 함수로 분리)
+    function _guruImgErr(el) {
+        const emoji = el.dataset.emoji || '💎';
+        const lg = el.classList.contains('guru-photo-lg');
+        const div = document.createElement('div');
+        div.className = 'guru-home-emoji';
+        if (lg) div.style.cssText = 'font-size:40px;width:56px;height:56px';
+        div.textContent = emoji;
+        if (el.parentNode) el.parentNode.replaceChild(div, el);
+    }
+
     function _guruAvatar(g, lg) {
         const cls = 'guru-photo' + (lg ? ' guru-photo-lg' : '');
         const emoji = g.emoji || '💎';
         if (!g.photo_url) {
-            return `<div class="guru-home-emoji"${lg ? ' style="font-size:40px;width:56px;height:56px"' : ''}>${emoji}</div>`;
+            const sty = lg ? ' style="font-size:40px;width:56px;height:56px"' : '';
+            return `<div class="guru-home-emoji"${sty}>${emoji}</div>`;
         }
-        const safeUrl = escHtml(g.photo_url);
-        const alt = escHtml(g.manager || g.name || '');
+        const safeUrl   = escHtml(g.photo_url);
+        const alt       = escHtml(g.manager || g.name || '');
         const safeEmoji = escHtml(emoji);
-        const sz = lg ? 'font-size:40px;width:56px;height:56px' : '';
-        return `<img src="${safeUrl}" class="${cls}" alt="${alt}" loading="lazy" referrerpolicy="no-referrer" data-emoji="${safeEmoji}" onerror="this.outerHTML='&lt;div class=&quot;guru-home-emoji&quot; style=&quot;${sz}&quot;&gt;'+this.dataset.emoji+'&lt;/div&gt;'"/>`;
+        return `<img src="${safeUrl}" class="${cls}" alt="${alt}" data-emoji="${safeEmoji}" onerror="_guruImgErr(this)"/>`;
     }
 
     // 개별 Guru 크롤링 재시도 (관리자 토큰 없이 — 실패 시 안내)
@@ -13194,7 +13205,7 @@
         closeSideNav, toggleSideNav, openSideNav, goHome, goSmartMoney,
         switchSmTab, smDeepDive, smDeepBack, filterSmHoldings, smChartLink,
         renderGuruReal, guruDeepDiveReal, guruDeepBack, renderGuruHolders, goSmartMoneyAndOpen,
-        loadGuruHome, goSmartMoneyAndOpenReal, guruRefresh,
+        loadGuruHome, goSmartMoneyAndOpenReal, guruRefresh, _guruImgErr,
         setMarket, searchStock, setChartInterval, setPeriod,
         quickSearch, toggleFavorite, switchTab, toggleChartFullscreen,
         favSearch, removeFavorite, setTop100Filter,
