@@ -308,6 +308,14 @@
         .hot-reason{font-size:11px;color:var(--text3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
         .hot-sig{font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;flex-shrink:0;background:rgba(34,197,94,.15);color:var(--green);}
         .hot-sig.watch{background:rgba(234,179,8,.15);color:var(--yellow);}
+        /* Hot stocks skeleton */
+        .hot-skel-card{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);}
+        .hot-skel-rank{width:16px;height:14px;border-radius:4px;flex-shrink:0;}
+        .hot-skel-sym{width:42px;height:15px;border-radius:5px;flex-shrink:0;}
+        .hot-skel-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;}
+        .hot-skel-name{height:13px;border-radius:4px;width:55%;}
+        .hot-skel-reason{height:11px;border-radius:4px;width:75%;}
+        .hot-skel-sig{width:34px;height:22px;border-radius:6px;flex-shrink:0;}
         .ai-rec-price{font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px;}
         .ai-rec-chg{font-size:12px;font-weight:600;}
         .ai-badge{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;letter-spacing:.3px;white-space:nowrap;}
@@ -1468,7 +1476,14 @@
         .guru-home-card{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:opacity .12s;}
         .guru-home-card:last-child{border-bottom:none;}
         .guru-home-card:hover{opacity:.8;}
-        .guru-home-emoji{font-size:28px;line-height:1;flex-shrink:0;}
+        .guru-home-emoji{font-size:28px;line-height:1;flex-shrink:0;width:44px;height:44px;display:flex;align-items:center;justify-content:center;}
+        .guru-photo{width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--bg3);display:block;}
+        .guru-photo-lg{width:56px;height:56px;}
+        .guru-empty-tag{font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;background:#3a1f1f;color:#ff8a8a;white-space:nowrap;}
+        [data-theme="light"] .guru-empty-tag{background:#fee2e2;color:#991b1b;}
+        .guru-empty-block{padding:32px 20px;text-align:center;color:var(--text2);background:var(--bg2);border-radius:10px;font-size:13px;line-height:1.7;}
+        .guru-empty-block button{margin-top:10px;padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-weight:600;cursor:pointer;}
+        .guru-card-disabled{opacity:.7;}
         .guru-home-info{flex:1;min-width:0;}
         .guru-home-name{font-size:13px;font-weight:700;color:var(--text);}
         .guru-home-manager{font-size:11px;color:var(--text-secondary);margin-top:1px;}
@@ -3686,7 +3701,17 @@
         const sec = document.getElementById('hotStocksSection');
         const el  = document.getElementById('hotStocksList');
         if (!el) return;
-        el.innerHTML = '<div class="swing-empty">로딩 중...</div>';
+        // 스켈레톤 UI — hot-card 레이아웃과 동일한 구조
+        const skelCard = `<div class="hot-skel-card">
+            <div class="hot-skel-rank skel-block"></div>
+            <div class="hot-skel-sym skel-block"></div>
+            <div class="hot-skel-info">
+                <div class="hot-skel-name skel-block"></div>
+                <div class="hot-skel-reason skel-block"></div>
+            </div>
+            <div class="hot-skel-sig skel-block"></div>
+        </div>`;
+        el.innerHTML = skelCard.repeat(5);
         try {
             const res = await fetch('/api/hot-stocks');
             if (!res.ok) throw new Error('fetch failed');
@@ -6105,6 +6130,42 @@
         return `<span class="guru-badge ${b.cls}">${b.label}</span>`;
     }
 
+    // 인물 아바타: photo_url 있으면 <img>, 실패/없음 → 이모지 폴백
+    function _guruAvatar(g, lg) {
+        const cls = 'guru-photo' + (lg ? ' guru-photo-lg' : '');
+        const emoji = g.emoji || '💎';
+        if (!g.photo_url) {
+            return `<div class="guru-home-emoji"${lg ? ' style="font-size:40px;width:56px;height:56px"' : ''}>${emoji}</div>`;
+        }
+        const safeUrl = escHtml(g.photo_url);
+        const alt = escHtml(g.manager || g.name || '');
+        const safeEmoji = escHtml(emoji);
+        const sz = lg ? 'font-size:40px;width:56px;height:56px' : '';
+        return `<img src="${safeUrl}" class="${cls}" alt="${alt}" loading="lazy" referrerpolicy="no-referrer" data-emoji="${safeEmoji}" onerror="this.outerHTML='&lt;div class=&quot;guru-home-emoji&quot; style=&quot;${sz}&quot;&gt;'+this.dataset.emoji+'&lt;/div&gt;'"/>`;
+    }
+
+    // 개별 Guru 크롤링 재시도 (관리자 토큰 없이 — 실패 시 안내)
+    async function guruRefresh(cik) {
+        if (!cik) return;
+        if (!confirm('이 Guru의 13F 데이터를 다시 수집할까요?\n(수 초 ~ 수 분 소요)')) return;
+        try {
+            const r = await fetch('/api/guru-refresh/' + cik, { method: 'POST' });
+            if (r.status === 401 || r.status === 403) {
+                alert('관리자 토큰이 필요합니다. 서버 관리자에게 문의해 주세요.');
+                return;
+            }
+            const j = await r.json();
+            if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
+            alert(`수집 완료: ${j.positions || 0}개 포지션`);
+            _guruCache.list = null;
+            _guruCache.ts = 0;
+            if (document.getElementById('smPanelReal')?.classList.contains('active')) renderGuruReal();
+            loadGuruHome();
+        } catch (e) {
+            alert('수집 실패: ' + e.message);
+        }
+    }
+
     async function renderGuruReal() {
         const panel = document.getElementById('smPanelReal');
         if (!panel) return;
@@ -6132,24 +6193,34 @@
             return;
         }
         panel.innerHTML = list.map(g => {
+            const isEmpty = g.data_status === 'empty' || (!g.aum_usd && !(g.top3 && g.top3.length));
             const top3 = (g.top3 || []).map(t =>
                 `<span class="sm-sector-tag">${escHtml(t.ticker)} ${(t.weight||0).toFixed(1)}%</span>`
             ).join('');
-            const aum = _guruFmtUSD(g.aum_usd);
+            const aum = isEmpty ? '' : _guruFmtUSD(g.aum_usd);
             const filed = g.last_filed_at ? g.last_filed_at : '—';
-            return `<div class="sm-inst-card" onclick="guruDeepDiveReal('${g.cik}')">
+            const clickHandler = isEmpty
+                ? `onclick="alert('13F 데이터가 아직 수집되지 않았습니다.\\n잠시 후 다시 시도해 주세요.')"`
+                : `onclick="guruDeepDiveReal('${g.cik}')"`;
+            const rightCol = isEmpty
+                ? `<div style="text-align:right;flex-shrink:0"><span class="guru-empty-tag">데이터 없음</span></div>`
+                : `<div style="text-align:right;flex-shrink:0">
+                        <div style="font-size:14px;font-weight:700">${aum}</div>
+                        <div style="font-size:10px;color:var(--text-secondary)">AUM · ${filed}</div>
+                    </div>`;
+            const bottom = isEmpty
+                ? `<div style="margin-top:8px;font-size:11px;color:#ff8a8a">⚠️ 최근 13F 공시 데이터를 불러오지 못했습니다.</div>`
+                : `<div class="sm-sector-tags" style="margin-top:8px">${top3 || '<span style="color:var(--text-secondary);font-size:11px">보유 종목 없음</span>'}</div>`;
+            return `<div class="sm-inst-card ${isEmpty ? 'guru-card-disabled' : ''}" ${clickHandler}>
                 <div class="sm-inst-header">
-                    <div class="sm-inst-rank" style="font-size:28px">${g.emoji || '💎'}</div>
+                    <div class="sm-inst-rank" style="display:flex;align-items:center;justify-content:center">${_guruAvatar(g, true)}</div>
                     <div class="sm-inst-info">
                         <div class="sm-inst-name">${escHtml(g.name)}</div>
                         <div class="sm-inst-manager">${escHtml(g.manager || '')}</div>
                     </div>
-                    <div style="text-align:right;flex-shrink:0">
-                        <div style="font-size:14px;font-weight:700">${aum}</div>
-                        <div style="font-size:10px;color:var(--text-secondary)">AUM · ${filed}</div>
-                    </div>
+                    ${rightCol}
                 </div>
-                <div class="sm-sector-tags" style="margin-top:8px">${top3 || '<span style="color:var(--text-secondary);font-size:11px">보유 종목 없음</span>'}</div>
+                ${bottom}
             </div>`;
         }).join('');
     }
@@ -6201,15 +6272,18 @@
         ).join('');
 
         const rows = positions.map((p, i) => {
-            const ticker = p.ticker ? `<a href="#" onclick="event.preventDefault();smChartLink('${p.ticker}',0,'${escHtml(meta.name||'Guru')}')" style="color:var(--accent);font-weight:600">${escHtml(p.ticker)}</a>`
-                                     : `<span style="color:var(--text-secondary)">—</span>`;
+            const shortName = (p.name || '').replace(/ (CORP|INC|LTD|PLC|CO|GROUP|HOLDINGS|TECHNOLOGIES|TECHNOLOGY|INTERNATIONAL|BANCSHARES|FINANCIAL)\.?$/i, '').slice(0, 22);
+            const ticker = p.ticker
+                ? `<a href="#" onclick="event.preventDefault();smChartLink('${p.ticker}',0,'${escHtml(meta.name||'Guru')}')" style="color:var(--accent);font-weight:700;font-size:13px">${escHtml(p.ticker)}</a>`
+                : `<span style="color:var(--text);font-weight:700;font-size:12px" title="${escHtml(p.name||'')}">${escHtml(shortName)}</span>`;
+            const subName = p.ticker ? `<div style="font-size:10px;color:var(--text-secondary)">${escHtml((p.name||'').slice(0,30))}</div>` : '';
             const deltaShares = (p.prev_shares != null && p.shares != null) ? (p.shares - p.prev_shares) : 0;
             const deltaStr = deltaShares === 0 ? '—' :
                 deltaShares > 0 ? `<span style="color:#22c55e">+${_guruFmtShares(deltaShares)}</span>` :
                 `<span style="color:#ef4444">${_guruFmtShares(deltaShares)}</span>`;
             return `<tr>
                 <td style="font-size:10px;color:var(--text-secondary)">${i+1}</td>
-                <td>${ticker}<div style="font-size:10px;color:var(--text-secondary)">${escHtml((p.name||'').slice(0,30))}</div></td>
+                <td>${ticker}${subName}</td>
                 <td style="text-align:right;font-weight:600">${Number(p.weight||0).toFixed(2)}%</td>
                 <td style="text-align:right">${_guruFmtUSD(p.value_usd)}</td>
                 <td style="text-align:right">${_guruFmtShares(p.shares)}</td>
@@ -6221,7 +6295,7 @@
         deep.innerHTML = `<div class="sm-deep-wrap">
             <button class="sm-back-btn" onclick="guruDeepBack()">← 돌아가기</button>
             <div class="sm-deep-header" style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
-                <div style="font-size:40px">${meta.emoji || '💎'}</div>
+                ${_guruAvatar(meta, true)}
                 <div style="flex:1">
                     <div style="font-size:20px;font-weight:700">${escHtml(meta.name)}</div>
                     <div style="font-size:12px;color:var(--text-secondary)">${escHtml(meta.manager || '')} · CIK ${meta.cik}</div>
@@ -6249,7 +6323,11 @@
                     </tr></thead>
                     <tbody>${rows}</tbody>
                 </table>
-            </div>` : `<div style="padding:30px;text-align:center;color:var(--text-secondary)">해당 분기 보유 종목이 없습니다.</div>`}
+            </div>` : `<div class="guru-empty-block">
+                📭 최근 13F 공시 데이터를 불러오지 못했습니다.<br>
+                <span style="font-size:11px;opacity:.7">SEC EDGAR에서 13F-HR 폼을 찾지 못했거나, 아직 크롤링되지 않았습니다.</span><br>
+                <button onclick="guruRefresh('${meta.cik}')">다시 수집</button>
+            </div>`}
         </div>`;
     }
 
@@ -6339,25 +6417,37 @@
             const r = await fetch('/api/guru');
             if (!r.ok) throw new Error('HTTP ' + r.status);
             const gurus = await r.json();
-            // aum_usd 또는 top3 있는 것만, 최대 5명
-            const filtered = gurus.filter(g => g.aum_usd || g.top3?.length).slice(0, 5);
-            if (!filtered.length) {
+            if (!gurus.length) {
                 list.innerHTML = '<div class="swing-empty">데이터 준비 중</div>';
                 return;
             }
-            list.innerHTML = filtered.map(g => {
-                const aum = g.aum_usd ? _guruFmtUSD(g.aum_usd) : '—';
+            // 데이터 있는 것 우선, 부족하면 빈 카드로 채워 총 5개
+            const withData = gurus.filter(g => g.aum_usd || (g.top3 && g.top3.length));
+            const empty = gurus.filter(g => !(g.aum_usd || (g.top3 && g.top3.length)));
+            const picked = withData.slice(0, 5);
+            while (picked.length < 5 && empty.length) picked.push(empty.shift());
+            list.innerHTML = picked.map(g => {
+                const isEmpty = !(g.aum_usd || (g.top3 && g.top3.length));
+                const rightCol = isEmpty
+                    ? `<span class="guru-empty-tag">데이터 없음</span>`
+                    : `<div class="guru-home-aum">${_guruFmtUSD(g.aum_usd)}</div>`;
                 const chips = (g.top3 || [])
                     .map(t => `<span class="guru-home-chip">${escHtml(t.ticker)} ${Number(t.weight).toFixed(1)}%</span>`)
                     .join('');
-                return `<div class="guru-home-card" onclick="goSmartMoneyAndOpen('${g.cik}')">
-                    <div class="guru-home-emoji">${g.emoji || '💎'}</div>
+                const body = isEmpty
+                    ? `<div style="font-size:11px;color:#ff8a8a;margin-top:4px">⚠️ 13F 데이터를 불러오지 못했습니다</div>`
+                    : (chips ? `<div class="guru-home-holdings">${chips}</div>` : '');
+                const handler = isEmpty
+                    ? `onclick="alert('13F 데이터가 아직 수집되지 않았습니다.\\n잠시 후 다시 시도해 주세요.')"`
+                    : `onclick="goSmartMoneyAndOpen('${g.cik}')"`;
+                return `<div class="guru-home-card ${isEmpty ? 'guru-card-disabled' : ''}" ${handler}>
+                    ${_guruAvatar(g)}
                     <div class="guru-home-info">
                         <div class="guru-home-name">${escHtml(g.name)}</div>
                         <div class="guru-home-manager">${escHtml(g.manager || '')}</div>
-                        ${chips ? `<div class="guru-home-holdings">${chips}</div>` : ''}
+                        ${body}
                     </div>
-                    <div class="guru-home-aum">${aum}</div>
+                    ${rightCol}
                 </div>`;
             }).join('');
         } catch (e) {
@@ -13077,7 +13167,7 @@
         closeSideNav, toggleSideNav, openSideNav, goHome, goSmartMoney,
         switchSmTab, smDeepDive, smDeepBack, filterSmHoldings, smChartLink,
         renderGuruReal, guruDeepDiveReal, guruDeepBack, renderGuruHolders, goSmartMoneyAndOpen,
-        loadGuruHome, goSmartMoneyAndOpenReal,
+        loadGuruHome, goSmartMoneyAndOpenReal, guruRefresh,
         setMarket, searchStock, setChartInterval, setPeriod,
         quickSearch, toggleFavorite, switchTab, toggleChartFullscreen,
         favSearch, removeFavorite, setTop100Filter,

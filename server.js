@@ -1371,7 +1371,7 @@ app.get('/api/guru', async (_req, res) => {
     try {
         const { data: gurus, error } = await supabase
             .from('guru')
-            .select('cik,name,manager,emoji,tags,aum_usd,last_filed_at')
+            .select('*')
             .order('aum_usd', { ascending: false, nullsFirst: false });
         if (error) throw new Error(error.message);
 
@@ -1390,7 +1390,13 @@ app.get('/api/guru', async (_req, res) => {
                 .filter(t => t.quarter === latestQ && t.ticker)
                 .slice(0, 3)
                 .map(t => ({ ticker: t.ticker, weight: t.weight }));
-            out.push({ ...g, top3, latest_quarter: latestQ });
+            const hasData = !!(g.aum_usd || (top3 && top3.length));
+            out.push({
+                ...g,
+                top3,
+                latest_quarter: latestQ,
+                data_status: hasData ? 'ok' : 'empty',
+            });
         }
         res.json(out);
     } catch (e) {
@@ -1443,6 +1449,51 @@ app.get('/api/guru/:cik/positions', async (req, res) => {
             .order('weight', { ascending: false });
         if (error) throw new Error(error.message);
         res.json({ quarter, positions: data || [] });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ──────── POST: null-ticker CUSIP 일괄 재조회 (관리자) ────────
+app.post('/api/guru-fix-tickers', async (req, res) => {
+    const token = req.headers['x-admin-token'];
+    if (process.env.ADMIN_TOKEN && token !== process.env.ADMIN_TOKEN) {
+        return res.status(403).json({ error: 'forbidden' });
+    }
+    const supabase = getSupabase();
+    if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+    try {
+        // 1) null-ticker cusip_ticker 캐시 항목 삭제 (재조회 허용)
+        await supabase.from('cusip_ticker').delete().is('ticker', null);
+
+        // 2) guru_position에서 ticker IS NULL인 CUSIP 목록 수집
+        const { data: rows } = await supabase
+            .from('guru_position')
+            .select('cusip')
+            .is('ticker', null)
+            .not('cusip', 'is', null);
+
+        const cusips = [...new Set((rows || []).map(r => r.cusip).filter(Boolean))];
+        if (!cusips.length) return res.json({ ok: true, resolved: 0, total: 0 });
+
+        console.log(`[fix-tickers] ${cusips.length}개 CUSIP 재조회 시작`);
+
+        // 3) OpenFIGI 재조회 (cusipToTicker가 배치 처리)
+        const mapping = await cusipToTicker(cusips);
+
+        // 4) guru_position 업데이트
+        let resolved = 0;
+        for (const [cusip, rec] of Object.entries(mapping)) {
+            if (!rec || !rec.ticker) continue;
+            const { error } = await supabase
+                .from('guru_position')
+                .update({ ticker: rec.ticker, name: rec.name || undefined })
+                .eq('cusip', cusip)
+                .is('ticker', null);
+            if (!error) resolved++;
+        }
+        console.log(`[fix-tickers] 완료: ${resolved}/${cusips.length} 해결`);
+        res.json({ ok: true, resolved, total: cusips.length });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
