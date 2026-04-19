@@ -1465,6 +1465,16 @@
         .sm-deep-header{display:flex;align-items:center;gap:10px;padding:4px 0 16px 0;border-bottom:1px solid var(--border);margin-bottom:14px;}
         /* Guru (SEC EDGAR 13F 실데이터) 상태 뱃지 */
         .guru-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;white-space:nowrap;line-height:1.4;}
+        .guru-home-card{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:opacity .12s;}
+        .guru-home-card:last-child{border-bottom:none;}
+        .guru-home-card:hover{opacity:.8;}
+        .guru-home-emoji{font-size:28px;line-height:1;flex-shrink:0;}
+        .guru-home-info{flex:1;min-width:0;}
+        .guru-home-name{font-size:13px;font-weight:700;color:var(--text);}
+        .guru-home-manager{font-size:11px;color:var(--text-secondary);margin-top:1px;}
+        .guru-home-holdings{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;}
+        .guru-home-chip{font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;background:var(--bg3);color:var(--text2);}
+        .guru-home-aum{font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text);text-align:right;flex-shrink:0;}
         .guru-badge.new{background:#d1fae5;color:#065f46;}
         .guru-badge.add{background:#dbeafe;color:#1e40af;}
         .guru-badge.reduce{background:#fef3c7;color:#92400e;}
@@ -1835,6 +1845,18 @@
 
         <!-- Vision Scanner 진입 카드 (홈에서 숨김) -->
 
+        <!-- 💎 부자 포트폴리오 홈 프리뷰 -->
+        <section id="guruHomeSection" class="home-section" style="display:none">
+            <div class="home-section-header">
+                <div class="home-section-title">
+                    💎 부자 포트폴리오
+                    <span class="hs-badge green">13F</span>
+                </div>
+                <button class="home-section-more" onclick="goSmartMoneyAndOpenReal()">전체 보기 →</button>
+            </div>
+            <div id="guruHomeList"></div>
+        </section>
+
         <!-- 미국주식 인기 TOP 100 -->
         <div class="top100-section">
             <div class="top100-header">
@@ -1868,7 +1890,7 @@
         <div class="sm-sub-tabs">
             <button class="sm-sub-tab active" id="smTabTop10" onclick="switchSmTab('top10')">🔥 폼 미친 기관들</button>
             <button class="sm-sub-tab" id="smTabGuru" onclick="switchSmTab('guru')">🏛️ 월가 킹덤</button>
-            <button class="sm-sub-tab" id="smTabReal" onclick="switchSmTab('real')">💎 Guru</button>
+            <button class="sm-sub-tab" id="smTabReal" onclick="switchSmTab('real')">💎 부자 포트폴리오</button>
         </div>
         <!-- Panel A: TOP 10 -->
         <div class="sm-panel active" id="smPanelTop10"></div>
@@ -3937,6 +3959,7 @@
         // loadAIRecommend(); // [DISABLED] 쿼터 절약
         loadHotStocks();
         loadFavSummary();
+        loadGuruHome();
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -6087,7 +6110,7 @@
         if (!panel) return;
         const now = Date.now();
         if (!_guruCache.list || now - _guruCache.ts > _GURU_TTL) {
-            panel.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-secondary)">💎 Guru 데이터를 불러오는 중...</div>`;
+            panel.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-secondary)">💎 부자 포트폴리오 데이터를 불러오는 중...</div>`;
             try {
                 const r = await fetch('/api/guru');
                 if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -6095,7 +6118,7 @@
                 _guruCache.ts = now;
             } catch (e) {
                 panel.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-secondary)">
-                    ⚠️ Guru 데이터를 불러올 수 없습니다.<br><small>${escHtml(e.message)}</small>
+                    ⚠️ 부자 포트폴리오 데이터를 불러올 수 없습니다.<br><small>${escHtml(e.message)}</small>
                 </div>`;
                 return;
             }
@@ -6103,7 +6126,7 @@
         const list = _guruCache.list || [];
         if (!list.length) {
             panel.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-secondary)">
-                💎 아직 크롤링된 Guru가 없습니다.<br>
+                💎 아직 크롤링된 부자 포트폴리오가 없습니다.<br>
                 <small style="opacity:.7">관리자가 <code>/api/guru-refresh/:cik</code>로 데이터를 동기화해야 합니다.</small>
             </div>`;
             return;
@@ -6287,7 +6310,7 @@
                 </button>`;
             }).join('');
             box.innerHTML = `<div class="card">
-                <div style="font-size:14px;font-weight:700;margin-bottom:8px">💎 이 종목을 보유 중인 Guru (${list.length}명)</div>
+                <div style="font-size:14px;font-weight:700;margin-bottom:8px">💎 이 종목을 보유 중인 투자 대가 (${list.length}명)</div>
                 <div>${chips}</div>
                 <div style="font-size:10px;color:var(--text-secondary);margin-top:8px">※ 분기 기준, 최대 45일 지연</div>
             </div>`;
@@ -6298,6 +6321,48 @@
     function goSmartMoneyAndOpen(cik) {
         goSmartMoney();
         setTimeout(() => { switchSmTab('real'); guruDeepDiveReal(cik); }, 50);
+    }
+
+    function goSmartMoneyAndOpenReal() {
+        goSmartMoney();
+        setTimeout(() => switchSmTab('real'), 50);
+    }
+
+    // 홈 화면 부자 포트폴리오 프리뷰
+    async function loadGuruHome() {
+        const sec  = document.getElementById('guruHomeSection');
+        const list = document.getElementById('guruHomeList');
+        if (!sec || !list) return;
+        sec.style.display = '';
+        list.innerHTML = '<div class="swing-empty">불러오는 중...</div>';
+        try {
+            const r = await fetch('/api/guru');
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const gurus = await r.json();
+            // aum_usd 또는 top3 있는 것만, 최대 5명
+            const filtered = gurus.filter(g => g.aum_usd || g.top3?.length).slice(0, 5);
+            if (!filtered.length) {
+                list.innerHTML = '<div class="swing-empty">데이터 준비 중</div>';
+                return;
+            }
+            list.innerHTML = filtered.map(g => {
+                const aum = g.aum_usd ? _guruFmtUSD(g.aum_usd) : '—';
+                const chips = (g.top3 || [])
+                    .map(t => `<span class="guru-home-chip">${escHtml(t.ticker)} ${Number(t.weight).toFixed(1)}%</span>`)
+                    .join('');
+                return `<div class="guru-home-card" onclick="goSmartMoneyAndOpen('${g.cik}')">
+                    <div class="guru-home-emoji">${g.emoji || '💎'}</div>
+                    <div class="guru-home-info">
+                        <div class="guru-home-name">${escHtml(g.name)}</div>
+                        <div class="guru-home-manager">${escHtml(g.manager || '')}</div>
+                        ${chips ? `<div class="guru-home-holdings">${chips}</div>` : ''}
+                    </div>
+                    <div class="guru-home-aum">${aum}</div>
+                </div>`;
+            }).join('');
+        } catch (e) {
+            list.innerHTML = '<div class="swing-empty">데이터를 불러올 수 없습니다</div>';
+        }
     }
 
     function _smActionLabel(a) {
@@ -13012,6 +13077,7 @@
         closeSideNav, toggleSideNav, openSideNav, goHome, goSmartMoney,
         switchSmTab, smDeepDive, smDeepBack, filterSmHoldings, smChartLink,
         renderGuruReal, guruDeepDiveReal, guruDeepBack, renderGuruHolders, goSmartMoneyAndOpen,
+        loadGuruHome, goSmartMoneyAndOpenReal,
         setMarket, searchStock, setChartInterval, setPeriod,
         quickSearch, toggleFavorite, switchTab, toggleChartFullscreen,
         favSearch, removeFavorite, setTop100Filter,
