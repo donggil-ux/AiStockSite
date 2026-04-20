@@ -577,6 +577,30 @@
         .stock-change.down{color:var(--blue);}
         .stock-change.flat{color:var(--text3);}
 
+        /* ===== 52-WEEK RANGE BAR ===== */
+        .stock-52w{display:none;margin-top:16px;padding:14px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-card);}
+        .stock-52w.show{display:block;}
+        .s52w-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+        .s52w-label{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;}
+        .s52w-insight{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:var(--r-pill);white-space:nowrap;}
+        .s52w-insight.near-high{background:rgba(239,68,68,.15);color:var(--red);}
+        .s52w-insight.bounce{background:rgba(234,179,8,.15);color:var(--yellow);}
+        .s52w-insight.deep-dip{background:rgba(59,130,246,.15);color:var(--blue);}
+        .s52w-insight.new-high{background:rgba(34,197,94,.18);color:var(--green);}
+        .s52w-insight.mid{background:var(--bg3);color:var(--text2);}
+        .s52w-track{position:relative;height:8px;background:linear-gradient(90deg,rgba(59,130,246,.35) 0%,rgba(148,163,184,.25) 50%,rgba(239,68,68,.35) 100%);border-radius:var(--r-pill);margin:18px 0 10px;}
+        .s52w-marker{position:absolute;top:50%;width:14px;height:14px;border-radius:50%;background:var(--text);border:2px solid var(--bg);transform:translate(-50%,-50%);box-shadow:0 0 0 2px var(--text);z-index:2;}
+        .s52w-range{display:flex;justify-content:space-between;font-size:11px;color:var(--text3);font-variant-numeric:tabular-nums;margin-top:4px;}
+        .s52w-range-val{font-weight:700;color:var(--text2);}
+        .s52w-range-date{display:block;font-size:10px;color:var(--text3);font-weight:500;margin-top:1px;}
+        .s52w-stats{display:flex;gap:14px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);}
+        .s52w-stat{flex:1;min-width:0;}
+        .s52w-stat-lab{font-size:10px;font-weight:600;color:var(--text3);letter-spacing:0.05em;text-transform:uppercase;}
+        .s52w-stat-val{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px;letter-spacing:-0.01em;}
+        .s52w-stat-val.up{color:var(--green);}
+        .s52w-stat-val.down{color:var(--red);}
+        .s52w-recover{font-size:10px;color:var(--text3);margin-top:1px;}
+
         /* ===== MARKET SESSION (프리/애프터) ===== */
         .market-session-info{display:none;margin-top:14px;}
         .market-session-info.show{display:flex;gap:10px;flex-wrap:wrap;}
@@ -1737,44 +1761,44 @@
         .btn-pill.sm{padding:8px 18px;font-size:13px;}
         .btn-pill.xs{padding:5px 14px;font-size:12px;}
 
-        /* ---- Step 4: 기존 버튼 → pill 규칙으로 재매핑 ---- */
-        .search-btn{border-radius:var(--r-pill)!important;padding:10px 22px!important;font-weight:500!important;}
-        .pwa-install-btn{border-radius:var(--r-pill)!important;padding:12px 20px!important;font-weight:500!important;}
-        .top100-more-btn{border-radius:var(--r-pill)!important;font-weight:500!important;}
-        .market-btn{border-radius:var(--r-pill)!important;font-weight:500!important;}
-        .hot-tab{border-radius:var(--r-pill)!important;font-weight:500!important;}
-        .top100-filter{border-radius:var(--r-pill)!important;font-weight:500!important;}
-        .hqnav-item{border-radius:var(--r-pill)!important;font-weight:500!important;}
-        .example-chip{border-radius:var(--r-pill)!important;font-weight:500!important;}
-        .fav-star-btn{border-radius:var(--r-pill)!important;font-weight:500!important;}
-        .sm-sub-tab{border-radius:var(--r-pill)!important;font-weight:500!important;}
-        .scanner-btn{border-radius:var(--r-pill)!important;font-weight:500!important;}
-        .rr-auto-btn{border-radius:var(--r-pill)!important;font-weight:500!important;}
-        .news-refresh-btn{border-radius:var(--r-pill)!important;font-weight:500!important;}
-        .tab-order-save{border-radius:var(--r-pill)!important;font-weight:600!important;}
+        /* ---- Step 4: 모든 버튼/탭 클래스 → pill 규칙 ---- */
+        /* 1차: 명시적 pill 타겟 (어떤 특이도도 이기도록 !important) */
+        .search-btn, .pwa-install-btn, .top100-more-btn, .market-btn,
+        .hot-tab, .top100-filter, .hqnav-item, .example-chip, .fav-star-btn,
+        .sm-sub-tab, .scanner-btn, .rr-auto-btn, .news-refresh-btn,
+        .tab-order-save, .ai-generate-btn, .ai-rec-more-btn,
+        .analysis-refresh-btn, .chart-tb-btn, .chart-ai-reader-btn,
+        .chart-toggle-btn, .checklist-toggle-btn,
+        .cp-exec-tab, .cp-insider-tab, .economic-tab, .economic-tab-btn,
+        .history-tab, .options-exp-btn, .options-filter-btn,
+        .rr-tab, .scanner-preset-btn, .sm-back-btn, .sm-hf-btn,
+        .sm-holdings-tab, .trade-style-tab, .draw-color-btn,
+        .draw-tb-btn, .draw-width-btn, .mob-back-btn {
+            border-radius:var(--r-pill)!important;
+            font-weight:500!important;
+        }
         .home-section-more{font-weight:500!important;letter-spacing:0!important;}
-        /* 아이콘 버튼(정사각)은 모양 유지, 반경만 부드럽게 */
+        /* 아이콘 전용 정사각 버튼 — 모양 유지, 반경만 부드럽게 */
         .hamburger-btn{border-radius:12px!important;}
 
-        /* ---- Step 5: 카드/컨테이너 통일 ---- */
-        .sm-inst-card,
-        .guru-home-card,
-        .hot-card,
-        .top100-row,
-        .ai-rec-card,
-        .news-card,
-        .mw-card,
-        .scanner-card{
+        /* ---- Step 5: 모든 카드 클래스 → 20px radius + no shadow ---- */
+        .sm-inst-card, .guru-home-card, .hot-card, .top100-row,
+        .ai-rec-card, .news-card, .mw-card, .scanner-card,
+        .guru-card, .st-card, .options-card, .social-hot-card,
+        .tv-chart-card, .short-chart-card, .cp-shares-card,
+        .entry-card, .ai-summary-card, .sm-top3-add-card,
+        .economic-card, .yt-card {
             border-radius:var(--r-card)!important;
             box-shadow:none!important;
         }
         /* 라이트 테마: 유일한 미묘한 그림자 제거 */
         [data-theme="light"] .card{box-shadow:none!important;}
+        /* yt-card hover 그림자는 유지 — floating interaction 허용 */
+        .yt-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.25)!important;}
 
         /* ---- Step 6: 네비게이션 pill화 ---- */
         .side-nav-item{border-radius:var(--r-pill)!important;font-weight:500!important;}
         .tab-item{font-weight:600!important;letter-spacing:-0.01em;}
-        /* sm-sub-tab은 위 Step 4에서 pill 처리됨 */
 
         /* ---- 반응형: 모바일 pill 버튼 압축 ---- */
         @media(max-width:480px){
@@ -2283,6 +2307,7 @@
         <div class="stock-code" id="stockCode">-</div>
         <div class="stock-price" id="stockPrice">-</div>
         <div class="stock-change" id="stockChange">-</div>
+        <div class="stock-52w" id="stock52w"></div>
         <div class="market-session-info" id="marketSessionInfo"></div>
     </div>
 
@@ -7167,6 +7192,7 @@
 
             // 추가 API 호출이 필요한 것들은 병렬로 실행 (await 안 함 → UI 블로킹 없음)
             fetchMarketSession(symbol);
+            render52WRange(symbol);
             renderFinancialInfo(symbol);
             renderStatisticsInfo(symbol);
             renderStockEarnings(symbol);
@@ -7231,6 +7257,119 @@
             changeEl.className = 'stock-change ' + (change > 0 ? 'up' : change < 0 ? 'down' : 'flat');
         }
         document.getElementById('stockPrice').style.color = change > 0 ? 'var(--red)' : change < 0 ? 'var(--blue)' : 'var(--text)';
+    }
+
+    // ========================================
+    // 52-Week Range (고점/저점 대비 현재 위치)
+    // ========================================
+    async function render52WRange(symbol) {
+        const host = document.getElementById('stock52w');
+        if (!host) return;
+        host.classList.remove('show');
+        host.innerHTML = '';
+
+        try {
+            // 1년치 일봉 차트로 52W high/low + 기록 날짜 계산
+            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1y&interval=1d`;
+            const data = await fetchWithProxy(url);
+            const result = data?.chart?.result?.[0];
+            if (!result) return;
+
+            const timestamps = result.timestamp || [];
+            const closes = (result.indicators?.quote?.[0]?.close || []);
+            const highs  = (result.indicators?.quote?.[0]?.high  || []);
+            const lows   = (result.indicators?.quote?.[0]?.low   || []);
+            const meta = result.meta || {};
+            const current = meta.regularMarketPrice ?? closes.filter(v=>v!=null).slice(-1)[0];
+            if (current == null || !timestamps.length) return;
+
+            // 최고가/최저가 및 인덱스 찾기 (high/low 배열 우선, 없으면 close로 fallback)
+            let hiVal = -Infinity, hiIdx = -1, loVal = Infinity, loIdx = -1;
+            for (let i = 0; i < timestamps.length; i++) {
+                const h = highs[i] ?? closes[i];
+                const l = lows[i]  ?? closes[i];
+                if (h != null && h > hiVal) { hiVal = h; hiIdx = i; }
+                if (l != null && l < loVal) { loVal = l; loIdx = i; }
+            }
+            if (!isFinite(hiVal) || !isFinite(loVal) || hiVal <= loVal) return;
+
+            // 퍼센트 계산
+            const drawdownPct = ((current - hiVal) / hiVal) * 100;    // 고점 대비 (보통 음수)
+            const gainFromLowPct = ((current - loVal) / loVal) * 100; // 저점 대비 (보통 양수)
+            const recoverPct = ((hiVal - current) / current) * 100;   // 전고 회복 필요
+            const posPct = Math.max(0, Math.min(100, ((current - loVal) / (hiVal - loVal)) * 100));
+
+            // 날짜 포맷 (YYYY.MM.DD)
+            const fmtDate = ts => {
+                const d = new Date(ts * 1000);
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${y}.${m}.${day}`;
+            };
+            const fmtPrice = v => {
+                if (currentMarket === 'KR') return Math.round(v).toLocaleString() + '원';
+                return '$' + v.toFixed(2);
+            };
+
+            // 매수 관점 아이콘 결정
+            let insight = null;
+            const daysSinceHigh = hiIdx >= 0 ? (timestamps.length - 1 - hiIdx) : 999;
+            const daysSinceLow  = loIdx >= 0 ? (timestamps.length - 1 - loIdx) : 999;
+
+            if (drawdownPct > -3 && daysSinceHigh <= 5) {
+                insight = { cls: 'new-high', icon: '🚀', text: '신고가 부근' };
+            } else if (drawdownPct > -5) {
+                insight = { cls: 'near-high', icon: '🔺', text: '전고 근접' };
+            } else if (gainFromLowPct >= 15 && daysSinceLow <= 30) {
+                insight = { cls: 'bounce', icon: '🔥', text: '저점 반등 진행' };
+            } else if (drawdownPct <= -30) {
+                insight = { cls: 'deep-dip', icon: '💎', text: '저점 매수 관점' };
+            } else {
+                insight = { cls: 'mid', icon: '·', text: '중간 구간' };
+            }
+
+            const ddSign  = drawdownPct >= 0 ? '+' : '';
+            const gfSign  = gainFromLowPct >= 0 ? '+' : '';
+            const ddCls   = drawdownPct >= 0 ? 'up' : 'down';
+            const gfCls   = gainFromLowPct >= 0 ? 'up' : 'down';
+
+            host.innerHTML = `
+                <div class="s52w-head">
+                    <span class="s52w-label">52주 가격 위치</span>
+                    <span class="s52w-insight ${insight.cls}">${insight.icon} ${insight.text}</span>
+                </div>
+                <div class="s52w-track" title="저점과 고점 사이 현재 위치">
+                    <div class="s52w-marker" style="left:${posPct.toFixed(2)}%"></div>
+                </div>
+                <div class="s52w-range">
+                    <div>
+                        <span class="s52w-range-val">${fmtPrice(loVal)}</span>
+                        <span class="s52w-range-date">${fmtDate(timestamps[loIdx])}</span>
+                    </div>
+                    <div style="text-align:right">
+                        <span class="s52w-range-val">${fmtPrice(hiVal)}</span>
+                        <span class="s52w-range-date">${fmtDate(timestamps[hiIdx])}</span>
+                    </div>
+                </div>
+                <div class="s52w-stats">
+                    <div class="s52w-stat">
+                        <div class="s52w-stat-lab">고점 대비</div>
+                        <div class="s52w-stat-val ${ddCls}">${ddSign}${drawdownPct.toFixed(1)}%</div>
+                        ${drawdownPct < 0 ? `<div class="s52w-recover">회복 필요 +${recoverPct.toFixed(1)}%</div>` : ''}
+                    </div>
+                    <div class="s52w-stat">
+                        <div class="s52w-stat-lab">저점 대비</div>
+                        <div class="s52w-stat-val ${gfCls}">${gfSign}${gainFromLowPct.toFixed(1)}%</div>
+                        <div class="s52w-recover">${daysSinceLow}일 경과</div>
+                    </div>
+                </div>
+            `;
+            host.classList.add('show');
+        } catch (e) {
+            // 조용히 실패 — UI 블로킹 방지
+            console.warn('[52W] render failed:', e?.message || e);
+        }
     }
 
     // ========================================
