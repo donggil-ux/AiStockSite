@@ -3344,6 +3344,49 @@
         }
     }
 
+    // TOP 100 모듈 스코프 상태 — TDZ 회피를 위해 함수 정의보다 먼저 선언
+    var _top100AllItems = [];
+    const _TOP100_INITIAL_LIMIT = 30;
+
+    // 거래량 포맷터 (renderTop100 / showMoreTop100 공유)
+    function _top100FmtVol(v) {
+        if (v == null) return '-';
+        if (v >= 1e9) return (v/1e9).toFixed(1) + 'B';
+        if (v >= 1e6) return (v/1e6).toFixed(1) + 'M';
+        if (v >= 1e3) return (v/1e3).toFixed(0) + 'K';
+        return v.toLocaleString();
+    }
+
+    // 티커 sanitize: onclick 속성에 안전하게 삽입 가능한 문자만 허용
+    // (Yahoo Finance ticker는 [A-Z0-9.\-^=] 범위. 그 외 문자 포함 시 렌더 제외)
+    function _top100SafeTicker(s) {
+        return /^[A-Z0-9.\-^=]{1,15}$/i.test(s) ? s : null;
+    }
+
+    function _top100BuildRow(q, i, opts) {
+        const rawSymbol = q.symbol || '';
+        const symbol = _top100SafeTicker(rawSymbol);
+        if (!symbol) return ''; // 비정상 티커는 렌더 스킵
+        const name = q.shortName || q.longName || symbol;
+        const price = q.regularMarketPrice;
+        const chg = q.regularMarketChangePercent;
+        const vol = q.regularMarketVolume;
+        const chgCls = chg > 0 ? 'up' : chg < 0 ? 'down' : 'flat';
+        const chgText = chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '-';
+        const priceText = price != null ? `$${price.toFixed(2)}` : '-';
+        const rankCls = (opts && opts.showTop3 && i < 3) ? 'top3' : '';
+        return `<div class="top100-row" onclick="quickSearch('${symbol}','US')">
+            <div class="top100-rank ${rankCls}">${i + 1}</div>
+            <div class="top100-info">
+                <div class="top100-symbol">${escHtml(symbol)}</div>
+                <div class="top100-name">${escHtml(name)}</div>
+            </div>
+            <div class="top100-price">${priceText}</div>
+            <div class="top100-change ${chgCls}">${chgText}</div>
+            <div class="top100-vol">${_top100FmtVol(vol)}</div>
+        </div>`;
+    }
+
     function renderTop100(items) {
         const grid = document.getElementById('top100Grid');
         const updatedEl = document.getElementById('top100Updated');
@@ -3357,48 +3400,16 @@
         const now = new Date();
         if (updatedEl) updatedEl.textContent = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')} 업데이트`;
 
-        const fmtVol = v => {
-            if (v == null) return '-';
-            if (v >= 1e9) return (v/1e9).toFixed(1) + 'B';
-            if (v >= 1e6) return (v/1e6).toFixed(1) + 'M';
-            if (v >= 1e3) return (v/1e3).toFixed(0) + 'K';
-            return v.toLocaleString();
-        };
+        _top100AllItems = items; // 더 보기용 전체 데이터 저장
 
-        let html = '';
-        html += `<div class="top100-row top100-row-head">
+        let html = `<div class="top100-row top100-row-head">
             <div>#</div><div>종목</div><div style="text-align:right">현재가</div><div style="text-align:right">등락률</div><div style="text-align:right">거래량</div>
         </div>`;
 
-        const INITIAL_LIMIT = 30;
-        _top100AllItems = items; // 더 보기용 전체 데이터 저장
+        const visible = items.slice(0, _TOP100_INITIAL_LIMIT);
+        const rest = items.slice(_TOP100_INITIAL_LIMIT);
 
-        const buildRow = (q, i) => {
-            const symbol = q.symbol || '';
-            const name = q.shortName || q.longName || symbol;
-            const price = q.regularMarketPrice;
-            const chg = q.regularMarketChangePercent;
-            const vol = q.regularMarketVolume;
-            const chgCls = chg > 0 ? 'up' : chg < 0 ? 'down' : 'flat';
-            const chgText = chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '-';
-            const priceText = price != null ? `$${price.toFixed(2)}` : '-';
-            const rankCls = i < 3 ? 'top3' : '';
-            return `<div class="top100-row" onclick="quickSearch('${symbol}','US')">
-                <div class="top100-rank ${rankCls}">${i + 1}</div>
-                <div class="top100-info">
-                    <div class="top100-symbol">${symbol}</div>
-                    <div class="top100-name">${name}</div>
-                </div>
-                <div class="top100-price">${priceText}</div>
-                <div class="top100-change ${chgCls}">${chgText}</div>
-                <div class="top100-vol">${fmtVol(vol)}</div>
-            </div>`;
-        };
-
-        const visible = items.slice(0, INITIAL_LIMIT);
-        const rest = items.slice(INITIAL_LIMIT);
-
-        visible.forEach((q, i) => { html += buildRow(q, i); });
+        visible.forEach((q, i) => { html += _top100BuildRow(q, i, { showTop3: true }); });
 
         if (rest.length > 0) {
             html += `<button class="top100-more-btn" id="top100MoreBtn" onclick="showMoreTop100()">
@@ -3409,41 +3420,14 @@
         grid.innerHTML = html;
     }
 
-    let _top100AllItems = [];
     function showMoreTop100() {
         const grid = document.getElementById('top100Grid');
         const btn  = document.getElementById('top100MoreBtn');
         if (!grid || !btn || !_top100AllItems.length) return;
 
-        const fmtVol = v => {
-            if (v == null) return '-';
-            if (v >= 1e9) return (v/1e9).toFixed(1) + 'B';
-            if (v >= 1e6) return (v/1e6).toFixed(1) + 'M';
-            if (v >= 1e3) return (v/1e3).toFixed(0) + 'K';
-            return v.toLocaleString();
-        };
-
         let extra = '';
-        _top100AllItems.slice(30).forEach((q, i) => {
-            const idx = 30 + i;
-            const symbol = q.symbol || '';
-            const name = q.shortName || q.longName || symbol;
-            const price = q.regularMarketPrice;
-            const chg = q.regularMarketChangePercent;
-            const vol = q.regularMarketVolume;
-            const chgCls = chg > 0 ? 'up' : chg < 0 ? 'down' : 'flat';
-            const chgText = chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '-';
-            const priceText = price != null ? `$${price.toFixed(2)}` : '-';
-            extra += `<div class="top100-row" onclick="quickSearch('${symbol}','US')">
-                <div class="top100-rank">${idx + 1}</div>
-                <div class="top100-info">
-                    <div class="top100-symbol">${symbol}</div>
-                    <div class="top100-name">${name}</div>
-                </div>
-                <div class="top100-price">${priceText}</div>
-                <div class="top100-change ${chgCls}">${chgText}</div>
-                <div class="top100-vol">${fmtVol(vol)}</div>
-            </div>`;
+        _top100AllItems.slice(_TOP100_INITIAL_LIMIT).forEach((q, i) => {
+            extra += _top100BuildRow(q, _TOP100_INITIAL_LIMIT + i, { showTop3: false });
         });
 
         btn.outerHTML = extra;

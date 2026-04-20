@@ -1456,9 +1456,10 @@ app.get('/api/guru/:cik/positions', async (req, res) => {
 
 // ──────── POST: null-ticker CUSIP 일괄 재조회 (관리자) ────────
 app.post('/api/guru-fix-tickers', async (req, res) => {
-    const token = req.headers['x-admin-token'];
-    if (process.env.ADMIN_TOKEN && token !== process.env.ADMIN_TOKEN) {
-        return res.status(403).json({ error: 'forbidden' });
+    const token = req.get('X-Admin-Token') || req.headers['x-admin-token'];
+    // fail-closed: ADMIN_TOKEN 미설정이면 즉시 거부 (프로덕션 env 누락 방지)
+    if (!process.env.ADMIN_TOKEN || token !== process.env.ADMIN_TOKEN) {
+        return res.status(401).json({ error: 'unauthorized' });
     }
     const supabase = getSupabase();
     if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
