@@ -367,7 +367,9 @@ async function _reasonLoadFromSupabase(symbols) {
         const m = new Map();
         (data || []).forEach(r => {
             const age = now - new Date(r.updated_at).getTime();
-            if (age < REASON_SUPABASE_TTL) m.set(r.symbol, r.text || '');
+            // 25자 이하 = 구버전 22자 잘림 캐시 → TTL 무시하고 재fetch 유도
+            const isTruncated = (r.text || '').length > 0 && (r.text || '').length <= 25;
+            if (age < REASON_SUPABASE_TTL && !isTruncated) m.set(r.symbol, r.text || '');
         });
         return m;
     } catch { return new Map(); }
@@ -386,12 +388,11 @@ function _reasonSaveToSupabase(rows) {
 
 function _shortenReason(text) {
     if (!text) return '';
-    // 특수문자 정리 후 첫 절 / 쉼표 앞부분만 추출, 너무 길면 자름
+    // 특수문자 정리 후 불필요한 접두어 제거 — 전체 제목 반환 (UI에서 표시량 조절)
     let t = String(text).replace(/\s+/g,' ').trim();
     t = t.replace(/^[\[(]?[A-Z0-9.,\s]+[\])]?\s*[:–—-]\s*/,''); // "AAPL: " 같은 접두어 제거
-    t = t.split(/[:·│|—–]/)[0];
-    // 문장 분리: "~ 때문" / "~ 영향" 같은 짧은 한국어 패턴 선호 — 그냥 ~20자 컷
-    if (t.length > 22) t = t.slice(0, 22).trim() + '…';
+    // 200자 초과 시에만 자름 (사실상 전체 제목 유지)
+    if (t.length > 200) t = t.slice(0, 200).trim() + '…';
     return t;
 }
 
