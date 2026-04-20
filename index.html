@@ -1544,6 +1544,51 @@
         .guru-empty-block{padding:32px 20px;text-align:center;color:var(--text2);background:var(--bg2);border-radius:10px;font-size:13px;line-height:1.7;}
         .guru-empty-block button{margin-top:10px;padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-weight:600;cursor:pointer;}
         .guru-card-disabled{opacity:.7;}
+        /* ===== 부자 포트폴리오 Swipe Carousel ===== */
+        .guru-swipe{
+            display:flex;gap:12px;
+            overflow-x:auto;overflow-y:hidden;
+            scroll-snap-type:x mandatory;
+            -webkit-overflow-scrolling:touch;
+            padding:4px 16px 16px;margin:0 -16px;
+            scrollbar-width:none;
+        }
+        .guru-swipe::-webkit-scrollbar{display:none;}
+        .guru-swipe-card{
+            flex:0 0 220px;scroll-snap-align:start;
+            display:flex;flex-direction:column;gap:8px;
+            padding:16px;background:var(--bg2);
+            border:1px solid var(--border);border-radius:var(--r-card);
+            cursor:pointer;min-height:220px;
+            transition:background .2s cubic-bezier(0.4,0,0.2,1),transform .2s cubic-bezier(0.4,0,0.2,1);
+        }
+        .guru-swipe-card:hover{background:var(--bg3);}
+        .guru-swipe-card:active{transform:scale(.98);}
+        .guru-swipe-card .guru-home-emoji,
+        .guru-swipe-card .guru-photo{width:52px;height:52px;font-size:30px;}
+        .guru-swipe-name{font-size:15px;font-weight:500;color:var(--text);letter-spacing:-0.015em;line-height:1.25;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .guru-swipe-manager{font-size:12px;color:var(--text3);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .guru-swipe-card .guru-home-holdings{margin-top:2px;gap:4px;min-height:22px;}
+        .guru-swipe-card .guru-home-chip{font-size:10px;padding:2px 7px;}
+        .guru-swipe-aum{
+            font-size:18px;font-weight:500;letter-spacing:-0.02em;
+            color:var(--text);font-variant-numeric:tabular-nums;
+            margin-top:auto;padding-top:10px;border-top:1px solid var(--border);
+        }
+        .guru-swipe-aum.muted{font-size:12px;font-weight:500;color:var(--text3);}
+        .guru-swipe-empty{font-size:11px;color:#ff8a8a;margin-top:2px;line-height:1.3;}
+        /* Swipe skeleton */
+        .guru-swipe-skel .guru-skel-avatar{width:52px;height:52px;}
+        .guru-swipe-skel .guru-skel-name{height:15px;width:75%;margin-top:6px;}
+        .guru-swipe-skel .guru-skel-manager{height:11px;width:50%;}
+        .guru-swipe-skel .guru-skel-chips{margin-top:4px;}
+        .guru-swipe-skel .guru-skel-aum{width:60%;height:18px;margin-top:auto;}
+        @media(max-width:480px){
+            .guru-swipe-card{flex:0 0 70%;min-height:210px;}
+        }
+        @media(min-width:1024px){
+            .guru-swipe{padding:4px 32px 16px;margin:0 -32px;}
+        }
         .guru-home-info{flex:1;min-width:0;}
         .guru-home-name{font-size:13px;font-weight:700;color:var(--text);}
         .guru-home-manager{font-size:11px;color:var(--text-secondary);margin-top:1px;}
@@ -6854,59 +6899,59 @@
         const list = document.getElementById('guruHomeList');
         if (!sec || !list) return;
         sec.style.display = '';
-        // 스켈레톤 UI — guru-home-card 레이아웃과 동일한 구조
-        const guruSkel = `<div class="guru-home-skel-card">
+        // 스켈레톤 UI — guru-swipe-card 레이아웃과 동일한 세로 구조
+        const guruSkel = `<div class="guru-swipe-card guru-swipe-skel">
             <div class="guru-skel-avatar skel-block"></div>
-            <div class="guru-skel-info">
-                <div class="guru-skel-name skel-block"></div>
-                <div class="guru-skel-manager skel-block"></div>
-                <div class="guru-skel-chips">
-                    <div class="guru-skel-chip skel-block"></div>
-                    <div class="guru-skel-chip skel-block"></div>
-                    <div class="guru-skel-chip skel-block"></div>
-                </div>
+            <div class="guru-skel-name skel-block"></div>
+            <div class="guru-skel-manager skel-block"></div>
+            <div class="guru-skel-chips">
+                <div class="guru-skel-chip skel-block"></div>
+                <div class="guru-skel-chip skel-block"></div>
+                <div class="guru-skel-chip skel-block"></div>
             </div>
             <div class="guru-skel-aum skel-block"></div>
         </div>`;
+        list.className = 'guru-swipe';
         list.innerHTML = guruSkel.repeat(5);
         try {
             const r = await fetch('/api/guru');
             if (!r.ok) throw new Error('HTTP ' + r.status);
             const gurus = await r.json();
             if (!gurus.length) {
+                list.className = '';
                 list.innerHTML = '<div class="swing-empty">데이터 준비 중</div>';
                 return;
             }
-            // 데이터 있는 것 우선, 부족하면 빈 카드로 채워 총 5개
+            // 데이터 있는 것 우선, 부족하면 빈 카드로 채워 총 8개 (스와이프 가독성)
             const withData = gurus.filter(g => g.aum_usd || (g.top3 && g.top3.length));
             const empty = gurus.filter(g => !(g.aum_usd || (g.top3 && g.top3.length)));
-            const picked = withData.slice(0, 5);
-            while (picked.length < 5 && empty.length) picked.push(empty.shift());
+            const picked = withData.slice(0, 8);
+            while (picked.length < 8 && empty.length) picked.push(empty.shift());
             list.innerHTML = picked.map(g => {
                 const isEmpty = !(g.aum_usd || (g.top3 && g.top3.length));
-                const rightCol = isEmpty
-                    ? `<span class="guru-empty-tag">데이터 없음</span>`
-                    : `<div class="guru-home-aum">${_guruFmtUSD(g.aum_usd)}</div>`;
+                const aumBlock = isEmpty
+                    ? `<div class="guru-swipe-aum muted">데이터 없음</div>`
+                    : `<div class="guru-swipe-aum">${_guruFmtUSD(g.aum_usd)}</div>`;
                 const chips = (g.top3 || [])
+                    .slice(0, 3)
                     .map(t => `<span class="guru-home-chip">${escHtml(t.ticker)} ${Number(t.weight).toFixed(1)}%</span>`)
                     .join('');
                 const body = isEmpty
-                    ? `<div style="font-size:11px;color:#ff8a8a;margin-top:4px">⚠️ 13F 데이터를 불러오지 못했습니다</div>`
-                    : (chips ? `<div class="guru-home-holdings">${chips}</div>` : '');
+                    ? `<div class="guru-swipe-empty">⚠️ 13F 데이터 미수집</div>`
+                    : (chips ? `<div class="guru-home-holdings">${chips}</div>` : '<div class="guru-home-holdings"></div>');
                 const handler = isEmpty
                     ? `onclick="alert('13F 데이터가 아직 수집되지 않았습니다.\\n잠시 후 다시 시도해 주세요.')"`
                     : `onclick="goSmartMoneyAndOpen('${g.cik}')"`;
-                return `<div class="guru-home-card ${isEmpty ? 'guru-card-disabled' : ''}" ${handler}>
+                return `<div class="guru-swipe-card ${isEmpty ? 'guru-card-disabled' : ''}" ${handler}>
                     ${_guruAvatar(g)}
-                    <div class="guru-home-info">
-                        <div class="guru-home-name">${escHtml(g.name)}</div>
-                        <div class="guru-home-manager">${escHtml(g.manager || '')}</div>
-                        ${body}
-                    </div>
-                    ${rightCol}
+                    <div class="guru-swipe-name">${escHtml(g.name)}</div>
+                    <div class="guru-swipe-manager">${escHtml(g.manager || '')}</div>
+                    ${body}
+                    ${aumBlock}
                 </div>`;
             }).join('');
         } catch (e) {
+            list.className = '';
             list.innerHTML = '<div class="swing-empty">데이터를 불러올 수 없습니다</div>';
         }
     }
