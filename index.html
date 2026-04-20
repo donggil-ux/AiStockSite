@@ -2115,6 +2115,84 @@
         .hot-card:hover, .top100-row:hover, .ai-rec-card:hover {
             transform:none!important;
         }
+
+        /* ============================================================
+         * Level 8: Smart Money 화면 반응형 최적화 (모바일/태블릿/데스크톱)
+         * ============================================================ */
+
+        /* 컨테이너 — 데스크톱에서 더 넓게, 모바일은 edge-safe */
+        .smart-money-screen{
+            max-width:1200px!important;
+            padding:20px 16px 80px!important;
+        }
+        @media(min-width:768px){
+            .smart-money-screen{padding:28px 24px 100px!important;}
+        }
+        @media(min-width:1024px){
+            .smart-money-screen{padding:32px 32px 120px!important;}
+        }
+
+        /* 스크린 타이틀 — 데스크톱에서 billboard */
+        .sm-screen-title, .vs-screen-title{
+            font-size:22px!important;font-weight:600!important;
+            letter-spacing:-0.02em!important;margin-bottom:6px!important;
+        }
+        @media(min-width:768px){
+            .sm-screen-title, .vs-screen-title{font-size:32px!important;letter-spacing:-0.025em!important;margin-bottom:8px!important;}
+            .sm-screen-sub{font-size:14px!important;margin-bottom:20px!important;}
+        }
+
+        /* 서브 탭 — 데스크톱에서 전체 너비 안 차도록 */
+        .sm-sub-tabs{
+            gap:6px!important;margin-bottom:20px!important;
+            overflow-x:auto;scrollbar-width:none;
+        }
+        .sm-sub-tabs::-webkit-scrollbar{display:none;}
+        .sm-sub-tab{
+            flex:1 1 auto!important;
+            white-space:nowrap;
+        }
+        @media(min-width:768px){
+            .sm-sub-tabs{flex-wrap:wrap;gap:8px!important;}
+            .sm-sub-tab{flex:0 0 auto!important;min-width:140px;}
+        }
+
+        /* 공시 안내 박스 */
+        @media(min-width:768px){
+            .sm-disclaimer{font-size:12px!important;padding:14px 18px!important;}
+        }
+
+        /* 🎯 패널 → 반응형 그리드 (핵심) */
+        .sm-panel.active{
+            display:grid!important;
+            grid-template-columns:1fr;
+            gap:10px;
+        }
+        @media(min-width:640px){
+            .sm-panel.active{
+                grid-template-columns:repeat(2, minmax(0, 1fr));
+                gap:12px;
+            }
+        }
+        @media(min-width:1024px){
+            .sm-panel.active{
+                grid-template-columns:repeat(3, minmax(0, 1fr));
+                gap:16px;
+            }
+        }
+
+        /* 그리드 내부 카드 — margin-bottom 제거 (gap이 대신) + 세로 flex */
+        .sm-panel .sm-inst-card,
+        .sm-panel .guru-card{
+            margin-bottom:0!important;
+            display:flex;flex-direction:column;
+            min-height:100%;
+        }
+        /* 카드 내부 헤더 — 3컬럼 시 avatar/info/aum이 겹치지 않게 flex 유지 */
+        .sm-panel .sm-inst-header{margin-bottom:8px!important;}
+
+        /* Deep dive 섹션은 grid 해제 (단일 콘텐츠) */
+        #smDeep{display:block;}
         /* === END REVOLUT OVERRIDES === */
     </style>
 </head>
