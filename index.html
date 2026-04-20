@@ -1196,8 +1196,40 @@
             /* ----- Cards ----- */
             .card{margin:4px 10px;padding:16px;}
             .card-title{font-size:14px;margin-bottom:12px;}
-            .ai-summary,.ai-detail-text,.entry-subtitle,.entry-check-desc,.warning-box .text,.entry-strategy-label,.top100-name{overflow-wrap:break-word;word-break:keep-all;}
+            .ai-summary,.ai-detail-text,.entry-subtitle,.entry-check-desc,.warning-box .text,.entry-strategy-label{overflow-wrap:break-word;word-break:keep-all;}
             .ai-detail-title{flex-wrap:wrap;gap:4px;}
+
+            /* ----- MOBILE TEXT UNWRAP (… 으로 잘리던 콘텐츠 명칭/이유 전체 노출) ----- */
+            .top100-name,
+            .top100-reason,
+            .fav-item-name,
+            .scanner-name,
+            .swing-name,
+            .ai-rec-name,
+            .ai-rec-modal-name,
+            .hot-name,
+            .hot-reason,
+            .yt-channel,
+            .cp-holder-name,
+            .guru-swipe-name,
+            .guru-swipe-manager,
+            .vs-meta-name {
+                white-space:normal !important;
+                overflow:visible !important;
+                text-overflow:clip !important;
+                overflow-wrap:anywhere;
+                word-break:keep-all;
+                line-height:1.35;
+            }
+            /* Top100 row: 이름이 여러 줄이 되어도 logo/rank/가격이 예쁘게 정렬되도록 상단 정렬 */
+            .top100-row{align-items:start;}
+            .top100-info{justify-content:center;min-width:0;}
+            /* Hot/Swing 가로형 카드: 이름 wrap 시 로고 중앙 정렬 풀어서 상단 기준 정렬 */
+            .hot-card{align-items:flex-start;}
+            .hot-info{min-width:0;flex:1;}
+            /* Swing 행은 grid — 이름 셀만 wrap 허용 */
+            .swing-row{align-items:start;}
+            .swing-info{min-width:0;}
 
             /* ----- Chart ----- */
             .tv-chart-wrap{height:340px;}
