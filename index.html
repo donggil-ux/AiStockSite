@@ -119,12 +119,13 @@
         /* ===== HEADER - 토스증권 스타일 ===== */
         .header{position:sticky;top:0;z-index:1100;background:color-mix(in srgb, var(--bg) 92%, transparent);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);padding:16px 20px 12px;padding-top:calc(16px + env(safe-area-inset-top));}
         .header-top{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
-        /* ===== HEADER QUICK NAV ===== */
-        .header-qnav{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-top:16px;padding-bottom:6px;}
+        /* ===== HEADER QUICK NAV — 탭(Toss 스타일) ===== */
+        .header-qnav{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;margin-top:14px;padding:0;border-bottom:1px solid var(--border);}
         .header-qnav::-webkit-scrollbar{display:none;}
-        .hqnav-item{display:flex;align-items:center;gap:4px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit;transition:all .15s;flex-shrink:0;}
-        .hqnav-item:hover{background:var(--bg4);color:var(--text);}
-        .hqnav-item.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+        .hqnav-item{position:relative;display:inline-flex;align-items:center;gap:6px;padding:10px 14px;border-radius:0;border:none;background:transparent;color:var(--text3);font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;font-family:inherit;transition:color .15s;flex-shrink:0;letter-spacing:-.01em;}
+        .hqnav-item:hover{background:transparent;color:var(--text);}
+        .hqnav-item.active{background:transparent;color:var(--text);font-weight:700;border-color:transparent;}
+        .hqnav-item.active::after{content:'';position:absolute;left:10px;right:10px;bottom:-1px;height:2px;background:var(--text);border-radius:2px 2px 0 0;}
         #mainHeader.stock-loaded .header-qnav{display:none;}
         /* 모바일 뒤로가기 버튼 & 종목명 — 기본 숨김 */
         .mob-back-btn{display:none;align-items:center;justify-content:center;background:none;border:none;color:var(--text);font-size:24px;cursor:pointer;padding:4px;flex-shrink:0;line-height:1;}
@@ -1839,7 +1840,7 @@
         /* ---- Step 4: 모든 버튼/탭 클래스 → pill 규칙 ---- */
         /* 1차: 명시적 pill 타겟 (어떤 특이도도 이기도록 !important) */
         .search-btn, .pwa-install-btn, .top100-more-btn, .market-btn,
-        .hot-tab, .top100-filter, .hqnav-item, .example-chip, .fav-star-btn,
+        .hot-tab, .top100-filter, .example-chip, .fav-star-btn,
         .sm-sub-tab, .scanner-btn, .rr-auto-btn, .news-refresh-btn,
         .tab-order-save, .ai-generate-btn, .ai-rec-more-btn,
         .analysis-refresh-btn, .chart-tb-btn, .chart-ai-reader-btn,
@@ -1893,7 +1894,7 @@
         }
 
         /* Filter chip / Tab chip — 작지만 넉넉한 좌우 여백 */
-        .hot-tab, .top100-filter, .hqnav-item, .example-chip,
+        .hot-tab, .top100-filter, .example-chip,
         .fav-star-btn, .trade-style-tab, .rr-tab,
         .sm-holdings-tab, .sm-sub-tab, .cp-exec-tab, .cp-insider-tab,
         .economic-tab, .history-tab, .scanner-preset-btn {
@@ -1928,7 +1929,7 @@
             .btn-pill.sm{padding:7px 14px;font-size:12px;}
             .search-btn, .pwa-install-btn, .tab-order-save{padding:12px 22px!important;font-size:14px!important;}
             .top100-more-btn, .market-btn, .ai-generate-btn, .ai-rec-more-btn{padding:10px 20px!important;}
-            .hot-tab, .top100-filter, .hqnav-item, .example-chip, .fav-star-btn,
+            .hot-tab, .top100-filter, .example-chip, .fav-star-btn,
             .trade-style-tab, .rr-tab, .sm-holdings-tab, .sm-sub-tab,
             .cp-exec-tab, .cp-insider-tab, .economic-tab, .history-tab, .scanner-preset-btn{
                 padding:7px 14px!important;font-size:12px!important;
@@ -1948,7 +1949,7 @@
         .pwa-install-btn:hover{background:var(--text)!important;color:var(--bg)!important;}
         /* Active 상태: 블루 → near-black */
         .market-btn.active{background:var(--text)!important;color:var(--bg)!important;}
-        .hqnav-item.active{background:var(--text)!important;color:var(--bg)!important;border-color:var(--text)!important;}
+        /* (tab 스타일로 교체됨 — 위 .hqnav-item.active::after underline 규칙 사용) */
         .hot-tab.active{background:var(--text)!important;color:var(--bg)!important;}
         .trade-style-tab.active, .rr-tab.active, .sm-holdings-tab.active,
         .sm-sub-tab.active, .cp-exec-tab.active, .cp-insider-tab.active,
@@ -2309,10 +2310,9 @@
             <button class="hamburger-btn" onclick="toggleSideNav()" title="메뉴">&#9776;</button>
         </div>
         <nav class="header-qnav" id="headerQNav">
-            <button class="hqnav-item active" id="hqHome" onclick="goHome()"><i class="ri-home-5-line"></i> 홈</button>
-            <button class="hqnav-item" id="hqSm" onclick="goSmartMoney()"><i class="ri-briefcase-line"></i> 기관 13F</button>
-            <button class="hqnav-item" id="hqVs" onclick="goVisionScanner()"><i class="ri-search-eye-line"></i> AI 차트판독기</button>
-            <button class="hqnav-item" id="hqEco" onclick="goEconomic()"><i class="ri-bar-chart-2-line"></i> 경제지표</button>
+            <button class="hqnav-item" id="hqSm" onclick="goSmartMoney()">기관 13F</button>
+            <button class="hqnav-item" id="hqVs" onclick="goVisionScanner()">AI 차트판독기</button>
+            <button class="hqnav-item" id="hqEco" onclick="goEconomic()">경제지표</button>
         </nav>
     </header>
 
