@@ -14,6 +14,10 @@
       "use": "@vercel/static"
     },
     {
+      "src": "styles.css",
+      "use": "@vercel/static"
+    },
+    {
       "src": "icon.svg",
       "use": "@vercel/static"
     },
@@ -36,6 +40,11 @@
       "src": "/sw.js",
       "headers": { "Content-Type": "application/javascript", "Cache-Control": "public, max-age=0, must-revalidate" },
       "dest": "/sw.js"
+    },
+    {
+      "src": "/styles.css",
+      "headers": { "Content-Type": "text/css; charset=utf-8", "Cache-Control": "public, max-age=3600, must-revalidate" },
+      "dest": "/styles.css"
     },
     {
       "src": "/icon.svg",

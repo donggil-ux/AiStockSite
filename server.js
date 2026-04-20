@@ -349,8 +349,40 @@ async function translateToKo(text) {
  * - 서버 5분 캐시
  * - 최대 40개 심볼 / 요청
  */
-const _reasonCache = new Map(); // symbol -> { text, ts }
-const REASON_TTL = 5 * 60 * 1000;
+const _reasonCache = new Map(); // symbol -> { text, ts } (메모리)
+const REASON_TTL = 5 * 60 * 1000;           // 메모리 TTL (5분)
+const REASON_SUPABASE_TTL = 6 * 60 * 60 * 1000; // DB TTL (6시간) — 유저 간 공유
+
+// Supabase 에서 캐시 일괄 조회 (없으면 빈 Map)
+async function _reasonLoadFromSupabase(symbols) {
+    const sb = getSupabase();
+    if (!sb || !symbols.length) return new Map();
+    try {
+        const { data, error } = await sb
+            .from('news_reason')
+            .select('symbol,text,updated_at')
+            .in('symbol', symbols);
+        if (error) return new Map();
+        const now = Date.now();
+        const m = new Map();
+        (data || []).forEach(r => {
+            const age = now - new Date(r.updated_at).getTime();
+            if (age < REASON_SUPABASE_TTL) m.set(r.symbol, r.text || '');
+        });
+        return m;
+    } catch { return new Map(); }
+}
+
+// Supabase 업서트 (비동기 fire-and-forget)
+function _reasonSaveToSupabase(rows) {
+    const sb = getSupabase();
+    if (!sb || !rows.length) return;
+    // 비동기 — 응답 차단하지 않음
+    sb.from('news_reason')
+      .upsert(rows, { onConflict: 'symbol' })
+      .then(r => { if (r.error) console.warn('[news-reason] upsert', r.error.message); })
+      .catch(() => {});
+}
 
 function _shortenReason(text) {
     if (!text) return '';
@@ -388,9 +420,38 @@ app.get('/api/news-reason', async (req, res) => {
         .slice(0, 40);
     if (!syms.length) return res.json({});
     try {
-        const entries = await Promise.all(syms.map(async s => [s, await _fetchOneReason(s)]));
+        // 1차: 메모리 캐시에서 필터
+        const now = Date.now();
         const out = {};
-        entries.forEach(([s, t]) => { if (t) out[s] = t; });
+        const missMem = [];
+        syms.forEach(s => {
+            const c = _reasonCache.get(s);
+            if (c && now - c.ts < REASON_TTL) { if (c.text) out[s] = c.text; }
+            else missMem.push(s);
+        });
+
+        // 2차: Supabase 공유 캐시 — 메모리 미스 심볼만 조회 (첫 방문 유저에게 즉시 응답)
+        if (missMem.length) {
+            const sbHit = await _reasonLoadFromSupabase(missMem);
+            sbHit.forEach((text, sym) => {
+                _reasonCache.set(sym, { text, ts: now });
+                if (text) out[sym] = text;
+            });
+        }
+
+        // 3차: 남은 심볼만 Yahoo fetch
+        const missAll = syms.filter(s => !(s in out) && !_reasonCache.has(s));
+        if (missAll.length) {
+            const entries = await Promise.all(missAll.map(async s => [s, await _fetchOneReason(s)]));
+            const upsertRows = [];
+            entries.forEach(([s, t]) => {
+                if (t) out[s] = t;
+                upsertRows.push({ symbol: s, text: t || '', updated_at: new Date().toISOString() });
+            });
+            // Supabase 공유 캐시에 비동기 저장
+            _reasonSaveToSupabase(upsertRows);
+        }
+
         res.json(out);
     } catch (err) {
         console.error('[news-reason]', err.message);

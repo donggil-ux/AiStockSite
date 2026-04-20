@@ -1,5 +1,5 @@
 // StockAI Service Worker
-const CACHE_NAME = 'stockai-v66';
+const CACHE_NAME = 'stockai-v67';
 
 // 클라이언트가 '새로고침' 버튼을 누르면 SKIP_WAITING 메시지 수신 → 즉시 활성화
 self.addEventListener('message', (e) => {
@@ -8,6 +8,7 @@ self.addEventListener('message', (e) => {
 const STATIC_ASSETS = [
   '/',
   '/index.html',
+  '/styles.css',
   '/icon.svg',
   '/manifest.json'
 ];
