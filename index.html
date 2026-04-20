@@ -188,7 +188,7 @@
         .tlogo-wrap{position:relative;width:40px;height:40px;flex-shrink:0;}
         .tlogo{width:40px;height:40px;border-radius:50%;object-fit:cover;background:#fff;display:block;}
         .tlogo-fb{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;color:#fff;font-weight:600;font-size:13px;letter-spacing:-.01em;line-height:1;}
-        .tlogo-flag{position:absolute;right:-2px;bottom:-2px;width:16px;height:16px;border-radius:50%;background:var(--bg2);border:1.5px solid var(--bg2);display:flex;align-items:center;justify-content:center;font-size:10px;overflow:hidden;line-height:1;}
+        .tlogo-flag{position:absolute;right:-3px;bottom:-3px;width:20px;height:20px;border-radius:50%;background:var(--bg2);border:2px solid var(--bg2);display:flex;align-items:center;justify-content:center;font-size:13px;overflow:hidden;line-height:1;}
         [data-theme="light"] .tlogo-flag{background:#fff;border-color:#fff;}
         .top100-info{display:flex;flex-direction:column;gap:2px;min-width:0;}
         .top100-symbol{display:none;}
@@ -1102,7 +1102,7 @@
             .top100-vol{display:none;}
             .tlogo-wrap, .tlogo, .tlogo-fb{width:34px;height:34px;}
             .tlogo-fb{font-size:11px;}
-            .tlogo-flag{width:14px;height:14px;font-size:9px;}
+            .tlogo-flag{width:17px;height:17px;font-size:11px;right:-2px;bottom:-2px;border-width:1.5px;}
             .top100-name{font-size:12.5px;}
             .top100-price{font-size:12.5px;}
             .top100-change{font-size:11.5px;padding:4px 0;}
@@ -3908,6 +3908,61 @@
         return palette[h % palette.length];
     }
 
+    // 티커 → 사업국가 국기 매핑 (미국 상장 ADR/외국법인 도미사일 기준)
+    // 키는 모두 대문자, 미수록 티커는 market 기본값 사용
+    const _TICKER_COUNTRY = {
+        // China
+        'BABA':'🇨🇳','JD':'🇨🇳','PDD':'🇨🇳','BIDU':'🇨🇳','NIO':'🇨🇳','XPEV':'🇨🇳','LI':'🇨🇳',
+        'TME':'🇨🇳','BILI':'🇨🇳','TCOM':'🇨🇳','EDU':'🇨🇳','TAL':'🇨🇳','IQ':'🇨🇳','HUYA':'🇨🇳',
+        'DOYU':'🇨🇳','YMM':'🇨🇳','DIDI':'🇨🇳','ZH':'🇨🇳','WB':'🇨🇳','VIPS':'🇨🇳','ZTO':'🇨🇳',
+        'BEKE':'🇨🇳','DADA':'🇨🇳','FINV':'🇨🇳','LU':'🇨🇳','MNSO':'🇨🇳','GOTU':'🇨🇳','NTES':'🇨🇳',
+        'BZ':'🇨🇳','YY':'🇨🇳','ZLAB':'🇨🇳','JKS':'🇨🇳','DQ':'🇨🇳','LX':'🇨🇳','HTHT':'🇨🇳','EH':'🇨🇳',
+        // Hong Kong / Taiwan / Singapore / Korea / Japan / India
+        'TSM':'🇹🇼','UMC':'🇹🇼','HIMX':'🇹🇼','ASX':'🇹🇼','GSIT':'🇹🇼',
+        'SE':'🇸🇬','GRAB':'🇸🇬',
+        'KB':'🇰🇷','SHG':'🇰🇷','WF':'🇰🇷','LPL':'🇰🇷','CPNG':'🇰🇷',
+        'TM':'🇯🇵','HMC':'🇯🇵','NMR':'🇯🇵','SONY':'🇯🇵','MUFG':'🇯🇵','SMFG':'🇯🇵','MFG':'🇯🇵',
+        'NTT':'🇯🇵','TAK':'🇯🇵','KYOCY':'🇯🇵','ORAN':'🇯🇵',
+        'INFY':'🇮🇳','WIT':'🇮🇳','HDB':'🇮🇳','IBN':'🇮🇳','MMYT':'🇮🇳','RDY':'🇮🇳','AZRE':'🇮🇳','SIFY':'🇮🇳',
+        'FUTU':'🇭🇰','TIGR':'🇭🇰',
+        // Europe — Switzerland
+        'NVS':'🇨🇭','UBS':'🇨🇭','LOGI':'🇨🇭','ABBN':'🇨🇭','GRFS':'🇨🇭',
+        // Netherlands
+        'ASML':'🇳🇱','STLA':'🇳🇱','PHG':'🇳🇱','RELX':'🇳🇱','NXPI':'🇳🇱','YNDX':'🇳🇱',
+        // UK
+        'BP':'🇬🇧','AZN':'🇬🇧','SHEL':'🇬🇧','UL':'🇬🇧','GSK':'🇬🇧','VOD':'🇬🇧','HSBC':'🇬🇧',
+        'BCS':'🇬🇧','LYG':'🇬🇧','NGG':'🇬🇧','BTI':'🇬🇧','DEO':'🇬🇧','ARM':'🇬🇧','PSO':'🇬🇧',
+        // Germany
+        'SAP':'🇩🇪','SIEGY':'🇩🇪','BASFY':'🇩🇪','DB':'🇩🇪',
+        // France
+        'SNY':'🇫🇷','TTE':'🇫🇷','LVMUY':'🇫🇷','DASSY':'🇫🇷','AXAHY':'🇫🇷',
+        // Ireland
+        'ACN':'🇮🇪','MDT':'🇮🇪','STX':'🇮🇪','ICLR':'🇮🇪','ETN':'🇮🇪','JCI':'🇮🇪','JHX':'🇮🇪',
+        'AER':'🇮🇪','LIN':'🇮🇪','JAZZ':'🇮🇪','HZNP':'🇮🇪',
+        // Denmark / Sweden / Finland / Norway
+        'NVO':'🇩🇰','ERIC':'🇸🇪','NOK':'🇫🇮','EQNR':'🇳🇴',
+        // Canada
+        'SHOP':'🇨🇦','RY':'🇨🇦','TD':'🇨🇦','ENB':'🇨🇦','BNS':'🇨🇦','BMO':'🇨🇦','CM':'🇨🇦',
+        'MFC':'🇨🇦','SU':'🇨🇦','CNQ':'🇨🇦','CNR':'🇨🇦','BCE':'🇨🇦','TRP':'🇨🇦','CP':'🇨🇦',
+        'RBA':'🇨🇦','TRI':'🇨🇦','WPM':'🇨🇦','NTR':'🇨🇦','AEM':'🇨🇦','GIB':'🇨🇦','GOLD':'🇨🇦',
+        'ABX':'🇨🇦','OTEX':'🇨🇦','CSU':'🇨🇦','FNV':'🇨🇦','KGC':'🇨🇦','TECK':'🇨🇦','MGA':'🇨🇦',
+        'DOO':'🇨🇦','STN':'🇨🇦',
+        // Latin America
+        'MELI':'🇦🇷','GGAL':'🇦🇷','PAM':'🇦🇷','YPF':'🇦🇷','BBAR':'🇦🇷','BMA':'🇦🇷',
+        'VALE':'🇧🇷','PBR':'🇧🇷','ITUB':'🇧🇷','BBD':'🇧🇷','ABEV':'🇧🇷','ERJ':'🇧🇷','SID':'🇧🇷',
+        'GGB':'🇧🇷','STNE':'🇧🇷','PAGS':'🇧🇷','NU':'🇧🇷','XP':'🇧🇷','CSAN':'🇧🇷','UGP':'🇧🇷',
+        'AMX':'🇲🇽','FMX':'🇲🇽','KOF':'🇲🇽','CX':'🇲🇽','BSMX':'🇲🇽',
+        // Israel
+        'CHKP':'🇮🇱','NICE':'🇮🇱','TEVA':'🇮🇱','CYBR':'🇮🇱','WIX':'🇮🇱','MNDY':'🇮🇱','GLBE':'🇮🇱',
+        'FROG':'🇮🇱','SMWB':'🇮🇱','TSEM':'🇮🇱','ICL':'🇮🇱','ELBM':'🇮🇱',
+        // Australia
+        'BHP':'🇦🇺','RIO':'🇦🇺','TEAM':'🇦🇺','AMCR':'🇦🇺',
+        // South Africa
+        'AU':'🇿🇦','GFI':'🇿🇦','SBSW':'🇿🇦','HMY':'🇿🇦',
+        // Greece / Cyprus / Bermuda
+        'CRTO':'🇬🇷','GLNG':'🇧🇲','SBLK':'🇬🇷','GSL':'🇬🇷','DAC':'🇬🇷','GNK':'🇬🇷',
+    };
+
     // 원형 로고 + 국기 오버레이 HTML
     //  - Parqet CDN(ticker 기반) 1차 시도
     //  - 실패 시 onerror에서 이니셜 아바타로 치환
@@ -3916,7 +3971,8 @@
         if (!safe) return '<div class="tlogo-wrap"></div>';
         const initial = safe.replace(/[^A-Z0-9]/gi,'').slice(0,1).toUpperCase() || '?';
         const color = _tickerColor(safe);
-        const flag = market === 'KR' ? '🇰🇷' : '🇺🇸';
+        // 1) 도미사일 매핑 우선 → 2) market 기본(US/KR)
+        const flag = _TICKER_COUNTRY[safe.toUpperCase()] || (market === 'KR' ? '🇰🇷' : '🇺🇸');
         // Parqet logo CDN: https://assets.parqet.com/logos/symbol/{TICKER}
         const logoUrl = `https://assets.parqet.com/logos/symbol/${encodeURIComponent(safe)}?format=png`;
         // 속성 내부 JS 문자열에 안전하게 삽입하기 위해 &quot; 로 내부 속성 따옴표 인코딩
