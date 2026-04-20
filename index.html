@@ -172,22 +172,36 @@
         .top100-filter{padding:7px 16px;border:1px solid var(--border);background:transparent;color:var(--text3);border-radius:20px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all .15s;white-space:nowrap;}
         .top100-filter.active{border-color:var(--blue);color:var(--blue);background:rgba(59,130,246,.08);}
         .top100-filter:hover:not(.active){border-color:var(--text3);color:var(--text2);}
-        .top100-grid{display:flex;flex-direction:column;gap:2px;}
-        .top100-row{display:grid;grid-template-columns:36px 1fr 100px 90px 70px;align-items:center;padding:10px 14px;background:var(--bg2);border-radius:var(--r3);cursor:pointer;transition:all .12s;gap:8px;}
-        .top100-row:hover{background:var(--bg3);transform:translateX(2px);}
-        .top100-row-head{background:transparent;padding:6px 14px;cursor:default;font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.3px;}
-        .top100-row-head:hover{background:transparent;transform:none;}
-        .top100-rank{font-size:13px;font-weight:800;color:var(--text3);text-align:center;}
-        .top100-rank.top3{color:var(--yellow);font-size:14px;}
-        .top100-info{display:flex;flex-direction:column;gap:1px;min-width:0;}
-        .top100-symbol{font-size:14px;font-weight:800;letter-spacing:-.3px;}
-        .top100-name{font-size:11px;color:var(--text3);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-        .top100-price{font-size:14px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;}
-        .top100-change{font-size:13px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;}
-        .top100-change.up{color:var(--green);}
-        .top100-change.down{color:var(--red);}
-        .top100-change.flat{color:var(--text3);}
-        .top100-vol{font-size:11px;color:var(--text3);font-weight:600;text-align:right;}
+        .top100-grid{display:flex;flex-direction:column;gap:0;}
+        .top100-row{display:grid;grid-template-columns:28px 24px 40px 1fr 90px 88px;align-items:center;padding:10px 12px;background:transparent;border-radius:10px;cursor:pointer;transition:background .15s;gap:10px;border-bottom:1px solid var(--border);}
+        .top100-row:last-child{border-bottom:none;}
+        .top100-row:hover{background:var(--bg3);transform:none;}
+        .top100-row-head{background:transparent;padding:6px 12px;cursor:default;font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.3px;border-bottom:none;grid-template-columns:28px 24px 40px 1fr 90px 88px;}
+        .top100-row-head:hover{background:transparent;}
+        .top100-rank{font-size:14px;font-weight:500;color:var(--text3);text-align:center;font-variant-numeric:tabular-nums;}
+        .top100-rank.top3{color:var(--text);font-weight:600;}
+        /* Row-level favorite icon button */
+        .top100-fav{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:0;transition:color .15s,transform .15s;}
+        .top100-fav:hover{color:var(--text);transform:scale(1.08);}
+        .top100-fav.on{color:var(--red);}
+        /* Circle logo + flag overlay */
+        .tlogo-wrap{position:relative;width:40px;height:40px;flex-shrink:0;}
+        .tlogo{width:40px;height:40px;border-radius:50%;object-fit:cover;background:#fff;display:block;}
+        .tlogo-fb{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;color:#fff;font-weight:600;font-size:13px;letter-spacing:-.01em;line-height:1;}
+        .tlogo-flag{position:absolute;right:-2px;bottom:-2px;width:16px;height:16px;border-radius:50%;background:var(--bg2);border:1.5px solid var(--bg2);display:flex;align-items:center;justify-content:center;font-size:10px;overflow:hidden;line-height:1;}
+        [data-theme="light"] .tlogo-flag{background:#fff;border-color:#fff;}
+        .top100-info{display:flex;flex-direction:column;gap:2px;min-width:0;}
+        .top100-symbol{display:none;}
+        .top100-name{font-size:14px;font-weight:500;color:var(--text);letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .top100-sub{font-size:11px;color:var(--text3);font-weight:500;letter-spacing:-.005em;}
+        .top100-price{font-size:14px;font-weight:500;text-align:right;font-variant-numeric:tabular-nums;letter-spacing:-0.01em;color:var(--text);}
+        .top100-change{font-size:13px;font-weight:500;text-align:center;font-variant-numeric:tabular-nums;letter-spacing:-0.01em;padding:5px 0;border-radius:8px;}
+        .top100-change.up{background:rgba(239,68,68,.12);color:var(--red);}
+        .top100-change.down{background:rgba(59,130,246,.12);color:var(--blue);}
+        .top100-change.flat{background:var(--bg3);color:var(--text3);}
+        [data-theme="light"] .top100-change.up{background:#fef2f2;}
+        [data-theme="light"] .top100-change.down{background:#eff6ff;}
+        .top100-vol{font-size:11px;color:var(--text3);font-weight:500;text-align:right;}
         .top100-loading{text-align:center;padding:60px 0;color:var(--text3);font-size:14px;}
         .top100-more-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:13px 0;margin-top:4px;border:1px dashed var(--border);border-radius:var(--r3);background:transparent;color:var(--text3);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;font-family:inherit;}
         .top100-more-btn:hover{border-color:var(--blue);color:var(--blue);background:rgba(59,130,246,.06);}
@@ -538,30 +552,32 @@
 
         /* Skeleton */
         @keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
-        .skel-row{display:grid;grid-template-columns:36px 1fr 100px 90px 70px;align-items:center;padding:10px 14px;gap:8px;}
+        .skel-row{display:grid;grid-template-columns:28px 24px 40px 1fr 90px 88px;align-items:center;padding:10px 12px;gap:10px;border-bottom:1px solid var(--border);}
         .skel-block{height:14px;border-radius:6px;background:linear-gradient(90deg,var(--bg3) 25%,var(--bg4) 50%,var(--bg3) 75%);background-size:800px 100%;animation:shimmer 1.2s infinite linear;}
-        .skel-rank{width:20px;height:20px;border-radius:50%;}
-        .skel-info{display:flex;flex-direction:column;gap:4px;}
-        .skel-sym{width:60px;height:15px;}
-        .skel-name{width:110px;height:11px;}
+        .skel-fav{width:22px;height:22px;border-radius:50%;}
+        .skel-rank{width:18px;height:14px;border-radius:4px;}
+        .skel-logo{width:40px;height:40px;border-radius:50%;}
+        .skel-info{display:flex;flex-direction:column;gap:4px;min-width:0;}
+        .skel-name{width:80%;max-width:180px;height:14px;}
         .skel-price{width:70px;height:14px;margin-left:auto;}
-        .skel-chg{width:55px;height:14px;margin-left:auto;}
-        .skel-vol{width:45px;height:12px;margin-left:auto;}
-        @media(max-width:640px){.skel-row{grid-template-columns:30px 1fr 80px 72px;padding:8px 10px;}.skel-vol{display:none;}}
-        @media(min-width:900px){.skel-row{grid-template-columns:40px 1fr 120px 100px 90px;padding:11px 18px;}}
+        .skel-chg{width:100%;height:22px;border-radius:8px;}
+        @media(max-width:640px){.skel-row{grid-template-columns:22px 18px 34px 1fr 68px 68px;padding:9px 6px;gap:6px;}.skel-logo{width:34px;height:34px;}}
+        @media(min-width:900px){.skel-row{grid-template-columns:28px 28px 44px 1fr 110px 100px;padding:12px 18px;}.skel-logo{width:44px;height:44px;}}
         @media(max-width:640px){
             .welcome-top{padding:60px 20px 36px;}
             .top100-section{padding:0 12px;}
-            .top100-row{grid-template-columns:30px 1fr 80px 72px;padding:8px 10px;}
+            .top100-row, .top100-row-head{grid-template-columns:24px 20px 36px 1fr 72px 72px;padding:10px 8px;gap:8px;}
             .top100-vol{display:none;}
-            .top100-row-head{grid-template-columns:30px 1fr 80px 72px;}
-            .top100-symbol{font-size:13px;}
+            .tlogo-wrap, .tlogo, .tlogo-fb{width:36px;height:36px;}
+            .top100-name{font-size:13px;}
             .top100-price{font-size:13px;}
             .top100-change{font-size:12px;}
         }
         @media(min-width:900px){
             .top100-section{padding:0 32px;}
-            .top100-row{grid-template-columns:40px 1fr 120px 100px 90px;padding:11px 18px;}
+            .top100-row, .top100-row-head{grid-template-columns:28px 28px 44px 1fr 110px 100px;padding:12px 18px;}
+            .tlogo-wrap, .tlogo, .tlogo-fb{width:44px;height:44px;}
+            .tlogo-fb{font-size:14px;}
         }
 
         /* ===== MAIN CONTENT ===== */
@@ -1075,10 +1091,17 @@
             /* ----- Top 100 ----- */
             .top100-section{padding:0 10px;}
             .top100-title{font-size:15px;}
-            .top100-row{grid-template-columns:28px 1fr 72px 64px;padding:8px 10px;gap:6px;}
+            .top100-row{grid-template-columns:22px 18px 34px 1fr 68px 68px;padding:9px 6px;gap:6px;}
             .top100-row-head{display:none;}
             .top100-vol{display:none;}
-            .skel-row{grid-template-columns:28px 1fr 72px 64px;padding:7px 10px;}
+            .tlogo-wrap, .tlogo, .tlogo-fb{width:34px;height:34px;}
+            .tlogo-fb{font-size:11px;}
+            .tlogo-flag{width:14px;height:14px;font-size:9px;}
+            .top100-name{font-size:12.5px;}
+            .top100-price{font-size:12.5px;}
+            .top100-change{font-size:11.5px;padding:4px 0;}
+            .top100-fav{width:22px;height:22px;font-size:16px;}
+            .skel-row{grid-template-columns:22px 18px 34px 1fr 68px 68px;padding:7px 6px;}
             .skel-vol{display:none;}
             .top100-symbol{font-size:13px;}
             .top100-price{font-size:13px;}
@@ -3759,16 +3782,15 @@
     function showTop100Skeleton() {
         const grid = document.getElementById('top100Grid');
         if (!grid) return;
-        let html = `<div class="top100-row top100-row-head">
-            <div>#</div><div>종목</div><div style="text-align:right">현재가</div><div style="text-align:right">등락률</div><div style="text-align:right">거래량</div>
-        </div>`;
+        let html = '';
         for (let i = 0; i < 20; i++) {
             html += `<div class="skel-row">
+                <div class="skel-block skel-fav"></div>
                 <div class="skel-block skel-rank"></div>
-                <div class="skel-info"><div class="skel-block skel-sym"></div><div class="skel-block skel-name"></div></div>
+                <div class="skel-block skel-logo"></div>
+                <div class="skel-info"><div class="skel-block skel-name"></div></div>
                 <div class="skel-block skel-price"></div>
                 <div class="skel-block skel-chg"></div>
-                <div class="skel-block skel-vol"></div>
             </div>`;
         }
         grid.innerHTML = html;
@@ -3866,6 +3888,56 @@
         return /^[A-Z0-9.\-^=]{1,15}$/i.test(s) ? s : null;
     }
 
+    // 티커 → 색상 (이니셜 아바타 폴백용, 결정적)
+    function _tickerColor(sym) {
+        const palette = ['#6366f1','#0ea5e9','#14b8a6','#f59e0b','#ef4444','#8b5cf6','#ec4899','#10b981','#3b82f6','#f97316'];
+        let h = 0;
+        for (let i = 0; i < sym.length; i++) h = (h * 31 + sym.charCodeAt(i)) >>> 0;
+        return palette[h % palette.length];
+    }
+
+    // 원형 로고 + 국기 오버레이 HTML
+    //  - Parqet CDN(ticker 기반) 1차 시도
+    //  - 실패 시 onerror에서 이니셜 아바타로 치환
+    function _tickerLogoHTML(sym, market) {
+        const safe = _top100SafeTicker(sym);
+        if (!safe) return '<div class="tlogo-wrap"></div>';
+        const initial = safe.replace(/[^A-Z0-9]/gi,'').slice(0,1).toUpperCase() || '?';
+        const color = _tickerColor(safe);
+        const flag = market === 'KR' ? '🇰🇷' : '🇺🇸';
+        // Parqet logo CDN: https://assets.parqet.com/logos/symbol/{TICKER}
+        const logoUrl = `https://assets.parqet.com/logos/symbol/${encodeURIComponent(safe)}?format=png`;
+        // 속성 내부 JS 문자열에 안전하게 삽입하기 위해 &quot; 로 내부 속성 따옴표 인코딩
+        const fallback = `<span class=&quot;tlogo tlogo-fb&quot; style=&quot;background:${color}&quot;>${initial}</span>`;
+        return `<div class="tlogo-wrap">
+            <img class="tlogo" src="${logoUrl}" alt="" loading="lazy" onerror="this.outerHTML='${fallback}'">
+            <span class="tlogo-flag">${flag}</span>
+        </div>`;
+    }
+
+    // 행 즐겨찾기 토글 (row 클릭 이벤트 버블링 차단)
+    function _top100ToggleFav(ev, sym, market, name) {
+        if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+        const safe = _top100SafeTicker(sym);
+        if (!safe) return;
+        let favs = getFavorites();
+        const idx = favs.findIndex(f => f.symbol === safe && f.market === market);
+        if (idx >= 0) {
+            favs.splice(idx, 1);
+        } else {
+            favs.unshift({ symbol: safe, market, name: name || safe, addedAt: Date.now() });
+        }
+        saveFavorites(favs);
+        // 아이콘 상태 토글
+        const btn = ev && ev.currentTarget;
+        if (btn) {
+            const on = idx < 0;
+            btn.classList.toggle('on', on);
+            const icon = btn.querySelector('i');
+            if (icon) icon.className = on ? 'ri-heart-fill' : 'ri-heart-line';
+        }
+    }
+
     function _top100BuildRow(q, i, opts) {
         const rawSymbol = q.symbol || '';
         const symbol = _top100SafeTicker(rawSymbol);
@@ -3874,19 +3946,23 @@
         const price = q.regularMarketPrice;
         const chg = q.regularMarketChangePercent;
         const vol = q.regularMarketVolume;
+        const market = 'US'; // Top100 = US only
         const chgCls = chg > 0 ? 'up' : chg < 0 ? 'down' : 'flat';
         const chgText = chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '-';
         const priceText = price != null ? `$${price.toFixed(2)}` : '-';
         const rankCls = (opts && opts.showTop3 && i < 3) ? 'top3' : '';
+        const faved = isFavorited(symbol, market);
+        const heartCls = faved ? 'ri-heart-fill' : 'ri-heart-line';
+        const safeName = escHtml(name).replace(/'/g,'&#39;');
         return `<div class="top100-row" onclick="quickSearch('${symbol}','US')">
+            <button class="top100-fav ${faved?'on':''}" aria-label="즐겨찾기" onclick="_top100ToggleFav(event,'${symbol}','${market}','${safeName}')"><i class="${heartCls}"></i></button>
             <div class="top100-rank ${rankCls}">${i + 1}</div>
+            ${_tickerLogoHTML(symbol, market)}
             <div class="top100-info">
-                <div class="top100-symbol">${escHtml(symbol)}</div>
                 <div class="top100-name">${escHtml(name)}</div>
             </div>
             <div class="top100-price">${priceText}</div>
             <div class="top100-change ${chgCls}">${chgText}</div>
-            <div class="top100-vol">${_top100FmtVol(vol)}</div>
         </div>`;
     }
 
@@ -3905,9 +3981,7 @@
 
         _top100AllItems = items; // 더 보기용 전체 데이터 저장
 
-        let html = `<div class="top100-row top100-row-head">
-            <div>#</div><div>종목</div><div style="text-align:right">현재가</div><div style="text-align:right">등락률</div><div style="text-align:right">거래량</div>
-        </div>`;
+        let html = '';
 
         const visible = items.slice(0, _TOP100_INITIAL_LIMIT);
         const rest = items.slice(_TOP100_INITIAL_LIMIT);
