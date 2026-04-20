@@ -343,6 +343,62 @@ async function translateToKo(text) {
 }
 
 /**
+ * 배치 상승/하락 이유 (뉴스 1건 제목 요약, 한글 번역)
+ * GET /api/news-reason?symbols=AAPL,NVDA,TSLA
+ * 응답: { AAPL: "실적 서프라이즈", NVDA: "AI 수요 강세", ... }
+ * - 서버 5분 캐시
+ * - 최대 40개 심볼 / 요청
+ */
+const _reasonCache = new Map(); // symbol -> { text, ts }
+const REASON_TTL = 5 * 60 * 1000;
+
+function _shortenReason(text) {
+    if (!text) return '';
+    // 특수문자 정리 후 첫 절 / 쉼표 앞부분만 추출, 너무 길면 자름
+    let t = String(text).replace(/\s+/g,' ').trim();
+    t = t.replace(/^[\[(]?[A-Z0-9.,\s]+[\])]?\s*[:–—-]\s*/,''); // "AAPL: " 같은 접두어 제거
+    t = t.split(/[:·│|—–]/)[0];
+    // 문장 분리: "~ 때문" / "~ 영향" 같은 짧은 한국어 패턴 선호 — 그냥 ~20자 컷
+    if (t.length > 22) t = t.slice(0, 22).trim() + '…';
+    return t;
+}
+
+async function _fetchOneReason(symbol) {
+    const cached = _reasonCache.get(symbol);
+    if (cached && Date.now() - cached.ts < REASON_TTL) return cached.text;
+    try {
+        const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(symbol)}&quotesCount=0&newsCount=1&enableFuzzyQuery=false`;
+        const data = await yfRequest(url);
+        const first = (data?.news || [])[0];
+        if (!first?.title) { _reasonCache.set(symbol, { text:'', ts:Date.now() }); return ''; }
+        const ko = await translateToKo(first.title);
+        const short = _shortenReason(ko || first.title);
+        _reasonCache.set(symbol, { text: short, ts: Date.now() });
+        return short;
+    } catch {
+        _reasonCache.set(symbol, { text:'', ts:Date.now() });
+        return '';
+    }
+}
+
+app.get('/api/news-reason', async (req, res) => {
+    const raw = (req.query.symbols || '').toString();
+    const syms = raw.split(',').map(s => s.trim().toUpperCase())
+        .filter(s => /^[A-Z0-9.\-^=]{1,15}$/.test(s))
+        .slice(0, 40);
+    if (!syms.length) return res.json({});
+    try {
+        const entries = await Promise.all(syms.map(async s => [s, await _fetchOneReason(s)]));
+        const out = {};
+        entries.forEach(([s, t]) => { if (t) out[s] = t; });
+        res.json(out);
+    } catch (err) {
+        console.error('[news-reason]', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
  * 종목 뉴스 (제목 한글 번역 포함)
  * GET /api/news/:symbol?limit=12
  */
