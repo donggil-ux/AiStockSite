@@ -91,7 +91,7 @@
                            autocomplete="off"
                            onkeydown="handleSearchKeydown(event)">
                 </div>
-                <button class="search-btn" onclick="searchStock()">분석</button>
+                <button class="search-btn" onclick="searchStock()">검색</button>
                 <div class="search-dropdown" id="searchDropdown" role="listbox"></div>
             </div>
             <button class="hamburger-btn" id="themeHeaderBtn" onclick="toggleTheme()" title="테마 변경">&#9790;</button>
@@ -5286,6 +5286,20 @@
         'LQD':{ name:'iShares IG Corporate Bond',      korean:['투자등급채권','LQD'],                    sector:'Bond',         themes:['bond'] },
     };
 
+    // 한글 별칭 통합 맵 — US_STOCK_NAMES + US_ETF_NAMES.korean 병합, 공백 제거 정규화
+    const _normKor = (s) => String(s || '').replace(/\s+/g, '').toLowerCase();
+    const KOR_TO_US_TICKER = (() => {
+        const m = {};
+        for (const [kor, t] of Object.entries(US_STOCK_NAMES)) {
+            m[_normKor(kor)] = t;
+        }
+        for (const [ticker, etf] of Object.entries(US_ETF_NAMES)) {
+            m[_normKor(ticker)] = ticker;
+            (etf.korean || []).forEach(k => { m[_normKor(k)] = ticker; });
+        }
+        return m;
+    })();
+
     const ASSET_META = (() => {
         const m = {};
         const usStockSectors = {
@@ -5328,15 +5342,17 @@
     // 입력어로 마켓 자동 감지 (KR / US)
     function autoDetectMarket(query) {
         const q = query.trim();
+        const qn = _normKor(q);
         // 6자리 숫자 → 한국 종목코드
         if (/^\d{6}$/.test(q)) return 'KR';
         // 한국 종목명 정확 매칭
         for (const [, name] of Object.entries(KR_STOCK_NAMES)) {
             if (name === q || name.toLowerCase() === q.toLowerCase()) return 'KR';
         }
-        // 영문 티커 (알파벳/점/하이픈) → 미국
-        if (/^[A-Za-z.\-]+$/.test(q)) return 'US';
-        // 미국 종목 한글명 정확 매칭
+        // 영문 티커 (알파벳/숫자/점/하이픈) → 미국
+        if (/^[A-Za-z0-9.\-]+$/.test(q)) return 'US';
+        // 미국 종목 한글명 정확/정규화 매칭 (ETF 한글 별칭 포함)
+        if (KOR_TO_US_TICKER[qn]) return 'US';
         if (US_STOCK_NAMES[q]) return 'US';
         for (const [name] of Object.entries(US_STOCK_NAMES)) {
             if (name.toLowerCase() === q.toLowerCase()) return 'US';
@@ -5371,15 +5387,18 @@
         const q = query.trim();
         // 이미 영문 티커면 그대로
         if (/^[A-Za-z.\-]+$/.test(q)) return q.toUpperCase();
+        // 정규화(공백 제거·소문자) 후 통합 맵 조회 — ETF 한글 별칭까지 커버
+        const qn = _normKor(q);
+        if (KOR_TO_US_TICKER[qn]) return KOR_TO_US_TICKER[qn];
         // 정확 매칭
         if (US_STOCK_NAMES[q]) return US_STOCK_NAMES[q];
         // 대소문자 무시 매칭
         for (const [name, ticker] of Object.entries(US_STOCK_NAMES)) {
             if (name.toLowerCase() === q.toLowerCase()) return ticker;
         }
-        // 부분 매칭
-        for (const [name, ticker] of Object.entries(US_STOCK_NAMES)) {
-            if (name.includes(q) || q.includes(name)) return ticker;
+        // 부분 매칭 (정규화 기준)
+        for (const [kname, ticker] of Object.entries(KOR_TO_US_TICKER)) {
+            if (kname.includes(qn) || qn.includes(kname)) return ticker;
         }
         return q.toUpperCase();
     }
