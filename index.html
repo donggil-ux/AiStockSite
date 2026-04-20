@@ -591,10 +591,10 @@
             .top100-section{padding:0 32px;}
             /* DOM: fav · rank · logo · name · reason · price · change
                이름을 compact하게 상한 걸고 reason(1fr)에 남는 공간 모두 할당 */
-            .top100-row, .top100-row-head{grid-template-columns:28px 28px 44px minmax(160px,260px) 1fr 100px 80px;padding:12px 18px;gap:14px;}
+            .top100-row, .top100-row-head{grid-template-columns:28px 28px 44px minmax(140px,220px) minmax(0,1fr) 100px 80px;padding:12px 18px;gap:14px;}
             .tlogo-wrap, .tlogo, .tlogo-fb{width:44px;height:44px;}
             .tlogo-fb{font-size:14px;}
-            .top100-reason{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;text-align:left;padding:0 8px;color:var(--text2);white-space:normal;overflow:hidden;text-overflow:clip;overflow-wrap:anywhere;word-break:keep-all;line-height:1.4;min-width:0;}
+            .top100-reason{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;text-align:left;padding:0 8px;color:var(--text2);white-space:normal;overflow:hidden;text-overflow:clip;overflow-wrap:anywhere;word-break:keep-all;line-height:1.4;min-width:0;max-width:100%;}
         }
 
         /* ===== MAIN CONTENT ===== */
@@ -1160,7 +1160,14 @@
             /* ----- Top 100 ----- */
             .top100-section{padding:0 10px;}
             .top100-title{font-size:15px;}
-            .top100-row{grid-template-columns:22px 18px 34px 1fr 68px 68px;padding:9px 6px;gap:6px;}
+            .top100-row{grid-template-columns:22px 18px 34px 1fr 68px 68px;grid-template-areas:"fav rank logo info price change" ".   .    reason reason reason reason";padding:9px 6px;gap:4px 6px;align-items:start;}
+            .top100-row > .top100-fav{grid-area:fav;align-self:center;}
+            .top100-row > .top100-rank{grid-area:rank;align-self:center;}
+            .top100-row > .tlogo-wrap{grid-area:logo;align-self:center;}
+            .top100-row > .top100-info{grid-area:info;align-self:center;}
+            .top100-row > .top100-price{grid-area:price;align-self:center;}
+            .top100-row > .top100-change{grid-area:change;align-self:center;}
+            .top100-row > .top100-reason{grid-area:reason;}
             .top100-row-head{display:none;}
             .top100-vol{display:none;}
             .tlogo-wrap, .tlogo, .tlogo-fb{width:34px;height:34px;}
@@ -1199,9 +1206,27 @@
             .ai-summary,.ai-detail-text,.entry-subtitle,.entry-check-desc,.warning-box .text,.entry-strategy-label{overflow-wrap:break-word;word-break:keep-all;}
             .ai-detail-title{flex-wrap:wrap;gap:4px;}
 
+            /* ----- MOBILE: Top100 reason 표시 (2줄까지) ----- */
+            .top100-reason{
+                display:-webkit-box !important;
+                -webkit-box-orient:vertical;
+                -webkit-line-clamp:2;
+                white-space:normal !important;
+                overflow:hidden !important;
+                text-overflow:clip !important;
+                overflow-wrap:anywhere;
+                word-break:keep-all;
+                text-align:left;
+                padding:2px 0 0;
+                font-size:11px;
+                line-height:1.4;
+                color:var(--text3);
+                min-width:0;
+                max-width:100%;
+            }
+
             /* ----- MOBILE TEXT UNWRAP (… 으로 잘리던 콘텐츠 명칭/이유 전체 노출) ----- */
             .top100-name,
-            .top100-reason,
             .fav-item-name,
             .scanner-name,
             .swing-name,
