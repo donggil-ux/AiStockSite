@@ -178,7 +178,7 @@
         .top100-filter.active{border-color:var(--blue);color:var(--blue);background:rgba(59,130,246,.08);}
         .top100-filter:hover:not(.active){border-color:var(--text3);color:var(--text2);}
         .top100-grid{display:flex;flex-direction:column;gap:0;}
-        .top100-row{display:grid;grid-template-columns:28px 24px 40px 1fr 90px 88px;align-items:center;padding:10px 12px;background:transparent;border-radius:10px;cursor:pointer;transition:background .15s;gap:10px;border-bottom:1px solid var(--border);}
+        .top100-row{display:grid;grid-template-columns:28px 24px 40px 1fr 90px 88px;align-items:center;padding:10px 12px;background:transparent;border-radius:10px;cursor:pointer;transition:background .15s;gap:10px;border-bottom:1px solid var(--border);overflow:visible;}
         .top100-reason{display:none;font-size:12px;color:var(--text3);letter-spacing:-.005em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;padding-right:4px;}
         .top100-row:last-child{border-bottom:none;}
         .top100-row:hover{background:var(--bg3);transform:none;}
@@ -194,7 +194,9 @@
         .tlogo-wrap{position:relative;width:40px;height:40px;flex-shrink:0;}
         .tlogo{width:40px;height:40px;border-radius:50%;object-fit:cover;background:#fff;display:block;}
         .tlogo-fb{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;color:#fff;font-weight:600;font-size:13px;letter-spacing:-.01em;line-height:1;}
-        .tlogo-flag{position:absolute;right:-3px;bottom:-3px;width:20px;height:20px;border-radius:50%;background:var(--bg2);border:2px solid var(--bg2);display:flex;align-items:center;justify-content:center;font-size:13px;overflow:hidden;line-height:1;}
+        .tlogo-flag{position:absolute;right:-2px;bottom:-2px;width:18px;height:18px;border-radius:50%;background:var(--bg2);border:2px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:11px;overflow:hidden;line-height:1;z-index:2;}
+        /* Row 안에서 국기 배지가 잘리지 않도록 로고 래퍼는 overflow visible 유지 */
+        .top100-row .tlogo-wrap, .swing-row .tlogo-wrap, .hot-card .tlogo-wrap{overflow:visible;}
         [data-theme="light"] .tlogo-flag{background:#fff;border-color:#fff;}
         .top100-info{display:flex;flex-direction:column;gap:2px;min-width:0;}
         .top100-symbol{display:none;}
@@ -587,10 +589,12 @@
         }
         @media(min-width:900px){
             .top100-section{padding:0 32px;}
-            .top100-row, .top100-row-head{grid-template-columns:28px 28px 44px 1fr 150px 110px 100px;padding:12px 18px;}
+            /* DOM: fav · rank · logo · name · reason · price · change
+               이름을 compact하게 상한 걸고 reason(1fr)에 남는 공간 모두 할당 */
+            .top100-row, .top100-row-head{grid-template-columns:28px 28px 44px minmax(160px,260px) 1fr 100px 80px;padding:12px 18px;gap:14px;}
             .tlogo-wrap, .tlogo, .tlogo-fb{width:44px;height:44px;}
             .tlogo-fb{font-size:14px;}
-            .top100-reason{display:block;}
+            .top100-reason{display:block;text-align:left;padding:0 8px;color:var(--text2);}
         }
 
         /* ===== MAIN CONTENT ===== */
@@ -599,8 +603,24 @@
         /* ===== STOCK HERO - 토스 대형 가격 표시 ===== */
         .stock-hero{padding:28px 24px 20px;display:none;}
         .stock-hero.show{display:block;}
-        .stock-name{font-size:22px;font-weight:700;letter-spacing:-0.02em;}
+        .stock-name{font-size:22px;font-weight:700;letter-spacing:-0.02em;line-height:1.15;}
         .stock-code{color:var(--text3);font-size:13px;margin-top:2px;font-weight:500;}
+        /* Hero head: [logo] [name/code] [fav] */
+        .stock-hero-head{display:flex;align-items:center;gap:14px;margin-bottom:6px;}
+        .sh-logo{flex-shrink:0;position:relative;width:56px;height:56px;}
+        .sh-logo .tlogo-wrap{width:56px;height:56px;}
+        .sh-logo .tlogo, .sh-logo .tlogo-fb{width:56px;height:56px;font-size:22px;border-radius:50%;}
+        .sh-logo .tlogo-fb{display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;}
+        .sh-logo .tlogo-flag{font-size:18px;bottom:-2px;right:-2px;}
+        .sh-id{display:flex;flex-direction:column;justify-content:center;min-width:0;flex:1;}
+        .sh-id .stock-code{margin-top:1px;}
+        .stock-hero-head .fav-star-btn{margin-left:auto;flex-shrink:0;}
+        @media(max-width:640px){
+            .stock-hero-head{gap:10px;}
+            .sh-logo, .sh-logo .tlogo-wrap, .sh-logo .tlogo, .sh-logo .tlogo-fb{width:44px;height:44px;}
+            .sh-logo .tlogo-fb{font-size:18px;}
+            .sh-logo .tlogo-flag{font-size:14px;}
+        }
         .stock-price{font-size:42px;font-weight:800;margin-top:12px;letter-spacing:-2px;font-variant-numeric:tabular-nums;line-height:1.1;}
         .stock-change{font-size:16px;font-weight:700;margin-top:6px;font-variant-numeric:tabular-nums;}
         .stock-change.up{color:var(--red);}
@@ -1096,7 +1116,7 @@
             .tab-nav{padding:0 32px;}
         }
         @media(min-width:1100px){
-            .app{max-width:1280px;}
+            .app{max-width:1320px;}
             .tab-content.active{grid-template-columns:1fr 500px;}
             #tabChart.active{display:block;}
             #tabOptions.active{display:block;}
@@ -1107,8 +1127,11 @@
             .tv-chart-wrap{height:700px;}
         }
         @media(min-width:1440px){
-            .app{max-width:1320px;}
-            .tab-content.active{grid-template-columns:1fr 540px;}
+            .app{max-width:1440px;}
+            .tab-content.active{grid-template-columns:1fr 560px;}
+        }
+        @media(min-width:1680px){
+            .app{max-width:1560px;}
         }
 
         /* ===== MOBILE (≤640px) ===== */
@@ -2758,11 +2781,14 @@
 
     <!-- Stock Hero (대형 가격 표시) -->
     <div class="stock-hero" id="stockHero">
-        <div style="display:flex;align-items:center;gap:0;">
-            <div class="stock-name" id="stockName">-</div>
+        <div class="stock-hero-head">
+            <div class="sh-logo" id="stockHeroLogo"></div>
+            <div class="sh-id">
+                <div class="stock-name" id="stockName">-</div>
+                <div class="stock-code" id="stockCode">-</div>
+            </div>
             <button class="fav-star-btn" id="favStarBtn" onclick="toggleFavorite()"><span class="star">&#9734;</span><span id="favStarText">즐겨찾기</span></button>
         </div>
-        <div class="stock-code" id="stockCode">-</div>
         <div class="stock-price" id="stockPrice">-</div>
         <div class="stock-change" id="stockChange">-</div>
         <div class="stock-52w" id="stock52w"></div>
@@ -7866,6 +7892,14 @@
         }
 
         document.getElementById('stockName').textContent = name;
+        // Hero 로고 주입 (Parqet CDN + fallback)
+        try {
+            const _heroLogo = document.getElementById('stockHeroLogo');
+            if (_heroLogo && typeof _tickerLogoHTML === 'function') {
+                const _logoSym = currentMarket === 'KR' ? (currentSymbol || meta.symbol) : meta.symbol;
+                _heroLogo.innerHTML = _tickerLogoHTML(_logoSym, currentMarket);
+            }
+        } catch {}
         // 모바일 상단 바 종목명 업데이트
         const _mobName = document.getElementById('mobStockName');
         if (_mobName) _mobName.textContent = currentMarket === 'KR' ? name : `${meta.symbol} · ${meta.exchangeName || 'US'}`;
