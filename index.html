@@ -200,7 +200,7 @@
         [data-theme="light"] .tlogo-flag{background:#fff;border-color:#fff;}
         .top100-info{display:flex;flex-direction:column;gap:2px;min-width:0;}
         .top100-symbol{display:none;}
-        .top100-name{font-size:14px;font-weight:500;color:var(--text);letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .top100-name{font-size:14px;font-weight:500;color:var(--text);letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
         .top100-sub{font-size:11px;color:var(--text3);font-weight:500;letter-spacing:-.005em;}
         .top100-price{font-size:14px;font-weight:500;text-align:right;font-variant-numeric:tabular-nums;letter-spacing:-0.01em;color:var(--text);}
         .top100-change{font-size:13px;font-weight:500;text-align:center;font-variant-numeric:tabular-nums;letter-spacing:-0.01em;padding:5px 0;border-radius:8px;}
@@ -878,7 +878,8 @@
         @media(max-width:1279px){
           .economic-bottom-grid{grid-template-columns:1fr;}
           .economic-right-section{flex-direction:row;flex-wrap:wrap;}
-          .economic-sector-section,.economic-ai-section{flex:1;min-width:280px;}
+          /* 기본 희망폭 240px 유지, 실제 부모가 좁으면 축소 허용 */
+          .economic-sector-section,.economic-ai-section{flex:1 1 240px;min-width:0;}
         }
         @media(max-width:767px){
           #economicSection{padding:16px 16px;}
@@ -1090,7 +1091,8 @@
             .app{max-width:1200px;}
             .stock-hero{padding:32px 32px 24px;}
             .card{margin:4px 0px;}
-            .tab-content.active{display:grid;grid-template-columns:1fr 440px;gap:0;align-items:start;}
+            /* 900-1099px: 단일 컬럼 (우측 패널이 좌측 아래로 스택) */
+            .tab-content.active{display:grid;grid-template-columns:1fr;gap:0;align-items:start;}
             #tabChart.active{display:block;}
             #tabAnalysis.active{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;padding:0 32px;align-items:start;}
             #tabAnalysis .analysis-refresh-bar,#tabAnalysis #rrAnalysis{grid-column:1/-1;}
@@ -1117,7 +1119,8 @@
         }
         @media(min-width:1100px){
             .app{max-width:1320px;}
-            .tab-content.active{grid-template-columns:1fr 500px;}
+            /* 1100px+: 2컬럼 복귀. minmax(0,1fr) 로 내부 자식이 강제 최소폭 요구해도 오버플로우 방지 */
+            .tab-content.active{grid-template-columns:minmax(0,1fr) 400px;}
             #tabChart.active{display:block;}
             #tabOptions.active{display:block;}
             #tabNews.active{display:block;}
@@ -1128,7 +1131,7 @@
         }
         @media(min-width:1440px){
             .app{max-width:1440px;}
-            .tab-content.active{grid-template-columns:1fr 560px;}
+            .tab-content.active{grid-template-columns:minmax(0,1fr) 480px;}
         }
         @media(min-width:1680px){
             .app{max-width:1560px;}
