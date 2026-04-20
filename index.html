@@ -1866,12 +1866,14 @@
 
     // 상승/하락 이유(뉴스 헤드라인 요약) 배치 로드 + 주입
     // 캐시: 메모리 Map + localStorage (새로고침/세션 간 유지, TTL 15분)
-    const _REASON_LS_KEY = 'stockai_top100_reasons_v1';
+    const _REASON_LS_KEY = 'stockai_top100_reasons_v2'; // v1 = 22자 잘린 구버전, v2부터 전체 제목
     const _REASON_CLIENT_TTL = 15 * 60 * 1000;
     const _REASON_LS_MAX = 300; // 엔트리 상한 (오래된 것 삭제)
     const _reasonClientCache = (() => {
         const m = new Map();
         try {
+            // v1 레거시 키 정리 (22자 잘린 구버전)
+            localStorage.removeItem('stockai_top100_reasons_v1');
             const raw = localStorage.getItem(_REASON_LS_KEY);
             if (raw) {
                 const now = Date.now();
@@ -1918,22 +1920,27 @@
         if (!box || !txtEl || !symbol) return;
         const now = Date.now();
         const cached = _reasonClientCache.get(symbol);
-        if (cached && now - cached.ts < _REASON_CLIENT_TTL) {
-            if (cached.text) { txtEl.textContent = cached.text; box.hidden = false; }
-            else box.hidden = true;
+        // 캐시 히트 & 25자 초과 = 새 포맷 → 바로 표시
+        // 25자 이하 = 구버전 또는 빈값 → 강제 재fetch
+        const cacheFresh = cached && now - cached.ts < _REASON_CLIENT_TTL;
+        const cacheValid = cacheFresh && (cached.text || '').length > 25;
+        if (cacheValid) {
+            txtEl.textContent = cached.text;
+            box.hidden = false;
             return;
         }
         // 로딩 중에는 숨김 (깜빡임 방지)
         box.hidden = true;
         try {
             const res = await fetch(`/api/news-reason?symbols=${encodeURIComponent(symbol)}`);
-            if (!res.ok) return;
+            if (!res.ok) { console.warn('[reason] HTTP', res.status); return; }
             const map = await res.json();
             const text = map[symbol] || '';
             _reasonClientCache.set(symbol, { text, ts: Date.now() });
             _persistReasonCache();
             if (text) { txtEl.textContent = text; box.hidden = false; }
-        } catch (_) {}
+            else console.info('[reason] empty for', symbol);
+        } catch (e) { console.warn('[reason] fetch fail', e?.message); }
     }
 
     async function _populateTop100Reasons(symbols) {
