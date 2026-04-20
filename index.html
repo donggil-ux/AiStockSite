@@ -1154,7 +1154,7 @@
         @media(min-width:1100px){
             .app{max-width:1320px;}
             /* 1100px+: 2컬럼 복귀. minmax(0,1fr) 로 내부 자식이 강제 최소폭 요구해도 오버플로우 방지 */
-            .tab-content.active{grid-template-columns:minmax(0,1fr) 400px;}
+            .tab-content.active{grid-template-columns:minmax(0,1fr) 380px;}
             #tabChart.active{display:block;}
             #tabOptions.active{display:block;}
             #tabNews.active{display:block;}
@@ -1162,6 +1162,11 @@
             #tabShort.active{display:block;}
             #tabYoutube.active{display:block;}
             .tv-chart-wrap{height:700px;}
+        }
+        /* 1280px (13" MBA 내부 해상도) 구간: 우측 420px 로 살짝 확장 */
+        @media(min-width:1280px){
+            .app{max-width:1380px;}
+            .tab-content.active{grid-template-columns:minmax(0,1fr) 420px;}
         }
         @media(min-width:1440px){
             .app{max-width:1440px;}
@@ -4207,20 +4212,57 @@
     }
 
     // 상승/하락 이유(뉴스 헤드라인 요약) 배치 로드 + 주입
-    const _reasonClientCache = new Map(); // symbol → text
-    const _REASON_CLIENT_TTL = 5 * 60 * 1000;
+    // 캐시: 메모리 Map + localStorage (새로고침/세션 간 유지, TTL 15분)
+    const _REASON_LS_KEY = 'stockai_top100_reasons_v1';
+    const _REASON_CLIENT_TTL = 15 * 60 * 1000;
+    const _REASON_LS_MAX = 300; // 엔트리 상한 (오래된 것 삭제)
+    const _reasonClientCache = (() => {
+        const m = new Map();
+        try {
+            const raw = localStorage.getItem(_REASON_LS_KEY);
+            if (raw) {
+                const now = Date.now();
+                const obj = JSON.parse(raw);
+                Object.keys(obj || {}).forEach(k => {
+                    const v = obj[k];
+                    if (v && typeof v.ts === 'number' && now - v.ts < _REASON_CLIENT_TTL) {
+                        m.set(k, v);
+                    }
+                });
+            }
+        } catch (_) {}
+        return m;
+    })();
+    let _reasonLsSaveTimer = null;
+    function _persistReasonCache() {
+        // 쓰로틀: 한 응답에 여러 키가 들어와도 한 번만 flush
+        if (_reasonLsSaveTimer) return;
+        _reasonLsSaveTimer = setTimeout(() => {
+            _reasonLsSaveTimer = null;
+            try {
+                // 상한 초과 시 오래된 것부터 제거
+                if (_reasonClientCache.size > _REASON_LS_MAX) {
+                    const entries = [..._reasonClientCache.entries()]
+                        .sort((a,b) => (a[1].ts||0) - (b[1].ts||0));
+                    const dropCount = _reasonClientCache.size - _REASON_LS_MAX;
+                    for (let i=0; i<dropCount; i++) _reasonClientCache.delete(entries[i][0]);
+                }
+                const obj = {};
+                _reasonClientCache.forEach((v,k) => { obj[k] = v; });
+                localStorage.setItem(_REASON_LS_KEY, JSON.stringify(obj));
+            } catch (_) {}
+        }, 400);
+    }
+
     async function _populateTop100Reasons(symbols) {
         if (!symbols || !symbols.length) return;
-        // 미디어쿼리: 900px 미만이면 컬럼 숨김이라 스킵
-        if (window.matchMedia && !window.matchMedia('(min-width:900px)').matches) return;
         const now = Date.now();
-        // 캐시된 값은 바로 주입
         const needFetch = [];
         symbols.forEach(s => {
             const c = _reasonClientCache.get(s);
             if (c && now - c.ts < _REASON_CLIENT_TTL) {
                 document.querySelectorAll(`.top100-reason[data-reason-for="${s}"]`)
-                    .forEach(el => el.textContent = c.text || '');
+                    .forEach(el => { el.textContent = c.text || ''; if (c.text) el.title = c.text; });
             } else {
                 needFetch.push(s);
             }
@@ -4236,10 +4278,11 @@
                 document.querySelectorAll(`.top100-reason[data-reason-for="${s}"]`)
                     .forEach(el => { el.textContent = map[s]; el.title = map[s]; });
             });
-            // 응답에 없는 티커도 빈값으로 캐시해 재시도 폭주 방지
+            // 응답에 없는 티커도 빈값으로 캐시 (재시도 폭주 방지)
             needFetch.filter(s => !map[s]).forEach(s => {
                 _reasonClientCache.set(s, { text:'', ts: Date.now() });
             });
+            _persistReasonCache();
         } catch (e) {}
     }
 
@@ -12529,6 +12572,37 @@
         loadNewsTab(currentFullSymbol);
     }
 
+    // IntersectionObserver: 뷰포트 300px 전에 미리 이미지 로드 시작 (스크롤 시 placeholder flash 제거)
+    let _imgPreloadObserver = null;
+    function _getImgPreloadObserver() {
+        if (_imgPreloadObserver) return _imgPreloadObserver;
+        if (!('IntersectionObserver' in window)) return null;
+        _imgPreloadObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (!entry.isIntersecting) return;
+                const img = entry.target;
+                const src = img.getAttribute('data-src');
+                if (src && !img.src) img.src = src;
+                _imgPreloadObserver.unobserve(img);
+            });
+        }, { rootMargin: '300px 0px', threshold: 0.01 });
+        return _imgPreloadObserver;
+    }
+    function _observeLazyImages(root) {
+        const obs = _getImgPreloadObserver();
+        const imgs = (root || document).querySelectorAll('img[data-src]:not([data-lazy-bound])');
+        imgs.forEach(img => {
+            img.setAttribute('data-lazy-bound', '1');
+            if (obs) {
+                obs.observe(img);
+            } else {
+                // IO 미지원 브라우저 — 즉시 로드
+                const src = img.getAttribute('data-src');
+                if (src) img.src = src;
+            }
+        });
+    }
+
     function renderNewsList(items) {
         const list = document.getElementById('newsList');
         if (!list) return;
@@ -12539,8 +12613,9 @@
         list.innerHTML = items.map(n => {
             const ago  = _newsTimeAgo(n.publishedTime);
             const safe = (n.link || '#').replace(/"/g, '&quot;');
+            const safeThumb = n.thumbnail ? n.thumbnail.replace(/"/g, '&quot;') : '';
             const thumb = n.thumbnail
-                ? `<img class="news-thumb" src="${n.thumbnail}" alt="" loading="lazy" onerror="this.parentNode.innerHTML='<div class=news-thumb-placeholder><svg width=22 height=22 viewBox=&quot;0 0 24 24&quot; fill=none stroke=currentColor stroke-width=1.8><rect x=3 y=3 width=18 height=18 rx=2/><path d=&quot;M3 9h18M9 21V9&quot;/></svg></div>'">`
+                ? `<img class="news-thumb" data-src="${safeThumb}" alt="" decoding="async" loading="lazy" onerror="this.parentNode.innerHTML='<div class=news-thumb-placeholder><svg width=22 height=22 viewBox=&quot;0 0 24 24&quot; fill=none stroke=currentColor stroke-width=1.8><rect x=3 y=3 width=18 height=18 rx=2/><path d=&quot;M3 9h18M9 21V9&quot;/></svg></div>'">`
                 : `<div class="news-thumb-placeholder"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>`;
             return `<a class="news-card" href="${safe}" target="_blank" rel="noopener noreferrer">
                 <div class="news-thumb-wrap">${thumb}</div>
@@ -12550,6 +12625,7 @@
                 </div>
             </a>`;
         }).join('');
+        _observeLazyImages(list);
     }
 
     function _newsTimeAgo(unixTs) {
