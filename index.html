@@ -1866,14 +1866,15 @@
 
     // 상승/하락 이유(뉴스 헤드라인 요약) 배치 로드 + 주입
     // 캐시: 메모리 Map + localStorage (새로고침/세션 간 유지, TTL 15분)
-    const _REASON_LS_KEY = 'stockai_top100_reasons_v2'; // v1 = 22자 잘린 구버전, v2부터 전체 제목
+    const _REASON_LS_KEY = 'stockai_top100_reasons_v3'; // v1=22자잘림, v2=raw뉴스헤드라인, v3=Gemini요약
     const _REASON_CLIENT_TTL = 15 * 60 * 1000;
     const _REASON_LS_MAX = 300; // 엔트리 상한 (오래된 것 삭제)
     const _reasonClientCache = (() => {
         const m = new Map();
         try {
-            // v1 레거시 키 정리 (22자 잘린 구버전)
+            // 레거시 키 정리 (v1=22자잘림, v2=raw뉴스)
             localStorage.removeItem('stockai_top100_reasons_v1');
+            localStorage.removeItem('stockai_top100_reasons_v2');
             const raw = localStorage.getItem(_REASON_LS_KEY);
             if (raw) {
                 const now = Date.now();

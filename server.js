@@ -412,8 +412,10 @@ async function _reasonLoadFromSupabase(symbols) {
         (data || []).forEach(r => {
             const age = now - new Date(r.updated_at).getTime();
             // 25자 이하 = 구버전 22자 잘림 캐시 → TTL 무시하고 재fetch 유도
-            const isTruncated = (r.text || '').length > 0 && (r.text || '').length <= 25;
-            if (age < REASON_SUPABASE_TTL && !isTruncated) m.set(r.symbol, r.text || '');
+            const len = (r.text || '').length;
+            const isTruncated = len > 0 && len <= 25;       // 구버전 22자 잘림
+            const isLegacyRaw = len > 65;                   // 구버전 raw 뉴스 헤드라인(요약 전)
+            if (age < REASON_SUPABASE_TTL && !isTruncated && !isLegacyRaw) m.set(r.symbol, r.text || '');
         });
         return m;
     } catch { return new Map(); }
@@ -430,31 +432,96 @@ function _reasonSaveToSupabase(rows) {
       .catch(() => {});
 }
 
+// 휴리스틱 정리 — Gemini 실패 시 fallback. 트레일링 잡음/클라우드 절 제거 후 ~55자 내외로 압축
 function _shortenReason(text) {
     if (!text) return '';
-    // 특수문자 정리 후 불필요한 접두어 제거 — 전체 제목 반환 (UI에서 표시량 조절)
     let t = String(text).replace(/\s+/g,' ').trim();
-    t = t.replace(/^[\[(]?[A-Z0-9.,\s]+[\])]?\s*[:–—-]\s*/,''); // "AAPL: " 같은 접두어 제거
-    // 200자 초과 시에만 자름 (사실상 전체 제목 유지)
-    if (t.length > 200) t = t.slice(0, 200).trim() + '…';
+    t = t.replace(/^[\[(]?[A-Z0-9.,\s]+[\])]?\s*[:–—-]\s*/,''); // "AAPL: " 같은 접두어
+    // 대시 뒤 선정적 서브타이틀 제거 ("- '강제' 퇴사?" 등)
+    t = t.replace(/\s*[-–—]\s*['"']?[^-–—]{1,60}['"']?\?*\s*$/, '').trim();
+    // 트레일링 필러 제거
+    t = t.replace(/\s*(다음과 같습니다|여부.+?|방법\.?|이유.+?)\.?\s*$/, '').trim();
+    // 첫 문장만
+    const sm = t.match(/^(.{8,}?[.!?])\s/);
+    if (sm) t = sm[1].trim();
+    if (t.length > 60) t = t.slice(0, 58).trim() + '…';
     return t;
 }
 
-async function _fetchOneReason(symbol) {
-    const cached = _reasonCache.get(symbol);
-    if (cached && Date.now() - cached.ts < REASON_TTL) return cached.text;
+// 개별 심볼의 원본 뉴스 제목(영→한 번역) + 퍼블리셔 반환 (캐시 없음 — 요약 후 캐시)
+async function _fetchNewsTitle(symbol) {
     try {
         const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(symbol)}&quotesCount=0&newsCount=1&enableFuzzyQuery=false`;
         const data = await yfRequest(url);
         const first = (data?.news || [])[0];
-        if (!first?.title) { _reasonCache.set(symbol, { text:'', ts:Date.now() }); return ''; }
+        if (!first?.title) return { symbol, title:'', publisher:'' };
         const ko = await translateToKo(first.title);
-        const short = _shortenReason(ko || first.title);
-        _reasonCache.set(symbol, { text: short, ts: Date.now() });
-        return short;
-    } catch {
-        _reasonCache.set(symbol, { text:'', ts:Date.now() });
-        return '';
+        return { symbol, title: ko || first.title, publisher: first.publisher || '' };
+    } catch { return { symbol, title:'', publisher:'' }; }
+}
+
+// 배치 quote snapshot — 최대 40 심볼 한 번에
+async function _fetchQuoteSnapshots(symbols) {
+    const out = new Map();
+    if (!symbols.length) return out;
+    try {
+        const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols.join(','))}`;
+        const data = await yfRequest(url);
+        (data?.quoteResponse?.result || []).forEach(q => {
+            out.set(q.symbol, {
+                changePct: q.regularMarketChangePercent,
+                price: q.regularMarketPrice,
+                volumeRatio: q.averageDailyVolume3Month ? (q.regularMarketVolume || 0) / q.averageDailyVolume3Month : null,
+            });
+        });
+    } catch {}
+    return out;
+}
+
+// Gemini 배치 요약: [{symbol, title, changePct, volumeRatio}] → Map<symbol, summary>
+// 프롬프트: 각 종목당 한 문장(20-40자) 한국어, 뉴스 원인 + 등락률 맥락. JSON 반환.
+async function _summarizeReasonsBatch(items) {
+    const fallback = new Map(items.map(x => [x.symbol, _shortenReason(x.title)]));
+    if (!process.env.GEMINI_API_KEY || !items.length) return fallback;
+    const valid = items.filter(x => x.title && x.title.length > 5);
+    if (!valid.length) return fallback;
+    const lines = valid.map(x => {
+        const chg = Number.isFinite(x.changePct) ? `${x.changePct >= 0 ? '+' : ''}${x.changePct.toFixed(1)}%` : '-';
+        const vol = x.volumeRatio && x.volumeRatio > 2 ? ` 거래량${x.volumeRatio.toFixed(1)}x` : '';
+        return `- ${x.symbol} [${chg}${vol}]: ${x.title}`;
+    }).join('\n');
+    const prompt = `다음은 주식 종목별 최신 뉴스 제목과 등락률입니다. 각 종목에 대해 "한국어 한 문장(20~40자)"으로 상승/하락 사유를 요약하세요.
+규칙:
+- 뉴스 핵심 원인만. 선정적 서브타이틀·인용구·부제목은 제거.
+- 등락률이 크면 "급등"/"급락"/"하락"/"상승" 같은 단어로 자연스럽게 포함.
+- 티커/회사명 생략(이미 표시됨).
+- 과장 금지. 사실 기반 요약.
+- JSON 배열만 출력: [{"s":"SYMBOL","r":"요약"}]
+
+입력:
+${lines}
+
+JSON:`;
+    try {
+        const genAI = getGenAI();
+        if (!genAI) return fallback;
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash', generationConfig: { temperature: 0.3 } });
+        const resp = await model.generateContent(prompt);
+        let txt = resp.response?.text?.() || '';
+        txt = txt.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+        const arr = JSON.parse(txt);
+        if (!Array.isArray(arr)) return fallback;
+        const m = new Map(fallback); // fallback 우선 셋업
+        arr.forEach(x => {
+            if (!x || typeof x.s !== 'string' || typeof x.r !== 'string') return;
+            let r = x.r.trim();
+            if (r.length > 60) r = r.slice(0, 58).trim() + '…';
+            if (r.length >= 8) m.set(x.s.toUpperCase(), r);
+        });
+        return m;
+    } catch (e) {
+        console.warn('[news-reason] Gemini summarize fail:', e?.message?.slice(0,100));
+        return fallback;
     }
 }
 
@@ -484,16 +551,25 @@ app.get('/api/news-reason', async (req, res) => {
             });
         }
 
-        // 3차: 남은 심볼만 Yahoo fetch
+        // 3차: 남은 심볼 — 뉴스 제목 + 시세 스냅샷 병렬 fetch → Gemini 배치 요약
         const missAll = syms.filter(s => !(s in out) && !_reasonCache.has(s));
         if (missAll.length) {
-            const entries = await Promise.all(missAll.map(async s => [s, await _fetchOneReason(s)]));
-            const upsertRows = [];
-            entries.forEach(([s, t]) => {
-                if (t) out[s] = t;
-                upsertRows.push({ symbol: s, text: t || '', updated_at: new Date().toISOString() });
+            const [titleResults, quoteMap] = await Promise.all([
+                Promise.all(missAll.map(_fetchNewsTitle)),
+                _fetchQuoteSnapshots(missAll),
+            ]);
+            const items = titleResults.map(r => {
+                const q = quoteMap.get(r.symbol) || {};
+                return { symbol: r.symbol, title: r.title, changePct: q.changePct, volumeRatio: q.volumeRatio };
             });
-            // Supabase 공유 캐시에 비동기 저장
+            const summaryMap = await _summarizeReasonsBatch(items);
+            const upsertRows = [];
+            missAll.forEach(s => {
+                const t = summaryMap.get(s) || '';
+                _reasonCache.set(s, { text: t, ts: Date.now() });
+                if (t) out[s] = t;
+                upsertRows.push({ symbol: s, text: t, updated_at: new Date().toISOString() });
+            });
             _reasonSaveToSupabase(upsertRows);
         }
 
