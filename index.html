@@ -2036,16 +2036,22 @@
         /* ============================================================
          * Level 5: Emoji → Remix Icon 사이징/정렬
          * ============================================================ */
-        .hqnav-item i, .hot-tab i, .home-section-title i, .hs-label i,
-        .sm-screen-title i, .vs-screen-title i, .section-title i,
-        .sdrop-section-title i, .scanner-preset-btn i, .sm-sub-tab i,
-        .ai-summary-title i, .rr-calc-ttl i, .short-header-title i,
-        .economic-header h2 i, .ai-market-section h3 i, .chart-ai-reader-btn i {
+        .hqnav-item i, .hot-tab i, .scanner-preset-btn i, .sm-sub-tab i,
+        .chart-ai-reader-btn i {
             font-size:1.05em;
             margin-right:6px;
             vertical-align:-0.08em;
             display:inline-block;
             line-height:1;
+        }
+        /* 타이틀 앞 아이콘 전부 숨김 (안전망) */
+        .home-section-title > i, .hs-label > i, .sm-screen-title > i,
+        .vs-screen-title > i, .section-title > i, .sdrop-section-title > i,
+        .ai-summary-title > i, .rr-calc-ttl > i, .short-header-title > i,
+        .side-nav-section-title > i, .top100-title > i, .cp-section-title > i,
+        .options-anal-section-title > i, .economic-header h2 > i,
+        .ai-market-section h3 > i {
+            display:none !important;
         }
         /* 사이드나브 아이콘 — span 안에 i 삽입된 경우 */
         .side-nav-item-icon i{font-size:20px;line-height:1;display:inline-block;}
@@ -2252,7 +2258,7 @@
         </div>
         <div class="side-nav-divider"></div>
         <div class="side-nav-section">
-            <div class="side-nav-section-title">&#11088; 즐겨찾기 종목</div>
+            <div class="side-nav-section-title">즐겨찾기 종목</div>
             <div id="favList" class="side-nav-menu">
                 <div class="fav-empty">즐겨찾기한 종목이 없습니다.<br>종목 분석 후 &#9734; 버튼으로 추가하세요.</div>
             </div>
@@ -2371,7 +2377,7 @@
         <!-- 섹션 3: 내 즐겨찾기 요약 -->
         <section id="favSummarySection" class="home-section" style="display:none;">
             <div class="section-header">
-                <span class="section-title"><i class="ri-star-line"></i> 내 즐겨찾기 지금 상태</span>
+                <span class="section-title">내 즐겨찾기 지금 상태</span>
             </div>
             <div id="favSummaryList" class="ai-rec-list"></div>
         </section>
@@ -2431,7 +2437,7 @@
 
     <!-- Smart Money Tracker Screen -->
     <div class="smart-money-screen" id="smartMoneyScreen" style="display:none">
-        <div class="sm-screen-title"><i class="ri-briefcase-line"></i> 스마트 머니 추적기</div>
+        <div class="sm-screen-title">스마트 머니 추적기</div>
         <div class="sm-screen-sub">기관투자자 13F 공시 기반 포트폴리오 분석</div>
         <div class="sm-disclaimer">
             <span class="sm-disclaimer-icon">⚠️</span>
@@ -2459,7 +2465,7 @@
 
     <!-- Alpha Scanner Screen -->
     <div class="alpha-scanner-screen" id="alphaScannerScreen" style="display:none">
-        <div class="sm-screen-title">🎯 알파 스캐너</div>
+        <div class="sm-screen-title">알파 스캐너</div>
         <div class="sm-screen-sub">AI R/R · 옵션 심리 · 기관 수급 교차 필터링</div>
         <!-- 퀵 프리셋 -->
         <div class="scanner-presets">
@@ -2492,7 +2498,7 @@
 
     <!-- Fav Screen -->
     <div class="smart-money-screen" id="favScreen" style="display:none">
-        <div class="sm-screen-title"><i class="ri-star-line"></i> 즐겨찾기</div>
+        <div class="sm-screen-title">즐겨찾기</div>
         <div class="sm-screen-sub">종목을 탭하면 바로 분석합니다</div>
         <div id="favScreenList"></div>
     </div>
@@ -2500,7 +2506,7 @@
     <!-- ===== Economic Indicators Screen ===== -->
     <section id="economicSection" style="display:none;">
         <div class="economic-header">
-            <h2><i class="ri-bar-chart-2-line"></i> 경제지표</h2>
+            <h2>경제지표</h2>
             <div class="economic-tab-group">
                 <button class="economic-tab-btn active" id="ecoTabCpi" onclick="switchEcoTab('cpi')">CPI</button>
                 <button class="economic-tab-btn" id="ecoTabPpi" onclick="switchEcoTab('ppi')">PPI</button>
@@ -2548,7 +2554,7 @@
 
         <div class="economic-bottom-grid">
             <div class="economic-history-section">
-                <h3>📋 최근 발표 이력</h3>
+                <h3>최근 발표 이력</h3>
                 <div class="history-table-wrapper">
                     <table class="history-table">
                         <thead><tr><th>발표일</th><th>지수값</th><th>MoM</th><th>YoY</th></tr></thead>
@@ -2558,11 +2564,11 @@
             </div>
             <div class="economic-right-section">
                 <div class="economic-sector-section">
-                    <h3>🏭 섹터별 영향도</h3>
+                    <h3>섹터별 영향도</h3>
                     <div class="sector-badges-wrap" id="sectorImpactArea"></div>
                 </div>
                 <div class="economic-ai-section">
-                    <h3><i class="ri-robot-2-line"></i> AI 시장 영향 분석</h3>
+                    <h3>AI 시장 영향 분석</h3>
                     <div class="ai-analysis-text" id="ecoAiBody">분석 버튼을 눌러 AI 코멘트를 생성하세요.</div>
                     <button class="ai-generate-btn" id="ecoAiBtn" onclick="generateEconomicAI()">분석 생성</button>
                 </div>
@@ -2572,7 +2578,7 @@
 
     <!-- ===== Vision Scanner Screen ===== -->
     <div class="vs-screen" id="visionScannerScreen" style="display:none">
-        <div class="vs-screen-title"><i class="ri-search-eye-line"></i> AI 차트 판독기</div>
+        <div class="vs-screen-title">AI 차트 판독기</div>
         <div class="vs-screen-sub">HTS·MTS 캡처본을 올리면 AI가 지지/저항선과 매물대를 자동으로 탐지합니다</div>
 
         <!-- State: Empty (드롭존) -->
@@ -2857,7 +2863,7 @@
                 <!-- AI 판독기 요약 카드 -->
                 <div class="ai-summary-card" id="aiSummaryCard" style="display:none;">
                     <div class="ai-summary-header">
-                        <div class="ai-summary-title"><i class="ri-search-eye-line"></i> AI 차트분석 결과</div>
+                        <div class="ai-summary-title">AI 차트분석 결과</div>
                         <button class="ai-summary-close" onclick="clearAiChartLines()" title="닫기">&times;</button>
                     </div>
                     <div class="ai-summary-levels" id="aiSummaryLevels"></div>
@@ -2915,7 +2921,7 @@
                 <div class="card-title"><span class="dot" style="background:var(--blue)"></span>R/R 손익비 계산기 <span class="trade-badge day-badge">DAY</span></div>
                 <div class="rr-calc-inner">
                     <div class="rr-calc-hdr">
-                        <span class="rr-calc-ttl"><i class="ri-scales-3-line"></i> 손익비 (Risk / Reward)</span>
+                        <span class="rr-calc-ttl">손익비 (Risk / Reward)</span>
                         <span class="rr-calc-status" id="rrCalcBadge">계산 대기</span>
                     </div>
                     <div class="rr-calc-body">
@@ -3128,7 +3134,7 @@
         </div>
         <div class="tab-content" id="tabShort" data-tab="short">
             <div class="short-header">
-                <div class="short-header-title"><i class="ri-arrow-down-line"></i> <span id="shortSymbolLabel"></span> 공매도 현황</div>
+                <div class="short-header-title"><span id="shortSymbolLabel"></span> 공매도 현황</div>
                 <button class="news-refresh-btn" onclick="reloadShortTab()">↻ 새로고침</button>
             </div>
             <div id="shortContent"></div>
@@ -3405,14 +3411,14 @@
         if (mode === 'empty') {
             const favs = getFavorites();
             if (favs.length) {
-                html += `<div class="sdrop-section-title"><i class="ri-star-line"></i> 즐겨찾기</div>`;
+                html += `<div class="sdrop-section-title">즐겨찾기</div>`;
                 html += favs.slice(0,5).map((f,i) => {
                     const meta = ASSET_META[f.symbol]||{};
                     return _sdropItemHTML({ticker:f.symbol,name:f.name,koreanName:f.name,
                         market:f.market,type:meta.type||'stock',sector:meta.sector||'',score:0}, i);
                 }).join('');
             }
-            html += `<div class="sdrop-section-title"><i class="ri-fire-line"></i> 인기 종목</div>`;
+            html += `<div class="sdrop-section-title">인기 종목</div>`;
             if (_searchTrending === null) {
                 html += _sdropSkeletonHTML(5);
                 el.innerHTML = html; el.classList.add('open');
@@ -3438,7 +3444,7 @@
                     <div style="font-size:12px;color:var(--text3);line-height:1.6;">티커 심볼로 검색해 주세요<br><span style="color:var(--blue);font-weight:600;">예: AAPL, TSLA, 005930</span></div>
                 </div>`;
             } else {
-                html += `<div class="sdrop-section-title"><i class="ri-search-line"></i> 검색 결과</div>`;
+                html += `<div class="sdrop-section-title">검색 결과</div>`;
                 html += data.map((item,i) => _sdropItemHTML(item,i)).join('');
             }
         }
@@ -3491,13 +3497,13 @@
         if (mode === 'empty') {
             const favs = getFavorites();
             if (favs.length) {
-                html += `<div class="sdrop-section-title"><i class="ri-star-line"></i> 즐겨찾기</div>`;
+                html += `<div class="sdrop-section-title">즐겨찾기</div>`;
                 html += favs.slice(0, 5).map((f, i) => {
                     const meta = ASSET_META[f.symbol] || {};
                     return _sdropItemHTML({ ticker: f.symbol, name: f.name, koreanName: f.name, market: f.market, type: meta.type || 'stock', sector: '', score: 0 }, i);
                 }).join('');
             }
-            html += `<div class="sdrop-section-title"><i class="ri-fire-line"></i> 인기 종목</div>`;
+            html += `<div class="sdrop-section-title">인기 종목</div>`;
             if (_searchTrending === null) {
                 html += _sdropSkeletonHTML(5);
                 el.innerHTML = html;
@@ -3521,7 +3527,7 @@
                     <div style="font-size:12px;color:var(--text3);line-height:1.6;">티커 심볼로 검색해 주세요<br><span style="color:var(--blue);font-weight:600;">예: AAPL, TSLA, 005930</span></div>
                 </div>`;
             } else {
-                html += `<div class="sdrop-section-title"><i class="ri-search-line"></i> 검색 결과</div>`;
+                html += `<div class="sdrop-section-title">검색 결과</div>`;
                 html += data.map((item, i) => _sdropItemHTML(item, i)).join('');
             }
         }
@@ -10376,14 +10382,14 @@
             if (ap.phone) rows.push({ l:'전화', v:ap.phone });
             if (rows.length % 2 !== 0) rows.push({ l:'', v:'' });
             if (rows.length) {
-                html += `<div class="cp-section-title">📋 기업 기본정보</div><div class="cp-info-grid">`;
+                html += `<div class="cp-section-title">기업 기본정보</div><div class="cp-info-grid">`;
                 html += rows.map(i => i.l ? `<div class="cp-info-row"><span class="cp-info-label">${i.l}</span><span class="cp-info-value">${i.v}</span></div>` : `<div class="cp-info-row" style="visibility:hidden"></div>`).join('');
                 html += `</div>`;
             }
 
             // 지분 구성
             if (mh.insidersPercentHeld?.raw != null || mh.institutionsPercentHeld?.raw != null) {
-                html += `<div class="cp-section-title"><i class="ri-bar-chart-2-line"></i> 지분 구성</div><div class="cp-shares-grid">`;
+                html += `<div class="cp-section-title">지분 구성</div><div class="cp-shares-grid">`;
                 if (mh.insidersPercentHeld?.raw != null) html += `<div class="cp-shares-card"><div class="cp-shares-label">내부자 보유</div><div class="cp-shares-value" style="color:var(--yellow)">${(mh.insidersPercentHeld.raw*100).toFixed(2)}%</div></div>`;
                 if (mh.institutionsPercentHeld?.raw != null) html += `<div class="cp-shares-card"><div class="cp-shares-label">기관 보유</div><div class="cp-shares-value" style="color:var(--cyan)">${(mh.institutionsPercentHeld.raw*100).toFixed(2)}%</div></div>`;
                 if (mh.institutionsFloatPercentHeld?.raw != null) html += `<div class="cp-shares-card"><div class="cp-shares-label">유동주식 대비 기관</div><div class="cp-shares-value" style="color:var(--blue)">${(mh.institutionsFloatPercentHeld.raw*100).toFixed(2)}%</div></div>`;
@@ -10395,7 +10401,7 @@
             if (ap.overallRisk != null) {
                 const risks = [{l:'종합 위험',v:ap.overallRisk},{l:'감사 위험',v:ap.auditRisk},{l:'이사회 위험',v:ap.boardRisk},{l:'보상 위험',v:ap.compensationRisk},{l:'주주권리 위험',v:ap.shareHolderRightsRisk}].filter(x=>x.v!=null);
                 if (risks.length % 2 !== 0) risks.push({l:'',v:null});
-                html += `<div class="cp-section-title">⚖️ 거버넌스 위험</div><div class="cp-info-grid">`;
+                html += `<div class="cp-section-title">거버넌스 위험</div><div class="cp-info-grid">`;
                 html += risks.map(i => i.l ? `<div class="cp-info-row"><span class="cp-info-label">${i.l}</span><span class="cp-info-value" style="color:${i.v<=3?'var(--green)':i.v<=6?'var(--yellow)':'var(--red)'}">${i.v}/10</span></div>` : `<div class="cp-info-row" style="visibility:hidden"></div>`).join('');
                 html += `</div>`;
             }
@@ -13572,7 +13578,7 @@
         const t = a.trend || {};
         const trendHtml = `
             <div class="ar-section">
-                <h4>📈 추세 &amp; 구조</h4>
+                <h4>추세 &amp; 구조</h4>
                 <dl class="ar-kv">
                     <dt>주요 추세</dt><dd>${escHtml(t.primary || '-')}</dd>
                     <dt>타임프레임</dt><dd>${escHtml(t.timeframe || '-')}</dd>
@@ -13584,7 +13590,7 @@
         const kl = a.keyLevels || {};
         const levelsHtml = `
             <div class="ar-section">
-                <h4>🎯 핵심 가격대</h4>
+                <h4>핵심 가격대</h4>
                 <dl class="ar-kv">
                     <dt>즉시 저항</dt><dd>${price(kl.immediateResistance, 'down')}</dd>
                     <dt>즉시 지지</dt><dd>${price(kl.immediateSupport, 'up')}</dd>
@@ -13635,7 +13641,7 @@
         const biasLabel = biasKey === 'bull' ? '상방' : (biasKey === 'bear' ? '하방' : '중립');
         const planHtml = `
             <div class="ar-section">
-                <h4>⚔️ 실전 트레이드 플랜 <span class="ar-conv ${biasCls}">편향: ${biasLabel}</span></h4>
+                <h4>실전 트레이드 플랜 <span class="ar-conv ${biasCls}">편향: ${biasLabel}</span></h4>
                 ${scenarioCard('bull', sc.bull)}
                 ${scenarioCard('bear', sc.bear)}
             </div>`;
