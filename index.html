@@ -1977,6 +1977,112 @@
         /* ---- 4-D: Header 로고 Revolut 무게감 ---- */
         .logo{font-weight:500!important;letter-spacing:-0.02em!important;}
         .logo span{font-weight:700!important;}
+
+        /* ============================================================
+         * Level 5: Emoji → Remix Icon 사이징/정렬
+         * ============================================================ */
+        .hqnav-item i, .hot-tab i, .home-section-title i, .hs-label i,
+        .sm-screen-title i, .vs-screen-title i, .section-title i,
+        .sdrop-section-title i, .scanner-preset-btn i, .sm-sub-tab i,
+        .ai-summary-title i, .rr-calc-ttl i, .short-header-title i,
+        .economic-header h2 i, .ai-market-section h3 i, .chart-ai-reader-btn i {
+            font-size:1.05em;
+            margin-right:6px;
+            vertical-align:-0.08em;
+            display:inline-block;
+            line-height:1;
+        }
+        /* 사이드나브 아이콘 — span 안에 i 삽입된 경우 */
+        .side-nav-item-icon i{font-size:20px;line-height:1;display:inline-block;}
+
+        /* ============================================================
+         * Level 6: Modal / Toast / Snackbar Revolut 감성
+         * ============================================================ */
+
+        /* Modal — bottom sheet 상단 radius 강조, cubic-bezier ease-out */
+        .ai-rec-modal{
+            border-radius:24px 24px 0 0!important;
+            background:var(--bg)!important;
+            box-shadow:0 -8px 32px rgba(0,0,0,.4)!important;
+            animation:revolutSlideUp .28s cubic-bezier(0.16,1,0.3,1)!important;
+        }
+        .ai-rec-modal-overlay{backdrop-filter:blur(8px);background:rgba(0,0,0,.5)!important;}
+        .ai-rec-modal-title{font-weight:500!important;font-size:17px!important;letter-spacing:-0.015em!important;}
+        .ai-rec-modal-close{
+            width:32px;height:32px;border-radius:var(--r-pill);
+            background:var(--bg3)!important;color:var(--text)!important;
+            display:inline-flex;align-items:center;justify-content:center;font-size:16px!important;
+        }
+        .ai-rec-modal-close:hover{background:var(--bg4)!important;}
+        .ai-rec-modal-item{border-radius:var(--r-card)!important;padding:14px 16px!important;transition:background .2s cubic-bezier(0.4,0,0.2,1)!important;}
+        .ai-rec-modal-item:hover{background:var(--bg4)!important;}
+        .ai-rec-modal-sym{font-weight:500!important;font-size:15px!important;letter-spacing:-0.01em!important;}
+
+        @keyframes revolutSlideUp{
+            from{transform:translateY(100%);opacity:0;}
+            to{transform:translateY(0);opacity:1;}
+        }
+
+        /* Toast — Revolut 스타일 알림 (중성 배경 + 강조 보더 최소화) */
+        .toast{
+            border-radius:var(--r-pill)!important;
+            padding:12px 22px!important;
+            font-weight:500!important;
+            letter-spacing:-0.01em!important;
+            font-size:13px!important;
+            background:var(--text)!important;
+            color:var(--bg)!important;
+            border:none!important;
+            box-shadow:0 8px 28px rgba(0,0,0,.4)!important;
+        }
+
+        /* Snackbar — 상단 floating pill */
+        .snackbar{
+            border-radius:var(--r-pill)!important;
+            padding:10px 20px!important;
+            font-weight:500!important;
+            font-size:13px!important;
+            letter-spacing:-0.005em!important;
+            backdrop-filter:blur(12px);
+        }
+
+        /* ============================================================
+         * Level 7: 마이크로 인터랙션 통일 (cubic-bezier, focus, hover)
+         * ============================================================ */
+
+        /* 전역 transition timing 통일 — 버튼/카드/탭 */
+        .btn-pill, .search-btn, .pwa-install-btn, .market-btn,
+        .hot-tab, .top100-filter, .hqnav-item, .example-chip,
+        .sm-sub-tab, .scanner-preset-btn, .trade-style-tab, .rr-tab,
+        .side-nav-item, .theme-toggle-btn, .hamburger-btn,
+        .sm-inst-card, .hot-card, .top100-row, .ai-rec-card, .news-card,
+        .mw-card, .scanner-card, .guru-home-card {
+            transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1)!important;
+            transition-duration:.2s!important;
+        }
+
+        /* Input focus — blue ring 제거, 보더 color shift만 */
+        .search-box{transition:border-color .2s cubic-bezier(0.4,0,0.2,1);}
+        .search-box:focus-within{
+            border-color:var(--text)!important;
+            box-shadow:none!important;
+            outline:none!important;
+        }
+        #searchInput:focus{outline:none!important;box-shadow:none!important;}
+        input:focus, textarea:focus, button:focus, button:focus-visible{
+            outline:none!important;
+        }
+        /* focus-visible만 접근성 유지 — 키보드 네비 시 얇은 outline */
+        button:focus-visible, input:focus-visible{
+            outline:2px solid var(--text)!important;
+            outline-offset:2px!important;
+        }
+
+        /* Hover translateY 제거 — Revolut은 평면 유지 */
+        .example-chip:hover, .pwa-install-btn:hover,
+        .hot-card:hover, .top100-row:hover, .ai-rec-card:hover {
+            transform:none!important;
+        }
         /* === END REVOLUT OVERRIDES === */
     </style>
 </head>
@@ -1991,21 +2097,21 @@
         <div class="side-nav-section">
             <div class="side-nav-menu">
                 <button class="side-nav-item active" onclick="goHome();closeSideNav();">
-                    <span class="side-nav-item-icon">&#127968;</span>
+                    <span class="side-nav-item-icon"><i class="ri-home-5-line"></i></span>
                     <span class="side-nav-item-text">홈</span>
                 </button>
                 <button class="side-nav-item" id="sideNavSmBtn" onclick="goSmartMoney();closeSideNav();">
-                    <span class="side-nav-item-icon">&#128188;</span>
+                    <span class="side-nav-item-icon"><i class="ri-briefcase-line"></i></span>
                     <span class="side-nav-item-text">기관 포트폴리오</span>
                     <span class="side-nav-item-sub">13F</span>
                 </button>
                 <button class="side-nav-item" id="sideNavVsBtn" onclick="goVisionScanner();closeSideNav();">
-                    <span class="side-nav-item-icon">&#128269;</span>
+                    <span class="side-nav-item-icon"><i class="ri-search-eye-line"></i></span>
                     <span class="side-nav-item-text">AI 차트 판독기</span>
                     <span class="side-nav-item-sub">NEW</span>
                 </button>
                 <button class="side-nav-item" id="sideNavEcoBtn" onclick="goEconomic();closeSideNav();">
-                    <span class="side-nav-item-icon">📊</span>
+                    <span class="side-nav-item-icon"><i class="ri-bar-chart-2-line"></i></span>
                     <span class="side-nav-item-text">경제지표</span>
                     <span class="side-nav-item-sub">CPI/PPI</span>
                 </button>
@@ -2058,10 +2164,10 @@
             <button class="hamburger-btn" onclick="toggleSideNav()" title="메뉴">&#9776;</button>
         </div>
         <nav class="header-qnav" id="headerQNav">
-            <button class="hqnav-item active" id="hqHome" onclick="goHome()">🏠 홈</button>
-            <button class="hqnav-item" id="hqSm" onclick="goSmartMoney()">💼 기관 13F</button>
-            <button class="hqnav-item" id="hqVs" onclick="goVisionScanner()">🔍 AI 차트판독기</button>
-            <button class="hqnav-item" id="hqEco" onclick="goEconomic()">📊 경제지표</button>
+            <button class="hqnav-item active" id="hqHome" onclick="goHome()"><i class="ri-home-5-line"></i> 홈</button>
+            <button class="hqnav-item" id="hqSm" onclick="goSmartMoney()"><i class="ri-briefcase-line"></i> 기관 13F</button>
+            <button class="hqnav-item" id="hqVs" onclick="goVisionScanner()"><i class="ri-search-eye-line"></i> AI 차트판독기</button>
+            <button class="hqnav-item" id="hqEco" onclick="goEconomic()"><i class="ri-bar-chart-2-line"></i> 경제지표</button>
         </nav>
     </header>
 
@@ -2083,15 +2189,15 @@
         <!-- 핫 종목 섹션 -->
         <section id="hotStocksSection" class="home-section" style="display:none;">
             <div class="home-section-header">
-                <div class="home-section-title">🔥 오늘의 핫 종목
+                <div class="home-section-title"><i class="ri-fire-line"></i> 오늘의 핫 종목
                     <span class="hs-badge green">AI 선별</span>
                 </div>
                 <div class="home-section-sub" id="hotStocksSub"></div>
             </div>
             <div class="hot-tabs" id="hotTabs">
-                <button class="hot-tab active" data-tab="institution" onclick="switchHotTab('institution')">🏦 기관</button>
-                <button class="hot-tab" data-tab="value" onclick="switchHotTab('value')">💎 밸류</button>
-                <button class="hot-tab" data-tab="momentum" onclick="switchHotTab('momentum')">🚀 모멘텀</button>
+                <button class="hot-tab active" data-tab="institution" onclick="switchHotTab('institution')"><i class="ri-bank-line"></i> 기관</button>
+                <button class="hot-tab" data-tab="value" onclick="switchHotTab('value')"><i class="ri-vip-diamond-line"></i> 밸류</button>
+                <button class="hot-tab" data-tab="momentum" onclick="switchHotTab('momentum')"><i class="ri-rocket-2-line"></i> 모멘텀</button>
             </div>
             <div id="hotStocksList" class="hot-list">
                 <div class="swing-empty">데이터 로딩 중...</div>
@@ -2100,7 +2206,7 @@
 
         <!-- 최근 본 종목 (최상단) -->
         <section id="recentSection" class="home-section" style="display:none;margin-top:16px">
-            <div class="hs-label">🕐 최근 본 종목</div>
+            <div class="hs-label"><i class="ri-time-line"></i> 최근 본 종목</div>
             <div class="recent-wrap" id="recentWrap"></div>
         </section>
 
@@ -2142,7 +2248,7 @@
         <!-- 섹션 3: 내 즐겨찾기 요약 -->
         <section id="favSummarySection" class="home-section" style="display:none;">
             <div class="section-header">
-                <span class="section-title">⭐ 내 즐겨찾기 지금 상태</span>
+                <span class="section-title"><i class="ri-star-line"></i> 내 즐겨찾기 지금 상태</span>
             </div>
             <div id="favSummaryList" class="ai-rec-list"></div>
         </section>
@@ -2175,7 +2281,7 @@
         <section id="guruHomeSection" class="home-section" style="display:none">
             <div class="home-section-header">
                 <div class="home-section-title">
-                    💎 부자 포트폴리오
+                    <i class="ri-vip-diamond-line"></i> 부자 포트폴리오
                     <span class="hs-badge green">13F</span>
                 </div>
                 <button class="home-section-more" onclick="goSmartMoneyAndOpenReal()">전체 보기 →</button>
@@ -2202,7 +2308,7 @@
 
     <!-- Smart Money Tracker Screen -->
     <div class="smart-money-screen" id="smartMoneyScreen" style="display:none">
-        <div class="sm-screen-title">💼 스마트 머니 추적기</div>
+        <div class="sm-screen-title"><i class="ri-briefcase-line"></i> 스마트 머니 추적기</div>
         <div class="sm-screen-sub">기관투자자 13F 공시 기반 포트폴리오 분석</div>
         <div class="sm-disclaimer">
             <span class="sm-disclaimer-icon">⚠️</span>
@@ -2214,9 +2320,9 @@
         </div>
         <!-- 서브 탭 -->
         <div class="sm-sub-tabs">
-            <button class="sm-sub-tab active" id="smTabTop10" onclick="switchSmTab('top10')">🔥 폼 미친 기관들</button>
+            <button class="sm-sub-tab active" id="smTabTop10" onclick="switchSmTab('top10')"><i class="ri-fire-line"></i> 폼 미친 기관들</button>
             <button class="sm-sub-tab" id="smTabGuru" onclick="switchSmTab('guru')">🏛️ 월가 킹덤</button>
-            <button class="sm-sub-tab" id="smTabReal" onclick="switchSmTab('real')">💎 부자 포트폴리오</button>
+            <button class="sm-sub-tab" id="smTabReal" onclick="switchSmTab('real')"><i class="ri-vip-diamond-line"></i> 부자 포트폴리오</button>
         </div>
         <!-- Panel A: TOP 10 -->
         <div class="sm-panel active" id="smPanelTop10"></div>
@@ -2234,8 +2340,8 @@
         <div class="sm-screen-sub">AI R/R · 옵션 심리 · 기관 수급 교차 필터링</div>
         <!-- 퀵 프리셋 -->
         <div class="scanner-presets">
-            <button class="scanner-preset-btn" id="scanPresetBreakout" onclick="setScannerPreset('breakout')">🚀 바닥 탈출</button>
-            <button class="scanner-preset-btn" id="scanPresetDip" onclick="setScannerPreset('dip')">💎 눌림목 매수</button>
+            <button class="scanner-preset-btn" id="scanPresetBreakout" onclick="setScannerPreset('breakout')"><i class="ri-rocket-2-line"></i> 바닥 탈출</button>
+            <button class="scanner-preset-btn" id="scanPresetDip" onclick="setScannerPreset('dip')"><i class="ri-vip-diamond-line"></i> 눌림목 매수</button>
             <button class="scanner-preset-btn" id="scanPresetMomentum" onclick="setScannerPreset('momentum')">⚡ 모멘텀 추격</button>
         </div>
         <!-- 필터 칩 -->
@@ -2263,7 +2369,7 @@
 
     <!-- Fav Screen -->
     <div class="smart-money-screen" id="favScreen" style="display:none">
-        <div class="sm-screen-title">⭐ 즐겨찾기</div>
+        <div class="sm-screen-title"><i class="ri-star-line"></i> 즐겨찾기</div>
         <div class="sm-screen-sub">종목을 탭하면 바로 분석합니다</div>
         <div id="favScreenList"></div>
     </div>
@@ -2271,7 +2377,7 @@
     <!-- ===== Economic Indicators Screen ===== -->
     <section id="economicSection" style="display:none;">
         <div class="economic-header">
-            <h2>📊 경제지표</h2>
+            <h2><i class="ri-bar-chart-2-line"></i> 경제지표</h2>
             <div class="economic-tab-group">
                 <button class="economic-tab-btn active" id="ecoTabCpi" onclick="switchEcoTab('cpi')">CPI</button>
                 <button class="economic-tab-btn" id="ecoTabPpi" onclick="switchEcoTab('ppi')">PPI</button>
@@ -2333,7 +2439,7 @@
                     <div class="sector-badges-wrap" id="sectorImpactArea"></div>
                 </div>
                 <div class="economic-ai-section">
-                    <h3>🤖 AI 시장 영향 분석</h3>
+                    <h3><i class="ri-robot-2-line"></i> AI 시장 영향 분석</h3>
                     <div class="ai-analysis-text" id="ecoAiBody">분석 버튼을 눌러 AI 코멘트를 생성하세요.</div>
                     <button class="ai-generate-btn" id="ecoAiBtn" onclick="generateEconomicAI()">분석 생성</button>
                 </div>
@@ -2343,7 +2449,7 @@
 
     <!-- ===== Vision Scanner Screen ===== -->
     <div class="vs-screen" id="visionScannerScreen" style="display:none">
-        <div class="vs-screen-title">🔍 AI 차트 판독기</div>
+        <div class="vs-screen-title"><i class="ri-search-eye-line"></i> AI 차트 판독기</div>
         <div class="vs-screen-sub">HTS·MTS 캡처본을 올리면 AI가 지지/저항선과 매물대를 자동으로 탐지합니다</div>
 
         <!-- State: Empty (드롭존) -->
@@ -2556,7 +2662,7 @@
                                 style="display:none;border-color:var(--border);color:var(--text3);">🗑 AI 라인</button>
                             <button class="chart-tb-btn chart-ai-reader-btn" id="chartAiReaderBtn"
                                 onclick="captureChartAndAnalyze()" title="차트를 캡처하여 AI로 분석"
-                                style="display:none;">🔍 AI 차트분석</button>
+                                style="display:none;"><i class="ri-search-eye-line"></i> AI 차트분석</button>
                             <button class="tv-fullscreen-btn" id="tvFullscreenBtn" onclick="toggleChartFullscreen()" title="전체화면" style="position:static;border:none;background:transparent;">
                                 <svg id="tvFsIconExpand" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
                                 <svg id="tvFsIconShrink" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
@@ -2628,7 +2734,7 @@
                 <!-- AI 판독기 요약 카드 -->
                 <div class="ai-summary-card" id="aiSummaryCard" style="display:none;">
                     <div class="ai-summary-header">
-                        <div class="ai-summary-title">🔍 AI 차트분석 결과</div>
+                        <div class="ai-summary-title"><i class="ri-search-eye-line"></i> AI 차트분석 결과</div>
                         <button class="ai-summary-close" onclick="clearAiChartLines()" title="닫기">&times;</button>
                     </div>
                     <div class="ai-summary-levels" id="aiSummaryLevels"></div>
@@ -2686,7 +2792,7 @@
                 <div class="card-title"><span class="dot" style="background:var(--blue)"></span>R/R 손익비 계산기 <span class="trade-badge day-badge">DAY</span></div>
                 <div class="rr-calc-inner">
                     <div class="rr-calc-hdr">
-                        <span class="rr-calc-ttl">📊 손익비 (Risk / Reward)</span>
+                        <span class="rr-calc-ttl"><i class="ri-scales-3-line"></i> 손익비 (Risk / Reward)</span>
                         <span class="rr-calc-status" id="rrCalcBadge">계산 대기</span>
                     </div>
                     <div class="rr-calc-body">
@@ -2899,7 +3005,7 @@
         </div>
         <div class="tab-content" id="tabShort" data-tab="short">
             <div class="short-header">
-                <div class="short-header-title">📉 <span id="shortSymbolLabel"></span> 공매도 현황</div>
+                <div class="short-header-title"><i class="ri-arrow-down-line"></i> <span id="shortSymbolLabel"></span> 공매도 현황</div>
                 <button class="news-refresh-btn" onclick="reloadShortTab()">↻ 새로고침</button>
             </div>
             <div id="shortContent"></div>
@@ -3176,14 +3282,14 @@
         if (mode === 'empty') {
             const favs = getFavorites();
             if (favs.length) {
-                html += `<div class="sdrop-section-title">⭐ 즐겨찾기</div>`;
+                html += `<div class="sdrop-section-title"><i class="ri-star-line"></i> 즐겨찾기</div>`;
                 html += favs.slice(0,5).map((f,i) => {
                     const meta = ASSET_META[f.symbol]||{};
                     return _sdropItemHTML({ticker:f.symbol,name:f.name,koreanName:f.name,
                         market:f.market,type:meta.type||'stock',sector:meta.sector||'',score:0}, i);
                 }).join('');
             }
-            html += `<div class="sdrop-section-title">🔥 인기 종목</div>`;
+            html += `<div class="sdrop-section-title"><i class="ri-fire-line"></i> 인기 종목</div>`;
             if (_searchTrending === null) {
                 html += _sdropSkeletonHTML(5);
                 el.innerHTML = html; el.classList.add('open');
@@ -3209,7 +3315,7 @@
                     <div style="font-size:12px;color:var(--text3);line-height:1.6;">티커 심볼로 검색해 주세요<br><span style="color:var(--blue);font-weight:600;">예: AAPL, TSLA, 005930</span></div>
                 </div>`;
             } else {
-                html += `<div class="sdrop-section-title">🔍 검색 결과</div>`;
+                html += `<div class="sdrop-section-title"><i class="ri-search-line"></i> 검색 결과</div>`;
                 html += data.map((item,i) => _sdropItemHTML(item,i)).join('');
             }
         }
@@ -3262,13 +3368,13 @@
         if (mode === 'empty') {
             const favs = getFavorites();
             if (favs.length) {
-                html += `<div class="sdrop-section-title">⭐ 즐겨찾기</div>`;
+                html += `<div class="sdrop-section-title"><i class="ri-star-line"></i> 즐겨찾기</div>`;
                 html += favs.slice(0, 5).map((f, i) => {
                     const meta = ASSET_META[f.symbol] || {};
                     return _sdropItemHTML({ ticker: f.symbol, name: f.name, koreanName: f.name, market: f.market, type: meta.type || 'stock', sector: '', score: 0 }, i);
                 }).join('');
             }
-            html += `<div class="sdrop-section-title">🔥 인기 종목</div>`;
+            html += `<div class="sdrop-section-title"><i class="ri-fire-line"></i> 인기 종목</div>`;
             if (_searchTrending === null) {
                 html += _sdropSkeletonHTML(5);
                 el.innerHTML = html;
@@ -3292,7 +3398,7 @@
                     <div style="font-size:12px;color:var(--text3);line-height:1.6;">티커 심볼로 검색해 주세요<br><span style="color:var(--blue);font-weight:600;">예: AAPL, TSLA, 005930</span></div>
                 </div>`;
             } else {
-                html += `<div class="sdrop-section-title">🔍 검색 결과</div>`;
+                html += `<div class="sdrop-section-title"><i class="ri-search-line"></i> 검색 결과</div>`;
                 html += data.map((item, i) => _sdropItemHTML(item, i)).join('');
             }
         }
@@ -6747,7 +6853,7 @@
                 </button>`;
             }).join('');
             box.innerHTML = `<div class="card">
-                <div style="font-size:14px;font-weight:700;margin-bottom:8px">💎 이 종목을 보유 중인 투자 대가 (${list.length}명)</div>
+                <div style="font-size:14px;font-weight:600;margin-bottom:8px;letter-spacing:-0.01em;"><i class="ri-vip-diamond-line"></i> 이 종목을 보유 중인 투자 대가 (${list.length}명)</div>
                 <div>${chips}</div>
                 <div style="font-size:10px;color:var(--text-secondary);margin-top:8px">※ 분기 기준, 최대 45일 지연</div>
             </div>`;
@@ -10103,7 +10209,7 @@
 
             // 지분 구성
             if (mh.insidersPercentHeld?.raw != null || mh.institutionsPercentHeld?.raw != null) {
-                html += `<div class="cp-section-title">📊 지분 구성</div><div class="cp-shares-grid">`;
+                html += `<div class="cp-section-title"><i class="ri-bar-chart-2-line"></i> 지분 구성</div><div class="cp-shares-grid">`;
                 if (mh.insidersPercentHeld?.raw != null) html += `<div class="cp-shares-card"><div class="cp-shares-label">내부자 보유</div><div class="cp-shares-value" style="color:var(--yellow)">${(mh.insidersPercentHeld.raw*100).toFixed(2)}%</div></div>`;
                 if (mh.institutionsPercentHeld?.raw != null) html += `<div class="cp-shares-card"><div class="cp-shares-label">기관 보유</div><div class="cp-shares-value" style="color:var(--cyan)">${(mh.institutionsPercentHeld.raw*100).toFixed(2)}%</div></div>`;
                 if (mh.institutionsFloatPercentHeld?.raw != null) html += `<div class="cp-shares-card"><div class="cp-shares-label">유동주식 대비 기관</div><div class="cp-shares-value" style="color:var(--blue)">${(mh.institutionsFloatPercentHeld.raw*100).toFixed(2)}%</div></div>`;
@@ -12346,7 +12452,7 @@
             const a = _analyzeShort(pct, ratio, deltaPct, !!prev);
             return `<div class="short-ai-section">
               <div class="short-ai-header">
-                <div class="short-ai-title">🤖 AI 공매도 분석</div>
+                <div class="short-ai-title"><i class="ri-robot-2-line"></i> AI 공매도 분석</div>
                 <div class="short-ai-badge" style="color:${a.verdictColor};background:${a.verdictColor}22;">${a.verdictEmoji} ${a.verdict}</div>
               </div>
               <div class="short-ai-verdict">${a.verdictMsg}</div>
@@ -13317,7 +13423,7 @@
         const ind = a.indicators || {};
         const indHtml = `
             <div class="ar-section">
-                <h4>📊 지표 해석</h4>
+                <h4><i class="ri-bar-chart-2-line"></i> 지표 해석</h4>
                 <p><strong>RSI:</strong> ${escHtml(ind.rsi || '-')}</p>
                 <p><strong>MACD:</strong> ${escHtml(ind.macd || '-')}</p>
                 <p><strong>이동평균:</strong> ${escHtml(ind.ma || '-')}</p>
