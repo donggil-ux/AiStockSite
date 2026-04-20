@@ -190,6 +190,41 @@
         .top100-filter.active{border-color:var(--blue);color:var(--blue);background:rgba(59,130,246,.08);}
         .top100-filter:hover:not(.active){border-color:var(--text3);color:var(--text2);}
         .top100-grid{display:flex;flex-direction:column;gap:0;}
+
+        /* ===== Top100 컬럼 헤더 (토스증권 스타일) ===== */
+        .top100-colhead{
+            display:grid;
+            grid-template-columns:22px 18px 34px 1fr 68px 68px;
+            gap:4px 6px;
+            padding:10px 6px 8px;
+            border-bottom:1px solid var(--border);
+            font-size:11px;
+            font-weight:600;
+            color:var(--text3);
+            letter-spacing:-.005em;
+            margin-bottom:2px;
+        }
+        .top100-colhead .t100-ch-rank{grid-column:1 / span 3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .top100-colhead .t100-ch-name{grid-column:4;display:none;}
+        .top100-colhead .t100-ch-reason{display:none;}
+        .top100-colhead .t100-ch-price{grid-column:5;text-align:right;}
+        .top100-colhead .t100-ch-change{grid-column:6;text-align:center;color:var(--text1);font-weight:700;}
+        .top100-colhead .t100-ch-change::after{content:'';}
+
+        /* 데스크톱 (≥900px) : 7컬럼 + reason/AI 요약 라벨 노출 */
+        @media(min-width:900px){
+            .top100-colhead{
+                grid-template-columns:28px 28px 44px minmax(140px,220px) minmax(0,1fr) 100px 80px;
+                gap:14px;
+                padding:12px 18px 10px;
+                font-size:12px;
+            }
+            .top100-colhead .t100-ch-rank{grid-column:1 / span 3;}
+            .top100-colhead .t100-ch-name{grid-column:4;display:block;}
+            .top100-colhead .t100-ch-reason{grid-column:5;display:block;padding-left:8px;}
+            .top100-colhead .t100-ch-price{grid-column:6;}
+            .top100-colhead .t100-ch-change{grid-column:7;}
+        }
         .top100-row{display:grid;grid-template-columns:28px 24px 40px 1fr 90px 88px;align-items:center;padding:10px 12px;background:transparent;border-radius:10px;cursor:pointer;transition:background .15s;gap:10px;border-bottom:1px solid var(--border);overflow:visible;}
         .top100-reason{display:none;font-size:12px;color:var(--text3);letter-spacing:-.005em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;padding-right:4px;}
         .top100-row:last-child{border-bottom:none;}

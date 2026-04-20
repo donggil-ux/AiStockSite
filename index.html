@@ -222,6 +222,13 @@
                 <button class="top100-filter" data-filter="day_gainers" onclick="setTop100Filter('day_gainers')">상승률 TOP</button>
                 <button class="top100-filter" data-filter="day_losers" onclick="setTop100Filter('day_losers')">하락률 TOP</button>
             </div>
+            <div class="top100-colhead" id="top100ColHead" role="row">
+                <span class="t100-ch-rank">순위 · <span id="top100ColTs">—</span> 기준</span>
+                <span class="t100-ch-name">종목</span>
+                <span class="t100-ch-reason">AI 요약</span>
+                <span class="t100-ch-price">현재가</span>
+                <span class="t100-ch-change" data-sort="most_actives">등락률 순</span>
+            </div>
             <div class="top100-grid" id="top100Grid">
                 <div class="top100-loading">데이터를 불러오는 중...</div>
             </div>
@@ -1615,9 +1622,23 @@
         grid.innerHTML = html;
     }
 
+    // Top100 컬럼 헤더의 활성 정렬 라벨 갱신 (현재 필터에 따라 라벨 변화 + 강조)
+    function _syncTop100ColHead(filter) {
+        const ch = document.querySelector('.top100-colhead .t100-ch-change');
+        if (!ch) return;
+        const labelMap = {
+            most_actives: '등락률',
+            day_gainers:  '상승률 순',
+            day_losers:   '하락률 순'
+        };
+        ch.textContent = labelMap[filter] || '등락률';
+        ch.setAttribute('data-sort', filter);
+    }
+
     function setTop100Filter(filter) {
         top100Filter = filter;
         document.querySelectorAll('.top100-filter').forEach(b => b.classList.toggle('active', b.dataset.filter === filter));
+        _syncTop100ColHead(filter);
         // 캐시 있으면 즉시 렌더, 없으면 스켈레톤 + fetch
         if (top100Cache[filter] && Date.now() - top100Cache[filter].ts < TOP100_CACHE_MS) {
             renderTop100(top100Cache[filter].items);
@@ -1928,7 +1949,12 @@
         }
 
         const now = new Date();
-        if (updatedEl) updatedEl.textContent = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')} 업데이트`;
+        const hhmm = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+        if (updatedEl) updatedEl.textContent = `${hhmm} 업데이트`;
+        // 컬럼 헤더의 타임스탬프/활성 정렬 동기화
+        const tsEl = document.getElementById('top100ColTs');
+        if (tsEl) tsEl.textContent = `오늘 ${hhmm}`;
+        _syncTop100ColHead(top100Filter);
 
         _top100AllItems = items; // 더 보기용 전체 데이터 저장
 
