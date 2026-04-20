@@ -192,10 +192,14 @@
         .top100-grid{display:flex;flex-direction:column;gap:0;}
 
         /* ===== Top100 컬럼 헤더 (토스증권 스타일) ===== */
+        /* 모바일: 2행 구조 (rank·name·price·change 상단 / AI요약 하단) — 데이터 행과 동일 레이아웃 */
         .top100-colhead{
             display:grid;
             grid-template-columns:22px 18px 34px 1fr 68px 68px;
-            gap:4px 6px;
+            grid-template-areas:
+              "rank rank logo name price change"
+              ".    .    reason reason reason reason";
+            gap:2px 6px;
             padding:10px 6px 8px;
             border-bottom:1px solid var(--border);
             font-size:11px;
@@ -203,27 +207,25 @@
             color:var(--text3);
             letter-spacing:-.005em;
             margin-bottom:2px;
+            align-items:center;
         }
-        .top100-colhead .t100-ch-rank{grid-column:1 / span 3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-        .top100-colhead .t100-ch-name{grid-column:4;display:none;}
-        .top100-colhead .t100-ch-reason{display:none;}
-        .top100-colhead .t100-ch-price{grid-column:5;text-align:right;}
-        .top100-colhead .t100-ch-change{grid-column:6;text-align:center;color:var(--text1);font-weight:700;}
-        .top100-colhead .t100-ch-change::after{content:'';}
+        .top100-colhead .t100-ch-rank{grid-area:rank;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .top100-colhead .t100-ch-name{grid-area:name;}
+        .top100-colhead .t100-ch-reason{grid-area:reason;padding-top:2px;opacity:.85;}
+        .top100-colhead .t100-ch-price{grid-area:price;text-align:right;}
+        .top100-colhead .t100-ch-change{grid-area:change;text-align:center;color:var(--text1);font-weight:700;}
 
-        /* 데스크톱 (≥900px) : 7컬럼 + reason/AI 요약 라벨 노출 */
+        /* 데스크톱 (≥900px) : 단일 행 7컬럼 */
         @media(min-width:900px){
             .top100-colhead{
                 grid-template-columns:28px 28px 44px minmax(140px,220px) minmax(0,1fr) 100px 80px;
+                grid-template-areas:"rank rank logo name reason price change";
                 gap:14px;
                 padding:12px 18px 10px;
                 font-size:12px;
             }
-            .top100-colhead .t100-ch-rank{grid-column:1 / span 3;}
-            .top100-colhead .t100-ch-name{grid-column:4;display:block;}
-            .top100-colhead .t100-ch-reason{grid-column:5;display:block;padding-left:8px;}
-            .top100-colhead .t100-ch-price{grid-column:6;}
-            .top100-colhead .t100-ch-change{grid-column:7;}
+            .top100-colhead .t100-ch-rank{grid-area:rank;grid-column:1 / span 3;}
+            .top100-colhead .t100-ch-reason{padding-left:8px;padding-top:0;opacity:1;}
         }
         .top100-row{display:grid;grid-template-columns:28px 24px 40px 1fr 90px 88px;align-items:center;padding:10px 12px;background:transparent;border-radius:10px;cursor:pointer;transition:background .15s;gap:10px;border-bottom:1px solid var(--border);overflow:visible;}
         .top100-reason{display:none;font-size:12px;color:var(--text3);letter-spacing:-.005em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;padding-right:4px;}
@@ -695,6 +697,15 @@
         .stock-change.flat{color:var(--text3);}
 
         /* ===== 52-WEEK RANGE BAR ===== */
+        .stock-reason{display:flex;align-items:flex-start;gap:8px;margin-top:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r3);}
+        .stock-reason[hidden]{display:none;}
+        .stock-reason .sr-label{flex-shrink:0;font-size:10.5px;font-weight:700;letter-spacing:.3px;color:var(--blue);padding:2px 7px;border-radius:6px;background:rgba(59,130,246,.12);line-height:1.35;}
+        .stock-reason .sr-text{font-size:12.5px;color:var(--text1);line-height:1.45;font-weight:500;word-break:keep-all;overflow-wrap:anywhere;}
+        @media(max-width:640px){
+            .stock-reason{padding:9px 11px;margin-top:8px;gap:7px;}
+            .stock-reason .sr-label{font-size:10px;padding:2px 6px;}
+            .stock-reason .sr-text{font-size:12px;}
+        }
         .stock-52w{display:none;margin-top:16px;padding:14px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-card);}
         .stock-52w.show{display:block;}
         .s52w-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}

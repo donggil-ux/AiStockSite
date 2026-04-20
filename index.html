@@ -527,6 +527,7 @@
         </div>
         <div class="stock-price" id="stockPrice">-</div>
         <div class="stock-change" id="stockChange">-</div>
+        <div class="stock-reason" id="stockReason" hidden><span class="sr-label">AI 요약</span><span class="sr-text" id="stockReasonText"></span></div>
         <div class="stock-52w" id="stock52w"></div>
         <div class="stock-long-stats" id="stockLongStats"></div>
         <div class="market-session-info" id="marketSessionInfo"></div>
@@ -1904,6 +1905,35 @@
                 localStorage.setItem(_REASON_LS_KEY, JSON.stringify(obj));
             } catch (_) {}
         }, 400);
+    }
+
+    // 종목 상세 Hero 의 AI 요약 — Top100 과 동일한 /api/news-reason + 공유 캐시 사용
+    function _hideStockHeroReason() {
+        const box = document.getElementById('stockReason');
+        if (box) box.hidden = true;
+    }
+    async function _populateStockHeroReason(symbol) {
+        const box = document.getElementById('stockReason');
+        const txtEl = document.getElementById('stockReasonText');
+        if (!box || !txtEl || !symbol) return;
+        const now = Date.now();
+        const cached = _reasonClientCache.get(symbol);
+        if (cached && now - cached.ts < _REASON_CLIENT_TTL) {
+            if (cached.text) { txtEl.textContent = cached.text; box.hidden = false; }
+            else box.hidden = true;
+            return;
+        }
+        // 로딩 중에는 숨김 (깜빡임 방지)
+        box.hidden = true;
+        try {
+            const res = await fetch(`/api/news-reason?symbols=${encodeURIComponent(symbol)}`);
+            if (!res.ok) return;
+            const map = await res.json();
+            const text = map[symbol] || '';
+            _reasonClientCache.set(symbol, { text, ts: Date.now() });
+            _persistReasonCache();
+            if (text) { txtEl.textContent = text; box.hidden = false; }
+        } catch (_) {}
     }
 
     async function _populateTop100Reasons(symbols) {
@@ -5686,6 +5716,9 @@
         }
 
         document.getElementById('stockName').textContent = name;
+        // AI 요약 (news-reason) 주입 — Top100 과 공유 캐시 재사용
+        if (currentMarket === 'US') _populateStockHeroReason(meta.symbol);
+        else _hideStockHeroReason();
         // Hero 로고 주입 (Parqet CDN + fallback)
         try {
             const _heroLogo = document.getElementById('stockHeroLogo');
