@@ -1066,12 +1066,12 @@
             .sub-chart-grid .card{margin:4px 12px;}
             .indicator-grid{grid-template-columns:repeat(3,1fr);}
             .header{padding-left:32px;padding-right:32px;}
-            .header-top{max-width:1440px;margin:0 auto;}
+            .header-top{max-width:100%;margin:0 auto;}
             .tab-nav{padding:0 32px;}
         }
         @media(min-width:1100px){
-            .app{max-width:1440px;}
-            .tab-content.active{grid-template-columns:1fr 860px;}
+            .app{max-width:1280px;}
+            .tab-content.active{grid-template-columns:1fr 500px;}
             #tabChart.active{display:block;}
             #tabOptions.active{display:block;}
             #tabNews.active{display:block;}
@@ -1079,6 +1079,10 @@
             #tabShort.active{display:block;}
             #tabYoutube.active{display:block;}
             .tv-chart-wrap{height:700px;}
+        }
+        @media(min-width:1440px){
+            .app{max-width:1320px;}
+            .tab-content.active{grid-template-columns:1fr 540px;}
         }
 
         /* ===== MOBILE (≤640px) ===== */
