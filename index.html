@@ -594,7 +594,7 @@
             .top100-row, .top100-row-head{grid-template-columns:28px 28px 44px minmax(160px,260px) 1fr 100px 80px;padding:12px 18px;gap:14px;}
             .tlogo-wrap, .tlogo, .tlogo-fb{width:44px;height:44px;}
             .tlogo-fb{font-size:14px;}
-            .top100-reason{display:block;text-align:left;padding:0 8px;color:var(--text2);}
+            .top100-reason{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;text-align:left;padding:0 8px;color:var(--text2);white-space:normal;overflow:hidden;text-overflow:clip;overflow-wrap:anywhere;word-break:keep-all;line-height:1.4;min-width:0;}
         }
 
         /* ===== MAIN CONTENT ===== */
