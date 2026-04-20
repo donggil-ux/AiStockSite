@@ -4,9 +4,54 @@
     {
       "src": "server.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "manifest.json",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "sw.js",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "icon.svg",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "*.png",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "*.ico",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
+    {
+      "src": "/manifest.json",
+      "headers": { "Content-Type": "application/manifest+json", "Cache-Control": "public, max-age=3600" },
+      "dest": "/manifest.json"
+    },
+    {
+      "src": "/sw.js",
+      "headers": { "Content-Type": "application/javascript", "Cache-Control": "public, max-age=0, must-revalidate" },
+      "dest": "/sw.js"
+    },
+    {
+      "src": "/icon.svg",
+      "headers": { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=86400" },
+      "dest": "/icon.svg"
+    },
+    {
+      "src": "/(.*\\.png)",
+      "headers": { "Cache-Control": "public, max-age=86400" },
+      "dest": "/$1"
+    },
+    {
+      "src": "/(.*\\.ico)",
+      "headers": { "Cache-Control": "public, max-age=86400" },
+      "dest": "/$1"
+    },
     {
       "src": "/api/(.*)",
       "dest": "server.js"

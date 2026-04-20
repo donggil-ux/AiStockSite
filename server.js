@@ -905,12 +905,74 @@ Start your response with [ and end with ]`;
  */
 let _hotStocksCache = { data: null, ts: 0 };
 const HOT_TTL = 24 * 60 * 60 * 1000; // 24시간 — 무료 쿼터 절약
+const HOT_FALLBACK_TTL = 30 * 60 * 1000; // Yahoo 폴백은 30분 주기 갱신
+
+// Yahoo Finance 스크리너 기반 폴백: Gemini 실패/쿼터 소진 시 실제 시장 데이터로 채움
+async function _hotStocksFromYahoo() {
+    const fetchScr = async (id) => {
+        const url = `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&lang=en-US&region=US&scrIds=${id}&count=25`;
+        const d = await yfRequest(url);
+        return d?.finance?.result?.[0]?.quotes || [];
+    };
+    const pick = (arr, n) => arr.slice(0, n).map(q => ({
+        ticker: q.symbol,
+        name: q.shortName || q.longName || q.symbol,
+        price: q.regularMarketPrice,
+        change: q.regularMarketChangePercent,
+    }));
+
+    const [actives, gainers, losers] = await Promise.all([
+        fetchScr('most_actives').catch(() => []),
+        fetchScr('day_gainers').catch(() => []),
+        fetchScr('day_losers').catch(() => []),
+    ]);
+
+    // 중복 티커 제거: actives → gainers → losers 우선순위
+    const used = new Set();
+    const dedupe = (arr) => arr.filter(s => {
+        if (used.has(s.ticker)) return false;
+        used.add(s.ticker);
+        return true;
+    });
+
+    // institution: 거래량 상위 대형주 (기관 자금 유입 proxy)
+    const institution = dedupe(pick(actives, 8)).slice(0, 5).map(s => ({
+        ticker: s.ticker,
+        name: s.name,
+        reason: `거래량 상위 · ${s.change >= 0 ? '+' : ''}${(s.change ?? 0).toFixed(1)}% 기관 관심`,
+        signal: s.change > 0 ? 'buy' : 'watch',
+    }));
+
+    // value: 단기 조정 받은 종목 (저평가 매수 기회 proxy)
+    const value = dedupe(pick(losers, 8)).slice(0, 5).map(s => ({
+        ticker: s.ticker,
+        name: s.name,
+        reason: `단기 조정 ${(s.change ?? 0).toFixed(1)}% · 가치 매수 관점`,
+        signal: 'watch',
+    }));
+
+    // momentum: 당일 상승률 상위
+    const momentum = dedupe(pick(gainers, 8)).slice(0, 5).map(s => ({
+        ticker: s.ticker,
+        name: s.name,
+        reason: `당일 +${(s.change ?? 0).toFixed(1)}% 모멘텀 강세`,
+        signal: 'buy',
+    }));
+
+    if (!institution.length && !value.length && !momentum.length) {
+        throw new Error('Yahoo screener returned no data');
+    }
+    return { institution, value, momentum, _source: 'yahoo-fallback' };
+}
 
 app.get('/api/hot-stocks', async (req, res) => {
+    // 1) 캐시 히트 (24h)
+    if (_hotStocksCache.data && Date.now() - _hotStocksCache.ts < HOT_TTL) {
+        return res.json(_hotStocksCache.data);
+    }
+
+    // 2) Gemini 시도
     try {
-        if (_hotStocksCache.data && Date.now() - _hotStocksCache.ts < HOT_TTL) {
-            return res.json(_hotStocksCache.data);
-        }
         const genAI = getGenAI();
         const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
         const prompt = `You are a quantitative stock analyst for US equities.
@@ -935,13 +997,23 @@ Output ONLY valid JSON starting with { and ending with }.`;
         const raw = result.response.text().trim();
         const jsonStr = raw.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
         const data = JSON.parse(jsonStr);
-
         _hotStocksCache = { data, ts: Date.now() };
-        res.json(data);
+        return res.json(data);
     } catch (e) {
-        console.error('[hot-stocks]', e.message);
+        console.warn('[hot-stocks] Gemini 실패 → Yahoo 스크리너 폴백:', e.message);
+    }
+
+    // 3) Yahoo 폴백
+    try {
+        const data = await _hotStocksFromYahoo();
+        // 폴백 결과는 짧은 TTL로만 저장 (다음 요청 때 Gemini 재시도 가능하도록)
+        _hotStocksCache = { data, ts: Date.now() - (HOT_TTL - HOT_FALLBACK_TTL) };
+        return res.json(data);
+    } catch (e2) {
+        console.error('[hot-stocks] Yahoo 폴백도 실패:', e2.message);
+        // 4) 최후: 이전 캐시 있으면 stale이라도 서빙
         if (_hotStocksCache.data) return res.json(_hotStocksCache.data);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: e2.message });
     }
 });
 

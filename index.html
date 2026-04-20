@@ -631,6 +631,32 @@
         .s52w-stat-val.down{color:var(--red);}
         .s52w-recover{font-size:10px;color:var(--text3);margin-top:1px;}
 
+        /* ===== LONG-TERM PERFORMANCE STATS (Toss-style cards) ===== */
+        .stock-long-stats{display:none;margin-top:14px;}
+        .stock-long-stats.show{display:block;}
+        .lts-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding:0 2px;}
+        .lts-label{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;}
+        .lts-period{font-size:11px;font-weight:600;color:var(--text3);}
+        .lts-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;}
+        @media (max-width:900px){.lts-grid{grid-template-columns:repeat(auto-fit,minmax(120px,1fr));}}
+        @media (max-width:540px){
+            .lts-grid{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:4px;-webkit-overflow-scrolling:touch;}
+            .lts-grid::-webkit-scrollbar{display:none;}
+            .lts-card{flex:0 0 46%;scroll-snap-align:start;}
+        }
+        .lts-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-card);padding:14px 14px 12px;min-width:0;display:flex;flex-direction:column;gap:6px;transition:transform .15s ease, border-color .15s ease;}
+        .lts-card:hover{transform:translateY(-1px);border-color:var(--text3);}
+        .lts-card-lab{font-size:11px;font-weight:600;color:var(--text3);line-height:1.3;display:flex;align-items:center;gap:4px;}
+        .lts-card-val{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-0.02em;line-height:1.1;}
+        .lts-card-val.up{color:var(--red);}
+        .lts-card-val.down{color:var(--blue);}
+        .lts-card-val.neutral{color:var(--text);}
+        .lts-card-sub{font-size:10px;font-weight:500;color:var(--text3);margin-top:auto;}
+        .lts-risk-pill{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:var(--r-pill);width:fit-content;margin-top:2px;}
+        .lts-risk-pill.low{background:rgba(34,197,94,.15);color:var(--green);}
+        .lts-risk-pill.mid{background:rgba(234,179,8,.15);color:var(--yellow);}
+        .lts-risk-pill.high{background:rgba(239,68,68,.15);color:var(--red);}
+
         /* ===== MARKET SESSION (프리/애프터) ===== */
         .market-session-info{display:none;margin-top:14px;}
         .market-session-info.show{display:flex;gap:10px;flex-wrap:wrap;}
@@ -2740,6 +2766,7 @@
         <div class="stock-price" id="stockPrice">-</div>
         <div class="stock-change" id="stockChange">-</div>
         <div class="stock-52w" id="stock52w"></div>
+        <div class="stock-long-stats" id="stockLongStats"></div>
         <div class="market-session-info" id="marketSessionInfo"></div>
     </div>
 
@@ -3186,6 +3213,21 @@
     let currentMarket = 'US';
     let currentPeriod   = localStorage.getItem('stockai_chart_period')   || '6mo';
     let currentInterval = localStorage.getItem('stockai_chart_interval') || '1d';
+    // ── Guard: Yahoo Finance는 interval=1m/2m/5m/15m/30m/60m/90m/1h가 long range와 호환 안 됨 → 422 반환
+    // 저장된 interval/range 조합이 불법이면 안전값으로 리셋
+    (function _sanitizeChartPrefs() {
+        const SHORT_INTERVALS = new Set(['1m','2m','5m','15m','30m','60m','90m','1h']);
+        const LONG_RANGES     = new Set(['1mo','3mo','6mo','1y','2y','5y','10y','ytd','max']);
+        if (SHORT_INTERVALS.has(currentInterval) && LONG_RANGES.has(currentPeriod)) {
+            console.warn('[chart-prefs] 불법 조합 감지 — 리셋:', currentPeriod, currentInterval);
+            currentPeriod = '6mo';
+            currentInterval = '1d';
+            try {
+                localStorage.setItem('stockai_chart_period', currentPeriod);
+                localStorage.setItem('stockai_chart_interval', currentInterval);
+            } catch {}
+        }
+    })();
     let currentSymbol = '';
     let _historySkip = false; // popstate 중 searchStock 재호출 시 중복 pushState 방지
     let currentFullSymbol = '';  // Yahoo Finance용 풀 심볼 (예: NVDA, 005930.KS)
@@ -7780,6 +7822,7 @@
             // 추가 API 호출이 필요한 것들은 병렬로 실행 (await 안 함 → UI 블로킹 없음)
             fetchMarketSession(symbol);
             render52WRange(symbol);
+            renderLongTermStats(symbol);
             renderFinancialInfo(symbol);
             renderStatisticsInfo(symbol);
             renderStockEarnings(symbol);
@@ -7956,6 +7999,154 @@
         } catch (e) {
             // 조용히 실패 — UI 블로킹 방지
             console.warn('[52W] render failed:', e?.message || e);
+        }
+    }
+
+    // ========================================
+    // Long-term Performance Stats
+    //   총 수익률 · S&P 500 상회 · 연간 수익률 (CAGR) · 샤프지수 · 리스크
+    // ========================================
+    async function renderLongTermStats(symbol) {
+        const host = document.getElementById('stockLongStats');
+        if (!host) return;
+        host.classList.remove('show');
+        host.innerHTML = '';
+
+        try {
+            // Yahoo가 max를 거부하는 종목(최근 IPO, ADR 등)을 위한 폴백 체인
+            const tryRanges = ['max', '10y', '5y', '2y'];
+            const fetchChart = async (sym) => {
+                for (const r of tryRanges) {
+                    try {
+                        const u = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?range=${r}&interval=1mo`;
+                        const d = await fetchWithProxy(u);
+                        if (d?.chart?.result?.[0]) return d;
+                    } catch { /* 다음 range 시도 */ }
+                }
+                return null;
+            };
+
+            const bench = currentMarket === 'KR' ? '%5EKS11' : '%5EGSPC'; // KOSPI / S&P 500
+            const [sData, bData] = await Promise.all([
+                fetchChart(symbol),
+                fetchChart(bench),
+            ]);
+
+            const sRes = sData?.chart?.result?.[0];
+            if (!sRes) return;
+            const sTs = sRes.timestamp || [];
+            const sClose = (sRes.indicators?.adjclose?.[0]?.adjclose || sRes.indicators?.quote?.[0]?.close || []);
+            // 시작·끝 유효한 값만
+            const pairs = [];
+            for (let i = 0; i < sTs.length; i++) {
+                if (sClose[i] != null && isFinite(sClose[i]) && sClose[i] > 0) {
+                    pairs.push({ t: sTs[i], c: sClose[i] });
+                }
+            }
+            if (pairs.length < 12) return; // 최소 1년
+
+            const first = pairs[0], last = pairs[pairs.length - 1];
+            const totalRetPct = ((last.c - first.c) / first.c) * 100;
+            const yearsSpan = Math.max(0.5, (last.t - first.t) / (365.25 * 86400));
+            // 연간 복리 수익률 (CAGR)
+            const cagrPct = (Math.pow(last.c / first.c, 1 / yearsSpan) - 1) * 100;
+
+            // 월별 로그 수익률 → 샤프지수 (rf=0 기준, 연환산)
+            const monthlyRet = [];
+            for (let i = 1; i < pairs.length; i++) {
+                const r = pairs[i].c / pairs[i - 1].c - 1;
+                if (isFinite(r)) monthlyRet.push(r);
+            }
+            const mean = monthlyRet.reduce((a, b) => a + b, 0) / monthlyRet.length;
+            const variance = monthlyRet.reduce((a, b) => a + (b - mean) ** 2, 0) / Math.max(1, monthlyRet.length - 1);
+            const stdMonthly = Math.sqrt(variance);
+            const annReturn = Math.pow(1 + mean, 12) - 1;
+            const annVol = stdMonthly * Math.sqrt(12);
+            const sharpe = annVol > 0 ? annReturn / annVol : 0;
+
+            // 벤치마크 총 수익률 (같은 시작 시점 맞춤)
+            let benchRetPct = null;
+            const bRes = bData?.chart?.result?.[0];
+            if (bRes) {
+                const bTs = bRes.timestamp || [];
+                const bClose = (bRes.indicators?.adjclose?.[0]?.adjclose || bRes.indicators?.quote?.[0]?.close || []);
+                // 종목 시작일 이상에서 가장 가까운 벤치마크 포인트 찾기
+                let bStart = null, bEnd = null;
+                for (let i = 0; i < bTs.length; i++) {
+                    if (bClose[i] == null || !isFinite(bClose[i])) continue;
+                    if (bStart == null && bTs[i] >= first.t) bStart = bClose[i];
+                    if (bTs[i] <= last.t) bEnd = bClose[i];
+                }
+                if (bStart && bEnd) {
+                    benchRetPct = ((bEnd - bStart) / bStart) * 100;
+                }
+            }
+            const excessRetPct = benchRetPct != null ? (totalRetPct - benchRetPct) : null;
+
+            // 리스크 분류 (연환산 변동성 기준)
+            const volPct = annVol * 100;
+            let riskCls, riskText;
+            if (volPct < 22) { riskCls = 'low'; riskText = '낮음'; }
+            else if (volPct < 40) { riskCls = 'mid'; riskText = '중간'; }
+            else { riskCls = 'high'; riskText = '높음'; }
+
+            const yearsLabel = yearsSpan >= 1
+                ? `${Math.round(yearsSpan)}년`
+                : `${Math.round(yearsSpan * 12)}개월`;
+            const benchName = currentMarket === 'KR' ? 'KOSPI' : 'S&P 500';
+
+            const sign = v => v >= 0 ? '+' : '';
+            const cls = v => v >= 0 ? 'up' : 'down';
+            const fmtPct = (v, digits = 1) => `${sign(v)}${v.toFixed(digits)}%`;
+
+            const excessHtml = excessRetPct != null
+                ? `<div class="lts-card-val ${cls(excessRetPct)}">${fmtPct(excessRetPct)}</div>
+                   <div class="lts-card-sub">${benchName} 동기간 ${fmtPct(benchRetPct)}</div>`
+                : `<div class="lts-card-val neutral">—</div>
+                   <div class="lts-card-sub">${benchName} 데이터 없음</div>`;
+
+            // 샤프지수 해석
+            let sharpeHint;
+            if (sharpe >= 1) sharpeHint = '우수';
+            else if (sharpe >= 0.5) sharpeHint = '양호';
+            else if (sharpe >= 0) sharpeHint = '보통';
+            else sharpeHint = '부진';
+
+            host.innerHTML = `
+                <div class="lts-head">
+                    <span class="lts-label">장기 성과 요약</span>
+                    <span class="lts-period">최대 ${yearsLabel}</span>
+                </div>
+                <div class="lts-grid">
+                    <div class="lts-card">
+                        <div class="lts-card-lab">총 수익률</div>
+                        <div class="lts-card-val ${cls(totalRetPct)}">${fmtPct(totalRetPct)}</div>
+                        <div class="lts-card-sub">${yearsLabel} 누적</div>
+                    </div>
+                    <div class="lts-card">
+                        <div class="lts-card-lab">${benchName} 상회</div>
+                        ${excessHtml}
+                    </div>
+                    <div class="lts-card">
+                        <div class="lts-card-lab">연간 수익률</div>
+                        <div class="lts-card-val ${cls(cagrPct)}">${fmtPct(cagrPct)}</div>
+                        <div class="lts-card-sub">CAGR · 복리 연환산</div>
+                    </div>
+                    <div class="lts-card">
+                        <div class="lts-card-lab">샤프지수</div>
+                        <div class="lts-card-val neutral">${sharpe.toFixed(2)}</div>
+                        <div class="lts-card-sub">위험 대비 수익 · ${sharpeHint}</div>
+                    </div>
+                    <div class="lts-card">
+                        <div class="lts-card-lab">리스크</div>
+                        <div><span class="lts-risk-pill ${riskCls}">${riskText}</span></div>
+                        <div class="lts-card-sub">연 변동성 ${volPct.toFixed(1)}%</div>
+                    </div>
+                </div>
+            `;
+            host.classList.add('show');
+        } catch (e) {
+            console.warn('[LongStats] render failed:', e?.message || e);
         }
     }
 
