@@ -1,5 +1,10 @@
 // StockAI Service Worker
-const CACHE_NAME = 'stockai-v64';
+const CACHE_NAME = 'stockai-v65';
+
+// 클라이언트가 '새로고침' 버튼을 누르면 SKIP_WAITING 메시지 수신 → 즉시 활성화
+self.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -7,12 +12,11 @@ const STATIC_ASSETS = [
   '/manifest.json'
 ];
 
-// 설치 시 정적 자산 캐시
+// 설치 시 정적 자산 캐시 (skipWaiting 은 클라이언트 메시지 수신 후 호출 — 사용자 확인 없이 탭이 리로드되는 것을 방지)
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
   );
-  self.skipWaiting();
 });
 
 // 이전 캐시 정리

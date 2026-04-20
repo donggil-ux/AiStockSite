@@ -97,6 +97,20 @@
         .fav-item-market.kr{background:rgba(59,130,246,.12);color:var(--blue);}
         .fav-item-market.us{background:rgba(167,139,250,.12);color:var(--purple);}
 
+        /* Service Worker update toast (새 버전 알림) */
+        #swUpdateToast{position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.35),0 2px 6px rgba(0,0,0,.2);font-family:inherit;font-size:13px;font-weight:600;max-width:calc(100vw - 32px);animation:swToastIn .28s cubic-bezier(.2,.9,.3,1.2);}
+        #swUpdateToast .sw-toast-text{white-space:nowrap;}
+        #swUpdateToast .sw-toast-btn{border:none;background:var(--blue);color:#fff;padding:7px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:filter .15s;}
+        #swUpdateToast .sw-toast-btn:hover{filter:brightness(1.1);}
+        #swUpdateToast .sw-toast-close{border:none;background:transparent;color:var(--text3);width:24px;height:24px;border-radius:6px;cursor:pointer;font-size:18px;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;}
+        #swUpdateToast .sw-toast-close:hover{background:var(--bg3);color:var(--text);}
+        @keyframes swToastIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+        @media(max-width:640px){
+            #swUpdateToast{left:12px;right:12px;bottom:12px;padding:11px 12px;font-size:12.5px;}
+            #swUpdateToast .sw-toast-text{white-space:normal;flex:1;}
+            #swUpdateToast .sw-toast-btn{padding:7px 12px;font-size:12px;flex-shrink:0;}
+        }
+
         /* Hamburger button in header */
         .hamburger-btn{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border:none;background:var(--bg3);color:var(--text2);border-radius:8px;cursor:pointer;font-size:18px;flex-shrink:0;transition:all .15s;font-family:inherit;}
         .hamburger-btn:hover{background:var(--bg4);color:var(--text);}
@@ -12190,11 +12204,70 @@
         }
     }
 
-    // 서비스 워커 등록
+    // 서비스 워커 등록 + 새 버전 자동 감지 · 토스트 알림
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/sw.js').catch(() => {});
+            navigator.serviceWorker.register('/sw.js').then(reg => {
+                if (!reg) return;
+
+                // 새 버전 감지 → 사용자에게 리프레시 제안
+                let _userAccepted = false;
+                const _promptUpdate = (worker) => {
+                    if (!worker) return;
+                    _showSwUpdateToast(() => {
+                        _userAccepted = true;
+                        worker.postMessage({ type: 'SKIP_WAITING' });
+                    });
+                };
+                // 클릭으로 수락했을 때만 리로드 (최초 설치 시 controllerchange 자동 리로드 루프 방지)
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    if (_userAccepted) window.location.reload();
+                });
+
+                // 1) 이미 대기 중인 워커가 있으면 즉시 토스트
+                if (reg.waiting && navigator.serviceWorker.controller) {
+                    _promptUpdate(reg.waiting);
+                }
+
+                // 2) 업데이트 발견 시 설치 완료를 기다렸다가 토스트
+                reg.addEventListener('updatefound', () => {
+                    const nw = reg.installing;
+                    if (!nw) return;
+                    nw.addEventListener('statechange', () => {
+                        if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+                            _promptUpdate(nw);
+                        }
+                    });
+                });
+
+                // 3) 주기적으로 업데이트 체크 (60분마다 + 탭 복귀 시)
+                const _poll = () => { try { reg.update(); } catch(_){} };
+                setInterval(_poll, 60 * 60 * 1000);
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') _poll();
+                });
+            }).catch(() => {});
         }, { once: true });
+    }
+
+    // 새 버전 안내 토스트 (우하단, 10초 후 자동 사라짐, 버튼 클릭 시 즉시 적용)
+    function _showSwUpdateToast(onAccept) {
+        if (document.getElementById('swUpdateToast')) return;
+        const el = document.createElement('div');
+        el.id = 'swUpdateToast';
+        el.setAttribute('role', 'status');
+        el.innerHTML =
+            '<span class="sw-toast-text">🎉 새 버전이 준비됐어요</span>' +
+            '<button class="sw-toast-btn" id="swToastBtn">새로고침</button>' +
+            '<button class="sw-toast-close" id="swToastClose" aria-label="닫기">×</button>';
+        document.body.appendChild(el);
+        document.getElementById('swToastBtn').addEventListener('click', () => {
+            try { onAccept && onAccept(); } catch(_){}
+            el.remove();
+        });
+        document.getElementById('swToastClose').addEventListener('click', () => el.remove());
+        // 30초 자동 사라짐 (사용자가 놓쳐도 다음 방문에 다시 표시됨)
+        setTimeout(() => { if (el.isConnected) el.remove(); }, 30000);
     }
 
     // onclick 핸들러 함수를 window에 명시적 노출 (스코프 안전장치)
