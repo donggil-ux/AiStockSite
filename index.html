@@ -1866,19 +1866,6 @@
          * Level 3: Revolut 본격 이식 — Hero, Color remap, Spacing, Typography
          * ============================================================ */
 
-        /* ---- 3-A: Billboard Hero ---- */
-        .r-hero{padding:56px 16px 48px;text-align:left;max-width:720px;margin:0 auto;}
-        .r-hero-title{color:var(--text);margin:0 0 20px 0;}
-        .r-hero-sub{color:var(--text2);font-size:17px;line-height:1.5;margin:0 0 32px 0;letter-spacing:0;font-weight:400;}
-        .r-hero-cta{display:flex;gap:12px;flex-wrap:wrap;}
-        .r-hero-cta .btn-pill{padding:16px 34px!important;font-size:16px!important;}
-        @media(max-width:480px){
-            .r-hero{padding:32px 16px 28px;}
-            .r-hero-title{font-size:40px!important;letter-spacing:-0.025em!important;}
-            .r-hero-sub{font-size:15px;margin-bottom:24px;}
-            .r-hero-cta .btn-pill{padding:13px 24px!important;font-size:14px!important;flex:1;min-width:0;}
-        }
-
         /* ---- 3-B: Color palette remap — blue → near-black(ink) ---- */
         /* 주요 CTA (search, install) */
         .search-btn{background:var(--text)!important;color:var(--bg)!important;}
@@ -2173,16 +2160,6 @@
 
     <!-- Welcome Screen -->
     <div class="welcome-screen" id="welcomeScreen">
-        <!-- Revolut-style 빌보드 Hero -->
-        <section class="r-hero" id="homeHero">
-            <h1 class="r-display-xl r-hero-title">AI로 읽는<br>주식 시장.</h1>
-            <p class="r-hero-sub">데이터 기반 매매 타점 · R/R 분석 · 실시간 스캐너.<br>규칙 엔진이 찾아내는 기회.</p>
-            <div class="r-hero-cta">
-                <button class="btn-pill btn-pill-primary" onclick="document.getElementById('searchInput').focus()">종목 분석 시작</button>
-                <button class="btn-pill btn-pill-outline" onclick="goSmartMoney()">기관 13F 보기</button>
-            </div>
-        </section>
-
         <!-- 섹션 2: 시장 온도계 -->
         <div id="marketThermometer" style="display:none;padding:12px 16px 16px;"></div>
 
