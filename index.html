@@ -1187,13 +1187,13 @@
         const priceHTML = item._price != null
             ? `<span class="sdrop-price">${_sdropFmtPrice(item._price, item.market)}</span>
                <span class="sdrop-change ${chg.cls}">${chg.text}</span>` : '';
-        return `<div class="sdrop-item" role="option" data-ticker="${item.ticker}" data-market="${item.market}" data-idx="${idx}">
+        return `<div class="sdrop-item" role="option" data-ticker="${escHtml(item.ticker||'')}" data-market="${escHtml(item.market||'')}" data-idx="${idx}">
             <span class="sdrop-flag">${flag}</span>
             <div class="sdrop-info">
-                <div class="sdrop-name">${nameDisplay}</div>
-                <div class="sdrop-ticker">${item.ticker}${item.sector?' · '+item.sector:''}</div>
+                <div class="sdrop-name">${escHtml(nameDisplay||'')}</div>
+                <div class="sdrop-ticker">${escHtml(item.ticker||'')}${item.sector?' · '+escHtml(item.sector):''}</div>
             </div>
-            <span class="sdrop-badge ${mktCls}">${item.market}</span>
+            <span class="sdrop-badge ${mktCls}">${escHtml(item.market||'')}</span>
             <span class="sdrop-badge ${badgeCls}">${badgeTxt}</span>
             ${priceHTML}
         </div>`;
@@ -2205,8 +2205,8 @@
             const safe=(q.symbol||'').replace(/'/g,"\\'");
             return `<div class="swing-row" onclick="quickSearch('${safe}','US')">
                 ${_tickerLogoHTML(q.symbol,'US')}
-                <div class="swing-info"><div class="swing-symbol">${q.symbol}</div>
-                    <div class="swing-name">${q.shortName||q.symbol}</div></div>
+                <div class="swing-info"><div class="swing-symbol">${escHtml(q.symbol||'')}</div>
+                    <div class="swing-name">${escHtml(q.shortName||q.symbol||'')}</div></div>
                 <div class="swing-price">$${q.regularMarketPrice?.toFixed(2)}</div>
                 <div class="swing-chg ${cls}">${chg}</div>
                 <div class="rr-badge ${rrCls}">1:${q._rr.toFixed(1)}</div>
@@ -2309,10 +2309,10 @@
             const price  = q.regularMarketPrice ? '$' + q.regularMarketPrice.toFixed(2) : '-';
             return `<div class="ai-rec-card" onclick="quickSearch('${sym}','US')">
                 <div class="ai-rec-top">
-                    <span class="ai-rec-sym">${q.symbol}</span>
+                    <span class="ai-rec-sym">${escHtml(q.symbol||'')}</span>
                     <span class="ai-badge buy">매수 적기</span>
                 </div>
-                <div class="ai-rec-name">${q.shortName || q.symbol}</div>
+                <div class="ai-rec-name">${escHtml(q.shortName || q.symbol || '')}</div>
                 <div class="ai-rec-price">${price}</div>
                 <div class="ai-rec-chg ${chgCls}">${chgStr}</div>
                 <div class="rr-badge good" style="margin-top:6px;">R/R ${q._rr.toFixed(1)}</div>
@@ -2509,8 +2509,8 @@
                     ? `<div class="rr-badge ${rr>=3?'excellent':rr>=2?'good':'ok'}" style="margin-top:6px;">R/R ${rr.toFixed(1)}</div>`
                     : '';
                 return `<div class="ai-rec-card" onclick="quickSearch('${sym}','US')">
-                    <div class="ai-rec-sym">${q.symbol}</div>
-                    <div class="ai-rec-name">${q.shortName || q.symbol}</div>
+                    <div class="ai-rec-sym">${escHtml(q.symbol||'')}</div>
+                    <div class="ai-rec-name">${escHtml(q.shortName || q.symbol || '')}</div>
                     <div class="ai-rec-price">${price}</div>
                     <div class="ai-rec-chg ${chgCls}">${chgStr}</div>
                     ${rrHtml}
@@ -6383,7 +6383,9 @@
         const ema12 = calcEMA(closes, 12);
         const ema26 = calcEMA(closes, 26);
         const macdLine = ema12.map((v, i) => (v != null && ema26[i] != null) ? v - ema26[i] : null);
-        const signalLine = calcEMA(macdLine.map(v => v ?? 0), 9);
+        // 수정: warm-up 구간 null을 0으로 치환하지 않고 그대로 전달.
+        // calcEMA 가 null 을 받으면 seed 시점이 뒤로 밀려 실제 유효 MACD 값부터 EMA 시작.
+        const signalLine = calcEMA(macdLine, 9);
         const histogram = macdLine.map((v, i) => (v != null && signalLine[i] != null) ? v - signalLine[i] : null);
         return { macdLine, signalLine, histogram };
     }
@@ -8561,22 +8563,22 @@
             let html = '';
 
             // 헤더
-            html += `<div class="cp-overview"><div class="cp-logo">${cleanSymbol.charAt(0)}</div><div class="cp-info"><div class="cp-name">${companyName}</div><div class="cp-meta">`;
-            if (ap.sector) html += `<span>🏢 ${ap.sector}</span>`;
-            if (ap.industry) html += `<span>🔧 ${ap.industry}</span>`;
-            if (ap.country) html += `<span>🌍 ${ap.country}</span>`;
+            html += `<div class="cp-overview"><div class="cp-logo">${escHtml(cleanSymbol.charAt(0))}</div><div class="cp-info"><div class="cp-name">${escHtml(companyName||'')}</div><div class="cp-meta">`;
+            if (ap.sector) html += `<span>🏢 ${escHtml(ap.sector)}</span>`;
+            if (ap.industry) html += `<span>🔧 ${escHtml(ap.industry)}</span>`;
+            if (ap.country) html += `<span>🌍 ${escHtml(ap.country)}</span>`;
             html += `</div></div></div>`;
 
             // 기업 기본정보 2컬럼 그리드
             const rows = [];
-            if (pr.exchangeName) rows.push({ l:'거래소', v:pr.exchangeName });
-            if (ap.industry) rows.push({ l:'산업', v:ap.industry });
-            if (ap.sector) rows.push({ l:'섹터', v:ap.sector });
+            if (pr.exchangeName) rows.push({ l:'거래소', v:escHtml(pr.exchangeName) });
+            if (ap.industry) rows.push({ l:'산업', v:escHtml(ap.industry) });
+            if (ap.sector) rows.push({ l:'섹터', v:escHtml(ap.sector) });
             if (pr.marketCap?.raw) rows.push({ l:'시가총액', v:fmtCap(pr.marketCap.raw) });
             if (ap.fullTimeEmployees) rows.push({ l:'직원 수', v:Number(ap.fullTimeEmployees).toLocaleString()+'명' });
-            if (ap.website) rows.push({ l:'홈페이지', v:`<a href="${ap.website}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;font-size:12px;">${ap.website.replace(/^https?:\/\/(www\.)?/,'')}</a>` });
-            if (ap.address1) rows.push({ l:'주소', v:[ap.city,ap.state,ap.country].filter(Boolean).join(', ') });
-            if (ap.phone) rows.push({ l:'전화', v:ap.phone });
+            if (ap.website) rows.push({ l:'홈페이지', v:`<a href="${escHtml(ap.website)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;font-size:12px;">${escHtml(ap.website.replace(/^https?:\/\/(www\.)?/,''))}</a>` });
+            if (ap.address1) rows.push({ l:'주소', v:escHtml([ap.city,ap.state,ap.country].filter(Boolean).join(', ')) });
+            if (ap.phone) rows.push({ l:'전화', v:escHtml(ap.phone) });
             if (rows.length % 2 !== 0) rows.push({ l:'', v:'' });
             if (rows.length) {
                 html += `<div class="cp-section-title">기업 기본정보</div><div class="cp-info-grid">`;
@@ -8610,7 +8612,7 @@
             const officers = r?.assetProfile?.companyOfficers || [];
             if (!officers.length) throw 0;
             let html = '<table class="cp-exec-table"><thead><tr><th>이름</th><th>직함</th><th>연봉</th></tr></thead><tbody>';
-            officers.slice(0,10).forEach(o => { html += `<tr><td><div class="cp-exec-name">${o.name||'-'}</div></td><td style="color:var(--text2);font-size:12px;">${o.title||'-'}</td><td><span class="cp-exec-pay">${o.totalPay?.raw ? fmtMoney(o.totalPay.raw) : '-'}</span></td></tr>`; });
+            officers.slice(0,10).forEach(o => { html += `<tr><td><div class="cp-exec-name">${escHtml(o.name||'-')}</div></td><td style="color:var(--text2);font-size:12px;">${escHtml(o.title||'-')}</td><td><span class="cp-exec-pay">${o.totalPay?.raw ? fmtMoney(o.totalPay.raw) : '-'}</span></td></tr>`; });
             html += '</tbody></table>';
             exEl.innerHTML = html;
         } catch(e) { exEl.innerHTML = '<div class="cp-empty">임원 정보를 불러올 수 없습니다.</div>'; }
@@ -8620,7 +8622,7 @@
             const inst = r?.institutionOwnership?.ownershipList || [];
             if (!inst.length) throw 0;
             let html = '<div class="cp-holder-list">';
-            inst.slice(0,15).forEach((h,i) => { html += `<div class="cp-holder-item"><div class="cp-holder-rank">${i+1}</div><div class="cp-holder-name">${h.organization||'-'}</div><div class="cp-holder-pct">${h.pctHeld?.raw!=null?(h.pctHeld.raw*100).toFixed(2)+'%':'-'}</div><div class="cp-holder-shares">${fmtShares(h.position?.raw)}</div></div>`; });
+            inst.slice(0,15).forEach((h,i) => { html += `<div class="cp-holder-item"><div class="cp-holder-rank">${i+1}</div><div class="cp-holder-name">${escHtml(h.organization||'-')}</div><div class="cp-holder-pct">${h.pctHeld?.raw!=null?(h.pctHeld.raw*100).toFixed(2)+'%':'-'}</div><div class="cp-holder-shares">${fmtShares(h.position?.raw)}</div></div>`; });
             html += '</div>';
             hdEl.innerHTML = html;
         } catch(e) { hdEl.innerHTML = '<div class="cp-empty">투자 기관 정보를 불러올 수 없습니다.</div>'; }
@@ -8634,7 +8636,7 @@
                 const text = t.transactionText||'';
                 const isBuy = /purchase|acquisition|exercise|award|grant/i.test(text);
                 const isSell = /sale|sell|dispos/i.test(text);
-                html += `<tr><td style="white-space:nowrap">${t.startDate?.fmt||'-'}</td><td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${t.filerName||''}">${t.filerName||'-'}</td><td class="${isBuy?'cp-insider-buy':isSell?'cp-insider-sell':''}">${isBuy?'취득':isSell?'처분':'-'}</td><td style="font-size:11px;color:var(--text3);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${text.split(' - ')[0]||''}">${text.split(' - ')[0]||'-'}</td><td>${t.shares?.raw?fmtShares(t.shares.raw):'-'}</td><td>${t.value?.raw?fmtMoney(t.value.raw):'-'}</td></tr>`;
+                html += `<tr><td style="white-space:nowrap">${escHtml(t.startDate?.fmt||'-')}</td><td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(t.filerName||'')}">${escHtml(t.filerName||'-')}</td><td class="${isBuy?'cp-insider-buy':isSell?'cp-insider-sell':''}">${isBuy?'취득':isSell?'처분':'-'}</td><td style="font-size:11px;color:var(--text3);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(text.split(' - ')[0]||'')}">${escHtml(text.split(' - ')[0]||'-')}</td><td>${t.shares?.raw?fmtShares(t.shares.raw):'-'}</td><td>${t.value?.raw?fmtMoney(t.value.raw):'-'}</td></tr>`;
             });
             html += '</tbody></table></div>';
             inEl.innerHTML = html;
@@ -8651,7 +8653,7 @@
                     const indirect = h.positionIndirect?.raw ?? 0;
                     const total = direct + indirect;
                     const dateStr = h.positionSummaryDate?.fmt || '-';
-                    html += `<div class="cp-holder-item"><div class="cp-holder-rank">${i+1}</div><div class="cp-holder-name"><div style="font-weight:600">${h.name||'-'}</div><div style="font-size:11px;color:var(--text3)">${h.relation||'-'}</div></div><div style="text-align:right"><div class="cp-holder-shares" style="color:var(--yellow)">${fmtShares(total)}</div>${indirect>0?`<div style="font-size:11px;color:var(--text3)">간접 ${fmtShares(indirect)}</div>`:''}<div style="font-size:10px;color:var(--text3)">${dateStr}</div></div></div>`;
+                    html += `<div class="cp-holder-item"><div class="cp-holder-rank">${i+1}</div><div class="cp-holder-name"><div style="font-weight:600">${escHtml(h.name||'-')}</div><div style="font-size:11px;color:var(--text3)">${escHtml(h.relation||'-')}</div></div><div style="text-align:right"><div class="cp-holder-shares" style="color:var(--yellow)">${fmtShares(total)}</div>${indirect>0?`<div style="font-size:11px;color:var(--text3)">간접 ${fmtShares(indirect)}</div>`:''}<div style="font-size:10px;color:var(--text3)">${escHtml(dateStr)}</div></div></div>`;
                 });
                 html += '</div>';
                 ihEl.innerHTML = html;
@@ -10388,8 +10390,8 @@
             return `<a class="news-card" href="${safe}" target="_blank" rel="noopener noreferrer">
                 <div class="news-thumb-wrap">${thumb}</div>
                 <div class="news-body">
-                    <div class="news-title">${n.titleKo || n.title || ''}</div>
-                    <div class="news-meta"><span class="news-source">${n.source || ''}</span>${n.source ? ' · ' : ''}${ago}</div>
+                    <div class="news-title">${escHtml(n.titleKo || n.title || '')}</div>
+                    <div class="news-meta"><span class="news-source">${escHtml(n.source || '')}</span>${n.source ? ' · ' : ''}${ago}</div>
                 </div>
             </a>`;
         }).join('');

@@ -95,9 +95,32 @@ function validInterval(i){ return !i || VALID_INTERVALS.has(i); }
 function validFilter(f) { return f && VALID_FILTERS.has(f); }
 
 // ─────────────────────────────────────────────
-// 정적 파일 서빙 (프론트엔드 index.html)
+// 정적 파일 서빙 — 화이트리스트 방식 (__dirname 전체 노출 방지)
+// .env·server.js·chartReaderPrompt.js·sql/· 같은 소스/시크릿 보호
 // ─────────────────────────────────────────────
-app.use(express.static(path.join(__dirname)));
+const STATIC_WHITELIST = new Set([
+    '/', '/index.html',
+    '/styles.css',
+    '/sw.js',
+    '/manifest.json',
+    '/icon.svg',
+    '/favicon.ico',
+    '/robots.txt',
+]);
+const STATIC_EXT_OK = /\.(png|jpg|jpeg|gif|webp|svg|ico|woff2?|ttf)$/i;
+app.use((req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    const p = req.path;
+    if (p.startsWith('/api/') || p === '/health') return next();
+    // 화이트리스트 또는 안전한 정적 확장자만 서빙 허용
+    const allow = STATIC_WHITELIST.has(p) || STATIC_EXT_OK.test(p);
+    if (!allow) return next(); // SPA fallback 으로 위임 (index.html 반환)
+    // ..(path traversal) 방어 — express.static 도 내부적으로 처리하지만 이중 방어
+    if (p.includes('..')) return res.status(400).end();
+    const filePath = path.join(__dirname, p === '/' ? 'index.html' : p);
+    if (!filePath.startsWith(__dirname)) return res.status(400).end();
+    res.sendFile(filePath, (err) => { if (err) next(); });
+});
 
 // ─────────────────────────────────────────────
 // Yahoo Finance Crumb 인증 (서버-서버 요청)
@@ -349,7 +372,28 @@ async function translateToKo(text) {
  * - 서버 5분 캐시
  * - 최대 40개 심볼 / 요청
  */
-const _reasonCache = new Map(); // symbol -> { text, ts } (메모리)
+// ─────────────────────────────────────────────
+// LRU Map — 장수명 프로세스에서 메모리 누수 방지 (상한 초과 시 오래된 항목 순 evict)
+// Map 은 삽입 순서를 유지하므로 .keys().next() = 가장 오래된 키
+// ─────────────────────────────────────────────
+class LRUMap extends Map {
+    constructor(max = 5000) { super(); this.max = max; }
+    set(k, v) {
+        if (this.has(k)) this.delete(k); // 재삽입 → 최신 순위
+        super.set(k, v);
+        while (this.size > this.max) { this.delete(this.keys().next().value); }
+        return this;
+    }
+    get(k) {
+        if (!this.has(k)) return undefined;
+        const v = super.get(k);
+        // 접근 시 MRU 승격
+        this.delete(k); super.set(k, v);
+        return v;
+    }
+}
+
+const _reasonCache = new LRUMap(5000); // symbol -> { text, ts } (메모리)
 const REASON_TTL = 5 * 60 * 1000;           // 메모리 TTL (5분)
 const REASON_SUPABASE_TTL = 6 * 60 * 60 * 1000; // DB TTL (6시간) — 유저 간 공유
 
@@ -507,7 +551,7 @@ app.get('/api/news/:symbol', async (req, res) => {
  * YouTube 관련 영상 검색
  * GET /api/youtube/:symbol?company=NVIDIA+Corp&limit=8
  */
-const _ytServerCache = {};
+const _ytServerCache = new LRUMap(2000); // key -> { ts, data }
 const YT_SERVER_TTL  = 6 * 60 * 60 * 1000; // 6h
 
 app.get('/api/youtube/:symbol', async (req, res) => {
@@ -518,8 +562,9 @@ app.get('/api/youtube/:symbol', async (req, res) => {
     const limit   = Math.min(parseInt(req.query.limit, 10) || 8, 20);
 
     const ckey = `${symbol}_${limit}`;
-    if (_ytServerCache[ckey] && Date.now() - _ytServerCache[ckey].ts < YT_SERVER_TTL) {
-        return res.json(_ytServerCache[ckey].data);
+    const _ytHit = _ytServerCache.get(ckey);
+    if (_ytHit && Date.now() - _ytHit.ts < YT_SERVER_TTL) {
+        return res.json(_ytHit.data);
     }
 
     if (!process.env.YOUTUBE_API_KEY) {
@@ -549,7 +594,7 @@ app.get('/api/youtube/:symbol', async (req, res) => {
         }));
 
         const result = { symbol, count: videos.length, videos };
-        _ytServerCache[ckey] = { ts: Date.now(), data: result };
+        _ytServerCache.set(ckey, { ts: Date.now(), data: result });
         res.json(result);
     } catch (err) {
         const ytStatus  = err.response?.status;
@@ -1101,14 +1146,49 @@ app.get('/api/ai-analysis/:symbol', async (req, res) => {
     }
 });
 
+// 인증: X-Admin-Token 헤더 = process.env.ADMIN_TOKEN (timing-safe)
+function _checkAdminToken(req, res) {
+    const token = String(req.get('x-admin-token') || '');
+    const expected = String(process.env.ADMIN_TOKEN || '');
+    if (!expected) { res.status(503).json({ error: 'ADMIN_TOKEN not configured' }); return false; }
+    // timing-safe 비교 (길이 다르면 바로 false 처리, crypto.timingSafeEqual 은 동일 길이 필요)
+    const a = Buffer.from(token);
+    const b = Buffer.from(expected);
+    let ok = a.length === b.length;
+    try { ok = ok && require('crypto').timingSafeEqual(a, b); } catch { ok = false; }
+    if (!ok) { res.status(401).json({ error: 'unauthorized' }); return false; }
+    return true;
+}
+// AI 분석 저장 body 화이트리스트 — prototype-pollution 키 차단 + 크기 안전
+function _sanitizeAiBody(body) {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
+    const ALLOWED = ['summary', 'detail', 'score', 'signals', 'indicators', 'zones',
+                     'levels', 'updatedAt', 'model', 'style', 'recommendation'];
+    const out = {};
+    for (const k of ALLOWED) {
+        if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
+        if (Object.prototype.hasOwnProperty.call(body, k)) out[k] = body[k];
+    }
+    // 재직렬화로 prototype-pollution / 순환참조 제거
+    try {
+        const serialized = JSON.stringify(out);
+        if (serialized.length > 60000) return null; // 60KB 초과 거부
+        return JSON.parse(serialized);
+    } catch { return null; }
+}
+
 app.post('/api/ai-analysis/:symbol', async (req, res) => {
+    if (!_checkAdminToken(req, res)) return;
     const supabase = getSupabase();
     if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
-    const symbol = req.params.symbol.toUpperCase();
+    const symbol = String(req.params.symbol || '').toUpperCase();
+    if (!validSymbol(symbol)) return res.status(400).json({ error: 'invalid symbol' });
+    const clean = _sanitizeAiBody(req.body);
+    if (!clean) return res.status(400).json({ error: 'invalid body' });
     try {
         const { error } = await supabase
             .from('ai_analysis')
-            .upsert({ symbol, data: req.body, updated_at: new Date().toISOString() });
+            .upsert({ symbol, data: clean, updated_at: new Date().toISOString() });
         if (error) throw new Error(error.message);
         res.json({ ok: true });
     } catch (err) {
@@ -1117,9 +1197,11 @@ app.post('/api/ai-analysis/:symbol', async (req, res) => {
 });
 
 app.delete('/api/ai-analysis/:symbol', async (req, res) => {
+    if (!_checkAdminToken(req, res)) return;
     const supabase = getSupabase();
     if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
-    const symbol = req.params.symbol.toUpperCase();
+    const symbol = String(req.params.symbol || '').toUpperCase();
+    if (!validSymbol(symbol)) return res.status(400).json({ error: 'invalid symbol' });
     try {
         const { error } = await supabase.from('ai_analysis').delete().eq('symbol', symbol);
         if (error) throw new Error(error.message);
