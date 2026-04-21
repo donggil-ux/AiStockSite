@@ -227,11 +227,12 @@
             .top100-colhead .t100-ch-rank{grid-area:rank;grid-column:1 / span 3;}
             .top100-colhead .t100-ch-reason{padding-left:8px;padding-top:0;opacity:1;}
         }
-        .top100-row{display:grid;grid-template-columns:28px 24px 40px 1fr 90px 88px;align-items:center;padding:10px 12px;background:transparent;border-radius:10px;cursor:pointer;transition:background .15s;gap:10px;border-bottom:1px solid var(--border);overflow:visible;}
-        .top100-reason{display:none;font-size:12px;color:var(--text3);letter-spacing:-.005em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;padding-right:4px;}
+        .top100-row{display:grid;grid-template-columns:28px 24px 40px minmax(110px,180px) minmax(0,1fr) 90px 88px;align-items:center;padding:10px 12px;background:transparent;border-radius:10px;cursor:pointer;transition:background .15s;gap:10px;border-bottom:1px solid var(--border);overflow:visible;min-width:0;}
+        .top100-reason{display:none;font-size:12px;color:var(--text3);letter-spacing:-.005em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;padding-right:4px;min-width:0;}
+        .top100-row > *{min-width:0;}
         .top100-row:last-child{border-bottom:none;}
         .top100-row:hover{background:var(--bg3);transform:none;}
-        .top100-row-head{background:transparent;padding:6px 12px;cursor:default;font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.3px;border-bottom:none;grid-template-columns:28px 24px 40px 1fr 90px 88px;}
+        .top100-row-head{background:transparent;padding:6px 12px;cursor:default;font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.3px;border-bottom:none;grid-template-columns:28px 24px 40px minmax(110px,180px) minmax(0,1fr) 90px 88px;}
         .top100-row-head:hover{background:transparent;}
         .top100-rank{font-size:14px;font-weight:500;color:var(--text3);text-align:center;font-variant-numeric:tabular-nums;}
         .top100-rank.top3{color:var(--text);font-weight:600;}
@@ -649,7 +650,22 @@
         @media(max-width:640px){
             .welcome-top{padding:60px 20px 36px;}
             .top100-section{padding:0 12px;}
-            .top100-row, .top100-row-head{grid-template-columns:24px 20px 36px 1fr 72px 72px;padding:10px 8px;gap:8px;}
+            .top100-row, .top100-row-head{
+                grid-template-columns:24px 20px 36px minmax(0,1fr) 70px 64px;
+                grid-template-areas:
+                  "fav rank logo info price change"
+                  ".   .    reason reason reason reason";
+                padding:10px 8px;
+                gap:4px 8px;
+                align-items:center;
+            }
+            .top100-row > .top100-fav{grid-area:fav;}
+            .top100-row > .top100-rank{grid-area:rank;}
+            .top100-row > .tlogo-wrap{grid-area:logo;}
+            .top100-row > .top100-info{grid-area:info;}
+            .top100-row > .top100-price{grid-area:price;}
+            .top100-row > .top100-change{grid-area:change;}
+            .top100-row > .top100-reason{grid-area:reason;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;white-space:normal;overflow:hidden;text-overflow:clip;overflow-wrap:anywhere;word-break:keep-all;text-align:left;padding:2px 0 0 0;font-size:11px;line-height:1.4;color:var(--text3);}
             .top100-vol{display:none;}
             .tlogo-wrap, .tlogo, .tlogo-fb{width:36px;height:36px;}
             .top100-name{font-size:13px;}
@@ -1213,11 +1229,11 @@
             .tab-content.active{grid-template-columns:minmax(0,1fr) 420px;}
         }
         @media(min-width:1440px){
-            .app{max-width:1440px;}
+            .app{max-width:1420px;}
             .tab-content.active{grid-template-columns:minmax(0,1fr) 480px;}
         }
         @media(min-width:1680px){
-            .app{max-width:1560px;}
+            .app{max-width:1500px;}
         }
 
         /* ===== MOBILE (≤640px) ===== */
@@ -2432,3 +2448,308 @@
         /* Deep dive 섹션은 grid 해제 (단일 콘텐츠) */
         #smDeep{display:block;}
         /* === END REVOLUT OVERRIDES === */
+
+        /* ======================================================
+         * 주식 골라보기 (Discover) — TOP100 DNA 재사용
+         * DOM: fav · rank · logo · info · disc-keymetric · price · change (7)
+         * ====================================================== */
+        .discover-screen{padding:24px 16px 48px;max-width:1200px;margin:0 auto;}
+        .disc-screen-title{font-size:22px;font-weight:700;letter-spacing:-.02em;margin-bottom:4px;color:var(--text);}
+        .disc-screen-sub{font-size:13px;color:var(--text3);margin-bottom:16px;}
+        .disc-preset-tabs{margin-bottom:14px;}
+        .disc-keymetric{
+            font-size:12.5px;color:var(--text2);text-align:right;
+            font-variant-numeric:tabular-nums;font-weight:600;letter-spacing:-0.005em;
+            min-width:0;padding:0 4px;
+        }
+        .disc-keymetric.up{color:var(--red);}
+        .disc-keymetric.down{color:var(--blue);}
+        .disc-empty,.disc-empty-inline{
+            padding:48px 16px;text-align:center;color:var(--text3);font-size:13px;
+        }
+        .disc-empty-inline{padding:32px 16px;}
+        .discover-section{margin-top:32px;padding:0 16px;}
+        .discover-section .home-section-header{padding:0;margin-bottom:10px;}
+
+        /* 데스크톱(≥900px): 전용 화면 전용 그리드 = TOP100 기본값과 동일한 7컬럼 */
+        @media(min-width:900px){
+            .discover-screen{padding:32px 32px 64px;}
+            .discover-screen .disc-screen-title{font-size:28px;}
+            .discover-screen .disc-screen-sub{font-size:14px;margin-bottom:20px;}
+            .discover-screen .top100-row,
+            .discover-screen .top100-colhead{
+                grid-template-columns:28px 28px 44px minmax(140px,220px) minmax(90px,1fr) 100px 88px;
+                grid-template-areas:"rank rank logo name reason price change";
+            }
+            .disc-keymetric{font-size:13px;padding:0 8px;}
+        }
+
+        /* 모바일(≤640px): reason → keymetric 영역을 2행으로 배치 (이미 top100 모바일 area 규칙 활용) */
+        @media(max-width:640px){
+            .discover-screen{padding:16px 12px 48px;}
+            .disc-screen-title{font-size:18px;}
+            .disc-screen-sub{font-size:12px;margin-bottom:12px;}
+            .discover-section{padding:0 12px;}
+            .disc-keymetric{font-size:11.5px;padding:2px 0 0;text-align:left;font-weight:700;}
+            /* disc-keymetric 을 top100 모바일 grid-areas 의 'reason' 자리에 배치 */
+            .top100-row > .disc-keymetric{grid-area:reason;}
+            #discoverColHead{
+                grid-template-areas:
+                  "rank name price change"
+                  ".    reason reason reason";
+                grid-template-columns:22px 1fr 68px 68px;
+            }
+            #discoverColHead .t100-ch-rank{grid-column:1;}
+        }
+
+        /* ============================================================
+         * Level 9: Narrow-mobile polish (≤480px / ≤375px / ≤360px)
+         *   각 디바이스 클리핑·오버플로우 방지를 위한 최종 오버라이드.
+         *   위에서 정의된 규칙을 좁혀가며 안전 폭으로 축소.
+         * ============================================================ */
+
+        /* ---- 9-A: iPhone 12·13·14 / 갤럭시 S 기본 (≤480px) ---- */
+        @media(max-width:480px){
+            /* 헤더 qnav — 패딩/간격 축소 + safe-area 반영 */
+            .header-qnav{gap:2px;padding-right:calc(8px + env(safe-area-inset-right));padding-left:4px;}
+            .hqnav-item{padding:8px 10px;font-size:12.5px;gap:4px;}
+            .hqnav-item.active::after{left:6px;right:6px;}
+
+            /* Tab nav (종목 상세) — safe-area 반영 */
+            .tab-nav{padding:0 4px calc(env(safe-area-inset-right,0));}
+            .tab-item{padding:11px 9px;font-size:12.5px;}
+
+            /* R/R 타점 세로 바 — 100px → 78px */
+            .rr-vbar-col{width:78px;}
+            .rr-vtag{max-width:74px;font-size:10.5px;}
+
+            /* Swing radar AI버튼/RR 배지 숨겨진 상태 + 이름 영역 확장 */
+            .swing-row{grid-template-columns:32px 1fr 66px 64px;gap:6px;padding:10px 12px;}
+            .swing-symbol{font-size:13px;}
+            .swing-name{font-size:11.5px;}
+            .swing-price{font-size:13px;}
+            .swing-chg{font-size:11.5px;}
+
+            /* Discover preset tabs — 가로 스크롤 영역 안전 패딩 */
+            .disc-preset-tabs{padding:2px 12px;margin-left:-12px;margin-right:-12px;}
+            .disc-preset-tabs .top100-filter{flex-shrink:0;padding:7px 12px;font-size:12px;}
+
+            /* Discover 빈 상태 — 패딩 축소 */
+            .disc-empty{padding:36px 12px;font-size:12.5px;}
+            .disc-empty-inline{padding:24px 12px;font-size:12.5px;}
+
+            /* Home section header — 타이틀/링크 줄바꿈 방지 */
+            .home-section-header{flex-wrap:nowrap;gap:8px;}
+            .home-section-more{flex-shrink:0;font-size:12px;}
+
+            /* Options — 2col 이 너무 좁아 1col 로 */
+            .options-chain-grid{grid-template-columns:1fr;}
+            .options-anal-grid{grid-template-columns:1fr 1fr;}
+
+            /* Side nav NEW 배지 — 모바일 여백 조정 */
+            .side-nav-item-sub{font-size:10px;padding:2px 6px;}
+        }
+
+        /* ---- 9-B: iPhone SE 2세대 / 소형 Android (≤375px) ---- */
+        @media(max-width:375px){
+            /* Body/App — 가로 스크롤 완전 차단 */
+            html,body{overflow-x:clip;}
+
+            /* Home sections — 좌우 패딩 축소 */
+            .home-section{padding:0 12px;}
+            .discover-section{padding:0 12px;}
+            .top100-section{padding:0 8px;}
+
+            /* TOP100 grid — 22/18/34 → 20/14/30, gap 축소 */
+            .top100-row{grid-template-columns:20px 14px 30px 1fr 60px 58px;gap:3px 5px;padding:8px 4px;}
+            .skel-row{grid-template-columns:20px 14px 30px 1fr 60px 58px;padding:6px 4px;}
+            .tlogo-wrap,.tlogo,.tlogo-fb{width:30px;height:30px;}
+            .tlogo-fb{font-size:10px;}
+            .tlogo-flag{width:15px;height:15px;font-size:10px;}
+            .top100-name{font-size:11.5px;}
+            .top100-symbol{font-size:12px;}
+            .top100-price{font-size:12px;}
+            .top100-change{font-size:11px;padding:3px 0;}
+            .top100-reason{font-size:10.5px;line-height:1.35;}
+            .top100-fav{width:20px;height:20px;font-size:14px;}
+
+            /* Swing radar — 32/1fr/66/64 → 30/1fr/58/56 */
+            .swing-row{grid-template-columns:30px 1fr 58px 56px;gap:5px;padding:9px 10px;}
+            .swing-row .tlogo-wrap,.swing-row .tlogo,.swing-row .tlogo-fb{width:30px;height:30px;}
+
+            /* Stock hero — 40px → 32px */
+            .stock-price{font-size:32px!important;letter-spacing:-0.02em!important;margin-top:8px!important;}
+            .stock-name{font-size:16px!important;}
+            .stock-change{font-size:13px!important;}
+            .stock-hero{padding:14px 12px 10px;}
+
+            /* Session badges */
+            .session-badge{padding:6px 8px;gap:4px;}
+            .session-price{font-size:12px;}
+            .session-change{font-size:10.5px;}
+
+            /* Tab nav */
+            .tab-nav{padding:0 2px;}
+            .tab-item{padding:10px 7px;font-size:12px;}
+
+            /* Header qnav — 더 축소 */
+            .hqnav-item{padding:7px 8px;font-size:11.5px;}
+            .logo{font-size:15px;}
+
+            /* Discover 전용 화면 */
+            .discover-screen{padding:12px 10px 40px;}
+            .disc-screen-title{font-size:16px;}
+            .disc-screen-sub{font-size:11.5px;margin-bottom:10px;}
+            #discoverColHead{grid-template-columns:20px 1fr 60px 58px;}
+
+            /* R/R */
+            .rr-vbar-col{width:68px;}
+            .rr-vtag{max-width:64px;font-size:10px;}
+
+            /* 카드 좌우 여백 */
+            .card{margin:4px 8px;padding:14px;}
+
+            /* 검색 드롭다운 — 화면 가장자리 패딩 */
+            .search-dropdown{left:8px;right:8px;}
+        }
+
+        /* ---- 9-C: 세로 모드 태블릿 (≤768px) : options grid breakpoint 보강 ---- */
+        @media(max-width:700px) and (min-width:481px){
+            .options-chain-grid{grid-template-columns:1fr;}
+        }
+
+        /* ============================================================
+         * Level 10: Discover — 사이드바 레이아웃 + 카테고리/인사이트 메타
+         * ============================================================ */
+
+        /* 기본: 레이아웃은 단일 컬럼 (모바일 기본 동작) */
+        .disc-layout{display:block;}
+        .disc-sidebar-title{
+            display:none;
+            font-size:12px;font-weight:600;letter-spacing:-0.01em;
+            color:var(--text3);text-transform:none;margin-bottom:12px;padding:0 2px;
+        }
+        .disc-chip-emoji{margin-right:6px;}
+        .disc-chip-label{letter-spacing:-0.01em;}
+
+        /* 카테고리 chip + 인사이트 메타 (모든 뷰포트) */
+        .disc-meta{
+            display:flex;align-items:center;gap:8px;margin-top:3px;
+            min-width:0;white-space:nowrap;overflow:hidden;
+        }
+        .disc-cat-chip{
+            flex-shrink:0;
+            display:inline-flex;align-items:center;
+            padding:2px 7px;border-radius:6px;
+            background:var(--bg3);color:var(--text2);
+            font-size:10.5px;font-weight:600;letter-spacing:-0.005em;
+            line-height:1.5;white-space:nowrap;
+        }
+        [data-theme="light"] .disc-cat-chip{background:#eef1f5;color:#4a5158;}
+        .disc-insight{
+            min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+            font-size:11.5px;color:var(--text3);font-weight:500;letter-spacing:-0.005em;
+        }
+
+        /* 데스크톱(≥900px): 2컬럼 레이아웃 활성화 */
+        @media(min-width:900px){
+            .disc-layout{
+                display:grid;
+                grid-template-columns:200px minmax(0,1fr);
+                gap:32px;align-items:start;
+            }
+            .disc-sidebar{position:sticky;top:16px;align-self:start;}
+            .disc-sidebar-title{display:block;}
+            /* 세로형 칩 메뉴 — 토스식 */
+            .disc-sidebar .disc-preset-tabs{
+                display:flex;flex-direction:column;gap:2px;
+                overflow:visible;padding:0;margin:0;
+            }
+            .disc-sidebar .top100-filter{
+                width:100%;justify-content:flex-start;text-align:left;
+                padding:10px 14px;border-radius:10px;font-size:14px;font-weight:600;
+                background:transparent;color:var(--text2);border:none;
+                display:flex;align-items:center;gap:4px;
+                transition:background .15s, color .15s;
+                white-space:nowrap;flex-shrink:0;
+            }
+            .disc-sidebar .top100-filter:hover{background:var(--bg3);color:var(--text);}
+            .disc-sidebar .top100-filter.active{
+                background:var(--bg3);color:var(--text);font-weight:700;
+            }
+            /* 메타 — 데스크톱에선 살짝 크게 */
+            .disc-insight{font-size:12px;}
+            .disc-cat-chip{font-size:11px;padding:3px 8px;}
+        }
+
+        /* 모바일(≤899px): 사이드바 타이틀 숨김, 가로 스크롤 유지 */
+        @media(max-width:899px){
+            .disc-sidebar{display:block;}
+            .disc-sidebar-title{display:none;}
+            .disc-sidebar .disc-preset-tabs{display:flex;flex-direction:row;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 0;}
+            .disc-sidebar .disc-preset-tabs::-webkit-scrollbar{display:none;}
+        }
+
+        /* 모바일(≤640px): 메타 2행 허용 (ellipsis 유지) */
+        @media(max-width:640px){
+            .disc-meta{gap:6px;margin-top:2px;}
+            .disc-cat-chip{font-size:10px;padding:1px 6px;}
+            .disc-insight{font-size:11px;}
+        }
+
+        /* ============================================================
+         * Level 11: 가장자리 클리핑 최종 가드
+         *   ① 헤더 우측 아이콘 잘림   ② 가로 스크롤 카드 끝 여백
+         *   ③ 리스트 우측 수치 잘림 (swing-price / top100-price)
+         * ============================================================ */
+
+        /* ---- 11-A: 헤더 우측 안전여백 ---- */
+        .header{padding-right:calc(20px + env(safe-area-inset-right));}
+        .header-top{min-width:0;}
+        .header-top > *{flex-shrink:0;}
+        .header-top .logo{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        #searchWrap{flex:1 1 auto;min-width:0;}
+        .header-qnav{padding-right:calc(8px + env(safe-area-inset-right));}
+
+        /* ---- 11-B: 가로 스크롤 카드 — 끝 여백 + 페이드 마스크 ---- */
+        .mw-bar,
+        .ai-rec-list,
+        .recent-chips,
+        .hot-scroll,
+        .scanner-list{
+            padding-right:32px !important;
+            scroll-padding-right:16px;
+            -webkit-mask-image:linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
+            mask-image:linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
+        }
+        @media(min-width:900px){
+            .mw-bar, .ai-rec-list, .hot-scroll{padding-right:48px !important;}
+        }
+
+        /* ---- 11-C: 리스트 행 우측 수치 — 절대 잘리지 않도록 ---- */
+        .swing-price,
+        .swing-chg,
+        .top100-price,
+        .top100-change,
+        .disc-keymetric{
+            white-space:nowrap;
+            flex-shrink:0;
+            overflow:visible;
+            min-width:max-content;
+        }
+        /* swing-row 6컬럼 구조에서 min-width:max-content 가 overflow 유발하면
+           안되니 grid track 자체에 충분 공간 확보 */
+        @media(min-width:641px){
+            .swing-row{grid-template-columns:36px minmax(0,1fr) minmax(68px,auto) minmax(56px,auto) minmax(62px,auto) auto;}
+        }
+        /* top100-row 는 이미 넉넉한 track(90px / 88px) 이 있지만
+           최소값 보강하여 숫자 8자+ 까지 안전 */
+        @media(min-width:641px){
+            .top100-row{grid-template-columns:28px 24px 40px minmax(110px,180px) minmax(0,1fr) minmax(84px,auto) minmax(80px,auto);}
+        }
+
+        /* disc-keymetric 는 모바일에서 2행 grid-area:reason 자리로 이동하므로
+           min-width:max-content 가 grid 행을 밀어내는 문제 방지 — 모바일 오버라이드 */
+        @media(max-width:640px){
+            .disc-keymetric{min-width:0;}
+        }

@@ -580,6 +580,271 @@ app.get('/api/news-reason', async (req, res) => {
     }
 });
 
+// ─────────────────────────────────────────────
+// /api/discover — 조건별 종목 발굴 (연속상승/연속하락/52H근접/거래량급증)
+//   · universe: most_actives ∪ day_gainers ∪ day_losers (≈300)
+//   · 배치 spark 차트로 5일 종가/거래량 확보
+//   · 배치 quote 로 52주 고가·시총·회사명·평균거래량
+//   · 4개 preset 한 번에 계산 후 LRU 10분 캐시
+// ─────────────────────────────────────────────
+const _discoverCache = new LRUMap(1);   // 'all' → { streak_up, streak_down, near_52h, vol_surge, ts }
+const DISCOVER_TTL = 10 * 60 * 1000;
+
+// Yahoo 섹터 영문 → 한글 매핑
+const _SECTOR_KO = {
+    'Consumer Cyclical': '소비재순환',
+    'Technology': '기술',
+    'Healthcare': '헬스케어',
+    'Financial Services': '금융',
+    'Industrials': '산업재',
+    'Energy': '에너지',
+    'Basic Materials': '원자재',
+    'Communication Services': '통신',
+    'Consumer Defensive': '필수소비재',
+    'Real Estate': '리츠',
+    'Utilities': '유틸리티',
+};
+const _toSectorKo = (s) => (s && _SECTOR_KO[s]) || (s || '');
+
+// Yahoo Screener → { symbols:[], sectors:Map<symbol, koSector> }
+async function _fetchScreenerSymbols(filter, count = 100) {
+    try {
+        const url = `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&lang=en-US&region=US&scrIds=${filter}&count=${count}`;
+        const data = await yfRequest(url);
+        const quotes = (data?.finance?.result?.[0]?.quotes || []).filter(q => validSymbol(q.symbol));
+        const sectors = new Map();
+        quotes.forEach(q => {
+            const ko = _toSectorKo(q.sector);
+            if (ko) sectors.set(q.symbol.toUpperCase(), ko);
+        });
+        return { symbols: quotes.map(q => q.symbol), sectors };
+    } catch (e) {
+        console.warn(`[discover] screener ${filter} fail:`, e.message);
+        return { symbols: [], sectors: new Map() };
+    }
+}
+
+// universe 구성 (3개 스크리너 union, 중복제거) — symbols + sector map
+async function _buildDiscoverUniverse() {
+    const [a, b, c] = await Promise.all([
+        _fetchScreenerSymbols('most_actives', 100),
+        _fetchScreenerSymbols('day_gainers', 100),
+        _fetchScreenerSymbols('day_losers', 100),
+    ]);
+    const set = new Set();
+    [...a.symbols, ...b.symbols, ...c.symbols].forEach(s => set.add(s.toUpperCase()));
+    const sectors = new Map();
+    [a.sectors, b.sectors, c.sectors].forEach(m => m.forEach((v,k) => { if (!sectors.has(k)) sectors.set(k, v); }));
+    return { symbols: [...set], sectors };
+}
+
+// Spark 배치 차트 (range=3mo interval=1d) — 청크 50개 단위
+async function _fetchSparkBatch(symbols) {
+    const out = new Map();  // symbol → { close:[], volume:[] }
+    const CHUNK = 40;
+    for (let i = 0; i < symbols.length; i += CHUNK) {
+        const chunk = symbols.slice(i, i + CHUNK);
+        try {
+            // v8/finance/spark: crumb 불필요, 불필요한 파라미터 제거
+            const url = `https://query1.finance.yahoo.com/v8/finance/spark?symbols=${encodeURIComponent(chunk.join(','))}&range=3mo&interval=1d`;
+            const res = await axios.get(url, {
+                headers: { 'User-Agent': UA, 'Accept': 'application/json' },
+                timeout: 15000,
+                httpAgent,
+                httpsAgent,
+            });
+            const data = res.data;
+            // v8/spark 응답: { spark: { result: [ { symbol, response: [ { timestamp, indicators:{ quote:[{close, volume}] } } ] } ] } }
+            (data?.spark?.result || []).forEach(r => {
+                const sym = r.symbol;
+                const resp = (r.response || [])[0];
+                const ts = resp?.timestamp || [];
+                const q = resp?.indicators?.quote?.[0] || {};
+                out.set(sym, {
+                    close: q.close || [],
+                    volume: q.volume || [],
+                });
+            });
+        } catch (e) {
+            // v8 실패 시 v7 crumb 방식 재시도
+            try {
+                const url2 = `https://query1.finance.yahoo.com/v7/finance/spark?symbols=${encodeURIComponent(chunk.join(','))}&range=3mo&interval=1d`;
+                const data2 = await yfRequest(url2);
+                (data2?.spark?.result || []).forEach(r => {
+                    const sym = r.symbol;
+                    const resp = (r.response || [])[0];
+                    const q = resp?.indicators?.quote?.[0] || {};
+                    out.set(sym, { close: q.close || [], volume: q.volume || [] });
+                });
+            } catch (e2) {
+                console.warn('[discover] spark chunk fail:', e2?.response?.status || e2?.code || e2?.message?.slice(0,80));
+            }
+        }
+    }
+    return out;
+}
+
+// 확장 quote (52주 고가·시총·회사명·평균거래량 포함)
+async function _fetchQuoteSnapshotsFull(symbols) {
+    const out = new Map();
+    const CHUNK = 40;
+    for (let i = 0; i < symbols.length; i += CHUNK) {
+        const chunk = symbols.slice(i, i + CHUNK);
+        try {
+            const url = `https://query1.finance.yahoo.com/v7/finance/quote?fields=sector,industry,shortName,longName,regularMarketPrice,regularMarketChangePercent,regularMarketVolume,averageDailyVolume3Month,averageDailyVolume10Day,fiftyTwoWeekHigh,fiftyTwoWeekLow,fiftyDayAverage,twoHundredDayAverage,marketCap,currency&symbols=${encodeURIComponent(chunk.join(','))}`;
+            const data = await yfRequest(url);
+            (data?.quoteResponse?.result || []).forEach(q => {
+                out.set(q.symbol, {
+                    name: q.shortName || q.longName || q.symbol,
+                    price: q.regularMarketPrice,
+                    changePct: q.regularMarketChangePercent,
+                    volume: q.regularMarketVolume,
+                    avgVol: q.averageDailyVolume3Month || q.averageDailyVolume10Day || null,
+                    fiftyTwoWeekHigh: q.fiftyTwoWeekHigh,
+                    fiftyTwoWeekLow: q.fiftyTwoWeekLow,
+                    fiftyDayAverage: q.fiftyDayAverage,
+                    twoHundredDayAverage: q.twoHundredDayAverage,
+                    marketCap: q.marketCap,
+                    currency: q.currency || 'USD',
+                    sector: q.sector || '',
+                    industry: q.industry || '',
+                });
+            });
+        } catch (e) { /* 청크 실패 무시 */ }
+    }
+    return out;
+}
+
+// 4개 preset 평가
+function _evaluateDiscoverPresets(sparkMap, quoteMap, sectorMap = new Map()) {
+    const all = { streak_up: [], streak_down: [], near_52h: [], vol_surge: [] };
+    const fmtPct = (v) => (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+    for (const [sym, q] of quoteMap.entries()) {
+        if (!q || q.price == null) continue;
+        const sp = sparkMap.get(sym);
+        const closes = (sp?.close || []).filter(v => v != null);
+        const volumes = (sp?.volume || []).filter(v => v != null);
+        const category = sectorMap.get(sym) || _toSectorKo(q.sector) || '';
+
+        // 거래량 배수 (인사이트 접미 용)
+        const vol20avg = volumes.length >= 20 ? volumes.slice(-20).reduce((a,b)=>a+b,0) / 20 : q.avgVol;
+        const volMult = (vol20avg && q.volume) ? q.volume / vol20avg : null;
+
+        const base = {
+            symbol: sym,
+            name: q.name,
+            price: q.price,
+            changePct: q.changePct,
+            marketCap: q.marketCap,
+            volume: q.volume,
+            currency: q.currency,
+            category,
+        };
+
+        // 1) streak_up / streak_down
+        //    ① Spark 성공: 최근 종가 연속 방향 → 3일 이상
+        //    ② Spark 실패(rate limit 등): quote 기반 근사 — 50MA + 당일 변동률
+        if (closes.length >= 4) {
+            // Spark 데이터 있음: 정확한 연속 판정
+            let upDays = 0, downDays = 0;
+            for (let i = closes.length - 1; i >= 1; i--) {
+                if (closes[i] > closes[i - 1]) { if (downDays === 0) upDays++; else break; }
+                else if (closes[i] < closes[i - 1]) { if (upDays === 0) downDays++; else break; }
+                else break;
+            }
+            if (upDays >= 3) {
+                const startIdx = closes.length - 1 - upDays;
+                const cum = ((closes[closes.length - 1] - closes[startIdx]) / closes[startIdx]) * 100;
+                if (Number.isFinite(cum)) {
+                    const volTail = (volMult && volMult >= 1.5) ? ' · 거래량 ↑' : '';
+                    all.streak_up.push({ ...base,
+                        insight: `${upDays}일 연속 상승 · ${upDays}D ${fmtPct(cum)}${volTail}`,
+                        keyMetric: { label: `${upDays}일 누적`, value: fmtPct(cum), dir: 'up', num: upDays * 100 + cum }});
+                }
+            }
+            if (downDays >= 3) {
+                const startIdx = closes.length - 1 - downDays;
+                const cum = ((closes[closes.length - 1] - closes[startIdx]) / closes[startIdx]) * 100;
+                if (Number.isFinite(cum)) {
+                    all.streak_down.push({ ...base,
+                        insight: `${downDays}일 연속 하락 · ${downDays}D ${fmtPct(cum)}`,
+                        keyMetric: { label: `${downDays}일 누적`, value: `${cum.toFixed(2)}%`, dir: 'down', num: downDays * 100 + Math.abs(cum) }});
+                }
+            }
+        } else {
+            // Spark 없음 fallback: quote의 50MA + 당일 변동률로 상승/하락 모멘텀 판단
+            const ma50 = q.fiftyDayAverage;
+            const chg = q.changePct || 0;
+            const price = q.price;
+            // 상승 모멘텀: 오늘 1% 이상 상승 AND 50MA 위 (단기 상승 추세)
+            if (price != null && ma50 && chg >= 1 && price > ma50) {
+                all.streak_up.push({ ...base,
+                    insight: `당일 ${fmtPct(chg)} · 50MA 상단 단기 상승 추세`,
+                    keyMetric: { label: '당일 상승', value: fmtPct(chg), dir: 'up', num: chg }});
+            }
+            // 하락 모멘텀: 오늘 1% 이상 하락 AND 50MA 아래
+            if (price != null && ma50 && chg <= -1 && price < ma50) {
+                all.streak_down.push({ ...base,
+                    insight: `당일 ${chg.toFixed(2)}% · 50MA 하단 매도 압력`,
+                    keyMetric: { label: '당일 하락', value: `${chg.toFixed(2)}%`, dir: 'down', num: Math.abs(chg) }});
+            }
+        }
+
+        // 2) near_52h — 현재가 ≥ 52wHigh × 0.95
+        if (q.fiftyTwoWeekHigh && q.price >= q.fiftyTwoWeekHigh * 0.95) {
+            const gap = ((q.price - q.fiftyTwoWeekHigh) / q.fiftyTwoWeekHigh) * 100;
+            all.near_52h.push({ ...base,
+                insight: `52주 고점 ${gap.toFixed(2)}% · 돌파 시도 구간`,
+                keyMetric: { label: '52H 대비', value: fmtPct(gap), dir: gap >= 0 ? 'up' : 'down', num: gap }});
+        }
+
+        // 3) vol_surge — 당일 거래량 ≥ 20일 평균 × 2
+        if (vol20avg && q.volume && q.volume >= vol20avg * 2) {
+            const mult = q.volume / vol20avg;
+            const chg = q.changePct || 0;
+            all.vol_surge.push({ ...base,
+                insight: `평균 대비 ×${mult.toFixed(1)} 거래 급증 · ${fmtPct(chg)}`,
+                keyMetric: { label: '평균대비', value: `×${mult.toFixed(1)}`, dir: 'up', num: mult }});
+        }
+    }
+    // 정렬
+    all.streak_up.sort((a,b) => b.keyMetric.num - a.keyMetric.num);
+    all.streak_down.sort((a,b) => a.keyMetric.num - b.keyMetric.num);
+    all.near_52h.sort((a,b) => b.keyMetric.num - a.keyMetric.num);
+    all.vol_surge.sort((a,b) => b.keyMetric.num - a.keyMetric.num);
+    // 상위 50 컷
+    ['streak_up','streak_down','near_52h','vol_surge'].forEach(k => { all[k] = all[k].slice(0, 50); });
+    return all;
+}
+
+const VALID_DISCOVER_PRESETS = new Set(['streak_up','streak_down','near_52h','vol_surge']);
+
+app.get('/api/discover', async (req, res) => {
+    const preset = String(req.query.preset || 'streak_up');
+    if (!VALID_DISCOVER_PRESETS.has(preset)) {
+        return res.status(400).json({ error: 'invalid preset' });
+    }
+    try {
+        const now = Date.now();
+        const cached = _discoverCache.get('all');
+        let all = (cached && now - cached.ts < DISCOVER_TTL) ? cached.data : null;
+        if (!all) {
+            const { symbols, sectors } = await _buildDiscoverUniverse();
+            if (!symbols.length) return res.json({ preset, items: [], ts: now });
+            const [sparkMap, quoteMap] = await Promise.all([
+                _fetchSparkBatch(symbols),
+                _fetchQuoteSnapshotsFull(symbols),
+            ]);
+            all = _evaluateDiscoverPresets(sparkMap, quoteMap, sectors);
+            _discoverCache.set('all', { data: all, ts: now });
+        }
+        res.json({ preset, items: all[preset] || [], ts: now });
+    } catch (err) {
+        console.error('[discover]', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 /**
  * 종목 뉴스 (제목 한글 번역 포함)
  * GET /api/news/:symbol?limit=12
