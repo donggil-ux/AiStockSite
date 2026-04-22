@@ -37,7 +37,7 @@
         /* ===== APP SHELL ===== */
         .app-wrapper{display:flex;min-height:100vh;transition:padding-left .28s cubic-bezier(.4,0,.2,1);overflow-x:hidden;max-width:100vw;}
         .app{flex:1;min-width:0;width:100%;max-width:1200px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative;overflow-x:hidden;}
-        @media(min-width:768px){.app{display:grid;grid-template-columns:1fr;}}
+        @media(min-width:768px){.app{display:grid;grid-template-columns:minmax(0,1fr);}}
 
         /* ===== SIDE NAV ===== */
         .side-nav{position:fixed;top:0;right:0;width:280px;height:100vh;background:var(--bg2);border-left:1px solid var(--border);z-index:200;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);overflow:hidden;padding-top:env(safe-area-inset-top);}
