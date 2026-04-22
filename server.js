@@ -244,7 +244,7 @@ app.get('/api/quote', async (req, res) => {
     if (!symbols) return res.status(400).json({ error: 'symbols 파라미터가 필요합니다.' });
     // 개별 심볼 검증 + 최대 20개 제한
     const symList = symbols.split(',').map(s => s.trim()).filter(Boolean);
-    if (symList.length === 0 || symList.length > 20) return res.status(400).json({ error: 'symbols: 1~20개 사이' });
+    if (symList.length === 0 || symList.length > 50) return res.status(400).json({ error: 'symbols: 1~50개 사이' });
     if (!symList.every(validSymbol)) return res.status(400).json({ error: 'invalid symbol in list' });
     const validatedSymbols = symList.join(',');
     try {
