@@ -2726,7 +2726,7 @@
             .mw-bar, .ai-rec-list, .hot-scroll{padding-right:48px !important;}
         }
 
-        /* ---- 11-C: 리스트 행 우측 수치 — 절대 잘리지 않도록 ---- */
+        /* ---- 11-C: 리스트 행 우측 수치 — 잘리지 않도록 (모바일은 ellipsis 로 안전 축소) ---- */
         .swing-price,
         .swing-chg,
         .top100-price,
@@ -2734,8 +2734,19 @@
         .disc-keymetric{
             white-space:nowrap;
             flex-shrink:0;
-            overflow:visible;
-            min-width:max-content;
+            overflow:hidden;
+            text-overflow:ellipsis;
+            min-width:0;
+        }
+        @media(min-width:641px){
+            .swing-price,
+            .swing-chg,
+            .top100-price,
+            .top100-change,
+            .disc-keymetric{
+                overflow:visible;
+                min-width:max-content;
+            }
         }
         /* swing-row 6컬럼 구조에서 min-width:max-content 가 overflow 유발하면
            안되니 grid track 자체에 충분 공간 확보 */
