@@ -371,14 +371,42 @@
         .swing-ai-btn:hover{border-color:var(--blue);color:var(--blue);background:rgba(59,130,246,.06);}
         .swing-empty{padding:24px;text-align:center;color:var(--text3);font-size:13px;background:var(--bg2);border-radius:var(--r2);}
         /* ===== 시장 온도계 ===== */
-        .thermo-banner{padding:10px 16px;border-radius:var(--r2);font-size:13px;}
-        .thermo-indices{display:flex;gap:6px 20px;flex-wrap:wrap;align-items:center;margin-bottom:5px;}
-        .thermo-idx{font-weight:600;color:var(--text);white-space:nowrap;}
-        .thermo-idx-name{color:var(--text3);font-weight:500;margin-right:2px;}
-        .thermo-comment{font-size:12px;color:var(--text2);line-height:1.4;}
-        .thermo-up{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);}
-        .thermo-down{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);}
-        .thermo-flat{background:var(--bg2);border:1px solid var(--border);}
+        /* ---- 시장 티커 (토스 스타일 가로 스크롤 카드) ---- */
+        .thermo-ticker{
+            display:flex; gap:8px;
+            overflow-x:auto; scroll-snap-type:x proximity;
+            padding:4px 4px 8px;
+            scrollbar-width:none;
+            -webkit-overflow-scrolling:touch;
+        }
+        .thermo-ticker::-webkit-scrollbar{display:none;}
+        .thermo-card{
+            flex:0 0 auto;
+            display:flex; align-items:center; gap:10px;
+            padding:8px 14px;
+            background:var(--bg2); border:1px solid var(--border);
+            border-radius:12px; cursor:pointer;
+            scroll-snap-align:start;
+            transition:background .15s, transform .1s, border-color .15s;
+            font-family:inherit; color:inherit; text-align:left;
+        }
+        .thermo-card:hover{background:var(--bg3); border-color:var(--text3);}
+        .thermo-card:active{transform:scale(.98);}
+        .thermo-spark{flex-shrink:0; width:52px; height:28px; display:block;}
+        @media(min-width:641px){.thermo-spark{width:64px; height:32px;}}
+        .thermo-card-body{display:flex; flex-direction:column; gap:1px; min-width:0;}
+        .thermo-card-name{font-size:11px; color:var(--text3); font-weight:500; white-space:nowrap;}
+        .thermo-card-price{font-size:14px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; white-space:nowrap;}
+        .thermo-card-chg{font-size:11px; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap;}
+        .thermo-card-chg.up{color:var(--green);}
+        .thermo-card-chg.down{color:var(--red);}
+        .thermo-card-chg.flat{color:var(--text3);}
+        @media(max-width:640px){
+            .thermo-ticker{padding:4px 0 6px; gap:6px;}
+            .thermo-card{padding:7px 10px; gap:8px; border-radius:10px;}
+            .thermo-card-price{font-size:13px;}
+            .thermo-card-chg{font-size:10.5px;}
+        }
         /* ===== AI 추천 / 즐겨찾기 요약 카드 ===== */
         .section-header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;}
         .section-title{font-size:13px;font-weight:700;color:var(--text2);}

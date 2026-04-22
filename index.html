@@ -2307,56 +2307,133 @@
     // ========================================
     // 섹션2: 시장 온도계 (S&P500 + 나스닥 + VIX)
     // ========================================
+    // ── 시장 티커 (토스증권 스타일) ────────────────────────────────
+    const THERMO_SYMS = [
+        {key:'^GSPC', label:'S&P 500',        kind:'idx'},
+        {key:'^IXIC', label:'나스닥',         kind:'idx'},
+        {key:'NQ=F',  label:'나스닥 100 선물', kind:'idx'},
+        {key:'^DJI',  label:'다우존스',       kind:'idx'},
+        {key:'KRW=X', label:'달러환율',       kind:'fx'},
+        {key:'^VIX',  label:'VIX',            kind:'vix'},
+    ];
+
+    function _fmtThermoPrice(v, kind){
+        if (v == null || !isFinite(v)) return '-';
+        if (kind === 'vix') return v.toFixed(1);
+        if (kind === 'fx')  return v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+        return v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    }
+    function _fmtThermoChg(abs, pct, kind){
+        if (abs == null || !isFinite(abs)) return '-';
+        const sA = abs >= 0 ? '+' : '';
+        const sP = pct >= 0 ? '+' : '';
+        const absStr = kind === 'vix' ? abs.toFixed(2) : Math.abs(abs) >= 100 ? abs.toFixed(1) : abs.toFixed(2);
+        if (pct == null || !isFinite(pct)) return `${sA}${absStr}`;
+        return `${sA}${absStr} (${sP}${pct.toFixed(2)}%)`;
+    }
+    function _thermoSpark(canvas, closes, isUp){
+        if (!canvas || !closes || closes.length < 2) return;
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        const cssW = canvas.clientWidth || parseInt(canvas.getAttribute('width'))||52;
+        const cssH = canvas.clientHeight || parseInt(canvas.getAttribute('height'))||28;
+        canvas.width = Math.round(cssW * dpr);
+        canvas.height = Math.round(cssH * dpr);
+        ctx.scale(dpr, dpr);
+        ctx.clearRect(0,0,cssW,cssH);
+        const min = Math.min(...closes), max = Math.max(...closes);
+        const range = max - min || 1;
+        const padY = 3;
+        const plotH = cssH - padY*2;
+        ctx.beginPath();
+        closes.forEach((v,i)=>{
+            const x = (i/(closes.length-1)) * cssW;
+            const y = padY + (1 - (v - min)/range) * plotH;
+            if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+        });
+        // fill 영역
+        ctx.lineTo(cssW, cssH);
+        ctx.lineTo(0, cssH);
+        ctx.closePath();
+        const color = isUp ? 'rgba(34,197,94,' : 'rgba(239,68,68,';
+        const grad = ctx.createLinearGradient(0,0,0,cssH);
+        grad.addColorStop(0, color+'.22)');
+        grad.addColorStop(1, color+'0)');
+        ctx.fillStyle = grad;
+        ctx.fill();
+        // 선
+        ctx.beginPath();
+        closes.forEach((v,i)=>{
+            const x = (i/(closes.length-1)) * cssW;
+            const y = padY + (1 - (v - min)/range) * plotH;
+            if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+        });
+        ctx.strokeStyle = isUp ? 'rgb(34,197,94)' : 'rgb(239,68,68)';
+        ctx.lineWidth = 1.4;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.stroke();
+    }
+
     async function loadMarketThermometer() {
         const el = document.getElementById('marketThermometer');
         if (!el) return;
-        const [spRes, ndRes, vixRes] = await Promise.allSettled([
-            fetchRace('https://query1.finance.yahoo.com/v7/finance/quote?symbols=%5EGSPC', 5000),
-            fetchRace('https://query1.finance.yahoo.com/v7/finance/quote?symbols=%5EIXIC', 5000),
-            fetchRace('https://query1.finance.yahoo.com/v7/finance/quote?symbols=%5EVIX',  5000),
+
+        const symsQS = encodeURIComponent(THERMO_SYMS.map(s=>s.key).join(','));
+        const quoteP = fetchRace(`/api/quote?symbols=${symsQS}`, 5000);
+        const chartPs = THERMO_SYMS.map(s =>
+            fetchRace(`/api/chart/${encodeURIComponent(s.key)}?interval=5m&range=1d`, 5000)
+                .catch(()=>null)
+        );
+        const [quoteRes, ...chartRes] = await Promise.all([
+            quoteP.catch(()=>null),
+            ...chartPs.map(p => p.catch(()=>null))
         ]);
-        const sp  = spRes.status  === 'fulfilled' ? spRes.value?.quoteResponse?.result?.[0]  : null;
-        const nd  = ndRes.status  === 'fulfilled' ? ndRes.value?.quoteResponse?.result?.[0]  : null;
-        const vix = vixRes.status === 'fulfilled' ? vixRes.value?.quoteResponse?.result?.[0] : null;
-        if (!sp && !nd && !vix) return;
 
-        function idxHtml(label, q, isVix) {
-            if (!q) return `<span class="thermo-idx">— <span class="thermo-idx-name">${label}</span> -</span>`;
-            if (isVix) {
-                const v = q.regularMarketPrice || 0;
-                const icon = v < 15 ? '🟢' : v < 25 ? '🟡' : '🔴';
-                return `<span class="thermo-idx">${icon} <span class="thermo-idx-name">${label}</span> <strong>${v.toFixed(1)}</strong></span>`;
-            }
-            const chg = q.regularMarketChangePercent || 0;
-            const sign = chg >= 0 ? '+' : '';
-            const icon = chg >= 0.5 ? '🟢' : chg <= -0.5 ? '🔴' : '🟡';
-            return `<span class="thermo-idx">${icon} <span class="thermo-idx-name">${label}</span> <strong>${sign}${chg.toFixed(2)}%</strong></span>`;
-        }
+        const quoteArr = quoteRes?.quoteResponse?.result || [];
+        const bySym = {};
+        quoteArr.forEach(q => { if (q?.symbol) bySym[q.symbol] = q; });
 
-        const spChg  = sp?.regularMarketChangePercent  || 0;
-        const ndChg  = nd?.regularMarketChangePercent  || 0;
-        const vixVal = vix?.regularMarketPrice || 0;
-        const spUp = spChg >= 0.5, spDown = spChg <= -0.5;
-        const ndUp = ndChg >= 0.5, ndDown = ndChg <= -0.5;
-        const vixHigh = vixVal >= 20;
+        if (!Object.keys(bySym).length) return;
 
-        let comment;
-        if      (spUp  && ndUp  && !vixHigh) comment = '오늘 시장은 전반적으로 우호적입니다. 손익비 좋은 종목 진입을 고려해보세요.';
-        else if (spUp  && ndDown)            comment = '오늘 기술주는 약세입니다. NVDA·AAPL 등 나스닥 종목은 신중하게 접근하세요.';
-        else if (spDown && ndDown && !vixHigh) comment = '전반적으로 하락 중이지만 공포 수준은 낮습니다. 기다리면 기회가 올 수 있어요.';
-        else if (spDown && ndDown && vixHigh)  comment = '시장 변동성이 높습니다. 신규 진입보다 기존 보유 종목 관리에 집중하세요.';
-        else                                   comment = '시장이 방향을 잡지 못하고 있어요. 관망하거나 소량 진입을 권장합니다.';
+        // HTML 카드 생성
+        const cards = THERMO_SYMS.map((s, i) => {
+            const q = bySym[s.key];
+            const price = q?.regularMarketPrice;
+            const chgAbs = q?.regularMarketChange;
+            const chgPct = q?.regularMarketChangePercent;
+            const isUp = (chgAbs ?? 0) >= 0;
+            const chgCls = chgAbs == null ? 'flat' : chgAbs > 0 ? 'up' : chgAbs < 0 ? 'down' : 'flat';
+            const priceStr = _fmtThermoPrice(price, s.kind);
+            const chgStr = _fmtThermoChg(chgAbs, chgPct, s.kind);
+            const safeLabel = s.label.replace(/&/g,'&amp;');
+            const aria = `${s.label} ${priceStr} ${chgStr}`.replace(/"/g,'&quot;');
+            const safeKey = s.key.replace(/'/g,"\\'");
+            return `<button class="thermo-card" type="button" onclick="quickSearch('${safeKey}','US')" aria-label="${aria}" data-idx="${i}">
+                <canvas class="thermo-spark" width="52" height="28" aria-hidden="true"></canvas>
+                <div class="thermo-card-body">
+                    <div class="thermo-card-name">${safeLabel}</div>
+                    <div class="thermo-card-price">${priceStr}</div>
+                    <div class="thermo-card-chg ${chgCls}">${chgStr}</div>
+                </div>
+            </button>`;
+        }).join('');
 
-        const cls = spChg >= 0.5 ? 'thermo-up' : spChg <= -0.5 ? 'thermo-down' : 'thermo-flat';
-        el.innerHTML = `<div class="thermo-banner ${cls}">
-            <div class="thermo-indices">
-                ${idxHtml('S&P500', sp,  false)}
-                ${idxHtml('나스닥',  nd,  false)}
-                ${idxHtml('VIX',    vix, true)}
-            </div>
-            <div class="thermo-comment">${comment}</div>
-        </div>`;
+        el.innerHTML = `<div class="thermo-ticker" role="list">${cards}</div>`;
         el.style.display = '';
+
+        // 스파크라인 그리기 (각 chartRes 와 카드 매칭)
+        const canvases = el.querySelectorAll('.thermo-spark');
+        THERMO_SYMS.forEach((s, i) => {
+            const cv = canvases[i];
+            if (!cv) return;
+            const chart = chartRes[i];
+            const closes = (chart?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter(v => v != null);
+            if (closes.length < 2) return;
+            const q = bySym[s.key];
+            const isUp = (q?.regularMarketChange ?? 0) >= 0;
+            _thermoSpark(cv, closes, isUp);
+        });
     }
 
     // ========================================

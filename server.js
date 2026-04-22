@@ -85,7 +85,7 @@ function getSupabase() {
 }
 
 // [Fix-F] 입력값 화이트리스트 검증 헬퍼
-const SYMBOL_RE      = /^[A-Z0-9.\-\^]{1,20}$/i;
+const SYMBOL_RE      = /^[A-Z0-9.\-\^=]{1,20}$/i;
 const VALID_RANGES   = new Set(['1d','5d','1mo','3mo','6mo','1y','2y','5y','10y','ytd','max']);
 const VALID_INTERVALS= new Set(['1m','2m','5m','15m','30m','60m','90m','1h','1d','5d','1wk','1mo','3mo']);
 const VALID_FILTERS  = new Set(['day_gainers','day_losers','most_actives']);
