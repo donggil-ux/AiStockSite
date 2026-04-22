@@ -2753,3 +2753,134 @@
         @media(max-width:640px){
             .disc-keymetric{min-width:0;}
         }
+
+/* ═══════════════════════════════════════════════════════════
+   Level 12 — 실적발표 일정 (Earnings Calendar)
+   날짜별 그룹핑 + BMO/AMC 배지 + Beat/Miss 배지
+   ═══════════════════════════════════════════════════════════ */
+.earn-window-label{
+    font-size:15px; font-weight:700; color:var(--text);
+    margin:0 0 12px; padding:0 4px;
+}
+.earn-grid{display:flex; flex-direction:column; gap:20px;}
+.earn-date-group{
+    background:var(--bg2);
+    border:1px solid var(--border);
+    border-radius:12px;
+    overflow:hidden;
+}
+.earn-date-header{
+    position:sticky; top:0; z-index:2;
+    display:flex; align-items:center; gap:10px;
+    padding:10px 14px;
+    background:var(--bg3);
+    border-bottom:1px solid var(--border);
+    font-weight:700;
+}
+.earn-date-main{font-size:16px; color:var(--text);}
+.earn-date-dow{font-size:13px; color:var(--text2); font-weight:600;}
+.earn-date-count{
+    margin-left:auto; font-size:12px; color:var(--text2);
+    background:var(--bg4);
+    padding:3px 10px; border-radius:999px;
+}
+.earn-date-rows{display:flex; flex-direction:column;}
+
+.earn-row{
+    display:grid !important;
+    grid-template-columns:28px 36px minmax(0,1fr) minmax(100px,140px) minmax(110px,150px);
+    align-items:center; gap:10px;
+    padding:12px 14px;
+    border-top:1px solid var(--border);
+    cursor:pointer;
+    transition:background .12s ease;
+    color:var(--text);
+}
+.earn-row:first-child{border-top:none;}
+.earn-row:hover{background:var(--bg3);}
+
+.earn-info{min-width:0; display:flex; flex-direction:column; gap:4px;}
+.earn-name{
+    font-size:14px; font-weight:600; color:var(--text);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.earn-meta{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+.earn-sym{
+    font-size:11px; font-weight:700;
+    color:var(--text2);
+    background:var(--bg3);
+    padding:2px 8px; border-radius:6px;
+    letter-spacing:.3px;
+}
+.earn-timing{
+    font-size:11px; font-weight:600;
+    padding:2px 8px; border-radius:6px;
+    white-space:nowrap;
+}
+.earn-bmo{background:rgba(251,146,60,.18); color:#fb923c;}
+.earn-amc{background:rgba(168,85,247,.18); color:#c084fc;}
+.earn-tbd{background:rgba(148,163,184,.15); color:var(--text2);}
+
+.earn-badge{
+    font-size:10px; font-weight:700;
+    padding:2px 7px; border-radius:5px;
+    letter-spacing:.4px;
+}
+.earn-badge-beat{background:rgba(34,197,94,.18); color:#4ade80;}
+.earn-badge-miss{background:rgba(239,68,68,.18); color:#f87171;}
+.earn-badge-meet{background:rgba(99,102,241,.18); color:#a5b4fc;}
+
+.earn-eps, .earn-rev{
+    text-align:right; min-width:0;
+    white-space:nowrap; flex-shrink:0;
+}
+.earn-cell-label{
+    font-size:10px; font-weight:600;
+    color:var(--text3);
+    text-transform:uppercase; letter-spacing:.4px;
+    margin-bottom:2px;
+}
+.earn-cell-val{
+    font-size:14px; font-weight:700;
+    color:var(--text);
+}
+.earn-cell-sub{
+    font-size:11px; font-weight:500;
+    color:var(--text2);
+    margin-top:2px;
+}
+.earn-yoy.up{color:#4ade80;}
+.earn-yoy.down{color:#f87171;}
+
+/* 라이트 모드에서 BMO/AMC/Badge 배경 보정 */
+[data-theme="light"] .earn-bmo{background:#fff7ed; color:#c2410c;}
+[data-theme="light"] .earn-amc{background:#f3e8ff; color:#7e22ce;}
+[data-theme="light"] .earn-tbd{background:#f1f5f9; color:#64748b;}
+[data-theme="light"] .earn-badge-beat{background:#dcfce7; color:#15803d;}
+[data-theme="light"] .earn-badge-miss{background:#fee2e2; color:#b91c1c;}
+[data-theme="light"] .earn-badge-meet{background:#e0e7ff; color:#4338ca;}
+[data-theme="light"] .earn-yoy.up{color:#16a34a;}
+[data-theme="light"] .earn-yoy.down{color:#dc2626;}
+
+/* 모바일 (≤640px) — 매출 컬럼 숨김, 2줄 정보 */
+@media(max-width:640px){
+    .earn-row{
+        grid-template-columns:36px minmax(0,1fr) minmax(88px,auto);
+        gap:8px; padding:10px 12px;
+    }
+    .earn-row .top100-fav{display:none;}
+    .earn-rev{display:none;}
+    .earn-name{font-size:13px;}
+    .earn-cell-val{font-size:13px;}
+    .earn-date-header{padding:8px 12px;}
+    .earn-date-main{font-size:15px;}
+    .earn-sym{font-size:10px; padding:1px 6px;}
+    .earn-timing{font-size:10px; padding:1px 6px;}
+}
+
+/* 태블릿~데스크톱 초소형 */
+@media(min-width:641px) and (max-width:899px){
+    .earn-row{
+        grid-template-columns:28px 36px minmax(0,1fr) minmax(90px,120px) minmax(100px,130px);
+    }
+}

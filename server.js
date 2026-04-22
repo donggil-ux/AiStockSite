@@ -2154,6 +2154,175 @@ app.get('/api/guru/by-ticker/:ticker', async (req, res) => {
     }
 });
 
+// ─────────────────────────────────────────────
+// 실적발표 일정 (Earnings Calendar)
+// S&P500 + 즐겨찾기 합집합을 50개씩 배치로 quoteSummary 호출
+// modules=calendarEvents,earnings,earningsHistory
+// ─────────────────────────────────────────────
+const _SP500 = (
+    // S&P500 주요 구성종목 (2026 기준, 중복 제거 · 공백 구분)
+    'A AAL AAPL ABBV ABNB ABT ACGL ACN ADBE ADI ADM ADP ADSK AEE AEP AES AFL AIG AIZ AJG AKAM ALB ALGN ALL ALLE AMAT AMCR AMD AME AMGN AMP AMT AMZN ANET ANSS AON AOS APA APD APH APTV ARE ATO AVB AVGO AVY AWK AXON AXP AZO BA BAC BALL BAX BBWI BBY BDX BEN BG BIIB BIO BK BKNG BKR BLDR BLK BMY BR BRO BSX BWA BX BXP C CAG CAH CARR CAT CB CBOE CBRE CCI CCL CDNS CDW CE CEG CF CFG CHD CHRW CHTR CI CINF CL CLX CMCSA CME CMG CMI CMS CNC CNP COF COO COP COR COST CPB CPRT CPT CRL CRM CRWD CSCO CSGP CSX CTAS CTLT CTRA CTSH CTVA CVS CVX CZR D DAL DAY DD DE DECK DFS DG DGX DHI DHR DIS DLR DLTR DOC DOV DOW DPZ DRI DTE DUK DVA DVN DXCM EA EBAY ECL ED EFX EG EIX EL ELV EMN EMR ENPH EOG EPAM EQIX EQR EQT ES ESS ETN ETR EVRG EW EXC EXPD EXPE EXR F FANG FAST FCX FDS FDX FE FFIV FI FICO FIS FITB FMC FOX FOXA FRT FSLR FTNT FTV GD GDDY GE GEHC GEN GILD GIS GL GLW GM GNRC GOOG GOOGL GPC GPN GRMN GS GWW HAL HAS HBAN HCA HD HES HIG HII HLT HOLX HON HPE HPQ HRL HSIC HST HSY HUBB HUM HWM IBM ICE IDXX IEX IFF ILMN INCY INTC INTU INVH IP IPG IQV IR IRM ISRG IT ITW IVZ J JBHT JBL JCI JKHY JNJ JNPR JPM K KDP KEY KEYS KHC KIM KKR KLAC KMB KMI KMX KO KR KVUE L LDOS LEN LH LHX LIN LKQ LLY LMT LNT LOW LRCX LULU LUV LVS LW LYB LYV MA MAA MAR MAS MCD MCHP MCK MCO MDLZ MDT MET META MGM MHK MKC MKTX MLM MMC MMM MNST MO MOH MOS MPC MPWR MRK MRNA MRO MS MSCI MSFT MSI MTB MTCH MTD MU NCLH NDAQ NDSN NEE NEM NFLX NI NKE NOC NOW NRG NSC NTAP NTRS NUE NVDA NVR NWS NWSA NXPI O ODFL OKE OMC ON ORCL ORLY OTIS OXY PANW PARA PAYC PAYX PCAR PCG PEG PEP PFE PFG PG PGR PH PHM PKG PLD PLTR PM PNC PNR PNW PODD POOL PPG PPL PRU PSA PSX PTC PWR PYPL QCOM QRVO RCL REG REGN RF RJF RL RMD ROK ROL ROP ROST RSG RTX RVTY SBAC SBUX SCHW SHW SJM SLB SMCI SNA SNPS SO SOLV SPG SPGI SRE STE STLD STT STX STZ SW SWK SWKS SYF SYK SYY T TAP TDG TDY TECH TEL TER TFC TFX TGT TJX TMO TMUS TPL TPR TRGP TRMB TROW TRV TSCO TSLA TSN TT TTWO TXN TXT TYL UAL UBER UDR UHS ULTA UNH UNP UPS URI USB V VICI VLO VLTO VMC VRSK VRSN VRTX VST VTR VTRS VZ WAB WAT WBA WBD WDAY WDC WEC WELL WFC WHR WM WMB WMT WRB WST WTW WY WYNN XEL XOM XRAY XYL YUM ZBH ZBRA ZTS'
+).split(/\s+/).filter(Boolean);
+
+function _classifyEarningsTime(raw) {
+    // Yahoo earnings date timestamp -> BMO(장전) / AMC(장후) / TBD
+    if (!raw || typeof raw !== 'number') return 'TBD';
+    const d = new Date(raw * 1000);
+    // ET(UTC-4 or -5) 근사 — UTC hour 기준
+    const h = d.getUTCHours();
+    // ET 9:30 장개장 = UTC 13:30(DST) ~14:30(EST) 보수적으로
+    if (h < 13) return 'BMO';   // 새벽~오전 (미국 장전)
+    if (h >= 20) return 'AMC';  // 저녁~야간 (미국 장후)
+    return 'TBD';
+}
+
+async function _fetchEarningsBatch(symbols) {
+    // quoteSummary 는 심볼당 1회 이지만 ?symbols= 다중지원 안함 → Promise.all 로 병렬
+    const modules = 'calendarEvents,earnings,earningsHistory,price';
+    const results = new Map();
+    const CONCURRENCY = 8;
+    for (let i = 0; i < symbols.length; i += CONCURRENCY) {
+        const chunk = symbols.slice(i, i + CONCURRENCY);
+        const settled = await Promise.allSettled(chunk.map(async sym => {
+            const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(sym)}?modules=${modules}`;
+            const d = await yfRequest(url);
+            return { sym, d };
+        }));
+        settled.forEach(s => {
+            if (s.status === 'fulfilled' && s.value?.d) {
+                results.set(s.value.sym, s.value.d);
+            }
+        });
+    }
+    return results;
+}
+
+function _extractEarningsItems(symbol, qs, fromTs, toTs) {
+    // qs = quoteSummary response
+    try {
+        const r = qs?.quoteSummary?.result?.[0];
+        if (!r) return [];
+        const cal = r.calendarEvents?.earnings;
+        const hist = r.earningsHistory?.history || [];
+        const price = r.price || {};
+        const name = price.longName || price.shortName || symbol;
+        // earningsDate 는 배열 ([primary, secondary]) 또는 단일
+        const dates = cal?.earningsDate;
+        const arr = Array.isArray(dates) ? dates : (dates ? [dates] : []);
+        const raws = arr.map(x => x?.raw).filter(v => typeof v === 'number');
+        if (!raws.length) return [];
+        // 가장 임박 또는 윈도우 안에 있는 것
+        const inRange = raws.find(t => t >= fromTs && t <= toTs);
+        if (!inRange) return [];
+        const timing = _classifyEarningsTime(inRange);
+        const epsEst = cal?.earningsAverage?.raw ?? null;
+        const revEst = cal?.revenueAverage?.raw ?? null;
+        // 지난 실적: 가장 최근 history 엔트리
+        let beat = null, epsAct = null;
+        // 과거 날짜인 경우만 beat/miss 의미 있음
+        const isPast = inRange < Math.floor(Date.now() / 1000);
+        if (isPast && hist.length) {
+            const last = hist[hist.length - 1];
+            const act = last?.epsActual?.raw;
+            const est = last?.epsEstimate?.raw;
+            if (typeof act === 'number' && typeof est === 'number') {
+                epsAct = act;
+                if (act > est) beat = 'beat';
+                else if (act < est) beat = 'miss';
+                else beat = 'meet';
+            }
+        }
+        // 전년 동기 대비 EPS 성장률 (역사 중 같은 분기)
+        let yoy = null;
+        if (typeof epsEst === 'number' && hist.length >= 4) {
+            const prev = hist[hist.length - 4]?.epsActual?.raw;
+            if (typeof prev === 'number' && prev !== 0) {
+                yoy = ((epsEst - prev) / Math.abs(prev)) * 100;
+            }
+        }
+        return [{
+            symbol,
+            name,
+            timing,
+            ts: inRange,
+            date: new Date(inRange * 1000).toISOString().slice(0, 10),
+            epsEst,
+            epsAct,
+            revEst,
+            yoy,
+            beat,
+        }];
+    } catch (e) {
+        return [];
+    }
+}
+
+const _earningsCache = new LRUMap(8);
+const EARNINGS_TTL = 30 * 60 * 1000; // 30분
+
+app.get('/api/earnings-calendar', async (req, res) => {
+    try {
+        const from = String(req.query.from || '').match(/^\d{4}-\d{2}-\d{2}$/) ? req.query.from : null;
+        const to   = String(req.query.to   || '').match(/^\d{4}-\d{2}-\d{2}$/) ? req.query.to   : null;
+        const favsRaw = String(req.query.favs || '').toUpperCase();
+        const favs = favsRaw.split(',').map(s => s.trim()).filter(s => validSymbol(s)).slice(0, 100);
+
+        // 기본 윈도우: 오늘 -7일 ~ +23일 (총 30일)
+        const now = Date.now();
+        const dayMs = 86400000;
+        const fromTs = Math.floor((from ? new Date(from + 'T00:00:00Z').getTime() : (now - 7 * dayMs)) / 1000);
+        const toTs   = Math.floor((to   ? new Date(to   + 'T23:59:59Z').getTime() : (now + 23 * dayMs)) / 1000);
+
+        const key = `${fromTs}_${toTs}_${favs.sort().join(',')}`;
+        const cached = _earningsCache.get(key);
+        if (cached && Date.now() - cached.ts < EARNINGS_TTL) {
+            return res.json({ ...cached.data, cached: true });
+        }
+
+        const universe = Array.from(new Set([..._SP500, ...favs]));
+        const qsMap = await _fetchEarningsBatch(universe);
+
+        const items = [];
+        qsMap.forEach((qs, sym) => {
+            items.push(..._extractEarningsItems(sym, qs, fromTs, toTs));
+        });
+
+        // 날짜별 그룹
+        const byDate = new Map();
+        items.forEach(it => {
+            if (!byDate.has(it.date)) byDate.set(it.date, []);
+            byDate.get(it.date).push(it);
+        });
+        // 정렬: 각 날짜 내 BMO → AMC → TBD, 날짜 오름차순
+        const timingOrder = { BMO: 0, AMC: 1, TBD: 2 };
+        const groups = Array.from(byDate.entries())
+            .sort((a, b) => a[0].localeCompare(b[0]))
+            .map(([date, arr]) => {
+                arr.sort((a, b) => {
+                    const d = timingOrder[a.timing] - timingOrder[b.timing];
+                    if (d) return d;
+                    return a.symbol.localeCompare(b.symbol);
+                });
+                const dow = ['일','월','화','수','목','금','토'][new Date(date + 'T00:00:00Z').getUTCDay()];
+                return { date, dayOfWeek: dow, count: arr.length, items: arr };
+            });
+
+        const data = {
+            window: {
+                from: new Date(fromTs * 1000).toISOString().slice(0, 10),
+                to:   new Date(toTs   * 1000).toISOString().slice(0, 10),
+            },
+            groups,
+            ts: Date.now(),
+        };
+        _earningsCache.set(key, { data, ts: Date.now() });
+        res.json(data);
+    } catch (err) {
+        console.error('[earnings-calendar]', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // index.html fallback (SPA 라우팅)
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));

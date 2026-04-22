@@ -53,6 +53,11 @@
                     <span class="side-nav-item-text">주식 골라보기</span>
                     <span class="side-nav-item-sub">NEW</span>
                 </button>
+                <button class="side-nav-item" id="sideNavErnBtn" onclick="goEarnings();closeSideNav();">
+                    <span class="side-nav-item-icon"><i class="ri-calendar-event-line"></i></span>
+                    <span class="side-nav-item-text">실적발표 일정</span>
+                    <span class="side-nav-item-sub">NEW</span>
+                </button>
             </div>
         </div>
         <div class="side-nav-divider"></div>
@@ -339,6 +344,28 @@
                 </div>
                 <div class="disc-grid top100-grid" id="discoverGrid"></div>
                 <div class="disc-empty" id="discoverEmpty" hidden>오늘은 해당 조건을 충족하는 종목이 없어요.</div>
+            </main>
+        </div>
+    </div>
+
+    <!-- ===== Earnings Calendar Screen ===== -->
+    <div class="discover-screen" id="earningsScreen" style="display:none">
+        <div class="disc-screen-title">실적발표 일정</div>
+        <div class="disc-screen-sub">S&amp;P500 + 즐겨찾기 종목의 실적 일정을 날짜별로 확인하세요</div>
+        <div class="disc-layout">
+            <aside class="disc-sidebar">
+                <div class="disc-sidebar-title">기간 선택</div>
+                <div class="disc-preset-tabs top100-filters" id="earningsWindowTabs">
+                    <button class="top100-filter"         data-window="past7"   onclick="setEarningsWindow('past7')"><span class="disc-chip-emoji">⏮</span><span class="disc-chip-label">지난 7일</span></button>
+                    <button class="top100-filter active"  data-window="this"    onclick="setEarningsWindow('this')"><span class="disc-chip-emoji">📅</span><span class="disc-chip-label">이번 주</span></button>
+                    <button class="top100-filter"         data-window="next"    onclick="setEarningsWindow('next')"><span class="disc-chip-emoji">⏭</span><span class="disc-chip-label">다음 주</span></button>
+                    <button class="top100-filter"         data-window="month"   onclick="setEarningsWindow('month')"><span class="disc-chip-emoji">🗓</span><span class="disc-chip-label">30일 전체</span></button>
+                </div>
+            </aside>
+            <main class="disc-main">
+                <div class="earn-window-label" id="earningsWindowLabel">이번 주 실적</div>
+                <div class="earn-grid" id="earningsGrid"></div>
+                <div class="disc-empty" id="earningsEmpty" hidden>해당 기간에 실적 발표 예정 종목이 없어요.</div>
             </main>
         </div>
     </div>
@@ -4542,6 +4569,223 @@
         });
         window.scrollTo({ top: 0, behavior: 'smooth' });
         loadDiscover('discoverGrid', 20);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 실적발표 일정 (Earnings Calendar)
+    // ═══════════════════════════════════════════════════════════
+    const EARNINGS_LS_KEY = 'earnings_cache_v1';
+    const EARNINGS_CLIENT_TTL = 30 * 60 * 1000; // 30분
+    window._earnWindow = 'this';
+
+    function _earnComputeRange(key) {
+        // 반환: {from:'YYYY-MM-DD', to:'YYYY-MM-DD', label:'...'}
+        const now = new Date();
+        const fmt = d => d.toISOString().slice(0, 10);
+        const addDays = (d, n) => { const x = new Date(d); x.setUTCDate(x.getUTCDate() + n); return x; };
+        // 주 시작: 월요일 기준 (ET 기준 근사; UTC day로 계산)
+        const day = now.getUTCDay(); // 0=Sun
+        const mondayOffset = (day === 0 ? -6 : 1 - day);
+        const mondayThisWeek = addDays(now, mondayOffset);
+        if (key === 'past7') {
+            return { from: fmt(addDays(now, -7)), to: fmt(now), label: '지난 7일 실적' };
+        } else if (key === 'next') {
+            const mondayNext = addDays(mondayThisWeek, 7);
+            const sundayNext = addDays(mondayNext, 6);
+            return { from: fmt(mondayNext), to: fmt(sundayNext), label: '다음 주 실적' };
+        } else if (key === 'month') {
+            return { from: fmt(addDays(now, -7)), to: fmt(addDays(now, 23)), label: '최근 30일 실적' };
+        }
+        // 'this'
+        const sundayThis = addDays(mondayThisWeek, 6);
+        return { from: fmt(mondayThisWeek), to: fmt(sundayThis), label: '이번 주 실적' };
+    }
+
+    function _earnLoadLS(key) {
+        try {
+            const raw = localStorage.getItem(EARNINGS_LS_KEY);
+            if (!raw) return null;
+            const obj = JSON.parse(raw);
+            const entry = obj?.[key];
+            if (!entry) return null;
+            if (Date.now() - entry.ts > EARNINGS_CLIENT_TTL) return null;
+            return entry.data;
+        } catch { return null; }
+    }
+    function _earnSaveLS(key, data) {
+        try {
+            const raw = localStorage.getItem(EARNINGS_LS_KEY);
+            const obj = raw ? JSON.parse(raw) : {};
+            obj[key] = { data, ts: Date.now() };
+            localStorage.setItem(EARNINGS_LS_KEY, JSON.stringify(obj));
+        } catch {}
+    }
+
+    function _earnFmtTiming(t) {
+        if (t === 'BMO') return '<span class="earn-timing earn-bmo">🌅 장전</span>';
+        if (t === 'AMC') return '<span class="earn-timing earn-amc">🌙 장후</span>';
+        return '<span class="earn-timing earn-tbd">⏱ 미정</span>';
+    }
+
+    function _earnFmtEps(v) {
+        if (typeof v !== 'number' || isNaN(v)) return '-';
+        return (v >= 0 ? '$' : '-$') + Math.abs(v).toFixed(2);
+    }
+    function _earnFmtRev(v) {
+        if (typeof v !== 'number' || isNaN(v)) return '-';
+        if (v >= 1e9) return '$' + (v / 1e9).toFixed(2) + 'B';
+        if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
+        return '$' + v.toFixed(0);
+    }
+    function _earnFmtYoy(v) {
+        if (typeof v !== 'number' || isNaN(v)) return '';
+        const cls = v >= 0 ? 'up' : 'down';
+        return `<span class="earn-yoy ${cls}">${v >= 0 ? '+' : ''}${v.toFixed(1)}%</span>`;
+    }
+    function _earnFmtBeat(b) {
+        if (b === 'beat') return '<span class="earn-badge earn-badge-beat">Beat</span>';
+        if (b === 'miss') return '<span class="earn-badge earn-badge-miss">Miss</span>';
+        if (b === 'meet') return '<span class="earn-badge earn-badge-meet">Meet</span>';
+        return '';
+    }
+
+    function _earnBuildRow(item) {
+        const symbol = item.symbol;
+        const market = 'US';
+        const name = item.name || symbol;
+        const safeName = escHtml(name).replace(/'/g, '&#39;');
+        const faved = (typeof isFavorited === 'function') ? isFavorited(symbol, market) : false;
+        const heartCls = faved ? 'ri-heart-fill' : 'ri-heart-line';
+        return `<div class="earn-row" onclick="quickSearch('${symbol}','US')">
+            <button class="top100-fav ${faved?'on':''}" aria-label="즐겨찾기" onclick="_top100ToggleFav(event,'${symbol}','${market}','${safeName}')"><i class="${heartCls}"></i></button>
+            ${_tickerLogoHTML(symbol, market)}
+            <div class="earn-info">
+                <div class="earn-name">${escHtml(name)}</div>
+                <div class="earn-meta">
+                    <span class="earn-sym">${escHtml(symbol)}</span>
+                    ${_earnFmtTiming(item.timing)}
+                    ${_earnFmtBeat(item.beat)}
+                </div>
+            </div>
+            <div class="earn-eps">
+                <div class="earn-cell-label">EPS 예상</div>
+                <div class="earn-cell-val">${_earnFmtEps(item.epsEst)}</div>
+                ${item.epsAct != null ? `<div class="earn-cell-sub">실적 ${_earnFmtEps(item.epsAct)}</div>` : ''}
+            </div>
+            <div class="earn-rev">
+                <div class="earn-cell-label">매출 예상</div>
+                <div class="earn-cell-val">${_earnFmtRev(item.revEst)}</div>
+                ${item.yoy != null ? `<div class="earn-cell-sub">YoY ${_earnFmtYoy(item.yoy)}</div>` : ''}
+            </div>
+        </div>`;
+    }
+
+    function _earnBuildGroup(g) {
+        const rows = g.items.map(_earnBuildRow).join('');
+        const [y, m, d] = g.date.split('-');
+        return `<div class="earn-date-group">
+            <div class="earn-date-header">
+                <span class="earn-date-main">${m}/${d}</span>
+                <span class="earn-date-dow">(${g.dayOfWeek})</span>
+                <span class="earn-date-count">${g.count}개 종목</span>
+            </div>
+            <div class="earn-date-rows">${rows}</div>
+        </div>`;
+    }
+
+    function _earnSkeleton(n) {
+        let html = '<div class="earn-date-group"><div class="earn-date-header"><span class="skel skel-rank" style="width:60px"></span></div><div class="earn-date-rows">';
+        for (let i = 0; i < n; i++) {
+            html += `<div class="earn-row skel-row">
+                <div class="skel skel-fav"></div>
+                <div class="skel skel-logo"></div>
+                <div class="skel-info"><div class="skel skel-name"></div></div>
+                <div class="skel skel-price"></div>
+                <div class="skel skel-price"></div>
+            </div>`;
+        }
+        html += '</div></div>';
+        return html;
+    }
+
+    async function loadEarnings() {
+        const key = window._earnWindow || 'this';
+        const range = _earnComputeRange(key);
+        const grid = document.getElementById('earningsGrid');
+        const emptyEl = document.getElementById('earningsEmpty');
+        const labelEl = document.getElementById('earningsWindowLabel');
+        if (!grid) return;
+        if (labelEl) labelEl.textContent = range.label;
+
+        // 1) LS 캐시 우선
+        const cached = _earnLoadLS(key);
+        if (cached?.groups?.length) {
+            grid.innerHTML = cached.groups.map(_earnBuildGroup).join('');
+            if (emptyEl) emptyEl.hidden = true;
+        } else {
+            grid.innerHTML = _earnSkeleton(5);
+        }
+
+        // 2) 네트워크
+        try {
+            const favs = (typeof getFavorites === 'function' ? getFavorites() : [])
+                .filter(f => f.market === 'US')
+                .map(f => f.symbol)
+                .filter(s => /^[A-Z][A-Z0-9.-]{0,9}$/.test(s))
+                .slice(0, 50)
+                .join(',');
+            const url = `/api/earnings-calendar?from=${range.from}&to=${range.to}${favs ? '&favs=' + encodeURIComponent(favs) : ''}`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('http ' + res.status);
+            const data = await res.json();
+            _earnSaveLS(key, data);
+            const groups = Array.isArray(data.groups) ? data.groups : [];
+            if (!groups.length) {
+                grid.innerHTML = '';
+                if (emptyEl) emptyEl.hidden = false;
+                return;
+            }
+            grid.innerHTML = groups.map(_earnBuildGroup).join('');
+            if (emptyEl) emptyEl.hidden = true;
+        } catch (err) {
+            if (!cached || !cached.groups?.length) {
+                grid.innerHTML = `<div class="disc-empty-inline">불러오기에 실패했어요. 잠시 후 다시 시도해 주세요.</div>`;
+            }
+        }
+    }
+
+    function setEarningsWindow(key) {
+        window._earnWindow = key;
+        document.querySelectorAll('#earningsWindowTabs .top100-filter').forEach(b => {
+            b.classList.toggle('active', b.dataset.window === key);
+        });
+        loadEarnings();
+    }
+
+    function goEarnings() {
+        document.getElementById('welcomeScreen').style.display = 'none';
+        document.getElementById('smartMoneyScreen').style.display = 'none';
+        document.getElementById('alphaScannerScreen').style.display = 'none';
+        document.getElementById('favScreen').style.display = 'none';
+        document.getElementById('visionScannerScreen').style.display = 'none';
+        document.getElementById('discoverScreen').style.display = 'none';
+        const ecoEl = document.getElementById('economicSection');
+        if (ecoEl) ecoEl.style.display = 'none';
+        document.getElementById('earningsScreen').style.display = '';
+        window._vsActive = false;
+        document.getElementById('mainHeader')?.classList.remove('stock-loaded');
+        document.getElementById('stockHero').classList.remove('show');
+        document.getElementById('tabNav').classList.remove('show');
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.side-nav-item').forEach(b => b.classList.remove('active'));
+        document.getElementById('sideNavErnBtn')?.classList.add('active');
+        document.querySelectorAll('.hqnav-item').forEach(b => b.classList.remove('active'));
+        if (!['past7','this','next','month'].includes(window._earnWindow)) window._earnWindow = 'this';
+        document.querySelectorAll('#earningsWindowTabs .top100-filter').forEach(b => {
+            b.classList.toggle('active', b.dataset.window === window._earnWindow);
+        });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        loadEarnings();
     }
 
     function updateBnActive(tab) {
@@ -12523,6 +12767,7 @@
     }
 
     Object.assign(window, {
+        goEarnings, loadEarnings, setEarningsWindow,
         goDiscover, setDiscoverPreset, loadDiscover,
         closeSideNav, toggleSideNav, openSideNav, goHome, goSmartMoney,
         switchSmTab, smDeepDive, smDeepBack, filterSmHoldings, smChartLink,
