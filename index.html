@@ -10529,32 +10529,32 @@
             navigator.serviceWorker.register('/sw.js').then(reg => {
                 if (!reg) return;
 
-                // 새 버전 감지 → 즉시 활성화 + 자동 리로드 (사용자 확인 없이)
-                // 배포 → 다음 페이지 로드에서 최신 CSS/JS/HTML 자동 적용
-                let _didReload = false;
-                const _applyUpdate = (worker) => {
+                // 새 버전 감지 → 상단 토스트로 사용자에게 새로고침 제안
+                let _userAccepted = false;
+                const _promptUpdate = (worker) => {
                     if (!worker) return;
-                    worker.postMessage({ type: 'SKIP_WAITING' });
+                    _showSwUpdateToast(() => {
+                        _userAccepted = true;
+                        worker.postMessage({ type: 'SKIP_WAITING' });
+                    });
                 };
-                // 새 SW 가 controller 로 바뀌면 한 번만 자동 리로드
+                // 클릭으로 수락했을 때만 리로드 (최초 설치 시 controllerchange 자동 리로드 루프 방지)
                 navigator.serviceWorker.addEventListener('controllerchange', () => {
-                    if (_didReload) return;
-                    _didReload = true;
-                    window.location.reload();
+                    if (_userAccepted) window.location.reload();
                 });
 
-                // 1) 이미 대기 중인 워커가 있으면 즉시 활성화
+                // 1) 이미 대기 중인 워커가 있으면 즉시 토스트
                 if (reg.waiting && navigator.serviceWorker.controller) {
-                    _applyUpdate(reg.waiting);
+                    _promptUpdate(reg.waiting);
                 }
 
-                // 2) 새 워커 설치 완료 시 즉시 활성화
+                // 2) 업데이트 발견 시 설치 완료를 기다렸다가 토스트
                 reg.addEventListener('updatefound', () => {
                     const nw = reg.installing;
                     if (!nw) return;
                     nw.addEventListener('statechange', () => {
                         if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-                            _applyUpdate(nw);
+                            _promptUpdate(nw);
                         }
                     });
                 });

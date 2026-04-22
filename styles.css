@@ -95,16 +95,17 @@
         #offlineBanner .ob-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#eab308;margin-right:6px;vertical-align:middle;animation:obPulse 1.8s ease-in-out infinite;}
         @keyframes obPulse{0%,100%{opacity:1}50%{opacity:.4}}
 
-        /* Service Worker update toast (새 버전 알림) */
-        #swUpdateToast{position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.35),0 2px 6px rgba(0,0,0,.2);font-family:inherit;font-size:13px;font-weight:600;max-width:calc(100vw - 32px);animation:swToastIn .28s cubic-bezier(.2,.9,.3,1.2);}
+        /* Service Worker update toast (새 버전 알림 — 상단 중앙) */
+        #swUpdateToast{position:fixed;top:calc(12px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:9999;display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.35),0 2px 6px rgba(0,0,0,.2);font-family:inherit;font-size:13px;font-weight:600;max-width:calc(100vw - 24px);animation:swToastIn .28s cubic-bezier(.2,.9,.3,1.2);}
         #swUpdateToast .sw-toast-text{white-space:nowrap;}
         #swUpdateToast .sw-toast-btn{border:none;background:var(--blue);color:#fff;padding:7px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:filter .15s;}
         #swUpdateToast .sw-toast-btn:hover{filter:brightness(1.1);}
         #swUpdateToast .sw-toast-close{border:none;background:transparent;color:var(--text3);width:24px;height:24px;border-radius:6px;cursor:pointer;font-size:18px;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;}
         #swUpdateToast .sw-toast-close:hover{background:var(--bg3);color:var(--text);}
-        @keyframes swToastIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+        @keyframes swToastIn{from{opacity:0;transform:translate(-50%,-12px);}to{opacity:1;transform:translate(-50%,0);}}
+        @keyframes swToastInMobile{from{opacity:0;transform:translateY(-12px);}to{opacity:1;transform:translateY(0);}}
         @media(max-width:640px){
-            #swUpdateToast{left:12px;right:12px;bottom:12px;padding:11px 12px;font-size:12.5px;}
+            #swUpdateToast{left:12px;right:12px;transform:none;padding:11px 12px;font-size:12.5px;max-width:none;animation-name:swToastInMobile;}
             #swUpdateToast .sw-toast-text{white-space:normal;flex:1;}
             #swUpdateToast .sw-toast-btn{padding:7px 12px;font-size:12px;flex-shrink:0;}
         }
