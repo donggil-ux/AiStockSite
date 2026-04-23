@@ -4,7 +4,7 @@
 //   - 이미지/아이콘/폰트: 캐시 우선
 //   - /api/*: 네트워크만 (항상 최신)
 //   - skipWaiting + clients.claim: 새 SW 즉시 활성화 → 사용자 확인 불필요
-const CACHE_NAME = 'stockai-v91';
+const CACHE_NAME = 'stockai-v92';
 
 const STATIC_ASSETS = [
   '/icon.svg',
@@ -33,6 +33,36 @@ self.addEventListener('activate', e => {
 // SKIP_WAITING 메시지 (이전 버전 호환)
 self.addEventListener('message', e => {
   if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
+// ── 푸시 알림 수신 ─────────────────────────────────────────────
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data?.json() || {}; } catch(err) { d = { title: 'StockAI', body: e.data?.text() || '' }; }
+  e.waitUntil(
+    self.registration.showNotification(d.title || 'StockAI', {
+      body: d.body || '',
+      icon: '/icon.svg',
+      badge: '/icon.svg',
+      data: { url: d.url || '/' },
+      tag: d.tag || 'stockai',
+      renotify: true,
+      requireInteraction: false,
+    })
+  );
+});
+
+// ── 알림 클릭 → 해당 페이지로 이동 ───────────────────────────
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const target = e.notification.data?.url || '/';
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(wins => {
+      const existing = wins.find(w => w.url.includes(self.location.origin));
+      if (existing) { existing.focus(); existing.navigate(target); }
+      else clients.openWindow(target);
+    })
+  );
 });
 
 // 네트워크 우선(실패 시 캐시), HTML/CSS/JS 용

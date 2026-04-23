@@ -16,6 +16,16 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { createClient } = require('@supabase/supabase-js');
 const Anthropic = require('@anthropic-ai/sdk');
 const { SYSTEM_ROLE, OUTPUT_CONTRACT, buildUserPrompt } = require('./chartReaderPrompt');
+const webpush = require('web-push');
+
+// ── Web Push (VAPID) 초기화 ──────────────────────────────────────
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+    webpush.setVapidDetails(
+        'mailto:rkd687@gmail.com',
+        process.env.VAPID_PUBLIC_KEY,
+        process.env.VAPID_PRIVATE_KEY
+    );
+}
 
 // Yahoo Finance 응답 헤더가 커서 기본 8KB 한도를 초과할 수 있음
 // 옵션체인 API는 헤더가 특히 커서 128KB로 확장
@@ -2319,6 +2329,236 @@ app.get('/api/earnings-calendar', async (req, res) => {
         res.json(data);
     } catch (err) {
         console.error('[earnings-calendar]', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// 푸시 알림 — 구독 / 가격 알림 CRUD / Vercel Cron 핸들러
+// ═══════════════════════════════════════════════════════════════
+
+// Supabase 클라이언트 (push 테이블용)
+const _pushSupa = (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY)
+    ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
+    : null;
+
+// ── 구독 저장/갱신 ──────────────────────────────────────────────
+app.post('/api/push/subscribe', async (req, res) => {
+    try {
+        if (!_pushSupa) return res.status(503).json({ error: 'Supabase not configured' });
+        const { subscription, favs = [] } = req.body;
+        if (!subscription?.endpoint) return res.status(400).json({ error: 'subscription.endpoint required' });
+        const { error } = await _pushSupa.from('push_subscriptions').upsert({
+            endpoint: subscription.endpoint,
+            subscription,
+            favs: Array.isArray(favs) ? favs.slice(0, 200) : [],
+            updated_at: new Date().toISOString(),
+        }, { onConflict: 'endpoint' });
+        if (error) throw error;
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('[push/subscribe]', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ── 즐겨찾기 목록 업데이트 (별도 호출용) ───────────────────────
+app.patch('/api/push/subscribe', async (req, res) => {
+    try {
+        if (!_pushSupa) return res.status(503).json({ error: 'Supabase not configured' });
+        const { endpoint, favs = [] } = req.body;
+        if (!endpoint) return res.status(400).json({ error: 'endpoint required' });
+        const { error } = await _pushSupa.from('push_subscriptions')
+            .update({ favs: Array.isArray(favs) ? favs.slice(0, 200) : [], updated_at: new Date().toISOString() })
+            .eq('endpoint', endpoint);
+        if (error) throw error;
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ── 가격 알림 등록 ──────────────────────────────────────────────
+app.post('/api/push/price-alert', async (req, res) => {
+    try {
+        if (!_pushSupa) return res.status(503).json({ error: 'Supabase not configured' });
+        const { endpoint, symbol, targetPrice, direction } = req.body;
+        if (!endpoint || !symbol || targetPrice == null || !['above','below'].includes(direction))
+            return res.status(400).json({ error: 'endpoint, symbol, targetPrice, direction(above|below) required' });
+        if (!validSymbol(symbol)) return res.status(400).json({ error: 'invalid symbol' });
+        const { data, error } = await _pushSupa.from('price_alerts').insert({
+            endpoint, symbol: symbol.toUpperCase(),
+            target_price: Number(targetPrice), direction, active: true,
+        }).select('id').single();
+        if (error) throw error;
+        res.json({ ok: true, id: data.id });
+    } catch (err) {
+        console.error('[push/price-alert POST]', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ── 가격 알림 목록 조회 ─────────────────────────────────────────
+app.get('/api/push/price-alerts', async (req, res) => {
+    try {
+        if (!_pushSupa) return res.status(503).json({ error: 'Supabase not configured' });
+        const endpoint = String(req.query.endpoint || '');
+        if (!endpoint) return res.status(400).json({ error: 'endpoint required' });
+        const { data, error } = await _pushSupa.from('price_alerts')
+            .select('id, symbol, target_price, direction, active, triggered_at, created_at')
+            .eq('endpoint', endpoint).eq('active', true).order('created_at', { ascending: false });
+        if (error) throw error;
+        res.json({ alerts: data || [] });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ── 가격 알림 삭제 ──────────────────────────────────────────────
+app.delete('/api/push/price-alert/:id', async (req, res) => {
+    try {
+        if (!_pushSupa) return res.status(503).json({ error: 'Supabase not configured' });
+        const { id } = req.params;
+        const { error } = await _pushSupa.from('price_alerts')
+            .update({ active: false }).eq('id', id);
+        if (error) throw error;
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ── Cron 인증 미들웨어 ──────────────────────────────────────────
+function cronAuth(req, res, next) {
+    const secret = process.env.CRON_SECRET;
+    const auth = req.headers.authorization || '';
+    if (secret && auth !== `Bearer ${secret}`) {
+        // Vercel Cron 은 자체 서명 헤더 'x-vercel-signature' 도 허용
+        if (!req.headers['x-vercel-signature'] && auth !== `Bearer ${secret}`)
+            return res.status(401).json({ error: 'Unauthorized' });
+    }
+    next();
+}
+
+// ── Cron: 가격 알림 체크 (매 5분, 미장 시간) ────────────────────
+app.get('/api/cron/check-alerts', cronAuth, async (req, res) => {
+    if (!_pushSupa) return res.json({ ok: false, reason: 'no supabase' });
+    try {
+        // 1) active 알림 전체 조회
+        const { data: alerts, error: aErr } = await _pushSupa.from('price_alerts')
+            .select('id, endpoint, symbol, target_price, direction, triggered_at')
+            .eq('active', true);
+        if (aErr) throw aErr;
+        if (!alerts?.length) return res.json({ ok: true, checked: 0 });
+
+        // 2) 심볼 그룹핑 → /api/quote 배치 조회 (최대 50개)
+        const symbols = [...new Set(alerts.map(a => a.symbol))].slice(0, 50);
+        let priceMap = {};
+        try {
+            const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols.join(','))}`;
+            const qData = await yfRequest(url);
+            (qData?.quoteResponse?.result || []).forEach(q => {
+                priceMap[q.symbol] = q.regularMarketPrice ?? q.currentPrice;
+            });
+        } catch(e) { console.error('[cron/check-alerts] quote fetch failed', e.message); }
+
+        // 3) 조건 체크 + 구독 객체 조회 + 전송
+        const now = Date.now();
+        const COOLDOWN = 24 * 60 * 60 * 1000; // 24h
+        let triggered = 0;
+
+        for (const alert of alerts) {
+            const price = priceMap[alert.symbol];
+            if (price == null) continue;
+            // 쿨다운 체크
+            if (alert.triggered_at && now - new Date(alert.triggered_at).getTime() < COOLDOWN) continue;
+            const hit = alert.direction === 'above' ? price >= alert.target_price
+                                                    : price <= alert.target_price;
+            if (!hit) continue;
+
+            // 구독 정보 조회
+            const { data: subRow } = await _pushSupa.from('push_subscriptions')
+                .select('subscription').eq('endpoint', alert.endpoint).single();
+            if (!subRow?.subscription) continue;
+
+            const dir = alert.direction === 'above' ? '↑ 목표가 도달' : '↓ 목표가 도달';
+            const payload = JSON.stringify({
+                title: `📈 ${alert.symbol} ${dir}`,
+                body: `현재가 $${price.toFixed(2)} · 목표가 $${Number(alert.target_price).toFixed(2)}`,
+                url: `/?s=${alert.symbol}`,
+                tag: `price-${alert.symbol}`,
+            });
+            try {
+                await webpush.sendNotification(subRow.subscription, payload);
+                await _pushSupa.from('price_alerts').update({ triggered_at: new Date().toISOString() }).eq('id', alert.id);
+                triggered++;
+            } catch(e) {
+                console.error('[cron/check-alerts] sendNotification failed', e.statusCode, e.message);
+                // 구독 만료(410) 시 비활성화
+                if (e.statusCode === 410) {
+                    await _pushSupa.from('push_subscriptions').delete().eq('endpoint', alert.endpoint);
+                    await _pushSupa.from('price_alerts').update({ active: false }).eq('endpoint', alert.endpoint);
+                }
+            }
+        }
+        res.json({ ok: true, checked: alerts.length, triggered });
+    } catch(err) {
+        console.error('[cron/check-alerts]', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ── Cron: 실적 발표 전날 리마인더 (매일 00:00 UTC) ──────────────
+app.get('/api/cron/earnings-reminder', cronAuth, async (req, res) => {
+    if (!_pushSupa) return res.json({ ok: false, reason: 'no supabase' });
+    try {
+        // 내일 날짜 계산 (UTC)
+        const tomorrow = new Date(Date.now() + 86400000);
+        const fmt = d => d.toISOString().slice(0, 10);
+        const tDate = fmt(tomorrow);
+
+        // 1) 구독 목록 전체
+        const { data: subs, error: sErr } = await _pushSupa.from('push_subscriptions')
+            .select('endpoint, subscription, favs');
+        if (sErr) throw sErr;
+        if (!subs?.length) return res.json({ ok: true, sent: 0 });
+
+        // 2) 내일 실적 발표 종목
+        const { data: earnData } = await _fetchEarningsBatch([..._SP500]).then(async (qsMap) => {
+            // 내일 날짜 필터
+            const fromTs = Math.floor(new Date(tDate + 'T00:00:00Z').getTime() / 1000);
+            const toTs   = Math.floor(new Date(tDate + 'T23:59:59Z').getTime() / 1000);
+            const items = [];
+            qsMap.forEach((qs, sym) => items.push(..._extractEarningsItems(sym, qs, fromTs, toTs)));
+            return { data: items };
+        }).catch(() => ({ data: [] }));
+
+        const tomorrowSyms = new Set((earnData || []).map(i => i.symbol));
+        if (!tomorrowSyms.size) return res.json({ ok: true, sent: 0, reason: 'no earnings tomorrow' });
+
+        // 3) 구독자별 favs 교집합 확인 후 전송
+        let sent = 0;
+        for (const sub of subs) {
+            const hits = (sub.favs || []).filter(s => tomorrowSyms.has(s));
+            if (!hits.length) continue;
+            const payload = JSON.stringify({
+                title: '📊 내일 실적 발표 예정',
+                body: `즐겨찾기 종목 실적: ${hits.join(', ')}`,
+                url: '/earnings',
+                tag: 'earnings-reminder',
+            });
+            try {
+                await webpush.sendNotification(sub.subscription, payload);
+                sent++;
+            } catch(e) {
+                if (e.statusCode === 410) {
+                    await _pushSupa.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+                }
+            }
+        }
+        res.json({ ok: true, sent, tomorrowEarnings: [...tomorrowSyms].slice(0, 20) });
+    } catch(err) {
+        console.error('[cron/earnings-reminder]', err.message);
         res.status(500).json({ error: err.message });
     }
 });

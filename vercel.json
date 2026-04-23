@@ -1,5 +1,9 @@
 {
   "version": 2,
+  "crons": [
+    { "path": "/api/cron/check-alerts",      "schedule": "*/5 13-21 * * 1-5" },
+    { "path": "/api/cron/earnings-reminder",  "schedule": "0 0 * * 1-5" }
+  ],
   "builds": [
     {
       "src": "server.js",
