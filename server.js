@@ -1248,6 +1248,101 @@ app.get('/api/stocktwits/:symbol', async (req, res) => {
 });
 
 /**
+ * 소셜 피드 — 네이버 금융 토론실 (KR 종목 전용)
+ * GET /api/naver-board/:symbol
+ *   symbol: 6자리 코드 (005930) 또는 .KS/.KQ 접미사 포함
+ *   응답: { posts: [{ title, author, link, date, views, likes, dislikes, comments }], cached }
+ */
+const _naverBoardCache = new LRUMap(50);
+const NAVER_BOARD_TTL = 10 * 60 * 1000; // 10분
+
+function _decodeNaverHtmlEntities(s) {
+    return String(s || '')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&nbsp;/g, ' ');
+}
+
+async function _fetchNaverBoardHtml(code) {
+    const url = `https://finance.naver.com/item/board.naver?code=${code}`;
+    const r = await fetch(url, {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) StockAI/1.0',
+            'Accept-Language': 'ko-KR,ko;q=0.9',
+        },
+    });
+    if (!r.ok) throw new Error(`naver board ${r.status}`);
+    return await r.text();
+}
+
+function _parseNaverBoardHtml(html, code) {
+    // <tr onMouseOver="mouseOver(this)" ... > ... </tr> 블록 추출
+    const rowRegex = /<tr\s+onMouseOver="mouseOver\(this\)"[^>]*>([\s\S]*?)<\/tr>/g;
+    const posts = [];
+    let m;
+    while ((m = rowRegex.exec(html)) !== null && posts.length < 20) {
+        const row = m[1];
+        // 날짜
+        const dateMatch = row.match(/<span class="tah p10 gray03">([^<]+)<\/span>/);
+        const date = dateMatch ? dateMatch[1].trim() : '';
+        // 제목 + 링크 + nid (& 또는 &amp; 둘 다 허용)
+        const titleMatch = row.match(/<a href="\/item\/board_read\.naver\?code=\d+(?:&|&amp;)nid=(\d+)[^"]*"[^>]*title="([^"]+)"/);
+        if (!titleMatch) continue;
+        const nid = titleMatch[1];
+        const title = _decodeNaverHtmlEntities(titleMatch[2]).trim();
+        // 댓글 수 [N] 형식 (옵션)
+        const cmtMatch = row.match(/<span class="tah p9"[^>]*>\[<b>(\d+)<\/b>\]<\/span>/);
+        const comments = cmtMatch ? Number(cmtMatch[1]) : 0;
+        // 작성자 — profile_thumb 다음 텍스트 노드
+        const authorMatch = row.match(/profile_thumb[\s\S]*?<\/span>\s*([^<\s][^<\n]*?)\s*</);
+        const author = authorMatch ? _decodeNaverHtmlEntities(authorMatch[1]).trim() : '';
+        // 조회 / 추천 / 비추천 — <td> 내부 첫 숫자
+        const numbers = [...row.matchAll(/<(?:span|strong)[^>]*>(\d+)<\/(?:span|strong)>/g)].map(x => Number(x[1]));
+        // numbers[0] 은 날짜 안에 들어있을 수 있으니, 마지막 3개만 사용
+        const tail = numbers.slice(-3);
+        const [views, likes, dislikes] = tail.length === 3 ? tail : [0, 0, 0];
+
+        posts.push({
+            title,
+            author,
+            date,
+            views,
+            likes,
+            dislikes,
+            comments,
+            link: `https://finance.naver.com/item/board_read.naver?code=${code}&nid=${nid}`,
+        });
+    }
+    return posts;
+}
+
+app.get('/api/naver-board/:symbol', async (req, res) => {
+    const sym = String(req.params.symbol || '').toUpperCase();
+    // 6자리 + 옵션 .KS/.KQ
+    const m = sym.match(/^(\d{6})(\.K[SQ])?$/);
+    if (!m) return res.status(400).json({ error: 'KR 심볼만 지원 (예: 005930 또는 005930.KS)' });
+    const code = m[1];
+    const now = Date.now();
+
+    const cached = _naverBoardCache.get(code);
+    if (cached && now - cached.ts < NAVER_BOARD_TTL) {
+        return res.json({ posts: cached.posts, cached: true, ts: cached.ts });
+    }
+    try {
+        const html = await _fetchNaverBoardHtml(code);
+        const posts = _parseNaverBoardHtml(html, code);
+        _naverBoardCache.set(code, { posts, ts: now });
+        res.json({ posts, cached: false, ts: now });
+    } catch (err) {
+        console.error('[naver-board]', code, err.message);
+        res.status(502).json({ error: '네이버 토론실 데이터를 가져올 수 없어요' });
+    }
+});
+
+/**
  * 소셜 피드 — StockTwits 트렌딩 (홈용)
  * GET /api/stocktwits-trending
  */

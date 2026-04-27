@@ -1027,7 +1027,7 @@
         </div>
         <div class="tab-content" id="tabSocial" data-tab="social" style="padding:16px 24px 24px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                <span style="font-size:13px;font-weight:700;color:var(--text2);">StockTwits</span>
+                <span id="socialFeedLabel" style="font-size:13px;font-weight:700;color:var(--text2);">StockTwits</span>
                 <button class="news-refresh-btn" onclick="reloadSocialTab()">↻ 새로고침</button>
             </div>
             <div id="stockTwitsFeed" class="social-feed"></div>
@@ -11596,8 +11596,18 @@
     const _socialCache = {};
     const SOCIAL_CACHE_MS = 5 * 60 * 1000;
 
+    // KR 심볼 판정 — 6자리 숫자 + 옵션 .KS / .KQ
+    function _isKrSymbol(sym) { return /^\d{6}(\.K[SQ])?$/i.test(String(sym || '')); }
+
     function loadSocialTab(symbol) {
-        loadStockTwits(symbol);
+        const labelEl = document.getElementById('socialFeedLabel');
+        if (_isKrSymbol(symbol)) {
+            if (labelEl) labelEl.textContent = '네이버 토론실';
+            loadNaverBoard(symbol);
+        } else {
+            if (labelEl) labelEl.textContent = 'StockTwits';
+            loadStockTwits(symbol);
+        }
     }
 
     async function loadStockTwits(symbol) {
@@ -11623,6 +11633,54 @@
             // 로딩 중 상태가 예외로 인해 잔류하는 경우 안전하게 해제
             if (!done) feed.innerHTML = '<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">데이터를 불러올 수 없습니다.</div></div>';
         }
+    }
+
+    // ── 네이버 금융 토론실 (KR 종목 전용) ─────────────────
+    async function loadNaverBoard(symbol) {
+        const feed = document.getElementById('stockTwitsFeed');
+        if (!feed) return;
+        const cKey = 'nv_' + symbol;
+        if (_socialCache[cKey] && Date.now() - _socialCache[cKey].ts < SOCIAL_CACHE_MS) {
+            renderNaverBoard(feed, _socialCache[cKey].data); return;
+        }
+        feed.innerHTML = '<div class="social-empty"><div class="social-empty-text">로딩 중...</div></div>';
+        try {
+            const res = await fetch(`/api/naver-board/${encodeURIComponent(symbol)}`);
+            if (!res.ok) throw new Error(res.status);
+            const data = await res.json();
+            _socialCache[cKey] = { ts: Date.now(), data };
+            renderNaverBoard(feed, data);
+        } catch {
+            feed.innerHTML = '<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">네이버 토론실 데이터를 가져올 수 없어요.</div></div>';
+        }
+    }
+
+    function renderNaverBoard(feed, data) {
+        const posts = (data && data.posts) || [];
+        if (!posts.length) {
+            feed.innerHTML = '<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">토론실 글이 없어요.</div></div>';
+            return;
+        }
+        const escHtml = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        const cards = posts.map(p => {
+            const date  = escHtml(p.date || '');
+            const auth  = escHtml(p.author || '익명');
+            const title = escHtml(p.title || '');
+            const link  = escHtml(p.link || '#');
+            const cmt   = (p.comments|0) > 0 ? `<span class="nv-cmt">💬 ${p.comments}</span>` : '';
+            const likes = (p.likes|0) > 0 ? `<span class="nv-like">👍 ${p.likes}</span>` : '';
+            const dis   = (p.dislikes|0) > 0 ? `<span class="nv-dis">👎 ${p.dislikes}</span>` : '';
+            return `<a class="nv-card" href="${link}" target="_blank" rel="noopener noreferrer">
+                <div class="nv-title">${title}</div>
+                <div class="nv-meta">
+                    <span class="nv-author">${auth}</span>
+                    <span class="nv-date">${date}</span>
+                    <span class="nv-views">조회 ${p.views|0}</span>
+                    ${likes}${dis}${cmt}
+                </div>
+            </a>`;
+        });
+        feed.innerHTML = cards.join('');
     }
 
     const _stTranslCache = new Map(); // msgId → 번역문
@@ -11656,7 +11714,8 @@
     function reloadSocialTab() {
         if (!currentFullSymbol) return;
         delete _socialCache['st_' + currentFullSymbol];
-        loadStockTwits(currentFullSymbol);
+        delete _socialCache['nv_' + currentFullSymbol];
+        loadSocialTab(currentFullSymbol);
     }
 
     async function toggleStTranslate(btn) {
