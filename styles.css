@@ -2507,7 +2507,7 @@
          * 주식 골라보기 (Discover) — TOP100 DNA 재사용
          * DOM: fav · rank · logo · info · disc-keymetric · price · change (7)
          * ====================================================== */
-        .discover-screen{padding:24px 16px 48px;max-width:1200px;margin:0 auto;}
+        .discover-screen{padding:24px 16px 48px;max-width:1400px;margin:0 auto;}
         .disc-screen-title{font-size:22px;font-weight:700;letter-spacing:-.02em;margin-bottom:4px;color:var(--text);}
         .disc-screen-sub{font-size:13px;color:var(--text3);margin-bottom:16px;}
         .disc-preset-tabs{margin-bottom:14px;}
@@ -2541,7 +2541,7 @@
             .discover-screen .disc-screen-sub{font-size:14px;margin-bottom:20px;}
             .discover-screen .top100-row,
             .discover-screen .top100-colhead{
-                grid-template-columns:28px 28px 44px minmax(120px,1.5fr) minmax(70px,0.8fr) 80px 70px 70px 70px 70px 84px 84px;
+                grid-template-columns:28px 28px 44px minmax(160px,1.6fr) minmax(90px,0.9fr) 88px 78px 78px 78px 78px 92px 92px;
                 grid-template-areas:"rank rank logo name reason price change close high low vol upside";
             }
             .disc-keymetric{font-size:13px;padding:0 8px;}
@@ -2758,8 +2758,8 @@
         @media(min-width:900px){
             .disc-layout{
                 display:grid;
-                grid-template-columns:200px minmax(0,1fr);
-                gap:32px;align-items:start;
+                grid-template-columns:180px minmax(0,1fr);
+                gap:24px;align-items:start;
                 /* 전체 레이아웃 최소 높이 고정으로 사이드바 jump 방지 */
                 min-height:600px;
             }
