@@ -129,9 +129,9 @@
                 <div class="home-section-sub" id="hotStocksSub"></div>
             </div>
             <div class="hot-tabs" id="hotTabs">
-                <button class="hot-tab active" data-tab="institution" onclick="switchHotTab('institution')"><i class="ri-bank-line"></i> 기관</button>
-                <button class="hot-tab" data-tab="value" onclick="switchHotTab('value')"><i class="ri-vip-diamond-line"></i> 밸류</button>
-                <button class="hot-tab" data-tab="momentum" onclick="switchHotTab('momentum')"><i class="ri-rocket-2-line"></i> 모멘텀</button>
+                <button class="hot-tab active" data-tab="institution" onclick="switchHotTab('institution')">기관</button>
+                <button class="hot-tab" data-tab="value" onclick="switchHotTab('value')">밸류</button>
+                <button class="hot-tab" data-tab="momentum" onclick="switchHotTab('momentum')">모멘텀</button>
             </div>
             <div id="hotStocksList" class="hot-list">
                 <div class="swing-empty">데이터 로딩 중...</div>
@@ -218,7 +218,7 @@
                     부자 포트폴리오
                     <span class="hs-badge green">13F</span>
                 </div>
-                <button class="home-section-more" onclick="goSmartMoneyAndOpenReal()">전체 보기 →</button>
+                <button class="home-section-more" onclick="goSmartMoneyAndOpenReal()">더 보기</button>
             </div>
             <div id="guruHomeList"></div>
         </section>
@@ -233,14 +233,9 @@
                 <button class="top100-filter active" data-filter="most_actives" onclick="setTop100Filter('most_actives')">거래량 TOP</button>
                 <button class="top100-filter" data-filter="day_gainers" onclick="setTop100Filter('day_gainers')">상승률 TOP</button>
                 <button class="top100-filter" data-filter="day_losers" onclick="setTop100Filter('day_losers')">하락률 TOP</button>
+                <button class="top100-filter" data-filter="penny_stocks" onclick="setTop100Filter('penny_stocks')">저가주 TOP</button>
             </div>
-            <div class="top100-colhead" id="top100ColHead" role="row">
-                <span class="t100-ch-rank">순위</span>
-                <span class="t100-ch-name">종목</span>
-                <span class="t100-ch-reason">AI 요약</span>
-                <span class="t100-ch-price">현재가</span>
-                <span class="t100-ch-change" data-sort="most_actives">등락률 순</span>
-            </div>
+
             <div class="top100-grid" id="top100Grid">
                 <div class="top100-loading">데이터를 불러오는 중...</div>
             </div>
@@ -333,6 +328,8 @@
                     <button class="top100-filter"        data-preset="streak_down" onclick="setDiscoverPreset('streak_down')"><span class="disc-chip-emoji">🧊</span><span class="disc-chip-label">연속 하락세</span></button>
                     <button class="top100-filter"        data-preset="near_52h"    onclick="setDiscoverPreset('near_52h')"><span class="disc-chip-emoji">🚀</span><span class="disc-chip-label">52주 신고가</span></button>
                     <button class="top100-filter"        data-preset="vol_surge"   onclick="setDiscoverPreset('vol_surge')"><span class="disc-chip-emoji">📊</span><span class="disc-chip-label">거래량 급증</span></button>
+                    <button class="top100-filter"        data-preset="undervalued" onclick="setDiscoverPreset('undervalued')"><span class="disc-chip-emoji">💎</span><span class="disc-chip-label">저평가 주식</span></button>
+                    <button class="top100-filter"        data-preset="growth"      onclick="setDiscoverPreset('growth')"><span class="disc-chip-emoji">🌱</span><span class="disc-chip-label">성장 기대주</span></button>
                 </div>
             </aside>
             <main class="disc-main">
@@ -341,7 +338,12 @@
                     <span class="t100-ch-name">종목</span>
                     <span class="t100-ch-reason" id="discoverKeyMetricLabel">5일 누적</span>
                     <span class="t100-ch-price">현재가</span>
-                    <span class="t100-ch-change">등락률</span>
+                    <span class="t100-ch-change">변동%</span>
+                    <span class="t100-ch-prevclose">종가</span>
+                    <span class="t100-ch-high">고가</span>
+                    <span class="t100-ch-low">저가</span>
+                    <span class="t100-ch-volume">거래량</span>
+                    <span class="t100-ch-upside">상승여력</span>
                 </div>
                 <div class="disc-grid top100-grid" id="discoverGrid"></div>
                 <div class="disc-empty" id="discoverEmpty" hidden>오늘은 해당 조건을 충족하는 종목이 없어요.</div>
@@ -749,6 +751,14 @@
                     </div>
                     <div class="ai-summary-levels" id="aiSummaryLevels"></div>
                     <div class="ai-summary-text" id="aiSummaryText"></div>
+                    <div class="ai-pattern-section" id="aiPatternSection" style="display:none;">
+                        <div class="ai-pattern-title">📐 차트 패턴</div>
+                        <div class="ai-pattern-list" id="aiPatternList"></div>
+                    </div>
+                    <div class="ai-horizon-section" id="aiHorizonSection" style="display:none;">
+                        <div class="ai-horizon-title">⏱ 시간 지평별 시나리오</div>
+                        <div class="ai-horizon-grid" id="aiHorizonGrid"></div>
+                    </div>
                     <button class="ai-summary-toggle" id="aiSummaryToggle" onclick="toggleAiReport()" style="display:none;">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
                         상세 분석 리포트 보기
@@ -1385,8 +1395,26 @@
     function closeSearchDropdown() { renderDropdown('hidden', null); }
 
     // ── 모바일 검색 모달 ──
-    const _debMobSearch = debounce(q => {
-        _renderMobDropdown(q.trim() ? 'results' : 'empty', q.trim() ? searchSuggest(q, 10) : null);
+    let _searchFallbackToken = 0;
+    const _debMobSearch = debounce(async q => {
+        if (!q.trim()) { _renderMobDropdown('empty', null); return; }
+        const local = searchSuggest(q, 10);
+        if (local.length > 0) { _renderMobDropdown('results', local); return; }
+        // 정적 목록에 없으면 Yahoo Finance 검색 API 폴백 (stale 응답 방지 토큰)
+        const myToken = ++_searchFallbackToken;
+        try {
+            const resp = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+            if (myToken !== _searchFallbackToken) return; // 더 최신 쿼리가 있으면 폐기
+            const items = await resp.json();
+            const mapped = items.map(it => ({
+                ticker: it.ticker, name: it.name, koreanName: it.name,
+                market: 'US', type: it.quoteType === 'ETF' ? 'etf' : 'stock',
+                sector: it.exchange || 'US', score: 50,
+            }));
+            _renderMobDropdown('results', mapped);
+        } catch {
+            if (myToken === _searchFallbackToken) _renderMobDropdown('results', []);
+        }
     }, 300);
 
     function _renderMobDropdown(mode, data) {
@@ -1465,9 +1493,25 @@
         items[idx].scrollIntoView({block:'nearest'});
     }
 
-    const _debouncedSuggest = debounce(query => {
+    const _debouncedSuggest = debounce(async query => {
         if (!query.trim()) { renderDropdown('empty', null); return; }
-        renderDropdown('results', searchSuggest(query, 8));
+        const local = searchSuggest(query, 8);
+        if (local.length > 0) { renderDropdown('results', local); return; }
+        // 정적 목록에 없으면 Yahoo Finance 검색 API 폴백 (stale 응답 방지 토큰)
+        const myToken = ++_searchFallbackToken;
+        try {
+            const resp = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+            if (myToken !== _searchFallbackToken) return;
+            const items = await resp.json();
+            const mapped = items.map(it => ({
+                ticker: it.ticker, name: it.name, koreanName: it.name,
+                market: 'US', type: it.quoteType === 'ETF' ? 'etf' : 'stock',
+                sector: it.exchange || 'US', score: 50,
+            }));
+            renderDropdown('results', mapped);
+        } catch {
+            if (myToken === _searchFallbackToken) renderDropdown('results', []);
+        }
     }, 300);
 
     function handleSearchKeydown(e) {
@@ -1708,7 +1752,8 @@
         const labelMap = {
             most_actives: '등락률',
             day_gainers:  '상승률 순',
-            day_losers:   '하락률 순'
+            day_losers:   '하락률 순',
+            penny_stocks: '상승률 순'
         };
         ch.textContent = labelMap[filter] || '등락률';
         ch.setAttribute('data-sort', filter);
@@ -1728,6 +1773,41 @@
     }
 
     async function fetchTop100Single(filter) {
+        // 저가주 전용 경로
+        if (filter === 'penny_stocks') {
+            try {
+                const data = await fetch('/api/penny-stocks').then(r => r.json());
+                const quotes = data?.quotes;
+                if (quotes?.length) {
+                    const items = quotes.slice(0, 100);
+                    top100Cache[filter] = { items, ts: Date.now() };
+                    saveTop100LS();
+                    if (top100Filter === filter) renderTop100(items);
+                    return;
+                }
+            } catch(e) {}
+            // fallback: 대표 저가주 심볼
+            try {
+                // 대표 저가주 (보통 $5 미만 거래되는 활성 종목들)
+                const fb = 'SNDL,NOK,PLUG,NIO,MULN,FFIE,BLNK,CHPT,EVGO,ABEV,BB,WKHS,NKLA,CENN,GOEV,OPEN,IDEX,RIG,CLOV,LCID,XPEV,AMC,FUBO,GME,KGC,GOLD,SIRI,ITUB,T,VALE';
+                const qData = await fetchWithProxy(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${fb}`);
+                const quotes = qData?.quoteResponse?.result || [];
+                if (quotes.length) {
+                    // $5 미만만 필터링 후 상승률 정렬
+                    const items = quotes
+                        .filter(q => q.regularMarketPrice != null && q.regularMarketPrice < 5)
+                        .sort((a,b) => (b.regularMarketChangePercent||0) - (a.regularMarketChangePercent||0));
+                    top100Cache[filter] = { items, ts: Date.now() };
+                    saveTop100LS();
+                    if (top100Filter === filter) renderTop100(items);
+                    return;
+                }
+            } catch(e) {}
+            const grid = document.getElementById('top100Grid');
+            if (grid && top100Filter === filter) grid.innerHTML = '<div class="top100-loading">데이터를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.</div>';
+            return;
+        }
+
         try {
             const url = `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&lang=en-US&region=US&scrIds=${filter}&count=100`;
             const data = await fetchRace(url, 6000);
@@ -2738,6 +2818,7 @@
     // loadAIRecommend(); // [DISABLED] 쿼터 절약
     loadHotStocks();
     loadFavSummary();
+    loadGuruHome();
     // 홈 임베드: 연속 상승세 TOP 5 (초기 로드 시)
     // _DISC_PRESET_META 가 아래에서 const 로 정의되므로 setTimeout 으로 defer
     setTimeout(() => {
@@ -2750,6 +2831,10 @@
     }, 0);
 
     function goFav() {
+        const _t = document.getElementById('marketThermometer');
+        if (_t && _t.innerHTML.trim()) _t.style.display = '';
+        const _q = document.getElementById('headerQNav');
+        if (_q) _q.style.display = '';
         document.getElementById('welcomeScreen').style.display = 'none';
         document.getElementById('smartMoneyScreen').style.display = 'none';
         document.getElementById('alphaScannerScreen').style.display = 'none';
@@ -2768,6 +2853,10 @@
 
     function goHome() {
         history.replaceState({ view: 'home' }, '', '/');
+        const _t = document.getElementById('marketThermometer');
+        if (_t && _t.innerHTML.trim()) _t.style.display = '';
+        const _q = document.getElementById('headerQNav');
+        if (_q) _q.style.display = '';
         document.getElementById('welcomeScreen').style.display = '';
         document.getElementById('smartMoneyScreen').style.display = 'none';
         document.getElementById('alphaScannerScreen').style.display = 'none';
@@ -4453,7 +4542,16 @@
     // 현재 딥다이브 모드 ('hot' | 'kingdom')
     let smDeepMode = 'hot';
 
+    // 헤더 시장 테마/qnav 복원 (Discover 페이지에서 숨겨졌을 수 있음)
+    function _restoreHeaderChrome() {
+        const t = document.getElementById('marketThermometer');
+        if (t && t.innerHTML.trim()) t.style.display = '';
+        const q = document.getElementById('headerQNav');
+        if (q) q.style.display = '';
+    }
+
     function goSmartMoney() {
+        _restoreHeaderChrome();
         document.getElementById('welcomeScreen').style.display = 'none';
         document.getElementById('alphaScannerScreen').style.display = 'none';
         document.getElementById('favScreen').style.display = 'none';
@@ -4479,6 +4577,7 @@
     // Alpha Scanner
     // ========================================
     function goScanner() {
+        _restoreHeaderChrome();
         document.getElementById('welcomeScreen').style.display = 'none';
         document.getElementById('smartMoneyScreen').style.display = 'none';
         document.getElementById('favScreen').style.display = 'none';
@@ -4504,10 +4603,12 @@
     window._discPreset = 'streak_up';
 
     const _DISC_PRESET_META = {
-        streak_up:   { title: '🔥 연속 상승세',  keyLabel: '상승률', emptyHint: '상승 모멘텀 종목이 오늘은 없어요.' },
-        streak_down: { title: '🧊 연속 하락세',  keyLabel: '하락률', emptyHint: '하락 압력 종목이 오늘은 없어요.' },
+        streak_up:   { title: '🔥 연속 상승세',  keyLabel: '상승률',   emptyHint: '상승 모멘텀 종목이 오늘은 없어요.' },
+        streak_down: { title: '🧊 연속 하락세',  keyLabel: '하락률',   emptyHint: '하락 압력 종목이 오늘은 없어요.' },
         near_52h:    { title: '🚀 52주 신고가',  keyLabel: '52H 대비', emptyHint: '52주 신고가 근처 종목이 오늘은 없어요.' },
-        vol_surge:   { title: '📊 거래량 급증',  keyLabel: '평균대비',  emptyHint: '거래량 급증 종목이 오늘은 없어요.' },
+        vol_surge:   { title: '📊 거래량 급증',  keyLabel: '평균대비', emptyHint: '거래량 급증 종목이 오늘은 없어요.' },
+        undervalued: { title: '💎 저평가 주식',  keyLabel: 'PER',      emptyHint: 'PER·PBR 기준 저평가 종목이 없어요.' },
+        growth:      { title: '🌱 성장 기대주',  keyLabel: 'EPS 성장', emptyHint: 'EPS 성장 기대 종목이 없어요.' },
     };
 
     function _discLoadLS(preset) {
@@ -4546,6 +4647,20 @@
         const safeName = escHtml(name).replace(/'/g,'&#39;');
         const km = q.keyMetric || { label: '', value: '-', dir: 'flat' };
         const kmCls = km.dir === 'up' ? 'up' : km.dir === 'down' ? 'down' : '';
+        // 신규 컬럼 값 계산
+        const prevClose = q.prevClose;
+        const dayHigh   = q.dayHigh;
+        const dayLow    = q.dayLow;
+        const volume    = q.volume;
+        const targetPrice = q.targetPrice;
+        const prevCloseText = prevClose != null ? `$${prevClose.toFixed(2)}` : '-';
+        const dayHighText   = dayHigh   != null ? `$${dayHigh.toFixed(2)}`   : '-';
+        const dayLowText    = dayLow    != null ? `$${dayLow.toFixed(2)}`    : '-';
+        const fmtDiscVol = v => { if (v == null) return '-'; if (v >= 1e9) return (v/1e9).toFixed(1)+'B'; if (v >= 1e6) return (v/1e6).toFixed(1)+'M'; if (v >= 1e3) return (v/1e3).toFixed(0)+'K'; return String(v); };
+        const volText = fmtDiscVol(volume);
+        const upside = (targetPrice != null && price != null && price > 0) ? (targetPrice - price) / price * 100 : null;
+        const upsideCls = upside != null ? (upside >= 0 ? 'pos' : 'neg') : '';
+        const upsideText = upside != null ? `${upside >= 0 ? '+' : ''}${upside.toFixed(1)}%` : '-';
         return `<div class="top100-row disc-row" onclick="quickSearch('${symbol}','US')">
             <button class="top100-fav ${faved?'on':''}" aria-label="즐겨찾기" onclick="_top100ToggleFav(event,'${symbol}','${market}','${safeName}')"><i class="${heartCls}"></i></button>
             <div class="top100-rank">${i + 1}</div>
@@ -4557,6 +4672,11 @@
             <div class="disc-keymetric ${kmCls}">${escHtml(km.value || '-')}</div>
             <div class="top100-price">${priceText}</div>
             <div class="top100-change ${chgCls}">${chgText}</div>
+            <div class="disc-prevclose">${prevCloseText}</div>
+            <div class="disc-high">${dayHighText}</div>
+            <div class="disc-low">${dayLowText}</div>
+            <div class="disc-volume">${volText}</div>
+            <div class="disc-upside ${upsideCls}">${upsideText}</div>
         </div>`;
     }
 
@@ -4571,6 +4691,11 @@
                 <div class="skel skel-price" style="width:48px"></div>
                 <div class="skel skel-price"></div>
                 <div class="skel skel-chg"></div>
+                <div class="skel skel-chg disc-prevclose"></div>
+                <div class="skel skel-chg disc-high"></div>
+                <div class="skel skel-chg disc-low"></div>
+                <div class="skel skel-chg disc-volume"></div>
+                <div class="skel skel-chg disc-upside"></div>
             </div>`;
         }
         return html;
@@ -4642,6 +4767,11 @@
         document.getElementById('visionScannerScreen').style.display = 'none';
         const ecoEl = document.getElementById('economicSection');
         if (ecoEl) ecoEl.style.display = 'none';
+        // 주식 골라보기 페이지: 시장 테마/탭 네비 숨김
+        const thermoEl = document.getElementById('marketThermometer');
+        if (thermoEl) thermoEl.style.display = 'none';
+        const qnavEl = document.getElementById('headerQNav');
+        if (qnavEl) qnavEl.style.display = 'none';
         document.getElementById('discoverScreen').style.display = '';
         window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded');
@@ -4854,6 +4984,7 @@
     }
 
     function goEarnings() {
+        _restoreHeaderChrome();
         document.getElementById('welcomeScreen').style.display = 'none';
         document.getElementById('smartMoneyScreen').style.display = 'none';
         document.getElementById('alphaScannerScreen').style.display = 'none';
@@ -6226,8 +6357,10 @@
             } catch(e) {}
 
             // Show stock UI, hide all screens
+            _restoreHeaderChrome();
             document.getElementById('welcomeScreen').style.display = 'none';
             document.getElementById('visionScannerScreen').style.display = 'none';
+            const _dc = document.getElementById('discoverScreen'); if (_dc) _dc.style.display = 'none';
             window._vsActive = false;
             document.getElementById('stockHero').classList.add('show');
             document.getElementById('tabNav').classList.add('show');
@@ -10648,11 +10781,15 @@
             _pushEndpoint = sub.endpoint;
             const favs = (typeof getFavorites === 'function' ? getFavorites() : [])
                 .filter(f => f.market === 'US').map(f => f.symbol);
-            await fetch('/api/push/subscribe', {
+            const r = await fetch('/api/push/subscribe', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ subscription: sub.toJSON(), favs }),
             });
+            if (r.ok) {
+                const d = await r.json().catch(() => ({}));
+                if (d.subToken) localStorage.setItem('pushSubToken', d.subToken);
+            }
             return true;
         } catch(e) {
             console.error('[subscribePush]', e);
@@ -10668,8 +10805,14 @@
             const sub = await reg.pushManager.getSubscription();
             if (sub) await sub.unsubscribe();
             _pushEndpoint = null;
+            localStorage.removeItem('pushSubToken');
             return true;
         } catch(e) { return false; }
+    }
+
+    // 로컬에 저장된 구독 토큰 조회
+    function _getSubToken() {
+        try { return localStorage.getItem('pushSubToken') || ''; } catch { return ''; }
     }
 
     // 현재 알림 구독 상태 반환 ('granted'|'denied'|'default' + subscribed boolean)
@@ -10694,8 +10837,9 @@
 
         // 기존 알림 목록 조회
         let existingAlerts = [];
+        const subToken = _getSubToken();
         try {
-            const r = await fetch(`/api/push/price-alerts?endpoint=${encodeURIComponent(endpoint)}`);
+            const r = await fetch(`/api/push/price-alerts?endpoint=${encodeURIComponent(endpoint)}&subToken=${encodeURIComponent(subToken)}`);
             const d = await r.json();
             existingAlerts = d.alerts || [];
         } catch(e) {}
@@ -10754,11 +10898,13 @@
     async function _savePriceAlert(symbol, endpoint) {
         const val = parseFloat(document.getElementById('paTargetPrice')?.value);
         if (!val || val <= 0) { showToast('올바른 목표가를 입력해주세요.'); return; }
+        const subToken = _getSubToken();
+        if (!subToken) { showToast('알림 구독 토큰이 없습니다. 알림을 다시 활성화해주세요.'); return; }
         try {
             const r = await fetch('/api/push/price-alert', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ endpoint, symbol, targetPrice: val, direction: window._paDir || 'above' }),
+                body: JSON.stringify({ endpoint, subToken, symbol, targetPrice: val, direction: window._paDir || 'above' }),
             });
             if (!r.ok) throw new Error();
             document.getElementById('priceAlertModal')?.remove();
@@ -10767,8 +10913,12 @@
     }
 
     async function _deletePriceAlert(id, btn) {
+        const endpoint = await _getPushEndpoint();
+        const subToken = _getSubToken();
+        if (!endpoint || !subToken) { showToast('알림 인증 정보가 없습니다.'); return; }
         try {
-            await fetch(`/api/push/price-alert/${id}`, { method: 'DELETE' });
+            const qs = `?endpoint=${encodeURIComponent(endpoint)}&subToken=${encodeURIComponent(subToken)}`;
+            await fetch(`/api/push/price-alert/${id}${qs}`, { method: 'DELETE' });
             btn.closest('.pa-existing-row')?.remove();
             showToast('알림이 삭제되었습니다.');
         } catch(e) { showToast('삭제에 실패했습니다.'); }
@@ -11827,6 +11977,7 @@
 
     // ── 화면 전환 ────────────────────────────────────────────────
     function goVisionScanner() {
+        _restoreHeaderChrome();
         document.getElementById('welcomeScreen').style.display       = 'none';
         document.getElementById('smartMoneyScreen').style.display    = 'none';
         document.getElementById('alphaScannerScreen').style.display  = 'none';
@@ -11867,6 +12018,7 @@
     ];
 
     function goEconomic() {
+        _restoreHeaderChrome();
         document.getElementById('welcomeScreen').style.display       = 'none';
         document.getElementById('smartMoneyScreen').style.display    = 'none';
         document.getElementById('alphaScannerScreen').style.display  = 'none';
@@ -12656,6 +12808,9 @@
             textEl.textContent = data.summary || '';
             card.style.display = badges || data.summary || data.report ? '' : 'none';
 
+            // 패턴 + 시간 지평 섹션 (있으면 표시, 없으면 숨김)
+            renderPatternHorizon(data.analysis || null);
+
             // 상세 리포트 — 신규 analysis 구조 우선, 없으면 구 report 마크다운 폴백
             if (data.analysis && reportInner && toggleBtn) {
                 renderAnalysisReport(data.analysis);
@@ -12693,6 +12848,66 @@
             .replace(/^/, '<p>').replace(/$/, '</p>')
             .replace(/<p><h([34])>/g, '<h$1>').replace(/<\/h([34])><\/p>/g, '</h$1>')
             .replace(/<p><\/p>/g, '');
+    }
+
+    // ── 차트 패턴 + 시간 지평 렌더러 (요약 카드 상단) ──
+    function renderPatternHorizon(a) {
+        const patSec = document.getElementById('aiPatternSection');
+        const patList = document.getElementById('aiPatternList');
+        const horSec = document.getElementById('aiHorizonSection');
+        const horGrid = document.getElementById('aiHorizonGrid');
+        const fmtN = v => (v == null || isNaN(Number(v))) ? null : Number(v).toFixed(2);
+
+        // 패턴
+        const patterns = (a && Array.isArray(a.patterns)) ? a.patterns.slice(0, 3) : [];
+        if (patSec && patList) {
+            if (patterns.length) {
+                patList.innerHTML = patterns.map(p => {
+                    const status = String(p.status || 'forming').toLowerCase();
+                    const statusCls = ['forming','completed','breakout'].includes(status) ? status : 'forming';
+                    const statusLabel = status === 'completed' ? '완성' : (status === 'breakout' ? '돌파' : '형성중');
+                    const target = fmtN(p.target);
+                    const neckline = fmtN(p.neckline);
+                    return `
+                        <div class="ai-pattern-chip">
+                            <div class="ai-pattern-chip-head">
+                                <span class="ai-pattern-name">${escHtml(p.name || '패턴')}</span>
+                                <span class="ai-pattern-status ai-pattern-status-${statusCls}">${statusLabel}</span>
+                            </div>
+                            <div class="ai-pattern-chip-meta">
+                                ${neckline ? `<span>넥라인 <b>${neckline}</b></span>` : ''}
+                                ${target ? `<span>목표 <b>${target}</b></span>` : ''}
+                            </div>
+                            ${p.rationale ? `<div class="ai-pattern-rat">${escHtml(p.rationale)}</div>` : ''}
+                        </div>`;
+                }).join('');
+                patSec.style.display = '';
+            } else {
+                patList.innerHTML = '';
+                patSec.style.display = 'none';
+            }
+        }
+
+        // 시간 지평
+        const th = a && a.timeHorizon;
+        if (horSec && horGrid) {
+            if (th && (th.shortTerm || th.midTerm || th.longTerm)) {
+                const primary = String(th.primaryHorizon || '').toLowerCase();
+                const cell = (key, label, text) => `
+                    <div class="ai-horizon-cell ${primary === key ? 'is-primary' : ''}">
+                        <div class="ai-horizon-cell-label">${label}</div>
+                        <div class="ai-horizon-cell-text">${escHtml(text || '-')}</div>
+                    </div>`;
+                horGrid.innerHTML =
+                    cell('short', '단기 (1~2주)', th.shortTerm) +
+                    cell('mid',   '중기 (1~3개월)', th.midTerm) +
+                    cell('long',  '장기 (6개월+)', th.longTerm);
+                horSec.style.display = '';
+            } else {
+                horGrid.innerHTML = '';
+                horSec.style.display = 'none';
+            }
+        }
     }
 
     // ── 구조화 분석 리포트 렌더러 (data.analysis → 4섹션 카드 HTML) ──

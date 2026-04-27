@@ -71,6 +71,21 @@ const OUTPUT_CONTRACT = `
       },
       "bias":       "bull|bear|neutral",
       "conviction": "low|medium|high"
+    },
+    "patterns": [
+      {
+        "name":      "역헤드앤숄더|상승삼각형|하락쐐기|컵앤핸들|이중바닥|이중천정|깃발형|박스권|...",
+        "status":    "forming|completed|breakout",
+        "neckline":  number,
+        "target":    number,
+        "rationale": "1~2문장 근거 (실제 가격/거래량 인용)"
+      }
+    ],
+    "timeHorizon": {
+      "shortTerm":      "1~2주 시나리오 1줄 (트리거 가격 포함)",
+      "midTerm":        "1~3개월 시나리오 1줄 (트리거 가격 포함)",
+      "longTerm":       "6개월+ 추세 1줄 (핵심 레벨 포함)",
+      "primaryHorizon": "short|mid|long"
     }
   }
 }
@@ -87,6 +102,10 @@ const OUTPUT_CONTRACT = `
 - R/R 비율이 1:1.5 미만이면 해당 시나리오의 conviction 을 "low" 로 낮추고 rationale 에 이유 명시
 - 지표·가격 수치는 반드시 제공된 ctx 값을 그대로 인용 (자체 계산 금지)
 - point1 은 항상 더 과거(왼쪽, x 가 작은) 점, point2 는 더 최근(오른쪽, x 가 큰) 점
+- patterns 최대 3개 (신뢰도 순). 명확한 패턴 없으면 빈 배열 []
+- patterns[*].neckline / target 은 ctx.currentPrice 동일 통화 숫자값 (문자열 금지)
+- timeHorizon 의 short/mid/long 은 한국어 1줄, 가격 트리거 포함
+- timeHorizon.primaryHorizon 은 가장 conviction 높은 지평을 short|mid|long 중 1개 선택
 - 응답은 '{' 로 시작해 '}' 로 끝나야 합니다. JSON 외 텍스트/코드펜스 금지
 `;
 

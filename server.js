@@ -356,6 +356,94 @@ app.get('/api/screener/:filter', async (req, res) => {
     }
 });
 
+// ── 종목 검색 (Yahoo Finance search API 프록시) ─────────────────────────
+app.get('/api/search', async (req, res) => {
+    // 길이 제한 + 위험 문자 제거 (Yahoo API 남용 방지)
+    const q = String(req.query.q || '').trim().slice(0, 50).replace(/[^\w\s.\-가-힣]/g, '');
+    if (!q) return res.json([]);
+    try {
+        const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=10&newsCount=0&listsCount=0&enableFuzzyQuery=true&enableCb=false`;
+        const data = await yfRequest(url);
+        const quotes = (data?.quotes || [])
+            .filter(qt => qt.quoteType === 'EQUITY' || qt.quoteType === 'ETF')
+            .slice(0, 8)
+            .map(qt => ({
+                ticker:    qt.symbol,
+                name:      qt.longname || qt.shortname || qt.symbol,
+                exchange:  qt.exchDisp || qt.exchange || '',
+                quoteType: qt.quoteType,
+            }));
+        res.json(quotes);
+    } catch (err) {
+        console.error('[search]', err.message);
+        res.json([]);
+    }
+});
+
+// ── 저가주 TOP (Yahoo Finance Custom Screener, price $0.01~$5) ─────────
+const PENNY_CACHE_TTL = 60_000; // 60초
+let _pennyCache = { ts: 0, data: null };
+
+async function _postYfScreener(body) {
+    // crumb 만료 시 1회 재시도 (yfRequest 패턴 미러링)
+    const tryOnce = async () => {
+        const { crumb, cookies } = await getCrumb();
+        const url = `https://query1.finance.yahoo.com/v1/finance/screener?formatted=false&lang=en-US&region=US&crumb=${encodeURIComponent(crumb)}`;
+        return axios.post(url, body, {
+            headers: {
+                'User-Agent': UA,
+                'Cookie': cookies,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            },
+            timeout: 12000,
+            httpAgent,
+            httpsAgent,
+        });
+    };
+    try {
+        return await tryOnce();
+    } catch (err) {
+        if (err.response?.status === 401 || err.response?.status === 403) {
+            _crumb = null; // 강제 재발급
+            return await tryOnce();
+        }
+        throw err;
+    }
+}
+
+app.get('/api/penny-stocks', async (req, res) => {
+    // 60초 메모리 캐시
+    if (_pennyCache.data && Date.now() - _pennyCache.ts < PENNY_CACHE_TTL) {
+        return res.json(_pennyCache.data);
+    }
+    try {
+        const body = {
+            offset: 0, size: 100,
+            sortField: 'percentchange',
+            sortType: 'desc',
+            quoteType: 'EQUITY',
+            query: {
+                operator: 'and',
+                operands: [
+                    { operator: 'lt',  operands: ['intradayprice', 5] },
+                    { operator: 'gte', operands: ['intradayprice', 0.01] },
+                    { operator: 'gte', operands: ['dayvolume', 500000] },
+                ],
+            },
+            userId: '', userIdType: 'guid',
+        };
+        const r = await _postYfScreener(body);
+        const quotes = r.data?.finance?.result?.[0]?.quotes || [];
+        const payload = { quotes };
+        _pennyCache = { ts: Date.now(), data: payload };
+        res.json(payload);
+    } catch (err) {
+        console.error('[penny-stocks]', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 /**
  * Google Translate 비공식 API를 통한 영→한 번역
  */
@@ -636,15 +724,17 @@ async function _fetchScreenerSymbols(filter, count = 100) {
 
 // universe 구성 (3개 스크리너 union, 중복제거) — symbols + sector map
 async function _buildDiscoverUniverse() {
-    const [a, b, c] = await Promise.all([
+    const [a, b, c, d, e] = await Promise.all([
         _fetchScreenerSymbols('most_actives', 100),
         _fetchScreenerSymbols('day_gainers', 100),
         _fetchScreenerSymbols('day_losers', 100),
+        _fetchScreenerSymbols('undervalued_growth_stocks', 100).catch(() => ({ symbols: [], sectors: new Map() })),
+        _fetchScreenerSymbols('growth_technology_stocks',  100).catch(() => ({ symbols: [], sectors: new Map() })),
     ]);
     const set = new Set();
-    [...a.symbols, ...b.symbols, ...c.symbols].forEach(s => set.add(s.toUpperCase()));
+    [...a.symbols, ...b.symbols, ...c.symbols, ...d.symbols, ...e.symbols].forEach(s => set.add(s.toUpperCase()));
     const sectors = new Map();
-    [a.sectors, b.sectors, c.sectors].forEach(m => m.forEach((v,k) => { if (!sectors.has(k)) sectors.set(k, v); }));
+    [a.sectors, b.sectors, c.sectors, d.sectors, e.sectors].forEach(m => m.forEach((v,k) => { if (!sectors.has(k)) sectors.set(k, v); }));
     return { symbols: [...set], sectors };
 }
 
@@ -701,7 +791,7 @@ async function _fetchQuoteSnapshotsFull(symbols) {
     for (let i = 0; i < symbols.length; i += CHUNK) {
         const chunk = symbols.slice(i, i + CHUNK);
         try {
-            const url = `https://query1.finance.yahoo.com/v7/finance/quote?fields=sector,industry,shortName,longName,regularMarketPrice,regularMarketChangePercent,regularMarketVolume,averageDailyVolume3Month,averageDailyVolume10Day,fiftyTwoWeekHigh,fiftyTwoWeekLow,fiftyDayAverage,twoHundredDayAverage,marketCap,currency&symbols=${encodeURIComponent(chunk.join(','))}`;
+            const url = `https://query1.finance.yahoo.com/v7/finance/quote?fields=sector,industry,shortName,longName,regularMarketPrice,regularMarketChangePercent,regularMarketVolume,averageDailyVolume3Month,averageDailyVolume10Day,fiftyTwoWeekHigh,fiftyTwoWeekLow,fiftyDayAverage,twoHundredDayAverage,marketCap,currency,trailingPE,forwardPE,priceToBook,epsTrailingTwelveMonths,epsForward,regularMarketDayHigh,regularMarketDayLow,regularMarketPreviousClose,targetMeanPrice&symbols=${encodeURIComponent(chunk.join(','))}`;
             const data = await yfRequest(url);
             (data?.quoteResponse?.result || []).forEach(q => {
                 out.set(q.symbol, {
@@ -718,6 +808,15 @@ async function _fetchQuoteSnapshotsFull(symbols) {
                     currency: q.currency || 'USD',
                     sector: q.sector || '',
                     industry: q.industry || '',
+                    trailingPE: q.trailingPE ?? null,
+                    forwardPE:  q.forwardPE  ?? null,
+                    priceToBook: q.priceToBook ?? null,
+                    epsTrailing: q.epsTrailingTwelveMonths ?? null,
+                    epsForward:  q.epsForward  ?? null,
+                    dayHigh:   q.regularMarketDayHigh      ?? null,
+                    dayLow:    q.regularMarketDayLow       ?? null,
+                    prevClose: q.regularMarketPreviousClose ?? null,
+                    targetPrice: q.targetMeanPrice         ?? null,
                 });
             });
         } catch (e) { /* 청크 실패 무시 */ }
@@ -727,7 +826,7 @@ async function _fetchQuoteSnapshotsFull(symbols) {
 
 // 4개 preset 평가
 function _evaluateDiscoverPresets(sparkMap, quoteMap, sectorMap = new Map()) {
-    const all = { streak_up: [], streak_down: [], near_52h: [], vol_surge: [] };
+    const all = { streak_up: [], streak_down: [], near_52h: [], vol_surge: [], undervalued: [], growth: [] };
     const fmtPct = (v) => (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
     for (const [sym, q] of quoteMap.entries()) {
         if (!q || q.price == null) continue;
@@ -749,6 +848,10 @@ function _evaluateDiscoverPresets(sparkMap, quoteMap, sectorMap = new Map()) {
             volume: q.volume,
             currency: q.currency,
             category,
+            dayHigh:    q.dayHigh,
+            dayLow:     q.dayLow,
+            prevClose:  q.prevClose,
+            targetPrice: q.targetPrice,
         };
 
         // 1) streak_up / streak_down
@@ -816,18 +919,42 @@ function _evaluateDiscoverPresets(sparkMap, quoteMap, sectorMap = new Map()) {
                 insight: `평균 대비 ×${mult.toFixed(1)} 거래 급증 · ${fmtPct(chg)}`,
                 keyMetric: { label: '평균대비', value: `×${mult.toFixed(1)}`, dir: 'up', num: mult }});
         }
+
+        // 4) undervalued — PER 0 < x ≤ 20, PBR 0 < x ≤ 4, 가격 $5 이상
+        const pe  = q.trailingPE  ?? q.forwardPE;
+        const pb  = q.priceToBook;
+        if (pe != null && pe > 0 && pe <= 20 && pb != null && pb > 0 && pb <= 4 && q.price >= 5) {
+            const peLabel = q.trailingPE ? 'PER(TTM)' : 'PER(Fwd)';
+            all.undervalued.push({ ...base,
+                insight: `${peLabel} ${pe.toFixed(1)} · PBR ${pb.toFixed(1)} · 저평가 구간`,
+                keyMetric: { label: 'PER', value: pe.toFixed(1), dir: 'up', num: pe }});
+        }
+
+        // 5) growth — EPS 성장 기대 (forward > trailing, 성장률 ≥ 10%)
+        const epsT = q.epsTrailing;
+        const epsF = q.epsForward;
+        if (epsT != null && epsF != null && epsT > 0 && epsF > epsT) {
+            const epsGrowth = ((epsF - epsT) / epsT) * 100;
+            if (epsGrowth >= 10 && q.price >= 5) {
+                all.growth.push({ ...base,
+                    insight: `EPS 성장 ${fmtPct(epsGrowth)} · 실적 개선 기대`,
+                    keyMetric: { label: 'EPS 성장', value: fmtPct(epsGrowth), dir: 'up', num: epsGrowth }});
+            }
+        }
     }
     // 정렬
     all.streak_up.sort((a,b) => b.keyMetric.num - a.keyMetric.num);
     all.streak_down.sort((a,b) => a.keyMetric.num - b.keyMetric.num);
     all.near_52h.sort((a,b) => b.keyMetric.num - a.keyMetric.num);
     all.vol_surge.sort((a,b) => b.keyMetric.num - a.keyMetric.num);
+    all.undervalued.sort((a,b) => a.keyMetric.num - b.keyMetric.num); // PER 낮을수록 상위
+    all.growth.sort((a,b) => b.keyMetric.num - a.keyMetric.num);      // EPS 성장률 높을수록 상위
     // 상위 50 컷
-    ['streak_up','streak_down','near_52h','vol_surge'].forEach(k => { all[k] = all[k].slice(0, 50); });
+    ['streak_up','streak_down','near_52h','vol_surge','undervalued','growth'].forEach(k => { all[k] = all[k].slice(0, 50); });
     return all;
 }
 
-const VALID_DISCOVER_PRESETS = new Set(['streak_up','streak_down','near_52h','vol_surge']);
+const VALID_DISCOVER_PRESETS = new Set(['streak_up','streak_down','near_52h','vol_surge','undervalued','growth']);
 
 app.get('/api/discover', async (req, res) => {
     const preset = String(req.query.preset || 'streak_up');
@@ -1814,10 +1941,12 @@ async function cusipToTicker(cusips) {
     const missing = cusips.filter(c => !(c in result));
     if (!missing.length) return result;
 
-    // OpenFIGI batch (최대 100개씩), 무키 25req/6s → 안전하게 250ms 간격
+    // OpenFIGI batch — 무키: 최대 10개/req, 25req/6s
+    //                키있음: 최대 100개/req, 25req/6s
     const figiKey = process.env.OPENFIGI_API_KEY;
-    for (let i = 0; i < missing.length; i += 100) {
-        const batch = missing.slice(i, i + 100);
+    const BATCH = figiKey ? 100 : 10;
+    for (let i = 0; i < missing.length; i += BATCH) {
+        const batch = missing.slice(i, i + BATCH);
         try {
             const { data } = await axios.post(
                 'https://api.openfigi.com/v3/mapping',
@@ -1857,7 +1986,8 @@ async function cusipToTicker(cusips) {
         } catch (e) {
             console.warn('[OpenFIGI] batch failed:', e.message);
         }
-        if (i + 100 < missing.length) await _sleep(300);
+        // rate limit: 25req/6s → 안전하게 260ms 간격 (≈23req/6s)
+        if (i + BATCH < missing.length) await _sleep(figiKey ? 250 : 260);
     }
     return result;
 }
@@ -2342,20 +2472,70 @@ const _pushSupa = (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY)
     ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
     : null;
 
+// ── 내부 헬퍼 ──────────────────────────────────────────────────
+// 심볼 검증 + 50개 단위 청크로 Yahoo quote 배치 조회
+async function _fetchQuotesBatch(symbols) {
+    const clean = [...new Set(symbols.map(s => String(s || '').toUpperCase()).filter(validSymbol))];
+    const priceMap = {};
+    for (let i = 0; i < clean.length; i += 50) {
+        const chunk = clean.slice(i, i + 50);
+        try {
+            const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(chunk.join(','))}`;
+            const qData = await yfRequest(url);
+            (qData?.quoteResponse?.result || []).forEach(q => {
+                const p = q.regularMarketPrice ?? q.currentPrice;
+                if (typeof p === 'number') priceMap[q.symbol] = p;
+            });
+        } catch (e) {
+            console.error('[_fetchQuotesBatch chunk fail]', e.message);
+        }
+    }
+    return priceMap;
+}
+
+// 랜덤 토큰 생성 (32바이트 hex)
+function _genSubToken() {
+    return require('crypto').randomBytes(24).toString('hex');
+}
+
+// 구독 소유권 검증 미들웨어: body/query 의 endpoint + sub_token 이 DB row 와 일치해야 함
+async function _verifyOwnership(endpoint, subToken) {
+    if (!endpoint || !subToken || !_pushSupa) return false;
+    const { data } = await _pushSupa.from('push_subscriptions')
+        .select('sub_token').eq('endpoint', endpoint).single();
+    if (!data?.sub_token) return false;
+    // timing-safe compare
+    try {
+        const crypto = require('crypto');
+        const a = Buffer.from(String(data.sub_token));
+        const b = Buffer.from(String(subToken));
+        return a.length === b.length && crypto.timingSafeEqual(a, b);
+    } catch { return false; }
+}
+
 // ── 구독 저장/갱신 ──────────────────────────────────────────────
+// 최초 구독 시 sub_token 을 생성하여 응답, 이후 모든 CRUD 는 이 토큰을 제시해야 함.
+// 기존 endpoint 로 재구독하는 경우 기존 sub_token 을 재사용(로그인 세션 유사).
 app.post('/api/push/subscribe', async (req, res) => {
     try {
         if (!_pushSupa) return res.status(503).json({ error: 'Supabase not configured' });
         const { subscription, favs = [] } = req.body;
         if (!subscription?.endpoint) return res.status(400).json({ error: 'subscription.endpoint required' });
+
+        // 기존 row 확인 → 기존 토큰 재사용, 없으면 새 토큰 발급
+        const { data: existing } = await _pushSupa.from('push_subscriptions')
+            .select('sub_token').eq('endpoint', subscription.endpoint).single();
+        const subToken = existing?.sub_token || _genSubToken();
+
         const { error } = await _pushSupa.from('push_subscriptions').upsert({
             endpoint: subscription.endpoint,
             subscription,
             favs: Array.isArray(favs) ? favs.slice(0, 200) : [],
+            sub_token: subToken,
             updated_at: new Date().toISOString(),
         }, { onConflict: 'endpoint' });
         if (error) throw error;
-        res.json({ ok: true });
+        res.json({ ok: true, subToken });
     } catch (err) {
         console.error('[push/subscribe]', err.message);
         res.status(500).json({ error: err.message });
@@ -2366,8 +2546,10 @@ app.post('/api/push/subscribe', async (req, res) => {
 app.patch('/api/push/subscribe', async (req, res) => {
     try {
         if (!_pushSupa) return res.status(503).json({ error: 'Supabase not configured' });
-        const { endpoint, favs = [] } = req.body;
+        const { endpoint, subToken, favs = [] } = req.body;
         if (!endpoint) return res.status(400).json({ error: 'endpoint required' });
+        if (!(await _verifyOwnership(endpoint, subToken)))
+            return res.status(401).json({ error: 'Unauthorized' });
         const { error } = await _pushSupa.from('push_subscriptions')
             .update({ favs: Array.isArray(favs) ? favs.slice(0, 200) : [], updated_at: new Date().toISOString() })
             .eq('endpoint', endpoint);
@@ -2382,13 +2564,18 @@ app.patch('/api/push/subscribe', async (req, res) => {
 app.post('/api/push/price-alert', async (req, res) => {
     try {
         if (!_pushSupa) return res.status(503).json({ error: 'Supabase not configured' });
-        const { endpoint, symbol, targetPrice, direction } = req.body;
+        const { endpoint, subToken, symbol, targetPrice, direction } = req.body;
         if (!endpoint || !symbol || targetPrice == null || !['above','below'].includes(direction))
             return res.status(400).json({ error: 'endpoint, symbol, targetPrice, direction(above|below) required' });
         if (!validSymbol(symbol)) return res.status(400).json({ error: 'invalid symbol' });
+        const tp = Number(targetPrice);
+        if (!isFinite(tp) || tp <= 0 || tp > 1_000_000)
+            return res.status(400).json({ error: 'invalid targetPrice' });
+        if (!(await _verifyOwnership(endpoint, subToken)))
+            return res.status(401).json({ error: 'Unauthorized' });
         const { data, error } = await _pushSupa.from('price_alerts').insert({
             endpoint, symbol: symbol.toUpperCase(),
-            target_price: Number(targetPrice), direction, active: true,
+            target_price: tp, direction, active: true,
         }).select('id').single();
         if (error) throw error;
         res.json({ ok: true, id: data.id });
@@ -2403,7 +2590,10 @@ app.get('/api/push/price-alerts', async (req, res) => {
     try {
         if (!_pushSupa) return res.status(503).json({ error: 'Supabase not configured' });
         const endpoint = String(req.query.endpoint || '');
+        const subToken = String(req.query.subToken || '');
         if (!endpoint) return res.status(400).json({ error: 'endpoint required' });
+        if (!(await _verifyOwnership(endpoint, subToken)))
+            return res.status(401).json({ error: 'Unauthorized' });
         const { data, error } = await _pushSupa.from('price_alerts')
             .select('id, symbol, target_price, direction, active, triggered_at, created_at')
             .eq('endpoint', endpoint).eq('active', true).order('created_at', { ascending: false });
@@ -2419,8 +2609,13 @@ app.delete('/api/push/price-alert/:id', async (req, res) => {
     try {
         if (!_pushSupa) return res.status(503).json({ error: 'Supabase not configured' });
         const { id } = req.params;
+        const endpoint = String(req.query.endpoint || req.body?.endpoint || '');
+        const subToken = String(req.query.subToken || req.body?.subToken || '');
+        if (!(await _verifyOwnership(endpoint, subToken)))
+            return res.status(401).json({ error: 'Unauthorized' });
+        // 삭제는 본인 소유 alert 에 한정
         const { error } = await _pushSupa.from('price_alerts')
-            .update({ active: false }).eq('id', id);
+            .update({ active: false }).eq('id', id).eq('endpoint', endpoint);
         if (error) throw error;
         res.json({ ok: true });
     } catch (err) {
@@ -2429,13 +2624,28 @@ app.delete('/api/push/price-alert/:id', async (req, res) => {
 });
 
 // ── Cron 인증 미들웨어 ──────────────────────────────────────────
+// Vercel Cron 은 프로젝트에 CRON_SECRET env 가 설정돼 있으면 자동으로
+// `Authorization: Bearer ${CRON_SECRET}` 헤더를 붙여 요청을 보냄.
+// → Bearer 토큰 검증만 수행. 임의 헤더(x-vercel-signature) 존재 여부로
+//    통과시키면 누구나 우회 가능하므로 절대 금지.
 function cronAuth(req, res, next) {
     const secret = process.env.CRON_SECRET;
+    if (!secret) {
+        // 시크릿 미설정 시 보안 사고 방지를 위해 503 (개발 중엔 env 설정 필요)
+        return res.status(503).json({ error: 'CRON_SECRET not configured' });
+    }
     const auth = req.headers.authorization || '';
-    if (secret && auth !== `Bearer ${secret}`) {
-        // Vercel Cron 은 자체 서명 헤더 'x-vercel-signature' 도 허용
-        if (!req.headers['x-vercel-signature'] && auth !== `Bearer ${secret}`)
+    const expected = `Bearer ${secret}`;
+    // timing-safe compare
+    try {
+        const crypto = require('crypto');
+        const a = Buffer.from(auth);
+        const b = Buffer.from(expected);
+        if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
             return res.status(401).json({ error: 'Unauthorized' });
+        }
+    } catch {
+        return res.status(401).json({ error: 'Unauthorized' });
     }
     next();
 }
@@ -2451,36 +2661,37 @@ app.get('/api/cron/check-alerts', cronAuth, async (req, res) => {
         if (aErr) throw aErr;
         if (!alerts?.length) return res.json({ ok: true, checked: 0 });
 
-        // 2) 심볼 그룹핑 → /api/quote 배치 조회 (최대 50개)
-        const symbols = [...new Set(alerts.map(a => a.symbol))].slice(0, 50);
-        let priceMap = {};
-        try {
-            const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols.join(','))}`;
-            const qData = await yfRequest(url);
-            (qData?.quoteResponse?.result || []).forEach(q => {
-                priceMap[q.symbol] = q.regularMarketPrice ?? q.currentPrice;
-            });
-        } catch(e) { console.error('[cron/check-alerts] quote fetch failed', e.message); }
+        // 2) 가격 배치 조회 (50개 단위 청크, 내부 헬퍼 재사용)
+        const symbols = [...new Set(alerts.map(a => a.symbol))];
+        const priceMap = await _fetchQuotesBatch(symbols);
 
-        // 3) 조건 체크 + 구독 객체 조회 + 전송
+        // 3) 조건 평가 (DB 호출 없이 메모리 내)
         const now = Date.now();
         const COOLDOWN = 24 * 60 * 60 * 1000; // 24h
-        let triggered = 0;
-
-        for (const alert of alerts) {
+        const candidates = alerts.filter(alert => {
             const price = priceMap[alert.symbol];
-            if (price == null) continue;
-            // 쿨다운 체크
-            if (alert.triggered_at && now - new Date(alert.triggered_at).getTime() < COOLDOWN) continue;
-            const hit = alert.direction === 'above' ? price >= alert.target_price
-                                                    : price <= alert.target_price;
-            if (!hit) continue;
+            if (price == null) return false;
+            if (alert.triggered_at && now - new Date(alert.triggered_at).getTime() < COOLDOWN) return false;
+            return alert.direction === 'above'
+                ? price >= alert.target_price
+                : price <= alert.target_price;
+        });
+        if (!candidates.length) return res.json({ ok: true, checked: alerts.length, triggered: 0 });
 
-            // 구독 정보 조회
-            const { data: subRow } = await _pushSupa.from('push_subscriptions')
-                .select('subscription').eq('endpoint', alert.endpoint).single();
-            if (!subRow?.subscription) continue;
+        // 4) 구독 정보 일괄 조회 (단일 쿼리, .in(...))
+        const uniqueEndpoints = [...new Set(candidates.map(a => a.endpoint))];
+        const { data: subRows } = await _pushSupa.from('push_subscriptions')
+            .select('endpoint, subscription')
+            .in('endpoint', uniqueEndpoints);
+        const subMap = Object.fromEntries((subRows || []).map(r => [r.endpoint, r.subscription]));
 
+        // 5) 병렬 발송 + 결과 집계
+        const expiredEndpoints = new Set();
+        const triggeredIds = [];
+        await Promise.all(candidates.map(async alert => {
+            const subscription = subMap[alert.endpoint];
+            if (!subscription) return;
+            const price = priceMap[alert.symbol];
             const dir = alert.direction === 'above' ? '↑ 목표가 도달' : '↓ 목표가 도달';
             const payload = JSON.stringify({
                 title: `📈 ${alert.symbol} ${dir}`,
@@ -2489,24 +2700,68 @@ app.get('/api/cron/check-alerts', cronAuth, async (req, res) => {
                 tag: `price-${alert.symbol}`,
             });
             try {
-                await webpush.sendNotification(subRow.subscription, payload);
-                await _pushSupa.from('price_alerts').update({ triggered_at: new Date().toISOString() }).eq('id', alert.id);
-                triggered++;
-            } catch(e) {
-                console.error('[cron/check-alerts] sendNotification failed', e.statusCode, e.message);
-                // 구독 만료(410) 시 비활성화
-                if (e.statusCode === 410) {
-                    await _pushSupa.from('push_subscriptions').delete().eq('endpoint', alert.endpoint);
-                    await _pushSupa.from('price_alerts').update({ active: false }).eq('endpoint', alert.endpoint);
+                await webpush.sendNotification(subscription, payload);
+                triggeredIds.push(alert.id);
+            } catch (e) {
+                console.error('[cron/check-alerts] send fail', e.statusCode, e.message);
+                if (e.statusCode === 410 || e.statusCode === 404) {
+                    expiredEndpoints.add(alert.endpoint);
                 }
             }
+        }));
+
+        // 6) DB 업데이트 (배치)
+        if (triggeredIds.length) {
+            await _pushSupa.from('price_alerts')
+                .update({ triggered_at: new Date().toISOString() })
+                .in('id', triggeredIds);
         }
-        res.json({ ok: true, checked: alerts.length, triggered });
+        if (expiredEndpoints.size) {
+            const arr = [...expiredEndpoints];
+            await Promise.all([
+                _pushSupa.from('push_subscriptions').delete().in('endpoint', arr),
+                _pushSupa.from('price_alerts').update({ active: false }).in('endpoint', arr),
+            ]);
+        }
+
+        res.json({
+            ok: true,
+            checked: alerts.length,
+            triggered: triggeredIds.length,
+            expired: expiredEndpoints.size,
+        });
     } catch(err) {
         console.error('[cron/check-alerts]', err.message);
         res.status(500).json({ error: err.message });
     }
 });
+
+// ── "내일 실적 발표 종목" 일자별 캐시 (모듈 스코프) ─────────────
+// 같은 날짜(UTC)에 대해 한 번만 S&P500 배치 fetch → 동일 일자 내 재실행은 캐시 사용.
+// Vercel 서버리스는 인스턴스가 warm 일 동안만 유지되지만, 동일 인스턴스에서 재호출
+// 또는 디버그용 재호출 시 Yahoo 부하를 줄임.
+let _tomorrowEarningsCache = { date: null, symbols: null };
+
+async function _getTomorrowEarningsSymbols(tDate) {
+    if (_tomorrowEarningsCache.date === tDate && _tomorrowEarningsCache.symbols) {
+        return _tomorrowEarningsCache.symbols;
+    }
+    const fromTs = Math.floor(new Date(tDate + 'T00:00:00Z').getTime() / 1000);
+    const toTs   = Math.floor(new Date(tDate + 'T23:59:59Z').getTime() / 1000);
+    let qsMap;
+    try {
+        qsMap = await _fetchEarningsBatch([..._SP500]);
+    } catch (e) {
+        console.error('[earnings-reminder] fetch batch fail', e.message);
+        return new Set();
+    }
+    const syms = new Set();
+    qsMap.forEach((qs, sym) => {
+        if (_extractEarningsItems(sym, qs, fromTs, toTs).length) syms.add(sym);
+    });
+    _tomorrowEarningsCache = { date: tDate, symbols: syms };
+    return syms;
+}
 
 // ── Cron: 실적 발표 전날 리마인더 (매일 00:00 UTC) ──────────────
 app.get('/api/cron/earnings-reminder', cronAuth, async (req, res) => {
@@ -2514,8 +2769,7 @@ app.get('/api/cron/earnings-reminder', cronAuth, async (req, res) => {
     try {
         // 내일 날짜 계산 (UTC)
         const tomorrow = new Date(Date.now() + 86400000);
-        const fmt = d => d.toISOString().slice(0, 10);
-        const tDate = fmt(tomorrow);
+        const tDate = tomorrow.toISOString().slice(0, 10);
 
         // 1) 구독 목록 전체
         const { data: subs, error: sErr } = await _pushSupa.from('push_subscriptions')
@@ -2523,40 +2777,49 @@ app.get('/api/cron/earnings-reminder', cronAuth, async (req, res) => {
         if (sErr) throw sErr;
         if (!subs?.length) return res.json({ ok: true, sent: 0 });
 
-        // 2) 내일 실적 발표 종목
-        const { data: earnData } = await _fetchEarningsBatch([..._SP500]).then(async (qsMap) => {
-            // 내일 날짜 필터
-            const fromTs = Math.floor(new Date(tDate + 'T00:00:00Z').getTime() / 1000);
-            const toTs   = Math.floor(new Date(tDate + 'T23:59:59Z').getTime() / 1000);
-            const items = [];
-            qsMap.forEach((qs, sym) => items.push(..._extractEarningsItems(sym, qs, fromTs, toTs)));
-            return { data: items };
-        }).catch(() => ({ data: [] }));
-
-        const tomorrowSyms = new Set((earnData || []).map(i => i.symbol));
+        // 2) 내일 실적 발표 종목 (캐시 사용)
+        const tomorrowSyms = await _getTomorrowEarningsSymbols(tDate);
         if (!tomorrowSyms.size) return res.json({ ok: true, sent: 0, reason: 'no earnings tomorrow' });
 
-        // 3) 구독자별 favs 교집합 확인 후 전송
-        let sent = 0;
-        for (const sub of subs) {
+        // 3) 구독자별 favs 교집합 확인 후 병렬 전송
+        const expiredEndpoints = new Set();
+        const results = await Promise.all(subs.map(async sub => {
             const hits = (sub.favs || []).filter(s => tomorrowSyms.has(s));
-            if (!hits.length) continue;
+            if (!hits.length) return 0;
             const payload = JSON.stringify({
                 title: '📊 내일 실적 발표 예정',
-                body: `즐겨찾기 종목 실적: ${hits.join(', ')}`,
+                body: `즐겨찾기 종목 실적: ${hits.slice(0, 8).join(', ')}${hits.length > 8 ? ` 외 ${hits.length-8}개` : ''}`,
                 url: '/earnings',
                 tag: 'earnings-reminder',
             });
             try {
                 await webpush.sendNotification(sub.subscription, payload);
-                sent++;
-            } catch(e) {
-                if (e.statusCode === 410) {
-                    await _pushSupa.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+                return 1;
+            } catch (e) {
+                if (e.statusCode === 410 || e.statusCode === 404) {
+                    expiredEndpoints.add(sub.endpoint);
                 }
+                return 0;
             }
+        }));
+        const sent = results.reduce((a, b) => a + b, 0);
+
+        // 만료 구독 정리 (배치)
+        if (expiredEndpoints.size) {
+            const arr = [...expiredEndpoints];
+            await Promise.all([
+                _pushSupa.from('push_subscriptions').delete().in('endpoint', arr),
+                _pushSupa.from('price_alerts').update({ active: false }).in('endpoint', arr),
+            ]);
         }
-        res.json({ ok: true, sent, tomorrowEarnings: [...tomorrowSyms].slice(0, 20) });
+
+        res.json({
+            ok: true,
+            sent,
+            expired: expiredEndpoints.size,
+            tomorrowEarnings: [...tomorrowSyms].slice(0, 20),
+            cached: _tomorrowEarningsCache.date === tDate,
+        });
     } catch(err) {
         console.error('[cron/earnings-reminder]', err.message);
         res.status(500).json({ error: err.message });

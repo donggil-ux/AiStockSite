@@ -931,6 +931,31 @@
         .ai-summary-report-inner strong{color:var(--text);font-weight:700;}
         .ai-summary-report-inner hr{border:none;border-top:1px solid var(--border);margin:12px 0;}
 
+        /* ===== AI 차트 패턴 ===== */
+        .ai-pattern-section{margin-top:10px;}
+        .ai-pattern-title,.ai-horizon-title{font-size:12px;font-weight:800;color:var(--text);margin:0 0 6px;letter-spacing:.2px;}
+        .ai-pattern-list{display:flex;flex-wrap:wrap;gap:6px;}
+        .ai-pattern-chip{flex:1 1 calc(50% - 6px);min-width:140px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r3);padding:8px 10px;}
+        .ai-pattern-chip-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px;}
+        .ai-pattern-name{font-size:12px;font-weight:700;color:var(--text);}
+        .ai-pattern-status{font-size:10px;font-weight:800;padding:2px 6px;border-radius:999px;letter-spacing:.3px;}
+        .ai-pattern-status-forming{background:rgba(167,139,250,.15);color:#a78bfa;}
+        .ai-pattern-status-completed{background:rgba(34,197,94,.15);color:#22c55e;}
+        .ai-pattern-status-breakout{background:rgba(245,158,11,.18);color:#f59e0b;}
+        .ai-pattern-chip-meta{display:flex;flex-wrap:wrap;gap:8px;font-size:11px;color:var(--text2);}
+        .ai-pattern-chip-meta b{color:var(--text);font-weight:700;}
+        .ai-pattern-rat{font-size:11px;color:var(--text2);line-height:1.5;margin-top:4px;}
+
+        /* ===== AI 시간 지평별 시나리오 ===== */
+        .ai-horizon-section{margin-top:10px;}
+        .ai-horizon-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+        .ai-horizon-cell{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r3);padding:8px 10px;}
+        .ai-horizon-cell.is-primary{border-color:var(--purple);box-shadow:0 0 0 1px rgba(167,139,250,.35) inset;}
+        .ai-horizon-cell-label{font-size:10px;font-weight:800;color:var(--text2);letter-spacing:.4px;margin-bottom:3px;}
+        .ai-horizon-cell.is-primary .ai-horizon-cell-label{color:var(--purple);}
+        .ai-horizon-cell-text{font-size:11.5px;color:var(--text);line-height:1.55;}
+        @media (max-width:640px){.ai-horizon-grid{grid-template-columns:1fr;}.ai-pattern-chip{flex-basis:100%;}}
+
         /* ===== AI 분석 리포트 (구조화 카드) ===== */
         .ar-section{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r3);padding:12px 14px;margin-bottom:10px;}
         .ar-section:last-child{margin-bottom:0;}
@@ -2486,6 +2511,10 @@
         .disc-screen-title{font-size:22px;font-weight:700;letter-spacing:-.02em;margin-bottom:4px;color:var(--text);}
         .disc-screen-sub{font-size:13px;color:var(--text3);margin-bottom:16px;}
         .disc-preset-tabs{margin-bottom:14px;}
+        /* 레이아웃 shift 방지: main 영역 min-height 고정 */
+        .disc-main{min-height:520px;display:flex;flex-direction:column;}
+        .disc-main .top100-colhead{flex-shrink:0;}
+        .disc-grid{flex:1;min-height:0;}
         .disc-keymetric{
             font-size:12.5px;color:var(--text2);text-align:right;
             font-variant-numeric:tabular-nums;font-weight:600;letter-spacing:-0.005em;
@@ -2494,23 +2523,57 @@
         .disc-keymetric.up{color:var(--red);}
         .disc-keymetric.down{color:var(--blue);}
         .disc-empty,.disc-empty-inline{
-            padding:48px 16px;text-align:center;color:var(--text3);font-size:13px;
+            padding:80px 16px;text-align:center;color:var(--text3);font-size:13px;
+            flex:1;display:flex;align-items:center;justify-content:center;
         }
-        .disc-empty-inline{padding:32px 16px;}
+        .disc-empty-inline{padding:60px 16px;flex:none;}
         .discover-section{margin-top:32px;padding:0 16px;}
         .discover-section .home-section-header{padding:0;margin-bottom:10px;}
 
-        /* 데스크톱(≥900px): 전용 화면 전용 그리드 = TOP100 기본값과 동일한 7컬럼 */
+        /* 데스크톱(≥900px): 전용 화면 전용 그리드 — 12컬럼 (5개 신규 데이터 컬럼 추가) */
         @media(min-width:900px){
             .discover-screen{padding:32px 32px 64px;}
             .discover-screen .disc-screen-title{font-size:28px;}
             .discover-screen .disc-screen-sub{font-size:14px;margin-bottom:20px;}
             .discover-screen .top100-row,
             .discover-screen .top100-colhead{
-                grid-template-columns:28px 28px 44px minmax(140px,220px) minmax(90px,1fr) 100px 88px;
-                grid-template-areas:"rank rank logo name reason price change";
+                grid-template-columns:28px 28px 44px minmax(120px,1.5fr) minmax(70px,0.8fr) 80px 70px 70px 70px 70px 84px 84px;
+                grid-template-areas:"rank rank logo name reason price change close high low vol upside";
             }
             .disc-keymetric{font-size:13px;padding:0 8px;}
+            /* 신규 컬럼 — colhead 배치 */
+            .discover-screen #discoverColHead .t100-ch-prevclose{grid-area:close;text-align:right;}
+            .discover-screen #discoverColHead .t100-ch-high     {grid-area:high; text-align:right;}
+            .discover-screen #discoverColHead .t100-ch-low      {grid-area:low;  text-align:right;}
+            .discover-screen #discoverColHead .t100-ch-volume   {grid-area:vol;  text-align:right;}
+            .discover-screen #discoverColHead .t100-ch-upside   {grid-area:upside;text-align:right;}
+            /* 신규 컬럼 — 행 셀 배치 */
+            .discover-screen .disc-row .disc-prevclose{grid-area:close;}
+            .discover-screen .disc-row .disc-high     {grid-area:high;}
+            .discover-screen .disc-row .disc-low      {grid-area:low;}
+            .discover-screen .disc-row .disc-volume   {grid-area:vol;}
+            .discover-screen .disc-row .disc-upside   {grid-area:upside;}
+        }
+        /* 신규 컬럼 공통 스타일 */
+        .disc-prevclose,.disc-high,.disc-low,.disc-volume,.disc-upside{
+            font-size:12.5px;font-variant-numeric:tabular-nums;text-align:right;
+            min-width:0;padding:0 2px;color:var(--text2);
+        }
+        .disc-high{color:var(--red);}
+        .disc-low{color:var(--blue);}
+        .disc-upside{font-weight:700;color:var(--text2);}
+        .disc-upside.pos{color:var(--red);}
+        .disc-upside.neg{color:var(--blue);}
+        /* 수평 스크롤 — 화면이 좁을 때 */
+        .disc-main{overflow-x:auto;}
+        /* 모바일(≤899px): 신규 컬럼 숨김 */
+        @media(max-width:899px){
+            .disc-prevclose,.disc-high,.disc-low,.disc-volume,.disc-upside,
+            #discoverColHead .t100-ch-prevclose,
+            #discoverColHead .t100-ch-high,
+            #discoverColHead .t100-ch-low,
+            #discoverColHead .t100-ch-volume,
+            #discoverColHead .t100-ch-upside{display:none;}
         }
 
         /* 모바일(≤640px): reason → keymetric 영역을 2행으로 배치 (이미 top100 모바일 area 규칙 활용) */
@@ -2686,6 +2749,8 @@
                 display:grid;
                 grid-template-columns:200px minmax(0,1fr);
                 gap:32px;align-items:start;
+                /* 전체 레이아웃 최소 높이 고정으로 사이드바 jump 방지 */
+                min-height:600px;
             }
             .disc-sidebar{position:sticky;top:16px;align-self:start;}
             .disc-sidebar-title{display:block;}
