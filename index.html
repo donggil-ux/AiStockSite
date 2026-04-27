@@ -1745,8 +1745,9 @@
     }
 
     // Top100 컬럼 헤더의 활성 정렬 라벨 갱신 (현재 필터에 따라 라벨 변화 + 강조)
+    // ※ 골라보기(#discoverColHead)는 절대 건드리지 않음 — 라벨이 다름
     function _syncTop100ColHead(filter) {
-        const ch = document.querySelector('.top100-colhead .t100-ch-change');
+        const ch = document.querySelector('.top100-colhead:not(#discoverColHead) .t100-ch-change');
         if (!ch) return;
         const labelMap = {
             most_actives: '등락률',
@@ -4597,7 +4598,7 @@
     // ========================================
     // Discover (주식 골라보기)
     // ========================================
-    const DISCOVER_LS_KEY = 'discover_cache_v1';
+    const DISCOVER_LS_KEY = 'discover_cache_v2';   // v2: dayHigh/dayLow/prevClose/targetPrice 컬럼 추가
     const DISCOVER_CLIENT_TTL = 10 * 60 * 1000;
     window._discPreset = 'streak_up';
 
