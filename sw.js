@@ -4,7 +4,7 @@
 //   - 이미지/아이콘/폰트: 캐시 우선
 //   - /api/*: 네트워크만 (항상 최신)
 //   - skipWaiting + clients.claim: 새 SW 즉시 활성화 → 사용자 확인 불필요
-const CACHE_NAME = 'stockai-v110';
+const CACHE_NAME = 'stockai-v111';
 
 const STATIC_ASSETS = [
   '/icon.svg',

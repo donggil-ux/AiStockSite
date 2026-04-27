@@ -828,9 +828,10 @@
         .tab-order-btn{position:sticky;right:0;padding:14px 20px 14px 8px;font-size:15px;color:var(--text3);cursor:pointer;background:color-mix(in srgb, var(--bg) 95%, transparent);backdrop-filter:blur(20px);border:none;flex-shrink:0;transition:color .15s;font-family:inherit;}
         .tab-order-btn:hover{color:var(--blue);}
         /* 탭 순서 모달 */
-        .tab-order-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;backdrop-filter:blur(2px);}
+        /* z-index: tab-nav(1001), header(1100), ai-rec-modal(1151) 보다 위로 */
+        .tab-order-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1200;backdrop-filter:blur(2px);}
         .tab-order-overlay.show{display:block;}
-        .tab-order-modal{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-radius:20px 20px 0 0;padding:20px 20px 34px;z-index:1000;max-height:80vh;overflow-y:auto;}
+        .tab-order-modal{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-radius:20px 20px 0 0;padding:20px 20px 34px;z-index:1201;max-height:80vh;overflow-y:auto;}
         .tab-order-modal.show{display:block;animation:slideUp .25s ease;}
         @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
         .tab-order-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
