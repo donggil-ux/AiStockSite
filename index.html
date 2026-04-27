@@ -83,7 +83,6 @@
 <div class="side-nav-backdrop" id="sideNavBackdrop" onclick="closeSideNav()"></div>
 
 <div class="app-wrapper">
-<div id="offlineBanner" role="status" aria-live="polite"><span class="ob-dot"></span>오프라인 — 마지막으로 받은 데이터를 표시합니다</div>
 <div class="app">
     <!-- Header -->
     <header class="header" id="mainHeader">
@@ -10659,16 +10658,7 @@
         }
     }
 
-    // 오프라인 감지 배너 — PWA 에서 네트워크 끊김 시 사용자에게 명확히 알림
-    function _updateOfflineBanner() {
-        const el = document.getElementById('offlineBanner');
-        if (!el) return;
-        if (navigator.onLine === false) el.classList.add('show');
-        else el.classList.remove('show');
-    }
-    window.addEventListener('online',  _updateOfflineBanner);
-    window.addEventListener('offline', _updateOfflineBanner);
-    _updateOfflineBanner();
+    // 오프라인 배너 제거됨 — Comet 등 일부 브라우저에서 navigator.onLine 오탐 이슈로 비활성화
 
     // 서비스 워커 등록 + 새 버전 자동 감지 · 토스트 알림
     if ('serviceWorker' in navigator) {
