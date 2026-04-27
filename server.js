@@ -1248,6 +1248,53 @@ app.get('/api/stocktwits/:symbol', async (req, res) => {
 });
 
 /**
+ * 소셜 피드 — Apewisdom 종목별 멘션 통계
+ *   Reddit / 4chan / StockTwits 멘션을 집계하는 무료 API
+ *   GET /api/apewisdom/:symbol  →  { ticker, mentions, rank, mentions_24h_ago, rank_24h_ago, upvotes, name } | null
+ *   Apewisdom 의 page 1 (top ~100 ticker) 만 캐시. 미포함 ticker 는 null 반환.
+ */
+const _apewisdomCache = { data: null, ts: 0 };
+const APEWISDOM_TTL = 15 * 60 * 1000; // 15분
+
+async function _fetchApewisdomTop() {
+    const now = Date.now();
+    if (_apewisdomCache.data && now - _apewisdomCache.ts < APEWISDOM_TTL) {
+        return _apewisdomCache.data;
+    }
+    const map = new Map();
+    try {
+        // page 1 + 2 (top ~200) — 그 이하 ticker 는 멘션이 미미해 굳이 보여줄 가치 적음
+        for (const page of [1, 2]) {
+            const r = await fetch(`https://apewisdom.io/api/v1.0/filter/all-stocks/page/${page}`, {
+                headers: { 'User-Agent': 'StockAI/1.0' },
+            });
+            if (!r.ok) continue;
+            const d = await r.json();
+            (d?.results || []).forEach(item => {
+                if (item?.ticker) map.set(String(item.ticker).toUpperCase(), item);
+            });
+        }
+    } catch (e) {
+        console.warn('[apewisdom] fetch fail:', e.message);
+    }
+    _apewisdomCache.data = map;
+    _apewisdomCache.ts = now;
+    return map;
+}
+
+app.get('/api/apewisdom/:symbol', async (req, res) => {
+    const sym = String(req.params.symbol || '').toUpperCase();
+    if (!validSymbol(sym)) return res.status(400).json({ error: 'invalid symbol' });
+    try {
+        const map = await _fetchApewisdomTop();
+        const item = map.get(sym) || null;
+        res.json({ symbol: sym, item, ts: _apewisdomCache.ts });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
  * 소셜 피드 — 네이버 금융 토론실 (KR 종목 전용)
  * GET /api/naver-board/:symbol
  *   symbol: 6자리 코드 (005930) 또는 .KS/.KQ 접미사 포함
@@ -1278,6 +1325,10 @@ async function _fetchNaverBoardHtml(code) {
     return await r.text();
 }
 
+function _stripHtmlTags(s) {
+    return String(s || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+}
+
 function _parseNaverBoardHtml(html, code) {
     // <tr onMouseOver="mouseOver(this)" ... > ... </tr> 블록 추출
     const rowRegex = /<tr\s+onMouseOver="mouseOver\(this\)"[^>]*>([\s\S]*?)<\/tr>/g;
@@ -1285,25 +1336,35 @@ function _parseNaverBoardHtml(html, code) {
     let m;
     while ((m = rowRegex.exec(html)) !== null && posts.length < 20) {
         const row = m[1];
-        // 날짜
-        const dateMatch = row.match(/<span class="tah p10 gray03">([^<]+)<\/span>/);
-        const date = dateMatch ? dateMatch[1].trim() : '';
-        // 제목 + 링크 + nid (& 또는 &amp; 둘 다 허용)
-        const titleMatch = row.match(/<a href="\/item\/board_read\.naver\?code=\d+(?:&|&amp;)nid=(\d+)[^"]*"[^>]*title="([^"]+)"/);
+
+        // 행을 <td> ... </td> 블록 단위로 분리 (보통 6개: date / title / author / views / likes / dislikes)
+        const tds = [...row.matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/g)].map(x => x[1]);
+        if (tds.length < 6) continue;
+
+        // td0: 날짜
+        const date = _stripHtmlTags(tds[0]);
+
+        // td1: 제목 + 링크 + nid (& 또는 &amp; 모두 허용)
+        const titleMatch = tds[1].match(/<a href="\/item\/board_read\.naver\?code=\d+(?:&|&amp;)nid=(\d+)[^"]*"[^>]*title="([^"]+)"/);
         if (!titleMatch) continue;
-        const nid = titleMatch[1];
+        const nid   = titleMatch[1];
         const title = _decodeNaverHtmlEntities(titleMatch[2]).trim();
-        // 댓글 수 [N] 형식 (옵션)
-        const cmtMatch = row.match(/<span class="tah p9"[^>]*>\[<b>(\d+)<\/b>\]<\/span>/);
+
+        // 댓글 수 — title 셀 안 [<b>N</b>] 패턴
+        const cmtMatch = tds[1].match(/<span class="tah p9"[^>]*>\[<b>(\d+)<\/b>\]<\/span>/);
         const comments = cmtMatch ? Number(cmtMatch[1]) : 0;
-        // 작성자 — profile_thumb 다음 텍스트 노드
-        const authorMatch = row.match(/profile_thumb[\s\S]*?<\/span>\s*([^<\s][^<\n]*?)\s*</);
-        const author = authorMatch ? _decodeNaverHtmlEntities(authorMatch[1]).trim() : '';
-        // 조회 / 추천 / 비추천 — <td> 내부 첫 숫자
-        const numbers = [...row.matchAll(/<(?:span|strong)[^>]*>(\d+)<\/(?:span|strong)>/g)].map(x => Number(x[1]));
-        // numbers[0] 은 날짜 안에 들어있을 수 있으니, 마지막 3개만 사용
-        const tail = numbers.slice(-3);
-        const [views, likes, dislikes] = tail.length === 3 ? tail : [0, 0, 0];
+
+        // td2: 작성자 — img/span 등 모두 제거하고 남은 텍스트
+        const author = _decodeNaverHtmlEntities(_stripHtmlTags(tds[2])) || '익명';
+
+        // td3: 조회 / td4: 추천 / td5: 비추천 — 각 셀 텍스트에서 첫 숫자 추출
+        const pickNum = (s) => {
+            const t = _stripHtmlTags(s).replace(/[^\d-]/g, '');
+            return t ? Number(t) : 0;
+        };
+        const views    = pickNum(tds[3]);
+        const likes    = pickNum(tds[4]);
+        const dislikes = pickNum(tds[5]);
 
         posts.push({
             title,

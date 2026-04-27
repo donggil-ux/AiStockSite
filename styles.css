@@ -588,6 +588,25 @@
         .social-empty{padding:40px 16px;text-align:center;color:var(--text3);}
         .social-empty-icon{font-size:32px;margin-bottom:8px;}
         .social-empty-text{font-size:13px;line-height:1.6;}
+        /* ── Apewisdom 멘션 통계 카드 ── */
+        .apw-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;}
+        .apw-hdr{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+        .apw-emoji{font-size:18px;}
+        .apw-title{font-size:13px;font-weight:800;color:var(--text);}
+        .apw-sub{font-size:11px;color:var(--text3);font-weight:500;}
+        .apw-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+        .apw-stat{display:flex;flex-direction:column;gap:4px;align-items:flex-start;padding:8px 10px;background:var(--bg3);border-radius:8px;}
+        .apw-lbl{font-size:10.5px;color:var(--text3);font-weight:600;letter-spacing:.3px;}
+        .apw-val{font-size:18px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;line-height:1.1;}
+        .apw-delta{font-size:11px;font-weight:700;color:var(--text3);font-variant-numeric:tabular-nums;}
+        .apw-delta.up{color:var(--green);}
+        .apw-delta.down{color:var(--red);}
+        @media(max-width:480px){
+            .apw-grid{grid-template-columns:repeat(3,1fr);gap:6px;}
+            .apw-stat{padding:6px 8px;}
+            .apw-val{font-size:15px;}
+        }
+
         /* ── 네이버 토론실 카드 ── */
         .nv-card{display:block;padding:12px 12px;border-radius:var(--r3);background:transparent;transition:background .12s;text-decoration:none;color:inherit;border-bottom:1px solid var(--border);}
         .nv-card:hover{background:var(--bg3);}

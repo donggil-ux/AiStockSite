@@ -1026,6 +1026,8 @@
             <div id="newsList" class="news-list"></div>
         </div>
         <div class="tab-content" id="tabSocial" data-tab="social" style="padding:16px 24px 24px;">
+            <!-- Apewisdom 멘션 통계 카드 (집계: Reddit/4chan/StockTwits) -->
+            <div id="apewisdomCard" style="display:none;margin-bottom:12px;"></div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;flex-wrap:wrap;">
                 <div class="news-filter-bar" style="padding:0;margin:0;flex:1;min-width:0;">
                     <button class="news-filter-chip social-src-chip" data-src="stocktwits" onclick="setSocialSource('stocktwits')">StockTwits</button>
@@ -11618,7 +11620,68 @@
         const nvEl = document.getElementById('naverBoardFeed');
         if (stEl) stEl.innerHTML = '';
         if (nvEl) nvEl.innerHTML = '';
+        // Apewisdom 멘션 통계 카드 (US 종목만 의미 있음 — KR 은 Reddit 에서 거의 안 다룸)
+        loadApewisdomCard(symbol);
         setSocialSource(defaultSrc);
+    }
+
+    // ── Apewisdom 멘션 통계 (Reddit / 4chan / StockTwits 집계) ─────────
+    async function loadApewisdomCard(symbol) {
+        const card = document.getElementById('apewisdomCard');
+        if (!card) return;
+        // KR 종목은 Reddit 에 거의 안 올라오니 카드 숨김
+        if (_isKrSymbol(symbol)) { card.style.display = 'none'; card.innerHTML = ''; return; }
+        try {
+            const res = await fetch(`/api/apewisdom/${encodeURIComponent(symbol)}`);
+            if (!res.ok) throw new Error(res.status);
+            const data = await res.json();
+            const item = data && data.item;
+            if (!item) {
+                card.style.display = 'none'; card.innerHTML = ''; return;
+            }
+            const m   = item.mentions || 0;
+            const m24 = item.mentions_24h_ago || 0;
+            const r   = item.rank || 0;
+            const r24 = item.rank_24h_ago || 0;
+            const up  = item.upvotes || 0;
+            // 24h 변화율
+            const dPct = m24 > 0 ? ((m - m24) / m24) * 100 : null;
+            const dCls = dPct == null ? '' : (dPct >= 0 ? 'up' : 'down');
+            const dStr = dPct == null ? '—' : `${dPct >= 0 ? '+' : ''}${dPct.toFixed(0)}%`;
+            // 랭크 변화 (낮을수록 인기 ↑)
+            const rankDelta = (r24 && r) ? (r24 - r) : 0; // 양수 = 순위 상승
+            const rankIcon = rankDelta > 0 ? '▲' : rankDelta < 0 ? '▼' : '·';
+            const rankCls  = rankDelta > 0 ? 'up' : rankDelta < 0 ? 'down' : '';
+
+            card.style.display = 'block';
+            card.innerHTML = `
+                <div class="apw-card">
+                    <div class="apw-hdr">
+                        <span class="apw-emoji">🐒</span>
+                        <span class="apw-title">Apewisdom 커뮤니티 멘션</span>
+                        <span class="apw-sub">Reddit · 4chan · StockTwits 집계</span>
+                    </div>
+                    <div class="apw-grid">
+                        <div class="apw-stat">
+                            <div class="apw-lbl">멘션 (24h)</div>
+                            <div class="apw-val">${m.toLocaleString()}</div>
+                            <div class="apw-delta ${dCls}">${dStr}</div>
+                        </div>
+                        <div class="apw-stat">
+                            <div class="apw-lbl">순위</div>
+                            <div class="apw-val">#${r}</div>
+                            <div class="apw-delta ${rankCls}">${rankIcon} ${rankDelta !== 0 ? Math.abs(rankDelta) : ''}</div>
+                        </div>
+                        <div class="apw-stat">
+                            <div class="apw-lbl">총 추천</div>
+                            <div class="apw-val">${up.toLocaleString()}</div>
+                            <div class="apw-delta">↑</div>
+                        </div>
+                    </div>
+                </div>`;
+        } catch {
+            card.style.display = 'none'; card.innerHTML = '';
+        }
     }
 
     function setSocialSource(src) {
@@ -13532,7 +13595,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         loadVolAlert,
         loadNewsTab, reloadNewsTab, renderNewsList, _newsTimeAgo,
         openTabOrderModal, closeTabOrderModal, saveTabOrder, resetTabOrder,
-        loadSocialTab, loadStockTwits, setSocialSource, reloadSocialTab, loadSocialHot, toggleStTranslate,
+        loadSocialTab, loadStockTwits, loadApewisdomCard, setSocialSource, reloadSocialTab, loadSocialHot, toggleStTranslate,
         loadShortTab, reloadShortTab, renderShortTab, _buildGaugeSVG,
         loadYouTubeTab, reloadYouTubeTab, renderYouTubeCards, _ytLogClick,
         renderAnalystTargets,
