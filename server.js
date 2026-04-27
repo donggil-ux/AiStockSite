@@ -824,9 +824,103 @@ async function _fetchQuoteSnapshotsFull(symbols) {
     return out;
 }
 
-// 4개 preset 평가
-function _evaluateDiscoverPresets(sparkMap, quoteMap, sectorMap = new Map()) {
-    const all = { streak_up: [], streak_down: [], near_52h: [], vol_surge: [], undervalued: [], growth: [] };
+// ─────────────────────────────────────────────
+// 기관 매집 카운트 — Supabase guru_position 에서 최근 2분기 NEW/ADD 액션 ticker 별 집계
+// ─────────────────────────────────────────────
+const _instAccumCache = { data: null, ts: 0 };
+const INST_ACCUM_TTL = 24 * 60 * 60 * 1000; // 24시간 (13F 분기 단위)
+async function _fetchInstitutionalAccumulation(symbols) {
+    const now = Date.now();
+    if (_instAccumCache.data && now - _instAccumCache.ts < INST_ACCUM_TTL) {
+        return _instAccumCache.data;
+    }
+    const out = new Map();
+    const sb = getSupabase();
+    if (!sb || !symbols.length) { _instAccumCache.data = out; _instAccumCache.ts = now; return out; }
+    try {
+        // 최근 2분기 quarter 식별
+        const { data: qrs } = await sb
+            .from('guru_quarter')
+            .select('quarter')
+            .order('quarter', { ascending: false })
+            .limit(50);
+        const uniqQ = Array.from(new Set((qrs || []).map(r => r.quarter))).slice(0, 2);
+        if (!uniqQ.length) { _instAccumCache.data = out; _instAccumCache.ts = now; return out; }
+
+        // ticker 청크 단위로 NEW/ADD 액션 조회 → ticker 별 row count 집계
+        const upper = symbols.map(s => String(s || '').toUpperCase()).filter(Boolean);
+        const CHUNK = 200;
+        for (let i = 0; i < upper.length; i += CHUNK) {
+            const chunk = upper.slice(i, i + CHUNK);
+            const { data, error } = await sb
+                .from('guru_position')
+                .select('ticker')
+                .in('ticker', chunk)
+                .in('quarter', uniqQ)
+                .in('action', ['NEW', 'ADD']);
+            if (error) continue;
+            (data || []).forEach(r => {
+                if (!r.ticker) return;
+                const t = r.ticker.toUpperCase();
+                out.set(t, (out.get(t) || 0) + 1);
+            });
+        }
+    } catch (e) {
+        console.warn('[discover] inst accum fail:', e.message);
+    }
+    _instAccumCache.data = out; _instAccumCache.ts = now;
+    return out;
+}
+
+// ─────────────────────────────────────────────
+// 화제성 플래그 — Stocktwits trending + news_reason 최근 3일 union
+// ─────────────────────────────────────────────
+const _buzzCache = { data: null, ts: 0 };
+const BUZZ_TTL = 30 * 60 * 1000; // 30분
+async function _fetchBuzzFlags(symbols) {
+    const now = Date.now();
+    if (_buzzCache.data && now - _buzzCache.ts < BUZZ_TTL) {
+        return _buzzCache.data;
+    }
+    const out = new Set();
+    // 1) Stocktwits trending
+    try {
+        const r = await fetch(
+            'https://api.stocktwits.com/api/2/streams/trending.json?limit=30',
+            { headers: { 'User-Agent': 'StockAI/1.0' } }
+        );
+        if (r.ok) {
+            const d = await r.json();
+            (d?.symbols || []).forEach(s => { if (s.symbol) out.add(String(s.symbol).toUpperCase()); });
+        }
+    } catch (e) { /* 무시 */ }
+
+    // 2) news_reason 최근 3일 업데이트된 symbol
+    const sb = getSupabase();
+    if (sb && symbols.length) {
+        try {
+            const cutoff = new Date(now - 3 * 24 * 60 * 60 * 1000).toISOString();
+            const upper = symbols.map(s => String(s || '').toUpperCase()).filter(Boolean);
+            const CHUNK = 200;
+            for (let i = 0; i < upper.length; i += CHUNK) {
+                const chunk = upper.slice(i, i + CHUNK);
+                const { data, error } = await sb
+                    .from('news_reason')
+                    .select('symbol,updated_at')
+                    .in('symbol', chunk)
+                    .gte('updated_at', cutoff);
+                if (error) continue;
+                (data || []).forEach(r => { if (r.symbol) out.add(String(r.symbol).toUpperCase()); });
+            }
+        } catch (e) { /* 무시 */ }
+    }
+    _buzzCache.data = out; _buzzCache.ts = now;
+    return out;
+}
+
+// 7개 preset 평가
+function _evaluateDiscoverPresets(sparkMap, quoteMap, sectorMap = new Map(), instMap = new Map(), buzzSet = new Set()) {
+    const all = { streak_up: [], streak_down: [], near_52h: [], vol_surge: [], undervalued: [], growth: [], smart_money_growth: [] };
     const fmtPct = (v) => (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
     for (const [sym, q] of quoteMap.entries()) {
         if (!q || q.price == null) continue;
@@ -933,13 +1027,39 @@ function _evaluateDiscoverPresets(sparkMap, quoteMap, sectorMap = new Map()) {
         // 5) growth — EPS 성장 기대 (forward > trailing, 성장률 ≥ 10%)
         const epsT = q.epsTrailing;
         const epsF = q.epsForward;
+        let epsGrowth = null;
         if (epsT != null && epsF != null && epsT > 0 && epsF > epsT) {
-            const epsGrowth = ((epsF - epsT) / epsT) * 100;
+            epsGrowth = ((epsF - epsT) / epsT) * 100;
             if (epsGrowth >= 10 && q.price >= 5) {
                 all.growth.push({ ...base,
                     insight: `EPS 성장 ${fmtPct(epsGrowth)} · 실적 개선 기대`,
                     keyMetric: { label: 'EPS 성장', value: fmtPct(epsGrowth), dir: 'up', num: epsGrowth }});
             }
+        }
+
+        // 6) smart_money_growth — 저평가 ∩ 성장 (필수) + 기관 매집/화제성 (가산점)
+        //    score = (20-PE)*2 + 성장률*2 + 기관 NEW/ADD 카운트*8 + buzz*15
+        const baseMet = (pe != null && pe > 0 && pe <= 20)
+                     && (pb != null && pb > 0 && pb <= 4)
+                     && (epsGrowth != null && epsGrowth >= 10)
+                     && (q.price >= 5);
+        if (baseMet) {
+            const instCount = instMap.get(sym) || 0;
+            const isBuzz   = buzzSet.has(sym);
+            // 성장률 outlier(수천% 등)가 점수를 독식하지 않도록 100% 로 cap
+            const score = (20 - pe) * 2
+                        + Math.min(epsGrowth, 100) * 2
+                        + instCount * 8
+                        + (isBuzz ? 15 : 0);
+            const parts = [`PER ${pe.toFixed(1)}`, `성장 ${fmtPct(epsGrowth)}`];
+            if (instCount > 0) parts.push(`기관 ${instCount}`);
+            const valStr = parts.join(' · ') + (isBuzz ? ' 🔥' : '');
+            const insightTags = ['저평가·성장'];
+            if (instCount > 0) insightTags.push('기관매수');
+            if (isBuzz) insightTags.push('화제');
+            all.smart_money_growth.push({ ...base,
+                insight: insightTags.join(' · '),
+                keyMetric: { label: '스코어', value: valStr, dir: 'up', num: score }});
         }
     }
     // 정렬
@@ -949,12 +1069,14 @@ function _evaluateDiscoverPresets(sparkMap, quoteMap, sectorMap = new Map()) {
     all.vol_surge.sort((a,b) => b.keyMetric.num - a.keyMetric.num);
     all.undervalued.sort((a,b) => a.keyMetric.num - b.keyMetric.num); // PER 낮을수록 상위
     all.growth.sort((a,b) => b.keyMetric.num - a.keyMetric.num);      // EPS 성장률 높을수록 상위
-    // 상위 50 컷
+    all.smart_money_growth.sort((a,b) => b.keyMetric.num - a.keyMetric.num); // 스코어 높을수록 상위
+    // 상위 컷 (smart_money_growth 는 30개)
     ['streak_up','streak_down','near_52h','vol_surge','undervalued','growth'].forEach(k => { all[k] = all[k].slice(0, 50); });
+    all.smart_money_growth = all.smart_money_growth.slice(0, 30);
     return all;
 }
 
-const VALID_DISCOVER_PRESETS = new Set(['streak_up','streak_down','near_52h','vol_surge','undervalued','growth']);
+const VALID_DISCOVER_PRESETS = new Set(['streak_up','streak_down','near_52h','vol_surge','undervalued','growth','smart_money_growth']);
 
 app.get('/api/discover', async (req, res) => {
     const preset = String(req.query.preset || 'streak_up');
@@ -968,11 +1090,13 @@ app.get('/api/discover', async (req, res) => {
         if (!all) {
             const { symbols, sectors } = await _buildDiscoverUniverse();
             if (!symbols.length) return res.json({ preset, items: [], ts: now });
-            const [sparkMap, quoteMap] = await Promise.all([
+            const [sparkMap, quoteMap, instMap, buzzSet] = await Promise.all([
                 _fetchSparkBatch(symbols),
                 _fetchQuoteSnapshotsFull(symbols),
+                _fetchInstitutionalAccumulation(symbols),
+                _fetchBuzzFlags(symbols),
             ]);
-            all = _evaluateDiscoverPresets(sparkMap, quoteMap, sectors);
+            all = _evaluateDiscoverPresets(sparkMap, quoteMap, sectors, instMap, buzzSet);
             _discoverCache.set('all', { data: all, ts: now });
         }
         res.json({ preset, items: all[preset] || [], ts: now });

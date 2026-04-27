@@ -109,12 +109,6 @@
         </div>
         <!-- 시장 온도계 — 탭 위로 노출 -->
         <div id="marketThermometer" class="header-thermo" style="display:none;"></div>
-        <nav class="header-qnav" id="headerQNav">
-            <button class="hqnav-item" id="hqSm" onclick="goSmartMoney()">기관 13F</button>
-            <button class="hqnav-item" id="hqVs" onclick="goVisionScanner()">AI 차트판독기</button>
-            <button class="hqnav-item" id="hqEco" onclick="goEconomic()">경제지표</button>
-            <button class="hqnav-item" id="hqDc" onclick="goDiscover()">주식 골라보기</button>
-        </nav>
     </header>
 
     <!-- Welcome Screen -->
@@ -328,6 +322,7 @@
                     <button class="top100-filter"        data-preset="near_52h"    onclick="setDiscoverPreset('near_52h')"><span class="disc-chip-emoji">🚀</span><span class="disc-chip-label">52주 신고가</span></button>
                     <button class="top100-filter"        data-preset="undervalued" onclick="setDiscoverPreset('undervalued')"><span class="disc-chip-emoji">💎</span><span class="disc-chip-label">저평가 주식</span></button>
                     <button class="top100-filter"        data-preset="growth"      onclick="setDiscoverPreset('growth')"><span class="disc-chip-emoji">🌱</span><span class="disc-chip-label">성장 기대주</span></button>
+                    <button class="top100-filter"        data-preset="smart_money_growth" onclick="setDiscoverPreset('smart_money_growth')"><span class="disc-chip-emoji">🥷</span><span class="disc-chip-label">스마트머니 픽</span></button>
                 </div>
             </aside>
             <main class="disc-main">
@@ -4636,6 +4631,7 @@
         near_52h:    { title: '🚀 52주 신고가',  keyLabel: '52H 대비', emptyHint: '52주 신고가 근처 종목이 오늘은 없어요.' },
         undervalued: { title: '💎 저평가 주식',  keyLabel: 'PER',      emptyHint: 'PER·PBR 기준 저평가 종목이 없어요.' },
         growth:      { title: '🌱 성장 기대주',  keyLabel: 'EPS 성장', emptyHint: 'EPS 성장 기대 종목이 없어요.' },
+        smart_money_growth: { title: '🥷 스마트머니 픽', keyLabel: '스코어', emptyHint: '저평가·성장 조건을 만족하는 종목이 오늘은 없어요.' },
     };
 
     function _discLoadLS(preset) {
