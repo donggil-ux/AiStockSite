@@ -234,26 +234,26 @@
             </div>
         </div>
 
-        <!-- 주식 골라보기 (홈 임베드: 연속 상승세 TOP 5) -->
+        <!-- 주식 골라보기 (홈 임베드: 연속 상승세 TOP 10) -->
         <section class="discover-section home-section" id="discoverHomeSection">
             <div class="home-section-header">
-                <div class="home-section-title">🔥 연속 상승세 TOP 5
+                <div class="home-section-title">🔥 연속 상승세 TOP 10
                     <span class="badge" style="background:var(--blue);color:#fff;font-size:10px;padding:2px 8px;border-radius:10px;margin-left:6px;">NEW</span>
                 </div>
-                <a class="home-section-more" onclick="goDiscover()" style="cursor:pointer;color:var(--blue);font-size:12px;font-weight:600;">전체 &rsaquo;</a>
+                <a class="home-section-more" onclick="goDiscover()" style="cursor:pointer;color:var(--blue);font-size:12px;font-weight:600;">더 보기</a>
             </div>
             <div class="top100-grid" id="discoverHomeGrid">
                 <div class="top100-loading">데이터를 불러오는 중...</div>
             </div>
         </section>
 
-        <!-- 주식 골라보기 (홈 임베드: 저평가 주식 TOP 5) -->
+        <!-- 주식 골라보기 (홈 임베드: 저평가 주식 TOP 10) -->
         <section class="discover-section home-section" id="discoverHomeUndervaluedSection">
             <div class="home-section-header">
-                <div class="home-section-title">💎 저평가 주식 TOP 5
+                <div class="home-section-title">💎 저평가 주식 TOP 10
                     <span class="badge" style="background:var(--blue);color:#fff;font-size:10px;padding:2px 8px;border-radius:10px;margin-left:6px;">NEW</span>
                 </div>
-                <a class="home-section-more" onclick="window._discPreset='undervalued'; goDiscover();" style="cursor:pointer;color:var(--blue);font-size:12px;font-weight:600;">전체 &rsaquo;</a>
+                <a class="home-section-more" onclick="window._discPreset='undervalued'; goDiscover();" style="cursor:pointer;color:var(--blue);font-size:12px;font-weight:600;">더 보기</a>
             </div>
             <div class="top100-grid" id="discoverHomeUndervaluedGrid">
                 <div class="top100-loading">데이터를 불러오는 중...</div>
@@ -2832,9 +2832,9 @@
         if (typeof loadDiscover === 'function') {
             const _prevPreset = window._discPreset;
             window._discPreset = 'streak_up';
-            loadDiscover('discoverHomeGrid', 5);
+            loadDiscover('discoverHomeGrid', 10);
             window._discPreset = 'undervalued';
-            loadDiscover('discoverHomeUndervaluedGrid', 5);
+            loadDiscover('discoverHomeUndervaluedGrid', 10);
             window._discPreset = _prevPreset || 'streak_up';
         }
     }, 0);
@@ -2933,9 +2933,9 @@
         if (typeof loadDiscover === 'function') {
             const prevPreset = window._discPreset;
             window._discPreset = 'streak_up';
-            loadDiscover('discoverHomeGrid', 5);
+            loadDiscover('discoverHomeGrid', 10);
             window._discPreset = 'undervalued';
-            loadDiscover('discoverHomeUndervaluedGrid', 5);
+            loadDiscover('discoverHomeUndervaluedGrid', 10);
             window._discPreset = prevPreset || 'streak_up';
         }
         window.scrollTo({ top: 0, behavior: 'smooth' });
