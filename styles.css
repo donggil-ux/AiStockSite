@@ -2519,6 +2519,8 @@
             font-size:12.5px;color:var(--text2);text-align:right;
             font-variant-numeric:tabular-nums;font-weight:600;letter-spacing:-0.005em;
             min-width:0;padding:0 4px;
+            /* 콘텐츠가 길어도 옆 컬럼(현재가/변동%)을 침범하지 않도록 클립 */
+            overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
         }
         .disc-keymetric.up{color:var(--red);}
         .disc-keymetric.down{color:var(--blue);}

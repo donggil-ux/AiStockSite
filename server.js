@@ -1051,14 +1051,14 @@ function _evaluateDiscoverPresets(sparkMap, quoteMap, sectorMap = new Map(), ins
                         + Math.min(epsGrowth, 100) * 2
                         + instCount * 8
                         + (isBuzz ? 15 : 0);
-            const parts = [`PER ${pe.toFixed(1)}`, `성장 ${fmtPct(epsGrowth)}`];
-            if (instCount > 0) parts.push(`기관 ${instCount}`);
-            const valStr = parts.join(' · ') + (isBuzz ? ' 🔥' : '');
-            const insightTags = ['저평가·성장'];
-            if (instCount > 0) insightTags.push('기관매수');
-            if (isBuzz) insightTags.push('화제');
+            // 상세 breakdown 은 insight 영역(이름 아래 한 줄) 에 표시
+            const insightParts = [`PER ${pe.toFixed(1)}`, `성장 ${fmtPct(epsGrowth)}`];
+            if (instCount > 0) insightParts.push(`기관 ${instCount}`);
+            if (isBuzz)        insightParts.push('🔥 화제');
+            // keyMetric 셀은 콤팩트하게 — 점수만 표시
+            const valStr = score.toFixed(0) + (isBuzz ? ' 🔥' : '');
             all.smart_money_growth.push({ ...base,
-                insight: insightTags.join(' · '),
+                insight: insightParts.join(' · '),
                 keyMetric: { label: '스코어', value: valStr, dir: 'up', num: score }});
         }
     }
