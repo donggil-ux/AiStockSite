@@ -87,7 +87,7 @@
     <!-- Header -->
     <header class="header" id="mainHeader">
         <div class="header-top">
-            <button class="mob-back-btn" id="mobBackBtn" onclick="goHome()" aria-label="뒤로가기">
+            <button class="mob-back-btn" id="mobBackBtn" onclick="goBack()" aria-label="뒤로가기">
                 <i class="ri-arrow-left-s-line"></i>
             </button>
             <div class="logo" id="headerLogo" onclick="goHome()" style="cursor:pointer;">Stock<span>AI</span></div>
@@ -2829,7 +2829,30 @@
         }
     }, 0);
 
+    // ────────────────────────────────────────────────────────────
+    // 화면 이력 — 종목 상세 → 뒤로가기 시 직전 화면(실적·골라보기·기관 등) 복귀용
+    // 기본값 'home'. 각 goXxx() 진입 시 자기 식별자로 갱신.
+    // 종목 상세(searchStock) 는 _lastScreen 을 건드리지 않음 → 뒤로가기 시 직전 목록 화면으로.
+    // ────────────────────────────────────────────────────────────
+    window._lastScreen = window._lastScreen || 'home';
+    function goBack() {
+        const dest = window._lastScreen || 'home';
+        const map = {
+            earnings:      goEarnings,
+            discover:      goDiscover,
+            smartMoney:    goSmartMoney,
+            visionScanner: goVisionScanner,
+            economic:      goEconomic,
+            scanner:       goScanner,
+            fav:           goFav,
+        };
+        const fn = map[dest];
+        if (typeof fn === 'function') fn();
+        else goHome();
+    }
+
     function goFav() {
+        window._lastScreen = 'fav';
         const _t = document.getElementById('marketThermometer');
         if (_t && _t.innerHTML.trim()) _t.style.display = '';
         const _q = document.getElementById('headerQNav');
@@ -2852,6 +2875,7 @@
     }
 
     function goHome() {
+        window._lastScreen = 'home';
         history.replaceState({ view: 'home' }, '', '/');
         const _t = document.getElementById('marketThermometer');
         if (_t && _t.innerHTML.trim()) _t.style.display = '';
@@ -4551,6 +4575,7 @@
     }
 
     function goSmartMoney() {
+        window._lastScreen = 'smartMoney';
         _restoreHeaderChrome();
         document.getElementById('welcomeScreen').style.display = 'none';
         document.getElementById('alphaScannerScreen').style.display = 'none';
@@ -4578,6 +4603,7 @@
     // Alpha Scanner
     // ========================================
     function goScanner() {
+        window._lastScreen = 'scanner';
         _restoreHeaderChrome();
         document.getElementById('welcomeScreen').style.display = 'none';
         document.getElementById('smartMoneyScreen').style.display = 'none';
@@ -4761,6 +4787,7 @@
     }
 
     function goDiscover() {
+        window._lastScreen = 'discover';
         document.getElementById('welcomeScreen').style.display = 'none';
         document.getElementById('smartMoneyScreen').style.display = 'none';
         document.getElementById('alphaScannerScreen').style.display = 'none';
@@ -4987,6 +5014,7 @@
     }
 
     function goEarnings() {
+        window._lastScreen = 'earnings';
         document.getElementById('welcomeScreen').style.display = 'none';
         document.getElementById('smartMoneyScreen').style.display = 'none';
         document.getElementById('alphaScannerScreen').style.display = 'none';
@@ -11976,6 +12004,7 @@
 
     // ── 화면 전환 ────────────────────────────────────────────────
     function goVisionScanner() {
+        window._lastScreen = 'visionScanner';
         _restoreHeaderChrome();
         document.getElementById('welcomeScreen').style.display       = 'none';
         document.getElementById('smartMoneyScreen').style.display    = 'none';
@@ -12018,6 +12047,7 @@
     ];
 
     function goEconomic() {
+        window._lastScreen = 'economic';
         _restoreHeaderChrome();
         document.getElementById('welcomeScreen').style.display       = 'none';
         document.getElementById('smartMoneyScreen').style.display    = 'none';
@@ -13282,7 +13312,7 @@
     Object.assign(window, {
         goEarnings, loadEarnings, setEarningsWindow,
         goDiscover, setDiscoverPreset, loadDiscover,
-        closeSideNav, toggleSideNav, openSideNav, goHome, goSmartMoney,
+        closeSideNav, toggleSideNav, openSideNav, goHome, goBack, goSmartMoney,
         switchSmTab, smDeepDive, smDeepBack, filterSmHoldings, smChartLink,
         renderGuruReal, guruDeepDiveReal, guruDeepBack, renderGuruHolders, goSmartMoneyAndOpen,
         loadGuruHome, goSmartMoneyAndOpenReal, guruRefresh, _guruImgErr,
