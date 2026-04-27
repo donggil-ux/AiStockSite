@@ -1026,11 +1026,15 @@
             <div id="newsList" class="news-list"></div>
         </div>
         <div class="tab-content" id="tabSocial" data-tab="social" style="padding:16px 24px 24px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                <span id="socialFeedLabel" style="font-size:13px;font-weight:700;color:var(--text2);">StockTwits</span>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;flex-wrap:wrap;">
+                <div class="news-filter-bar" style="padding:0;margin:0;flex:1;min-width:0;">
+                    <button class="news-filter-chip social-src-chip" data-src="stocktwits" onclick="setSocialSource('stocktwits')">StockTwits</button>
+                    <button class="news-filter-chip social-src-chip" data-src="naver" onclick="setSocialSource('naver')">네이버 토론실</button>
+                </div>
                 <button class="news-refresh-btn" onclick="reloadSocialTab()">↻ 새로고침</button>
             </div>
             <div id="stockTwitsFeed" class="social-feed"></div>
+            <div id="naverBoardFeed" class="social-feed" style="display:none;"></div>
         </div>
         <div class="tab-content" id="tabShort" data-tab="short">
             <div class="short-header">
@@ -11599,14 +11603,50 @@
     // KR 심볼 판정 — 6자리 숫자 + 옵션 .KS / .KQ
     function _isKrSymbol(sym) { return /^\d{6}(\.K[SQ])?$/i.test(String(sym || '')); }
 
+    // 활성 소셜 소스 ('stocktwits' | 'naver') — 기본은 시장에 맞춤, 사용자가 chip 으로 토글
+    let _socialActiveSrc = 'stocktwits';
+    // 종목별 로드 완료된 소스 추적 (재진입 시 중복 fetch 방지)
+    const _socialLoaded = { stocktwits: '', naver: '' };
+
     function loadSocialTab(symbol) {
-        const labelEl = document.getElementById('socialFeedLabel');
-        if (_isKrSymbol(symbol)) {
-            if (labelEl) labelEl.textContent = '네이버 토론실';
-            loadNaverBoard(symbol);
-        } else {
-            if (labelEl) labelEl.textContent = 'StockTwits';
-            loadStockTwits(symbol);
+        // 시장 기본값
+        const defaultSrc = _isKrSymbol(symbol) ? 'naver' : 'stocktwits';
+        // 종목 변경 시 두 피드 모두 reset
+        _socialLoaded.stocktwits = '';
+        _socialLoaded.naver = '';
+        const stEl = document.getElementById('stockTwitsFeed');
+        const nvEl = document.getElementById('naverBoardFeed');
+        if (stEl) stEl.innerHTML = '';
+        if (nvEl) nvEl.innerHTML = '';
+        setSocialSource(defaultSrc);
+    }
+
+    function setSocialSource(src) {
+        if (src !== 'stocktwits' && src !== 'naver') return;
+        _socialActiveSrc = src;
+        // chip active 상태
+        document.querySelectorAll('.social-src-chip').forEach(b => {
+            b.classList.toggle('active', b.dataset.src === src);
+        });
+        // feed 토글
+        const stEl = document.getElementById('stockTwitsFeed');
+        const nvEl = document.getElementById('naverBoardFeed');
+        if (stEl) stEl.style.display = src === 'stocktwits' ? '' : 'none';
+        if (nvEl) nvEl.style.display = src === 'naver' ? '' : 'none';
+        // lazy load (현재 종목에 대해 아직 안 가져왔으면 fetch)
+        const sym = currentFullSymbol || '';
+        if (!sym) return;
+        if (src === 'stocktwits' && _socialLoaded.stocktwits !== sym) {
+            _socialLoaded.stocktwits = sym;
+            loadStockTwits(sym);
+        } else if (src === 'naver' && _socialLoaded.naver !== sym) {
+            _socialLoaded.naver = sym;
+            // KR 심볼이 아니면 안내 표시
+            if (_isKrSymbol(sym)) {
+                loadNaverBoard(sym);
+            } else if (nvEl) {
+                nvEl.innerHTML = '<div class="social-empty"><div class="social-empty-icon">🇰🇷</div><div class="social-empty-text">네이버 토론실은 KR 종목만 지원해요.</div></div>';
+            }
         }
     }
 
@@ -11637,7 +11677,7 @@
 
     // ── 네이버 금융 토론실 (KR 종목 전용) ─────────────────
     async function loadNaverBoard(symbol) {
-        const feed = document.getElementById('stockTwitsFeed');
+        const feed = document.getElementById('naverBoardFeed');
         if (!feed) return;
         const cKey = 'nv_' + symbol;
         if (_socialCache[cKey] && Date.now() - _socialCache[cKey].ts < SOCIAL_CACHE_MS) {
@@ -11713,9 +11753,13 @@
 
     function reloadSocialTab() {
         if (!currentFullSymbol) return;
+        // 두 소스 모두 캐시 무효화
         delete _socialCache['st_' + currentFullSymbol];
         delete _socialCache['nv_' + currentFullSymbol];
-        loadSocialTab(currentFullSymbol);
+        _socialLoaded.stocktwits = '';
+        _socialLoaded.naver = '';
+        // 현재 active 소스만 즉시 재로드
+        setSocialSource(_socialActiveSrc);
     }
 
     async function toggleStTranslate(btn) {
@@ -13488,7 +13532,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         loadVolAlert,
         loadNewsTab, reloadNewsTab, renderNewsList, _newsTimeAgo,
         openTabOrderModal, closeTabOrderModal, saveTabOrder, resetTabOrder,
-        loadSocialTab, loadStockTwits, reloadSocialTab, loadSocialHot, toggleStTranslate,
+        loadSocialTab, loadStockTwits, setSocialSource, reloadSocialTab, loadSocialHot, toggleStTranslate,
         loadShortTab, reloadShortTab, renderShortTab, _buildGaugeSVG,
         loadYouTubeTab, reloadYouTubeTab, renderYouTubeCards, _ytLogClick,
         renderAnalystTargets,
