@@ -1556,6 +1556,21 @@
         .opt-itm-badge{display:inline-block;font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;margin-left:4px;vertical-align:middle;}
         .opt-itm-badge.call{background:rgba(34,197,94,.15);color:var(--green);}
         .opt-itm-badge.put{background:rgba(239,68,68,.15);color:var(--red);}
+
+        /* 당일 거래 활성 옵션 TOP — 콜/풋 2단 레이아웃 */
+        .options-active-grid{display:grid;grid-template-columns:1fr;gap:0;}
+        @media(min-width:768px){.options-active-grid{grid-template-columns:1fr 1fr;}}
+        .options-active-col{padding:12px 14px;}
+        .options-active-col + .options-active-col{border-top:1px solid var(--border);}
+        @media(min-width:768px){
+            .options-active-col + .options-active-col{border-top:none;border-left:1px solid var(--border);}
+        }
+        .options-active-title{font-size:12px;font-weight:800;letter-spacing:.3px;margin-bottom:8px;}
+        .options-active-title.call{color:var(--green);}
+        .options-active-title.put{color:var(--red);}
+        .opt-tbl-compact th{padding:6px 6px;font-size:10px;}
+        .opt-tbl-compact td{padding:6px 6px;font-size:11.5px;}
+        .opt-tbl-compact th:first-child,.opt-tbl-compact td:first-child{padding-left:10px;}
         .options-empty{text-align:center;padding:48px 20px;color:var(--text3);font-size:14px;line-height:1.8;}
         .options-loading{display:flex;flex-direction:column;align-items:center;gap:12px;padding:48px 20px;color:var(--text3);font-size:14px;}
         .options-itm-only-label{font-size:12px;color:var(--text3);font-weight:600;display:flex;align-items:center;gap:6px;}

@@ -987,6 +987,8 @@
                     <div class="options-exp-bar" id="optionsExpBar"></div>
                     <!-- 요약 통계 -->
                     <div class="options-summary-row" id="optionsSummary"></div>
+                    <!-- 당일 거래 활성 TOP (현재 만기 기준) -->
+                    <div id="optionsTodayActive"></div>
                     <!-- 옵션 시장 분석 -->
                     <div id="optionsAnalysis"></div>
                     <!-- 필터 -->
@@ -10450,7 +10452,79 @@
                     <span style="color:var(--red)">${fmtK(totalPutVol)}</span>
                 </div>
             </div>`;
+        renderOptionsTodayActive();
         renderOptionsAnalysis();
+    }
+
+    // 당일 거래 활성 옵션 TOP — 현재 로드된 만기 기준
+    //   · volume > 0 인 콜/풋 contracts 를 거래량 desc 로 정렬, 각 TOP 5 노출
+    //   · Yahoo 의 volume 필드는 당일 누적 거래량 (장 마감 시 reset)
+    function renderOptionsTodayActive() {
+        const el = document.getElementById('optionsTodayActive');
+        if (!el) return;
+        const calls = (_optionsAllCalls || []).filter(o => (o.volume || 0) > 0);
+        const puts  = (_optionsAllPuts  || []).filter(o => (o.volume || 0) > 0);
+        if (!calls.length && !puts.length) { el.innerHTML = ''; return; }
+
+        const topCalls = [...calls].sort((a,b) => (b.volume||0) - (a.volume||0)).slice(0, 5);
+        const topPuts  = [...puts ].sort((a,b) => (b.volume||0) - (a.volume||0)).slice(0, 5);
+
+        const fmtK = v => v == null ? '-' : v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1e3 ? (v/1e3).toFixed(0)+'K' : String(v);
+        const fmtP = v => v == null ? '-' : '$' + Number(v).toFixed(2);
+        const fmtIV = v => v == null ? '-' : (v*100).toFixed(0)+'%';
+        const fmtChg = v => {
+            if (v == null) return '-';
+            const cls = v >= 0 ? 'opt-up' : 'opt-down';
+            return `<span class="${cls}">${(v>=0?'+':'')}${v.toFixed(2)}</span>`;
+        };
+
+        const buildRows = (list, type) => {
+            if (!list.length) return `<tr><td colspan="5" style="padding:14px;text-align:center;color:var(--text3);font-size:12px;">당일 거래 없음</td></tr>`;
+            return list.map(o => {
+                const itm = o.inTheMoney ? `<span class="opt-itm-badge ${type}" style="margin-left:6px;">ITM</span>` : '';
+                return `<tr>
+                    <td><span class="opt-strike">${fmtP(o.strike)}</span>${itm}</td>
+                    <td>${fmtP(o.lastPrice)}</td>
+                    <td>${fmtChg(o.change)}</td>
+                    <td class="opt-vol" style="font-weight:700">${fmtK(o.volume)}</td>
+                    <td class="opt-iv">${fmtIV(o.impliedVolatility)}</td>
+                </tr>`;
+            }).join('');
+        };
+
+        const totalCallVol = calls.reduce((s,o)=>s+(o.volume||0),0);
+        const totalPutVol  = puts.reduce((s,o)=>s+(o.volume||0),0);
+
+        el.innerHTML = `
+            <div class="options-card" style="margin-top:12px;">
+                <div class="options-card-hd" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+                    <span>🔥 당일 거래 활성 옵션 TOP <span style="font-size:11px;color:var(--text3);font-weight:500;">(현재 만기 기준)</span></span>
+                    <span style="font-size:11px;color:var(--text3);font-weight:500;">
+                        콜 거래량 <span style="color:var(--green);font-weight:700">${fmtK(totalCallVol)}</span>
+                        · 풋 거래량 <span style="color:var(--red);font-weight:700">${fmtK(totalPutVol)}</span>
+                    </span>
+                </div>
+                <div class="options-active-grid">
+                    <div class="options-active-col">
+                        <div class="options-active-title call">▲ 콜 옵션 TOP 5</div>
+                        <div style="overflow-x:auto;"><table class="opt-tbl opt-tbl-compact">
+                            <thead><tr>
+                                <th>행사가</th><th>최종가</th><th>변동</th><th>거래량</th><th>IV</th>
+                            </tr></thead>
+                            <tbody>${buildRows(topCalls, 'call')}</tbody>
+                        </table></div>
+                    </div>
+                    <div class="options-active-col">
+                        <div class="options-active-title put">▼ 풋 옵션 TOP 5</div>
+                        <div style="overflow-x:auto;"><table class="opt-tbl opt-tbl-compact">
+                            <thead><tr>
+                                <th>행사가</th><th>최종가</th><th>변동</th><th>거래량</th><th>IV</th>
+                            </tr></thead>
+                            <tbody>${buildRows(topPuts, 'put')}</tbody>
+                        </table></div>
+                    </div>
+                </div>
+            </div>`;
     }
 
     function renderOptionsAnalysis() {
