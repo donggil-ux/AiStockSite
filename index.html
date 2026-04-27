@@ -4982,7 +4982,6 @@
     }
 
     function goEarnings() {
-        _restoreHeaderChrome();
         document.getElementById('welcomeScreen').style.display = 'none';
         document.getElementById('smartMoneyScreen').style.display = 'none';
         document.getElementById('alphaScannerScreen').style.display = 'none';
@@ -4991,6 +4990,11 @@
         document.getElementById('discoverScreen').style.display = 'none';
         const ecoEl = document.getElementById('economicSection');
         if (ecoEl) ecoEl.style.display = 'none';
+        // 실적발표 페이지: 시장 테마/탭 네비 숨김 (골라보기와 동일)
+        const thermoEl = document.getElementById('marketThermometer');
+        if (thermoEl) thermoEl.style.display = 'none';
+        const qnavEl = document.getElementById('headerQNav');
+        if (qnavEl) qnavEl.style.display = 'none';
         document.getElementById('earningsScreen').style.display = '';
         window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded');
