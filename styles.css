@@ -2526,6 +2526,8 @@
             padding:80px 16px;text-align:center;color:var(--text3);font-size:13px;
             flex:1;display:flex;align-items:center;justify-content:center;
         }
+        /* hidden 속성 우선: display:flex 가 [hidden] 을 덮어쓰던 버그 수정 */
+        .disc-empty[hidden],.disc-empty-inline[hidden]{display:none;}
         .disc-empty-inline{padding:60px 16px;flex:none;}
         .discover-section{margin-top:32px;padding:0 16px;}
         .discover-section .home-section-header{padding:0;margin-bottom:10px;}
