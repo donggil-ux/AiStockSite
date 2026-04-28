@@ -810,6 +810,9 @@
             <!-- R/R Analysis Card: 단타/스윙 공통, 항상 노출 -->
             <div id="rrAnalysis"></div>
 
+            <!-- 🔬 퀀트 분석 카드: 모멘텀 / 위험 / 시장 대비 / 평균회귀 + 종합 점수 -->
+            <div id="quantAnalysis"></div>
+
             <!-- 💎 보유 Guru (SEC EDGAR 13F 실데이터) -->
             <div id="guruHolders" style="display:none"></div>
 
@@ -6442,6 +6445,7 @@
             renderEntryTiming();
             renderAIAnalysis();
             renderRRAnalysis();
+            try { renderQuantAnalysis(); } catch (e) { console.warn('[quant] render fail', e); }
             try { if (typeof renderGuruHolders === 'function' && typeof currentSymbol !== 'undefined') renderGuruHolders(currentSymbol); } catch {}
             rrWidgetAutoFill();
             renderRSIMomentum();
@@ -6973,6 +6977,7 @@
             renderEntryTiming();
             renderAIAnalysis();
             renderRRAnalysis();
+            try { renderQuantAnalysis(); } catch (e) { console.warn('[quant] render fail', e); }
             try { if (typeof renderGuruHolders === 'function' && typeof currentSymbol !== 'undefined') renderGuruHolders(currentSymbol); } catch {}
             rrWidgetAutoFill();
             renderRSIMomentum();
@@ -9974,6 +9979,246 @@
         if (tpEl)    tpEl.value    = fmt(price * 1.1);
         if (slEl)    slEl.value    = fmt(price * 0.95);
         calcRRWidget();
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // 🔬 퀀트 분석 — 4개 정량 축 + 종합 점수
+    //   1. 모멘텀: 1·3·6·12개월 누적수익률 + RSI + 52주 위치
+    //   2. 위험·변동성: 30/90일 일변동성, MDD(YTD), ATR%
+    //   3. 시장 대비: 60일 베타, 3개월 알파 (US:SPY / KR:KOSPI)
+    //   4. 평균 회귀: Z-score(60일), Bollinger %B
+    //   - 각 축 0~100 점수 산출 → 가중 합산으로 종합 0~100
+    // ════════════════════════════════════════════════════════════
+    let _quantBenchCache = { sym: '', ts: 0, closes: [] };
+
+    async function _fetchBenchCloses(market) {
+        const sym  = market === 'KR' ? '%5EKS11' : 'SPY';
+        const now  = Date.now();
+        if (_quantBenchCache.sym === sym && now - _quantBenchCache.ts < 30 * 60 * 1000 && _quantBenchCache.closes.length) {
+            return _quantBenchCache.closes;
+        }
+        try {
+            const r = await fetch(`/api/chart/${sym}?range=1y&interval=1d`);
+            if (!r.ok) throw new Error('http ' + r.status);
+            const j = await r.json();
+            const closes = (j?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter(v => v != null);
+            _quantBenchCache = { sym, ts: now, closes };
+            return closes;
+        } catch { return []; }
+    }
+
+    // ── 통계 helpers ──────────────────────────────────────────────
+    function _qDailyReturns(closes) {
+        const r = [];
+        for (let i = 1; i < closes.length; i++) {
+            if (closes[i-1] > 0) r.push((closes[i] - closes[i-1]) / closes[i-1]);
+        }
+        return r;
+    }
+    function _qStdDev(arr) {
+        if (!arr.length) return 0;
+        const m = arr.reduce((a,b)=>a+b,0) / arr.length;
+        const v = arr.reduce((a,b)=>a + (b-m)*(b-m), 0) / Math.max(1, arr.length - 1);
+        return Math.sqrt(v);
+    }
+    function _qVariance(arr) {
+        if (!arr.length) return 0;
+        const m = arr.reduce((a,b)=>a+b,0) / arr.length;
+        return arr.reduce((a,b)=>a + (b-m)*(b-m), 0) / Math.max(1, arr.length - 1);
+    }
+    function _qCovariance(x, y) {
+        const n = Math.min(x.length, y.length);
+        if (n < 2) return 0;
+        const xs = x.slice(-n), ys = y.slice(-n);
+        const mx = xs.reduce((a,b)=>a+b,0) / n;
+        const my = ys.reduce((a,b)=>a+b,0) / n;
+        let s = 0;
+        for (let i = 0; i < n; i++) s += (xs[i] - mx) * (ys[i] - my);
+        return s / (n - 1);
+    }
+    function _qPctReturn(closes, daysAgo) {
+        if (closes.length <= daysAgo) return null;
+        const a = closes[closes.length - 1 - daysAgo];
+        const b = closes[closes.length - 1];
+        if (!a || !b) return null;
+        return ((b - a) / a) * 100;
+    }
+    function _qMaxDrawdown(closes) {
+        if (closes.length < 2) return 0;
+        let peak = closes[0], maxDD = 0;
+        for (const c of closes) {
+            if (c > peak) peak = c;
+            const dd = (c - peak) / peak;
+            if (dd < maxDD) maxDD = dd;
+        }
+        return maxDD * 100; // 음수
+    }
+    function _qClamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+    async function renderQuantAnalysis() {
+        const el = document.getElementById('quantAnalysis');
+        if (!el || !stockData) return;
+        const quotes = stockData.indicators.quote[0];
+        const closes = (quotes.close || []).filter(v => v != null);
+        if (closes.length < 60) { el.innerHTML = ''; return; }
+
+        const isKR    = currentMarket === 'KR';
+        const fmtPct  = v => v == null ? '-' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+        const fmtNum  = (v, d=2) => v == null ? '-' : Number(v).toFixed(d);
+
+        const price   = closes[closes.length - 1];
+
+        // ───── 1) 모멘텀 ─────
+        const ret1m   = _qPctReturn(closes, 21);
+        const ret3m   = _qPctReturn(closes, 63);
+        const ret6m   = _qPctReturn(closes, 126);
+        const ret12m  = _qPctReturn(closes, 252);
+        const rsi     = (calcRSI(closes, 14) || []).filter(v => v != null).pop();
+        const recent252 = closes.slice(-252);
+        const high52w = Math.max(...recent252);
+        const low52w  = Math.min(...recent252);
+        const pos52w  = high52w > low52w ? ((price - low52w) / (high52w - low52w)) * 100 : 50;
+        // 점수: 누적 수익률 가중 + RSI 보너스
+        let momScore = 50;
+        if (ret1m  != null) momScore += _qClamp(ret1m  * 1.2, -15, 15);
+        if (ret3m  != null) momScore += _qClamp(ret3m  * 0.5, -10, 10);
+        if (ret6m  != null) momScore += _qClamp(ret6m  * 0.25, -8, 8);
+        if (ret12m != null) momScore += _qClamp(ret12m * 0.10, -5, 5);
+        if (pos52w >= 80) momScore += 5;
+        if (pos52w <= 20) momScore -= 5;
+        momScore = _qClamp(momScore, 0, 100);
+
+        // ───── 2) 위험·변동성 ─────
+        const returns = _qDailyReturns(closes);
+        const vol30   = returns.length >= 30 ? _qStdDev(returns.slice(-30))  * 100 : null;
+        const vol90   = returns.length >= 90 ? _qStdDev(returns.slice(-90))  * 100 : null;
+        const mdd     = _qMaxDrawdown(recent252);
+        const atrArr  = calcATR(quotes.high, quotes.low, quotes.close, 14);
+        const atrLast = (atrArr || []).filter(v => v != null).pop();
+        const atrPct  = atrLast ? (atrLast / price) * 100 : null;
+        // 점수: 일변동성 낮을수록 ↑ (3% 이하 = 좋음, 6%+ = 위험)
+        let riskScore = 50;
+        if (vol30 != null) riskScore = _qClamp(100 - vol30 * 14, 0, 100);
+        if (mdd < -40) riskScore -= 10;
+        riskScore = _qClamp(riskScore, 0, 100);
+
+        // ───── 3) 시장 대비 (비동기) ─────
+        let beta = null, alpha3m = null, marketScore = 50, benchOk = false;
+        const benchCloses = await _fetchBenchCloses(currentMarket);
+        if (benchCloses.length >= 60) {
+            const bRet = _qDailyReturns(benchCloses);
+            const minLen = Math.min(returns.length, bRet.length, 60);
+            const sR = returns.slice(-minLen);
+            const bR = bRet.slice(-minLen);
+            const cov = _qCovariance(sR, bR);
+            const varB = _qVariance(bR);
+            beta = varB > 0 ? cov / varB : null;
+            const stk3m = _qPctReturn(closes, 63);
+            const bm3m  = _qPctReturn(benchCloses, 63);
+            if (beta != null && stk3m != null && bm3m != null) {
+                alpha3m = stk3m - bm3m * beta;
+                marketScore = _qClamp(50 + alpha3m * 2.5, 0, 100);
+                benchOk = true;
+            }
+        }
+
+        // ───── 4) 평균 회귀 ─────
+        const recent60  = closes.slice(-60);
+        const mean60    = recent60.reduce((a,b)=>a+b, 0) / recent60.length;
+        const std60     = _qStdDev(recent60);
+        const z         = std60 > 0 ? (price - mean60) / std60 : 0;
+        const bb        = calcBollingerBands(closes, 20, 2);
+        const upper     = (bb.upper || []).filter(v => v != null).pop();
+        const lower     = (bb.lower || []).filter(v => v != null).pop();
+        const pctB      = (upper && lower && upper > lower) ? (price - lower) / (upper - lower) : 0.5;
+        // 점수: |z|>2 면 신호 강함 (음수 z = 매수 기회)
+        const meanRevScore = _qClamp(50 - z * 12, 0, 100);
+
+        // ───── 종합 점수 ─────
+        const W = { mom: 0.30, risk: 0.25, market: 0.25, meanRev: 0.20 };
+        const composite = momScore * W.mom + riskScore * W.risk + marketScore * W.market + meanRevScore * W.meanRev;
+        let verdict, vCls;
+        if      (composite >= 70) { verdict = '스트롱 매수'; vCls = 'q-strong-buy'; }
+        else if (composite >= 58) { verdict = '약한 매수';   vCls = 'q-buy'; }
+        else if (composite >= 42) { verdict = '중립';        vCls = 'q-neutral'; }
+        else if (composite >= 30) { verdict = '약한 매도';   vCls = 'q-sell'; }
+        else                       { verdict = '강한 매도';   vCls = 'q-strong-sell'; }
+
+        // 신호 해석
+        const meanSig = z >  2 ? '과매수' : z < -2 ? '과매도'
+                     : z >  1 ? '단기 과열' : z < -1 ? '단기 침체' : '중립';
+        const meanSigCls = z >  1 ? 'down' : z < -1 ? 'up' : '';
+        const rsiCls = rsi == null ? '' : rsi >= 70 ? 'down' : rsi <= 30 ? 'up' : '';
+
+        // ───── HTML 렌더 ─────
+        const axisCard = (title, score, rows) => {
+            const cls = score >= 70 ? 'q-axis-high' : score >= 50 ? 'q-axis-mid' : score >= 30 ? 'q-axis-low' : 'q-axis-crit';
+            return `<div class="quant-axis">
+                <div class="quant-axis-hd">
+                    <span class="quant-axis-title">${title}</span>
+                    <span class="quant-axis-score ${cls}">${Math.round(score)}</span>
+                </div>
+                <div class="quant-axis-rows">
+                    ${rows.map(r => `<div class="quant-row">
+                        <span class="quant-row-lbl">${r.label}</span>
+                        <span class="quant-row-val ${r.cls || ''}">${r.value}</span>
+                    </div>`).join('')}
+                </div>
+            </div>`;
+        };
+
+        el.innerHTML = `<div class="card quant-card">
+            <div class="card-title">
+                <span class="dot" style="background:var(--purple)"></span>
+                🔬 퀀트 분석 <span style="font-size:11px;font-weight:500;color:var(--text3);margin-left:4px;">정량 지표 4축 + 종합 점수</span>
+            </div>
+            <div class="quant-composite">
+                <div class="quant-composite-left">
+                    <div class="quant-composite-score ${vCls}">${Math.round(composite)}</div>
+                    <div class="quant-composite-meta">
+                        <div class="quant-composite-label">종합 퀀트 점수</div>
+                        <div class="quant-verdict ${vCls}">${verdict}</div>
+                    </div>
+                </div>
+                <div class="quant-composite-bar">
+                    <div class="quant-composite-fill ${vCls}" style="width:${Math.round(composite)}%"></div>
+                </div>
+            </div>
+            <div class="quant-grid">
+                ${axisCard('🚀 모멘텀', momScore, [
+                    { label: '1개월',    value: fmtPct(ret1m),  cls: ret1m>=0?'up':'down' },
+                    { label: '3개월',    value: fmtPct(ret3m),  cls: ret3m>=0?'up':'down' },
+                    { label: '6개월',    value: fmtPct(ret6m),  cls: ret6m>=0?'up':'down' },
+                    { label: '12개월',   value: fmtPct(ret12m), cls: ret12m>=0?'up':'down' },
+                    { label: 'RSI(14)',  value: rsi != null ? rsi.toFixed(0) : '-', cls: rsiCls },
+                    { label: '52주 위치', value: pos52w.toFixed(0)+'%' },
+                ])}
+                ${axisCard('⚠️ 위험·변동성', riskScore, [
+                    { label: '30일 일변동성', value: vol30 != null ? vol30.toFixed(2)+'%' : '-' },
+                    { label: '90일 일변동성', value: vol90 != null ? vol90.toFixed(2)+'%' : '-' },
+                    { label: '최대 손실폭(YTD)', value: mdd.toFixed(1)+'%', cls: 'down' },
+                    { label: 'ATR 비율',    value: atrPct != null ? atrPct.toFixed(2)+'%' : '-' },
+                ])}
+                ${axisCard('📊 시장 대비', marketScore, benchOk ? [
+                    { label: '벤치마크',     value: isKR ? 'KOSPI' : 'S&P 500' },
+                    { label: '베타 (60일)',  value: fmtNum(beta) },
+                    { label: '3개월 알파',   value: fmtPct(alpha3m), cls: alpha3m>=0?'up':'down' },
+                    { label: '시장 동조도',  value: beta != null ? (Math.abs(beta-1) < 0.2 ? '시장 추종' : beta > 1.2 ? '고변동' : beta < 0.8 ? '저변동' : '중간') : '-' },
+                ] : [
+                    { label: '벤치마크',  value: isKR ? 'KOSPI' : 'S&P 500' },
+                    { label: '상태',     value: '데이터 부족' },
+                ])}
+                ${axisCard('🔄 평균 회귀', meanRevScore, [
+                    { label: 'Z-score (60일)', value: z.toFixed(2), cls: z>2?'down':z<-2?'up':'' },
+                    { label: 'BB %B',          value: pctB.toFixed(2), cls: pctB>1?'down':pctB<0?'up':'' },
+                    { label: '평균',            value: isKR ? Math.round(mean60).toLocaleString()+'원' : '$'+mean60.toFixed(2) },
+                    { label: '신호',            value: meanSig, cls: meanSigCls },
+                ])}
+            </div>
+            <div class="quant-footer">
+                ※ 정량 시그널은 참고 자료이며 단독 매매 신호가 아닙니다. R/R 분석과 종합 판단을 권장.
+            </div>
+        </div>`;
     }
 
     // R/R Gate: 기술적 매수 추천이지만 R/R < 1.5이면 '관망'으로 강제 변환

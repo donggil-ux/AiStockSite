@@ -885,6 +885,71 @@
         /* ===== CARDS ===== */
         .card{background:var(--bg2);border-radius:var(--r);padding:24px;margin:4px 24px;}
         .card-title{font-size:16px;font-weight:800;margin-bottom:18px;display:flex;align-items:center;gap:8px;letter-spacing:-0.3px;}
+
+        /* ═══════ 🔬 퀀트 분석 카드 ═══════ */
+        .quant-card{}
+        .quant-composite{
+            display:flex;flex-direction:column;gap:10px;
+            padding:14px 16px;background:var(--bg3);border-radius:12px;margin-bottom:14px;
+        }
+        .quant-composite-left{display:flex;align-items:center;gap:14px;}
+        .quant-composite-score{
+            font-size:38px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-1px;
+        }
+        .quant-composite-meta{display:flex;flex-direction:column;gap:2px;}
+        .quant-composite-label{font-size:11px;color:var(--text3);font-weight:600;letter-spacing:.3px;}
+        .quant-verdict{font-size:15px;font-weight:800;}
+        .quant-composite-bar{
+            position:relative;height:6px;background:var(--bg4);border-radius:3px;overflow:hidden;
+        }
+        .quant-composite-fill{
+            height:100%;border-radius:3px;transition:width .4s ease;
+        }
+        /* verdict color tones */
+        .q-strong-buy { color:#22c55e; }     .quant-composite-fill.q-strong-buy   { background:#22c55e; }
+        .q-buy        { color:#65a30d; }     .quant-composite-fill.q-buy          { background:#65a30d; }
+        .q-neutral    { color:#94a3b8; }     .quant-composite-fill.q-neutral      { background:#94a3b8; }
+        .q-sell       { color:#f97316; }     .quant-composite-fill.q-sell         { background:#f97316; }
+        .q-strong-sell{ color:#ef4444; }     .quant-composite-fill.q-strong-sell  { background:#ef4444; }
+
+        .quant-grid{
+            display:grid;grid-template-columns:1fr;gap:12px;
+        }
+        @media(min-width:768px){ .quant-grid{ grid-template-columns:1fr 1fr; } }
+        .quant-axis{
+            background:var(--bg3);border-radius:10px;padding:12px 14px;
+        }
+        .quant-axis-hd{
+            display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;
+        }
+        .quant-axis-title{font-size:13px;font-weight:800;color:var(--text);}
+        .quant-axis-score{
+            font-size:13px;font-weight:800;padding:3px 10px;border-radius:8px;font-variant-numeric:tabular-nums;
+        }
+        .q-axis-high{ background:rgba(34,197,94,.15); color:#22c55e; }
+        .q-axis-mid { background:rgba(148,163,184,.15); color:var(--text2); }
+        .q-axis-low { background:rgba(249,115,22,.15); color:#f97316; }
+        .q-axis-crit{ background:rgba(239,68,68,.15);  color:#ef4444; }
+
+        .quant-axis-rows{display:flex;flex-direction:column;gap:6px;}
+        .quant-row{
+            display:flex;align-items:center;justify-content:space-between;
+            font-size:12px;font-variant-numeric:tabular-nums;
+        }
+        .quant-row-lbl{color:var(--text3);font-weight:600;}
+        .quant-row-val{color:var(--text);font-weight:700;}
+        .quant-row-val.up{color:var(--green);}
+        .quant-row-val.down{color:var(--red);}
+
+        .quant-footer{
+            margin-top:12px;padding-top:10px;border-top:1px solid var(--border);
+            font-size:11px;color:var(--text3);line-height:1.5;
+        }
+        @media(max-width:600px){
+            .quant-composite-score{font-size:32px;}
+            .quant-axis{padding:10px 12px;}
+        }
+
         .card-title .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
 
         /* ===== CHART (Lightweight Charts) ===== */
