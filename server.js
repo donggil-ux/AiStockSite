@@ -1248,6 +1248,117 @@ app.get('/api/stocktwits/:symbol', async (req, res) => {
 });
 
 /**
+ * 소셜 피드 — 팍스넷 종목토론 (KR 종목 전용, 네이버 외 두 번째 KR 소스)
+ * GET /api/paxnet-board/:symbol  (6자리 코드 + 옵션 .KS/.KQ)
+ */
+const _paxnetBoardCache = new LRUMap(50);
+const PAXNET_BOARD_TTL = 10 * 60 * 1000;
+
+async function _fetchPaxnetBoardHtml(code) {
+    const url = `https://www.paxnet.co.kr/tbbs/list?tbbsType=L&id=${code}`;
+    const r = await fetch(url, {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) StockAI/1.0',
+            'Accept-Language': 'ko-KR,ko;q=0.9',
+        },
+        redirect: 'follow',
+    });
+    if (!r.ok) throw new Error(`paxnet ${r.status}`);
+    return await r.text();
+}
+
+function _parsePaxnetDate(s) {
+    // "Tue Apr 28 17:22:52 KST 2026" → "2026.04.28 17:22"
+    if (!s) return '';
+    const t = Date.parse(String(s).replace(' KST ', ' GMT+0900 '));
+    if (!Number.isFinite(t)) return s;
+    const d = new Date(t);
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function _parsePaxnetHtml(html, code) {
+    // 게시글 ID 모두 수집 (중복 제거 + 등장 순서 유지)
+    const ids = [];
+    const seen = new Set();
+    const idRegex = /bbsWrtView\((\d+)\)/g;
+    let m;
+    while ((m = idRegex.exec(html)) !== null) {
+        if (!seen.has(m[1])) { seen.add(m[1]); ids.push(m[1]); }
+    }
+
+    const posts = [];
+    for (let i = 0; i < ids.length && posts.length < 20; i++) {
+        const pid = ids[i];
+        const next = ids[i + 1];
+        // 해당 게시글 블록 추출 (data-seq 또는 tit_ID 부터 다음 게시글까지)
+        const startIdx = html.indexOf(`data-seq="${pid}"`);
+        const endIdx   = next ? html.indexOf(`data-seq="${next}"`, startIdx + 1) : startIdx + 4000;
+        if (startIdx < 0) continue;
+        const block = html.slice(startIdx, endIdx > 0 ? endIdx : startIdx + 4000);
+
+        // 제목 — bbsWrtView(POSTID)가 들어있는 <a> 텍스트
+        const titleMatch = block.match(new RegExp(`bbsWrtView\\(${pid}\\)[^>]*>([^<]+)`));
+        if (!titleMatch) continue;
+        const title = _decodeNaverHtmlEntities(titleMatch[1]).trim();
+
+        // 작성자 — viewProfile('USERID')에서 ID, 그 뒤 <img alt>다음 텍스트가 닉네임
+        const userIdMatch = block.match(/viewProfile\('([^']+)'\)/);
+        const userId      = userIdMatch ? userIdMatch[1] : '';
+        // 닉네임: <img ... alt>NICK</a> 패턴
+        const nickMatch   = block.match(/<img[^>]*alt[^>]*>([^<]{1,30})<\/a>/);
+        const author      = nickMatch ? _decodeNaverHtmlEntities(nickMatch[1]).trim() : (userId || '익명');
+
+        // 조회 / 추천
+        const hitsMatch = block.match(new RegExp(`hitsNum_${pid}"[^>]*>(?:<span>[^<]+<\\/span>)?\\s*(\\d+)`));
+        const recMatch  = block.match(new RegExp(`recmNum_${pid}"[^>]*>(?:<span>[^<]+<\\/span>)?\\s*(-?\\d+)`));
+        const views      = hitsMatch ? Number(hitsMatch[1]) : 0;
+        const recommends = recMatch  ? Number(recMatch[1])  : 0;
+
+        // 댓글 수
+        const cmtMatch = block.match(new RegExp(`comment-num_${pid}"[^>]*>([^<]+)<`));
+        const comments = cmtMatch ? Number(cmtMatch[1].trim()) || 0 : 0;
+
+        // 날짜
+        const dateMatch = block.match(/data-date-format="([^"]+)"/);
+        const date = _parsePaxnetDate(dateMatch ? dateMatch[1] : '');
+
+        posts.push({
+            title,
+            author,
+            date,
+            views,
+            recommends,
+            comments,
+            link: `https://www.paxnet.co.kr/tbbs/view?tbbsType=L&id=${code}&seq=${pid}`,
+        });
+    }
+    return posts;
+}
+
+app.get('/api/paxnet-board/:symbol', async (req, res) => {
+    const sym = String(req.params.symbol || '').toUpperCase();
+    const m = sym.match(/^(\d{6})(\.K[SQ])?$/);
+    if (!m) return res.status(400).json({ error: 'KR 심볼만 지원 (예: 005930 또는 005930.KS)' });
+    const code = m[1];
+    const now = Date.now();
+
+    const cached = _paxnetBoardCache.get(code);
+    if (cached && now - cached.ts < PAXNET_BOARD_TTL) {
+        return res.json({ posts: cached.posts, cached: true, ts: cached.ts });
+    }
+    try {
+        const html = await _fetchPaxnetBoardHtml(code);
+        const posts = _parsePaxnetHtml(html, code);
+        _paxnetBoardCache.set(code, { posts, ts: now });
+        res.json({ posts, cached: false, ts: now });
+    } catch (err) {
+        console.error('[paxnet-board]', code, err.message);
+        res.status(502).json({ error: '팍스넷 데이터를 가져올 수 없어요' });
+    }
+});
+
+/**
  * 소셜 피드 — Apewisdom 종목별 멘션 통계
  *   Reddit / 4chan / StockTwits 멘션을 집계하는 무료 API
  *   GET /api/apewisdom/:symbol  →  { ticker, mentions, rank, mentions_24h_ago, rank_24h_ago, upvotes, name } | null

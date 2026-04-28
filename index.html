@@ -1032,11 +1032,13 @@
                 <div class="news-filter-bar" style="padding:0;margin:0;flex:1;min-width:0;">
                     <button class="news-filter-chip social-src-chip" data-src="stocktwits" onclick="setSocialSource('stocktwits')">StockTwits</button>
                     <button class="news-filter-chip social-src-chip" data-src="naver" onclick="setSocialSource('naver')">네이버 토론실</button>
+                    <button class="news-filter-chip social-src-chip" data-src="paxnet" onclick="setSocialSource('paxnet')">팍스넷</button>
                 </div>
                 <button class="news-refresh-btn" onclick="reloadSocialTab()">↻ 새로고침</button>
             </div>
             <div id="stockTwitsFeed" class="social-feed"></div>
             <div id="naverBoardFeed" class="social-feed" style="display:none;"></div>
+            <div id="paxnetBoardFeed" class="social-feed" style="display:none;"></div>
         </div>
         <div class="tab-content" id="tabShort" data-tab="short">
             <div class="short-header">
@@ -11605,21 +11607,24 @@
     // KR 심볼 판정 — 6자리 숫자 + 옵션 .KS / .KQ
     function _isKrSymbol(sym) { return /^\d{6}(\.K[SQ])?$/i.test(String(sym || '')); }
 
-    // 활성 소셜 소스 ('stocktwits' | 'naver') — 기본은 시장에 맞춤, 사용자가 chip 으로 토글
+    // 활성 소셜 소스 ('stocktwits' | 'naver' | 'paxnet') — 기본은 시장에 맞춤, 사용자가 chip 으로 토글
     let _socialActiveSrc = 'stocktwits';
     // 종목별 로드 완료된 소스 추적 (재진입 시 중복 fetch 방지)
-    const _socialLoaded = { stocktwits: '', naver: '' };
+    const _socialLoaded = { stocktwits: '', naver: '', paxnet: '' };
 
     function loadSocialTab(symbol) {
         // 시장 기본값
         const defaultSrc = _isKrSymbol(symbol) ? 'naver' : 'stocktwits';
-        // 종목 변경 시 두 피드 모두 reset
+        // 종목 변경 시 모든 피드 reset
         _socialLoaded.stocktwits = '';
         _socialLoaded.naver = '';
+        _socialLoaded.paxnet = '';
         const stEl = document.getElementById('stockTwitsFeed');
         const nvEl = document.getElementById('naverBoardFeed');
+        const pxEl = document.getElementById('paxnetBoardFeed');
         if (stEl) stEl.innerHTML = '';
         if (nvEl) nvEl.innerHTML = '';
+        if (pxEl) pxEl.innerHTML = '';
         // Apewisdom 멘션 통계 카드 (US 종목만 의미 있음 — KR 은 Reddit 에서 거의 안 다룸)
         loadApewisdomCard(symbol);
         setSocialSource(defaultSrc);
@@ -11685,7 +11690,7 @@
     }
 
     function setSocialSource(src) {
-        if (src !== 'stocktwits' && src !== 'naver') return;
+        if (src !== 'stocktwits' && src !== 'naver' && src !== 'paxnet') return;
         _socialActiveSrc = src;
         // chip active 상태
         document.querySelectorAll('.social-src-chip').forEach(b => {
@@ -11694,8 +11699,10 @@
         // feed 토글
         const stEl = document.getElementById('stockTwitsFeed');
         const nvEl = document.getElementById('naverBoardFeed');
+        const pxEl = document.getElementById('paxnetBoardFeed');
         if (stEl) stEl.style.display = src === 'stocktwits' ? '' : 'none';
         if (nvEl) nvEl.style.display = src === 'naver' ? '' : 'none';
+        if (pxEl) pxEl.style.display = src === 'paxnet' ? '' : 'none';
         // lazy load (현재 종목에 대해 아직 안 가져왔으면 fetch)
         const sym = currentFullSymbol || '';
         if (!sym) return;
@@ -11704,11 +11711,17 @@
             loadStockTwits(sym);
         } else if (src === 'naver' && _socialLoaded.naver !== sym) {
             _socialLoaded.naver = sym;
-            // KR 심볼이 아니면 안내 표시
             if (_isKrSymbol(sym)) {
                 loadNaverBoard(sym);
             } else if (nvEl) {
                 nvEl.innerHTML = '<div class="social-empty"><div class="social-empty-icon">🇰🇷</div><div class="social-empty-text">네이버 토론실은 KR 종목만 지원해요.</div></div>';
+            }
+        } else if (src === 'paxnet' && _socialLoaded.paxnet !== sym) {
+            _socialLoaded.paxnet = sym;
+            if (_isKrSymbol(sym)) {
+                loadPaxnetBoard(sym);
+            } else if (pxEl) {
+                pxEl.innerHTML = '<div class="social-empty"><div class="social-empty-icon">🇰🇷</div><div class="social-empty-text">팍스넷 종목토론은 KR 종목만 지원해요.</div></div>';
             }
         }
     }
@@ -11786,6 +11799,53 @@
         feed.innerHTML = cards.join('');
     }
 
+    // ── 팍스넷 종목토론 (KR 종목 전용, 네이버와 별개의 두 번째 소스) ─────────
+    async function loadPaxnetBoard(symbol) {
+        const feed = document.getElementById('paxnetBoardFeed');
+        if (!feed) return;
+        const cKey = 'px_' + symbol;
+        if (_socialCache[cKey] && Date.now() - _socialCache[cKey].ts < SOCIAL_CACHE_MS) {
+            renderPaxnetBoard(feed, _socialCache[cKey].data); return;
+        }
+        feed.innerHTML = '<div class="social-empty"><div class="social-empty-text">로딩 중...</div></div>';
+        try {
+            const res = await fetch(`/api/paxnet-board/${encodeURIComponent(symbol)}`);
+            if (!res.ok) throw new Error(res.status);
+            const data = await res.json();
+            _socialCache[cKey] = { ts: Date.now(), data };
+            renderPaxnetBoard(feed, data);
+        } catch {
+            feed.innerHTML = '<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">팍스넷 데이터를 가져올 수 없어요.</div></div>';
+        }
+    }
+
+    function renderPaxnetBoard(feed, data) {
+        const posts = (data && data.posts) || [];
+        if (!posts.length) {
+            feed.innerHTML = '<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">팍스넷 토론 글이 없어요.</div></div>';
+            return;
+        }
+        const escHtml = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        const cards = posts.map(p => {
+            const date  = escHtml(p.date || '');
+            const auth  = escHtml(p.author || '익명');
+            const title = escHtml(p.title || '');
+            const link  = escHtml(p.link || '#');
+            const cmt   = (p.comments|0) > 0 ? `<span class="nv-cmt">💬 ${p.comments}</span>` : '';
+            const rec   = (p.recommends|0) > 0 ? `<span class="nv-like">👍 ${p.recommends}</span>` : '';
+            return `<a class="nv-card" href="${link}" target="_blank" rel="noopener noreferrer">
+                <div class="nv-title">${title}</div>
+                <div class="nv-meta">
+                    <span class="nv-author">${auth}</span>
+                    <span class="nv-date">${date}</span>
+                    <span class="nv-views">조회 ${p.views|0}</span>
+                    ${rec}${cmt}
+                </div>
+            </a>`;
+        });
+        feed.innerHTML = cards.join('');
+    }
+
     const _stTranslCache = new Map(); // msgId → 번역문
 
     function renderStockTwits(feed, data) {
@@ -11816,11 +11876,13 @@
 
     function reloadSocialTab() {
         if (!currentFullSymbol) return;
-        // 두 소스 모두 캐시 무효화
+        // 모든 소스 캐시 무효화
         delete _socialCache['st_' + currentFullSymbol];
         delete _socialCache['nv_' + currentFullSymbol];
+        delete _socialCache['px_' + currentFullSymbol];
         _socialLoaded.stocktwits = '';
         _socialLoaded.naver = '';
+        _socialLoaded.paxnet = '';
         // 현재 active 소스만 즉시 재로드
         setSocialSource(_socialActiveSrc);
     }
@@ -13595,7 +13657,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         loadVolAlert,
         loadNewsTab, reloadNewsTab, renderNewsList, _newsTimeAgo,
         openTabOrderModal, closeTabOrderModal, saveTabOrder, resetTabOrder,
-        loadSocialTab, loadStockTwits, loadApewisdomCard, setSocialSource, reloadSocialTab, loadSocialHot, toggleStTranslate,
+        loadSocialTab, loadStockTwits, loadApewisdomCard, loadPaxnetBoard, setSocialSource, reloadSocialTab, loadSocialHot, toggleStTranslate,
         loadShortTab, reloadShortTab, renderShortTab, _buildGaugeSVG,
         loadYouTubeTab, reloadYouTubeTab, renderYouTubeCards, _ytLogClick,
         renderAnalystTargets,
