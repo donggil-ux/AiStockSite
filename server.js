@@ -2899,6 +2899,12 @@ app.get('/api/earnings-calendar', async (req, res) => {
         const cached = _earningsCache.get(key);
         const cacheAge = cached ? Date.now() - cached.ts : Infinity;
 
+        // Vercel Edge CDN 캐시 — 동일 URL 은 1시간 동안 CDN 에 저장됨 (인스턴스 간 공유)
+        // stale-while-revalidate=86400: TTL 초과 후 24h 동안 stale 응답 즉시 반환 + 배경 갱신
+        // Vary: 사용자별 favs 다르니 query 단위 캐시 분리 (URL 자체가 다르므로 자동)
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+        res.set('CDN-Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+
         // 1) Fresh 캐시 (TTL 내) → 즉시 반환
         if (cached && cacheAge < EARNINGS_TTL) {
             return res.json({ ...cached.data, cached: true });
