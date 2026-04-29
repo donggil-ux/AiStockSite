@@ -11082,7 +11082,9 @@
 
                 // 3) 주기적으로 업데이트 체크 (60분마다 + 탭 복귀 시)
                 const _poll = () => { try { reg.update(); } catch(_){} };
-                setInterval(_poll, 60 * 60 * 1000);
+                const _swPollTimer = setInterval(_poll, 60 * 60 * 1000);
+                // 페이지 언로드 시 타이머 정리
+                window.addEventListener('beforeunload', () => clearInterval(_swPollTimer), { once: true });
                 document.addEventListener('visibilitychange', () => {
                     if (document.visibilityState === 'visible') _poll();
                 });
@@ -12103,23 +12105,27 @@
     function renderStockTwits(feed, data) {
         const msgs = data?.messages || [];
         if (!msgs.length) { feed.innerHTML = '<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">게시물이 없습니다.</div></div>'; return; }
+        const _esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         const cards = msgs.map((m, idx) => {
             const sent = m.sentiment?.basic;
             const badge = sent === 'Bullish' ? '<span class="st-badge bull">🐂 강세</span>'
                         : sent === 'Bearish' ? '<span class="st-badge bear">🐻 약세</span>' : '';
             const ago  = _newsTimeAgo(new Date(m.created_at).getTime() / 1000);
             const likes = m.likes?.total ? `♥ ${m.likes.total}` : '';
-            const body = (m.body||'').replace(/</g,'&lt;').replace(/\$([A-Z]{1,5})/g,'<span class="st-ticker">$$$1</span>').replace(/\n/g,'<br>');
+            // body: &, <, >, " 모두 이스케이프 후 ticker 하이라이트 + 줄바꿈 처리
+            const body = _esc(m.body||'').replace(/\$([A-Z]{1,5})/g,'<span class="st-ticker">$$$1</span>').replace(/\n/g,'<br>');
+            const avatarSrc = _esc(m.user?.avatar_url||'');
+            const username  = _esc(m.user?.username||'?');
             const msgId = m.id || idx;
             return `<div class="st-card" data-st-id="${msgId}">
                 <div class="st-header">
-                    <img class="st-avatar" src="${m.user?.avatar_url||''}" onerror="this.style.display='none'" alt="">
-                    <span class="st-user">@${m.user?.username||'?'}</span>
+                    <img class="st-avatar" src="${avatarSrc}" onerror="this.style.display='none'" alt="">
+                    <span class="st-user">@${username}</span>
                     ${badge}
                     <span class="st-time">${ago}</span>
                     <span class="st-likes">${likes}</span>
                 </div>
-                <div class="st-body" data-original="${m.body.replace(/"/g,'&quot;')}">${body}</div>
+                <div class="st-body" data-original="${_esc(m.body||'')}">${body}</div>
                 <button class="st-translate-btn" onclick="toggleStTranslate(this)">번역 보기</button>
             </div>`;
         });

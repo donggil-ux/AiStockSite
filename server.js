@@ -1568,7 +1568,7 @@ app.get('/api/page/:symbol', async (req, res) => {
  * POST /api/vision-scan  (multipart/form-data, field: "image")
  * 응답: { zones: [...], summary: "마크다운 텍스트" }
  */
-app.post('/api/vision-scan', upload.single('image'), async (req, res) => {
+app.post('/api/vision-scan', _rlVisionScan, upload.single('image'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: '이미지 파일이 필요합니다.' });
     if (!process.env.GEMINI_API_KEY) {
         return res.status(503).json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.' });
@@ -1680,7 +1680,7 @@ async function callAnthropicChartDraw(imageBase64, mimeType, fullPrompt) {
     return msg.content.find(b => b.type === 'text')?.text || '';
 }
 
-app.post('/api/chart-draw', upload.single('image'), async (req, res) => {
+app.post('/api/chart-draw', _rlChartDraw, upload.single('image'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: '이미지 파일이 필요합니다.' });
 
     // priceData 파싱 — 신규 ctx 스키마(ohlcv + indicators + series) 또는 구 포맷(closes/highs/lows/dates)
@@ -1841,7 +1841,7 @@ function normalizeChartAnalysis(raw) {
  * AI 추천 종목 (Gemini 퀀트 스크리닝, 24h 캐시)
  * GET /api/ai-recommend → [{ticker, name, reason, signal}] 60~80개
  */
-app.get('/api/ai-recommend', async (req, res) => {
+app.get('/api/ai-recommend', _rlAiRecommend, async (req, res) => {
     try {
         if (_aiRecCache.data && Date.now() - _aiRecCache.ts < AI_REC_TTL) {
             return res.json(_aiRecCache.data);
@@ -1946,7 +1946,7 @@ async function _hotStocksFromYahoo() {
     return { institution, value, momentum, _source: 'yahoo-fallback' };
 }
 
-app.get('/api/hot-stocks', async (req, res) => {
+app.get('/api/hot-stocks', _rlHotStocks, async (req, res) => {
     // 1) 캐시 히트 (24h)
     if (_hotStocksCache.data && Date.now() - _hotStocksCache.ts < HOT_TTL) {
         return res.json(_hotStocksCache.data);
@@ -2133,9 +2133,43 @@ app.get('/api/fred/:seriesId', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
+// 공통 IP Rate Limiter factory
+// ─────────────────────────────────────────────
+/**
+ * makeIpRateLimiter(windowMs, message)
+ *   → Express 미들웨어 반환. IP당 windowMs 내 1회만 허용.
+ *   성공한 호출만 타임스탬프 갱신 — 실패 시 기존 카운트 유지.
+ */
+function makeIpRateLimiter(windowMs, message) {
+    const map = new Map();
+    // 만료 항목 정기 정리 (메모리 누수 방지)
+    setInterval(() => {
+        const cutoff = Date.now() - windowMs;
+        for (const [ip, ts] of map) { if (ts < cutoff) map.delete(ip); }
+    }, Math.max(windowMs, 5 * 60 * 1000)).unref();
+
+    return function ipRateLimit(req, res, next) {
+        const ip  = (req.headers['x-forwarded-for']?.split(',')[0] || req.ip || '').trim();
+        const now = Date.now();
+        const last = map.get(ip) || 0;
+        if (now - last < windowMs) {
+            return res.status(429).json({ error: message || '요청이 너무 잦습니다. 잠시 후 다시 시도해주세요.' });
+        }
+        map.set(ip, now);
+        next();
+    };
+}
+
+// 엔드포인트별 rate limiter (IP당 N분 1회)
+const _rlVisionScan  = makeIpRateLimiter(30 * 1000,  '차트 분석은 30초에 1회만 가능합니다.');   // vision-scan  — 이미지 AI, 30초
+const _rlChartDraw   = makeIpRateLimiter(30 * 1000,  '차트 그리기는 30초에 1회만 가능합니다.'); // chart-draw   — 이미지 AI, 30초
+const _rlAiRecommend = makeIpRateLimiter(60 * 1000,  'AI 추천은 1분에 1회만 가능합니다.');      // ai-recommend — 24h 캐시이나 캐시 미스 보호
+const _rlHotStocks   = makeIpRateLimiter(60 * 1000,  '핫스탁 분석은 1분에 1회만 가능합니다.'); // hot-stocks   — 24h 캐시이나 캐시 미스 보호
+
+// ─────────────────────────────────────────────
 // AI 경제지표 분석 (Gemini, IP당 1분 1회 제한)
 // ─────────────────────────────────────────────
-const _ecoAiRateMap = new Map(); // ip → last call timestamp
+const _ecoAiRateMap = new Map(); // ip → last call timestamp (레거시 — 위 factory로 대체 예정)
 const ECO_AI_RATE_MS = 60 * 1000; // 1분
 
 // 5분마다 만료된 rate-limit 항목 정리 (메모리 누수 방지)
