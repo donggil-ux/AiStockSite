@@ -3027,7 +3027,7 @@
     display:inline-block;
 }
 .earn-group-collapsed .earn-date-chevron{ transform:rotate(-90deg); }
-.earn-group-collapsed .earn-date-rows{ display:none; }
+.earn-group-collapsed .earn-date-rows{ display:none !important; }
 
 .earn-row{
     display:grid !important;
