@@ -2749,7 +2749,7 @@ async function _fetchEarningsBatch(symbols) {
     // quoteSummary 는 심볼당 1회 이지만 ?symbols= 다중지원 안함 → Promise.all 로 병렬
     const modules = 'calendarEvents,earnings,earningsHistory,price';
     const results = new Map();
-    const CONCURRENCY = 8;
+    const CONCURRENCY = 20; // 8 → 20 (Yahoo는 충분히 견딤, 응답 시간 ~2.5x 단축)
     for (let i = 0; i < symbols.length; i += CONCURRENCY) {
         const chunk = symbols.slice(i, i + CONCURRENCY);
         const settled = await Promise.allSettled(chunk.map(async sym => {
@@ -2827,7 +2827,60 @@ function _extractEarningsItems(symbol, qs, fromTs, toTs) {
 }
 
 const _earningsCache = new LRUMap(8);
-const EARNINGS_TTL = 30 * 60 * 1000; // 30분
+const EARNINGS_TTL       = 6 * 60 * 60 * 1000;   // 6시간 (실적 데이터는 분 단위로 변하지 않음)
+const EARNINGS_STALE_TTL = 24 * 60 * 60 * 1000;  // stale-while-revalidate: 24h 동안 stale 캐시 즉시 반환 + 백그라운드 갱신
+
+// stale 캐시 갱신용 in-flight Promise (동일 key 동시 갱신 방지)
+const _earningsRevalidating = new Map();
+
+async function _refreshEarningsCache(key, fromTs, toTs, favs) {
+    if (_earningsRevalidating.has(key)) return _earningsRevalidating.get(key);
+    const promise = (async () => {
+        try {
+            const universe = Array.from(new Set([..._SP500, ...favs]));
+            const qsMap = await _fetchEarningsBatch(universe);
+            const data = _buildEarningsResponse(qsMap, fromTs, toTs);
+            _earningsCache.set(key, { data, ts: Date.now() });
+            return data;
+        } finally {
+            _earningsRevalidating.delete(key);
+        }
+    })();
+    _earningsRevalidating.set(key, promise);
+    return promise;
+}
+
+function _buildEarningsResponse(qsMap, fromTs, toTs) {
+    const items = [];
+    qsMap.forEach((qs, sym) => {
+        items.push(..._extractEarningsItems(sym, qs, fromTs, toTs));
+    });
+    const byDate = new Map();
+    items.forEach(it => {
+        if (!byDate.has(it.date)) byDate.set(it.date, []);
+        byDate.get(it.date).push(it);
+    });
+    const timingOrder = { BMO: 0, AMC: 1, TBD: 2 };
+    const groups = Array.from(byDate.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([date, arr]) => {
+            arr.sort((a, b) => {
+                const d = timingOrder[a.timing] - timingOrder[b.timing];
+                if (d) return d;
+                return a.symbol.localeCompare(b.symbol);
+            });
+            const dow = ['일','월','화','수','목','금','토'][new Date(date + 'T00:00:00Z').getUTCDay()];
+            return { date, dayOfWeek: dow, count: arr.length, items: arr };
+        });
+    return {
+        window: {
+            from: new Date(fromTs * 1000).toISOString().slice(0, 10),
+            to:   new Date(toTs   * 1000).toISOString().slice(0, 10),
+        },
+        groups,
+        ts: Date.now(),
+    };
+}
 
 app.get('/api/earnings-calendar', async (req, res) => {
     try {
@@ -2844,46 +2897,21 @@ app.get('/api/earnings-calendar', async (req, res) => {
 
         const key = `${fromTs}_${toTs}_${favs.sort().join(',')}`;
         const cached = _earningsCache.get(key);
-        if (cached && Date.now() - cached.ts < EARNINGS_TTL) {
+        const cacheAge = cached ? Date.now() - cached.ts : Infinity;
+
+        // 1) Fresh 캐시 (TTL 내) → 즉시 반환
+        if (cached && cacheAge < EARNINGS_TTL) {
             return res.json({ ...cached.data, cached: true });
         }
-
+        // 2) Stale 캐시 (TTL 초과 but stale 한도 내) → 즉시 반환 + 백그라운드 갱신
+        if (cached && cacheAge < EARNINGS_STALE_TTL) {
+            _refreshEarningsCache(key, fromTs, toTs, favs).catch(() => {}); // fire-and-forget
+            return res.json({ ...cached.data, cached: true, stale: true });
+        }
+        // 3) 캐시 미스 또는 너무 오래된 stale → 동기 fetch
         const universe = Array.from(new Set([..._SP500, ...favs]));
         const qsMap = await _fetchEarningsBatch(universe);
-
-        const items = [];
-        qsMap.forEach((qs, sym) => {
-            items.push(..._extractEarningsItems(sym, qs, fromTs, toTs));
-        });
-
-        // 날짜별 그룹
-        const byDate = new Map();
-        items.forEach(it => {
-            if (!byDate.has(it.date)) byDate.set(it.date, []);
-            byDate.get(it.date).push(it);
-        });
-        // 정렬: 각 날짜 내 BMO → AMC → TBD, 날짜 오름차순
-        const timingOrder = { BMO: 0, AMC: 1, TBD: 2 };
-        const groups = Array.from(byDate.entries())
-            .sort((a, b) => a[0].localeCompare(b[0]))
-            .map(([date, arr]) => {
-                arr.sort((a, b) => {
-                    const d = timingOrder[a.timing] - timingOrder[b.timing];
-                    if (d) return d;
-                    return a.symbol.localeCompare(b.symbol);
-                });
-                const dow = ['일','월','화','수','목','금','토'][new Date(date + 'T00:00:00Z').getUTCDay()];
-                return { date, dayOfWeek: dow, count: arr.length, items: arr };
-            });
-
-        const data = {
-            window: {
-                from: new Date(fromTs * 1000).toISOString().slice(0, 10),
-                to:   new Date(toTs   * 1000).toISOString().slice(0, 10),
-            },
-            groups,
-            ts: Date.now(),
-        };
+        const data = _buildEarningsResponse(qsMap, fromTs, toTs);
         _earningsCache.set(key, { data, ts: Date.now() });
         res.json(data);
     } catch (err) {

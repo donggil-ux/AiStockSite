@@ -3012,6 +3012,23 @@
 }
 .earn-date-rows{display:flex; flex-direction:column;}
 
+/* 지난 날짜 아코디언 — 기본 접힘, 헤더 클릭 시 펼침 */
+.earn-group-past .earn-date-header{
+    background:var(--bg2);
+    opacity:0.78;
+    transition:opacity 0.15s;
+}
+.earn-group-past .earn-date-header:hover{ opacity:1; }
+.earn-group-past .earn-date-main,
+.earn-group-past .earn-date-dow{ color:var(--text2); }
+.earn-date-chevron{
+    margin-left:6px; font-size:12px; color:var(--text2);
+    transition:transform 0.2s ease;
+    display:inline-block;
+}
+.earn-group-collapsed .earn-date-chevron{ transform:rotate(-90deg); }
+.earn-group-collapsed .earn-date-rows{ display:none; }
+
 .earn-row{
     display:grid !important;
     grid-template-columns:28px 36px minmax(0,1fr) minmax(100px,140px) minmax(110px,150px);

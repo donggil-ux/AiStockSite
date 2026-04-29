@@ -4852,7 +4852,7 @@
     // 실적발표 일정 (Earnings Calendar)
     // ═══════════════════════════════════════════════════════════
     const EARNINGS_LS_KEY = 'earnings_cache_v1';
-    const EARNINGS_CLIENT_TTL = 30 * 60 * 1000; // 30분
+    const EARNINGS_CLIENT_TTL = 2 * 60 * 60 * 1000; // 2시간 (서버 stale-while-revalidate 와 보조)
     window._earnWindow = 'this';
 
     function _earnComputeRange(key) {
@@ -4960,14 +4960,27 @@
     function _earnBuildGroup(g) {
         const rows = g.items.map(_earnBuildRow).join('');
         const [y, m, d] = g.date.split('-');
-        return `<div class="earn-date-group">
-            <div class="earn-date-header">
+        // 지난 날짜 (오늘 이전)는 아코디언으로 접어 표시 — 사용자가 클릭하면 펼침
+        const today = new Date().toISOString().slice(0, 10);
+        const isPast = g.date < today;
+        const collapsedCls = isPast ? ' earn-group-collapsed earn-group-past' : '';
+        const chevron = isPast ? '<span class="earn-date-chevron">▾</span>' : '';
+        const headerCursor = isPast ? ' style="cursor:pointer"' : '';
+        return `<div class="earn-date-group${collapsedCls}" data-past="${isPast}">
+            <div class="earn-date-header"${headerCursor} onclick="_earnToggleGroup(this.parentElement)">
                 <span class="earn-date-main">${m}/${d}</span>
                 <span class="earn-date-dow">(${g.dayOfWeek})</span>
                 <span class="earn-date-count">${g.count}개 종목</span>
+                ${chevron}
             </div>
             <div class="earn-date-rows">${rows}</div>
         </div>`;
+    }
+
+    // 아코디언 토글: 지난 날짜 그룹 펼침/접기
+    function _earnToggleGroup(el) {
+        if (!el || !el.classList.contains('earn-group-past')) return;
+        el.classList.toggle('earn-group-collapsed');
     }
 
     function _earnSkeleton(n) {
@@ -13883,7 +13896,7 @@
     }
 
     Object.assign(window, {
-        goEarnings, loadEarnings, setEarningsWindow,
+        goEarnings, loadEarnings, setEarningsWindow, _earnToggleGroup,
         goDiscover, setDiscoverPreset, loadDiscover,
         closeSideNav, toggleSideNav, openSideNav, goHome, goBack, goSmartMoney,
         switchSmTab, smDeepDive, smDeepBack, filterSmHoldings, smChartLink,
