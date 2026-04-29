@@ -3015,19 +3015,25 @@
 /* 지난 날짜 아코디언 — 기본 접힘, 헤더 클릭 시 펼침 */
 .earn-group-past .earn-date-header{
     background:var(--bg2);
-    opacity:0.78;
-    transition:opacity 0.15s;
+    opacity:0.85;
+    cursor:pointer;
+    user-select:none;
+    transition:opacity 0.15s, background 0.15s;
 }
-.earn-group-past .earn-date-header:hover{ opacity:1; }
+.earn-group-past .earn-date-header:hover{ opacity:1; background:var(--bg3); }
+.earn-group-past .earn-date-header:focus-visible{ outline:2px solid var(--accent, #4a9eff); outline-offset:-2px; }
 .earn-group-past .earn-date-main,
 .earn-group-past .earn-date-dow{ color:var(--text2); }
 .earn-date-chevron{
-    margin-left:6px; font-size:12px; color:var(--text2);
+    margin-left:6px; font-size:13px; color:var(--text2);
     transition:transform 0.2s ease;
     display:inline-block;
+    pointer-events:none; /* 부모 헤더로 click 위임 */
 }
 .earn-group-collapsed .earn-date-chevron{ transform:rotate(-90deg); }
 .earn-group-collapsed .earn-date-rows{ display:none !important; }
+/* 헤더 내 자식 span 들이 click 을 가로채지 않도록 */
+.earn-group-past .earn-date-header > span{ pointer-events:none; }
 
 .earn-row{
     display:grid !important;

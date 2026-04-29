@@ -4961,7 +4961,6 @@
         const rows = g.items.map(_earnBuildRow).join('');
         const [y, m, d] = g.date.split('-');
         // 지난 날짜 (오늘 이전)는 아코디언으로 접어 표시 — 사용자 로컬 시간대 기준
-        // (toISOString()은 UTC 라 한국 새벽엔 오프셋 발생 → 로컬 날짜 사용)
         const _now = new Date();
         const _yyyy = _now.getFullYear();
         const _mm   = String(_now.getMonth() + 1).padStart(2, '0');
@@ -4969,10 +4968,9 @@
         const today = `${_yyyy}-${_mm}-${_dd}`;
         const isPast = g.date < today;
         const collapsedCls = isPast ? ' earn-group-collapsed earn-group-past' : '';
-        const chevron = isPast ? '<span class="earn-date-chevron">▾</span>' : '';
-        const headerCursor = isPast ? ' style="cursor:pointer"' : '';
-        return `<div class="earn-date-group${collapsedCls}" data-past="${isPast}">
-            <div class="earn-date-header"${headerCursor} onclick="_earnToggleGroup(this.parentElement)">
+        const chevron = isPast ? '<span class="earn-date-chevron" aria-hidden="true">▾</span>' : '';
+        return `<div class="earn-date-group${collapsedCls}" data-past="${isPast}" data-date="${g.date}">
+            <div class="earn-date-header" role="${isPast ? 'button' : 'heading'}" tabindex="${isPast ? '0' : '-1'}">
                 <span class="earn-date-main">${m}/${d}</span>
                 <span class="earn-date-dow">(${g.dayOfWeek})</span>
                 <span class="earn-date-count">${g.count}개 종목</span>
@@ -4982,10 +4980,43 @@
         </div>`;
     }
 
-    // 아코디언 토글: 지난 날짜 그룹 펼침/접기
-    function _earnToggleGroup(el) {
-        if (!el || !el.classList.contains('earn-group-past')) return;
-        el.classList.toggle('earn-group-collapsed');
+    // 아코디언 토글: 지난 날짜 그룹 펼침/접기 (인자로 element 직접 전달도 호환)
+    function _earnToggleGroup(elOrEvent) {
+        let group = null;
+        if (elOrEvent instanceof Event) {
+            const hdr = elOrEvent.target?.closest?.('.earn-date-header');
+            group = hdr?.closest?.('.earn-date-group');
+        } else if (elOrEvent && elOrEvent.classList) {
+            group = elOrEvent.classList.contains('earn-date-group')
+                ? elOrEvent
+                : elOrEvent.closest?.('.earn-date-group');
+        }
+        if (!group || !group.classList.contains('earn-group-past')) return;
+        group.classList.toggle('earn-group-collapsed');
+    }
+
+    // earningsGrid 에 delegated click listener — 인라인 onclick 대신
+    function _earnAttachClickHandler() {
+        const grid = document.getElementById('earningsGrid');
+        if (!grid || grid._earnHandlerAttached) return;
+        grid.addEventListener('click', (e) => {
+            const hdr = e.target.closest('.earn-date-header');
+            if (!hdr) return;
+            const group = hdr.closest('.earn-date-group');
+            if (!group?.classList.contains('earn-group-past')) return;
+            e.stopPropagation();
+            group.classList.toggle('earn-group-collapsed');
+        });
+        // 키보드 접근성: Enter/Space 로 토글
+        grid.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            const hdr = e.target?.closest?.('.earn-date-header');
+            const group = hdr?.closest?.('.earn-date-group');
+            if (!group?.classList.contains('earn-group-past')) return;
+            e.preventDefault();
+            group.classList.toggle('earn-group-collapsed');
+        });
+        grid._earnHandlerAttached = true;
     }
 
     function _earnSkeleton(n) {
@@ -5011,6 +5042,7 @@
         const labelEl = document.getElementById('earningsWindowLabel');
         if (!grid) return;
         if (labelEl) labelEl.textContent = range.label;
+        _earnAttachClickHandler(); // 아코디언 click handler 보장 (idempotent)
 
         // 1) LS 캐시 우선
         const cached = _earnLoadLS(key);
