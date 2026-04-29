@@ -224,6 +224,39 @@ async function yfRequest(url) {
 // API Routes
 // ─────────────────────────────────────────────
 
+// ─────────────────────────────────────────────
+// 공통 IP Rate Limiter factory (라우트 등록 전에 선언 필수 — TDZ 방지)
+// ─────────────────────────────────────────────
+/**
+ * makeIpRateLimiter(windowMs, message)
+ *   → Express 미들웨어 반환. IP당 windowMs 내 1회만 허용.
+ */
+function makeIpRateLimiter(windowMs, message) {
+    const map = new Map();
+    // 만료 항목 정기 정리 (메모리 누수 방지) — Vercel serverless 에서도 unref() 안전
+    setInterval(() => {
+        const cutoff = Date.now() - windowMs;
+        for (const [ip, ts] of map) { if (ts < cutoff) map.delete(ip); }
+    }, Math.max(windowMs, 5 * 60 * 1000)).unref();
+
+    return function ipRateLimit(req, res, next) {
+        const ip  = (req.headers['x-forwarded-for']?.split(',')[0] || req.ip || '').trim();
+        const now = Date.now();
+        const last = map.get(ip) || 0;
+        if (now - last < windowMs) {
+            return res.status(429).json({ error: message || '요청이 너무 잦습니다. 잠시 후 다시 시도해주세요.' });
+        }
+        map.set(ip, now);
+        next();
+    };
+}
+
+// 엔드포인트별 rate limiter (IP당 N초 1회) — 라우트 등록 전 모두 초기화
+const _rlVisionScan  = makeIpRateLimiter(30 * 1000, '차트 분석은 30초에 1회만 가능합니다.');
+const _rlChartDraw   = makeIpRateLimiter(30 * 1000, '차트 그리기는 30초에 1회만 가능합니다.');
+const _rlAiRecommend = makeIpRateLimiter(60 * 1000, 'AI 추천은 1분에 1회만 가능합니다.');
+const _rlHotStocks   = makeIpRateLimiter(60 * 1000, '핫스탁 분석은 1분에 1회만 가능합니다.');
+
 /**
  * 차트 데이터
  * GET /api/chart/:symbol?range=6mo&interval=1d&includePrePost=false
@@ -2133,43 +2166,9 @@ app.get('/api/fred/:seriesId', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-// 공통 IP Rate Limiter factory
-// ─────────────────────────────────────────────
-/**
- * makeIpRateLimiter(windowMs, message)
- *   → Express 미들웨어 반환. IP당 windowMs 내 1회만 허용.
- *   성공한 호출만 타임스탬프 갱신 — 실패 시 기존 카운트 유지.
- */
-function makeIpRateLimiter(windowMs, message) {
-    const map = new Map();
-    // 만료 항목 정기 정리 (메모리 누수 방지)
-    setInterval(() => {
-        const cutoff = Date.now() - windowMs;
-        for (const [ip, ts] of map) { if (ts < cutoff) map.delete(ip); }
-    }, Math.max(windowMs, 5 * 60 * 1000)).unref();
-
-    return function ipRateLimit(req, res, next) {
-        const ip  = (req.headers['x-forwarded-for']?.split(',')[0] || req.ip || '').trim();
-        const now = Date.now();
-        const last = map.get(ip) || 0;
-        if (now - last < windowMs) {
-            return res.status(429).json({ error: message || '요청이 너무 잦습니다. 잠시 후 다시 시도해주세요.' });
-        }
-        map.set(ip, now);
-        next();
-    };
-}
-
-// 엔드포인트별 rate limiter (IP당 N분 1회)
-const _rlVisionScan  = makeIpRateLimiter(30 * 1000,  '차트 분석은 30초에 1회만 가능합니다.');   // vision-scan  — 이미지 AI, 30초
-const _rlChartDraw   = makeIpRateLimiter(30 * 1000,  '차트 그리기는 30초에 1회만 가능합니다.'); // chart-draw   — 이미지 AI, 30초
-const _rlAiRecommend = makeIpRateLimiter(60 * 1000,  'AI 추천은 1분에 1회만 가능합니다.');      // ai-recommend — 24h 캐시이나 캐시 미스 보호
-const _rlHotStocks   = makeIpRateLimiter(60 * 1000,  '핫스탁 분석은 1분에 1회만 가능합니다.'); // hot-stocks   — 24h 캐시이나 캐시 미스 보호
-
-// ─────────────────────────────────────────────
 // AI 경제지표 분석 (Gemini, IP당 1분 1회 제한)
 // ─────────────────────────────────────────────
-const _ecoAiRateMap = new Map(); // ip → last call timestamp (레거시 — 위 factory로 대체 예정)
+const _ecoAiRateMap = new Map(); // ip → last call timestamp
 const ECO_AI_RATE_MS = 60 * 1000; // 1분
 
 // 5분마다 만료된 rate-limit 항목 정리 (메모리 누수 방지)
