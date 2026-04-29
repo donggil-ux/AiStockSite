@@ -1388,9 +1388,14 @@ async function _fetchApewisdomTop() {
     } catch (e) {
         console.warn('[apewisdom] fetch fail:', e.message);
     }
-    _apewisdomCache.data = map;
-    _apewisdomCache.ts = now;
-    return map;
+    // 데이터가 실제로 있을 때만 캐시 갱신 — fetch 실패 시 기존 캐시 유지
+    if (map.size > 0) {
+        _apewisdomCache.data = map;
+        _apewisdomCache.ts = now;
+        return map;
+    }
+    // 실패 케이스: 기존 캐시 반환 (없으면 빈 Map)
+    return _apewisdomCache.data || map;
 }
 
 app.get('/api/apewisdom/:symbol', async (req, res) => {

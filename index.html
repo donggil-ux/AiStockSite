@@ -9990,6 +9990,7 @@
     //   - 각 축 0~100 점수 산출 → 가중 합산으로 종합 0~100
     // ════════════════════════════════════════════════════════════
     let _quantBenchCache = { sym: '', ts: 0, closes: [] };
+    let _quantRendering = false; // 동시 실행 방지 플래그
 
     async function _fetchBenchCloses(market) {
         const sym  = market === 'KR' ? '%5EKS11' : 'SPY';
@@ -10056,6 +10057,9 @@
     function _qClamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
     async function renderQuantAnalysis() {
+        if (_quantRendering) return; // 이전 실행이 완료되지 않으면 스킵
+        _quantRendering = true;
+        try {
         const el = document.getElementById('quantAnalysis');
         if (!el || !stockData) return;
         const quotes = stockData.indicators.quote[0];
@@ -10219,6 +10223,9 @@
                 ※ 정량 시그널은 참고 자료이며 단독 매매 신호가 아닙니다. R/R 분석과 종합 판단을 권장.
             </div>
         </div>`;
+        } finally {
+            _quantRendering = false;
+        }
     }
 
     // R/R Gate: 기술적 매수 추천이지만 R/R < 1.5이면 '관망'으로 강제 변환
