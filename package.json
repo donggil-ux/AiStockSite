@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node --max-http-header-size=65536 server.js",
-    "dev": "nodemon --exec 'node --max-http-header-size=65536' server.js"
+    "dev": "nodemon --exec 'node --max-http-header-size=65536' server.js",
+    "validate": "node -e \"require('./server.js'); console.log('✅ server.js loads OK')\"",
+    "vercel-build": "npm run validate"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
