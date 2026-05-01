@@ -2859,58 +2859,122 @@ async function _fetchEarningsBatch(symbols) {
 
 function _extractEarningsItems(symbol, qs, fromTs, toTs) {
     // qs = quoteSummary response
+    // 발표 날짜 후보 소스 2가지를 모두 활용:
+    //   (A) calendarEvents.earnings.earningsDate — 다음 예정 발표일 (또는 임박한 1-2개)
+    //   (B) earnings.earningsChart.quarterly[].reportedDate — 모든 과거 분기 실제 발표일
+    //
+    // 핵심 이슈: 회사가 분기 실적 발표를 마치면 (A) 의 earningsDate 는 다음 분기로 이동함.
+    // 예: MSFT 가 4/29 에 보고 → calendarEvents.earningsDate = 7/29(다음 분기) →
+    //     30일 윈도우 안에 안 들어와서 누락됨. (B) reportedDate=4/29 를 활용해 보완.
     try {
         const r = qs?.quoteSummary?.result?.[0];
         if (!r) return [];
-        const cal = r.calendarEvents?.earnings;
+        const cal = r.calendarEvents?.earnings || {};
         const hist = r.earningsHistory?.history || [];
+        const quarterly = r.earnings?.earningsChart?.quarterly || [];
         const price = r.price || {};
         const name = price.longName || price.shortName || symbol;
-        // earningsDate 는 배열 ([primary, secondary]) 또는 단일
-        const dates = cal?.earningsDate;
-        const arr = Array.isArray(dates) ? dates : (dates ? [dates] : []);
-        const raws = arr.map(x => x?.raw).filter(v => typeof v === 'number');
-        if (!raws.length) return [];
-        // 가장 임박 또는 윈도우 안에 있는 것
-        const inRange = raws.find(t => t >= fromTs && t <= toTs);
-        if (!inRange) return [];
-        const timing = _classifyEarningsTime(inRange);
-        const epsEst = cal?.earningsAverage?.raw ?? null;
-        const revEst = cal?.revenueAverage?.raw ?? null;
-        // 지난 실적: 가장 최근 history 엔트리
-        let beat = null, epsAct = null;
-        // 과거 날짜인 경우만 beat/miss 의미 있음
-        const isPast = inRange < Math.floor(Date.now() / 1000);
-        if (isPast && hist.length) {
-            const last = hist[hist.length - 1];
-            const act = last?.epsActual?.raw;
-            const est = last?.epsEstimate?.raw;
-            if (typeof act === 'number' && typeof est === 'number') {
-                epsAct = act;
-                if (act > est) beat = 'beat';
-                else if (act < est) beat = 'miss';
-                else beat = 'meet';
+        const nowSec = Math.floor(Date.now() / 1000);
+
+        // ─ 후보 timestamp 수집 ──────────────────────────────
+        const candidates = []; // [{ ts, source: 'cal'|'callDate'|'history', qData? }]
+        // (A) calendarEvents.earningsDate — 향후 발표 예정 (또는 가장 임박한 1-2개)
+        const calDates = Array.isArray(cal.earningsDate) ? cal.earningsDate
+                       : (cal.earningsDate ? [cal.earningsDate] : []);
+        calDates.forEach(x => {
+            if (typeof x?.raw === 'number') candidates.push({ ts: x.raw, source: 'cal' });
+        });
+        // (A2) calendarEvents.earningsCallDate — 가장 최근 발표한 분기의 컨퍼런스 콜 날짜.
+        //      회사가 막 발표한 경우 quarterly 데이터가 아직 업데이트 안 되어 있어도
+        //      여기는 정확한 발표일을 갖고 있음. (예: MSFT 4/29 — earningsDate 는 7/29 로 점프했지만 callDate=4/29)
+        const callDates = Array.isArray(cal.earningsCallDate) ? cal.earningsCallDate
+                        : (cal.earningsCallDate ? [cal.earningsCallDate] : []);
+        callDates.forEach(x => {
+            if (typeof x?.raw === 'number') candidates.push({ ts: x.raw, source: 'callDate' });
+        });
+        // (B) earnings.earningsChart.quarterly — 모든 과거 분기 reportedDate
+        quarterly.forEach(q => {
+            const ts = q?.reportedDate?.raw;
+            if (typeof ts === 'number') {
+                candidates.push({ ts, source: 'history', qData: q });
+            }
+        });
+
+        // 윈도우 [fromTs, toTs] 안에 들어오는 후보들
+        const inWindow = candidates.filter(c => c.ts >= fromTs && c.ts <= toTs);
+        if (!inWindow.length) return [];
+
+        // 같은 ts 중복 제거 후, 오늘에 가장 가까운 1개 선택
+        // 우선순위: history (정확한 reportedDate) > callDate > cal
+        const sortedUnique = [];
+        const seenTs = new Set();
+        const sourcePriority = { history: 0, callDate: 1, cal: 2 };
+        inWindow.sort((a, b) => {
+            const pa = sourcePriority[a.source] ?? 9, pb = sourcePriority[b.source] ?? 9;
+            if (pa !== pb) return pa - pb;
+            return Math.abs(a.ts - nowSec) - Math.abs(b.ts - nowSec);
+        });
+        for (const c of inWindow) {
+            if (seenTs.has(c.ts)) continue;
+            seenTs.add(c.ts);
+            sortedUnique.push(c);
+        }
+        // 그 중 today 가장 가까운 1개
+        sortedUnique.sort((a, b) => Math.abs(a.ts - nowSec) - Math.abs(b.ts - nowSec));
+        const picked = sortedUnique[0];
+        const inRangeTs = picked.ts;
+        const isPast = inRangeTs < nowSec;
+        const timing = _classifyEarningsTime(inRangeTs);
+
+        let epsEst = null, revEst = null, epsAct = null, beat = null, yoy = null;
+
+        if (picked.source === 'history' && picked.qData) {
+            // 과거 분기 발표: quarterly 데이터에서 직접 actual / estimate 추출
+            epsAct = picked.qData.actual?.raw ?? null;
+            epsEst = picked.qData.estimate?.raw ?? null;
+            if (typeof epsAct === 'number' && typeof epsEst === 'number') {
+                beat = epsAct > epsEst ? 'beat' : (epsAct < epsEst ? 'miss' : 'meet');
+            }
+            // YoY: 같은 fiscal quarter 직전 년도 actual 과 비교
+            const fq = picked.qData.fiscalQuarter || '';
+            const m = fq.match(/^(\d+Q)(\d{4})$/);
+            if (m && typeof epsAct === 'number') {
+                const prevYearFq = `${m[1]}${parseInt(m[2]) - 1}`;
+                const prevQ = quarterly.find(qq => qq.fiscalQuarter === prevYearFq);
+                const prevAct = prevQ?.actual?.raw;
+                if (typeof prevAct === 'number' && prevAct !== 0) {
+                    yoy = ((epsAct - prevAct) / Math.abs(prevAct)) * 100;
+                }
+            }
+        } else {
+            // 미래 발표 예정 (또는 calendarEvents 만으로 잡힌 경우):
+            //   earningsAverage / revenueAverage 는 다음 분기 추정치
+            epsEst = cal.earningsAverage?.raw ?? null;
+            revEst = cal.revenueAverage?.raw ?? null;
+            if (isPast && hist.length) {
+                // calendarEvents 가 가리키는 과거 1번의 경우 — history 마지막 엔트리로 보강
+                const last = hist[hist.length - 1];
+                const act = last?.epsActual?.raw;
+                const est = last?.epsEstimate?.raw;
+                if (typeof act === 'number' && typeof est === 'number') {
+                    epsAct = act;
+                    beat = act > est ? 'beat' : (act < est ? 'miss' : 'meet');
+                }
+            }
+            // YoY (예정 케이스): 4분기 전 actual 대비 epsEst 성장률
+            if (typeof epsEst === 'number' && hist.length >= 4) {
+                const prev = hist[hist.length - 4]?.epsActual?.raw;
+                if (typeof prev === 'number' && prev !== 0) {
+                    yoy = ((epsEst - prev) / Math.abs(prev)) * 100;
+                }
             }
         }
-        // 전년 동기 대비 EPS 성장률 (역사 중 같은 분기)
-        let yoy = null;
-        if (typeof epsEst === 'number' && hist.length >= 4) {
-            const prev = hist[hist.length - 4]?.epsActual?.raw;
-            if (typeof prev === 'number' && prev !== 0) {
-                yoy = ((epsEst - prev) / Math.abs(prev)) * 100;
-            }
-        }
+
         return [{
-            symbol,
-            name,
-            timing,
-            ts: inRange,
-            date: new Date(inRange * 1000).toISOString().slice(0, 10),
-            epsEst,
-            epsAct,
-            revEst,
-            yoy,
-            beat,
+            symbol, name, timing,
+            ts: inRangeTs,
+            date: new Date(inRangeTs * 1000).toISOString().slice(0, 10),
+            epsEst, epsAct, revEst, yoy, beat,
         }];
     } catch (e) {
         return [];
