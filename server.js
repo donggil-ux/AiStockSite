@@ -229,42 +229,84 @@ async function yfRequest(url) {
 // ─────────────────────────────────────────────
 
 // ─────────────────────────────────────────────
-// 공통 IP Rate Limiter factory
+// 공통 IP Rate Limiter factory (Hybrid: 인메모리 L1 + Supabase L2)
 //   ⚠️  IMPORTANT: 새 라우트에서 _rlXxx 를 사용하려면 이 섹션 이전에 선언되어야 함 (TDZ 방지)
 //   ⚠️  새 rate limiter 추가 시 반드시 이 블록 안에서 const 로 선언할 것
+//
+//   Supabase 테이블 (한번만 생성):
+//     create table rate_limits (
+//       ip text not null, key text not null,
+//       last_call_ts timestamptz not null default now(),
+//       primary key (ip, key)
+//     );
+//     create index rate_limits_last_call_idx on rate_limits(last_call_ts);
+//
+//   동작:
+//     1) L1 (in-memory) — 같은 인스턴스 내 최근 호출 있으면 즉시 429 (0ms)
+//     2) L2 (Supabase)  — 다른 인스턴스에서 호출했는지 확인 (~50ms, 1회만)
+//     3) 통과 시 L1+L2 모두 갱신 (L2 갱신은 비동기 — 응답 블로킹 X)
+//   Supabase 미설정 시 graceful degrade → L1 only 동작.
 // ─────────────────────────────────────────────
-/**
- * makeIpRateLimiter(windowMs, message)
- *   → Express 미들웨어 반환. IP당 windowMs 내 1회만 허용.
- *   IP 식별: req.ip (app.set('trust proxy', 1) 와 결합 — x-forwarded-for 직접 신뢰 X)
- */
-function makeIpRateLimiter(windowMs, message) {
-    const map = new Map();
+
+function makeIpRateLimiter(windowMs, message, key) {
+    const localMap = new Map();
+    const limiterKey = key || `rl_${windowMs}`;
     // 만료 항목 정기 정리 (메모리 누수 방지)
     setInterval(() => {
         const cutoff = Date.now() - windowMs;
-        for (const [ip, ts] of map) { if (ts < cutoff) map.delete(ip); }
+        for (const [ip, ts] of localMap) { if (ts < cutoff) localMap.delete(ip); }
     }, Math.max(windowMs, 5 * 60 * 1000)).unref();
 
-    return function ipRateLimit(req, res, next) {
+    return async function ipRateLimit(req, res, next) {
         // Vercel + trust proxy=1 환경에서 req.ip 는 클라이언트 IP 를 정확히 반영
-        // (직접 x-forwarded-for 파싱 시 헤더 스푸핑에 노출됨)
         const ip = req.ip || 'unknown';
         const now = Date.now();
-        const last = map.get(ip) || 0;
-        if (now - last < windowMs) {
+
+        // L1: 인메모리 (같은 인스턴스 내 즉시 차단)
+        const localLast = localMap.get(ip) || 0;
+        if (now - localLast < windowMs) {
             return res.status(429).json({ error: message || '요청이 너무 잦습니다. 잠시 후 다시 시도해주세요.' });
         }
-        map.set(ip, now);
+
+        // L2: Supabase (인스턴스 간 일관성) — 미설정/에러 시 무시하고 통과
+        const supa = getSupabase();
+        if (supa) {
+            try {
+                const cutoffIso = new Date(now - windowMs).toISOString();
+                const { data } = await Promise.race([
+                    supa.from('rate_limits')
+                        .select('last_call_ts')
+                        .eq('ip', ip).eq('key', limiterKey)
+                        .gte('last_call_ts', cutoffIso)
+                        .maybeSingle(),
+                    new Promise(r => setTimeout(() => r({ data: null }), 800)) // Supabase 800ms 타임아웃 → 느려도 응답 막지 않음
+                ]);
+                if (data) {
+                    // 다른 인스턴스에서 최근 호출 — 로컬에도 기록 후 차단
+                    localMap.set(ip, new Date(data.last_call_ts).getTime());
+                    return res.status(429).json({ error: message || '요청이 너무 잦습니다. 잠시 후 다시 시도해주세요.' });
+                }
+            } catch (_) { /* Supabase 에러 → L1 only 로 graceful degrade */ }
+        }
+
+        // 통과: L1 갱신 + L2 비동기 갱신 (응답 블로킹 X)
+        localMap.set(ip, now);
+        if (supa) {
+            supa.from('rate_limits').upsert(
+                { ip, key: limiterKey, last_call_ts: new Date(now).toISOString() },
+                { onConflict: 'ip,key' }
+            ).then(() => {}, () => {});
+        }
         next();
     };
 }
 
 // 엔드포인트별 rate limiter (IP당 N초 1회) — 라우트 등록 전 모두 초기화
-const _rlVisionScan  = makeIpRateLimiter(30 * 1000, '차트 분석은 30초에 1회만 가능합니다.');
-const _rlChartDraw   = makeIpRateLimiter(30 * 1000, '차트 그리기는 30초에 1회만 가능합니다.');
-const _rlAiRecommend = makeIpRateLimiter(60 * 1000, 'AI 추천은 1분에 1회만 가능합니다.');
-const _rlHotStocks   = makeIpRateLimiter(60 * 1000, '핫스탁 분석은 1분에 1회만 가능합니다.');
+// 3번째 인자는 Supabase rate_limits.key 컬럼 — 엔드포인트별 식별
+const _rlVisionScan  = makeIpRateLimiter(30 * 1000, '차트 분석은 30초에 1회만 가능합니다.',   'vision-scan');
+const _rlChartDraw   = makeIpRateLimiter(30 * 1000, '차트 그리기는 30초에 1회만 가능합니다.', 'chart-draw');
+const _rlAiRecommend = makeIpRateLimiter(60 * 1000, 'AI 추천은 1분에 1회만 가능합니다.',      'ai-recommend');
+const _rlHotStocks   = makeIpRateLimiter(60 * 1000, '핫스탁 분석은 1분에 1회만 가능합니다.', 'hot-stocks');
 
 /**
  * 차트 데이터
