@@ -2794,6 +2794,36 @@ const _SP500 = (
     'A AAL AAPL ABBV ABNB ABT ACGL ACN ADBE ADI ADM ADP ADSK AEE AEP AES AFL AIG AIZ AJG AKAM ALB ALGN ALL ALLE AMAT AMCR AMD AME AMGN AMP AMT AMZN ANET ANSS AON AOS APA APD APH APTV ARE ATO AVB AVGO AVY AWK AXON AXP AZO BA BAC BALL BAX BBWI BBY BDX BEN BG BIIB BIO BK BKNG BKR BLDR BLK BMY BR BRO BSX BWA BX BXP C CAG CAH CARR CAT CB CBOE CBRE CCI CCL CDNS CDW CE CEG CF CFG CHD CHRW CHTR CI CINF CL CLX CMCSA CME CMG CMI CMS CNC CNP COF COO COP COR COST CPB CPRT CPT CRL CRM CRWD CSCO CSGP CSX CTAS CTLT CTRA CTSH CTVA CVS CVX CZR D DAL DAY DD DE DECK DFS DG DGX DHI DHR DIS DLR DLTR DOC DOV DOW DPZ DRI DTE DUK DVA DVN DXCM EA EBAY ECL ED EFX EG EIX EL ELV EMN EMR ENPH EOG EPAM EQIX EQR EQT ES ESS ETN ETR EVRG EW EXC EXPD EXPE EXR F FANG FAST FCX FDS FDX FE FFIV FI FICO FIS FITB FMC FOX FOXA FRT FSLR FTNT FTV GD GDDY GE GEHC GEN GILD GIS GL GLW GM GNRC GOOG GOOGL GPC GPN GRMN GS GWW HAL HAS HBAN HCA HD HES HIG HII HLT HOLX HON HPE HPQ HRL HSIC HST HSY HUBB HUM HWM IBM ICE IDXX IEX IFF ILMN INCY INTC INTU INVH IP IPG IQV IR IRM ISRG IT ITW IVZ J JBHT JBL JCI JKHY JNJ JNPR JPM K KDP KEY KEYS KHC KIM KKR KLAC KMB KMI KMX KO KR KVUE L LDOS LEN LH LHX LIN LKQ LLY LMT LNT LOW LRCX LULU LUV LVS LW LYB LYV MA MAA MAR MAS MCD MCHP MCK MCO MDLZ MDT MET META MGM MHK MKC MKTX MLM MMC MMM MNST MO MOH MOS MPC MPWR MRK MRNA MRO MS MSCI MSFT MSI MTB MTCH MTD MU NCLH NDAQ NDSN NEE NEM NFLX NI NKE NOC NOW NRG NSC NTAP NTRS NUE NVDA NVR NWS NWSA NXPI O ODFL OKE OMC ON ORCL ORLY OTIS OXY PANW PARA PAYC PAYX PCAR PCG PEG PEP PFE PFG PG PGR PH PHM PKG PLD PLTR PM PNC PNR PNW PODD POOL PPG PPL PRU PSA PSX PTC PWR PYPL QCOM QRVO RCL REG REGN RF RJF RL RMD ROK ROL ROP ROST RSG RTX RVTY SBAC SBUX SCHW SHW SJM SLB SMCI SNA SNPS SO SOLV SPG SPGI SRE STE STLD STT STX STZ SW SWK SWKS SYF SYK SYY T TAP TDG TDY TECH TEL TER TFC TFX TGT TJX TMO TMUS TPL TPR TRGP TRMB TROW TRV TSCO TSLA TSN TT TTWO TXN TXT TYL UAL UBER UDR UHS ULTA UNH UNP UPS URI USB V VICI VLO VLTO VMC VRSK VRSN VRTX VST VTR VTRS VZ WAB WAT WBA WBD WDAY WDC WEC WELL WFC WHR WM WMB WMT WRB WST WTW WY WYNN XEL XOM XRAY XYL YUM ZBH ZBRA ZTS'
 ).split(/\s+/).filter(Boolean);
 
+// NASDAQ + NYSE 주요 비-S&P500 종목 (~250개) — 실적발표 일정 커버리지 확장용
+// Chinese ADRs · 최근 IPO · SaaS · 반도체 · 바이오 · EV · 크립토 · 국제 ADR 등
+// _SP500 과 합치면 ~700 unique. Yahoo 응답에 earnings 가 없으면 자동으로 빈 결과 반환.
+const _NASDAQ_NYSE_EXTRAS = (
+    // Chinese ADRs (NYSE/NASDAQ)
+    'BABA BIDU JD NIO LI XPEV PDD ZTO BILI EDU TAL TME WB IQ NTES BGNE TCOM BZUN HUYA YMM FUTU TIGR HSAI ZH ' +
+    // Hot IPOs / Growth (NYSE/NASDAQ)
+    'COIN HOOD AFRM RBLX U SOFI UPST PATH OPEN PINS RIVN LCID DASH SQ SHOP SNAP SPOT DKNG ETSY CHWY W ' +
+    'HIMS BIRK ARM CART RDDT ASTS RKLB JOBY ACHR DUOL TOST RNG ZG ' +
+    // Semiconductors
+    'ASML TSM UMC AEHR AMBA SIMO MXL WOLF ALAB ' +
+    // SaaS / Cloud / Cybersecurity
+    'NET ZS DDOG MDB SNOW OKTA TEAM CFLT TWLO ESTC GTLB MNDY FROG S BIGC PD APPS ASAN AI APP BILL ' +
+    // Crypto / Blockchain
+    'MSTR MARA RIOT CLSK BITF HUT CIFR WULF CAN IREN APLD ' +
+    // International blue-chip ADRs
+    'SAP NVO TM SONY HMC LVMUY ' +
+    // Biotech (non-S&P500)
+    'SGEN ALNY GMAB EXAS NVAX SAVA REPL ARWR EDIT NTLA BEAM BNTX PRMS RYTM TGTX VKTX SRPT IONS GH ARGX ' +
+    'GSK NVS RXRX HALO RNA ASND ' +
+    // EV / Auto (non-SP500 추가)
+    'FSR NKLA BLNK CHPT EVGO QS PSNY VFS ' +
+    // Energy / Oil (non-SP500)
+    'PBR ARLP SU CNQ CVE IMO ' +
+    // Financials mid-cap (non-SP500)
+    'NYCB PACW WAL OZK EWBC FHN PNFP IBKR ' +
+    // 기타 mid-cap growth
+    'WIX FVRR SQSP HUBS CWAN GLBE'
+).split(/\s+/).filter(Boolean);
+
 function _classifyEarningsTime(raw) {
     // Yahoo earnings date timestamp -> BMO(장전) / AMC(장후) / TBD
     if (!raw || typeof raw !== 'number') return 'TBD';
@@ -2810,7 +2840,7 @@ async function _fetchEarningsBatch(symbols) {
     // quoteSummary 는 심볼당 1회 이지만 ?symbols= 다중지원 안함 → Promise.all 로 병렬
     const modules = 'calendarEvents,earnings,earningsHistory,price';
     const results = new Map();
-    const CONCURRENCY = 20; // 8 → 20 (Yahoo는 충분히 견딤, 응답 시간 ~2.5x 단축)
+    const CONCURRENCY = 25; // 20 → 25 (universe 가 SP500 + NASDAQ/NYSE extras 로 ~1.4x 커진 보완)
     for (let i = 0; i < symbols.length; i += CONCURRENCY) {
         const chunk = symbols.slice(i, i + CONCURRENCY);
         const settled = await Promise.allSettled(chunk.map(async sym => {
@@ -2898,7 +2928,7 @@ async function _refreshEarningsCache(key, fromTs, toTs, favs) {
     if (_earningsRevalidating.has(key)) return _earningsRevalidating.get(key);
     const promise = (async () => {
         try {
-            const universe = Array.from(new Set([..._SP500, ...favs]));
+            const universe = Array.from(new Set([..._SP500, ..._NASDAQ_NYSE_EXTRAS, ...favs]));
             const qsMap = await _fetchEarningsBatch(universe);
             const data = _buildEarningsResponse(qsMap, fromTs, toTs);
             _earningsCache.set(key, { data, ts: Date.now() });
@@ -2976,7 +3006,7 @@ app.get('/api/earnings-calendar', async (req, res) => {
             return res.json({ ...cached.data, cached: true, stale: true });
         }
         // 3) 캐시 미스 또는 너무 오래된 stale → 동기 fetch
-        const universe = Array.from(new Set([..._SP500, ...favs]));
+        const universe = Array.from(new Set([..._SP500, ..._NASDAQ_NYSE_EXTRAS, ...favs]));
         const qsMap = await _fetchEarningsBatch(universe);
         const data = _buildEarningsResponse(qsMap, fromTs, toTs);
         _earningsCache.set(key, { data, ts: Date.now() });
@@ -3274,7 +3304,7 @@ async function _getTomorrowEarningsSymbols(tDate) {
     const toTs   = Math.floor(new Date(tDate + 'T23:59:59Z').getTime() / 1000);
     let qsMap;
     try {
-        qsMap = await _fetchEarningsBatch([..._SP500]);
+        qsMap = await _fetchEarningsBatch([..._SP500, ..._NASDAQ_NYSE_EXTRAS]);
     } catch (e) {
         console.error('[earnings-reminder] fetch batch fail', e.message);
         return new Set();
