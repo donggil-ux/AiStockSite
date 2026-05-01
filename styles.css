@@ -3358,8 +3358,8 @@
     padding:0; border-radius:0; background:none;
     letter-spacing:-0.01em;
 }
-.earn-yoy.up{ color:#ef4444; background:none; }
-.earn-yoy.down{ color:#3b82f6; background:none; }
+.earn-yoy.up{ color:#60a5fa; background:none; }   /* 파랑 — 서프라이즈 배지와 동일 */
+.earn-yoy.down{ color:#f87171; background:none; } /* 빨강 — 쇼크 배지와 동일 */
 .earn-yoy-na{ color:var(--text3); font-size:12px; }
 
 /* 상태 (서프라이즈/쇼크/부합/예정) — 셀 배경색으로 강조 */
@@ -3390,8 +3390,8 @@
 [data-theme="light"] .earn-cell-rev .ec-act.pos{ color:#2563eb; }
 [data-theme="light"] .earn-cell-eps .ec-act.neg,
 [data-theme="light"] .earn-cell-rev .ec-act.neg{ color:#dc2626; }
-[data-theme="light"] .earn-yoy.up{ color:#dc2626; background:none; }
-[data-theme="light"] .earn-yoy.down{ color:#2563eb; background:none; }
+[data-theme="light"] .earn-yoy.up{ color:#1d4ed8; background:none; }
+[data-theme="light"] .earn-yoy.down{ color:#b91c1c; background:none; }
 [data-theme="light"] .earn-status-beat{ background:#dbeafe; color:#1d4ed8; }  /* 파랑 */
 [data-theme="light"] .earn-status-miss{ background:#fee2e2; color:#b91c1c; }  /* 빨강 */
 [data-theme="light"] .earn-status-meet{ background:#f1f5f9; color:#64748b; }  /* 슬레이트 회색 */
