@@ -22,8 +22,8 @@
             /* Revolut light surface overrides */
             --surface-0:#ffffff;--surface-1:#fafafa;--surface-2:#f0f2f5;--ink:#191c1f;
         }
-        html{scroll-behavior:smooth;overflow-x:clip;max-width:100vw;}
-        body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;overflow-x:clip;max-width:100vw;letter-spacing:var(--ls-body);}
+        html{scroll-behavior:smooth;overflow-x:hidden;max-width:100vw;min-height:100%;}
+        body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;overflow-x:hidden;max-width:100vw;letter-spacing:var(--ls-body);}
         /* ===== Revolut display scale (home/welcome billboard) ===== */
         .r-display-xl{font-size:clamp(40px, 8vw, 88px);font-weight:500;letter-spacing:-0.03em;line-height:1;}
         .r-display-l{font-size:40px;font-weight:500;letter-spacing:-0.025em;line-height:1.05;}
@@ -35,8 +35,8 @@
         }
 
         /* ===== APP SHELL ===== */
-        .app-wrapper{display:flex;min-height:100vh;transition:padding-left .28s cubic-bezier(.4,0,.2,1);overflow-x:clip;max-width:100vw;}
-        .app{flex:1;min-width:0;width:100%;max-width:1400px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative;overflow-x:clip;}
+        .app-wrapper{display:flex;min-height:100vh;transition:padding-left .28s cubic-bezier(.4,0,.2,1);overflow-x:hidden;max-width:100vw;}
+        .app{flex:1;min-width:0;width:100%;max-width:1400px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative;overflow-x:hidden;}
         @media(min-width:768px){.app{display:grid;grid-template-columns:minmax(0,1fr);}}
 
         /* ===== SIDE NAV ===== */
@@ -3081,6 +3081,7 @@
 .earn-topnav-actions {
     display: flex;
     align-items: center;
+    flex-wrap: nowrap;
     gap: 0;
     flex: 1;
     min-width: 0;
@@ -3242,19 +3243,7 @@
     transition:border-color .15s;
 }
 .earn-search-wrap input:focus{ outline:none; border-color:var(--accent, #4a9eff); }
-.earn-chip-group{ display:flex; gap:4px; flex-wrap:nowrap; }
-.earn-chip{
-    height:32px; padding:0 12px;
-    background:var(--bg2); border:1px solid var(--border); border-radius:999px;
-    color:var(--text2); font-size:12px; font-weight:600;
-    cursor:pointer; white-space:nowrap;
-    transition:background .15s, color .15s, border-color .15s;
-}
-.earn-chip:hover{ background:var(--bg3); color:var(--text); }
-.earn-chip.active{
-    background:var(--accent, #4a9eff); border-color:var(--accent, #4a9eff);
-    color:#fff;
-}
+/* 구버전 earn-chip 스타일 제거됨 — topnav Toss 스타일로 통합 */
 
 /* 전역 .earn-table-head 는 제거됨 — 각 날짜 그룹 내부에 .earn-group-col-head 사용 */
 .earn-table-head{ display:none; } /* 혹시 남아있는 경우 숨김 */
