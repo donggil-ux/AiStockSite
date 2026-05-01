@@ -373,6 +373,33 @@
             </aside>
             <main class="disc-main">
                 <div class="earn-window-label" id="earningsWindowLabel">이번 주 실적</div>
+                <!-- 검색 + 필터 툴바 -->
+                <div class="earn-toolbar">
+                    <div class="earn-search-wrap">
+                        <input type="text" id="earnSearch" placeholder="🔍 티커 또는 종목명 검색" oninput="_earnApplyFilters()">
+                    </div>
+                    <div class="earn-chip-group" data-filter-group="timing">
+                        <button class="earn-chip active" data-value="all"    onclick="_earnSetFilter('timing','all', this)">전체</button>
+                        <button class="earn-chip"        data-value="BMO"    onclick="_earnSetFilter('timing','BMO', this)">☀️ 장전</button>
+                        <button class="earn-chip"        data-value="AMC"    onclick="_earnSetFilter('timing','AMC', this)">🌙 장후</button>
+                    </div>
+                    <div class="earn-chip-group" data-filter-group="result">
+                        <button class="earn-chip active" data-value="all"    onclick="_earnSetFilter('result','all', this)">결과 전체</button>
+                        <button class="earn-chip"        data-value="beat"   onclick="_earnSetFilter('result','beat', this)">🚀 서프라이즈</button>
+                        <button class="earn-chip"        data-value="miss"   onclick="_earnSetFilter('result','miss', this)">📉 쇼크</button>
+                    </div>
+                </div>
+                <!-- 정렬 가능한 테이블 헤더 (sticky) -->
+                <div class="earn-table-head" id="earnTableHead">
+                    <div class="earn-th-fav"></div>
+                    <div class="earn-th earn-th-stock">종목</div>
+                    <div class="earn-th earn-th-time">시기</div>
+                    <div class="earn-th earn-th-mcap sortable"     data-sort="marketCap"  onclick="_earnSortBy('marketCap')">시가총액</div>
+                    <div class="earn-th earn-th-eps sortable"      data-sort="epsEst"     onclick="_earnSortBy('epsEst')">EPS (예상/실제)</div>
+                    <div class="earn-th earn-th-rev sortable"      data-sort="revEst"     onclick="_earnSortBy('revEst')">매출 (예상/실제)</div>
+                    <div class="earn-th earn-th-yoy sortable"      data-sort="yoy"        onclick="_earnSortBy('yoy')">YoY</div>
+                    <div class="earn-th earn-th-status sortable"   data-sort="surprisePct" onclick="_earnSortBy('surprisePct')">상태</div>
+                </div>
                 <div class="earn-grid" id="earningsGrid"></div>
                 <div class="disc-empty" id="earningsEmpty" hidden>해당 기간에 실적 발표 예정 종목이 없어요.</div>
             </main>
@@ -4860,9 +4887,13 @@
     // ═══════════════════════════════════════════════════════════
     // 실적발표 일정 (Earnings Calendar)
     // ═══════════════════════════════════════════════════════════
-    const EARNINGS_LS_KEY = 'earnings_cache_v1';
+    const EARNINGS_LS_KEY = 'earnings_cache_v2'; // v2: marketCap, revAct, surprisePct 추가됨 (스키마 변경)
     const EARNINGS_CLIENT_TTL = 2 * 60 * 60 * 1000; // 2시간 (서버 stale-while-revalidate 와 보조)
     window._earnWindow = 'this';
+    // 필터 상태
+    window._earnFilters = { timing: 'all', result: 'all', search: '' };
+    // 정렬 상태 — null 이면 기본(시가총액 내림차순)
+    window._earnSort = { field: 'marketCap', dir: 'desc' };
 
     function _earnComputeRange(key) {
         // 반환: {from:'YYYY-MM-DD', to:'YYYY-MM-DD', label:'...'}
@@ -4935,46 +4966,81 @@
         return '';
     }
 
+    // 시가총액 포맷: $3.21T / $456B / $123M
+    function _earnFmtMcap(v) {
+        if (typeof v !== 'number' || isNaN(v) || v <= 0) return '-';
+        if (v >= 1e12) return '$' + (v / 1e12).toFixed(2) + 'T';
+        if (v >= 1e9)  return '$' + (v / 1e9).toFixed(1)  + 'B';
+        if (v >= 1e6)  return '$' + (v / 1e6).toFixed(0)  + 'M';
+        return '$' + v.toFixed(0);
+    }
+    // 서프라이즈/쇼크 라벨 + 클래스
+    function _earnSurpriseLabel(s) {
+        if (typeof s !== 'number' || isNaN(s)) return { label: '-', cls: 'pending' };
+        if (s >=  1) return { label: '서프라이즈 +' + s.toFixed(1) + '%', cls: 'beat' };
+        if (s <= -1) return { label: '쇼크 ' + s.toFixed(1) + '%',         cls: 'miss' };
+        return { label: '부합 ' + (s>=0?'+':'') + s.toFixed(1) + '%', cls: 'meet' };
+    }
+    // YoY 화살표 + 색
+    function _earnYoyHtml(v) {
+        if (typeof v !== 'number' || isNaN(v)) return '<span class="earn-yoy-na">-</span>';
+        const cls = v >= 0 ? 'up' : 'down';
+        const arrow = v >= 0 ? '▲' : '▼';
+        return `<span class="earn-yoy ${cls}">${arrow} ${v >= 0 ? '+' : ''}${v.toFixed(1)}%</span>`;
+    }
+    // 시기 아이콘 (해/달)
+    function _earnTimingIcon(t) {
+        if (t === 'BMO') return '<span class="earn-time-icon bmo" title="장전">☀️</span>';
+        if (t === 'AMC') return '<span class="earn-time-icon amc" title="장후">🌙</span>';
+        return '<span class="earn-time-icon tbd" title="미정">⏱</span>';
+    }
+
     function _earnBuildRow(item) {
         const symbol = item.symbol;
         const market = 'US';
-        const name = item.name || symbol;
+        const name   = item.name || symbol;
         const safeName = escHtml(name).replace(/'/g, '&#39;');
-        const faved = (typeof isFavorited === 'function') ? isFavorited(symbol, market) : false;
+        const faved  = (typeof isFavorited === 'function') ? isFavorited(symbol, market) : false;
         const heartCls = faved ? 'ri-heart-fill' : 'ri-heart-line';
-        return `<div class="earn-row" onclick="quickSearch('${symbol}','US')">
-            <button class="top100-fav ${faved?'on':''}" aria-label="즐겨찾기" onclick="_top100ToggleFav(event,'${symbol}','${market}','${safeName}')"><i class="${heartCls}"></i></button>
-            ${_tickerLogoHTML(symbol, market)}
-            <div class="earn-info">
-                <div class="earn-name">${escHtml(name)}</div>
-                <div class="earn-meta">
-                    <span class="earn-sym">${escHtml(symbol)}</span>
-                    ${_earnFmtTiming(item.timing)}
-                    ${_earnFmtBeat(item.beat)}
+        const surprise = _earnSurpriseLabel(item.surprisePct);
+        // 검색 매칭용 lower-cased
+        const searchKey = (symbol + ' ' + name).toLowerCase().replace(/"/g, '');
+        return `<div class="earn-row" data-symbol="${symbol}" data-timing="${item.timing||'TBD'}" data-result="${surprise.cls}" data-search="${escHtml(searchKey)}"
+                     data-mcap="${item.marketCap ?? 0}" data-eps-est="${item.epsEst ?? ''}" data-rev-est="${item.revEst ?? ''}" data-yoy="${item.yoy ?? ''}" data-surp="${item.surprisePct ?? ''}"
+                     onclick="quickSearch('${symbol}','US')">
+            <button class="earn-fav-btn ${faved?'on':''}" aria-label="즐겨찾기" onclick="_top100ToggleFav(event,'${symbol}','${market}','${safeName}')"><i class="${heartCls}"></i></button>
+            <div class="earn-cell-stock">
+                ${_tickerLogoHTML(symbol, market)}
+                <div class="earn-stock-id">
+                    <span class="earn-ticker">${escHtml(symbol)}</span>
+                    <span class="earn-stock-name" title="${escHtml(name)}">${escHtml(name)}</span>
                 </div>
             </div>
-            <div class="earn-eps">
-                <div class="earn-cell-label">EPS 예상</div>
-                <div class="earn-cell-val">${_earnFmtEps(item.epsEst)}</div>
-                ${item.epsAct != null ? `<div class="earn-cell-sub">실적 ${_earnFmtEps(item.epsAct)}</div>` : ''}
+            <div class="earn-cell-time">${_earnTimingIcon(item.timing)}</div>
+            <div class="earn-cell-mcap">${_earnFmtMcap(item.marketCap)}</div>
+            <div class="earn-cell-eps">
+                <span class="ec-est">${_earnFmtEps(item.epsEst)}</span>
+                <span class="ec-sep">/</span>
+                <span class="ec-act ${item.epsAct != null && item.epsEst != null ? (item.epsAct >= item.epsEst ? 'pos':'neg') : ''}">${_earnFmtEps(item.epsAct)}</span>
             </div>
-            <div class="earn-rev">
-                <div class="earn-cell-label">매출 예상</div>
-                <div class="earn-cell-val">${_earnFmtRev(item.revEst)}</div>
-                ${item.yoy != null ? `<div class="earn-cell-sub">YoY ${_earnFmtYoy(item.yoy)}</div>` : ''}
+            <div class="earn-cell-rev">
+                <span class="ec-est">${_earnFmtRev(item.revEst)}</span>
+                <span class="ec-sep">/</span>
+                <span class="ec-act ${item.revAct != null && item.revEst != null ? (item.revAct >= item.revEst ? 'pos':'neg') : ''}">${_earnFmtRev(item.revAct)}</span>
             </div>
+            <div class="earn-cell-yoy">${_earnYoyHtml(item.yoy)}</div>
+            <div class="earn-cell-status earn-status-${surprise.cls}">${surprise.label}</div>
         </div>`;
     }
 
     function _earnBuildGroup(g) {
-        const rows = g.items.map(_earnBuildRow).join('');
+        // 정렬 적용
+        const items = _earnSortItems(g.items);
+        const rows = items.map(_earnBuildRow).join('');
         const [y, m, d] = g.date.split('-');
         // 지난 날짜 (오늘 이전)는 아코디언으로 접어 표시 — 사용자 로컬 시간대 기준
         const _now = new Date();
-        const _yyyy = _now.getFullYear();
-        const _mm   = String(_now.getMonth() + 1).padStart(2, '0');
-        const _dd   = String(_now.getDate()).padStart(2, '0');
-        const today = `${_yyyy}-${_mm}-${_dd}`;
+        const today = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`;
         const isPast = g.date < today;
         const collapsedCls = isPast ? ' earn-group-collapsed earn-group-past' : '';
         const chevron = isPast ? '<span class="earn-date-chevron" aria-hidden="true">▾</span>' : '';
@@ -4987,6 +5053,91 @@
             </div>
             <div class="earn-date-rows">${rows}</div>
         </div>`;
+    }
+
+    // 정렬 적용 (현재 _earnSort.field / .dir)
+    function _earnSortItems(items) {
+        const f = window._earnSort?.field;
+        const dir = window._earnSort?.dir === 'asc' ? 1 : -1;
+        if (!f) return items;
+        const arr = items.slice();
+        arr.sort((a, b) => {
+            const va = a[f], vb = b[f];
+            const aNull = va == null || isNaN(va);
+            const bNull = vb == null || isNaN(vb);
+            if (aNull && bNull) return 0;
+            if (aNull) return 1;   // null 은 항상 뒤로
+            if (bNull) return -1;
+            return (va - vb) * dir;
+        });
+        return arr;
+    }
+
+    // 정렬 트리거 — 같은 컬럼 클릭 시 방향 토글
+    function _earnSortBy(field) {
+        if (window._earnSort.field === field) {
+            window._earnSort.dir = window._earnSort.dir === 'asc' ? 'desc' : 'asc';
+        } else {
+            window._earnSort = { field, dir: 'desc' };
+        }
+        // 정렬 표시 업데이트 + 재렌더
+        document.querySelectorAll('#earnTableHead .earn-th[data-sort]').forEach(el => {
+            el.classList.toggle('sort-asc',  el.dataset.sort === field && window._earnSort.dir === 'asc');
+            el.classList.toggle('sort-desc', el.dataset.sort === field && window._earnSort.dir === 'desc');
+        });
+        // 캐시된 데이터 다시 렌더
+        const key = window._earnWindow || 'this';
+        const cached = _earnLoadLS(key);
+        if (cached?.groups?.length) {
+            const grid = document.getElementById('earningsGrid');
+            if (grid) grid.innerHTML = cached.groups.map(_earnBuildGroup).join('');
+            _earnApplyFilters();
+        }
+    }
+
+    // 필터 칩 토글
+    function _earnSetFilter(group, value, btn) {
+        window._earnFilters[group] = value;
+        // 같은 그룹의 다른 칩 active 해제
+        const wrap = btn.closest('.earn-chip-group');
+        if (wrap) wrap.querySelectorAll('.earn-chip').forEach(c => c.classList.toggle('active', c === btn));
+        _earnApplyFilters();
+    }
+
+    // 검색 + 필터 적용 (DOM 에 직접 hidden 클래스 토글)
+    function _earnApplyFilters() {
+        const search = (document.getElementById('earnSearch')?.value || '').toLowerCase().trim();
+        window._earnFilters.search = search;
+        const f = window._earnFilters;
+        const grid = document.getElementById('earningsGrid');
+        if (!grid) return;
+        let visibleTotal = 0;
+        grid.querySelectorAll('.earn-date-group').forEach(group => {
+            let visibleInGroup = 0;
+            group.querySelectorAll('.earn-row').forEach(row => {
+                const timing = row.dataset.timing || '';
+                const result = row.dataset.result || '';
+                const search_key = row.dataset.search || '';
+                let show = true;
+                if (f.timing !== 'all' && timing !== f.timing) show = false;
+                if (f.result !== 'all' && result !== f.result) show = false;
+                if (f.search && !search_key.includes(f.search)) show = false;
+                row.classList.toggle('earn-row-hidden', !show);
+                if (show) visibleInGroup++;
+            });
+            // 그룹 자체 숨김 + 카운트 라벨 갱신
+            group.classList.toggle('earn-group-hidden', visibleInGroup === 0);
+            const countEl = group.querySelector('.earn-date-count');
+            if (countEl) countEl.textContent = visibleInGroup + '개 종목';
+            visibleTotal += visibleInGroup;
+        });
+        // 윈도우 라벨 옆에 결과 카운트 표시
+        const wl = document.getElementById('earningsWindowLabel');
+        if (wl) {
+            const base = wl.dataset.baseLabel || wl.textContent.split(' · ')[0];
+            wl.dataset.baseLabel = base;
+            wl.textContent = `${base} · ${visibleTotal} 종목`;
+        }
     }
 
     // 아코디언 토글: 지난 날짜 그룹 펼침/접기 (인자로 element 직접 전달도 호환)
@@ -5089,6 +5240,7 @@
             }
             grid.innerHTML = groups.map(_earnBuildGroup).join('');
             if (emptyEl) emptyEl.hidden = true;
+            _earnApplyFilters(); // 신규 그룹 렌더 직후 검색·필터 재적용
         } catch (err) {
             if (!cached || !cached.groups?.length) {
                 grid.innerHTML = `<div class="disc-empty-inline">불러오기에 실패했어요. 잠시 후 다시 시도해 주세요.</div>`;
@@ -13966,6 +14118,7 @@
 
     Object.assign(window, {
         goEarnings, loadEarnings, setEarningsWindow, _earnToggleGroup,
+        _earnSetFilter, _earnApplyFilters, _earnSortBy,
         goDiscover, setDiscoverPreset, loadDiscover,
         closeSideNav, toggleSideNav, openSideNav, goHome, goBack, goSmartMoney,
         switchSmTab, smDeepDive, smDeepBack, filterSmHoldings, smChartLink,

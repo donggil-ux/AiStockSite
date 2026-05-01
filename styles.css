@@ -3049,103 +3049,201 @@
 /* 헤더 내 자식 span 들이 click 을 가로채지 않도록 */
 .earn-group-past .earn-date-header > span{ pointer-events:none; }
 
+/* ─────────────────────────────────────────────────────────
+   실적발표 — 새 압축 테이블 (검색·필터·정렬) v2
+   ───────────────────────────────────────────────────────── */
+/* 8컬럼 그리드: fav | stock | time | mcap | eps | rev | yoy | status */
+:root {
+    --earn-grid-cols: 28px minmax(160px, 1.4fr) 50px 90px 130px 150px 110px 150px;
+    --earn-grid-cols-sm: 22px minmax(120px, 1fr) 40px 90px 110px 120px;
+    --earn-grid-cols-xs: 1fr 60px 75px 80px;
+}
+
+/* 툴바 — 검색 + 필터 칩 */
+.earn-toolbar{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    padding:8px 4px 12px; margin-bottom:4px;
+    border-bottom:1px solid var(--border);
+}
+.earn-search-wrap{ flex:1 1 220px; min-width:200px; }
+.earn-search-wrap input{
+    width:100%; height:36px;
+    padding:0 12px;
+    background:var(--bg2); border:1px solid var(--border); border-radius:8px;
+    color:var(--text); font-size:13px;
+    transition:border-color .15s;
+}
+.earn-search-wrap input:focus{ outline:none; border-color:var(--accent, #4a9eff); }
+.earn-chip-group{ display:flex; gap:4px; flex-wrap:nowrap; }
+.earn-chip{
+    height:32px; padding:0 12px;
+    background:var(--bg2); border:1px solid var(--border); border-radius:999px;
+    color:var(--text2); font-size:12px; font-weight:600;
+    cursor:pointer; white-space:nowrap;
+    transition:background .15s, color .15s, border-color .15s;
+}
+.earn-chip:hover{ background:var(--bg3); color:var(--text); }
+.earn-chip.active{
+    background:var(--accent, #4a9eff); border-color:var(--accent, #4a9eff);
+    color:#fff;
+}
+
+/* 테이블 헤더 (sticky) — 정렬 가능 컬럼 */
+.earn-table-head{
+    display:grid; grid-template-columns:var(--earn-grid-cols);
+    align-items:center; gap:10px;
+    padding:8px 14px;
+    background:var(--bg2); border:1px solid var(--border); border-radius:8px;
+    margin-bottom:8px;
+    font-size:11px; font-weight:700; color:var(--text2);
+    text-transform:uppercase; letter-spacing:.4px;
+    position:sticky; top:0; z-index:5;
+}
+.earn-th{ min-width:0; }
+.earn-th-eps, .earn-th-rev, .earn-th-yoy, .earn-th-mcap{ text-align:right; }
+.earn-th-status{ text-align:center; }
+.earn-th-time{ text-align:center; }
+.earn-th.sortable{ cursor:pointer; user-select:none; }
+.earn-th.sortable:hover{ color:var(--text); }
+.earn-th.sortable::after{ content:' ⇅'; opacity:0.4; font-size:10px; }
+.earn-th.sortable.sort-asc::after{ content:' ▲'; opacity:1; color:var(--accent, #4a9eff); }
+.earn-th.sortable.sort-desc::after{ content:' ▼'; opacity:1; color:var(--accent, #4a9eff); }
+
+/* 데이터 행 — 컴팩트 그리드 */
 .earn-row{
     display:grid !important;
-    grid-template-columns:28px 36px minmax(0,1fr) minmax(100px,140px) minmax(110px,150px);
+    grid-template-columns:var(--earn-grid-cols);
     align-items:center; gap:10px;
-    padding:12px 14px;
+    padding:9px 14px;
     border-top:1px solid var(--border);
     cursor:pointer;
     transition:background .12s ease;
     color:var(--text);
+    font-size:13px;
 }
 .earn-row:first-child{border-top:none;}
 .earn-row:hover{background:var(--bg3);}
+.earn-row-hidden{ display:none !important; }
+.earn-group-hidden{ display:none !important; }
 
-.earn-info{min-width:0; display:flex; flex-direction:column; gap:4px;}
-.earn-name{
-    font-size:14px; font-weight:600; color:var(--text);
+/* 즐겨찾기 별 */
+.earn-fav-btn{
+    width:24px; height:24px;
+    background:transparent; border:none; padding:0;
+    color:var(--text3); font-size:14px; cursor:pointer;
+    transition:color .15s, transform .12s;
+}
+.earn-fav-btn:hover{ color:var(--text); transform:scale(1.15); }
+.earn-fav-btn.on{ color:#ef4444; }
+.earn-fav-btn i{ pointer-events:none; }
+
+/* 종목 셀 — 로고 + 티커(굵게) + 이름(작게) */
+.earn-cell-stock{
+    display:flex; align-items:center; gap:8px;
+    min-width:0;
+}
+.earn-cell-stock .tlogo-wrap{ width:28px; height:28px; flex-shrink:0; }
+.earn-cell-stock .tlogo-wrap img{ width:28px; height:28px; border-radius:50%; }
+.earn-stock-id{ min-width:0; display:flex; flex-direction:column; line-height:1.25; }
+.earn-ticker{
+    font-size:13px; font-weight:800; color:var(--text);
+    letter-spacing:.2px;
+}
+.earn-stock-name{
+    font-size:11px; color:var(--text3); font-weight:500;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
-.earn-meta{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
-.earn-sym{
-    font-size:11px; font-weight:700;
-    color:var(--text2);
-    background:var(--bg3);
-    padding:2px 8px; border-radius:6px;
-    letter-spacing:.3px;
-}
-.earn-timing{
-    font-size:11px; font-weight:600;
-    padding:2px 8px; border-radius:6px;
-    white-space:nowrap;
-}
-.earn-bmo{background:rgba(251,146,60,.18); color:#fb923c;}
-.earn-amc{background:rgba(168,85,247,.18); color:#c084fc;}
-.earn-tbd{background:rgba(148,163,184,.15); color:var(--text2);}
 
-.earn-badge{
-    font-size:10px; font-weight:700;
-    padding:2px 7px; border-radius:5px;
-    letter-spacing:.4px;
+/* 시기 (해/달 아이콘) */
+.earn-cell-time{ text-align:center; }
+.earn-time-icon{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:26px; height:26px; border-radius:6px; font-size:13px;
 }
-.earn-badge-beat{background:rgba(34,197,94,.18); color:#4ade80;}
-.earn-badge-miss{background:rgba(239,68,68,.18); color:#f87171;}
-.earn-badge-meet{background:rgba(99,102,241,.18); color:#a5b4fc;}
+.earn-time-icon.bmo{ background:rgba(251,146,60,.18); }
+.earn-time-icon.amc{ background:rgba(168,85,247,.18); }
+.earn-time-icon.tbd{ background:rgba(148,163,184,.15); }
 
-.earn-eps, .earn-rev{
-    text-align:right; min-width:0;
-    white-space:nowrap; flex-shrink:0;
-}
-.earn-cell-label{
-    font-size:10px; font-weight:600;
-    color:var(--text3);
-    text-transform:uppercase; letter-spacing:.4px;
-    margin-bottom:2px;
-}
-.earn-cell-val{
-    font-size:14px; font-weight:700;
-    color:var(--text);
-}
-.earn-cell-sub{
-    font-size:11px; font-weight:500;
-    color:var(--text2);
-    margin-top:2px;
-}
-.earn-yoy.up{color:#4ade80;}
-.earn-yoy.down{color:#f87171;}
-
-/* 라이트 모드에서 BMO/AMC/Badge 배경 보정 */
-[data-theme="light"] .earn-bmo{background:#fff7ed; color:#c2410c;}
-[data-theme="light"] .earn-amc{background:#f3e8ff; color:#7e22ce;}
-[data-theme="light"] .earn-tbd{background:#f1f5f9; color:#64748b;}
-[data-theme="light"] .earn-badge-beat{background:#dcfce7; color:#15803d;}
-[data-theme="light"] .earn-badge-miss{background:#fee2e2; color:#b91c1c;}
-[data-theme="light"] .earn-badge-meet{background:#e0e7ff; color:#4338ca;}
-[data-theme="light"] .earn-yoy.up{color:#16a34a;}
-[data-theme="light"] .earn-yoy.down{color:#dc2626;}
-
-/* 모바일 (≤640px) — 매출 컬럼 숨김, 2줄 정보 */
-@media(max-width:640px){
-    .earn-row{
-        grid-template-columns:36px minmax(0,1fr) minmax(88px,auto);
-        gap:8px; padding:10px 12px;
-    }
-    .earn-row .top100-fav{display:none;}
-    .earn-rev{display:none;}
-    .earn-name{font-size:13px;}
-    .earn-cell-val{font-size:13px;}
-    .earn-date-header{padding:8px 12px;}
-    .earn-date-main{font-size:15px;}
-    .earn-sym{font-size:10px; padding:1px 6px;}
-    .earn-timing{font-size:10px; padding:1px 6px;}
+/* 시가총액 */
+.earn-cell-mcap{
+    text-align:right; font-variant-numeric:tabular-nums;
+    font-size:12.5px; color:var(--text2); font-weight:600;
 }
 
-/* 태블릿~데스크톱 초소형 */
+/* EPS / 매출 셀 — 예상 / 실제 */
+.earn-cell-eps, .earn-cell-rev{
+    text-align:right; font-variant-numeric:tabular-nums;
+    font-size:12.5px; line-height:1.4;
+    white-space:nowrap; min-width:0;
+}
+.earn-cell-eps .ec-est, .earn-cell-rev .ec-est{ color:var(--text3); font-weight:500; }
+.earn-cell-eps .ec-sep, .earn-cell-rev .ec-sep{ color:var(--text3); margin:0 3px; }
+.earn-cell-eps .ec-act, .earn-cell-rev .ec-act{ color:var(--text); font-weight:700; }
+.earn-cell-eps .ec-act.pos, .earn-cell-rev .ec-act.pos{ color:#4ade80; }
+.earn-cell-eps .ec-act.neg, .earn-cell-rev .ec-act.neg{ color:#f87171; }
+
+/* YoY 화살표 */
+.earn-cell-yoy{ text-align:right; font-variant-numeric:tabular-nums; }
+.earn-yoy{
+    display:inline-block; font-size:12.5px; font-weight:700;
+    padding:2px 8px; border-radius:5px;
+}
+.earn-yoy.up{ color:#4ade80; background:rgba(34,197,94,.12); }
+.earn-yoy.down{ color:#f87171; background:rgba(239,68,68,.12); }
+.earn-yoy-na{ color:var(--text3); font-size:12px; }
+
+/* 상태 (서프라이즈/쇼크/부합/예정) — 셀 배경색으로 강조 */
+.earn-cell-status{
+    text-align:center;
+    font-size:11.5px; font-weight:700;
+    padding:5px 10px; border-radius:6px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.earn-status-beat{    background:rgba(34,197,94,.20);  color:#4ade80; }
+.earn-status-miss{    background:rgba(239,68,68,.20);  color:#f87171; }
+.earn-status-meet{    background:rgba(99,102,241,.18); color:#a5b4fc; }
+.earn-status-pending{ background:transparent; color:var(--text3); }
+
+/* 라이트 모드 보정 */
+[data-theme="light"] .earn-time-icon.bmo{ background:#fff7ed; }
+[data-theme="light"] .earn-time-icon.amc{ background:#f3e8ff; }
+[data-theme="light"] .earn-time-icon.tbd{ background:#f1f5f9; }
+[data-theme="light"] .earn-cell-eps .ec-act.pos,
+[data-theme="light"] .earn-cell-rev .ec-act.pos{ color:#16a34a; }
+[data-theme="light"] .earn-cell-eps .ec-act.neg,
+[data-theme="light"] .earn-cell-rev .ec-act.neg{ color:#dc2626; }
+[data-theme="light"] .earn-yoy.up{ color:#16a34a; background:#dcfce7; }
+[data-theme="light"] .earn-yoy.down{ color:#dc2626; background:#fee2e2; }
+[data-theme="light"] .earn-status-beat{ background:#dcfce7; color:#15803d; }
+[data-theme="light"] .earn-status-miss{ background:#fee2e2; color:#b91c1c; }
+[data-theme="light"] .earn-status-meet{ background:#e0e7ff; color:#4338ca; }
+
+/* 태블릿 (641 ~ 899px) — 시가총액 숨김 */
 @media(min-width:641px) and (max-width:899px){
-    .earn-row{
-        grid-template-columns:28px 36px minmax(0,1fr) minmax(90px,120px) minmax(100px,130px);
+    .earn-table-head, .earn-row{ grid-template-columns:var(--earn-grid-cols-sm); }
+    .earn-th-mcap, .earn-cell-mcap{ display:none; }
+}
+
+/* 모바일 (≤640px) — 매출/시가총액/시기 숨김, 컴팩트 4컬럼 */
+@media(max-width:640px){
+    .earn-table-head, .earn-row{
+        grid-template-columns:var(--earn-grid-cols-xs);
+        gap:8px; padding:8px 12px;
     }
+    .earn-th-fav, .earn-fav-btn{ display:none; }
+    .earn-th-time, .earn-cell-time{ display:none; }
+    .earn-th-mcap, .earn-cell-mcap{ display:none; }
+    .earn-th-rev, .earn-cell-rev{ display:none; }
+    .earn-stock-name{ display:none; }
+    .earn-ticker{ font-size:12.5px; }
+    .earn-cell-eps{ font-size:11.5px; }
+    .earn-yoy{ font-size:11px; padding:1px 6px; }
+    .earn-cell-status{ font-size:10.5px; padding:3px 6px; }
+    .earn-toolbar{ gap:6px; padding:6px 0 10px; }
+    .earn-chip{ height:28px; padding:0 10px; font-size:11px; }
+    .earn-search-wrap input{ height:32px; font-size:12px; }
+    .earn-date-header{ padding:8px 12px; }
+    .earn-date-main{ font-size:14px; }
 }
 
 /* ═══════════════════════════════════════════════════════════

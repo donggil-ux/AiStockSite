@@ -2970,11 +2970,33 @@ function _extractEarningsItems(symbol, qs, fromTs, toTs) {
             }
         }
 
+        // 매출 실제값 — earnings.financialsChart.quarterly 에서 같은 fiscalQuarter 매칭
+        let revAct = null;
+        const finQuarterly = r.earnings?.financialsChart?.quarterly || [];
+        if (picked.source === 'history' && picked.qData) {
+            const targetQ = picked.qData.fiscalQuarter || picked.qData.date;
+            const match = finQuarterly.find(fq => fq?.date === picked.qData.date);
+            revAct = match?.revenue?.raw ?? null;
+        } else if (isPast && finQuarterly.length) {
+            // calendarEvents 가 가리키는 가장 최근 발표
+            const last = finQuarterly[finQuarterly.length - 1];
+            revAct = last?.revenue?.raw ?? null;
+        }
+
+        // 시가총액 (price.marketCap)
+        const marketCap = r.price?.marketCap?.raw ?? null;
+
+        // EPS 서프라이즈 % — 실제 vs 예상
+        let surprisePct = null;
+        if (typeof epsAct === 'number' && typeof epsEst === 'number' && epsEst !== 0) {
+            surprisePct = ((epsAct - epsEst) / Math.abs(epsEst)) * 100;
+        }
+
         return [{
             symbol, name, timing,
             ts: inRangeTs,
             date: new Date(inRangeTs * 1000).toISOString().slice(0, 10),
-            epsEst, epsAct, revEst, yoy, beat,
+            epsEst, epsAct, revEst, revAct, yoy, beat, marketCap, surprisePct,
         }];
     } catch (e) {
         return [];
