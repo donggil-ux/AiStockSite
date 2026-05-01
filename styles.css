@@ -4,10 +4,10 @@
             /* Revolut-inspired neutral dark ladder (was bluish #0a0e14 family) */
             --bg:#0a0b0d;--bg2:#14161a;--bg3:#1c1e22;--bg4:#24272c;
             --border:rgba(255,255,255,0.08);--text:#f4f4f4;--text2:#9aa0a6;--text3:#5f6368;
-            --blue:#3b82f6;--green:#22c55e;--red:#ef4444;--yellow:#eab308;--purple:#a78bfa;--cyan:#22d3ee;
+            --blue:#3b82f6;--green:#3b82f6;--red:#ef4444;--yellow:#eab308;--purple:#a78bfa;--cyan:#22d3ee;
             --r:20px;--r2:14px;--r3:10px;
             /* ===== Revolut-inspired tokens (non-semantic brand accents) ===== */
-            --rui-blue:#494fdf;--rui-teal:#00a87e;--rui-danger:#e23b4a;--rui-warning:#ec7e00;
+            --rui-blue:#494fdf;--rui-teal:#494fdf;--rui-danger:#e23b4a;--rui-warning:#ec7e00;
             --rui-ink:#191c1f;--rui-paper:#ffffff;
             /* Surface ladder (dark defaults) */
             --surface-0:#0f1114;--surface-1:#17191d;--surface-2:#1e2126;--ink:#f4f4f4;
@@ -22,8 +22,8 @@
             /* Revolut light surface overrides */
             --surface-0:#ffffff;--surface-1:#fafafa;--surface-2:#f0f2f5;--ink:#191c1f;
         }
-        html{scroll-behavior:smooth;overflow-x:hidden;max-width:100vw;}
-        body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;overflow-x:hidden;max-width:100vw;letter-spacing:var(--ls-body);}
+        html{scroll-behavior:smooth;overflow-x:clip;max-width:100vw;}
+        body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;overflow-x:clip;max-width:100vw;letter-spacing:var(--ls-body);}
         /* ===== Revolut display scale (home/welcome billboard) ===== */
         .r-display-xl{font-size:clamp(40px, 8vw, 88px);font-weight:500;letter-spacing:-0.03em;line-height:1;}
         .r-display-l{font-size:40px;font-weight:500;letter-spacing:-0.025em;line-height:1.05;}
@@ -35,8 +35,8 @@
         }
 
         /* ===== APP SHELL ===== */
-        .app-wrapper{display:flex;min-height:100vh;transition:padding-left .28s cubic-bezier(.4,0,.2,1);overflow-x:hidden;max-width:100vw;}
-        .app{flex:1;min-width:0;width:100%;max-width:1200px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative;overflow-x:hidden;}
+        .app-wrapper{display:flex;min-height:100vh;transition:padding-left .28s cubic-bezier(.4,0,.2,1);overflow-x:clip;max-width:100vw;}
+        .app{flex:1;min-width:0;width:100%;max-width:1400px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative;overflow-x:clip;}
         @media(min-width:768px){.app{display:grid;grid-template-columns:minmax(0,1fr);}}
 
         /* ===== SIDE NAV ===== */
@@ -282,7 +282,7 @@
         .home-section-title{font-size:15px;font-weight:700;letter-spacing:-0.012em;display:flex;align-items:center;gap:6px;}
         .home-section-sub{font-size:11px;color:var(--text3);}
         .hs-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;}
-        .hs-badge.green{background:rgba(34,197,94,.15);color:var(--green);}
+        .hs-badge.green{background:rgba(59, 130, 246,.15);color:var(--green);}
         .hs-badge.purple{background:rgba(167,139,250,.15);color:#a78bfa;}
         .hs-label{font-size:13px;font-weight:700;color:var(--text2);margin-bottom:8px;}
 
@@ -292,7 +292,7 @@
         .scanner-card{flex-shrink:0;width:210px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:14px;cursor:pointer;transition:all .15s;}
         .scanner-card:hover{background:var(--bg3);border-color:var(--green);transform:translateY(-1px);}
         .scanner-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:10px;font-size:11px;font-weight:800;margin-bottom:8px;}
-        .scanner-badge.gap-up{background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.2);}
+        .scanner-badge.gap-up{background:rgba(59, 130, 246,.12);color:var(--green);border:1px solid rgba(59, 130, 246,.2);}
         .scanner-symbol{font-size:16px;font-weight:800;letter-spacing:-.4px;margin-bottom:1px;}
         .scanner-name{font-size:11px;color:var(--text3);margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
         .scanner-price{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;margin-bottom:4px;}
@@ -323,7 +323,7 @@
         .swing-chg{font-size:12px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;}
         .swing-chg.up{color:var(--green);}.swing-chg.down{color:var(--red);}.swing-chg.flat{color:var(--text3);}
         .rr-badge{display:inline-flex;align-items:center;justify-content:center;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums;}
-        .rr-badge.excellent{background:rgba(34,197,94,.15);color:var(--green);}
+        .rr-badge.excellent{background:rgba(59, 130, 246,.15);color:var(--green);}
         .rr-badge.good{background:rgba(234,179,8,.15);color:var(--yellow);}
         .rr-badge.ok{background:rgba(59,130,246,.12);color:var(--blue);}
         /* ===== R/R 손익비 계산기 위젯 ===== */
@@ -331,7 +331,7 @@
         .rr-calc-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
         .rr-calc-ttl{font-size:13px;font-weight:700;color:var(--text2);}
         .rr-calc-status{font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;background:var(--bg3);color:var(--text3);white-space:nowrap;}
-        .rr-calc-status.good{background:rgba(34,197,94,.18);color:var(--green);}
+        .rr-calc-status.good{background:rgba(59, 130, 246,.18);color:var(--green);}
         .rr-calc-status.ok{background:rgba(234,179,8,.18);color:var(--yellow);}
         .rr-calc-status.bad{background:rgba(239,68,68,.18);color:var(--red);}
         .rr-calc-body{display:flex;gap:12px;align-items:flex-start;}
@@ -342,7 +342,7 @@
         .rr-inp-field{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);padding:13px 14px;color:var(--text);font-size:16px;font-weight:600;outline:none;transition:border-color .15s;-moz-appearance:textfield;min-width:0;width:100%;font-family:inherit;}
         .rr-inp-field::-webkit-outer-spin-button,.rr-inp-field::-webkit-inner-spin-button{-webkit-appearance:none;}
         .rr-inp-field:focus{border-color:var(--blue);}
-        .rr-inp-field.tp{border-left:3px solid rgba(34,197,94,.55);}
+        .rr-inp-field.tp{border-left:3px solid rgba(59, 130, 246,.55);}
         .rr-inp-field.entry{border-left:3px solid rgba(148,163,184,.5);}
         .rr-inp-field.sl{border-left:3px solid rgba(239,68,68,.55);}
         .rr-auto-btn{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);border-radius:8px;padding:10px 12px;color:var(--blue);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit;transition:all .15s;flex-shrink:0;}
@@ -360,7 +360,7 @@
         .rr-vtag.tp{color:var(--green);}
         .rr-vtag.sl{color:var(--red);}
         .rr-vbar-track{width:72px;height:240px;display:flex;flex-direction:column;border-radius:10px;overflow:hidden;flex-shrink:0;}
-        .rr-vbar-green{flex:1;background:rgba(34,197,94,.18);border:1px solid rgba(34,197,94,.3);border-bottom:none;border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:center;transition:flex .28s ease;overflow:hidden;}
+        .rr-vbar-green{flex:1;background:rgba(59, 130, 246,.18);border:1px solid rgba(59, 130, 246,.3);border-bottom:none;border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:center;transition:flex .28s ease;overflow:hidden;}
         .rr-vbar-red{flex:1;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.28);border-top:none;border-radius:0 0 10px 10px;display:flex;align-items:center;justify-content:center;transition:flex .28s ease;overflow:hidden;}
         .rr-vbar-div{height:2px;background:var(--text);flex-shrink:0;}
         .rr-vbar-pct{font-size:11px;font-weight:800;line-height:1;}
@@ -435,7 +435,7 @@
         .hot-info{flex:1;min-width:0;}
         .hot-name{font-size:12px;color:var(--text2);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
         .hot-reason{font-size:11px;color:var(--text3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-        .hot-sig{font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;flex-shrink:0;background:rgba(34,197,94,.15);color:var(--green);}
+        .hot-sig{font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;flex-shrink:0;background:rgba(59, 130, 246,.15);color:var(--green);}
         .hot-sig.watch{background:rgba(234,179,8,.15);color:var(--yellow);}
         /* Hot stocks skeleton */
         .hot-skel-card{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);}
@@ -448,7 +448,7 @@
         .ai-rec-price{font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px;}
         .ai-rec-chg{font-size:12px;font-weight:600;}
         .ai-badge{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;letter-spacing:.3px;white-space:nowrap;}
-        .ai-badge.buy{background:rgba(34,197,94,.2);color:var(--green);}
+        .ai-badge.buy{background:rgba(59, 130, 246,.2);color:var(--green);}
         .ai-badge.watch{background:rgba(234,179,8,.2);color:var(--yellow);}
         .ai-rec-more-btn{font-size:12px;font-weight:600;color:var(--blue);background:none;border:none;cursor:pointer;padding:0;flex-shrink:0;}
         .ai-rec-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1150;}
@@ -578,7 +578,7 @@
         .st-time{font-size:11px;color:var(--text3);margin-left:auto;}
         .st-likes{font-size:11px;color:var(--text3);margin-left:6px;}
         .st-badge{font-size:10px;font-weight:800;padding:2px 7px;border-radius:99px;}
-        .st-badge.bull{background:rgba(34,197,94,.15);color:#22c55e;}
+        .st-badge.bull{background:rgba(59, 130, 246,.15);color:#3b82f6;}
         .st-badge.bear{background:rgba(239,68,68,.15);color:#ef4444;}
         .st-body{font-size:13px;color:var(--text1);line-height:1.55;word-break:break-word;}
         .st-ticker{color:var(--blue);font-weight:700;}
@@ -788,7 +788,7 @@
         .s52w-insight.near-high{background:rgba(239,68,68,.15);color:var(--red);}
         .s52w-insight.bounce{background:rgba(234,179,8,.15);color:var(--yellow);}
         .s52w-insight.deep-dip{background:rgba(59,130,246,.15);color:var(--blue);}
-        .s52w-insight.new-high{background:rgba(34,197,94,.18);color:var(--green);}
+        .s52w-insight.new-high{background:rgba(59, 130, 246,.18);color:var(--green);}
         .s52w-insight.mid{background:var(--bg3);color:var(--text2);}
         .s52w-track{position:relative;height:8px;background:linear-gradient(90deg,rgba(59,130,246,.35) 0%,rgba(148,163,184,.25) 50%,rgba(239,68,68,.35) 100%);border-radius:var(--r-pill);margin:18px 0 10px;}
         .s52w-marker{position:absolute;top:50%;width:14px;height:14px;border-radius:50%;background:var(--text);border:2px solid var(--bg);transform:translate(-50%,-50%);box-shadow:0 0 0 2px var(--text);z-index:2;}
@@ -825,7 +825,7 @@
         .lts-card-val.neutral{color:var(--text);}
         .lts-card-sub{font-size:10px;font-weight:500;color:var(--text3);margin-top:auto;}
         .lts-risk-pill{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:var(--r-pill);width:fit-content;margin-top:2px;}
-        .lts-risk-pill.low{background:rgba(34,197,94,.15);color:var(--green);}
+        .lts-risk-pill.low{background:rgba(59, 130, 246,.15);color:var(--green);}
         .lts-risk-pill.mid{background:rgba(234,179,8,.15);color:var(--yellow);}
         .lts-risk-pill.high{background:rgba(239,68,68,.15);color:var(--red);}
 
@@ -906,7 +906,7 @@
             height:100%;border-radius:3px;transition:width .4s ease;
         }
         /* verdict color tones */
-        .q-strong-buy { color:#22c55e; }     .quant-composite-fill.q-strong-buy   { background:#22c55e; }
+        .q-strong-buy { color:#3b82f6; }     .quant-composite-fill.q-strong-buy   { background:#3b82f6; }
         .q-buy        { color:#65a30d; }     .quant-composite-fill.q-buy          { background:#65a30d; }
         .q-neutral    { color:#94a3b8; }     .quant-composite-fill.q-neutral      { background:#94a3b8; }
         .q-sell       { color:#f97316; }     .quant-composite-fill.q-sell         { background:#f97316; }
@@ -926,7 +926,7 @@
         .quant-axis-score{
             font-size:13px;font-weight:800;padding:3px 10px;border-radius:8px;font-variant-numeric:tabular-nums;
         }
-        .q-axis-high{ background:rgba(34,197,94,.15); color:#22c55e; }
+        .q-axis-high{ background:rgba(59, 130, 246,.15); color:#3b82f6; }
         .q-axis-mid { background:rgba(148,163,184,.15); color:var(--text2); }
         .q-axis-low { background:rgba(249,115,22,.15); color:#f97316; }
         .q-axis-crit{ background:rgba(239,68,68,.15);  color:#ef4444; }
@@ -1010,7 +1010,7 @@
         .ai-summary-close:hover{color:var(--text);}
         .ai-summary-levels{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
         .ai-summary-level{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;}
-        .ai-summary-level.support{background:rgba(34,197,94,.12);color:#22c55e;border:1px solid rgba(34,197,94,.25);}
+        .ai-summary-level.support{background:rgba(59, 130, 246,.12);color:#3b82f6;border:1px solid rgba(59, 130, 246,.25);}
         .ai-summary-level.resistance{background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25);}
         .ai-summary-level.trend{background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.25);}
         .ai-summary-text{font-size:12px;color:var(--text2);line-height:1.6;}
@@ -1035,7 +1035,7 @@
         .ai-pattern-name{font-size:12px;font-weight:700;color:var(--text);}
         .ai-pattern-status{font-size:10px;font-weight:800;padding:2px 6px;border-radius:999px;letter-spacing:.3px;}
         .ai-pattern-status-forming{background:rgba(167,139,250,.15);color:#a78bfa;}
-        .ai-pattern-status-completed{background:rgba(34,197,94,.15);color:#22c55e;}
+        .ai-pattern-status-completed{background:rgba(59, 130, 246,.15);color:#3b82f6;}
         .ai-pattern-status-breakout{background:rgba(245,158,11,.18);color:#f59e0b;}
         .ai-pattern-chip-meta{display:flex;flex-wrap:wrap;gap:8px;font-size:11px;color:var(--text2);}
         .ai-pattern-chip-meta b{color:var(--text);font-weight:700;}
@@ -1060,21 +1060,21 @@
         .ar-kv dt{color:var(--text3);font-weight:600;align-self:center;}
         .ar-kv dd{color:var(--text);margin:0;font-weight:700;align-self:center;word-break:break-word;}
         .ar-price{display:inline-block;padding:2px 8px;border-radius:6px;font-weight:800;font-size:11px;font-variant-numeric:tabular-nums;}
-        .ar-price.up{background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.3);}
+        .ar-price.up{background:rgba(59, 130, 246,.15);color:#3b82f6;border:1px solid rgba(59, 130, 246,.3);}
         .ar-price.down{background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);}
         .ar-price.neutral{background:var(--bg4);color:var(--text);border:1px solid var(--border);}
         .ar-scenario{background:var(--bg2);border-left:3px solid var(--border);border-radius:8px;padding:10px 12px;margin:8px 0 0;}
-        .ar-scenario.bull{border-left-color:#22c55e;background:rgba(34,197,94,.06);}
+        .ar-scenario.bull{border-left-color:#3b82f6;background:rgba(59, 130, 246,.06);}
         .ar-scenario.bear{border-left-color:#ef4444;background:rgba(239,68,68,.06);}
         .ar-scenario-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-weight:800;font-size:12px;gap:8px;flex-wrap:wrap;}
         .ar-scenario-rr{font-size:11px;padding:2px 8px;border-radius:4px;background:var(--bg4);color:var(--text);white-space:nowrap;}
         .ar-conv{font-size:10px;padding:2px 6px;border-radius:4px;margin-left:4px;font-weight:800;letter-spacing:.3px;}
-        .ar-conv.high{background:rgba(34,197,94,.2);color:#22c55e;}
+        .ar-conv.high{background:rgba(59, 130, 246,.2);color:#3b82f6;}
         .ar-conv.medium{background:rgba(234,179,8,.2);color:#eab308;}
         .ar-conv.low{background:rgba(239,68,68,.2);color:#ef4444;}
 
         /* ===== ECONOMIC INDICATORS SCREEN ===== */
-        #economicSection{max-width:1200px;margin:0 auto;padding:24px 16px;}
+        #economicSection{max-width:1600px;margin:0 auto;padding:24px 16px;}
         .economic-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
         .economic-header h2{font-size:1.4rem;font-weight:700;margin:0;}
         .economic-tab-group{display:flex;gap:8px;}
@@ -1110,7 +1110,7 @@
         .economic-sector-section h3,.economic-ai-section h3{font-size:.95rem;font-weight:700;margin-bottom:14px;color:var(--text);}
         .sector-badges-wrap{display:flex;flex-wrap:wrap;gap:8px;}
         .sector-badge{display:inline-flex;align-items:center;gap:4px;padding:6px 14px;border-radius:20px;font-size:.82rem;font-weight:600;}
-        .sector-positive{background:rgba(34,197,94,.15);color:#22c55e;}
+        .sector-positive{background:rgba(59, 130, 246,.15);color:#3b82f6;}
         .sector-negative{background:rgba(239,68,68,.15);color:#ef4444;}
         .sector-neutral{background:rgba(234,179,8,.15);color:#eab308;}
         .ai-analysis-text{font-size:.88rem;line-height:1.7;color:var(--text);}
@@ -1147,7 +1147,7 @@
         .indicator-label{font-size:11px;color:var(--text3);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;}
         .indicator-value{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.5px;}
         .indicator-signal{font-size:11px;font-weight:700;margin-top:6px;padding:3px 10px;border-radius:20px;display:inline-block;}
-        .signal-buy{background:rgba(34,197,94,.12);color:var(--green);}
+        .signal-buy{background:rgba(59, 130, 246,.12);color:var(--green);}
         .signal-sell{background:rgba(239,68,68,.12);color:var(--red);}
         .signal-neutral{background:rgba(234,179,8,.1);color:var(--yellow);}
 
@@ -1181,7 +1181,7 @@
         .se-eps-label{font-size:10px;color:var(--text3);font-weight:600;}
         .se-eps-val{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;}
         .se-surprise{font-size:12px;font-weight:700;padding:3px 8px;border-radius:12px;white-space:nowrap;flex-shrink:0;}
-        .se-surprise.beat{background:rgba(34,197,94,.12);color:var(--green);}
+        .se-surprise.beat{background:rgba(59, 130, 246,.12);color:var(--green);}
         .se-surprise.miss{background:rgba(239,68,68,.12);color:var(--red);}
         .se-surprise.meet{background:rgba(234,179,8,.1);color:var(--yellow);}
         .se-empty{text-align:center;padding:30px 0;color:var(--text3);font-size:13px;}
@@ -1261,7 +1261,7 @@
         .entry-check-item{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;line-height:1.5;}
         .entry-check-item:last-child{border-bottom:none;}
         .entry-check-icon{flex-shrink:0;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;margin-top:1px;}
-        .entry-check-icon.pass{background:rgba(34,197,94,.15);color:var(--green);}
+        .entry-check-icon.pass{background:rgba(59, 130, 246,.15);color:var(--green);}
         .entry-check-icon.fail{background:rgba(239,68,68,.15);color:var(--red);}
         .entry-check-icon.warn{background:rgba(234,179,8,.15);color:var(--yellow);}
         .entry-check-text{flex:1;}
@@ -1271,7 +1271,7 @@
         .day-unified-item{background:var(--bg3);border-radius:var(--r3);padding:12px 14px;margin-bottom:8px;}
         .day-unified-header{display:flex;align-items:center;gap:10px;margin-bottom:5px;}
         .day-unified-icon{flex-shrink:0;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;}
-        .day-unified-icon.pass{background:rgba(34,197,94,.15);color:var(--green);}
+        .day-unified-icon.pass{background:rgba(59, 130, 246,.15);color:var(--green);}
         .day-unified-icon.warn{background:rgba(234,179,8,.15);color:var(--yellow);}
         .day-unified-icon.fail{background:rgba(239,68,68,.15);color:var(--red);}
         .day-unified-title{flex:1;font-size:13px;font-weight:700;}
@@ -1318,7 +1318,7 @@
         .snackbar.show{transform:translateX(-50%) translateY(0);}
         .snackbar.error{background:rgba(239,68,68,.13);border:1px solid rgba(239,68,68,.4);color:#ef4444;}
         .snackbar.warning{background:rgba(234,179,8,.13);border:1px solid rgba(234,179,8,.4);color:#ca8a04;}
-        .snackbar.success{background:rgba(34,197,94,.13);border:1px solid rgba(34,197,94,.4);color:#16a34a;}
+        .snackbar.success{background:rgba(59, 130, 246,.13);border:1px solid rgba(59, 130, 246,.4);color:#2563eb;}
         .snackbar.info{background:var(--bg3);border:1px solid var(--border);color:var(--text2);}
         [data-theme="light"] .snackbar{box-shadow:0 8px 32px rgba(0,0,0,.12);}
         [data-theme="light"] .snackbar.warning{color:#92400e;}
@@ -1331,7 +1331,7 @@
 
         /* ===== DESKTOP 2-COL ===== */
         @media(min-width:900px){
-            .app{max-width:1200px;}
+            .app{max-width:1400px;}
             .stock-hero{padding:32px 32px 24px;}
             .card{margin:4px 0px;}
             /* 900-1099px: 단일 컬럼 (우측 패널이 좌측 아래로 스택) */
@@ -1361,7 +1361,7 @@
             .tab-nav{padding:0 32px;}
         }
         @media(min-width:1100px){
-            .app{max-width:1320px;}
+            .app{max-width:1520px;}
             /* 1100px+: 2컬럼 복귀. minmax(0,1fr) 로 내부 자식이 강제 최소폭 요구해도 오버플로우 방지 */
             .tab-content.active{grid-template-columns:minmax(0,1fr) 380px;}
             #tabChart.active{display:block;}
@@ -1374,15 +1374,15 @@
         }
         /* 1280px (13" MBA 내부 해상도) 구간: 우측 420px 로 살짝 확장 */
         @media(min-width:1280px){
-            .app{max-width:1380px;}
+            .app{max-width:1580px;}
             .tab-content.active{grid-template-columns:minmax(0,1fr) 420px;}
         }
         @media(min-width:1440px){
-            .app{max-width:1420px;}
+            .app{max-width:1600px;}
             .tab-content.active{grid-template-columns:minmax(0,1fr) 480px;}
         }
         @media(min-width:1680px){
-            .app{max-width:1500px;}
+            .app{max-width:1600px;}
         }
 
         /* ===== MOBILE (≤640px) ===== */
@@ -1638,7 +1638,7 @@
         .opt-tbl td{padding:7px 8px;text-align:right;border-bottom:1px solid rgba(255,255,255,.03);font-variant-numeric:tabular-nums;font-weight:600;color:var(--text2);}
         .opt-tbl td:first-child{text-align:left;padding-left:12px;}
         .opt-tbl tr:last-child td{border-bottom:none;}
-        .opt-tbl tr.itm-call td{background:rgba(34,197,94,.05);}
+        .opt-tbl tr.itm-call td{background:rgba(59, 130, 246,.05);}
         .opt-tbl tr.itm-call .opt-strike{color:var(--green);}
         .opt-tbl tr.itm-put td{background:rgba(239,68,68,.05);}
         .opt-tbl tr.itm-put .opt-strike{color:var(--red);}
@@ -1649,7 +1649,7 @@
         .opt-up{color:var(--green);}
         .opt-down{color:var(--red);}
         .opt-itm-badge{display:inline-block;font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;margin-left:4px;vertical-align:middle;}
-        .opt-itm-badge.call{background:rgba(34,197,94,.15);color:var(--green);}
+        .opt-itm-badge.call{background:rgba(59, 130, 246,.15);color:var(--green);}
         .opt-itm-badge.put{background:rgba(239,68,68,.15);color:var(--red);}
 
         /* 당일 거래 활성 옵션 TOP — 콜/풋 2단 레이아웃 */
@@ -1678,8 +1678,8 @@
         .options-anal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
         .options-anal-title{font-size:15px;font-weight:800;}
         .options-anal-verdict{padding:5px 14px;border-radius:20px;font-size:13px;font-weight:800;}
-        .options-anal-verdict.bull{background:rgba(34,197,94,.15);color:var(--green);}
-        .options-anal-verdict.strong-bull{background:rgba(34,197,94,.2);color:var(--green);border:1px solid rgba(34,197,94,.3);}
+        .options-anal-verdict.bull{background:rgba(59, 130, 246,.15);color:var(--green);}
+        .options-anal-verdict.strong-bull{background:rgba(59, 130, 246,.2);color:var(--green);border:1px solid rgba(59, 130, 246,.3);}
         .options-anal-verdict.bear{background:rgba(239,68,68,.15);color:var(--red);}
         .options-anal-verdict.strong-bear{background:rgba(239,68,68,.2);color:var(--red);border:1px solid rgba(239,68,68,.3);}
         .options-anal-verdict.neutral{background:var(--bg3);color:var(--text2);}
@@ -1834,7 +1834,7 @@
         .rr-action-row{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;
             padding:14px;background:var(--bg3);border-radius:var(--r3);}
         .rr-action-badge{font-size:14px;font-weight:800;padding:6px 14px;border-radius:20px;white-space:nowrap;flex-shrink:0;}
-        .rr-action-buy    {background:rgba(34,197,94,.15); color:var(--green); border:1px solid rgba(34,197,94,.3);}
+        .rr-action-buy    {background:rgba(59, 130, 246,.15); color:var(--green); border:1px solid rgba(59, 130, 246,.3);}
         .rr-action-partial{background:rgba(234,179,8,.12); color:var(--yellow);border:1px solid rgba(234,179,8,.3);}
         .rr-action-wait   {background:rgba(148,163,184,.1);color:var(--text2); border:1px solid var(--border);}
         .rr-action-block  {background:rgba(239,68,68,.15); color:var(--red);   border:1px solid rgba(239,68,68,.4);}
@@ -1861,11 +1861,11 @@
         /* ── MACD 모멘텀 시그널 카드 ── */
         .macd-signal-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
         .macd-signal-badge{font-size:15px;font-weight:800;padding:8px 18px;border-radius:24px;letter-spacing:-.3px;}
-        .macd-signal-buy {background:rgba(34,197,94,.15); color:var(--green); border:1px solid rgba(34,197,94,.3);}
+        .macd-signal-buy {background:rgba(59, 130, 246,.15); color:var(--green); border:1px solid rgba(59, 130, 246,.3);}
         .macd-signal-sell{background:rgba(239,68,68,.15);  color:var(--red);   border:1px solid rgba(239,68,68,.4);}
         .macd-signal-hold{background:rgba(148,163,184,.1); color:var(--text2); border:1px solid var(--border);}
         .macd-momentum-badge{font-size:12px;font-weight:700;padding:4px 10px;border-radius:12px;}
-        .macd-momentum-up {background:rgba(34,197,94,.1);  color:var(--green);}
+        .macd-momentum-up {background:rgba(59, 130, 246,.1);  color:var(--green);}
         .macd-momentum-dn {background:rgba(239,68,68,.1);  color:var(--red);}
         .macd-momentum-neu{background:rgba(148,163,184,.08);color:var(--text3);}
         .macd-reason-box{background:var(--bg3);border-radius:var(--r3);padding:12px 14px;margin-bottom:12px;}
@@ -1875,11 +1875,11 @@
         /* ── RSI 모멘텀 진단 카드 ── */
         .rsi-signal-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
         .rsi-signal-badge{font-size:15px;font-weight:800;padding:8px 18px;border-radius:24px;letter-spacing:-.3px;}
-        .rsi-signal-buy {background:rgba(34,197,94,.15); color:var(--green); border:1px solid rgba(34,197,94,.3);}
+        .rsi-signal-buy {background:rgba(59, 130, 246,.15); color:var(--green); border:1px solid rgba(59, 130, 246,.3);}
         .rsi-signal-sell{background:rgba(239,68,68,.15);  color:var(--red);   border:1px solid rgba(239,68,68,.4);}
         .rsi-signal-hold{background:rgba(148,163,184,.1); color:var(--text2); border:1px solid var(--border);}
         .rsi-diverg-badge{font-size:12px;font-weight:700;padding:4px 10px;border-radius:12px;}
-        .rsi-diverg-bull{background:rgba(34,197,94,.1);  color:var(--green);}
+        .rsi-diverg-bull{background:rgba(59, 130, 246,.1);  color:var(--green);}
         .rsi-diverg-bear{background:rgba(239,68,68,.1);  color:var(--red);}
         .rsi-diverg-none{background:rgba(148,163,184,.08);color:var(--text3);}
         .rsi-reason-box{background:var(--bg3);border-radius:var(--r3);padding:12px 14px;margin-bottom:12px;}
@@ -1910,7 +1910,7 @@
         .sm-inst-aum-val{font-size:14px;font-weight:700;color:var(--text);display:block;}
         .sm-inst-metrics{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px;}
         .sm-inst-return{padding:3px 9px;border-radius:6px;font-size:12px;font-weight:700;}
-        .sm-inst-return.pos{background:rgba(34,197,94,.12);color:var(--green);}
+        .sm-inst-return.pos{background:rgba(59, 130, 246,.12);color:var(--green);}
         .sm-inst-return.neg{background:rgba(239,68,68,.1);color:var(--red);}
         .sm-inst-sectors{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;}
         .sm-sector-tag{background:var(--bg3);color:var(--text2);border-radius:5px;padding:2px 8px;font-size:11px;font-weight:600;}
@@ -1926,7 +1926,7 @@
         .guru-tags{display:flex;gap:5px;flex-wrap:wrap;}
         .guru-tag{background:var(--bg3);color:var(--text2);border-radius:5px;padding:2px 8px;font-size:11px;font-weight:600;}
         .guru-aum-tag{background:rgba(59,130,246,.1);color:var(--blue);border-radius:5px;padding:2px 8px;font-size:11px;font-weight:700;}
-        .guru-ret-tag{background:rgba(34,197,94,.1);color:var(--green);border-radius:5px;padding:2px 8px;font-size:11px;font-weight:700;}
+        .guru-ret-tag{background:rgba(59, 130, 246,.1);color:var(--green);border-radius:5px;padding:2px 8px;font-size:11px;font-weight:700;}
         /* Deep Dive */
         .sm-deep-wrap{padding:0;}
         .sm-deep-header{display:flex;align-items:center;gap:10px;padding:4px 0 16px 0;border-bottom:1px solid var(--border);margin-bottom:14px;}
@@ -2042,7 +2042,7 @@
         .sm-wt-chg.pos{color:var(--green);}.sm-wt-chg.neg{color:var(--red);}.sm-wt-chg.zero{color:var(--text3);}
         .sm-avg{color:var(--text2);font-size:12px;}
         .sm-action{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;text-align:center;}
-        .sm-action.new{background:rgba(34,197,94,.15);color:var(--green);}
+        .sm-action.new{background:rgba(59, 130, 246,.15);color:var(--green);}
         .sm-action.add{background:rgba(59,130,246,.12);color:var(--blue);}
         .sm-action.reduce{background:rgba(245,158,11,.12);color:#f59e0b;}
         .sm-action.cut{background:rgba(239,68,68,.1);color:var(--red);}
@@ -2057,7 +2057,7 @@
         .sm-top3-add-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px;}
         .sm-top3-add-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 10px 10px;cursor:pointer;transition:all .15s;}
         .sm-top3-add-card:hover{border-color:#f59e0b;transform:translateY(-1px);}
-        .sm-add-chg{font-size:11px;font-weight:700;color:#22c55e;background:rgba(34,197,94,.1);border-radius:4px;padding:2px 5px;}
+        .sm-add-chg{font-size:11px;font-weight:700;color:#3b82f6;background:rgba(59, 130, 246,.1);border-radius:4px;padding:2px 5px;}
         /* 🏛️ KINGDOM — 월가 킹덤 */
         .sm-top3-hold{display:inline-flex;align-items:center;gap:3px;background:var(--bg3);border-radius:5px;padding:2px 7px;font-size:11px;font-weight:600;color:var(--text2);margin-right:4px;margin-bottom:3px;}
         .sm-treemap-wrap{background:var(--bg2);border-radius:10px;padding:10px;margin-bottom:6px;overflow:hidden;}
@@ -2098,7 +2098,7 @@
         .scanner-inst{font-size:11px;color:var(--text2);margin-top:2px;}
         .scanner-empty{text-align:center;color:var(--text2);padding:60px 20px;font-size:14px;line-height:1.7;}
         .scanner-results-count{font-size:12px;color:var(--text2);margin-bottom:10px;}
-        .s-action-new{color:#22c55e;font-size:11px;font-weight:800;}
+        .s-action-new{color:#3b82f6;font-size:11px;font-weight:800;}
         .s-action-add{color:#3b82f6;font-size:11px;font-weight:800;}
         .s-action-hold{color:var(--text2);font-size:11px;font-weight:800;}
         .s-action-reduce{color:#f59e0b;font-size:11px;font-weight:800;}
@@ -2146,11 +2146,11 @@
         .vs-scan-progress{height:100%;background:linear-gradient(90deg,var(--purple),#7c3aed);border-radius:4px;box-shadow:0 0 8px rgba(167,139,250,.8);width:0%;}
         .vs-step-indicator{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;padding:14px 0 4px;}
         .vs-step-chip{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--bg3);color:var(--text3);}
-        .vs-step-chip.done{background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.3);color:var(--green);}
+        .vs-step-chip.done{background:rgba(59, 130, 246,.1);border-color:rgba(59, 130, 246,.3);color:var(--green);}
         .vs-step-chip.active{background:rgba(167,139,250,.1);border-color:rgba(167,139,250,.3);color:var(--purple);}
         /* 결과 캔버스 */
         .vs-result-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
-        .vs-result-badge{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:var(--green);font-size:12px;font-weight:700;}
+        .vs-result-badge{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:rgba(59, 130, 246,.1);border:1px solid rgba(59, 130, 246,.25);color:var(--green);font-size:12px;font-weight:700;}
         .vs-reset-btn{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--r3);background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;}
         .vs-reset-btn:hover{background:var(--bg4);color:var(--text);}
         .vs-canvas-wrap{position:relative;width:100%;border-radius:var(--r);overflow:hidden;border:1px solid var(--border);}
@@ -2160,7 +2160,7 @@
         .vs-meta-name{color:var(--text);font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
         .vs-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center;}
         .vs-legend-chip{display:flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;}
-        .vs-legend-chip.support{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:var(--green);}
+        .vs-legend-chip.support{background:rgba(59, 130, 246,.1);border:1px solid rgba(59, 130, 246,.25);color:var(--green);}
         .vs-legend-chip.resistance{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:var(--red);}
         .vs-legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
         .vs-legend-hint{font-size:11px;color:var(--text3);margin-left:auto;}
@@ -2617,7 +2617,7 @@
          * 주식 골라보기 (Discover) — TOP100 DNA 재사용
          * DOM: fav · rank · logo · info · disc-keymetric · price · change (7)
          * ====================================================== */
-        .discover-screen{padding:24px 16px 48px;max-width:1400px;margin:0 auto;}
+        .discover-screen{padding:24px 16px 48px;max-width:1600px;margin:0 auto;}
         .disc-screen-title{font-size:22px;font-weight:700;letter-spacing:-.02em;margin-bottom:4px;color:var(--text);}
         .disc-screen-sub{font-size:13px;color:var(--text3);margin-bottom:16px;}
         .disc-preset-tabs{margin-bottom:14px;}
@@ -2694,7 +2694,7 @@
             text-align:center;
             color:var(--text3);
         }
-        .disc-analyst.strong-buy  {color:#00a86b;}
+        .disc-analyst.strong-buy  {color:#494fdf;}
         .disc-analyst.buy         {color:var(--green);}
         .disc-analyst.hold        {color:var(--text2);}
         .disc-analyst.sell        {color:var(--red);}
@@ -2998,9 +2998,166 @@
    Level 12 — 실적발표 일정 (Earnings Calendar)
    날짜별 그룹핑 + BMO/AMC 배지 + Beat/Miss 배지
    ═══════════════════════════════════════════════════════════ */
+
+/* ── earningsScreen: 풀 너비 1600px ─────────────────────────── */
+#earningsScreen {
+    max-width: 1600px !important;
+    width: 100%;
+    padding-left: 24px;
+    padding-right: 24px;
+    box-sizing: border-box;
+}
+@media(min-width:900px){ #earningsScreen{ padding-left:32px; padding-right:32px; } }
+
+/* ── 가로형 상단 탭 바 (Toss 스타일) ─────────────────────────── */
+.earn-topnav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 14px 0 16px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+.earn-topnav::-webkit-scrollbar { display: none; }
+
+/* 날짜 칩 영역 — 좌측 */
+.earn-topnav-dates {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    padding-right: 14px;
+    margin-right: 8px;
+    border-right: 1px solid var(--border);
+}
+
+/* 칩 그룹: 그룹간 큰 간격 */
+.earn-chip-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    margin-right: 18px;
+}
+
+/* 공통 칩 — Toss 스타일 풀 라운드 pill */
+.earn-date-chip,
+.earn-topnav-actions .earn-chip {
+    flex-shrink: 0;
+    height: 36px;
+    padding: 0 16px;
+    background: transparent;
+    border: none;
+    border-radius: 9999px;
+    color: var(--text2);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .12s, color .12s;
+    letter-spacing: -0.01em;
+}
+.earn-date-chip:hover,
+.earn-topnav-actions .earn-chip:hover {
+    color: var(--text);
+}
+.earn-date-chip.active,
+.earn-topnav-actions .earn-chip.active {
+    background: var(--bg3);
+    color: var(--text);
+    font-weight: 700;
+}
+[data-theme="light"] .earn-date-chip.active,
+[data-theme="light"] .earn-topnav-actions .earn-chip.active {
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.04);
+}
+
+/* 필터 액션 영역 — 우측 */
+.earn-topnav-actions {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex: 1;
+    min-width: 0;
+}
+
+/* 그룹 사이 구분선 */
+.earn-topnav-divider {
+    width: 1px; height: 16px;
+    background: var(--border);
+    flex-shrink: 0;
+    margin: 0 6px;
+}
+
+/* 검색창 */
+.earn-topnav-search {
+    position: relative;
+    flex-shrink: 0;
+    margin-left: auto;
+    padding-right: 4px;
+}
+.earn-topnav-search input {
+    display: block;
+    height: 36px;
+    width: 240px;
+    padding: 0 14px 0 34px;
+    background: var(--bg3);
+    border: none;
+    border-radius: 9999px;
+    color: var(--text);
+    font-size: 13px;
+    transition: background .15s, box-shadow .15s;
+}
+.earn-topnav-search input:focus {
+    outline: none;
+    background: var(--bg4, var(--bg3));
+    box-shadow: 0 0 0 2px rgba(73, 79, 223, 0.25);
+}
+.earn-topnav-search input::placeholder { color: var(--text3); }
+/* SVG 돋보기 아이콘 */
+.earn-topnav-search::before {
+    content: '';
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 13px;
+    height: 13px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%235f6368' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='9' cy='9' r='6'/%3E%3Cline x1='13.5' y1='13.5' x2='18' y2='18'/%3E%3C/svg%3E");
+    background-size: contain;
+    background-repeat: no-repeat;
+    pointer-events: none;
+}
+
+/* 풀 너비 메인 */
+.earn-full-main { width: 100%; min-width: 0; }
+
+/* 결과 카운트 */
+.earn-result-count {
+    font-size: 12px;
+    color: var(--text3);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* 모바일 */
+@media (max-width: 640px) {
+    .earn-topnav { flex-wrap: wrap; gap: 0; padding: 8px 0 10px; }
+    .earn-topnav-dates { order: 1; padding-right: 0; border-right: none; margin-right: 0; padding-bottom: 8px; border-bottom: 1px solid var(--border); width: 100%; }
+    .earn-topnav-actions { order: 2; padding-top: 8px; }
+    .earn-date-chip, .earn-topnav-actions .earn-chip { height: 28px; padding: 0 10px; font-size: 12px; }
+}
+
+/* 구버전 .earn-window-label 호환 유지 */
 .earn-window-label{
     font-size:15px; font-weight:700; color:var(--text);
     margin:0 0 12px; padding:0 4px;
+    display: none; /* topnav 로 대체됨 */
 }
 .earn-grid{display:flex; flex-direction:column; gap:20px;}
 .earn-date-group{
@@ -3020,9 +3177,20 @@
 .earn-date-main{font-size:16px; color:var(--text);}
 .earn-date-dow{font-size:13px; color:var(--text2); font-weight:600;}
 .earn-date-count{
-    margin-left:auto; font-size:12px; color:var(--text2);
-    background:var(--bg4);
-    padding:3px 10px; border-radius:999px;
+    margin-left:auto;
+    font-size:12.5px;
+    font-weight:700;
+    color:var(--text);
+    background:rgba(59, 130, 246, 0.18);
+    border:1px solid rgba(59, 130, 246, 0.35);
+    padding:5px 12px;
+    border-radius:999px;
+    letter-spacing:-0.01em;
+}
+[data-theme="light"] .earn-date-count{
+    background:#dbeafe;
+    border-color:#93c5fd;
+    color:#1d4ed8;
 }
 .earn-date-rows{display:flex; flex-direction:column;}
 
@@ -3061,9 +3229,9 @@
 
 /* 툴바 — 검색 + 필터 칩 */
 .earn-toolbar{
-    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-    padding:8px 4px 12px; margin-bottom:4px;
-    border-bottom:1px solid var(--border);
+    display:flex; align-items:center;
+    padding:8px 2px 10px;
+    margin-bottom:2px;
 }
 .earn-search-wrap{ flex:1 1 220px; min-width:200px; }
 .earn-search-wrap input{
@@ -3088,24 +3256,33 @@
     color:#fff;
 }
 
-/* 테이블 헤더 (sticky) — 정렬 가능 컬럼 */
-.earn-table-head{
+/* 전역 .earn-table-head 는 제거됨 — 각 날짜 그룹 내부에 .earn-group-col-head 사용 */
+.earn-table-head{ display:none; } /* 혹시 남아있는 경우 숨김 */
+
+/* 날짜 그룹별 컬럼 헤더 — 여백의 미 */
+.earn-group-col-head{
     display:grid; grid-template-columns:var(--earn-grid-cols);
     align-items:center; gap:10px;
-    padding:8px 14px;
-    background:var(--bg2); border:1px solid var(--border); border-radius:8px;
-    margin-bottom:8px;
-    font-size:11px; font-weight:700; color:var(--text2);
-    text-transform:uppercase; letter-spacing:.4px;
-    position:sticky; top:0; z-index:5;
+    padding:9px 14px;
+    background:transparent;
+    border-top:1px solid var(--border);
+    border-bottom:1px solid var(--border);
+    font-size:10.5px; font-weight:600;
+    color:var(--text3);
+    letter-spacing:.55px;
+    text-transform:uppercase;
 }
+/* 접힌 그룹에서 헤더 숨김 */
+.earn-group-collapsed .earn-group-col-head{ display:none; }
 .earn-th{ min-width:0; }
 .earn-th-eps, .earn-th-rev, .earn-th-yoy, .earn-th-mcap{ text-align:right; }
 .earn-th-status{ text-align:center; }
 .earn-th-time{ text-align:center; }
-.earn-th.sortable{ cursor:pointer; user-select:none; }
-.earn-th.sortable:hover{ color:var(--text); }
-.earn-th.sortable::after{ content:' ⇅'; opacity:0.4; font-size:10px; }
+.earn-th.sortable{ cursor:pointer; user-select:none; transition:color .12s; }
+.earn-th.sortable:hover{ color:var(--text2); }
+.earn-th.sortable::after{ content:' ⇅'; opacity:0.35; font-size:9px; }
+.earn-th.sortable.sort-asc::after,
+.earn-th.sortable.sort-desc::after{ opacity:1; color:var(--accent, #4a9eff); }
 .earn-th.sortable.sort-asc::after{ content:' ▲'; opacity:1; color:var(--accent, #4a9eff); }
 .earn-th.sortable.sort-desc::after{ content:' ▼'; opacity:1; color:var(--accent, #4a9eff); }
 
@@ -3142,8 +3319,11 @@
     display:flex; align-items:center; gap:8px;
     min-width:0;
 }
-.earn-cell-stock .tlogo-wrap{ width:28px; height:28px; flex-shrink:0; }
-.earn-cell-stock .tlogo-wrap img{ width:28px; height:28px; border-radius:50%; }
+.earn-cell-stock .tlogo-wrap{ width:32px; height:32px; flex-shrink:0; overflow:visible; }
+.earn-cell-stock .tlogo-wrap .tlogo,
+.earn-cell-stock .tlogo-wrap .tlogo-fb{ width:32px; height:32px; font-size:12px; }
+.earn-cell-stock .tlogo-wrap img{ width:32px; height:32px; border-radius:50%; }
+.earn-cell-stock .tlogo-wrap .tlogo-flag{ width:14px; height:14px; font-size:9px; right:-1px; bottom:-1px; border-width:1.5px; }
 .earn-stock-id{ min-width:0; display:flex; flex-direction:column; line-height:1.25; }
 .earn-ticker{
     font-size:13px; font-weight:800; color:var(--text);
@@ -3179,7 +3359,7 @@
 .earn-cell-eps .ec-est, .earn-cell-rev .ec-est{ color:var(--text3); font-weight:500; }
 .earn-cell-eps .ec-sep, .earn-cell-rev .ec-sep{ color:var(--text3); margin:0 3px; }
 .earn-cell-eps .ec-act, .earn-cell-rev .ec-act{ color:var(--text); font-weight:700; }
-.earn-cell-eps .ec-act.pos, .earn-cell-rev .ec-act.pos{ color:#4ade80; }
+.earn-cell-eps .ec-act.pos, .earn-cell-rev .ec-act.pos{ color:#60a5fa; }
 .earn-cell-eps .ec-act.neg, .earn-cell-rev .ec-act.neg{ color:#f87171; }
 
 /* YoY 화살표 */
@@ -3188,18 +3368,26 @@
     display:inline-block; font-size:12.5px; font-weight:700;
     padding:2px 8px; border-radius:5px;
 }
-.earn-yoy.up{ color:#4ade80; background:rgba(34,197,94,.12); }
+.earn-yoy.up{ color:#60a5fa; background:rgba(59, 130, 246,.12); }
 .earn-yoy.down{ color:#f87171; background:rgba(239,68,68,.12); }
 .earn-yoy-na{ color:var(--text3); font-size:12px; }
 
 /* 상태 (서프라이즈/쇼크/부합/예정) — 셀 배경색으로 강조 */
 .earn-cell-status{
-    text-align:center;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    justify-self:center;
     font-size:11.5px; font-weight:700;
-    padding:5px 10px; border-radius:6px;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    line-height:1;
+    padding:6px 10px;
+    border-radius:6px;
+    white-space:nowrap;
+    width:auto;
+    max-width:100%;
 }
-.earn-status-beat{    background:rgba(34,197,94,.20);  color:#4ade80; }
+.earn-status-pending{ padding:6px 4px; }
+.earn-status-beat{    background:rgba(59, 130, 246,.20);  color:#60a5fa; }
 .earn-status-miss{    background:rgba(239,68,68,.20);  color:#f87171; }
 .earn-status-meet{    background:rgba(99,102,241,.18); color:#a5b4fc; }
 .earn-status-pending{ background:transparent; color:var(--text3); }
@@ -3209,24 +3397,24 @@
 [data-theme="light"] .earn-time-icon.amc{ background:#f3e8ff; }
 [data-theme="light"] .earn-time-icon.tbd{ background:#f1f5f9; }
 [data-theme="light"] .earn-cell-eps .ec-act.pos,
-[data-theme="light"] .earn-cell-rev .ec-act.pos{ color:#16a34a; }
+[data-theme="light"] .earn-cell-rev .ec-act.pos{ color:#2563eb; }
 [data-theme="light"] .earn-cell-eps .ec-act.neg,
 [data-theme="light"] .earn-cell-rev .ec-act.neg{ color:#dc2626; }
-[data-theme="light"] .earn-yoy.up{ color:#16a34a; background:#dcfce7; }
+[data-theme="light"] .earn-yoy.up{ color:#2563eb; background:#dbeafe; }
 [data-theme="light"] .earn-yoy.down{ color:#dc2626; background:#fee2e2; }
-[data-theme="light"] .earn-status-beat{ background:#dcfce7; color:#15803d; }
+[data-theme="light"] .earn-status-beat{ background:#dbeafe; color:#1d4ed8; }
 [data-theme="light"] .earn-status-miss{ background:#fee2e2; color:#b91c1c; }
 [data-theme="light"] .earn-status-meet{ background:#e0e7ff; color:#4338ca; }
 
 /* 태블릿 (641 ~ 899px) — 시가총액 숨김 */
 @media(min-width:641px) and (max-width:899px){
-    .earn-table-head, .earn-row{ grid-template-columns:var(--earn-grid-cols-sm); }
+    .earn-table-head, .earn-group-col-head, .earn-row{ grid-template-columns:var(--earn-grid-cols-sm); }
     .earn-th-mcap, .earn-cell-mcap{ display:none; }
 }
 
 /* 모바일 (≤640px) — 매출/시가총액/시기 숨김, 컴팩트 4컬럼 */
 @media(max-width:640px){
-    .earn-table-head, .earn-row{
+    .earn-table-head, .earn-group-col-head, .earn-row{
         grid-template-columns:var(--earn-grid-cols-xs);
         gap:8px; padding:8px 12px;
     }
@@ -3238,7 +3426,7 @@
     .earn-ticker{ font-size:12.5px; }
     .earn-cell-eps{ font-size:11.5px; }
     .earn-yoy{ font-size:11px; padding:1px 6px; }
-    .earn-cell-status{ font-size:10.5px; padding:3px 6px; }
+    .earn-cell-status{ font-size:10.5px; padding:5px 8px; }
     .earn-toolbar{ gap:6px; padding:6px 0 10px; }
     .earn-chip{ height:28px; padding:0 10px; font-size:11px; }
     .earn-search-wrap input{ height:32px; font-size:12px; }

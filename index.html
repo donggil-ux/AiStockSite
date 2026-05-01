@@ -361,48 +361,37 @@
     <div class="discover-screen" id="earningsScreen" style="display:none">
         <div class="disc-screen-title">실적발표 일정</div>
         <div class="disc-screen-sub">미국 주요 종목의 실적 일정을 날짜별로 확인하세요 (S&amp;P500 · NASDAQ · NYSE + 즐겨찾기)</div>
-        <div class="disc-layout">
-            <aside class="disc-sidebar">
-                <div class="disc-sidebar-title">기간 선택</div>
-                <div class="disc-preset-tabs top100-filters" id="earningsWindowTabs">
-                    <button class="top100-filter"         data-window="past7"   onclick="setEarningsWindow('past7')"><span class="disc-chip-emoji">⏮</span><span class="disc-chip-label">지난 7일</span></button>
-                    <button class="top100-filter active"  data-window="this"    onclick="setEarningsWindow('this')"><span class="disc-chip-emoji">📅</span><span class="disc-chip-label">이번 주</span></button>
-                    <button class="top100-filter"         data-window="next"    onclick="setEarningsWindow('next')"><span class="disc-chip-emoji">⏭</span><span class="disc-chip-label">다음 주</span></button>
-                    <button class="top100-filter"         data-window="month"   onclick="setEarningsWindow('month')"><span class="disc-chip-emoji">🗓</span><span class="disc-chip-label">30일 전체</span></button>
+        <!-- 가로형 상단 날짜 네비게이션 바 -->
+        <div class="earn-topnav" id="earnTopNav">
+            <div class="earn-topnav-dates" id="earnDateChips">
+                <!-- _earnBuildDateChips() 로 동적 생성 -->
+            </div>
+            <div class="earn-topnav-actions">
+                <div class="earn-chip-group" data-filter-group="timing">
+                    <button class="earn-chip active" data-value="all"    onclick="_earnSetFilter('timing','all', this)">전체</button>
+                    <button class="earn-chip"        data-value="BMO"    onclick="_earnSetFilter('timing','BMO', this)">장전</button>
+                    <button class="earn-chip"        data-value="AMC"    onclick="_earnSetFilter('timing','AMC', this)">장후</button>
                 </div>
-            </aside>
-            <main class="disc-main">
-                <div class="earn-window-label" id="earningsWindowLabel">이번 주 실적</div>
-                <!-- 검색 + 필터 툴바 -->
-                <div class="earn-toolbar">
-                    <div class="earn-search-wrap">
-                        <input type="text" id="earnSearch" placeholder="🔍 티커 또는 종목명 검색" oninput="_earnApplyFilters()">
-                    </div>
-                    <div class="earn-chip-group" data-filter-group="timing">
-                        <button class="earn-chip active" data-value="all"    onclick="_earnSetFilter('timing','all', this)">전체</button>
-                        <button class="earn-chip"        data-value="BMO"    onclick="_earnSetFilter('timing','BMO', this)">☀️ 장전</button>
-                        <button class="earn-chip"        data-value="AMC"    onclick="_earnSetFilter('timing','AMC', this)">🌙 장후</button>
-                    </div>
-                    <div class="earn-chip-group" data-filter-group="result">
-                        <button class="earn-chip active" data-value="all"    onclick="_earnSetFilter('result','all', this)">결과 전체</button>
-                        <button class="earn-chip"        data-value="beat"   onclick="_earnSetFilter('result','beat', this)">🚀 서프라이즈</button>
-                        <button class="earn-chip"        data-value="miss"   onclick="_earnSetFilter('result','miss', this)">📉 쇼크</button>
-                    </div>
+                <div class="earn-chip-group" data-filter-group="result">
+                    <button class="earn-chip active" data-value="all"    onclick="_earnSetFilter('result','all', this)">전체</button>
+                    <button class="earn-chip"        data-value="beat"   onclick="_earnSetFilter('result','beat', this)">서프라이즈</button>
+                    <button class="earn-chip"        data-value="miss"   onclick="_earnSetFilter('result','miss', this)">쇼크</button>
                 </div>
-                <!-- 정렬 가능한 테이블 헤더 (sticky) -->
-                <div class="earn-table-head" id="earnTableHead">
-                    <div class="earn-th-fav"></div>
-                    <div class="earn-th earn-th-stock">종목</div>
-                    <div class="earn-th earn-th-time">시기</div>
-                    <div class="earn-th earn-th-mcap sortable"     data-sort="marketCap"  onclick="_earnSortBy('marketCap')">시가총액</div>
-                    <div class="earn-th earn-th-eps sortable"      data-sort="epsEst"     onclick="_earnSortBy('epsEst')">EPS (예상/실제)</div>
-                    <div class="earn-th earn-th-rev sortable"      data-sort="revEst"     onclick="_earnSortBy('revEst')">매출 (예상/실제)</div>
-                    <div class="earn-th earn-th-yoy sortable"      data-sort="yoy"        onclick="_earnSortBy('yoy')">YoY</div>
-                    <div class="earn-th earn-th-status sortable"   data-sort="surprisePct" onclick="_earnSortBy('surprisePct')">상태</div>
+                <!-- 검색창 -->
+                <div class="earn-topnav-search">
+                    <input type="text" id="earnSearch" placeholder="검색" oninput="_earnApplyFilters()">
                 </div>
-                <div class="earn-grid" id="earningsGrid"></div>
-                <div class="disc-empty" id="earningsEmpty" hidden>해당 기간에 실적 발표 예정 종목이 없어요.</div>
-            </main>
+            </div>
+        </div>
+        <!-- 메인 콘텐츠 (사이드바 없이 풀 너비) -->
+        <div class="disc-main earn-full-main">
+            <!-- 종목 카운트 -->
+            <div class="earn-toolbar">
+                <div class="earn-result-count" id="earnResultCount"></div>
+            </div>
+            <!-- 테이블 컬럼 헤더는 각 날짜 그룹 내부에 _earnBuildGroup() 으로 동적 생성 -->
+            <div class="earn-grid" id="earningsGrid"></div>
+            <div class="disc-empty" id="earningsEmpty" hidden>해당 기간에 실적 발표 예정 종목이 없어요.</div>
         </div>
     </div>
 
@@ -750,7 +739,7 @@
                         <span class="draw-tb-label">색상</span>
                         <button class="draw-color-btn active" style="background:#ef4444;color:#ef4444" onclick="setDrawColor('#ef4444')" title="빨강"></button>
                         <button class="draw-color-btn" style="background:#3b82f6;color:#3b82f6" onclick="setDrawColor('#3b82f6')" title="파랑"></button>
-                        <button class="draw-color-btn" style="background:#22c55e;color:#22c55e" onclick="setDrawColor('#22c55e')" title="초록"></button>
+                        <button class="draw-color-btn" style="background:#3b82f6;color:#3b82f6" onclick="setDrawColor('#3b82f6')" title="초록"></button>
                         <button class="draw-color-btn" style="background:#eab308;color:#eab308" onclick="setDrawColor('#eab308')" title="노랑"></button>
                         <button class="draw-color-btn" style="background:#a78bfa;color:#a78bfa" onclick="setDrawColor('#a78bfa')" title="보라"></button>
                         <button class="draw-color-btn" style="background:#ffffff;color:#ffffff" onclick="setDrawColor('#ffffff')" title="흰색"></button>
@@ -1936,7 +1925,7 @@
 
     // 티커 → 색상 (이니셜 아바타 폴백용, 결정적)
     function _tickerColor(sym) {
-        const palette = ['#6366f1','#0ea5e9','#14b8a6','#f59e0b','#ef4444','#8b5cf6','#ec4899','#10b981','#3b82f6','#f97316'];
+        const palette = ['#6366f1','#0ea5e9','#14b8a6','#f59e0b','#ef4444','#8b5cf6','#ec4899','#3b82f6','#3b82f6','#f97316'];
         let h = 0;
         for (let i = 0; i < sym.length; i++) h = (h * 31 + sym.charCodeAt(i)) >>> 0;
         return palette[h % palette.length];
@@ -2486,7 +2475,7 @@
         ctx.lineTo(cssW, cssH);
         ctx.lineTo(0, cssH);
         ctx.closePath();
-        const color = isUp ? 'rgba(34,197,94,' : 'rgba(239,68,68,';
+        const color = isUp ? 'rgba(59, 130, 246,' : 'rgba(239,68,68,';
         const grad = ctx.createLinearGradient(0,0,0,cssH);
         grad.addColorStop(0, color+'.22)');
         grad.addColorStop(1, color+'0)');
@@ -4891,7 +4880,9 @@
     const EARNINGS_CLIENT_TTL = 2 * 60 * 60 * 1000; // 2시간 (서버 stale-while-revalidate 와 보조)
     window._earnWindow = 'this';
     // 필터 상태
-    window._earnFilters = { timing: 'all', result: 'all', search: '' };
+    window._earnFilters = { timing: 'all', result: 'all', search: '', market: 'all' };
+    // 날짜 칩 선택 상태 (특정 날짜만 보기; null = 전체 기간)
+    window._earnDayFilter = null;
     // 정렬 상태 — null 이면 기본(시가총액 내림차순)
     window._earnSort = { field: 'marketCap', dir: 'desc' };
 
@@ -5005,7 +4996,8 @@
         const surprise = _earnSurpriseLabel(item.surprisePct);
         // 검색 매칭용 lower-cased
         const searchKey = (symbol + ' ' + name).toLowerCase().replace(/"/g, '');
-        return `<div class="earn-row" data-symbol="${symbol}" data-timing="${item.timing||'TBD'}" data-result="${surprise.cls}" data-search="${escHtml(searchKey)}"
+        const mktTag = item.inSP500 ? 'sp500' : 'other';
+        return `<div class="earn-row" data-symbol="${symbol}" data-timing="${item.timing||'TBD'}" data-result="${surprise.cls}" data-search="${escHtml(searchKey)}" data-market="${mktTag}"
                      data-mcap="${item.marketCap ?? 0}" data-eps-est="${item.epsEst ?? ''}" data-rev-est="${item.revEst ?? ''}" data-yoy="${item.yoy ?? ''}" data-surp="${item.surprisePct ?? ''}"
                      onclick="quickSearch('${symbol}','US')">
             <button class="earn-fav-btn ${faved?'on':''}" aria-label="즐겨찾기" onclick="_top100ToggleFav(event,'${symbol}','${market}','${safeName}')"><i class="${heartCls}"></i></button>
@@ -5044,6 +5036,22 @@
         const isPast = g.date < today;
         const collapsedCls = isPast ? ' earn-group-collapsed earn-group-past' : '';
         const chevron = isPast ? '<span class="earn-date-chevron" aria-hidden="true">▾</span>' : '';
+        const sortF = window._earnSort?.field || 'marketCap';
+        const sortDir = window._earnSort?.dir || 'desc';
+        const thSort = (field, label) => {
+            const cls = sortF === field ? (sortDir === 'asc' ? ' sort-asc' : ' sort-desc') : '';
+            return `<div class="earn-th sortable${cls}" data-sort="${field}" onclick="_earnSortBy('${field}')">${label}</div>`;
+        };
+        const groupColHead = `<div class="earn-group-col-head">
+            <div class="earn-th-fav"></div>
+            <div class="earn-th earn-th-stock">종목</div>
+            <div class="earn-th earn-th-time">시기</div>
+            ${thSort('marketCap','시가총액')}
+            ${thSort('epsEst','EPS (예상/실제)')}
+            ${thSort('revEst','매출 (예상/실제)')}
+            ${thSort('yoy','YoY')}
+            ${thSort('surprisePct','상태')}
+        </div>`;
         return `<div class="earn-date-group${collapsedCls}" data-past="${isPast}" data-date="${g.date}">
             <div class="earn-date-header" role="${isPast ? 'button' : 'heading'}" tabindex="${isPast ? '0' : '-1'}">
                 <span class="earn-date-main">${m}/${d}</span>
@@ -5051,6 +5059,7 @@
                 <span class="earn-date-count">${g.count}개 종목</span>
                 ${chevron}
             </div>
+            ${groupColHead}
             <div class="earn-date-rows">${rows}</div>
         </div>`;
     }
@@ -5080,11 +5089,7 @@
         } else {
             window._earnSort = { field, dir: 'desc' };
         }
-        // 정렬 표시 업데이트 + 재렌더
-        document.querySelectorAll('#earnTableHead .earn-th[data-sort]').forEach(el => {
-            el.classList.toggle('sort-asc',  el.dataset.sort === field && window._earnSort.dir === 'asc');
-            el.classList.toggle('sort-desc', el.dataset.sort === field && window._earnSort.dir === 'desc');
-        });
+        // 정렬 표시는 _earnBuildGroup() 재렌더 시 자동 반영됨 (각 그룹 헤더 내 생성)
         // 캐시된 데이터 다시 렌더
         const key = window._earnWindow || 'this';
         const cached = _earnLoadLS(key);
@@ -5109,19 +5114,28 @@
         const search = (document.getElementById('earnSearch')?.value || '').toLowerCase().trim();
         window._earnFilters.search = search;
         const f = window._earnFilters;
+        const dayFilter = window._earnDayFilter; // 'YYYY-MM-DD' 또는 null
         const grid = document.getElementById('earningsGrid');
         if (!grid) return;
         let visibleTotal = 0;
         grid.querySelectorAll('.earn-date-group').forEach(group => {
+            // 날짜 칩 필터: 특정 날짜 선택 시 해당 그룹만 표시
+            const groupDate = group.dataset.date;
+            if (dayFilter && groupDate !== dayFilter) {
+                group.classList.add('earn-group-hidden');
+                return;
+            }
             let visibleInGroup = 0;
             group.querySelectorAll('.earn-row').forEach(row => {
-                const timing = row.dataset.timing || '';
-                const result = row.dataset.result || '';
-                const search_key = row.dataset.search || '';
+                const timing    = row.dataset.timing  || '';
+                const result    = row.dataset.result  || '';
+                const mkt       = row.dataset.market  || 'other';
+                const searchKey = row.dataset.search  || '';
                 let show = true;
                 if (f.timing !== 'all' && timing !== f.timing) show = false;
                 if (f.result !== 'all' && result !== f.result) show = false;
-                if (f.search && !search_key.includes(f.search)) show = false;
+                if (f.market !== 'all' && mkt    !== f.market) show = false;
+                if (f.search && !searchKey.includes(f.search)) show = false;
                 row.classList.toggle('earn-row-hidden', !show);
                 if (show) visibleInGroup++;
             });
@@ -5131,13 +5145,9 @@
             if (countEl) countEl.textContent = visibleInGroup + '개 종목';
             visibleTotal += visibleInGroup;
         });
-        // 윈도우 라벨 옆에 결과 카운트 표시
-        const wl = document.getElementById('earningsWindowLabel');
-        if (wl) {
-            const base = wl.dataset.baseLabel || wl.textContent.split(' · ')[0];
-            wl.dataset.baseLabel = base;
-            wl.textContent = `${base} · ${visibleTotal} 종목`;
-        }
+        // 결과 카운트 표시 (툴바 내 span)
+        const rc = document.getElementById('earnResultCount');
+        if (rc) rc.textContent = visibleTotal > 0 ? `${visibleTotal}개 종목` : '';
     }
 
     // 아코디언 토글: 지난 날짜 그룹 펼침/접기 (인자로 element 직접 전달도 호환)
@@ -5250,10 +5260,50 @@
 
     function setEarningsWindow(key) {
         window._earnWindow = key;
-        document.querySelectorAll('#earningsWindowTabs .top100-filter').forEach(b => {
-            b.classList.toggle('active', b.dataset.window === key);
-        });
+        window._earnDayFilter = null; // 기간 전환 시 날짜 필터 초기화
+        _earnBuildDateChips(); // 날짜 칩 재생성 + active 갱신
         loadEarnings();
+    }
+
+    // ── 날짜 칩 동적 생성 ─────────────────────────────────────────
+    function _earnBuildDateChips() {
+        const el = document.getElementById('earnDateChips');
+        if (!el) return;
+        const activeKey = window._earnDayFilter ? `day:${window._earnDayFilter}` : window._earnWindow || 'this';
+        const dow = ['일', '월', '화', '수', '목', '금', '토'];
+        const now = new Date();
+        const chips = [];
+
+        // 이번 주 / 다음 주만
+        chips.push({ label: '이번 주', key: 'this' });
+        chips.push({ label: '다음 주', key: 'next' });
+
+        el.innerHTML = chips.map(c => {
+            const isActive = c.key === activeKey;
+            const cls = ['earn-date-chip', isActive ? 'active' : '', c.indent ? 'day-sub' : ''].filter(Boolean).join(' ');
+            return `<button class="${cls}" data-key="${c.key}" onclick="_earnSelectDateChip('${c.key}', this)">${c.label}</button>`;
+        }).join('');
+    }
+
+    // 날짜 칩 클릭 처리
+    function _earnSelectDateChip(key, btn) {
+        if (key.startsWith('day:')) {
+            const dateStr = key.slice(4);
+            // 이번 주 날짜이므로 'this' 윈도우 로드 후 해당 날짜만 필터
+            const prevWindow = window._earnWindow;
+            window._earnDayFilter = dateStr;
+            // active 칩 갱신
+            document.querySelectorAll('.earn-date-chip').forEach(c => c.classList.toggle('active', c.dataset.key === key));
+            if (prevWindow !== 'this') {
+                window._earnWindow = 'this';
+                loadEarnings(); // 재로드 후 _earnApplyFilters 가 dayFilter 적용
+            } else {
+                _earnApplyFilters(); // 이미 'this' 윈도우 → 즉시 필터 적용
+            }
+        } else {
+            window._earnDayFilter = null;
+            setEarningsWindow(key); // 기간 전환
+        }
     }
 
     function goEarnings() {
@@ -5281,9 +5331,8 @@
         document.getElementById('sideNavErnBtn')?.classList.add('active');
         document.querySelectorAll('.hqnav-item').forEach(b => b.classList.remove('active'));
         if (!['past7','this','next','month'].includes(window._earnWindow)) window._earnWindow = 'this';
-        document.querySelectorAll('#earningsWindowTabs .top100-filter').forEach(b => {
-            b.classList.toggle('active', b.dataset.window === window._earnWindow);
-        });
+        window._earnDayFilter = null;
+        _earnBuildDateChips(); // 상단 날짜 칩 빌드
         window.scrollTo({ top: 0, behavior: 'smooth' });
         loadEarnings();
     }
@@ -5498,7 +5547,7 @@
                         <div class="sm-inst-manager">${inst.manager}</div>
                     </div>
                     <div style="text-align:right;flex-shrink:0">
-                        <div style="font-size:18px;font-weight:700;color:#22c55e">+${inst.ret1y}%</div>
+                        <div style="font-size:18px;font-weight:700;color:#3b82f6">+${inst.ret1y}%</div>
                         <div style="font-size:10px;color:var(--text-secondary)">1Y 수익률</div>
                     </div>
                 </div>
@@ -5523,7 +5572,7 @@
             const rank = i + 1;
             const tags = inst.tags.map(t => `<span class="guru-tag">${t}</span>`).join('');
             const top3html = inst.top3.map(h =>
-                `<span class="sm-top3-hold">${h.ticker} <span style="color:#22c55e">${h.wt}%</span></span>`
+                `<span class="sm-top3-hold">${h.ticker} <span style="color:#3b82f6">${h.wt}%</span></span>`
             ).join('');
             return `<div class="sm-inst-card" onclick="smDeepDive('kingdom_${inst.id}')">
                 <div class="sm-inst-header">
@@ -5688,7 +5737,7 @@
     function _renderTreemap(holdings) {
         const W = 320, H = 160;
         const total = holdings.reduce((s, h) => s + h.wt, 0);
-        const colors = ['#3b82f6','#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#ef4444','#06b6d4'];
+        const colors = ['#3b82f6','#6366f1','#8b5cf6','#ec4899','#f59e0b','#3b82f6','#ef4444','#06b6d4'];
         // Single-row layout: proportional widths, fixed height
         let x = 0;
         const rects = holdings.map((item, i) => {
@@ -5700,7 +5749,7 @@
         const CY = H / 2;
         const svgItems = rects.map(r => {
             const wtChgStr = r.item.wtChg > 0 ? `+${r.item.wtChg.toFixed(1)}` : r.item.wtChg.toFixed(1);
-            const chgColor = r.item.wtChg > 0 ? '#86efac' : r.item.wtChg < 0 ? '#fca5a5' : '#94a3b8';
+            const chgColor = r.item.wtChg > 0 ? '#93c5fd' : r.item.wtChg < 0 ? '#fca5a5' : '#94a3b8';
             const cx = r.x + r.w / 2;
             const showText = r.w >= 28;
             return `<g onclick="smChartLink('${r.item.ticker}',${r.item.avgPrice},'treemap')" style="cursor:pointer">
@@ -5912,7 +5961,7 @@
             const subName = p.ticker ? `<div style="font-size:10px;color:var(--text-secondary)">${escHtml((p.name||'').slice(0,30))}</div>` : '';
             const deltaShares = (p.prev_shares != null && p.shares != null) ? (p.shares - p.prev_shares) : 0;
             const deltaStr = deltaShares === 0 ? '—' :
-                deltaShares > 0 ? `<span style="color:#22c55e">+${_guruFmtShares(deltaShares)}</span>` :
+                deltaShares > 0 ? `<span style="color:#3b82f6">+${_guruFmtShares(deltaShares)}</span>` :
                 `<span style="color:#ef4444">${_guruFmtShares(deltaShares)}</span>`;
             return `<tr>
                 <td style="font-size:10px;color:var(--text-secondary)">${i+1}</td>
@@ -5968,7 +6017,7 @@
         const W = 320, H = 140;
         const total = holdings.reduce((s, h) => s + h.wt, 0);
         if (total <= 0) return '';
-        const colors = ['#3b82f6','#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#ef4444','#06b6d4'];
+        const colors = ['#3b82f6','#6366f1','#8b5cf6','#ec4899','#f59e0b','#3b82f6','#ef4444','#06b6d4'];
         let x = 0;
         const rects = holdings.map((item, i) => {
             const w = Math.max(Math.round((item.wt / total) * W), 1);
@@ -7986,7 +8035,7 @@
         const maConfigs = [
             { period: 5, color: '#eab308', key: 'ma5' },
             { period: 20, color: '#a78bfa', key: 'ma20' },
-            { period: 60, color: '#22c55e', key: 'ma60' },
+            { period: 60, color: '#3b82f6', key: 'ma60' },
             { period: 120, color: '#ef4444', key: 'ma120' },
         ];
 
@@ -8740,7 +8789,7 @@
                 labels,
                 datasets: [
                     { label: 'ADX', data: adx, borderColor: '#f59e0b', borderWidth: 2, pointRadius: 0, fill: false, tension: 0.1 },
-                    { label: '+DI', data: pDI, borderColor: '#10b981', borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0.1 },
+                    { label: '+DI', data: pDI, borderColor: '#3b82f6', borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0.1 },
                     { label: '-DI', data: mDI, borderColor: '#ef4444', borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0.1 }
                 ]
             },
@@ -9417,8 +9466,8 @@
             const s  = rt.sell || 0, ss = rt.strongSell || 0;
             const total = sb + b + h + s + ss;
             const recLevels = [
-                { label: '강력매수', val: sb, color: '#22c55e' },
-                { label: '매수',    val: b,  color: '#86efac' },
+                { label: '강력매수', val: sb, color: '#3b82f6' },
+                { label: '매수',    val: b,  color: '#93c5fd' },
                 { label: '보유',    val: h,  color: '#f59e0b' },
                 { label: '매도',    val: s,  color: '#f87171' },
                 { label: '강력매도', val: ss, color: '#ef4444' },
@@ -10485,7 +10534,7 @@
             if (passCount >= Math.ceil(totalChecks * 0.7)) {
                 verdict = prefix === 'day' ? '단타 진입 적합' : '스윙 진입 적합';
                 verdictColor = 'var(--green)';
-                verdictIcon = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/></svg>';
+                verdictIcon = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/></svg>';
                 verdictClass = 'entry-go';
                 verdictDesc = prefix === 'day' ? '단타 진입 조건이 충족되었습니다. 타이트한 손절로 빠르게 진입하세요.' : '스윙 진입 조건이 충족되었습니다. 분할 매수로 진입하세요.';
             } else if (passCount >= Math.ceil(totalChecks * 0.4)) {
@@ -10517,7 +10566,7 @@
             } else {
                 verdict = '보유 유지';
                 verdictColor = 'var(--green)';
-                verdictIcon = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/></svg>';
+                verdictIcon = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/></svg>';
                 verdictClass = 'exit-hold';
                 verdictDesc = '매도 신호가 약합니다. 추세가 유지되고 있으니 보유하세요.';
             }
@@ -10536,7 +10585,7 @@
                 <div class="entry-cond-count" style="color:var(--text3)"><span class="num">${totalChecks-passCount}</span> ${isEntry?'미충족':'미해당'}</div>
                 <div class="entry-cond-count" style="color:var(--cyan)"><span class="num">${totalChecks}</span> 전체</div>
             </div>`;
-        const mColor = isEntry ? (score>=70?'#10b981':score>=40?'#f59e0b':'#ef4444') : (score>=70?'#ef4444':score>=40?'#f59e0b':'#10b981');
+        const mColor = isEntry ? (score>=70?'#3b82f6':score>=40?'#f59e0b':'#ef4444') : (score>=70?'#ef4444':score>=40?'#f59e0b':'#3b82f6');
         const mEl = document.getElementById(elId + 'Meter');
         if (mEl) {
             mEl.innerHTML = `
@@ -11607,8 +11656,8 @@
         const fmtV = v => isKR ? Math.round(v) : parseFloat(v.toFixed(2));
 
         const badgeStyles = [
-            'background:rgba(34,197,94,.22);color:var(--green)',
-            'background:rgba(34,197,94,.14);color:var(--green)',
+            'background:rgba(59, 130, 246,.22);color:var(--green)',
+            'background:rgba(59, 130, 246,.14);color:var(--green)',
             'background:rgba(234,179,8,.18);color:var(--yellow)',
             'background:rgba(234,179,8,.12);color:var(--yellow)',
             'background:rgba(239,68,68,.18);color:var(--red)'
@@ -11714,8 +11763,8 @@
         });
 
         const badges = [
-            'background:rgba(34,197,94,.22);color:var(--green)',
-            'background:rgba(34,197,94,.14);color:var(--green)',
+            'background:rgba(59, 130, 246,.22);color:var(--green)',
+            'background:rgba(59, 130, 246,.14);color:var(--green)',
             'background:rgba(234,179,8,.18);color:var(--yellow)',
             'background:rgba(234,179,8,.12);color:var(--yellow)',
             'background:rgba(239,68,68,.18);color:var(--red)'
@@ -11743,7 +11792,7 @@
 
         if (tp1 && tp1 > finalAvg) {
             const profit = (tp1-finalAvg)*totalSh, pct = (tp1-finalAvg)/finalAvg*100;
-            html += `<div class="sc-sum-item" style="border:1px solid rgba(34,197,94,.25);background:rgba(34,197,94,.05);">
+            html += `<div class="sc-sum-item" style="border:1px solid rgba(59, 130, 246,.25);background:rgba(59, 130, 246,.05);">
                 <div class="sc-sum-label">TP1 (${fmtP(tp1)}) 도달시 수익</div>
                 <div class="sc-sum-val" style="color:var(--green)">+${fmtA(profit)} <small style="font-size:11px">(+${pct.toFixed(1)}%)</small></div>
             </div>`;
@@ -12946,7 +12995,7 @@
             document.getElementById(valId).textContent = latestVal.toFixed(1);
             const momEl = document.getElementById(momId);
             momEl.textContent = `${isUp ? '▲' : '▼'} ${Math.abs(mom).toFixed(2)}% MoM`;
-            momEl.style.color = isUp ? '#ef4444' : '#22c55e';
+            momEl.style.color = isUp ? '#ef4444' : '#3b82f6';
             document.getElementById(dateId).textContent = latest.date;
             if (yoyId) document.getElementById(yoyId).textContent = yoy !== null ? `${yoy > 0 ? '▲' : '▼'} ${Math.abs(yoy).toFixed(2)}%` : '—';
         };
@@ -12972,9 +13021,9 @@
         const yoyMap = {};
         yoyArr.forEach(item => { yoyMap[item.date] = item.val; });
         tbody.innerHTML = momArr.slice(0, 8).map(item => {
-            const momColor = item.val > 0 ? '#ef4444' : '#22c55e';
+            const momColor = item.val > 0 ? '#ef4444' : '#3b82f6';
             const yoyVal = yoyMap[item.date];
-            const yoyColor = yoyVal != null ? (yoyVal > 0 ? '#ef4444' : '#22c55e') : '';
+            const yoyColor = yoyVal != null ? (yoyVal > 0 ? '#ef4444' : '#3b82f6') : '';
             const yoyStr = yoyVal != null
                 ? `<span style="color:${yoyColor};font-weight:700">${yoyVal > 0 ? '▲' : '▼'} ${Math.abs(yoyVal).toFixed(2)}%</span>`
                 : '—';
@@ -13363,9 +13412,9 @@
             const isHov   = _vsHoveredIdx === idx;
             const str     = zone.strength ?? 0.7;
             const isSupp  = zone.type === 'support';
-            const fillC   = isSupp ? 'rgba(34,197,94,' : 'rgba(239,68,68,';
-            const strokeC = isSupp ? '#22c55e' : '#ef4444';
-            const glowC   = isSupp ? 'rgba(34,197,94,' : 'rgba(239,68,68,';
+            const fillC   = isSupp ? 'rgba(59, 130, 246,' : 'rgba(239,68,68,';
+            const strokeC = isSupp ? '#3b82f6' : '#ef4444';
+            const glowC   = isSupp ? 'rgba(59, 130, 246,' : 'rgba(239,68,68,';
 
             const rx = zone.xRatio * cssW;
             const ry = zone.yRatio * cssH;
@@ -13554,7 +13603,7 @@
             try {
                 const pl = lwCandleSeries.createPriceLine({
                     price: level.price,
-                    color: level.type === 'resistance' ? '#ef4444' : '#22c55e',
+                    color: level.type === 'resistance' ? '#ef4444' : '#3b82f6',
                     lineWidth: 2,
                     lineStyle: 2,
                     axisLabelVisible: true,
@@ -13571,7 +13620,7 @@
         const _fmtP = p => currentMarket === 'KR' ? Math.round(p).toLocaleString() : p.toFixed(2);
 
         // 반등 관점 (bull): 초록 계열
-        const BOUNCE_COLORS = ['#4ade80', '#22c55e', '#16a34a'];
+        const BOUNCE_COLORS = ['#60a5fa', '#3b82f6', '#2563eb'];
         ['buy1', 'buy2', 'buy3'].forEach((key, idx) => {
             const price = _bull?.[key];
             if (!price || price <= 0) return;
@@ -13973,7 +14022,7 @@
                 time2: ts[i2], price2: m * i2 + b,
                 type,
                 label: type === 'downtrend' ? '하락추세' : '상승추세',
-                color: type === 'downtrend' ? '#f87171' : '#4ade80',
+                color: type === 'downtrend' ? '#f87171' : '#60a5fa',
             });
         };
         fitLine(highs, 'downtrend');
@@ -14118,7 +14167,7 @@
 
     Object.assign(window, {
         goEarnings, loadEarnings, setEarningsWindow, _earnToggleGroup,
-        _earnSetFilter, _earnApplyFilters, _earnSortBy,
+        _earnSetFilter, _earnApplyFilters, _earnSortBy, _earnBuildDateChips, _earnSelectDateChip,
         goDiscover, setDiscoverPreset, loadDiscover,
         closeSideNav, toggleSideNav, openSideNav, goHome, goBack, goSmartMoney,
         switchSmTab, smDeepDive, smDeepBack, filterSmHoldings, smChartLink,
