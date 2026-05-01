@@ -4664,6 +4664,16 @@
         smart_money_growth: { title: '🥷 스마트머니 픽', keyLabel: '스코어', emptyHint: '저평가·성장 조건을 만족하는 종목이 오늘은 없어요.' },
     };
 
+    // Yahoo averageAnalystRating 점수(1.0~5.0) → 한글 등급 매핑
+    function _analystRatingLabel(score) {
+        if (score == null || score <= 0) return { label: '-', cls: '' };
+        if (score <= 1.5) return { label: '적극 매수', cls: 'strong-buy' };
+        if (score <= 2.5) return { label: '매수',     cls: 'buy' };
+        if (score <= 3.5) return { label: '중립',     cls: 'hold' };
+        if (score <= 4.5) return { label: '매도',     cls: 'sell' };
+        return { label: '적극 매도', cls: 'strong-sell' };
+    }
+
     function _discLoadLS(preset) {
         try {
             const raw = localStorage.getItem(DISCOVER_LS_KEY);
@@ -4711,9 +4721,8 @@
         const dayLowText    = dayLow    != null ? `$${dayLow.toFixed(2)}`    : '-';
         const fmtDiscVol = v => { if (v == null) return '-'; if (v >= 1e9) return (v/1e9).toFixed(1)+'B'; if (v >= 1e6) return (v/1e6).toFixed(1)+'M'; if (v >= 1e3) return (v/1e3).toFixed(0)+'K'; return String(v); };
         const volText = fmtDiscVol(volume);
-        const upside = (targetPrice != null && price != null && price > 0) ? (targetPrice - price) / price * 100 : null;
-        const upsideCls = upside != null ? (upside >= 0 ? 'pos' : 'neg') : '';
-        const upsideText = upside != null ? `${upside >= 0 ? '+' : ''}${upside.toFixed(1)}%` : '-';
+        // 애널리스트 분석 등급 (Yahoo averageAnalystRating 1.0~5.0 → 5단계 한글)
+        const ar = _analystRatingLabel(q.analystRating);
         return `<div class="top100-row disc-row" onclick="quickSearch('${symbol}','US')">
             <button class="top100-fav ${faved?'on':''}" aria-label="즐겨찾기" onclick="_top100ToggleFav(event,'${symbol}','${market}','${safeName}')"><i class="${heartCls}"></i></button>
             <div class="top100-rank">${i + 1}</div>
@@ -4729,7 +4738,7 @@
             <div class="disc-high">${dayHighText}</div>
             <div class="disc-low">${dayLowText}</div>
             <div class="disc-volume">${volText}</div>
-            <div class="disc-upside ${upsideCls}">${upsideText}</div>
+            <div class="disc-analyst ${ar.cls}">${ar.label}</div>
         </div>`;
     }
 
@@ -4748,7 +4757,7 @@
                 <div class="skel skel-chg disc-high"></div>
                 <div class="skel skel-chg disc-low"></div>
                 <div class="skel skel-chg disc-volume"></div>
-                <div class="skel skel-chg disc-upside"></div>
+                <div class="skel skel-chg disc-analyst"></div>
             </div>`;
         }
         return html;

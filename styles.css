@@ -2666,11 +2666,12 @@
             .discover-screen .disc-row .disc-high     {grid-area:high;}
             .discover-screen .disc-row .disc-low      {grid-area:low;}
             .discover-screen .disc-row .disc-volume   {grid-area:vol;}
-            .discover-screen .disc-row .disc-upside   {grid-area:upside;}
+            .discover-screen .disc-row .disc-upside,
+            .discover-screen .disc-row .disc-analyst  {grid-area:upside;}
         }
         /* 신규 컬럼 공통 스타일 — 기본 숨김(홈 위젯 등에서 7컬럼 그리드 깨지지 않도록).
            골라보기 전용 화면(.discover-screen) 안에서만 노출. */
-        .disc-prevclose,.disc-high,.disc-low,.disc-volume,.disc-upside{
+        .disc-prevclose,.disc-high,.disc-low,.disc-volume,.disc-upside,.disc-analyst{
             display:none;
             font-size:12.5px;font-variant-numeric:tabular-nums;text-align:right;
             min-width:0;padding:0 2px;color:var(--text2);
@@ -2679,17 +2680,30 @@
         .discover-screen .disc-high,
         .discover-screen .disc-low,
         .discover-screen .disc-volume,
-        .discover-screen .disc-upside{display:revert;}
+        .discover-screen .disc-upside,
+        .discover-screen .disc-analyst{display:revert;}
         .disc-high{color:var(--red);}
         .disc-low{color:var(--blue);}
         .disc-upside{font-weight:700;color:var(--text2);}
         .disc-upside.pos{color:var(--red);}
         .disc-upside.neg{color:var(--blue);}
+        /* 애널리스트 분석 등급 — 5단계 색상 */
+        .disc-analyst{
+            font-weight:700;
+            font-variant-numeric:normal;
+            text-align:center;
+            color:var(--text3);
+        }
+        .disc-analyst.strong-buy  {color:#00a86b;}
+        .disc-analyst.buy         {color:var(--green);}
+        .disc-analyst.hold        {color:var(--text2);}
+        .disc-analyst.sell        {color:var(--red);}
+        .disc-analyst.strong-sell {color:#d32f2f;}
         /* 수평 스크롤 — 화면이 좁을 때 */
         .disc-main{overflow-x:auto;}
         /* 모바일(≤899px): 신규 컬럼 숨김 */
         @media(max-width:899px){
-            .disc-prevclose,.disc-high,.disc-low,.disc-volume,.disc-upside,
+            .disc-prevclose,.disc-high,.disc-low,.disc-volume,.disc-upside,.disc-analyst,
             #discoverColHead .t100-ch-prevclose,
             #discoverColHead .t100-ch-high,
             #discoverColHead .t100-ch-low,

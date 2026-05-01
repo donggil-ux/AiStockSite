@@ -875,7 +875,9 @@ async function _fetchQuoteSnapshotsFull(symbols) {
     for (let i = 0; i < symbols.length; i += CHUNK) {
         const chunk = symbols.slice(i, i + CHUNK);
         try {
-            const url = `https://query1.finance.yahoo.com/v7/finance/quote?fields=sector,industry,shortName,longName,regularMarketPrice,regularMarketChangePercent,regularMarketVolume,averageDailyVolume3Month,averageDailyVolume10Day,fiftyTwoWeekHigh,fiftyTwoWeekLow,fiftyDayAverage,twoHundredDayAverage,marketCap,currency,trailingPE,forwardPE,priceToBook,epsTrailingTwelveMonths,epsForward,regularMarketDayHigh,regularMarketDayLow,regularMarketPreviousClose,targetMeanPrice&symbols=${encodeURIComponent(chunk.join(','))}`;
+            // ⚠️ fields= 파라미터 사용 안 함 — Yahoo 가 일부 필드 (averageAnalystRating, targetMeanPrice 등)를
+            //     명시적 화이트리스트에서는 인식 못 하고 silent drop 함. 기본 응답에는 포함되므로 그대로 받는다.
+            const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(chunk.join(','))}`;
             const data = await yfRequest(url);
             (data?.quoteResponse?.result || []).forEach(q => {
                 out.set(q.symbol, {
@@ -901,6 +903,13 @@ async function _fetchQuoteSnapshotsFull(symbols) {
                     dayLow:    q.regularMarketDayLow       ?? null,
                     prevClose: q.regularMarketPreviousClose ?? null,
                     targetPrice: q.targetMeanPrice         ?? null,
+                    // averageAnalystRating: "1.7 - Buy" 형식 → 앞 숫자(1.0~5.0)만 추출
+                    analystRating: (() => {
+                        const s = q.averageAnalystRating;
+                        if (!s || typeof s !== 'string') return null;
+                        const v = parseFloat(s.split(' ')[0]);
+                        return (Number.isFinite(v) && v > 0) ? v : null;
+                    })(),
                 });
             });
         } catch (e) { /* 청크 실패 무시 */ }
@@ -1030,6 +1039,7 @@ function _evaluateDiscoverPresets(sparkMap, quoteMap, sectorMap = new Map(), ins
             dayLow:     q.dayLow,
             prevClose:  q.prevClose,
             targetPrice: q.targetPrice,
+            analystRating: q.analystRating,
         };
 
         // 1) streak_up / streak_down
