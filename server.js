@@ -1323,21 +1323,78 @@ app.get('/api/translate', async (req, res) => {
 });
 
 /**
- * 소셜 피드 — StockTwits 종목별 스트림
- * GET /api/stocktwits/:symbol
+ * 소셜 피드 — Reddit r/wallstreetbets + r/stocks 종목별 검색
+ * GET /api/stocktwits/:symbol  (라우트 이름 호환 유지)
+ *
+ * 배경: StockTwits 공식 API는 Cloudflare 봇 차단으로 서버에서 직접 호출 불가.
+ *       동일 슬롯에 Reddit 미국 주식 커뮤니티 검색 결과를 노출.
+ *       응답 shape 은 기존 StockTwits messages 형식과 호환 (클라이언트 그대로 작동).
  */
+const _redditCache = new LRUMap(50);
+const REDDIT_TTL = 5 * 60 * 1000; // 5분
+
+async function _fetchRedditStockPosts(symbol) {
+    // wallstreetbets + stocks 두 sub 동시 검색
+    const subs = ['wallstreetbets', 'stocks'];
+    const reqs = subs.map(sub =>
+        fetch(`https://www.reddit.com/r/${sub}/search.json?q=${encodeURIComponent(symbol)}&restrict_sr=1&sort=new&t=month&limit=15`, {
+            headers: { 'User-Agent': 'StockAI/1.0 (by /u/stockai-bot)' },
+        }).then(r => r.ok ? r.json() : null).catch(() => null)
+    );
+    const results = await Promise.all(reqs);
+    const all = [];
+    results.forEach(d => {
+        const children = d?.data?.children || [];
+        children.forEach(c => all.push(c.data));
+    });
+    // 최신순 정렬, 중복 제거
+    const seen = new Set();
+    const unique = [];
+    all.sort((a, b) => (b.created_utc || 0) - (a.created_utc || 0)).forEach(p => {
+        if (!seen.has(p.id)) { seen.add(p.id); unique.push(p); }
+    });
+    // StockTwits messages 형식으로 매핑
+    return unique.slice(0, 20).map(p => {
+        const title    = String(p.title || '').trim();
+        const selftext = String(p.selftext || '').trim();
+        const body     = selftext ? `${title}\n\n${selftext}` : title;
+        return {
+            id:         p.id,
+            body,
+            created_at: new Date((p.created_utc || 0) * 1000).toISOString(),
+            user: {
+                username:   p.author || 'reddit',
+                avatar_url: '', // Reddit search API에는 사용자 아바타 없음
+            },
+            likes:     { total: p.score | 0 },
+            sentiment: null, // Reddit엔 명시적 sentiment 없음
+            // 추가 메타 (클라이언트에서 link 처리 시 사용 가능)
+            permalink: p.permalink ? `https://www.reddit.com${p.permalink}` : '',
+            subreddit: p.subreddit || '',
+            num_comments: p.num_comments | 0,
+        };
+    });
+}
+
 app.get('/api/stocktwits/:symbol', async (req, res) => {
     const { symbol } = req.params;
     if (!validSymbol(symbol)) return res.status(400).json({ error: 'invalid symbol' });
+    const sym = String(symbol).toUpperCase();
+    // KR 종목은 Reddit에 거의 없으므로 빈 결과
+    if (/^\d{6}/.test(sym)) return res.json({ messages: [], cached: false });
+
+    const now = Date.now();
+    const cached = _redditCache.get(sym);
+    if (cached && now - cached.ts < REDDIT_TTL) {
+        return res.json({ messages: cached.messages, cached: true, ts: cached.ts });
+    }
     try {
-        const r = await fetch(
-            `https://api.stocktwits.com/api/2/streams/symbol/${encodeURIComponent(symbol)}.json?limit=20`,
-            { headers: { 'User-Agent': 'StockAI/1.0' } }
-        );
-        if (!r.ok) return res.status(r.status).json({ error: 'StockTwits 데이터 없음' });
-        res.json(await r.json());
+        const messages = await _fetchRedditStockPosts(sym);
+        _redditCache.set(sym, { messages, ts: now });
+        res.json({ messages, cached: false, ts: now });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[reddit-stock]', sym, err.message);
+        res.status(502).json({ error: 'Reddit 데이터를 가져올 수 없어요' });
     }
 });
 

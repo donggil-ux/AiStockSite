@@ -1049,7 +1049,7 @@
             <div id="apewisdomCard" style="display:none;margin-bottom:12px;"></div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;flex-wrap:wrap;">
                 <div class="news-filter-bar" style="padding:0;margin:0;flex:1;min-width:0;">
-                    <button class="news-filter-chip social-src-chip" data-src="stocktwits" onclick="setSocialSource('stocktwits')">StockTwits</button>
+                    <button class="news-filter-chip social-src-chip" data-src="stocktwits" onclick="setSocialSource('stocktwits')">Reddit (WSB·Stocks)</button>
                     <button class="news-filter-chip social-src-chip" data-src="naver" onclick="setSocialSource('naver')">네이버 토론실</button>
                     <button class="news-filter-chip social-src-chip" data-src="paxnet" onclick="setSocialSource('paxnet')">팍스넷</button>
                 </div>
@@ -12262,7 +12262,7 @@
             renderStockTwits(feed, data);
             done = true;
         } catch {
-            feed.innerHTML = '<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">StockTwits 데이터가 없습니다.<br><span style="font-size:11px;color:var(--text3)">KR 종목은 지원하지 않을 수 있습니다.</span></div></div>';
+            feed.innerHTML = '<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">Reddit 데이터를 가져올 수 없어요.<br><span style="font-size:11px;color:var(--text3)">KR 종목은 지원하지 않습니다.</span></div></div>';
             done = true;
         } finally {
             // 로딩 중 상태가 예외로 인해 잔류하는 경우 안전하게 해제
@@ -12371,7 +12371,12 @@
 
     function renderStockTwits(feed, data) {
         const msgs = data?.messages || [];
-        if (!msgs.length) { feed.innerHTML = '<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">게시물이 없습니다.</div></div>'; return; }
+        if (!msgs.length) {
+            const isKr = _isKrSymbol(currentFullSymbol || '');
+            const msg = isKr ? 'Reddit은 한국 종목을 지원하지 않습니다.' : '아직 Reddit에 글이 없어요.';
+            feed.innerHTML = `<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">${msg}</div></div>`;
+            return;
+        }
         const _esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         // URL 검증: javascript:/data:/vbscript: 등 위험 프로토콜 차단 (XSS 방어)
         const _safeUrl = s => {
