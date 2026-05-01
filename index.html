@@ -12233,11 +12233,8 @@
             loadStockTwits(sym);
         } else if (src === 'naver' && _socialLoaded.naver !== sym) {
             _socialLoaded.naver = sym;
-            if (_isKrSymbol(sym)) {
-                loadNaverBoard(sym);
-            } else if (nvEl) {
-                nvEl.innerHTML = '<div class="social-empty"><div class="social-empty-icon">🇰🇷</div><div class="social-empty-text">네이버 토론실은 KR 종목만 지원해요.</div></div>';
-            }
+            // KR(005930) / US(TSLA) 모두 서버에서 처리
+            loadNaverBoard(sym);
         } else if (src === 'paxnet' && _socialLoaded.paxnet !== sym) {
             _socialLoaded.paxnet = sym;
             if (_isKrSymbol(sym)) {
@@ -12296,7 +12293,9 @@
     function renderNaverBoard(feed, data) {
         const posts = (data && data.posts) || [];
         if (!posts.length) {
-            feed.innerHTML = '<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">토론실 글이 없어요.</div></div>';
+            const isKr = _isKrSymbol(currentFullSymbol || '');
+            const msg = isKr ? '토론실 글이 없어요.' : '아직 네이버 미국 종목 토론에 글이 없어요.';
+            feed.innerHTML = `<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">${msg}</div></div>`;
             return;
         }
         const escHtml = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -12308,13 +12307,13 @@
             const cmt   = (p.comments|0) > 0 ? `<span class="nv-cmt">💬 ${p.comments}</span>` : '';
             const likes = (p.likes|0) > 0 ? `<span class="nv-like">👍 ${p.likes}</span>` : '';
             const dis   = (p.dislikes|0) > 0 ? `<span class="nv-dis">👎 ${p.dislikes}</span>` : '';
+            const views = (p.views|0) > 0 ? `<span class="nv-views">조회 ${p.views}</span>` : '';
             return `<a class="nv-card" href="${link}" target="_blank" rel="noopener noreferrer">
                 <div class="nv-title">${title}</div>
                 <div class="nv-meta">
                     <span class="nv-author">${auth}</span>
                     <span class="nv-date">${date}</span>
-                    <span class="nv-views">조회 ${p.views|0}</span>
-                    ${likes}${dis}${cmt}
+                    ${views}${likes}${dis}${cmt}
                 </div>
             </a>`;
         });

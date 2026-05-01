@@ -1590,25 +1590,79 @@ function _parseNaverBoardHtml(html, code) {
     return posts;
 }
 
+// ── 네이버 미국 종목 토론 (foreignStock) ─────────────────────
+// stock.naver.com/api/community/discussion/posts/by-item
+// itemCode: TSLA.O (NASDAQ), JPM.N (NYSE) 형식 필요
+function _formatNaverDate(iso) {
+    if (!iso) return '';
+    const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (!m) return iso;
+    return `${m[2]}.${m[3]} ${m[4]}:${m[5]}`;
+}
+
+async function _fetchNaverForeignDiscussion(symbol, suffix) {
+    const itemCode = symbol + suffix;
+    const url = 'https://stock.naver.com/api/community/discussion/posts/by-item'
+        + `?itemCode=${encodeURIComponent(itemCode)}`
+        + '&pageSize=20&page=1&discussionType=foreignStock'
+        + '&isHolderOnly=false&excludesItemNews=false'
+        + '&isItemNewsOnly=false&isCleanbotPassedOnly=false';
+    const r = await fetch(url, {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) StockAI/1.0',
+            'Referer': 'https://stock.naver.com/',
+            'Accept': 'application/json',
+            'Accept-Language': 'ko-KR,ko;q=0.9',
+        },
+    });
+    if (!r.ok) throw new Error(`naver foreign discussion ${r.status}`);
+    const data = await r.json();
+    const list = Array.isArray(data && data.posts) ? data.posts : [];
+    return list.map(p => ({
+        title:    String(p.title || '').trim(),
+        author:   String((p.writer && p.writer.nickname) || '익명'),
+        date:     _formatNaverDate(p.writtenAt),
+        views:    0, // foreignStock 응답에는 조회수 없음
+        likes:    p.recommendCount | 0,
+        dislikes: p.notRecommendCount | 0,
+        comments: p.commentCount | 0,
+        link:     `https://m.stock.naver.com/worldstock/stock/${itemCode}/discuss/${p.id}`,
+    }));
+}
+
 app.get('/api/naver-board/:symbol', async (req, res) => {
     const sym = String(req.params.symbol || '').toUpperCase();
-    // 6자리 + 옵션 .KS/.KQ
-    const m = sym.match(/^(\d{6})(\.K[SQ])?$/);
-    if (!m) return res.status(400).json({ error: 'KR 심볼만 지원 (예: 005930 또는 005930.KS)' });
-    const code = m[1];
+    // KR 6자리(.KS/.KQ) 또는 US 1~5자 알파벳(+ 옵션 .B 등)
+    const krMatch = sym.match(/^(\d{6})(\.K[SQ])?$/);
+    const usMatch = sym.match(/^([A-Z]{1,5}(?:\.[A-Z])?)$/);
+    if (!krMatch && !usMatch) {
+        return res.status(400).json({ error: 'KR(005930) 또는 US(TSLA) 심볼만 지원' });
+    }
+    const isKr = !!krMatch;
+    const cacheKey = isKr ? krMatch[1] : sym;
     const now = Date.now();
 
-    const cached = _naverBoardCache.get(code);
+    const cached = _naverBoardCache.get(cacheKey);
     if (cached && now - cached.ts < NAVER_BOARD_TTL) {
         return res.json({ posts: cached.posts, cached: true, ts: cached.ts });
     }
     try {
-        const html = await _fetchNaverBoardHtml(code);
-        const posts = _parseNaverBoardHtml(html, code);
-        _naverBoardCache.set(code, { posts, ts: now });
+        let posts;
+        if (isKr) {
+            const html = await _fetchNaverBoardHtml(krMatch[1]);
+            posts = _parseNaverBoardHtml(html, krMatch[1]);
+        } else {
+            // US: NASDAQ(.O) 우선 → 빈 결과면 NYSE(.N) 폴백
+            posts = await _fetchNaverForeignDiscussion(sym, '.O');
+            if (!posts.length) {
+                try { posts = await _fetchNaverForeignDiscussion(sym, '.N'); }
+                catch { /* .O 결과(빈 배열) 유지 */ }
+            }
+        }
+        _naverBoardCache.set(cacheKey, { posts, ts: now });
         res.json({ posts, cached: false, ts: now });
     } catch (err) {
-        console.error('[naver-board]', code, err.message);
+        console.error('[naver-board]', cacheKey, err.message);
         res.status(502).json({ error: '네이버 토론실 데이터를 가져올 수 없어요' });
     }
 });
@@ -2992,11 +3046,12 @@ function _extractEarningsItems(symbol, qs, fromTs, toTs) {
             surprisePct = ((epsAct - epsEst) / Math.abs(epsEst)) * 100;
         }
 
+        const inSP500 = _SP500.includes(symbol);
         return [{
             symbol, name, timing,
             ts: inRangeTs,
             date: new Date(inRangeTs * 1000).toISOString().slice(0, 10),
-            epsEst, epsAct, revEst, revAct, yoy, beat, marketCap, surprisePct,
+            epsEst, epsAct, revEst, revAct, yoy, beat, marketCap, surprisePct, inSP500,
         }];
     } catch (e) {
         return [];
