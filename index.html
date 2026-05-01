@@ -1052,6 +1052,7 @@
                     <button class="news-filter-chip social-src-chip" data-src="stocktwits" onclick="setSocialSource('stocktwits')">Reddit (WSB·Stocks)</button>
                     <button class="news-filter-chip social-src-chip" data-src="naver" onclick="setSocialSource('naver')">네이버 토론실</button>
                     <button class="news-filter-chip social-src-chip" data-src="paxnet" onclick="setSocialSource('paxnet')">팍스넷</button>
+                    <a id="stocktwitsExternalChip" class="news-filter-chip social-ext-chip" href="#" target="_blank" rel="noopener noreferrer" style="display:none;">📈 StockTwits ↗</a>
                 </div>
                 <button class="news-refresh-btn" onclick="reloadSocialTab()">↻ 새로고침</button>
             </div>
@@ -12147,6 +12148,16 @@
         if (stEl) stEl.innerHTML = '';
         if (nvEl) nvEl.innerHTML = '';
         if (pxEl) pxEl.innerHTML = '';
+        // StockTwits 외부 링크 칩 — US 종목만 표시 (사이트 내 임베드 불가, 새 탭 이동)
+        const extChip = document.getElementById('stocktwitsExternalChip');
+        if (extChip) {
+            if (_isKrSymbol(symbol)) {
+                extChip.style.display = 'none';
+            } else {
+                extChip.href = `https://stocktwits.com/symbol/${encodeURIComponent(symbol)}`;
+                extChip.style.display = '';
+            }
+        }
         // Apewisdom 멘션 통계 카드 (US 종목만 의미 있음 — KR 은 Reddit 에서 거의 안 다룸)
         loadApewisdomCard(symbol);
         setSocialSource(defaultSrc);
