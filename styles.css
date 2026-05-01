@@ -3377,9 +3377,9 @@
     max-width:100%;
 }
 .earn-status-pending{ padding:6px 4px; }
-.earn-status-beat{    background:rgba(59, 130, 246,.20);  color:#60a5fa; }
-.earn-status-miss{    background:rgba(239,68,68,.20);  color:#f87171; }
-.earn-status-meet{    background:rgba(99,102,241,.18); color:#a5b4fc; }
+.earn-status-beat{    background:rgba(59,130,246,.16);  color:#60a5fa; }   /* 파랑 — 긍정 */
+.earn-status-miss{    background:rgba(239,68,68,.16);   color:#f87171; }   /* 빨강 — 부정 */
+.earn-status-meet{    background:rgba(148,163,184,.12); color:#94a3b8; }   /* 회색 — 중립 */
 .earn-status-pending{ background:transparent; color:var(--text3); }
 
 /* 라이트 모드 보정 */
@@ -3392,9 +3392,9 @@
 [data-theme="light"] .earn-cell-rev .ec-act.neg{ color:#dc2626; }
 [data-theme="light"] .earn-yoy.up{ color:#dc2626; background:none; }
 [data-theme="light"] .earn-yoy.down{ color:#2563eb; background:none; }
-[data-theme="light"] .earn-status-beat{ background:#dbeafe; color:#1d4ed8; }
-[data-theme="light"] .earn-status-miss{ background:#fee2e2; color:#b91c1c; }
-[data-theme="light"] .earn-status-meet{ background:#e0e7ff; color:#4338ca; }
+[data-theme="light"] .earn-status-beat{ background:#dbeafe; color:#1d4ed8; }  /* 파랑 */
+[data-theme="light"] .earn-status-miss{ background:#fee2e2; color:#b91c1c; }  /* 빨강 */
+[data-theme="light"] .earn-status-meet{ background:#f1f5f9; color:#64748b; }  /* 슬레이트 회색 */
 
 /* 태블릿 (641 ~ 899px) — 시가총액 숨김 */
 @media(min-width:641px) and (max-width:899px){
