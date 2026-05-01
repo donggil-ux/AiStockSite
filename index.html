@@ -4972,12 +4972,11 @@
         if (s <= -1) return { label: '쇼크 ' + s.toFixed(1) + '%',         cls: 'miss' };
         return { label: '부합 ' + (s>=0?'+':'') + s.toFixed(1) + '%', cls: 'meet' };
     }
-    // YoY 화살표 + 색
+    // YoY 텍스트 (화살표 없이 +/- 부호만)
     function _earnYoyHtml(v) {
         if (typeof v !== 'number' || isNaN(v)) return '<span class="earn-yoy-na">-</span>';
         const cls = v >= 0 ? 'up' : 'down';
-        const arrow = v >= 0 ? '▲' : '▼';
-        return `<span class="earn-yoy ${cls}">${arrow} ${v >= 0 ? '+' : ''}${v.toFixed(1)}%</span>`;
+        return `<span class="earn-yoy ${cls}">${v >= 0 ? '+' : ''}${v.toFixed(1)}%</span>`;
     }
     // 시기 아이콘 (해/달)
     function _earnTimingIcon(t) {

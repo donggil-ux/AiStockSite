@@ -3354,11 +3354,12 @@
 /* YoY 화살표 */
 .earn-cell-yoy{ text-align:right; font-variant-numeric:tabular-nums; }
 .earn-yoy{
-    display:inline-block; font-size:12.5px; font-weight:700;
-    padding:2px 8px; border-radius:5px;
+    display:inline; font-size:13px; font-weight:600;
+    padding:0; border-radius:0; background:none;
+    letter-spacing:-0.01em;
 }
-.earn-yoy.up{ color:#60a5fa; background:rgba(59, 130, 246,.12); }
-.earn-yoy.down{ color:#f87171; background:rgba(239,68,68,.12); }
+.earn-yoy.up{ color:#ef4444; background:none; }
+.earn-yoy.down{ color:#3b82f6; background:none; }
 .earn-yoy-na{ color:var(--text3); font-size:12px; }
 
 /* 상태 (서프라이즈/쇼크/부합/예정) — 셀 배경색으로 강조 */
@@ -3389,8 +3390,8 @@
 [data-theme="light"] .earn-cell-rev .ec-act.pos{ color:#2563eb; }
 [data-theme="light"] .earn-cell-eps .ec-act.neg,
 [data-theme="light"] .earn-cell-rev .ec-act.neg{ color:#dc2626; }
-[data-theme="light"] .earn-yoy.up{ color:#2563eb; background:#dbeafe; }
-[data-theme="light"] .earn-yoy.down{ color:#dc2626; background:#fee2e2; }
+[data-theme="light"] .earn-yoy.up{ color:#dc2626; background:none; }
+[data-theme="light"] .earn-yoy.down{ color:#2563eb; background:none; }
 [data-theme="light"] .earn-status-beat{ background:#dbeafe; color:#1d4ed8; }
 [data-theme="light"] .earn-status-miss{ background:#fee2e2; color:#b91c1c; }
 [data-theme="light"] .earn-status-meet{ background:#e0e7ff; color:#4338ca; }
@@ -3414,7 +3415,7 @@
     .earn-stock-name{ display:none; }
     .earn-ticker{ font-size:12.5px; }
     .earn-cell-eps{ font-size:11.5px; }
-    .earn-yoy{ font-size:11px; padding:1px 6px; }
+    .earn-yoy{ font-size:11.5px; }
     .earn-cell-status{ font-size:10.5px; padding:5px 8px; }
     .earn-toolbar{ gap:6px; padding:6px 0 10px; }
     .earn-chip{ height:28px; padding:0 10px; font-size:11px; }
