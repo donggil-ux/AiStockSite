@@ -36,6 +36,10 @@ const httpsAgent = new https.Agent({ maxHeaderSize: MAX_HEADER });
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
+// Vercel/프록시 뒤에서 req.ip 가 클라이언트 IP 를 정확히 반영하도록 설정
+// (1 = 첫 번째 hop 만 신뢰. Vercel은 자체적으로 x-forwarded-for 를 안전하게 세팅)
+app.set('trust proxy', 1);
+
 const allowedOrigins = [
     'http://localhost:3000',
     'https://stockss.vercel.app',
@@ -225,22 +229,27 @@ async function yfRequest(url) {
 // ─────────────────────────────────────────────
 
 // ─────────────────────────────────────────────
-// 공통 IP Rate Limiter factory (라우트 등록 전에 선언 필수 — TDZ 방지)
+// 공통 IP Rate Limiter factory
+//   ⚠️  IMPORTANT: 새 라우트에서 _rlXxx 를 사용하려면 이 섹션 이전에 선언되어야 함 (TDZ 방지)
+//   ⚠️  새 rate limiter 추가 시 반드시 이 블록 안에서 const 로 선언할 것
 // ─────────────────────────────────────────────
 /**
  * makeIpRateLimiter(windowMs, message)
  *   → Express 미들웨어 반환. IP당 windowMs 내 1회만 허용.
+ *   IP 식별: req.ip (app.set('trust proxy', 1) 와 결합 — x-forwarded-for 직접 신뢰 X)
  */
 function makeIpRateLimiter(windowMs, message) {
     const map = new Map();
-    // 만료 항목 정기 정리 (메모리 누수 방지) — Vercel serverless 에서도 unref() 안전
+    // 만료 항목 정기 정리 (메모리 누수 방지)
     setInterval(() => {
         const cutoff = Date.now() - windowMs;
         for (const [ip, ts] of map) { if (ts < cutoff) map.delete(ip); }
     }, Math.max(windowMs, 5 * 60 * 1000)).unref();
 
     return function ipRateLimit(req, res, next) {
-        const ip  = (req.headers['x-forwarded-for']?.split(',')[0] || req.ip || '').trim();
+        // Vercel + trust proxy=1 환경에서 req.ip 는 클라이언트 IP 를 정확히 반영
+        // (직접 x-forwarded-for 파싱 시 헤더 스푸핑에 노출됨)
+        const ip = req.ip || 'unknown';
         const now = Date.now();
         const last = map.get(ip) || 0;
         if (now - last < windowMs) {
@@ -2180,8 +2189,8 @@ setInterval(() => {
 }, 5 * 60 * 1000).unref();
 
 app.post('/api/economic-ai', async (req, res) => {
-    // IP rate limit
-    const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip;
+    // IP rate limit — req.ip 사용 (app.set('trust proxy', 1) 결합으로 헤더 스푸핑 방어)
+    const ip = req.ip || 'unknown';
     const now = Date.now();
     const last = _ecoAiRateMap.get(ip) || 0;
     if (now - last < ECO_AI_RATE_MS) {

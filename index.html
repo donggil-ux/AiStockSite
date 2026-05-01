@@ -4996,27 +4996,33 @@
     }
 
     // earningsGrid 에 delegated click listener — 인라인 onclick 대신
+    // idempotent: 여러 번 호출되어도 안전 (이전 listener 제거 후 재등록)
     function _earnAttachClickHandler() {
         const grid = document.getElementById('earningsGrid');
-        if (!grid || grid._earnHandlerAttached) return;
-        grid.addEventListener('click', (e) => {
+        if (!grid) return;
+        // 이전 listener 가 있으면 제거 (중복 등록 방지)
+        if (grid._earnClickListener) grid.removeEventListener('click', grid._earnClickListener);
+        if (grid._earnKeydownListener) grid.removeEventListener('keydown', grid._earnKeydownListener);
+
+        grid._earnClickListener = (e) => {
             const hdr = e.target.closest('.earn-date-header');
             if (!hdr) return;
             const group = hdr.closest('.earn-date-group');
             if (!group?.classList.contains('earn-group-past')) return;
             e.stopPropagation();
             group.classList.toggle('earn-group-collapsed');
-        });
+        };
         // 키보드 접근성: Enter/Space 로 토글
-        grid.addEventListener('keydown', (e) => {
+        grid._earnKeydownListener = (e) => {
             if (e.key !== 'Enter' && e.key !== ' ') return;
             const hdr = e.target?.closest?.('.earn-date-header');
             const group = hdr?.closest?.('.earn-date-group');
             if (!group?.classList.contains('earn-group-past')) return;
             e.preventDefault();
             group.classList.toggle('earn-group-collapsed');
-        });
-        grid._earnHandlerAttached = true;
+        };
+        grid.addEventListener('click', grid._earnClickListener);
+        grid.addEventListener('keydown', grid._earnKeydownListener);
     }
 
     function _earnSkeleton(n) {
@@ -11134,7 +11140,10 @@
                 const _poll = () => { try { reg.update(); } catch(_){} };
                 const _swPollTimer = setInterval(_poll, 60 * 60 * 1000);
                 // 페이지 언로드 시 타이머 정리
-                window.addEventListener('beforeunload', () => clearInterval(_swPollTimer), { once: true });
+                // beforeunload 는 iOS Safari 에서 비신뢰적 → pagehide 도 함께 등록
+                const _cleanupSwPoll = () => clearInterval(_swPollTimer);
+                window.addEventListener('beforeunload', _cleanupSwPoll, { once: true });
+                window.addEventListener('pagehide',     _cleanupSwPoll, { once: true });
                 document.addEventListener('visibilitychange', () => {
                     if (document.visibilityState === 'visible') _poll();
                 });
@@ -12156,15 +12165,29 @@
         const msgs = data?.messages || [];
         if (!msgs.length) { feed.innerHTML = '<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">게시물이 없습니다.</div></div>'; return; }
         const _esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        // URL 검증: javascript:/data:/vbscript: 등 위험 프로토콜 차단 (XSS 방어)
+        const _safeUrl = s => {
+            const v = String(s||'').trim();
+            if (!v) return '';
+            // 상대 경로 또는 명시적 http/https 만 허용
+            if (/^\/[^/]/.test(v)) return v;
+            try {
+                const u = new URL(v);
+                return (u.protocol === 'http:' || u.protocol === 'https:') ? v : '';
+            } catch { return ''; }
+        };
+        const MAX_BODY = 2000; // data-original 의 m.body 최대 길이 (메모리 폭증 방지)
         const cards = msgs.map((m, idx) => {
             const sent = m.sentiment?.basic;
             const badge = sent === 'Bullish' ? '<span class="st-badge bull">🐂 강세</span>'
                         : sent === 'Bearish' ? '<span class="st-badge bear">🐻 약세</span>' : '';
             const ago  = _newsTimeAgo(new Date(m.created_at).getTime() / 1000);
             const likes = m.likes?.total ? `♥ ${m.likes.total}` : '';
-            // body: &, <, >, " 모두 이스케이프 후 ticker 하이라이트 + 줄바꿈 처리
-            const body = _esc(m.body||'').replace(/\$([A-Z]{1,5})/g,'<span class="st-ticker">$$$1</span>').replace(/\n/g,'<br>');
-            const avatarSrc = _esc(m.user?.avatar_url||'');
+            // body: 길이 제한 + 4개 엔티티 이스케이프 후 ticker 하이라이트 + 줄바꿈 처리
+            const rawBody = String(m.body||'').slice(0, MAX_BODY);
+            const body = _esc(rawBody).replace(/\$([A-Z]{1,5})/g,'<span class="st-ticker">$$$1</span>').replace(/\n/g,'<br>');
+            // avatar_url: javascript: 등 차단을 위해 _safeUrl 통과시킨 후 이스케이프
+            const avatarSrc = _esc(_safeUrl(m.user?.avatar_url));
             const username  = _esc(m.user?.username||'?');
             const msgId = m.id || idx;
             return `<div class="st-card" data-st-id="${msgId}">
@@ -12175,7 +12198,7 @@
                     <span class="st-time">${ago}</span>
                     <span class="st-likes">${likes}</span>
                 </div>
-                <div class="st-body" data-original="${_esc(m.body||'')}">${body}</div>
+                <div class="st-body" data-original="${_esc(rawBody)}">${body}</div>
                 <button class="st-translate-btn" onclick="toggleStTranslate(this)">번역 보기</button>
             </div>`;
         });
