@@ -58,6 +58,11 @@
                     <span class="side-nav-item-text">실적발표 일정</span>
                     <span class="side-nav-item-sub">NEW</span>
                 </button>
+                <button class="side-nav-item" id="sideNavLevBtn" onclick="goLeverage();closeSideNav();">
+                    <span class="side-nav-item-icon"><i class="ri-flashlight-line"></i></span>
+                    <span class="side-nav-item-text">레버리지 ETF</span>
+                    <span class="side-nav-item-sub">2x · 3x</span>
+                </button>
             </div>
         </div>
         <div class="side-nav-divider"></div>
@@ -189,6 +194,19 @@
             </div>
             <div class="swing-list" id="swingRadarList">
                 <div class="swing-empty">데이터 로딩 중...</div>
+            </div>
+        </section>
+
+        <!-- 섹션 4: 레버리지 ETF (가로 스와이프) -->
+        <section id="leverageHomeSection" class="home-section">
+            <div class="home-section-header">
+                <div class="home-section-title">레버리지 ETF
+                    <span class="hs-badge purple">2x · 3x</span>
+                </div>
+                <button class="home-section-more" onclick="goLeverage()">전체보기 →</button>
+            </div>
+            <div class="lev-strip" id="leverageHomeStrip">
+                <div class="lev-strip-empty">시세를 불러오는 중...</div>
             </div>
         </section>
 
@@ -392,6 +410,44 @@
             <div class="earn-grid" id="earningsGrid"></div>
             <div class="disc-empty" id="earningsEmpty" hidden>해당 기간에 실적 발표 예정 종목이 없어요.</div>
         </div>
+    </div>
+
+    <!-- ===== Leverage ETF Screen ===== -->
+    <div class="discover-screen" id="leverageScreen" style="display:none">
+        <div class="disc-screen-title">레버리지 ETF</div>
+        <div class="disc-screen-sub">2x · 3x 정방향/역방향 ETF를 한눈에 — 클릭하면 종목 분석으로 이동합니다</div>
+
+        <!-- 상단 필터 칩 -->
+        <div class="lev-topnav">
+            <div class="lev-chip-group" data-filter-group="leverage">
+                <button class="lev-chip active" data-value="all" onclick="_levSetFilter('leverage','all',this)">전체</button>
+                <button class="lev-chip" data-value="3" onclick="_levSetFilter('leverage','3',this)">3배</button>
+                <button class="lev-chip" data-value="2" onclick="_levSetFilter('leverage','2',this)">2배</button>
+            </div>
+            <div class="lev-chip-divider"></div>
+            <div class="lev-chip-group" data-filter-group="direction">
+                <button class="lev-chip active" data-value="all" onclick="_levSetFilter('direction','all',this)">방향 전체</button>
+                <button class="lev-chip" data-value="bull" onclick="_levSetFilter('direction','bull',this)">정방향</button>
+                <button class="lev-chip" data-value="bear" onclick="_levSetFilter('direction','bear',this)">역방향</button>
+            </div>
+            <div class="lev-chip-divider"></div>
+            <div class="lev-chip-group" data-filter-group="kind">
+                <button class="lev-chip active" data-value="all" onclick="_levSetFilter('kind','all',this)">유형 전체</button>
+                <button class="lev-chip" data-value="index" onclick="_levSetFilter('kind','index',this)">지수</button>
+                <button class="lev-chip" data-value="sector" onclick="_levSetFilter('kind','sector',this)">섹터</button>
+                <button class="lev-chip" data-value="single" onclick="_levSetFilter('kind','single',this)">개별 종목</button>
+            </div>
+        </div>
+
+        <div class="lev-toolbar">
+            <div class="lev-count" id="leverageCount">— 종목</div>
+            <button class="lev-refresh-btn" onclick="loadLeverageETFs(true)" title="새로고침">↻</button>
+        </div>
+
+        <div class="lev-grid" id="leverageGrid">
+            <div class="disc-empty">시세를 불러오는 중...</div>
+        </div>
+        <div class="disc-empty" id="leverageEmpty" hidden>조건에 해당하는 ETF가 없습니다.</div>
     </div>
 
     <!-- Fav Screen -->
@@ -2861,6 +2917,7 @@
     loadHotStocks();
     loadFavSummary();
     loadGuruHome();
+    loadLeverageHome();
     // 홈 임베드: 연속 상승세 TOP 5 + 저평가 주식 TOP 5 (초기 로드 시)
     // _DISC_PRESET_META 가 아래에서 const 로 정의되므로 setTimeout 으로 defer
     setTimeout(() => {
@@ -2908,6 +2965,7 @@
         document.getElementById('visionScannerScreen').style.display = 'none';
         const _dc3 = document.getElementById('discoverScreen'); if (_dc3) _dc3.style.display = 'none';
         const _ern3 = document.getElementById('earningsScreen'); if (_ern3) _ern3.style.display = 'none';
+        const _lev3 = document.getElementById('leverageScreen'); if (_lev3) _lev3.style.display = 'none';
         document.getElementById('favScreen').style.display = '';
         window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded');
@@ -2964,6 +3022,7 @@
         loadHotStocks();
         loadFavSummary();
         loadGuruHome();
+        loadLeverageHome();
         // 홈 임베드: 연속 상승세 TOP 5 + 저평가 주식 TOP 5 (프리셋 고정)
         if (typeof loadDiscover === 'function') {
             const prevPreset = window._discPreset;
@@ -4631,6 +4690,7 @@
         document.getElementById('economicSection').style.display = 'none';
         const _dc1 = document.getElementById('discoverScreen'); if (_dc1) _dc1.style.display = 'none';
         const _ern1 = document.getElementById('earningsScreen'); if (_ern1) _ern1.style.display = 'none';
+        const _lev1 = document.getElementById('leverageScreen'); if (_lev1) _lev1.style.display = 'none';
         document.getElementById('smartMoneyScreen').style.display = '';
         window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded');
@@ -4658,6 +4718,7 @@
         document.getElementById('visionScannerScreen').style.display = 'none';
         const _dc2 = document.getElementById('discoverScreen'); if (_dc2) _dc2.style.display = 'none';
         const _ern2 = document.getElementById('earningsScreen'); if (_ern2) _ern2.style.display = 'none';
+        const _lev2 = document.getElementById('leverageScreen'); if (_lev2) _lev2.style.display = 'none';
         document.getElementById('alphaScannerScreen').style.display = '';
         window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded');
@@ -5319,6 +5380,7 @@
         document.getElementById('favScreen').style.display = 'none';
         document.getElementById('visionScannerScreen').style.display = 'none';
         document.getElementById('discoverScreen').style.display = 'none';
+        const _levE = document.getElementById('leverageScreen'); if (_levE) _levE.style.display = 'none';
         const ecoEl = document.getElementById('economicSection');
         if (ecoEl) ecoEl.style.display = 'none';
         // 실적발표 페이지: 시장 테마/탭 네비 숨김 (골라보기와 동일)
@@ -5340,6 +5402,549 @@
         _earnBuildDateChips(); // 상단 날짜 칩 빌드
         window.scrollTo({ top: 0, behavior: 'smooth' });
         loadEarnings();
+    }
+
+    // ========================================
+    // 레버리지 ETF 화면 — 2x · 3x 정/역방향 ETF 모아보기
+    // ========================================
+    const LEVERAGE_ETF_LIST = [
+        // ── 지수 (index) ───────────────────────────────────────
+        // 나스닥 100
+        { symbol: 'TQQQ', name: 'ProShares UltraPro QQQ',          leverage: 3, direction: 'bull', kind: 'index',  underlying: 'Nasdaq-100' },
+        { symbol: 'QLD',  name: 'ProShares Ultra QQQ',             leverage: 2, direction: 'bull', kind: 'index',  underlying: 'Nasdaq-100' },
+        { symbol: 'SQQQ', name: 'ProShares UltraPro Short QQQ',    leverage: 3, direction: 'bear', kind: 'index',  underlying: 'Nasdaq-100' },
+        { symbol: 'QID',  name: 'ProShares UltraShort QQQ',        leverage: 2, direction: 'bear', kind: 'index',  underlying: 'Nasdaq-100' },
+        // S&P 500
+        { symbol: 'SPXL', name: 'Direxion Daily S&P 500 Bull 3x',  leverage: 3, direction: 'bull', kind: 'index',  underlying: 'S&P 500' },
+        { symbol: 'UPRO', name: 'ProShares UltraPro S&P 500',      leverage: 3, direction: 'bull', kind: 'index',  underlying: 'S&P 500' },
+        { symbol: 'SSO',  name: 'ProShares Ultra S&P 500',         leverage: 2, direction: 'bull', kind: 'index',  underlying: 'S&P 500' },
+        { symbol: 'SPXS', name: 'Direxion Daily S&P 500 Bear 3x',  leverage: 3, direction: 'bear', kind: 'index',  underlying: 'S&P 500' },
+        { symbol: 'SDS',  name: 'ProShares UltraShort S&P 500',    leverage: 2, direction: 'bear', kind: 'index',  underlying: 'S&P 500' },
+        // 러셀 2000
+        { symbol: 'TNA',  name: 'Direxion Daily Small Cap Bull 3x',leverage: 3, direction: 'bull', kind: 'index',  underlying: 'Russell 2000' },
+        { symbol: 'TZA',  name: 'Direxion Daily Small Cap Bear 3x',leverage: 3, direction: 'bear', kind: 'index',  underlying: 'Russell 2000' },
+        // 다우 30
+        { symbol: 'DDM',  name: 'ProShares Ultra Dow30',           leverage: 2, direction: 'bull', kind: 'index',  underlying: 'Dow Jones 30' },
+        { symbol: 'DXD',  name: 'ProShares UltraShort Dow30',      leverage: 2, direction: 'bear', kind: 'index',  underlying: 'Dow Jones 30' },
+        // ── 섹터 (sector) ──────────────────────────────────────
+        // 반도체
+        { symbol: 'SOXL', name: 'Direxion Semiconductor Bull 3x',  leverage: 3, direction: 'bull', kind: 'sector', underlying: '반도체' },
+        { symbol: 'USD',  name: 'ProShares Ultra Semiconductors',  leverage: 2, direction: 'bull', kind: 'sector', underlying: '반도체' },
+        { symbol: 'SOXS', name: 'Direxion Semiconductor Bear 3x',  leverage: 3, direction: 'bear', kind: 'sector', underlying: '반도체' },
+        // 기술주
+        { symbol: 'TECL', name: 'Direxion Technology Bull 3x',     leverage: 3, direction: 'bull', kind: 'sector', underlying: '기술주' },
+        { symbol: 'ROM',  name: 'ProShares Ultra Technology',      leverage: 2, direction: 'bull', kind: 'sector', underlying: '기술주' },
+        { symbol: 'TECS', name: 'Direxion Technology Bear 3x',     leverage: 3, direction: 'bear', kind: 'sector', underlying: '기술주' },
+        // 금융
+        { symbol: 'FAS',  name: 'Direxion Financial Bull 3x',      leverage: 3, direction: 'bull', kind: 'sector', underlying: '금융' },
+        { symbol: 'DPST', name: 'Direxion Regional Banks Bull 3x', leverage: 3, direction: 'bull', kind: 'sector', underlying: '지역은행' },
+        { symbol: 'FAZ',  name: 'Direxion Financial Bear 3x',      leverage: 3, direction: 'bear', kind: 'sector', underlying: '금융' },
+        // 바이오
+        { symbol: 'LABU', name: 'Direxion Biotech Bull 3x',        leverage: 3, direction: 'bull', kind: 'sector', underlying: '바이오' },
+        { symbol: 'LABD', name: 'Direxion Biotech Bear 3x',        leverage: 3, direction: 'bear', kind: 'sector', underlying: '바이오' },
+        // 헬스케어
+        { symbol: 'CURE', name: 'Direxion Healthcare Bull 3x',     leverage: 3, direction: 'bull', kind: 'sector', underlying: '헬스케어' },
+        // 에너지
+        { symbol: 'GUSH', name: 'Direxion Oil & Gas E&P Bull 2x',  leverage: 2, direction: 'bull', kind: 'sector', underlying: '에너지' },
+        { symbol: 'DRIP', name: 'Direxion Oil & Gas E&P Bear 2x',  leverage: 2, direction: 'bear', kind: 'sector', underlying: '에너지' },
+        { symbol: 'ERX',  name: 'Direxion Energy Bull 2x',         leverage: 2, direction: 'bull', kind: 'sector', underlying: '에너지' },
+        // 부동산
+        { symbol: 'DRN',  name: 'Direxion Real Estate Bull 3x',    leverage: 3, direction: 'bull', kind: 'sector', underlying: '부동산' },
+        { symbol: 'DRV',  name: 'Direxion Real Estate Bear 3x',    leverage: 3, direction: 'bear', kind: 'sector', underlying: '부동산' },
+        // 인터넷
+        { symbol: 'WEBL', name: 'Direxion Internet Bull 3x',       leverage: 3, direction: 'bull', kind: 'sector', underlying: '인터넷' },
+        { symbol: 'WEBS', name: 'Direxion Internet Bear 3x',       leverage: 3, direction: 'bear', kind: 'sector', underlying: '인터넷' },
+        // 귀금속
+        { symbol: 'NUGT', name: 'Direxion Gold Miners Bull 2x',    leverage: 2, direction: 'bull', kind: 'sector', underlying: '금광' },
+        { symbol: 'DUST', name: 'Direxion Gold Miners Bear 2x',    leverage: 2, direction: 'bear', kind: 'sector', underlying: '금광' },
+        // 채권
+        { symbol: 'TMF',  name: 'Direxion 20+ Year Treasury Bull 3x',leverage:3,direction:'bull', kind: 'sector', underlying: '20년+ 국채' },
+        { symbol: 'TMV',  name: 'Direxion 20+ Year Treasury Bear 3x',leverage:3,direction:'bear', kind: 'sector', underlying: '20년+ 국채' },
+        // ── 개별 종목 2배 (single 2X) ──────────────────────────
+        // Apple — 3 (Bull only)
+        { symbol: 'AAPU', name: 'Direxion AAPL Bull 2x',           leverage: 2, direction: 'bull', kind: 'single', underlying: 'Apple' },
+        { symbol: 'AAPB', name: 'GraniteShares AAPL Long 2x',      leverage: 2, direction: 'bull', kind: 'single', underlying: 'Apple' },
+        { symbol: 'AAPX', name: 'T-Rex 2x Long AAPL',              leverage: 2, direction: 'bull', kind: 'single', underlying: 'Apple' },
+        // Nvidia — 4
+        { symbol: 'NVDL', name: 'GraniteShares NVDA Long 2x',      leverage: 2, direction: 'bull', kind: 'single', underlying: 'Nvidia' },
+        { symbol: 'NVDU', name: 'Direxion NVDA Bull 2x',           leverage: 2, direction: 'bull', kind: 'single', underlying: 'Nvidia' },
+        { symbol: 'NVDX', name: 'T-Rex 2x Long NVDA',              leverage: 2, direction: 'bull', kind: 'single', underlying: 'Nvidia' },
+        { symbol: 'NVDQ', name: 'T-Rex 2x Inverse NVDA',           leverage: 2, direction: 'bear', kind: 'single', underlying: 'Nvidia' },
+        // Microsoft — 3 (Bull only)
+        { symbol: 'MSFU', name: 'Direxion MSFT Bull 2x',           leverage: 2, direction: 'bull', kind: 'single', underlying: 'Microsoft' },
+        { symbol: 'MSFL', name: 'GraniteShares MSFT Long 2x',      leverage: 2, direction: 'bull', kind: 'single', underlying: 'Microsoft' },
+        { symbol: 'MSFX', name: 'T-Rex 2x Long MSFT',              leverage: 2, direction: 'bull', kind: 'single', underlying: 'Microsoft' },
+        // Amazon — 2 (Bull only)
+        { symbol: 'AMZU', name: 'Direxion AMZN Bull 2x',           leverage: 2, direction: 'bull', kind: 'single', underlying: 'Amazon' },
+        { symbol: 'AMZZ', name: 'GraniteShares AMZN Long 2x',      leverage: 2, direction: 'bull', kind: 'single', underlying: 'Amazon' },
+        // Meta — 2 (Bull only)
+        { symbol: 'METU', name: 'Direxion META Bull 2x',           leverage: 2, direction: 'bull', kind: 'single', underlying: 'Meta' },
+        { symbol: 'FBL',  name: 'GraniteShares META Long 2x',      leverage: 2, direction: 'bull', kind: 'single', underlying: 'Meta' },
+        // Google — 2 (Bull only)
+        { symbol: 'GGLL', name: 'Direxion GOOGL Bull 2x',          leverage: 2, direction: 'bull', kind: 'single', underlying: 'Google' },
+        { symbol: 'GOOX', name: 'T-Rex 2x Long GOOGL',             leverage: 2, direction: 'bull', kind: 'single', underlying: 'Google' },
+        // Tesla — 5 (Bull 2 + Bear 3)
+        { symbol: 'TSLL', name: 'Direxion TSLA Bull 2x',           leverage: 2, direction: 'bull', kind: 'single', underlying: 'Tesla' },
+        { symbol: 'TSLT', name: 'T-Rex 2x Long TSLA',              leverage: 2, direction: 'bull', kind: 'single', underlying: 'Tesla' },
+        { symbol: 'TSLQ', name: 'Tradr 2x Short TSLA',             leverage: 2, direction: 'bear', kind: 'single', underlying: 'Tesla' },
+        { symbol: 'TSLZ', name: 'T-Rex 2x Inverse TSLA',           leverage: 2, direction: 'bear', kind: 'single', underlying: 'Tesla' },
+        { symbol: 'TSDD', name: 'GraniteShares TSLA Short 2x',     leverage: 2, direction: 'bear', kind: 'single', underlying: 'Tesla' },
+        // MicroStrategy — 2
+        { symbol: 'MSTU', name: 'T-Rex 2x Long MSTR',              leverage: 2, direction: 'bull', kind: 'single', underlying: 'MicroStrategy' },
+        { symbol: 'MSTZ', name: 'T-Rex 2x Inverse MSTR',           leverage: 2, direction: 'bear', kind: 'single', underlying: 'MicroStrategy' },
+        // Coinbase — 2
+        { symbol: 'CONL', name: 'GraniteShares COIN Long 2x',      leverage: 2, direction: 'bull', kind: 'single', underlying: 'Coinbase' },
+        { symbol: 'CONI', name: 'GraniteShares COIN Short 2x',     leverage: 2, direction: 'bear', kind: 'single', underlying: 'Coinbase' },
+        // SMCI (Super Micro) — 3
+        { symbol: 'SMCL', name: 'GraniteShares SMCI Long 2x',      leverage: 2, direction: 'bull', kind: 'single', underlying: 'Super Micro' },
+        { symbol: 'SMCX', name: 'Defiance SMCI Long 2x',           leverage: 2, direction: 'bull', kind: 'single', underlying: 'Super Micro' },
+        { symbol: 'SMCZ', name: 'Defiance SMCI Short 2x',          leverage: 2, direction: 'bear', kind: 'single', underlying: 'Super Micro' },
+        // AMD — 1 (Bull only; -1x bear available but not 2x)
+        { symbol: 'AMDL', name: 'GraniteShares AMD Long 2x',       leverage: 2, direction: 'bull', kind: 'single', underlying: 'AMD' },
+        // Palantir — 1 (Bull only)
+        { symbol: 'PLTU', name: 'Direxion PLTR Bull 2x',           leverage: 2, direction: 'bull', kind: 'single', underlying: 'Palantir' },
+        // Netflix — 2 (Bull only)
+        { symbol: 'NFLU', name: 'T-Rex 2x Long NFLX',              leverage: 2, direction: 'bull', kind: 'single', underlying: 'Netflix' },
+        { symbol: 'NFXL', name: 'Direxion NFLX Bull 2x',           leverage: 2, direction: 'bull', kind: 'single', underlying: 'Netflix' },
+        // TSMC — 1 (Bull only)
+        { symbol: 'TSMU', name: 'GraniteShares TSM Long 2x',       leverage: 2, direction: 'bull', kind: 'single', underlying: 'TSMC' },
+        // Broadcom — 2
+        { symbol: 'AVL',  name: 'Direxion AVGO Bull 2x',           leverage: 2, direction: 'bull', kind: 'single', underlying: 'Broadcom' },
+        { symbol: 'AVGU', name: 'GraniteShares AVGO Long 2x',      leverage: 2, direction: 'bull', kind: 'single', underlying: 'Broadcom' },
+        // Alibaba — 2
+        { symbol: 'BABX', name: 'GraniteShares BABA Long 2x',      leverage: 2, direction: 'bull', kind: 'single', underlying: 'Alibaba' },
+        { symbol: 'BABU', name: 'Direxion BABA Bull 2x',           leverage: 2, direction: 'bull', kind: 'single', underlying: 'Alibaba' },
+        // Eli Lilly — 1 (Bear only)
+        { symbol: 'LLYZ', name: 'Defiance LLY Short 2x',           leverage: 2, direction: 'bear', kind: 'single', underlying: 'Eli Lilly' },
+        // PayPal — 1
+        { symbol: 'PYPU', name: 'Direxion PYPL Bull 2x',           leverage: 2, direction: 'bull', kind: 'single', underlying: 'PayPal' },
+        // UnitedHealth — 1
+        { symbol: 'UNHU', name: 'Direxion UNH Bull 2x',            leverage: 2, direction: 'bull', kind: 'single', underlying: 'UnitedHealth' },
+        // Nike — 1
+        { symbol: 'NKEL', name: 'AXS NKE Bull 2x',                 leverage: 2, direction: 'bull', kind: 'single', underlying: 'Nike' },
+        // Magnificent 7 (테마형 — 7대 빅테크 바스켓)
+        { symbol: 'QQQU', name: 'Direxion Magnificent 7 Bull 2x',  leverage: 2, direction: 'bull', kind: 'single', underlying: 'Magnificent 7' },
+        // ── 양자컴퓨팅 (Quantum Computing) ─────────────────────
+        { symbol: 'IONX', name: 'Defiance IONQ Long 2x',           leverage: 2, direction: 'bull', kind: 'single', underlying: 'IonQ' },
+        { symbol: 'QBTX', name: 'Tradr QBTS Long 2x',              leverage: 2, direction: 'bull', kind: 'single', underlying: 'D-Wave' },
+        { symbol: 'RGTX', name: 'Defiance RGTI Long 2x',           leverage: 2, direction: 'bull', kind: 'single', underlying: 'Rigetti' },
+        // ── 핵발전 / 차세대 에너지 ────────────────────────────
+        { symbol: 'OKLL', name: 'Defiance OKLO Long 2x',           leverage: 2, direction: 'bull', kind: 'single', underlying: 'Oklo' },
+        // ── 핀테크 ─────────────────────────────────────────
+        { symbol: 'HOOX', name: 'Defiance HOOD Long 2x',           leverage: 2, direction: 'bull', kind: 'single', underlying: 'Robinhood' },
+        { symbol: 'SOFX', name: 'Defiance SOFI Long 2x',           leverage: 2, direction: 'bull', kind: 'single', underlying: 'SoFi' },
+        { symbol: 'UPSX', name: 'Tradr UPST Long 2x',              leverage: 2, direction: 'bull', kind: 'single', underlying: 'Upstart' },
+        // ── 게이밍 / 밈주 ─────────────────────────────────────
+        { symbol: 'DKNX', name: 'Defiance DKNG Long 2x',           leverage: 2, direction: 'bull', kind: 'single', underlying: 'DraftKings' },
+        { symbol: 'GMEU', name: 'T-Rex GME Long 2x',               leverage: 2, direction: 'bull', kind: 'single', underlying: 'GameStop' },
+        // ── 광고테크 ──────────────────────────────────────────
+        { symbol: 'APPX', name: 'Tradr APP Long 2x',               leverage: 2, direction: 'bull', kind: 'single', underlying: 'AppLovin' },
+        // ── 방산 ─────────────────────────────────────────────
+        { symbol: 'LMTL', name: 'Direxion LMT Bull 2x',            leverage: 2, direction: 'bull', kind: 'single', underlying: 'Lockheed Martin' },
+        // ── 차량공유 ──────────────────────────────────────────
+        { symbol: 'UBRL', name: 'GraniteShares UBER Long 2x',      leverage: 2, direction: 'bull', kind: 'single', underlying: 'Uber' },
+        // ── 비트코인 채굴주 ───────────────────────────────────
+        { symbol: 'RIOX', name: 'Defiance RIOT Long 2x',           leverage: 2, direction: 'bull', kind: 'single', underlying: 'Riot Platforms' },
+        { symbol: 'CLSX', name: 'Tradr CLSK Long 2x',              leverage: 2, direction: 'bull', kind: 'single', underlying: 'CleanSpark' },
+        // ── 암호화폐 (선물 추종) ─────────────────────────────
+        { symbol: 'BITX', name: 'Volatility Shares 2x Bitcoin',    leverage: 2, direction: 'bull', kind: 'sector', underlying: 'Bitcoin' },
+        { symbol: 'ETHU', name: 'ProShares 2x Ether',              leverage: 2, direction: 'bull', kind: 'sector', underlying: 'Ethereum' },
+        // ── 국가별 ETF (Korean retail interest) ──────────────
+        { symbol: 'KORU', name: 'Direxion South Korea Bull 2x',    leverage: 2, direction: 'bull', kind: 'index',  underlying: '한국 (KOSPI)' },
+        { symbol: 'YINN', name: 'Direxion FTSE China Bull 3x',     leverage: 3, direction: 'bull', kind: 'index',  underlying: '중국' },
+        { symbol: 'YANG', name: 'Direxion FTSE China Bear 3x',     leverage: 3, direction: 'bear', kind: 'index',  underlying: '중국' },
+        { symbol: 'INDL', name: 'Direxion MSCI India Bull 2x',     leverage: 2, direction: 'bull', kind: 'index',  underlying: '인도' },
+        { symbol: 'BRZU', name: 'Direxion Brazil Bull 2x',         leverage: 2, direction: 'bull', kind: 'index',  underlying: '브라질' },
+        { symbol: 'EURL', name: 'Direxion FTSE Europe Bull 3x',    leverage: 3, direction: 'bull', kind: 'index',  underlying: '유럽' },
+        { symbol: 'EZJ',  name: 'ProShares Ultra MSCI Japan',      leverage: 2, direction: 'bull', kind: 'index',  underlying: '일본' },
+        { symbol: 'EDC',  name: 'Direxion Emerging Mkts Bull 3x',  leverage: 3, direction: 'bull', kind: 'index',  underlying: '신흥국' },
+        { symbol: 'EDZ',  name: 'Direxion Emerging Mkts Bear 3x',  leverage: 3, direction: 'bear', kind: 'index',  underlying: '신흥국' },
+        // ── 추가 지수 변형 ────────────────────────────────────
+        { symbol: 'UDOW', name: 'ProShares UltraPro Dow30',        leverage: 3, direction: 'bull', kind: 'index',  underlying: 'Dow Jones 30' },
+        { symbol: 'SDOW', name: 'ProShares UltraPro Short Dow30',  leverage: 3, direction: 'bear', kind: 'index',  underlying: 'Dow Jones 30' },
+        { symbol: 'MIDU', name: 'Direxion Mid Cap Bull 3x',        leverage: 3, direction: 'bull', kind: 'index',  underlying: '중형주 (S&P 400)' },
+        { symbol: 'MIDZ', name: 'Direxion Mid Cap Bear 3x',        leverage: 3, direction: 'bear', kind: 'index',  underlying: '중형주 (S&P 400)' },
+        // ── 원자재 (commodities) ─────────────────────────────
+        { symbol: 'UCO',  name: 'ProShares Ultra Crude Oil',       leverage: 2, direction: 'bull', kind: 'sector', underlying: 'WTI 원유' },
+        { symbol: 'SCO',  name: 'ProShares UltraShort Crude Oil',  leverage: 2, direction: 'bear', kind: 'sector', underlying: 'WTI 원유' },
+        { symbol: 'DGP',  name: 'DB Gold Double Long',             leverage: 2, direction: 'bull', kind: 'sector', underlying: '금 (Gold)' },
+        { symbol: 'DZZ',  name: 'DB Gold Double Short',            leverage: 2, direction: 'bear', kind: 'sector', underlying: '금 (Gold)' },
+        // ── 변동성 (VIX) — 1.5x이지만 인기로 포함 ────────────
+        { symbol: 'UVXY', name: 'ProShares Ultra VIX Short-Term',  leverage: 2, direction: 'bull', kind: 'sector', underlying: 'VIX 변동성' },
+        // ── 추가 섹터 ────────────────────────────────────────
+        { symbol: 'UTSL', name: 'Direxion Utilities Bull 3x',      leverage: 3, direction: 'bull', kind: 'sector', underlying: '유틸리티' },
+        { symbol: 'JNUG', name: 'Direxion Junior Gold Miners 2x',  leverage: 2, direction: 'bull', kind: 'sector', underlying: '주니어 금광주' },
+        { symbol: 'JDST', name: 'Direxion Junior Gold Miners -2x', leverage: 2, direction: 'bear', kind: 'sector', underlying: '주니어 금광주' },
+    ];
+    let _levFilters = { leverage: 'all', direction: 'all', kind: 'all' };
+    let _levQuotes = {};   // { SYMBOL: { price, change, changePct, volume } }
+    let _levQuoteTs = 0;   // 마지막 페치 시각 (30초 캐시)
+
+    function goLeverage() {
+        window._lastScreen = 'leverage';
+        document.getElementById('welcomeScreen').style.display = 'none';
+        document.getElementById('smartMoneyScreen').style.display = 'none';
+        document.getElementById('alphaScannerScreen').style.display = 'none';
+        document.getElementById('favScreen').style.display = 'none';
+        document.getElementById('visionScannerScreen').style.display = 'none';
+        document.getElementById('discoverScreen').style.display = 'none';
+        const _ern = document.getElementById('earningsScreen'); if (_ern) _ern.style.display = 'none';
+        const ecoEl = document.getElementById('economicSection');
+        if (ecoEl) ecoEl.style.display = 'none';
+        // 시장 테마/탭 네비 숨김
+        const thermoEl = document.getElementById('marketThermometer');
+        if (thermoEl) thermoEl.style.display = 'none';
+        const qnavEl = document.getElementById('headerQNav');
+        if (qnavEl) qnavEl.style.display = 'none';
+        document.getElementById('leverageScreen').style.display = '';
+        window._vsActive = false;
+        document.getElementById('mainHeader')?.classList.remove('stock-loaded');
+        document.getElementById('stockHero').classList.remove('show');
+        document.getElementById('tabNav').classList.remove('show');
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.side-nav-item').forEach(b => b.classList.remove('active'));
+        document.getElementById('sideNavLevBtn')?.classList.add('active');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        loadLeverageETFs();
+    }
+
+    // 50개 한도 우회: 배치 분할 fetch (Promise.all 병렬)
+    async function _fetchLevQuotesBatched(symbols) {
+        const BATCH = 45; // 안전 마진
+        const chunks = [];
+        for (let i = 0; i < symbols.length; i += BATCH) {
+            chunks.push(symbols.slice(i, i + BATCH));
+        }
+        const responses = await Promise.all(chunks.map(async chunk => {
+            const r = await fetch(`/api/quote?symbols=${encodeURIComponent(chunk.join(','))}`);
+            if (!r.ok) return [];
+            const data = await r.json();
+            return data?.quoteResponse?.result || [];
+        }));
+        return responses.flat();
+    }
+
+    async function loadLeverageETFs(forceRefresh) {
+        const grid = document.getElementById('leverageGrid');
+        if (!grid) return;
+        // 30초 메모리 캐시
+        const now = Date.now();
+        const cacheValid = !forceRefresh && _levQuoteTs && (now - _levQuoteTs < 30000) && Object.keys(_levQuotes).length > 0;
+        if (!cacheValid) {
+            try {
+                const symbols = LEVERAGE_ETF_LIST.map(e => e.symbol);
+                const quotes = await _fetchLevQuotesBatched(symbols);
+                _levQuotes = {};
+                quotes.forEach(q => {
+                    if (!q || !q.symbol) return;
+                    _levQuotes[q.symbol] = {
+                        price:     q.regularMarketPrice ?? null,
+                        change:    q.regularMarketChange ?? null,
+                        changePct: q.regularMarketChangePercent ?? null,
+                        volume:    q.regularMarketVolume ?? null,
+                    };
+                });
+                _levQuoteTs = now;
+            } catch (e) {
+                console.error('[leverage] quote fetch 실패:', e.message);
+                grid.innerHTML = `<div class="disc-empty">시세를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.</div>`;
+                return;
+            }
+        }
+        renderLeverageGrid();
+    }
+
+    function renderLeverageGrid() {
+        const grid = document.getElementById('leverageGrid');
+        const empty = document.getElementById('leverageEmpty');
+        const countEl = document.getElementById('leverageCount');
+        if (!grid) return;
+        // 필터 적용
+        const filtered = LEVERAGE_ETF_LIST.filter(e => {
+            if (_levFilters.leverage !== 'all' && String(e.leverage) !== _levFilters.leverage) return false;
+            if (_levFilters.direction !== 'all' && e.direction !== _levFilters.direction) return false;
+            if (_levFilters.kind !== 'all' && e.kind !== _levFilters.kind) return false;
+            return true;
+        });
+        if (countEl) countEl.textContent = `${filtered.length} 종목`;
+        if (filtered.length === 0) {
+            grid.innerHTML = '';
+            if (empty) empty.hidden = false;
+            return;
+        }
+        if (empty) empty.hidden = true;
+        // 카테고리(underlying) 별 그룹화
+        const groups = new Map();
+        filtered.forEach(e => {
+            if (!groups.has(e.underlying)) groups.set(e.underlying, []);
+            groups.get(e.underlying).push(e);
+        });
+        // 정렬: bull → bear, leverage 높은 순
+        groups.forEach(arr => arr.sort((a, b) => {
+            if (a.direction !== b.direction) return a.direction === 'bull' ? -1 : 1;
+            return b.leverage - a.leverage;
+        }));
+        // 렌더
+        const groupHtml = [];
+        groups.forEach((items, underlying) => {
+            const cards = items.map(e => _renderLevCard(e)).join('');
+            const tracks = LEV_TRACKS_MAP[underlying];
+            const ticker = tracks?.ticker;
+            // 로고: 일반 종목/ETF만 (M7 같은 가상 티커는 이모지 fallback)
+            const logoHtml = (ticker && ticker !== 'M7')
+                ? _tickerLogoHTML(ticker, 'US')
+                : `<div class="tlogo-wrap"><span class="tlogo tlogo-fb" style="background:#a78bfa">${ticker === 'M7' ? '7' : '?'}</span></div>`;
+            const koName = tracks?.ko || underlying;
+            const tickerSpan = ticker && ticker !== 'M7'
+                ? ` <span class="lev-group-ticker">${escHtml(ticker)}</span>` : '';
+            groupHtml.push(`
+                <div class="lev-group">
+                    <div class="lev-group-title">
+                        <div class="lev-group-logo">${logoHtml}</div>
+                        <div class="lev-group-name">${escHtml(koName)}${tickerSpan}</div>
+                    </div>
+                    <div class="lev-group-cards">${cards}</div>
+                </div>`);
+        });
+        grid.innerHTML = groupHtml.join('');
+    }
+
+    function _renderLevCard(e) {
+        const q = _levQuotes[e.symbol] || {};
+        const price = (q.price != null) ? `$${Number(q.price).toFixed(2)}` : '—';
+        const chgPct = q.changePct;
+        const chgCls = chgPct == null ? 'flat' : chgPct > 0 ? 'up' : chgPct < 0 ? 'down' : 'flat';
+        const chgTxt = chgPct == null ? '—'
+                     : `${chgPct >= 0 ? '+' : ''}${chgPct.toFixed(2)}%`;
+        const vol = q.volume != null ? _levFormatVol(q.volume) : '—';
+        const dirLabel = e.direction === 'bull' ? '상승' : '하락';
+        const levLabel = `x${e.leverage}`;
+        const tracksLabel = _levTracksLabel(e.underlying);
+        const tracksTicker = LEV_TRACKS_MAP[e.underlying]?.ticker || '';
+        const tracksClickable = tracksTicker && tracksTicker !== 'M7'
+            ? `onclick="event.stopPropagation();quickSearch('${escHtml(tracksTicker)}','US')"` : '';
+        return `
+            <div class="lev-card" onclick="quickSearch('${escHtml(e.symbol)}','US')">
+                <div class="lev-card-head">
+                    <div class="lev-card-symbol">${escHtml(e.symbol)}</div>
+                    <div class="lev-card-badges">
+                        <span class="lev-badge lev-${e.leverage}x">${levLabel}</span>
+                        <span class="lev-badge ${e.direction}">${dirLabel}</span>
+                    </div>
+                </div>
+                <div class="lev-card-tracks" ${tracksClickable}>
+                    <span class="lev-tracks-icon">🎯</span>
+                    <span class="lev-tracks-text">${escHtml(tracksLabel)} 추종</span>
+                </div>
+                <div class="lev-card-name">${escHtml(e.name)}</div>
+                <div class="lev-card-stats">
+                    <div class="lev-stat">
+                        <div class="lev-stat-val">${price}</div>
+                        <div class="lev-stat-lbl">현재가</div>
+                    </div>
+                    <div class="lev-stat">
+                        <div class="lev-stat-val ${chgCls}">${chgTxt}</div>
+                        <div class="lev-stat-lbl">변동률</div>
+                    </div>
+                    <div class="lev-stat">
+                        <div class="lev-stat-val">${vol}</div>
+                        <div class="lev-stat-lbl">거래량</div>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    // 추종 대상 매핑 — underlying → "한국어명 (실제 티커)"
+    const LEV_TRACKS_MAP = {
+        // 지수
+        'Nasdaq-100':       { ko: '나스닥 100',       ticker: 'QQQ'  },
+        'S&P 500':          { ko: 'S&P 500',           ticker: 'SPY'  },
+        'Russell 2000':     { ko: '러셀 2000',         ticker: 'IWM'  },
+        'Dow Jones 30':     { ko: '다우 30',           ticker: 'DIA'  },
+        // 섹터
+        '반도체':           { ko: '반도체',            ticker: 'SOXX' },
+        '기술주':           { ko: '기술주',            ticker: 'XLK'  },
+        '금융':             { ko: '금융',              ticker: 'XLF'  },
+        '지역은행':         { ko: '지역은행',          ticker: 'KRE'  },
+        '바이오':           { ko: '바이오',            ticker: 'IBB'  },
+        '헬스케어':         { ko: '헬스케어',          ticker: 'XLV'  },
+        '에너지':           { ko: '에너지',            ticker: 'XLE'  },
+        '부동산':           { ko: '부동산',            ticker: 'XLRE' },
+        '인터넷':           { ko: '인터넷',            ticker: 'IYW'  },
+        '금광':             { ko: '금광주',            ticker: 'GDX'  },
+        '20년+ 국채':       { ko: '20년+ 국채',        ticker: 'TLT'  },
+        // 개별 종목
+        'Tesla':            { ko: '테슬라',            ticker: 'TSLA' },
+        'Nvidia':           { ko: '엔비디아',          ticker: 'NVDA' },
+        'Apple':            { ko: '애플',              ticker: 'AAPL' },
+        'Microsoft':        { ko: '마이크로소프트',    ticker: 'MSFT' },
+        'Amazon':           { ko: '아마존',            ticker: 'AMZN' },
+        'Meta':             { ko: '메타',              ticker: 'META' },
+        'Google':           { ko: '구글',              ticker: 'GOOGL'},
+        'MicroStrategy':    { ko: '마이크로스트래티지',ticker: 'MSTR' },
+        'Coinbase':         { ko: '코인베이스',        ticker: 'COIN' },
+        'Super Micro':      { ko: '슈퍼마이크로',      ticker: 'SMCI' },
+        'AMD':              { ko: 'AMD',               ticker: 'AMD'  },
+        'Palantir':         { ko: '팔란티어',          ticker: 'PLTR' },
+        'Netflix':          { ko: '넷플릭스',          ticker: 'NFLX' },
+        'TSMC':             { ko: 'TSMC',              ticker: 'TSM'  },
+        'Broadcom':         { ko: '브로드컴',          ticker: 'AVGO' },
+        'Alibaba':          { ko: '알리바바',          ticker: 'BABA' },
+        'Eli Lilly':        { ko: '일라이릴리',        ticker: 'LLY'  },
+        'PayPal':           { ko: '페이팔',            ticker: 'PYPL' },
+        'UnitedHealth':     { ko: '유나이티드헬스',    ticker: 'UNH'  },
+        'Nike':             { ko: '나이키',            ticker: 'NKE'  },
+        'Magnificent 7':    { ko: '매그니피센트 7',    ticker: 'M7'   },
+        // 양자컴퓨팅
+        'IonQ':             { ko: '아이온큐',          ticker: 'IONQ' },
+        'D-Wave':           { ko: '디웨이브',          ticker: 'QBTS' },
+        'Rigetti':          { ko: '리게티',            ticker: 'RGTI' },
+        // 차세대 에너지
+        'Oklo':             { ko: '오클로',            ticker: 'OKLO' },
+        // 핀테크
+        'Robinhood':        { ko: '로빈후드',          ticker: 'HOOD' },
+        'SoFi':             { ko: '소파이',            ticker: 'SOFI' },
+        'Upstart':          { ko: '업스타트',          ticker: 'UPST' },
+        // 게이밍 / 밈주
+        'DraftKings':       { ko: '드래프트킹스',      ticker: 'DKNG' },
+        'GameStop':         { ko: '게임스탑',          ticker: 'GME'  },
+        // 광고테크
+        'AppLovin':         { ko: '앱러빈',            ticker: 'APP'  },
+        // 방산
+        'Lockheed Martin':  { ko: '록히드마틴',        ticker: 'LMT'  },
+        // 차량공유
+        'Uber':             { ko: '우버',              ticker: 'UBER' },
+        // 비트코인 채굴주
+        'Riot Platforms':   { ko: '라이엇 플랫폼',     ticker: 'RIOT' },
+        'CleanSpark':       { ko: '클린스파크',        ticker: 'CLSK' },
+        // 암호화폐
+        'Bitcoin':          { ko: '비트코인',          ticker: 'BTC'  },
+        'Ethereum':         { ko: '이더리움',          ticker: 'ETH'  },
+        // 국가별
+        '한국 (KOSPI)':     { ko: '한국 코스피',       ticker: 'EWY'  },
+        '중국':             { ko: '중국',              ticker: 'FXI'  },
+        '인도':             { ko: '인도',              ticker: 'INDA' },
+        '브라질':           { ko: '브라질',            ticker: 'EWZ'  },
+        '유럽':             { ko: '유럽',              ticker: 'VGK'  },
+        '일본':             { ko: '일본',              ticker: 'EWJ'  },
+        '신흥국':           { ko: '신흥국',            ticker: 'EEM'  },
+        '중형주 (S&P 400)': { ko: '중형주',            ticker: 'IJH'  },
+        // 원자재
+        'WTI 원유':         { ko: 'WTI 원유',          ticker: 'USO'  },
+        '금 (Gold)':        { ko: '금',                ticker: 'GLD'  },
+        // 변동성
+        'VIX 변동성':       { ko: 'VIX 변동성',        ticker: 'VIXY' },
+        // 추가 섹터
+        '유틸리티':         { ko: '유틸리티',          ticker: 'XLU'  },
+        '주니어 금광주':    { ko: '주니어 금광주',     ticker: 'GDXJ' },
+    };
+    function _levTracksLabel(underlying) {
+        const t = LEV_TRACKS_MAP[underlying];
+        if (!t) return underlying;
+        return `${t.ko} (${t.ticker})`;
+    }
+
+    function _levFormatVol(v) {
+        if (v == null) return '—';
+        if (v >= 1e9) return (v / 1e9).toFixed(2) + 'B';
+        if (v >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+        if (v >= 1e3) return (v / 1e3).toFixed(0) + 'K';
+        return String(v);
+    }
+
+    function _levSetFilter(group, value, btn) {
+        _levFilters[group] = value;
+        // 같은 그룹 내 active 토글
+        if (btn?.parentNode) {
+            btn.parentNode.querySelectorAll('.lev-chip').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+        renderLeverageGrid();
+    }
+
+    // ── 홈 가로 스와이프 스트립 ──
+    // 대표 ETF (지수 + 섹터 + 인기 개별 종목 + 신흥 테마 + 국가별)
+    const LEVERAGE_HOME_PICKS = [
+        'TQQQ','SQQQ',          // 나스닥 100
+        'SPXL','SPXS',          // S&P 500
+        'SOXL','SOXS',          // 반도체
+        'KORU','YINN',          // 한국 / 중국 (한국 사용자 관심)
+        'TSLL','NVDL',          // Tesla / Nvidia
+        'AAPU','MSFU',          // Apple / Microsoft
+        'AMZU','METU','GGLL',   // Amazon / Meta / Google
+        'MSTU','CONL','SMCL',   // MSTR / Coinbase / SMCI
+        'IONX','OKLL',          // 양자 / 핵발전 (신흥 테마)
+        'HOOX','UBRL',          // 핀테크 / 차량공유
+        'BITX','ETHU',          // 비트코인 / 이더리움
+        'UCO','DGP',            // 원유 / 금
+    ];
+    async function loadLeverageHome() {
+        const strip = document.getElementById('leverageHomeStrip');
+        if (!strip) return;
+        // 30초 메모리 캐시 (메인 화면과 공유)
+        const now = Date.now();
+        const cacheValid = _levQuoteTs && (now - _levQuoteTs < 30000) && Object.keys(_levQuotes).length > 0;
+        if (!cacheValid) {
+            try {
+                const symbols = LEVERAGE_HOME_PICKS.join(',');
+                const r = await fetch(`/api/quote?symbols=${encodeURIComponent(symbols)}`);
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const data = await r.json();
+                const quotes = data?.quoteResponse?.result || [];
+                quotes.forEach(q => {
+                    if (!q || !q.symbol) return;
+                    _levQuotes[q.symbol] = {
+                        price:     q.regularMarketPrice ?? null,
+                        change:    q.regularMarketChange ?? null,
+                        changePct: q.regularMarketChangePercent ?? null,
+                        volume:    q.regularMarketVolume ?? null,
+                    };
+                });
+                _levQuoteTs = now;
+            } catch (e) {
+                console.error('[leverage-home] fetch 실패:', e.message);
+                strip.innerHTML = `<div class="lev-strip-empty">시세를 불러오지 못했습니다.</div>`;
+                return;
+            }
+        }
+        renderLeverageHome();
+    }
+    function renderLeverageHome() {
+        const strip = document.getElementById('leverageHomeStrip');
+        if (!strip) return;
+        // LEVERAGE_ETF_LIST 에서 LEVERAGE_HOME_PICKS 순서대로 메타 합성
+        const items = LEVERAGE_HOME_PICKS
+            .map(sym => LEVERAGE_ETF_LIST.find(e => e.symbol === sym))
+            .filter(Boolean);
+        if (items.length === 0) {
+            strip.innerHTML = `<div class="lev-strip-empty">표시할 종목이 없습니다.</div>`;
+            return;
+        }
+        strip.innerHTML = items.map(e => _renderLevStripCard(e)).join('');
+    }
+    function _renderLevStripCard(e) {
+        const q = _levQuotes[e.symbol] || {};
+        const price = (q.price != null) ? `$${Number(q.price).toFixed(2)}` : '—';
+        const chgPct = q.changePct;
+        const chgCls = chgPct == null ? 'flat' : chgPct > 0 ? 'up' : chgPct < 0 ? 'down' : 'flat';
+        const chgTxt = chgPct == null ? '—' : `${chgPct >= 0 ? '+' : ''}${chgPct.toFixed(2)}%`;
+        const dirLabel = e.direction === 'bull' ? '상승' : '하락';
+        const levLabel = `x${e.leverage}`;
+        const tracksInfo = LEV_TRACKS_MAP[e.underlying];
+        const tracksKo = tracksInfo ? tracksInfo.ko : e.underlying;
+        return `
+            <div class="lev-strip-card" onclick="quickSearch('${escHtml(e.symbol)}','US')">
+                <div class="lev-strip-head">
+                    <span class="lev-strip-sym">${escHtml(e.symbol)}</span>
+                    <span class="lev-badge lev-${e.leverage}x">${levLabel}</span>
+                </div>
+                <div class="lev-strip-under">🎯 ${escHtml(tracksKo)}</div>
+                <div class="lev-strip-foot">
+                    <span class="lev-strip-price">${price}</span>
+                    <span class="lev-strip-chg ${chgCls}">${chgTxt}</span>
+                </div>
+                <span class="lev-badge ${e.direction} lev-strip-dir">${dirLabel}</span>
+            </div>`;
     }
 
     function updateBnActive(tab) {
@@ -6630,6 +7235,14 @@
         let query = document.getElementById('searchInput').value.trim();
         if (!query) { showToast('종목코드 또는 종목명을 입력해주세요.'); return; }
 
+        // ── HK 파생상품(워런트·CBBC) 차단 ──
+        // 5자리 이상 숫자 + .HK = 워런트/CBBC (일반 주식은 4자리 이하)
+        // 예: 64257.HK, 12345.HK 등 — 일반 투자자에게 권장되지 않는 고위험 파생상품
+        if (/^\d{5,}\.hk$/i.test(query)) {
+            showToast('홍콩 워런트·CBBC(파생상품)는 지원하지 않습니다.');
+            return;
+        }
+
         // 마켓 자동 감지
         currentMarket = autoDetectMarket(query);
         document.querySelectorAll('.market-btn').forEach(b => b.classList.toggle('active', b.dataset.market === currentMarket));
@@ -6694,6 +7307,7 @@
             document.getElementById('visionScannerScreen').style.display = 'none';
             const _dc = document.getElementById('discoverScreen'); if (_dc) _dc.style.display = 'none';
             const _ern = document.getElementById('earningsScreen'); if (_ern) _ern.style.display = 'none';
+            const _lev = document.getElementById('leverageScreen'); if (_lev) _lev.style.display = 'none';
             window._vsActive = false;
             document.getElementById('stockHero').classList.add('show');
             document.getElementById('tabNav').classList.add('show');
@@ -12938,6 +13552,7 @@
         document.getElementById('economicSection').style.display      = 'none';
         const _dc4 = document.getElementById('discoverScreen'); if (_dc4) _dc4.style.display = 'none';
         const _ern4 = document.getElementById('earningsScreen'); if (_ern4) _ern4.style.display = 'none';
+        const _lev4 = document.getElementById('leverageScreen'); if (_lev4) _lev4.style.display = 'none';
         document.getElementById('visionScannerScreen').style.display = '';
         document.getElementById('mainHeader')?.classList.remove('stock-loaded');
         document.getElementById('stockHero').classList.remove('show');
@@ -12981,6 +13596,7 @@
         document.getElementById('visionScannerScreen').style.display = 'none';
         const _dc5 = document.getElementById('discoverScreen'); if (_dc5) _dc5.style.display = 'none';
         const _ern5 = document.getElementById('earningsScreen'); if (_ern5) _ern5.style.display = 'none';
+        const _lev5 = document.getElementById('leverageScreen'); if (_lev5) _lev5.style.display = 'none';
         document.getElementById('mainContent').style.display         = 'none';
         document.getElementById('economicSection').style.display      = '';
         window._vsActive = false;
@@ -14236,6 +14852,8 @@
 
     Object.assign(window, {
         _loadStockEarningsBadge, _calcDaysUntil,
+        goLeverage, loadLeverageETFs, renderLeverageGrid, _levSetFilter, _renderLevCard, _levFormatVol,
+        loadLeverageHome, renderLeverageHome, _renderLevStripCard, _fetchLevQuotesBatched, _levTracksLabel,
         goEarnings, loadEarnings, setEarningsWindow, _earnToggleGroup,
         _earnSetFilter, _earnApplyFilters, _earnSortBy, _earnBuildDateChips, _earnSelectDateChip,
         goDiscover, setDiscoverPreset, loadDiscover,

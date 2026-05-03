@@ -3529,3 +3529,204 @@
     font-family:inherit;transition:opacity .15s;
 }
 .pa-save-btn:hover{opacity:.85;}
+
+/* ==================================================================
+   레버리지 ETF 화면 (#leverageScreen)
+   ================================================================== */
+.lev-topnav{
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    padding:14px 0 12px;margin-bottom:12px;
+}
+.lev-chip-group{display:inline-flex;gap:6px;flex-wrap:nowrap;}
+.lev-chip-divider{width:1px;height:20px;background:var(--border);margin:0 6px;}
+.lev-chip{
+    height:32px;padding:0 14px;
+    background:transparent;color:var(--text2);
+    border:1px solid var(--border);border-radius:9999px;
+    font-size:13px;font-weight:600;font-family:inherit;
+    cursor:pointer;transition:all .15s;white-space:nowrap;
+}
+.lev-chip:hover{background:var(--bg3);color:var(--text);}
+.lev-chip.active{background:var(--bg3);color:var(--text);border-color:var(--bg3);font-weight:700;}
+[data-theme="light"] .lev-chip.active{background:var(--text);color:var(--bg);border-color:var(--text);}
+
+.lev-toolbar{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:14px;padding:0 4px;
+}
+.lev-count{font-size:13px;color:var(--text3);font-weight:600;}
+.lev-refresh-btn{
+    width:34px;height:34px;border-radius:50%;
+    background:var(--bg2);border:1px solid var(--border);
+    color:var(--text2);font-size:16px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:all .15s;font-family:inherit;
+}
+.lev-refresh-btn:hover{background:var(--bg3);color:var(--text);transform:rotate(90deg);}
+
+.lev-grid{display:flex;flex-direction:column;gap:24px;}
+.lev-group{display:flex;flex-direction:column;gap:10px;}
+.lev-group-title{
+    display:flex;align-items:center;gap:10px;
+    padding:0 4px;margin-bottom:4px;
+}
+.lev-group-logo{flex-shrink:0;}
+.lev-group-logo .tlogo-wrap,
+.lev-group-logo .tlogo,
+.lev-group-logo .tlogo-fb{width:32px;height:32px;}
+.lev-group-logo .tlogo-fb{font-size:13px;font-weight:700;}
+.lev-group-logo .tlogo-flag{width:14px;height:14px;font-size:9px;border-width:1.5px;}
+.lev-group-name{
+    font-size:15px;font-weight:700;color:var(--text);
+    letter-spacing:-0.02em;
+    display:inline-flex;align-items:baseline;gap:6px;
+}
+.lev-group-ticker{
+    font-size:11px;font-weight:600;color:var(--text3);
+    background:var(--bg3);padding:2px 7px;border-radius:6px;
+    letter-spacing:0;
+}
+.lev-group-cards{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+    gap:10px;
+}
+.lev-card{
+    display:flex;flex-direction:column;gap:8px;
+    padding:14px 16px;
+    background:var(--bg2);border:1px solid var(--border);border-radius:12px;
+    cursor:pointer;transition:all .15s;
+}
+.lev-card:hover{background:var(--bg3);border-color:var(--blue);transform:translateY(-1px);}
+.lev-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.lev-card-symbol{font-size:16px;font-weight:800;color:var(--text);letter-spacing:-0.02em;}
+.lev-card-badges{display:inline-flex;gap:4px;flex-shrink:0;}
+.lev-badge{
+    font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;
+    letter-spacing:0.02em;line-height:1;
+}
+.lev-badge.lev-3x{background:rgba(167,139,250,.18);color:#a78bfa;}
+.lev-badge.lev-2x{background:rgba(251,146,60,.18);color:#fb923c;}
+.lev-badge.lev-1x{background:rgba(148,163,184,.18);color:var(--text3);}
+.lev-badge.bull{background:rgba(239,68,68,.14);color:var(--red);}
+.lev-badge.bear{background:rgba(59,130,246,.14);color:var(--blue);}
+
+.lev-card-name{
+    font-size:11.5px;color:var(--text3);font-weight:500;
+    line-height:1.4;
+    display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+    overflow:hidden;text-overflow:ellipsis;
+    min-height:32px;
+}
+.lev-card-stats{
+    display:flex;justify-content:space-between;
+    margin-top:4px;padding-top:10px;border-top:1px solid var(--border);
+}
+.lev-stat{display:flex;flex-direction:column;gap:2px;flex:1;}
+.lev-stat:nth-child(2){text-align:center;}
+.lev-stat:nth-child(3){text-align:right;}
+.lev-stat-val{
+    font-size:13px;font-weight:700;color:var(--text);
+    font-variant-numeric:tabular-nums;letter-spacing:-0.01em;
+}
+.lev-stat-val.up{color:var(--red);}
+.lev-stat-val.down{color:var(--blue);}
+.lev-stat-val.flat{color:var(--text3);}
+.lev-stat-lbl{font-size:10px;color:var(--text3);font-weight:500;}
+
+/* 모바일 */
+@media (max-width: 640px) {
+    .lev-topnav{padding:8px 0;gap:6px;}
+    .lev-chip{height:28px;padding:0 10px;font-size:12px;}
+    .lev-chip-divider{display:none;}
+    .lev-group-cards{grid-template-columns:1fr;}
+    .lev-card{padding:12px 14px;}
+    .lev-card-symbol{font-size:15px;}
+    .lev-card-stats{padding-top:8px;}
+    .lev-stat-val{font-size:12.5px;}
+}
+
+
+/* ==================================================================
+   홈 섹션 — 레버리지 ETF 가로 스와이프 스트립
+   ================================================================== */
+.lev-strip{
+    display:flex;gap:10px;overflow-x:auto;
+    scroll-snap-type:x proximity;
+    padding:4px 4px 10px;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+}
+.lev-strip::-webkit-scrollbar{display:none;}
+.lev-strip-empty{
+    padding:24px 16px;color:var(--text3);font-size:13px;
+    width:100%;text-align:center;
+}
+.lev-strip-card{
+    position:relative;
+    flex:0 0 auto;width:160px;
+    scroll-snap-align:start;
+    display:flex;flex-direction:column;gap:4px;
+    padding:14px 14px 12px;
+    background:var(--bg2);border:1px solid var(--border);
+    border-radius:14px;cursor:pointer;
+    transition:transform .12s ease, background .15s, border-color .15s;
+    overflow:hidden;
+}
+.lev-strip-card:hover{background:var(--bg3);border-color:var(--blue);transform:translateY(-2px);}
+.lev-strip-card:active{transform:translateY(0) scale(.98);}
+.lev-strip-head{
+    display:flex;align-items:center;justify-content:space-between;
+    gap:6px;margin-bottom:2px;
+}
+.lev-strip-sym{
+    font-size:15px;font-weight:800;color:var(--text);
+    letter-spacing:-0.02em;
+}
+.lev-strip-under{
+    font-size:11px;color:var(--text3);font-weight:500;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    margin-bottom:6px;
+}
+.lev-strip-foot{
+    display:flex;align-items:baseline;justify-content:space-between;
+    gap:4px;margin-top:auto;
+}
+.lev-strip-price{
+    font-size:14px;font-weight:700;color:var(--text);
+    font-variant-numeric:tabular-nums;letter-spacing:-0.01em;
+}
+.lev-strip-chg{
+    font-size:12px;font-weight:700;
+    font-variant-numeric:tabular-nums;
+}
+.lev-strip-chg.up{color:var(--red);}
+.lev-strip-chg.down{color:var(--blue);}
+.lev-strip-chg.flat{color:var(--text3);}
+.lev-strip-dir{
+    position:absolute;top:10px;right:10px;
+    font-size:9px;padding:2px 6px;
+    /* lev-strip-head 의 leverage 배지와 겹치지 않게 우측 상단 외곽으로 옮김 (display:none 으로 안 보이게) */
+    display:none;
+}
+/* 모바일 */
+@media (max-width: 640px){
+    .lev-strip{gap:8px;padding:2px 2px 8px;}
+    .lev-strip-card{width:140px;padding:12px 12px 10px;}
+    .lev-strip-sym{font-size:14px;}
+    .lev-strip-under{font-size:10.5px;}
+    .lev-strip-price{font-size:13px;}
+    .lev-strip-chg{font-size:11.5px;}
+}
+
+/* 레버리지 카드 — 추종 종목 표시 */
+.lev-card-tracks{
+    display:inline-flex;align-items:center;gap:5px;
+    padding:5px 10px;margin:2px 0 4px;
+    background:var(--bg3);border-radius:9999px;
+    font-size:11.5px;font-weight:600;color:var(--text2);
+    width:fit-content;cursor:pointer;
+    transition:background .15s;
+}
+.lev-card-tracks:hover{background:rgba(59,130,246,.18);color:var(--blue);}
+.lev-tracks-icon{font-size:11px;}
+.lev-tracks-text{letter-spacing:-0.01em;}
