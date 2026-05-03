@@ -756,6 +756,11 @@
                             <button class="chart-tb-btn range-btn" data-range="5y" onclick="setPeriod('5y')">5년</button>
                         </div>
                         <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+                            <!-- 스윙 / 단타 모드 토글 (AI 분석 시 적용됨) -->
+                            <div class="trade-mode-toggle" id="tradeModeToggle" title="AI 분석 매매 모드">
+                                <button class="tm-btn active" data-mode="swing" onclick="setTradeMode('swing')">스윙</button>
+                                <button class="tm-btn"        data-mode="day"   onclick="setTradeMode('day')">단타</button>
+                            </div>
                             <button class="chart-tb-btn" id="chartAiClearBtn"
                                 onclick="clearAiChartLines()" title="AI 라인 지우기"
                                 style="display:none;border-color:var(--border);color:var(--text3);">🗑 AI 라인</button>
@@ -14361,8 +14366,26 @@
 
         let body = '';
 
+        const isDayMode = data.mode === 'day';
         if (signal === 'BUY' && data.entry) {
             const e = data.entry;
+            // 단타 모드 권장 청산 안내
+            const URGENCY_LABEL = {
+                intraday: { ko: '당일 청산 권장', cls: 'testa-urgency-high' },
+                short:    { ko: '2~3거래일 청산 권장', cls: 'testa-urgency-medium' },
+                standard: { ko: '4~5거래일 청산 권장', cls: 'testa-urgency-low' },
+            };
+            const urg = URGENCY_LABEL[e.urgency] || URGENCY_LABEL.standard;
+            const dayInfo = isDayMode ? `
+                <div class="testa-day-mode-info">
+                    <span>⚡</span>
+                    <span class="${urg.cls}">${urg.ko}</span>
+                    ${e.expectedHoldDays ? `<span class="testa-day-deadline">· 보유 ${e.expectedHoldDays}일</span>` : ''}
+                </div>
+                ${e.holdDaysRationale ? `<div class="testa-day-deadline">📌 ${escHtml(e.holdDaysRationale)}</div>` : ''}
+                <div class="testa-day-deadline">⏰ 강제 청산 데드라인: ${e.exitDeadlineDays || 5}거래일 (1주 초과 보유 금지)</div>
+            ` : '';
+
             body = `
                 <div class="testa-position-info">
                     <div class="tpi-row"><span class="tpi-lbl">진입가</span><span class="tpi-val">${_fmtP(e.price)}</span></div>
@@ -14370,7 +14393,8 @@
                     <div class="tpi-row"><span class="tpi-lbl">권장 비중</span><span class="tpi-val">${e.positionSizePct != null ? e.positionSizePct.toFixed(2) + '%' : '-'}</span></div>
                     <div class="tpi-row"><span class="tpi-lbl">예상 R/R</span><span class="tpi-val">${e.expectedRR || '-'}</span></div>
                 </div>
-                <div class="testa-criteria-title">진입 근거 (5개 조건 모두 충족)</div>
+                ${dayInfo}
+                <div class="testa-criteria-title">진입 근거 (${isDayMode ? '9개 조건 — 5원칙 + 4 단타 강화' : '5개 조건 모두 충족'})</div>
                 <ul class="testa-criteria">
                     ${(e.criteria || []).map(c => `
                         <li class="${c.passed ? 'pass' : 'fail'}">
@@ -14395,8 +14419,12 @@
         } else {
             // HOLD
             const h = data.hold || { unmet: [], guidance: '' };
+            const dayReject = isDayMode && h.dayModeRejection
+                ? `<div class="testa-day-mode-info"><span>⚡</span><span>${escHtml(h.dayModeRejection)}</span></div>`
+                : '';
             body = `
-                <div class="testa-criteria-title">미충족 조건</div>
+                ${dayReject}
+                <div class="testa-criteria-title">${isDayMode ? '단타 진입 거부 — ' : ''}미충족 조건</div>
                 <ul class="testa-unmet">
                     ${(h.unmet || []).map(u => `<li>${escHtml(u)}</li>`).join('') || '<li>모든 조건 정상이지만 명확한 진입 시그널 없음</li>'}
                 </ul>
@@ -14405,11 +14433,12 @@
 
         card.style.display = '';
         card.innerHTML = `
-            <div class="testa-card ${meta.klass}">
+            <div class="testa-card ${meta.klass} ${isDayMode ? 'mode-day' : 'mode-swing'}">
                 <div class="testa-card-head">
                     <span class="testa-badge ${meta.klass}">
                         <span class="tb-icon">${meta.icon}</span>
                         <span class="tb-label">${meta.label}</span>
+                        <span class="tb-mode">${isDayMode ? '단타' : '스윙'}</span>
                     </span>
                     <div class="testa-card-meta">
                         <span class="tcm-sym">${escHtml(sym)}</span>
@@ -14601,6 +14630,25 @@
     }
 
     // ── 차트 컨텍스트 JSON 조립 (OHLCV + 지표 최신값 + 시계열) ──
+    // ── 테스타 매매 모드 (스윙 / 단타) ──
+    let currentTestaMode = (typeof localStorage !== 'undefined' && localStorage.getItem('testaMode') === 'day') ? 'day' : 'swing';
+    function setTradeMode(mode) {
+        currentTestaMode = (mode === 'day') ? 'day' : 'swing';
+        try { localStorage.setItem('testaMode', currentTestaMode); } catch(_){}
+        document.querySelectorAll('.trade-mode-toggle .tm-btn').forEach(b =>
+            b.classList.toggle('active', b.dataset.mode === currentTestaMode)
+        );
+        if (typeof showToast === 'function') {
+            showToast(currentTestaMode === 'day' ? '⚡ 단타 모드 — 1~5거래일 청산' : '📈 스윙 모드 — 추세 종료까지');
+        }
+    }
+    // 페이지 로드 시 저장된 모드 복원
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.trade-mode-toggle .tm-btn').forEach(b =>
+            b.classList.toggle('active', b.dataset.mode === currentTestaMode)
+        );
+    });
+
     // 단기 스윙 고점/저점 추출 — 좌우 k봉 모두보다 높은(/낮은) 캔들을 swing point로 인정
     function _extractSwingPoints(highs, lows, k = 3, maxPoints = 5) {
         const swingHighs = [];
@@ -14655,12 +14703,46 @@
         const r2 = v => (v == null || isNaN(v)) ? null : +Number(v).toFixed(2);
         const r2arr = arr => (arr || []).map(r2);
 
-        // 테스타 전략: SMA 5 / 20 / 70 만 사용 (RSI/MACD/BB/ATR 모두 폐기)
+        // 테스타 전략: SMA 5 / 20 / 70 + ATR(14) (단타 손절폭 산출용)
         const sma5  = calcSMA(closes, 5);
         const sma20 = calcSMA(closes, 20);
         const sma70 = calcSMA(closes, 70);
+        const atr   = calcATR(highs, lows, closes, 14);
 
         const cur = lastVal(closes);
+
+        // ── 단타 모드 추가 컨텍스트 (volRatio / ma5Slope / lastCandle) ──
+        // 거래량 비율: 최근 봉 / 최근 20봉 평균
+        let volRatio = null;
+        const validVols = vols.filter(v => v != null && v > 0);
+        if (validVols.length >= 20) {
+            const last = validVols[validVols.length - 1];
+            const last20Avg = validVols.slice(-20).reduce((a, b) => a + b, 0) / 20;
+            volRatio = last20Avg > 0 ? +(last / last20Avg).toFixed(2) : null;
+        }
+        // 5일선 기울기: 최근 3봉 변화율 %
+        let ma5Slope = null;
+        const validSma5 = sma5.filter(v => v != null);
+        if (validSma5.length >= 4) {
+            const m0 = validSma5[validSma5.length - 1];
+            const m3 = validSma5[validSma5.length - 4];
+            ma5Slope = m3 > 0 ? +((m0 - m3) / m3 * 100).toFixed(2) : null;
+        }
+        // 마지막 캔들 강도
+        let lastCandle = null;
+        const lastIdx = closes.length - 1;
+        if (lastIdx >= 0 && opens[lastIdx] != null && closes[lastIdx] != null && highs[lastIdx] != null && lows[lastIdx] != null) {
+            const o = opens[lastIdx], c = closes[lastIdx], h = highs[lastIdx], l = lows[lastIdx];
+            const top = Math.max(o, c);
+            const range = h - l;
+            const closeFromHigh = range > 0 ? (c - l) / range : 0; // 0~1, 1에 가까우면 강한 양봉 마감
+            lastCandle = {
+                bodyPct:       o > 0 ? +((c - o) / o * 100).toFixed(2) : null,
+                upperWickPct:  o > 0 ? +((h - top) / o * 100).toFixed(2) : null,
+                isBullish:     c > o,
+                isStrongBullClose: c > o && closeFromHigh >= 0.7,
+            };
+        }
 
         // 최근 80개 봉 (토큰 절약 + 소수점 2자리 압축)
         const N = Math.min(80, closes.length);
@@ -14685,6 +14767,7 @@
             interval: (typeof currentInterval !== 'undefined' ? currentInterval : '1d') || '1d',
             currency: stockData.meta?.currency || 'USD',
             currentPrice: r2(cur),
+            mode: currentTestaMode, // 'swing' | 'day'
             ohlcv,
             indicators: {
                 sma5:  r2(lastVal(sma5)),
@@ -14699,6 +14782,11 @@
             },
             swingHighs: swing.swingHighs,
             swingLows:  swing.swingLows,
+            // 단타 전용 컨텍스트
+            volRatio,
+            ma5Slope,
+            lastCandle,
+            atr14: r2(lastVal(atr)),
         };
     }
 
@@ -14823,6 +14911,7 @@
                 const fd = new FormData();
                 fd.append('image', blob, 'chart.png');
                 fd.append('priceData', JSON.stringify(priceData));
+                fd.append('mode', currentTestaMode); // 스윙/단타 모드 전달
 
                 _aiProgressShow('🤖 AI 분석 중... (약 10~30초)', -1);
 
@@ -14961,7 +15050,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         vsMouseMove, vsMouseLeave, vsRedrawCanvas,
         toggleScannerChip, setScannerPreset, syncScannerChipUI,
         debounceScannerFetch, runScannerFetch, filterScannerResults, renderScannerResults,
-        captureChartAndAnalyze, clearAiChartLines, drawAiChartLines, toggleAiReport,
+        captureChartAndAnalyze, clearAiChartLines, drawAiChartLines, toggleAiReport, setTradeMode,
         renderAnalysisReport, buildChartContextJson,
         deleteSelectedAiTrendline,
         goEconomic, switchEcoTab, switchEcoChartMode, generateEconomicAI,

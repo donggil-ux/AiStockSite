@@ -15,7 +15,7 @@ const multer     = require('multer');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { createClient } = require('@supabase/supabase-js');
 const Anthropic = require('@anthropic-ai/sdk');
-const { SYSTEM_ROLE, OUTPUT_CONTRACT, buildUserPrompt } = require('./chartReaderPrompt');
+const { SYSTEM_ROLE, OUTPUT_CONTRACT, buildUserPrompt, buildSystemRole } = require('./chartReaderPrompt');
 const webpush = require('web-push');
 
 // ── Web Push (VAPID) 초기화 ──────────────────────────────────────
@@ -1916,7 +1916,10 @@ app.post('/api/chart-draw', _rlChartDraw, upload.single('image'), async (req, re
     }
 
     const stream = req.query.stream === '1';
-    const fullPrompt = `${SYSTEM_ROLE}\n\n${OUTPUT_CONTRACT}\n\n${buildUserPrompt(ctx)}`;
+    // mode 추출 — 'day' (단타) / 'swing' (스윙). 기본값 swing
+    const mode = String(req.body.mode || ctx.mode || 'swing').toLowerCase() === 'day' ? 'day' : 'swing';
+    ctx.mode = mode;
+    const fullPrompt = `${buildSystemRole(mode)}\n\n${OUTPUT_CONTRACT}\n\n${buildUserPrompt(ctx)}`;
     const imageBase64 = req.file.buffer.toString('base64');
     const mimeType = req.file.mimetype;
 
@@ -1953,12 +1956,14 @@ app.post('/api/chart-draw', _rlChartDraw, upload.single('image'), async (req, re
                     sseSend({ chunk: t });
                 }
                 const data = normalizeChartAnalysis(parseJsonLoose(buf));
-                console.log(`[chart-draw:gemini:stream] 완료: signal=${data.signal} lines=${data.lines.length}`);
+                data.mode = mode; // 요청 mode 강제 주입 (AI 응답에 누락돼도 일관성 유지)
+                console.log(`[chart-draw:gemini:stream] 완료: mode=${mode} signal=${data.signal} lines=${data.lines.length}`);
                 sseDone(data);
             } else {
                 const result = await model.generateContent(parts);
                 const data = normalizeChartAnalysis(parseJsonLoose(result.response.text()));
-                console.log(`[chart-draw:gemini] 완료: signal=${data.signal} lines=${data.lines.length}`);
+                data.mode = mode;
+                console.log(`[chart-draw:gemini] 완료: mode=${mode} signal=${data.signal} lines=${data.lines.length}`);
                 res.json(data);
             }
         };
@@ -2004,7 +2009,8 @@ app.post('/api/chart-draw', _rlChartDraw, upload.single('image'), async (req, re
         console.log('[chart-draw:claude] 분석 시작');
         const text = await callAnthropicChartDraw(imageBase64, mimeType, fullPrompt);
         const data = normalizeChartAnalysis(parseJsonLoose(text));
-        console.log(`[chart-draw:claude] 완료: signal=${data.signal} lines=${data.lines.length}`);
+        data.mode = mode;
+        console.log(`[chart-draw:claude] 완료: mode=${mode} signal=${data.signal} lines=${data.lines.length}`);
         if (stream) {
             sseSend({ chunk: text });
             sseDone(data);
@@ -2040,7 +2046,9 @@ function normalizeChartAnalysis(raw) {
 
     // signal 별 필수 필드 검증 (없거나 잘못되면 HOLD 폴백)
     let entry = null, exit = null, hold = null;
+    const VALID_URGENCY = ['intraday', 'short', 'standard'];
     if (signal === 'BUY' && d.entry) {
+        const ehd = num(d.entry.expectedHoldDays);
         entry = {
             price:           num(d.entry.price),
             stopLossPrice:   num(d.entry.stopLossPrice),
@@ -2051,7 +2059,12 @@ function normalizeChartAnalysis(raw) {
                 label:  String(c?.label  || '').slice(0, 80),
                 passed: c?.passed === true,
                 detail: String(c?.detail || '').slice(0, 200),
-            })).slice(0, 5),
+            })).slice(0, 9), // 단타 모드 시 9개까지 허용 (5원칙 + 4 강화)
+            // 단타 모드 신규 필드 (스윙 모드면 모두 null)
+            expectedHoldDays:  (ehd != null && ehd >= 1 && ehd <= 5) ? Math.round(ehd) : null,
+            holdDaysRationale: d.entry.holdDaysRationale ? String(d.entry.holdDaysRationale).slice(0, 200) : null,
+            exitDeadlineDays:  num(d.entry.exitDeadlineDays),
+            urgency:           VALID_URGENCY.includes(d.entry.urgency) ? d.entry.urgency : null,
         };
     } else if ((signal === 'SELL_STOP' || signal === 'SELL_TAKE') && d.exit) {
         exit = {
@@ -2063,13 +2076,16 @@ function normalizeChartAnalysis(raw) {
     } else if (signal === 'HOLD') {
         hold = {
             unmet:    (Array.isArray(d.hold?.unmet) ? d.hold.unmet : [])
-                        .map(s => String(s).slice(0, 200)).slice(0, 6),
+                        .map(s => String(s).slice(0, 200)).slice(0, 9),
             guidance: String(d.hold?.guidance || '조건 충족 시까지 대기').slice(0, 200),
+            // 단타 모드 시 거부 사유 (스윙이면 null)
+            dayModeRejection: d.hold?.dayModeRejection ? String(d.hold.dayModeRejection).slice(0, 200) : null,
         };
     }
 
     return {
         signal,
+        mode: d.mode === 'day' ? 'day' : 'swing',
         symbol:       String(d.symbol || '').slice(0, 20),
         currentPrice: num(d.currentPrice),
         ma: {

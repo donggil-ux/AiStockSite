@@ -124,7 +124,65 @@ const OUTPUT_CONTRACT = `
  *   swingHighs: [{ idx, price }, ...],   // 최근 5쌍
  *   swingLows:  [{ idx, price }, ...]
  */
+// ── 단타 모드 추가 규칙 (mode === 'day' 일 때 SYSTEM_ROLE 에 합쳐짐) ──
+const DAY_MODE_RULES = `
+
+══════════════════════════════════════════════════════════
+【단타 모드 추가 원칙 — mode = "day"】
+══════════════════════════════════════════════════════════
+보유 기간: 1~5거래일 (짧으면 당일, 길면 1주). 1주 초과 보유 절대 금지.
+시간 회전 우선 — 빠른 손절·익절로 자본을 다른 정배열 종목으로 회전.
+
+【단타 추가 진입 조건 — 위 5원칙 + 다음 4개 모두 충족 필수】
+6. 거래량 급증: 마지막 봉 거래량 ≥ 최근 20봉 평균 × 1.5 (ctx.volRatio ≥ 1.5)
+7. 돌파 캔들 강도: 양봉 + 종가가 캔들 고가의 70% 이상 (ctx.lastCandle.isStrongBullClose === true)
+8. 단기 우상향: 5일선 기울기 양수 (ctx.ma5Slope > 0)
+9. 일봉 양봉: 마지막 캔들 종가 > 시가 (ctx.lastCandle.isBullish === true)
+
+【단타 손절 강화】
+손절가 = max(SMA20 가격, 진입가 - 1×ATR) — 두 값 중 더 가까운 쪽(손절폭이 작은 것).
+ATR 미가용 시 SMA20 그대로 사용.
+손절폭 절대값 > 3% 면 BUY 거부 → HOLD ("단타 손절폭 과다").
+
+【단타 R/R 완화】
+최소 R/R 1:1.5 (스윙은 1:2). 1:1.5 미달이면 HOLD.
+
+【단타 포지션 사이징】
+positionSizePct = min(3.0, 1.0 / abs(stopLossPct)) — 스윙의 절반 수준.
+
+【expectedHoldDays 결정 휴리스틱 (1~5 차등)】
+- volRatio ≥ 2.0  AND  lastCandle.bodyPct ≥ 2.0  AND  ma5Slope ≥ 1.0  → expectedHoldDays = 1, urgency = "intraday"
+- volRatio ≥ 1.7  AND  lastCandle.bodyPct ≥ 1.0                       → expectedHoldDays = 2~3, urgency = "short"
+- volRatio ≥ 1.5  (그 외 정상 양봉)                                   → expectedHoldDays = 4~5, urgency = "standard"
+- 그 외 → BUY 거부 (HOLD, dayModeRejection 필수)
+
+【단타 출력 추가 필드 — entry 객체에 반드시 포함】
+{
+  ...
+  "expectedHoldDays":   1~5 정수,
+  "holdDaysRationale":  "거래량 2.1× + 종가 강한 양봉 → 1~2일 회전" 같은 1줄 근거,
+  "exitDeadlineDays":   숫자 (보통 5),
+  "urgency":            "intraday" | "short" | "standard"
+}
+
+【단타 HOLD 거부 사유】
+hold.dayModeRejection 필드에 "거래량 1.0× < 1.5× 미달" / "단타 R/R 1:1.2 < 1:1.5 미달" / "손절폭 -4.2% > -3% 초과" 등 정량 사유 1줄 명시.
+`;
+
+// 모드별 SYSTEM_ROLE 조립 — 'day' 면 DAY_MODE_RULES 합치고, 'swing' 이면 기본 SYSTEM_ROLE 만
+function buildSystemRole(mode) {
+    if (mode === 'day') return SYSTEM_ROLE + DAY_MODE_RULES;
+    return SYSTEM_ROLE;
+}
+
+/**
+ * 프론트에서 넘어온 차트 컨텍스트(ctx)를 사용자 프롬프트 텍스트로 조립
+ * @param {Object} ctx
+ *   기존: symbol, name, interval, currency, currentPrice, ohlcv, indicators, series, swingHighs, swingLows
+ *   단타 추가: mode, volRatio, ma5Slope, lastCandle{bodyPct,upperWickPct,isBullish,isStrongBullClose}, atr14
+ */
 function buildUserPrompt(ctx) {
+    const mode = ctx.mode === 'day' ? 'day' : 'swing';
     const ohlcvJson = JSON.stringify(ctx.ohlcv || []);
     const indJson   = JSON.stringify(ctx.indicators || {}, null, 2);
     const sma5Series  = JSON.stringify((ctx.series && ctx.series.sma5)  || []);
@@ -134,8 +192,27 @@ function buildUserPrompt(ctx) {
     const swingHighs  = JSON.stringify(ctx.swingHighs || []);
     const swingLows   = JSON.stringify(ctx.swingLows  || []);
 
+    // 단타 모드 전용 컨텍스트 블록
+    let dayContextBlock = '';
+    if (mode === 'day') {
+        const lc = ctx.lastCandle || {};
+        dayContextBlock = `
+### [단타 전용] 모멘텀 컨텍스트
+- 거래량 비율 (volRatio = 마지막 봉 거래량 / 20봉 평균 거래량): ${ctx.volRatio ?? 'null'}
+- 5일선 기울기 (ma5Slope, 최근 3봉 변화율 %): ${ctx.ma5Slope ?? 'null'}
+- ATR(14): ${ctx.atr14 ?? 'null'}
+- 마지막 캔들:
+    bodyPct (종가-시가)/시가*100: ${lc.bodyPct ?? 'null'}
+    upperWickPct: ${lc.upperWickPct ?? 'null'}
+    isBullish: ${lc.isBullish ?? 'null'}
+    isStrongBullClose (종가가 고가의 70% 위): ${lc.isStrongBullClose ?? 'null'}
+`;
+    }
+
     return `
 ## 차트 컨텍스트 (실측 데이터 — 이 값들만 인용)
+
+## 모드: ${mode === 'day' ? '단타(day) — 1~5거래일 청산' : '스윙(swing) — 추세 종료까지 보유'}
 
 종목: ${ctx.symbol} (${ctx.name || ''})
 타임프레임: ${ctx.interval}
@@ -157,14 +234,16 @@ SMA70:  ${sma70Series}
 ### 단기 스윙 고점/저점 (최근 60봉 추출)
 고점: ${swingHighs}
 저점: ${swingLows}
-
+${dayContextBlock}
 ---
 
-위 이미지 + 위 데이터만으로 테스타 전략에 따라 OUTPUT_CONTRACT JSON 스키마대로만 응답하세요.
+위 이미지 + 위 데이터만으로 테스타 전략(${mode === 'day' ? '단타' : '스윙'} 모드)에 따라 OUTPUT_CONTRACT JSON 스키마대로만 응답하세요.
 신호는 BUY / SELL_STOP / SELL_TAKE / HOLD 4가지 중 정확히 1개.
-매수 조건 5개 중 하나라도 미충족이면 반드시 HOLD 로 출력.
+${mode === 'day'
+    ? '단타 9개 조건 (5원칙 + 4 강화) 중 하나라도 미충족이면 반드시 HOLD. entry 에 expectedHoldDays/holdDaysRationale/exitDeadlineDays/urgency 필수 포함.'
+    : '매수 조건 5개 중 하나라도 미충족이면 반드시 HOLD 로 출력.'}
 주관적 판단·예측·감정 표현 금지. 한국어 객관 사실만.
 `;
 }
 
-module.exports = { SYSTEM_ROLE, OUTPUT_CONTRACT, buildUserPrompt };
+module.exports = { SYSTEM_ROLE, OUTPUT_CONTRACT, buildUserPrompt, buildSystemRole, DAY_MODE_RULES };
