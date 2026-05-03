@@ -6,14 +6,14 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["--max-http-header-size=65536", "server.js"],
       "port": 3000,
-      "autoPort": true
+      "autoPort": false
     },
     {
       "name": "StockAI Server (dev / nodemon)",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["nodemon", "--exec", "node --max-http-header-size=65536", "server.js"],
       "port": 3000,
-      "autoPort": true
+      "autoPort": false
     }
   ]
 }

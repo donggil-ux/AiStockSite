@@ -103,7 +103,6 @@
                 <button class="search-btn" onclick="searchStock()">검색</button>
                 <div class="search-dropdown" id="searchDropdown" role="listbox"></div>
             </div>
-            <button class="hamburger-btn" id="themeHeaderBtn" onclick="toggleTheme()" title="테마 변경">&#9790;</button>
             <button class="hamburger-btn" id="pushBellBtn" onclick="_togglePushBell()" title="알림 설정" style="font-size:16px;">🔔</button>
             <button class="hamburger-btn" onclick="toggleSideNav()" title="메뉴">&#9776;</button>
         </div>
@@ -616,6 +615,12 @@
 
     <!-- Stock Hero (대형 가격 표시) -->
     <div class="stock-hero" id="stockHero">
+        <!-- 실적 발표 D-3 카운트다운 배지 (3일 이내일 때만 노출) -->
+        <div class="stock-earn-badge" id="stockEarningsBadge" style="display:none;" onclick="goEarnings()" title="실적 발표 일정 보기">
+            <span class="stock-earn-badge-dday">D-3</span>
+            <span class="stock-earn-badge-text">실적 발표</span>
+            <span class="stock-earn-badge-time" id="stockEarnBadgeTime"></span>
+        </div>
         <div class="stock-hero-head">
             <div class="sh-logo" id="stockHeroLogo"></div>
             <div class="sh-id">
@@ -638,7 +643,7 @@
         <button class="tab-item active" data-tab="chart" onclick="switchTab('chart')">차트</button>
         <button class="tab-item" data-tab="analysis" onclick="switchTab('analysis')">분석</button>
         <button class="tab-item" data-tab="info" onclick="switchTab('info')">종목정보</button>
-        <button class="tab-item" data-tab="company" onclick="switchTab('company')">기업</button>
+        <button class="tab-item" data-tab="company" onclick="switchTab('company')">기업개요</button>
         <button class="tab-item" data-tab="options" onclick="switchTab('options')">옵션</button>
         <button class="tab-item" data-tab="news" onclick="switchTab('news')">뉴스</button>
         <button class="tab-item" data-tab="social" onclick="switchTab('social')">토론</button>
@@ -931,11 +936,18 @@
 
         <!-- Tab 3: 종목정보 -->
         <div class="tab-content" id="tabInfo" data-tab="info">
-            <!-- 애널리스트 목표주가 (풀 와이드 상단) -->
+            <!-- 애널리스트 목표주가 (풀 와이드 상단) + 실적 발표 일정 -->
             <div class="tab-info-top">
                 <div class="card">
                     <div class="card-title"><span class="dot" style="background:var(--blue)"></span>애널리스트 목표주가</div>
                     <div id="analystTargets"><div style="text-align:center;padding:30px 0;color:var(--text3);font-size:14px;">종목 정보를 불러오면 표시됩니다.</div></div>
+                </div>
+                <!-- 종목별 실적 발표 일정 — 애널리스트 목표주가 바로 아래 -->
+                <div class="card">
+                    <div class="card-title"><span class="dot" style="background:var(--purple)"></span>실적 발표 일정</div>
+                    <div id="stockEarnings">
+                        <div style="text-align:center;padding:30px 0;color:var(--text3);font-size:14px;">종목 정보를 불러오면 표시됩니다.</div>
+                    </div>
                 </div>
             </div>
             <div class="tab-col-left">
@@ -943,13 +955,6 @@
                 <div class="card">
                     <div class="card-title"><span class="dot" style="background:var(--yellow)"></span>재무 정보</div>
                     <div class="finance-grid" id="financeGrid"></div>
-                </div>
-                <!-- 종목별 실적 발표 일정 -->
-                <div class="card">
-                    <div class="card-title"><span class="dot" style="background:var(--purple)"></span>실적 발표 일정</div>
-                    <div id="stockEarnings">
-                        <div style="text-align:center;padding:30px 0;color:var(--text3);font-size:14px;">종목 정보를 불러오면 표시됩니다.</div>
-                    </div>
                 </div>
             </div>
             <div class="tab-col-right">
@@ -6797,6 +6802,56 @@
             changeEl.className = 'stock-change ' + (change > 0 ? 'up' : change < 0 ? 'down' : 'flat');
         }
         document.getElementById('stockPrice').style.color = change > 0 ? 'var(--red)' : change < 0 ? 'var(--blue)' : 'var(--text)';
+
+        // ── 실적 발표 D-3 배지 (3일 이내일 때만 표시) ──
+        if (currentMarket === 'US') _loadStockEarningsBadge(meta.symbol);
+        else { const _eb = document.getElementById('stockEarningsBadge'); if (_eb) _eb.style.display = 'none'; }
+    }
+
+    // ========================================
+    // 실적 발표 D-day 배지 — 3일 이내일 때만 표시
+    // ========================================
+    function _calcDaysUntil(dateStr) {
+        const t = new Date(dateStr + 'T00:00:00');
+        const n = new Date(); n.setHours(0,0,0,0);
+        return Math.floor((t - n) / 86400000);
+    }
+    async function _loadStockEarningsBadge(symbol) {
+        const el = document.getElementById('stockEarningsBadge');
+        if (!el) return;
+        el.style.display = 'none'; // 초기화 — 다른 종목 전환 시 잔존 방지
+        if (!symbol) return;
+        try {
+            const today = new Date();
+            const to = new Date(today); to.setDate(to.getDate() + 7);
+            const fmt = d => d.toISOString().slice(0,10);
+            const r = await fetch(`/api/earnings-calendar?from=${fmt(today)}&to=${fmt(to)}&favs=${encodeURIComponent(symbol)}`);
+            if (!r.ok) return;
+            const data = await r.json();
+            const groups = Array.isArray(data.groups) ? data.groups : [];
+            // 종목 일치 항목 찾기 (각 그룹의 items 배열)
+            let hit = null;
+            for (const g of groups) {
+                const items = Array.isArray(g.items) ? g.items : [];
+                const m = items.find(x => (x.symbol || '').toUpperCase() === symbol.toUpperCase());
+                if (m) { hit = m; break; }
+            }
+            if (!hit || !hit.date) return;
+            const days = _calcDaysUntil(hit.date);
+            if (days < 0 || days > 3) return; // 3일 이내만
+            // 다른 종목으로 전환됐다면 무시 (race condition 방지)
+            if (typeof currentFullSymbol === 'string' && currentFullSymbol &&
+                currentFullSymbol.toUpperCase() !== symbol.toUpperCase()) return;
+            const labelEl = el.querySelector('.stock-earn-badge-dday');
+            const timeEl  = document.getElementById('stockEarnBadgeTime');
+            if (labelEl) labelEl.textContent = days === 0 ? 'D-DAY' : `D-${days}`;
+            if (timeEl) {
+                const t = hit.timing;
+                timeEl.textContent = t === 'BMO' ? '· 장전' : t === 'AMC' ? '· 장후' : '';
+            }
+            el.classList.toggle('imminent', days <= 1); // D-1/D-0 강조
+            el.style.display = '';
+        } catch(_) { /* silent fail */ }
     }
 
     // ========================================
@@ -11992,7 +12047,7 @@
         { tab: 'chart',    label: '차트' },
         { tab: 'analysis', label: '분석' },
         { tab: 'info',     label: '종목정보' },
-        { tab: 'company',  label: '기업' },
+        { tab: 'company',  label: '기업개요' },
         { tab: 'options',  label: '옵션' },
         { tab: 'news',     label: '뉴스' },
         { tab: 'social',   label: '토론' },
@@ -14180,6 +14235,7 @@
     }
 
     Object.assign(window, {
+        _loadStockEarningsBadge, _calcDaysUntil,
         goEarnings, loadEarnings, setEarningsWindow, _earnToggleGroup,
         _earnSetFilter, _earnApplyFilters, _earnSortBy, _earnBuildDateChips, _earnSelectDateChip,
         goDiscover, setDiscoverPreset, loadDiscover,
