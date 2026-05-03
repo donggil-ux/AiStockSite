@@ -1953,12 +1953,12 @@ app.post('/api/chart-draw', _rlChartDraw, upload.single('image'), async (req, re
                     sseSend({ chunk: t });
                 }
                 const data = normalizeChartAnalysis(parseJsonLoose(buf));
-                console.log(`[chart-draw:gemini:stream] 완료: levels=${data.levels.length} trendlines=${data.trendlines.length}`);
+                console.log(`[chart-draw:gemini:stream] 완료: signal=${data.signal} lines=${data.lines.length}`);
                 sseDone(data);
             } else {
                 const result = await model.generateContent(parts);
                 const data = normalizeChartAnalysis(parseJsonLoose(result.response.text()));
-                console.log(`[chart-draw:gemini] 완료: levels=${data.levels.length} trendlines=${data.trendlines.length}`);
+                console.log(`[chart-draw:gemini] 완료: signal=${data.signal} lines=${data.lines.length}`);
                 res.json(data);
             }
         };
@@ -2004,7 +2004,7 @@ app.post('/api/chart-draw', _rlChartDraw, upload.single('image'), async (req, re
         console.log('[chart-draw:claude] 분석 시작');
         const text = await callAnthropicChartDraw(imageBase64, mimeType, fullPrompt);
         const data = normalizeChartAnalysis(parseJsonLoose(text));
-        console.log(`[chart-draw:claude] 완료: levels=${data.levels.length} trendlines=${data.trendlines.length}`);
+        console.log(`[chart-draw:claude] 완료: signal=${data.signal} lines=${data.lines.length}`);
         if (stream) {
             sseSend({ chunk: text });
             sseDone(data);
@@ -2019,26 +2019,69 @@ app.post('/api/chart-draw', _rlChartDraw, upload.single('image'), async (req, re
     }
 });
 
-/** Gemini 응답 정규화 — levels/trendlines 검증 + analysis passthrough (새 객체 반환, 입력 불변) */
+/** Gemini/Claude 응답 정규화 — 테스타 전략 신호 스키마 검증 (lines / signal / entry / exit / hold) */
 function normalizeChartAnalysis(raw) {
     const d = raw || {};
-    const clamp = (v, def) => Math.max(0, Math.min(1000, Number(v ?? def)));
+    const VALID_SIGNALS = ['BUY', 'SELL_STOP', 'SELL_TAKE', 'HOLD'];
+    const signal = VALID_SIGNALS.includes(String(d.signal || '').toUpperCase())
+        ? String(d.signal).toUpperCase() : 'HOLD';
+    const num = v => (v == null || isNaN(Number(v))) ? null : Number(v);
+
+    // lines 정규화 (3~4개 — MA5/MA20/MA70 + 선택적 entry)
+    const VALID_TYPES = ['ma5', 'ma20', 'ma70', 'entry'];
+    const lines = (Array.isArray(d.lines) ? d.lines : [])
+        .map(ln => ({
+            type:  VALID_TYPES.includes(ln?.type) ? ln.type : 'ma20',
+            price: num(ln?.price),
+            label: String(ln?.label || ln?.type || '').slice(0, 30),
+            color: typeof ln?.color === 'string' ? ln.color : '#94a3b8',
+        }))
+        .filter(ln => ln.price != null && ln.price > 0);
+
+    // signal 별 필수 필드 검증 (없거나 잘못되면 HOLD 폴백)
+    let entry = null, exit = null, hold = null;
+    if (signal === 'BUY' && d.entry) {
+        entry = {
+            price:           num(d.entry.price),
+            stopLossPrice:   num(d.entry.stopLossPrice),
+            stopLossPct:     num(d.entry.stopLossPct),
+            positionSizePct: num(d.entry.positionSizePct),
+            expectedRR:      String(d.entry.expectedRR || ''),
+            criteria: (Array.isArray(d.entry.criteria) ? d.entry.criteria : []).map(c => ({
+                label:  String(c?.label  || '').slice(0, 80),
+                passed: c?.passed === true,
+                detail: String(c?.detail || '').slice(0, 200),
+            })).slice(0, 5),
+        };
+    } else if ((signal === 'SELL_STOP' || signal === 'SELL_TAKE') && d.exit) {
+        exit = {
+            price:     num(d.exit.price),
+            ma20:      num(d.exit.ma20),
+            pnlPct:    num(d.exit.pnlPct),
+            rationale: String(d.exit.rationale || '').slice(0, 200),
+        };
+    } else if (signal === 'HOLD') {
+        hold = {
+            unmet:    (Array.isArray(d.hold?.unmet) ? d.hold.unmet : [])
+                        .map(s => String(s).slice(0, 200)).slice(0, 6),
+            guidance: String(d.hold?.guidance || '조건 충족 시까지 대기').slice(0, 200),
+        };
+    }
+
     return {
-        ...d,
-        summary: d.summary || '',
-        analysis: d.analysis || null,
-        levels: (d.levels || []).map(l => ({
-            type: l.type === 'resistance' ? 'resistance' : 'support',
-            price: Number(l.price),
-            label: l.label || (l.type === 'resistance' ? '저항선' : '지지선'),
-            strength: Math.max(0.3, Math.min(1, l.strength ?? 0.7)),
-        })).filter(l => l.price > 0),
-        trendlines: (d.trendlines || []).map(t => ({
-            label: t.label || '추세선',
-            type: t.type === 'downtrend' ? 'downtrend' : 'uptrend',
-            point1: { x: clamp(t.point1?.x, 0),    y: clamp(t.point1?.y, 0) },
-            point2: { x: clamp(t.point2?.x, 1000), y: clamp(t.point2?.y, 0) },
-        })).filter(t => t.point1.x < t.point2.x),
+        signal,
+        symbol:       String(d.symbol || '').slice(0, 20),
+        currentPrice: num(d.currentPrice),
+        ma: {
+            ma5:  num(d.ma?.ma5),
+            ma20: num(d.ma?.ma20),
+            ma70: num(d.ma?.ma70),
+        },
+        entry,
+        exit,
+        hold,
+        lines,
+        summary: String(d.summary || '').slice(0, 200),
     };
 }
 

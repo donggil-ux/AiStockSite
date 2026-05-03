@@ -37,7 +37,9 @@
         /* ===== APP SHELL ===== */
         .app-wrapper{display:flex;min-height:100vh;transition:padding-left .28s cubic-bezier(.4,0,.2,1);overflow-x:hidden;max-width:100vw;}
         .app{flex:1;min-width:0;width:100%;max-width:1400px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative;overflow-x:hidden;}
-        @media(min-width:768px){.app{display:grid;grid-template-columns:minmax(0,1fr);}}
+        /* [Fix] display:grid 가 min-height:100vh + auto rows 와 합쳐져 헤더 높이를 비정상적으로 stretch 시키는 버그 → block 으로 복원
+           (스크린들은 absolute가 아니라 일반 흐름이므로 block 만으로 정상 작동) */
+        @media(min-width:768px){.app{display:block;}}
 
         /* ===== SIDE NAV ===== */
         .side-nav{position:fixed;top:0;right:0;width:280px;height:100vh;background:var(--bg2);border-left:1px solid var(--border);z-index:1300;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);overflow:hidden;padding-top:env(safe-area-inset-top);box-shadow:-8px 0 24px rgba(0,0,0,.35);}
@@ -133,7 +135,8 @@
         .header{position:sticky;top:0;z-index:1100;background:color-mix(in srgb, var(--bg) 92%, transparent);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);padding:16px 20px 12px;padding-top:calc(16px + env(safe-area-inset-top));}
         .header-top{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
         /* ===== HEADER 시장 온도계 (탭 위 노출) ===== */
-        .header-thermo{margin-top:12px;margin-bottom:4px;}
+        .header-thermo{margin-top:0;margin-bottom:12px;}
+        .thermo-ticker{margin-top:12px;}
         .header-thermo .thermo-banner{margin:0;}
         #mainHeader.stock-loaded .header-thermo{display:none!important;}
         /* ===== HEADER QUICK NAV — 탭(Toss 스타일) ===== */
@@ -182,7 +185,8 @@
         /* ===== TOP 100 SECTION ===== */
         .top100-section{padding:0 16px;}
         .top100-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;}
-        .top100-title{font-size:18px;font-weight:700;letter-spacing:-0.015em;display:flex;align-items:center;gap:8px;}
+        .top100-title{font-size:24px;font-weight:600;letter-spacing:-0.02em;line-height:1.15;display:flex;align-items:center;gap:6px;}
+        @media(max-width:480px){.top100-title{font-size:20px;}}
         .top100-title .badge{font-size:11px;font-weight:700;background:var(--blue);color:#fff;padding:3px 10px;border-radius:12px;}
         .top100-updated{font-size:11px;color:var(--text3);font-weight:500;}
         .top100-filters{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 0;}
@@ -228,7 +232,7 @@
             .top100-colhead .t100-ch-rank{grid-area:rank;grid-column:1 / span 3;}
             .top100-colhead .t100-ch-reason{padding-left:8px;padding-top:0;opacity:1;}
         }
-        .top100-row{display:grid;grid-template-columns:28px 24px 40px minmax(140px,1fr) minmax(70px,auto) 90px 88px;align-items:center;padding:10px 12px;background:transparent;border-radius:0;cursor:pointer;transition:background .15s;gap:10px;border-bottom:none;overflow:visible;min-width:0;}
+        .top100-row{display:grid;grid-template-columns:28px 24px 40px minmax(140px,1fr) minmax(70px,auto) 90px 88px;align-items:center;padding:10px 0;background:transparent;border-radius:0!important;cursor:pointer;transition:background .15s;gap:10px;border-bottom:none;overflow:visible;min-width:0;}
         .top100-reason{display:none;font-size:12px;color:var(--text3);letter-spacing:-.005em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;padding-right:4px;min-width:0;}
         .top100-row > *{min-width:0;}
         .top100-row:last-child{border-bottom:none;}
@@ -277,8 +281,8 @@
         .mw-sparkline{display:block;width:100%;height:32px;margin-top:8px;}
 
         /* ===== HOME SECTIONS ===== */
-        .home-section{margin-bottom:24px;padding:0 16px;}
-        .home-section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px;}
+        .home-section{margin-bottom:12px;padding:0 16px;}
+        .home-section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:6px;}
         .home-section-title{font-size:15px;font-weight:700;letter-spacing:-0.012em;display:flex;align-items:center;gap:6px;}
         .home-section-sub{font-size:11px;color:var(--text3);}
         /* 섹션 타이틀 옆 칩(.hs-badge) — 디자인 정리 차원에서 일괄 비노출 */
@@ -311,10 +315,10 @@
 
         /* ===== SWING R/R RADAR ===== */
         .swing-list{display:flex;flex-direction:column;gap:2px;}
-        .swing-row{display:grid;grid-template-columns:36px 1fr 80px 72px 80px auto;align-items:center;gap:10px;padding:10px 14px;background:var(--bg2);border-radius:var(--r3);cursor:pointer;transition:all .12s;}
+        .swing-row{display:grid;grid-template-columns:36px 1fr 80px 72px 80px auto;align-items:center;gap:10px;padding:10px 0;background:transparent;border-radius:0;cursor:pointer;transition:all .12s;}
         .swing-row .tlogo-wrap, .swing-row .tlogo, .swing-row .tlogo-fb{width:36px;height:36px;}
         .swing-row .tlogo-fb{font-size:12px;}
-        .swing-row:hover{background:var(--bg3);transform:translateX(2px);}
+        .swing-row:hover{background:transparent;transform:translateX(2px);}
         .swing-info{min-width:0;}
         .swing-symbol{font-size:14px;font-weight:800;letter-spacing:-.3px;}
         .swing-name{font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -733,7 +737,7 @@
             .top100-section{padding:0 32px;}
             /* DOM: fav · rank · logo · name · reason · price · change
                이름을 compact하게 상한 걸고 reason(1fr)에 남는 공간 모두 할당 */
-            .top100-row, .top100-row-head{grid-template-columns:28px 28px 44px minmax(140px,220px) minmax(0,1fr) 100px 80px;padding:12px 18px;gap:14px;}
+            .top100-row, .top100-row-head{grid-template-columns:28px 28px 44px minmax(140px,220px) minmax(0,1fr) 100px 80px;padding:12px 0;gap:14px;}
             .tlogo-wrap, .tlogo, .tlogo-fb{width:44px;height:44px;}
             .tlogo-fb{font-size:14px;}
             .top100-reason{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;text-align:left;padding:0 8px;color:var(--text2);white-space:normal;overflow:hidden;text-overflow:clip;overflow-wrap:anywhere;word-break:keep-all;line-height:1.4;min-width:0;max-width:100%;}
@@ -1435,7 +1439,7 @@
 
             /* ----- Top 100 ----- */
             .top100-section{padding:0 10px;}
-            .top100-title{font-size:15px;}
+            .top100-title{font-size:20px;}
             .top100-row{grid-template-columns:22px 26px 38px 1fr 68px 68px;grid-template-areas:"fav rank logo info price change" ".   .    reason reason reason reason";padding:9px 6px;gap:4px 3px;align-items:start;}
             /* rank: 두~세 자리수("10"~"100") 까지 자기 영역 안에 정렬, 로고 침범 방지 */
             .top100-row > .top100-rank{min-width:0;text-align:center;overflow:hidden;font-variant-numeric:tabular-nums;font-size:13px;}
@@ -2274,8 +2278,8 @@
         /* 아이콘 전용 정사각 버튼 — 모양 유지, 반경만 부드럽게 */
         .hamburger-btn{border-radius:12px!important;}
 
-        /* ---- Step 5: 모든 카드 클래스 → 20px radius + no shadow ---- */
-        .sm-inst-card, .guru-home-card, .hot-card, .top100-row,
+        /* ---- Step 5: 모든 카드 클래스 → 20px radius + no shadow (top100-row 는 row 형식이라 제외) ---- */
+        .sm-inst-card, .guru-home-card, .hot-card,
         .ai-rec-card, .news-card, .mw-card, .scanner-card,
         .guru-card, .st-card, .options-card, .social-hot-card,
         .tv-chart-card, .short-chart-card, .cp-shares-card,
@@ -2284,6 +2288,8 @@
             border-radius:var(--r-card)!important;
             box-shadow:none!important;
         }
+        /* top100-row 는 카드가 아니라 가로 행 형식 — radius 0 유지 (hover 시 사각형 배경) */
+        .top100-row, .top100-row:hover{border-radius:0!important;box-shadow:none!important;}
         /* 라이트 테마: 유일한 미묘한 그림자 제거 */
         [data-theme="light"] .card{box-shadow:none!important;}
         /* yt-card hover 그림자는 유지 — floating interaction 허용 */
@@ -2331,8 +2337,8 @@
             font-size:12px!important;
         }
 
-        /* Home 섹션 간격 — 숨 쉴 공간 */
-        .home-section{margin-bottom:28px!important;}
+        /* Home 섹션 간격 — 컴팩트 (헤더 레이아웃은 기본 space-between 유지) */
+        .home-section{margin-bottom:6px!important;}
         .home-section-title{margin-bottom:14px!important;}
         /* Hot/Top100 카드 리스트 간격 */
         .hot-list{gap:10px!important;}
@@ -3173,7 +3179,9 @@
 }
 
 /* 풀 너비 메인 */
-.earn-full-main { width: 100%; min-width: 0; }
+/* 실적발표 화면: 데이터가 많아 min-height 보호 불필요 → 로딩 시 스켈레톤이 상단에 붙음 */
+.earn-full-main { width: 100%; min-width: 0; min-height: auto; }
+.earn-toolbar{ padding-top: 0; }
 
 /* 결과 카운트 */
 .earn-result-count {
@@ -3304,8 +3312,15 @@
 /* 접힌 그룹에서 헤더 숨김 */
 .earn-group-collapsed .earn-group-col-head{ display:none; }
 .earn-th{ min-width:0; }
-.earn-th-eps, .earn-th-rev, .earn-th-yoy, .earn-th-mcap{ text-align:right; }
-.earn-th-status{ text-align:center; }
+/* 우측 정렬: 시가총액 → 상태 (수치 컬럼) */
+.earn-th[data-sort="marketCap"],
+.earn-th[data-sort="epsEst"],
+.earn-th[data-sort="revEst"],
+.earn-th[data-sort="yoy"],
+.earn-th[data-sort="surprisePct"],
+.earn-th-eps, .earn-th-rev, .earn-th-yoy, .earn-th-mcap, .earn-th-status{
+    text-align:right;
+}
 .earn-th-time{ text-align:center; }
 .earn-th.sortable{ cursor:pointer; user-select:none; transition:color .12s; }
 .earn-th.sortable:hover{ color:var(--text2); }
@@ -3730,3 +3745,133 @@
 .lev-card-tracks:hover{background:rgba(59,130,246,.18);color:var(--blue);}
 .lev-tracks-icon{font-size:11px;}
 .lev-tracks-text{letter-spacing:-0.01em;}
+
+/* 레버리지 홈 스트립 스켈레톤 */
+.lev-skel-card{pointer-events:none;}
+.lev-skel-sym{width:50px;height:16px;border-radius:5px;display:inline-block;}
+.lev-skel-badge{width:28px;height:14px;border-radius:5px;display:inline-block;}
+.lev-skel-under{width:80%;height:11px;border-radius:4px;margin:6px 0 8px;}
+.lev-skel-price{width:50px;height:14px;border-radius:5px;display:inline-block;}
+.lev-skel-chg{width:42px;height:13px;border-radius:5px;display:inline-block;}
+
+/* ==================================================================
+   테스타(Testa) 매매 전략 신호 카드 — AI 분석 결과 표시
+   ================================================================== */
+.testa-card{
+    padding:16px 18px;
+    background:var(--bg2);
+    border:1px solid var(--border);
+    border-radius:14px;
+    border-left:4px solid var(--text3);
+}
+.testa-card.signal-buy{ border-left-color:#22c55e; background:linear-gradient(180deg, rgba(34,197,94,.06) 0%, var(--bg2) 100%); }
+.testa-card.signal-stop{ border-left-color:#ef4444; background:linear-gradient(180deg, rgba(239,68,68,.06) 0%, var(--bg2) 100%); }
+.testa-card.signal-take{ border-left-color:#3b82f6; background:linear-gradient(180deg, rgba(59,130,246,.06) 0%, var(--bg2) 100%); }
+.testa-card.signal-hold{ border-left-color:#94a3b8; }
+
+.testa-card-head{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:12px; margin-bottom:12px;
+}
+.testa-badge{
+    display:inline-flex; align-items:center; gap:6px;
+    padding:6px 12px; border-radius:9999px;
+    font-size:13px; font-weight:800; letter-spacing:-.01em;
+}
+.testa-badge .tb-icon{ font-size:14px; line-height:1; }
+.testa-badge.signal-buy{  background:rgba(34,197,94,.18);  color:#22c55e; }
+.testa-badge.signal-stop{ background:rgba(239,68,68,.18);  color:#ef4444; }
+.testa-badge.signal-take{ background:rgba(59,130,246,.18); color:#3b82f6; }
+.testa-badge.signal-hold{ background:rgba(148,163,184,.18); color:#94a3b8; }
+
+.testa-card-meta{ display:flex; align-items:baseline; gap:8px; }
+.tcm-sym{ font-size:14px; font-weight:700; color:var(--text); }
+.tcm-price{ font-size:16px; font-weight:800; color:var(--text); font-variant-numeric:tabular-nums; }
+
+.testa-ma-bar{
+    display:flex; gap:8px; flex-wrap:wrap;
+    padding:10px 12px; margin-bottom:12px;
+    background:var(--bg3); border-radius:8px;
+    font-size:11.5px; font-weight:600;
+}
+.tma{ font-variant-numeric:tabular-nums; }
+.tma-5{ color:#3b82f6; }
+.tma-20{ color:#ef4444; }
+.tma-70{ color:#a78bfa; }
+
+.testa-position-info{
+    display:flex; flex-direction:column; gap:6px;
+    padding:10px 12px; margin-bottom:12px;
+    background:var(--bg3); border-radius:8px;
+}
+.tpi-row{ display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.tpi-lbl{ font-size:12px; color:var(--text3); font-weight:500; }
+.tpi-val{ font-size:13px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; }
+.tpi-val.tpi-stop{ color:#ef4444; }
+.tpi-val.tpi-take{ color:#3b82f6; }
+
+.testa-criteria-title{
+    font-size:12px; font-weight:700; color:var(--text2);
+    margin:0 0 8px; letter-spacing:-.01em;
+}
+.testa-criteria{
+    list-style:none; padding:0; margin:0 0 12px;
+    display:flex; flex-direction:column; gap:6px;
+}
+.testa-criteria li{
+    display:flex; gap:10px; align-items:flex-start;
+    padding:8px 10px; background:var(--bg3); border-radius:6px;
+    border-left:3px solid var(--border);
+}
+.testa-criteria li.pass{ border-left-color:#22c55e; }
+.testa-criteria li.fail{ border-left-color:#ef4444; }
+.testa-criteria .tc-icon{
+    flex-shrink:0; width:16px; height:16px;
+    display:inline-flex; align-items:center; justify-content:center;
+    font-size:13px; font-weight:800;
+}
+.testa-criteria li.pass .tc-icon{ color:#22c55e; }
+.testa-criteria li.fail .tc-icon{ color:#ef4444; }
+.tc-body{ flex:1; min-width:0; }
+.tc-label{ font-size:12.5px; font-weight:600; color:var(--text); margin-bottom:2px; }
+.tc-detail{ font-size:11px; color:var(--text3); line-height:1.4; }
+
+.testa-rationale{
+    padding:10px 12px; margin-bottom:10px;
+    background:var(--bg3); border-radius:8px;
+    font-size:12px; color:var(--text2); line-height:1.5;
+}
+.testa-warning{
+    padding:8px 12px; margin-bottom:10px;
+    background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.25);
+    border-radius:8px;
+    font-size:11.5px; font-weight:600; color:#ef4444;
+}
+
+.testa-unmet{
+    list-style:none; padding:0; margin:0 0 10px;
+    display:flex; flex-direction:column; gap:4px;
+}
+.testa-unmet li{
+    padding:8px 12px; background:var(--bg3); border-radius:6px;
+    font-size:12px; color:var(--text2);
+    border-left:3px solid #f59e0b;
+}
+.testa-guidance{
+    font-size:12px; color:var(--text3); padding:6px 4px;
+    font-style:italic;
+}
+
+.testa-summary{
+    margin-top:10px; padding-top:10px;
+    border-top:1px solid var(--border);
+    font-size:12.5px; color:var(--text2); line-height:1.5;
+    font-weight:500;
+}
+
+@media (max-width:640px){
+    .testa-card{ padding:12px 14px; }
+    .tcm-price{ font-size:14px; }
+    .testa-ma-bar{ font-size:10.5px; gap:6px; }
+    .tpi-val{ font-size:12px; }
+}

@@ -206,7 +206,15 @@
                 <button class="home-section-more" onclick="goLeverage()">전체보기 →</button>
             </div>
             <div class="lev-strip" id="leverageHomeStrip">
-                <div class="lev-strip-empty">시세를 불러오는 중...</div>
+                <!-- 초기 스켈레톤 (8개 카드) — JS 로딩 직후 실제 카드로 교체됨 -->
+                <div class="lev-strip-card lev-skel-card"><div class="lev-strip-head"><span class="skel-block lev-skel-sym"></span><span class="skel-block lev-skel-badge"></span></div><span class="skel-block lev-skel-under"></span><div class="lev-strip-foot"><span class="skel-block lev-skel-price"></span><span class="skel-block lev-skel-chg"></span></div></div>
+                <div class="lev-strip-card lev-skel-card"><div class="lev-strip-head"><span class="skel-block lev-skel-sym"></span><span class="skel-block lev-skel-badge"></span></div><span class="skel-block lev-skel-under"></span><div class="lev-strip-foot"><span class="skel-block lev-skel-price"></span><span class="skel-block lev-skel-chg"></span></div></div>
+                <div class="lev-strip-card lev-skel-card"><div class="lev-strip-head"><span class="skel-block lev-skel-sym"></span><span class="skel-block lev-skel-badge"></span></div><span class="skel-block lev-skel-under"></span><div class="lev-strip-foot"><span class="skel-block lev-skel-price"></span><span class="skel-block lev-skel-chg"></span></div></div>
+                <div class="lev-strip-card lev-skel-card"><div class="lev-strip-head"><span class="skel-block lev-skel-sym"></span><span class="skel-block lev-skel-badge"></span></div><span class="skel-block lev-skel-under"></span><div class="lev-strip-foot"><span class="skel-block lev-skel-price"></span><span class="skel-block lev-skel-chg"></span></div></div>
+                <div class="lev-strip-card lev-skel-card"><div class="lev-strip-head"><span class="skel-block lev-skel-sym"></span><span class="skel-block lev-skel-badge"></span></div><span class="skel-block lev-skel-under"></span><div class="lev-strip-foot"><span class="skel-block lev-skel-price"></span><span class="skel-block lev-skel-chg"></span></div></div>
+                <div class="lev-strip-card lev-skel-card"><div class="lev-strip-head"><span class="skel-block lev-skel-sym"></span><span class="skel-block lev-skel-badge"></span></div><span class="skel-block lev-skel-under"></span><div class="lev-strip-foot"><span class="skel-block lev-skel-price"></span><span class="skel-block lev-skel-chg"></span></div></div>
+                <div class="lev-strip-card lev-skel-card"><div class="lev-strip-head"><span class="skel-block lev-skel-sym"></span><span class="skel-block lev-skel-badge"></span></div><span class="skel-block lev-skel-under"></span><div class="lev-strip-foot"><span class="skel-block lev-skel-price"></span><span class="skel-block lev-skel-chg"></span></div></div>
+                <div class="lev-strip-card lev-skel-card"><div class="lev-strip-head"><span class="skel-block lev-skel-sym"></span><span class="skel-block lev-skel-badge"></span></div><span class="skel-block lev-skel-under"></span><div class="lev-strip-foot"><span class="skel-block lev-skel-price"></span><span class="skel-block lev-skel-chg"></span></div></div>
             </div>
         </section>
 
@@ -236,7 +244,7 @@
         <!-- 미국주식 인기 TOP 100 -->
         <div class="top100-section">
             <div class="top100-header">
-                <div class="top100-title">미국주식 당일 인기 TOP 100 <span class="badge">LIVE</span></div>
+                <div class="top100-title">미국주식 당일 인기 TOP 100</div>
                 <div class="top100-updated" id="top100Updated"></div>
             </div>
             <div class="top100-filters">
@@ -254,9 +262,7 @@
         <!-- 주식 골라보기 (홈 임베드: 연속 상승세 TOP 10) -->
         <section class="discover-section home-section" id="discoverHomeSection">
             <div class="home-section-header">
-                <div class="home-section-title">🔥 연속 상승세 TOP 10
-                    <span class="badge" style="background:var(--blue);color:#fff;font-size:10px;padding:2px 8px;border-radius:10px;margin-left:6px;">NEW</span>
-                </div>
+                <div class="home-section-title">🔥 연속 상승세 TOP 10</div>
                 <a class="home-section-more" onclick="goDiscover()" style="cursor:pointer;color:var(--blue);font-size:12px;font-weight:600;">더 보기</a>
             </div>
             <div class="top100-grid" id="discoverHomeGrid">
@@ -267,9 +273,7 @@
         <!-- 주식 골라보기 (홈 임베드: 저평가 주식 TOP 10) -->
         <section class="discover-section home-section" id="discoverHomeUndervaluedSection">
             <div class="home-section-header">
-                <div class="home-section-title">💎 저평가 주식 TOP 10
-                    <span class="badge" style="background:var(--blue);color:#fff;font-size:10px;padding:2px 8px;border-radius:10px;margin-left:6px;">NEW</span>
-                </div>
+                <div class="home-section-title">💎 저평가 주식 TOP 10</div>
                 <a class="home-section-more" onclick="window._discPreset='undervalued'; goDiscover();" style="cursor:pointer;color:var(--blue);font-size:12px;font-weight:600;">더 보기</a>
             </div>
             <div class="top100-grid" id="discoverHomeUndervaluedGrid">
@@ -5878,6 +5882,26 @@
         'BITX','ETHU',          // 비트코인 / 이더리움
         'UCO','DGP',            // 원유 / 금
     ];
+    function _renderLevStripSkeleton(n) {
+        // 가로 스와이프 스트립 카드와 동일한 사이즈/구조의 스켈레톤
+        let html = '';
+        for (let i = 0; i < n; i++) {
+            html += `
+                <div class="lev-strip-card lev-skel-card">
+                    <div class="lev-strip-head">
+                        <span class="skel-block lev-skel-sym"></span>
+                        <span class="skel-block lev-skel-badge"></span>
+                    </div>
+                    <span class="skel-block lev-skel-under"></span>
+                    <div class="lev-strip-foot">
+                        <span class="skel-block lev-skel-price"></span>
+                        <span class="skel-block lev-skel-chg"></span>
+                    </div>
+                </div>`;
+        }
+        return html;
+    }
+
     async function loadLeverageHome() {
         const strip = document.getElementById('leverageHomeStrip');
         if (!strip) return;
@@ -5885,6 +5909,8 @@
         const now = Date.now();
         const cacheValid = _levQuoteTs && (now - _levQuoteTs < 30000) && Object.keys(_levQuotes).length > 0;
         if (!cacheValid) {
+            // 스켈레톤 카드 노출 (8개 — 화면 폭에 맞춰 시각적으로 가득 참)
+            strip.innerHTML = _renderLevStripSkeleton(8);
             try {
                 const symbols = LEVERAGE_HOME_PICKS.join(',');
                 const r = await fetch(`/api/quote?symbols=${encodeURIComponent(symbols)}`);
@@ -14283,120 +14309,131 @@
             }).catch(() => {});
         }
 
-        // 수평선 (지지/저항)
-        (data.levels || []).forEach(level => {
+        // 테스타 전략: lines[] 배열 그대로 그리기 (MA5/MA20/MA70 + 진입가 옵션)
+        const _fmtP = p => currentMarket === 'KR' ? Math.round(p).toLocaleString() : Number(p).toFixed(2);
+        const lines = Array.isArray(data.lines) ? data.lines : [];
+        lines.forEach(ln => {
+            if (!ln || ln.price == null || ln.price <= 0) return;
             try {
+                const isMA20 = ln.type === 'ma20';
+                const isEntry = ln.type === 'entry';
                 const pl = lwCandleSeries.createPriceLine({
-                    price: level.price,
-                    color: level.type === 'resistance' ? '#ef4444' : '#3b82f6',
-                    lineWidth: 2,
-                    lineStyle: 2,
+                    price: ln.price,
+                    color: ln.color || '#94a3b8',
+                    lineWidth: (isMA20 || isEntry) ? 2 : 1,
+                    lineStyle: isEntry ? 0 : 2, // entry는 실선, MA는 점선
                     axisLabelVisible: true,
-                    title: level.label,
+                    title: `${ln.label || ln.type} ${_fmtP(ln.price)}`,
                 });
                 lwAiPriceLines.push(pl);
             } catch(e) {}
         });
 
-        // 분할 매수가 + 손절가 수평선 — 반등·하락 관점 동시 표시
-        const _bull = data.analysis?.scenarios?.bull;
-        const _bear = data.analysis?.scenarios?.bear;
-        const SL_COLOR = '#dc2626';
-        const _fmtP = p => currentMarket === 'KR' ? Math.round(p).toLocaleString() : p.toFixed(2);
-
-        // 반등 관점 (bull): 초록 계열
-        const BOUNCE_COLORS = ['#60a5fa', '#3b82f6', '#2563eb'];
-        ['buy1', 'buy2', 'buy3'].forEach((key, idx) => {
-            const price = _bull?.[key];
-            if (!price || price <= 0) return;
-            try {
-                const pl = lwCandleSeries.createPriceLine({
-                    price, color: BOUNCE_COLORS[idx],
-                    lineWidth: 1, lineStyle: 2, axisLabelVisible: true,
-                    title: `반등 ${idx+1}차 ${_fmtP(price)}`,
-                });
-                lwAiPriceLines.push(pl);
-            } catch(e) {}
-        });
-
-        // 하락 관점 (bear): 주황 계열
-        const FALL_COLORS = ['#f59e0b', '#fb923c', '#f97316'];
-        ['buy1', 'buy2', 'buy3'].forEach((key, idx) => {
-            const price = _bear?.[key];
-            if (!price || price <= 0) return;
-            try {
-                const pl = lwCandleSeries.createPriceLine({
-                    price, color: FALL_COLORS[idx],
-                    lineWidth: 1, lineStyle: 2, axisLabelVisible: true,
-                    title: `하락 ${idx+1}차 ${_fmtP(price)}`,
-                });
-                lwAiPriceLines.push(pl);
-            } catch(e) {}
-        });
-
-        // 손절가 (두 시나리오 중 낮은 값 하나만 표시)
-        const _slBull = _bull?.stopLoss, _slBear = _bear?.stopLoss;
-        const _slPrice = (_slBull && _slBear) ? Math.min(_slBull, _slBear) : (_slBull || _slBear);
-        if (_slPrice && _slPrice > 0) {
-            try {
-                const pl = lwCandleSeries.createPriceLine({
-                    price: _slPrice, color: SL_COLOR, lineWidth: 2, lineStyle: 0,
-                    axisLabelVisible: true,
-                    title: `손절 ${_fmtP(_slPrice)}`,
-                });
-                lwAiPriceLines.push(pl);
-            } catch(e) {}
-        }
-
-        // 추세선 (빗각 — canvas Ray, 1000×1000 좌표계)
+        // 추세선·시나리오 라인 모두 폐기 (테스타는 추세선·지지저항 사용 안 함)
         lwAiCanvasTrendlines = [];
-        (data.trendlines || []).forEach(tl => {
-            if (tl.point1 && tl.point2 && tl.point1.x < tl.point2.x) {
-                lwAiCanvasTrendlines.push(tl);
-            }
-        });
-
-        // 클라이언트 스윙 추세선 (OHLCV 선형회귀)
-        lwClientTrendlines = calcSwingTrendlines(90, 3);
-
-        if (lwAiCanvasTrendlines.length || lwClientTrendlines.length) setTimeout(redrawCanvas, 50);
+        lwClientTrendlines = [];
 
         const clearBtn = document.getElementById('chartAiClearBtn');
-        if (clearBtn && (lwAiPriceLines.length || lwAiTrendSeries.length || lwClientTrendlines.length)) clearBtn.style.display = '';
+        if (clearBtn && lwAiPriceLines.length) clearBtn.style.display = '';
 
-        // 요약 카드 업데이트
+        // 테스타 신호 카드 렌더링
+        _renderTestaSignalCard(data);
+    }
+
+    // ── 테스타 신호 카드 렌더링 (4가지 신호) ──
+    function _renderTestaSignalCard(data) {
         const card = document.getElementById('aiSummaryCard');
-        const levelsEl = document.getElementById('aiSummaryLevels');
-        const textEl = document.getElementById('aiSummaryText');
-        const toggleBtn = document.getElementById('aiSummaryToggle');
-        const reportInner = document.getElementById('aiSummaryReportInner');
-        const reportPanel = document.getElementById('aiSummaryReport');
-        if (card && levelsEl && textEl) {
-            const badges = [
-                ...(data.levels || []).map(l => `<span class="ai-summary-level ${l.type === 'resistance' ? 'resistance' : 'support'}">${l.type === 'resistance' ? '↑저항' : '↓지지'} $${l.price.toFixed(2)}</span>`),
-                ...(data.trendlines || []).map(t => `<span class="ai-summary-level trend">↗ ${t.label}</span>`),
-            ].join('');
-            levelsEl.innerHTML = badges;
-            textEl.textContent = data.summary || '';
-            card.style.display = badges || data.summary || data.report ? '' : 'none';
+        if (!card) return;
+        const signal = (data.signal || 'HOLD').toUpperCase();
+        const sym = data.symbol || currentSymbol || '';
+        const cur = data.currentPrice;
+        const ma = data.ma || {};
+        const _fmtP = p => p == null ? '-' : (currentMarket === 'KR' ? Math.round(p).toLocaleString() + '원' : '$' + Number(p).toFixed(2));
+        const _pct = v => v == null ? '-' : (v >= 0 ? '+' : '') + Number(v).toFixed(2) + '%';
 
-            // 패턴 + 시간 지평 섹션 (있으면 표시, 없으면 숨김)
-            renderPatternHorizon(data.analysis || null);
+        const SIGNAL_META = {
+            BUY:       { label: '매수 신호',  klass: 'signal-buy',  icon: '▲' },
+            SELL_STOP: { label: '손절 신호',  klass: 'signal-stop', icon: '✕' },
+            SELL_TAKE: { label: '익절 신호',  klass: 'signal-take', icon: '✓' },
+            HOLD:      { label: '관망',       klass: 'signal-hold', icon: '⊘' },
+        };
+        const meta = SIGNAL_META[signal] || SIGNAL_META.HOLD;
 
-            // 상세 리포트 — 신규 analysis 구조 우선, 없으면 구 report 마크다운 폴백
-            if (data.analysis && reportInner && toggleBtn) {
-                renderAnalysisReport(data.analysis);
-                toggleBtn.style.display = '';
-            } else if (data.report && reportInner && toggleBtn) {
-                reportInner.innerHTML = _aiMdToHtml(data.report);
-                toggleBtn.style.display = '';
-            } else if (toggleBtn) {
-                toggleBtn.style.display = 'none';
-            }
-            // 아코디온 초기 닫힘
-            if (reportPanel) reportPanel.classList.remove('open');
-            if (toggleBtn) toggleBtn.classList.remove('open');
+        let body = '';
+
+        if (signal === 'BUY' && data.entry) {
+            const e = data.entry;
+            body = `
+                <div class="testa-position-info">
+                    <div class="tpi-row"><span class="tpi-lbl">진입가</span><span class="tpi-val">${_fmtP(e.price)}</span></div>
+                    <div class="tpi-row"><span class="tpi-lbl">손절가 (MA20)</span><span class="tpi-val tpi-stop">${_fmtP(e.stopLossPrice)} (${_pct(e.stopLossPct)})</span></div>
+                    <div class="tpi-row"><span class="tpi-lbl">권장 비중</span><span class="tpi-val">${e.positionSizePct != null ? e.positionSizePct.toFixed(2) + '%' : '-'}</span></div>
+                    <div class="tpi-row"><span class="tpi-lbl">예상 R/R</span><span class="tpi-val">${e.expectedRR || '-'}</span></div>
+                </div>
+                <div class="testa-criteria-title">진입 근거 (5개 조건 모두 충족)</div>
+                <ul class="testa-criteria">
+                    ${(e.criteria || []).map(c => `
+                        <li class="${c.passed ? 'pass' : 'fail'}">
+                            <span class="tc-icon">${c.passed ? '✓' : '✗'}</span>
+                            <div class="tc-body">
+                                <div class="tc-label">${escHtml(c.label || '')}</div>
+                                ${c.detail ? `<div class="tc-detail">${escHtml(c.detail)}</div>` : ''}
+                            </div>
+                        </li>`).join('')}
+                </ul>`;
+        } else if ((signal === 'SELL_STOP' || signal === 'SELL_TAKE') && data.exit) {
+            const x = data.exit;
+            const isStop = signal === 'SELL_STOP';
+            body = `
+                <div class="testa-position-info">
+                    <div class="tpi-row"><span class="tpi-lbl">청산가</span><span class="tpi-val">${_fmtP(x.price)}</span></div>
+                    <div class="tpi-row"><span class="tpi-lbl">MA20</span><span class="tpi-val">${_fmtP(x.ma20)}</span></div>
+                    <div class="tpi-row"><span class="tpi-lbl">손익률</span><span class="tpi-val ${isStop ? 'tpi-stop' : 'tpi-take'}">${_pct(x.pnlPct)}</span></div>
+                </div>
+                <div class="testa-rationale">${escHtml(x.rationale || '')}</div>
+                <div class="testa-warning">⚠ 종가가 20일선 아래 마감 — ${isStop ? '즉시 손절' : '전량 익절'} (예외 없음)</div>`;
+        } else {
+            // HOLD
+            const h = data.hold || { unmet: [], guidance: '' };
+            body = `
+                <div class="testa-criteria-title">미충족 조건</div>
+                <ul class="testa-unmet">
+                    ${(h.unmet || []).map(u => `<li>${escHtml(u)}</li>`).join('') || '<li>모든 조건 정상이지만 명확한 진입 시그널 없음</li>'}
+                </ul>
+                <div class="testa-guidance">${escHtml(h.guidance || '조건 충족 시까지 대기')}</div>`;
         }
+
+        card.style.display = '';
+        card.innerHTML = `
+            <div class="testa-card ${meta.klass}">
+                <div class="testa-card-head">
+                    <span class="testa-badge ${meta.klass}">
+                        <span class="tb-icon">${meta.icon}</span>
+                        <span class="tb-label">${meta.label}</span>
+                    </span>
+                    <div class="testa-card-meta">
+                        <span class="tcm-sym">${escHtml(sym)}</span>
+                        <span class="tcm-price">${_fmtP(cur)}</span>
+                    </div>
+                </div>
+                <div class="testa-ma-bar">
+                    <span class="tma tma-5">MA5 ${_fmtP(ma.ma5)}</span>
+                    <span class="tma tma-20">MA20 ${_fmtP(ma.ma20)}</span>
+                    <span class="tma tma-70">MA70 ${_fmtP(ma.ma70)}</span>
+                </div>
+                ${body}
+                ${data.summary ? `<div class="testa-summary">${escHtml(data.summary)}</div>` : ''}
+            </div>`;
+
+        // 기존 패턴/시간지평 섹션은 숨김 (테스타 전략은 사용 안 함)
+        const patSec = document.getElementById('aiPatternSection');
+        const horSec = document.getElementById('aiHorizonSection');
+        const repPanel = document.getElementById('aiSummaryReport');
+        const repToggle = document.getElementById('aiSummaryToggle');
+        if (patSec) patSec.style.display = 'none';
+        if (horSec) horSec.style.display = 'none';
+        if (repPanel) repPanel.style.display = 'none';
+        if (repToggle) repToggle.style.display = 'none';
     }
 
     // ── AI 리포트 아코디온 토글 ──
@@ -14564,6 +14601,39 @@
     }
 
     // ── 차트 컨텍스트 JSON 조립 (OHLCV + 지표 최신값 + 시계열) ──
+    // 단기 스윙 고점/저점 추출 — 좌우 k봉 모두보다 높은(/낮은) 캔들을 swing point로 인정
+    function _extractSwingPoints(highs, lows, k = 3, maxPoints = 5) {
+        const swingHighs = [];
+        const swingLows  = [];
+        const N = Math.min(60, highs.length);
+        const startIdx = highs.length - N;
+        for (let i = Math.max(startIdx + k, k); i < highs.length - k; i++) {
+            const h = highs[i];
+            if (h == null) continue;
+            let isHigh = true;
+            for (let j = 1; j <= k; j++) {
+                if (highs[i - j] != null && highs[i - j] >= h) { isHigh = false; break; }
+                if (highs[i + j] != null && highs[i + j] >= h) { isHigh = false; break; }
+            }
+            if (isHigh) swingHighs.push({ idx: i, price: +Number(h).toFixed(2) });
+        }
+        for (let i = Math.max(startIdx + k, k); i < lows.length - k; i++) {
+            const l = lows[i];
+            if (l == null) continue;
+            let isLow = true;
+            for (let j = 1; j <= k; j++) {
+                if (lows[i - j] != null && lows[i - j] <= l) { isLow = false; break; }
+                if (lows[i + j] != null && lows[i + j] <= l) { isLow = false; break; }
+            }
+            if (isLow) swingLows.push({ idx: i, price: +Number(l).toFixed(2) });
+        }
+        // 가장 최근 maxPoints개만 유지
+        return {
+            swingHighs: swingHighs.slice(-maxPoints),
+            swingLows:  swingLows.slice(-maxPoints),
+        };
+    }
+
     function buildChartContextJson() {
         if (!stockData || !stockData.indicators || !stockData.indicators.quote) return null;
         const q = stockData.indicators.quote[0];
@@ -14585,18 +14655,14 @@
         const r2 = v => (v == null || isNaN(v)) ? null : +Number(v).toFixed(2);
         const r2arr = arr => (arr || []).map(r2);
 
-        const sma20  = calcSMA(closes, 20);
-        const sma50  = calcSMA(closes, 50);
-        const sma200 = calcSMA(closes, 200);
-        const rsi    = calcRSI(closes, 14);
-        const macd   = calcMACD(closes);
-        const bb     = calcBollingerBands(closes, 20, 2);
-        const atr    = calcATR(highs, lows, closes, 14);
+        // 테스타 전략: SMA 5 / 20 / 70 만 사용 (RSI/MACD/BB/ATR 모두 폐기)
+        const sma5  = calcSMA(closes, 5);
+        const sma20 = calcSMA(closes, 20);
+        const sma70 = calcSMA(closes, 70);
 
-        const cur    = lastVal(closes);
-        const atrV   = lastVal(atr);
+        const cur = lastVal(closes);
 
-        // 최근 80개 봉만 (토큰 절약 + 소수점 2자리 압축)
+        // 최근 80개 봉 (토큰 절약 + 소수점 2자리 압축)
         const N = Math.min(80, closes.length);
         const start = closes.length - N;
         const ohlcv = [];
@@ -14611,6 +14677,8 @@
             });
         }
 
+        const swing = _extractSwingPoints(highs, lows, 3, 5);
+
         return {
             symbol: currentSymbol,
             name: stockData.meta?.longName || stockData.meta?.shortName || '',
@@ -14619,27 +14687,18 @@
             currentPrice: r2(cur),
             ohlcv,
             indicators: {
-                sma20:  r2(lastVal(sma20)),
-                sma50:  r2(lastVal(sma50)),
-                sma200: r2(lastVal(sma200)),
-                rsi14:  r2(lastVal(rsi)),
-                macd: {
-                    line:   r2(lastVal(macd.macdLine)),
-                    signal: r2(lastVal(macd.signalLine)),
-                    hist:   r2(lastVal(macd.histogram)),
-                },
-                bb: {
-                    upper:  r2(lastVal(bb.upper)),
-                    middle: r2(lastVal(bb.middle)),
-                    lower:  r2(lastVal(bb.lower)),
-                },
-                atr14:  r2(atrV),
-                atrPct: (atrV && cur) ? +(atrV / cur * 100).toFixed(2) : null,
+                sma5:  r2(lastVal(sma5)),
+                sma20: r2(lastVal(sma20)),
+                sma70: r2(lastVal(sma70)),
             },
             series: {
-                rsi:      r2arr(rsi.slice(-20)),
-                macdHist: r2arr(macd.histogram.slice(-20)),
+                sma5:  r2arr(sma5.slice(-30)),
+                sma20: r2arr(sma20.slice(-30)),
+                sma70: r2arr(sma70.slice(-30)),
+                close: r2arr(closes.slice(-30)),
             },
+            swingHighs: swing.swingHighs,
+            swingLows:  swing.swingLows,
         };
     }
 
@@ -14822,10 +14881,15 @@
                 _aiProgressShow('✅ 분석 완료!', 100);
                 setTimeout(_aiProgressHide, 1200);
 
-                const supCnt = (finalData.levels || []).filter(l => l.type === 'support').length;
-                const resCnt = (finalData.levels || []).filter(l => l.type === 'resistance').length;
-                const trdCnt = (finalData.trendlines || []).length;
-                showToast(`AI 분석 완료 · 지지선 ${supCnt}개 · 저항선 ${resCnt}개 · 추세선 ${trdCnt}개`);
+                // 테스타 신호별 토스트
+                const SIGNAL_LABEL = {
+                    BUY: '🟢 매수 신호',
+                    SELL_STOP: '🔴 손절 신호',
+                    SELL_TAKE: '🔵 익절 신호',
+                    HOLD: '⚪ 관망',
+                };
+                const sig = (finalData.signal || 'HOLD').toUpperCase();
+                showToast(`AI 분석 완료 · ${SIGNAL_LABEL[sig] || sig}`);
 
             } catch(e) {
                 _aiProgressHide();
