@@ -2017,8 +2017,13 @@ app.post('/api/chart-draw', _rlChartDraw, upload.single('image'), async (req, re
                 }
             } else {
                 console.error('[chart-draw:gemini] 오류:', err.message);
-                if (stream) { sseError(err.message); return; }
-                return res.status(500).json({ error: err.message });
+                const isImageInvalid = String(err.message || '').includes('Provided image is not valid')
+                    || String(err.message || '').includes('image_payload');
+                const friendlyMsg = isImageInvalid
+                    ? '차트 이미지를 캡처할 수 없습니다. 차트가 완전히 로드된 후 다시 시도해주세요.'
+                    : err.message;
+                if (stream) { sseError(friendlyMsg); return; }
+                return res.status(500).json({ error: friendlyMsg });
             }
         }
     }
@@ -2048,7 +2053,12 @@ app.post('/api/chart-draw', _rlChartDraw, upload.single('image'), async (req, re
         }
     } catch (err) {
         console.error('[chart-draw:claude] 오류:', err.message);
-        const msg = 'AI 분석에 실패했습니다. 잠시 후 다시 시도해주세요.';
+        // 이미지 유효성 에러는 사용자가 액션 가능한 메시지로 변환
+        const isImageInvalid = String(err.message || '').includes('Provided image is not valid')
+            || String(err.message || '').includes('image_payload');
+        const msg = isImageInvalid
+            ? '차트 이미지를 캡처할 수 없습니다. 차트가 완전히 로드된 후 다시 시도해주세요.'
+            : 'AI 분석에 실패했습니다. 잠시 후 다시 시도해주세요.';
         if (stream) { sseError(msg); return; }
         res.status(500).json({ error: msg });
     }
