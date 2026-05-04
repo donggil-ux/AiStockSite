@@ -735,7 +735,6 @@
                 <!-- Lightweight Charts -->
                 <div class="card tv-chart-card" style="padding:0;overflow:hidden;" id="tvChartCard">
                     <div class="chart-toolbar" id="chartToolbar">
-                        <span class="chart-tb-label">봉</span>
                         <div class="chart-toolbar-group" style="position:relative;">
                             <!-- 분봉 드롭다운 (1, 3, 5, 10, 15, 30, 60, 120, 240) -->
                             <div class="interval-dropdown" id="intervalDropdown">
@@ -758,16 +757,17 @@
                             <button class="chart-tb-btn interval-btn"        data-interval="1mo" onclick="setChartInterval('1mo')">월</button>
                             <button class="chart-tb-btn interval-btn"        data-interval="1y"  onclick="setChartInterval('1y')">년</button>
                         </div>
-                        <div class="chart-toolbar-divider"></div>
-                        <span class="chart-tb-label">기간</span>
-                        <div class="chart-toolbar-group">
-                            <button class="chart-tb-btn range-btn" data-range="1d" onclick="setPeriod('1d')" style="display:none">1일</button>
-                            <button class="chart-tb-btn range-btn" data-range="5d" onclick="setPeriod('5d')" style="display:none">5일</button>
+                        <!-- 기간 버튼 — 인터벌이 시간 척도를 이미 결정하므로 UI 숨김.
+                             내부적으로는 setChartInterval 이 INTERVAL_RANGES.defaultRange 를 자동 적용 -->
+                        <div class="chart-toolbar-group" style="display:none;" id="rangeBtnGroup">
+                            <button class="chart-tb-btn range-btn" data-range="1d"  onclick="setPeriod('1d')">1일</button>
+                            <button class="chart-tb-btn range-btn" data-range="5d"  onclick="setPeriod('5d')">5일</button>
                             <button class="chart-tb-btn range-btn" data-range="1mo" onclick="setPeriod('1mo')">1개월</button>
                             <button class="chart-tb-btn range-btn" data-range="3mo" onclick="setPeriod('3mo')">3개월</button>
-                            <button class="chart-tb-btn range-btn active" data-range="6mo" onclick="setPeriod('6mo')">6개월</button>
-                            <button class="chart-tb-btn range-btn" data-range="1y" onclick="setPeriod('1y')">1년</button>
-                            <button class="chart-tb-btn range-btn" data-range="5y" onclick="setPeriod('5y')">5년</button>
+                            <button class="chart-tb-btn range-btn" data-range="6mo" onclick="setPeriod('6mo')">6개월</button>
+                            <button class="chart-tb-btn range-btn" data-range="1y"  onclick="setPeriod('1y')">1년</button>
+                            <button class="chart-tb-btn range-btn" data-range="5y"  onclick="setPeriod('5y')">5년</button>
+                            <button class="chart-tb-btn range-btn" data-range="max" onclick="setPeriod('max')">전체</button>
                         </div>
                         <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
                             <!-- 스윙 / 단타 모드 토글 (AI 분석 시 적용됨) -->
@@ -1745,20 +1745,21 @@
         '1d':'일','1wk':'주','1mo':'월','1y':'년',
     };
 
-    // 봉 타입별 허용 기간 및 기본 기간
+    // 봉 타입별 기본 기간 — 인터벌별로 한눈에 의미 있는 데이터 양을 자동 적용
+    // (기간 UI를 숨겼기 때문에 기본값이 곧 사용자 경험 — 충분한 과거 데이터 확보)
     const INTERVAL_RANGES = {
-        '1m':  { allowed: ['1d','5d'],            defaultRange: '1d' },
-        '3m':  { allowed: ['1d','5d'],            defaultRange: '5d' },   // 3분 → 1분 × 3 집계, 1d ≈ 130봉
-        '5m':  { allowed: ['1d','5d'],            defaultRange: '1d' },
-        '10m': { allowed: ['1d','5d','1mo'],      defaultRange: '5d' },
-        '15m': { allowed: ['1d','5d','1mo'],      defaultRange: '5d' },
-        '30m': { allowed: ['5d','1mo'],           defaultRange: '5d' },
-        '60m': { allowed: ['5d','1mo','3mo'],     defaultRange: '1mo' },
-        '1h':  { allowed: ['5d','1mo','3mo'],     defaultRange: '1mo' },  // 하위호환
-        '1d':  { allowed: ['1mo','3mo','6mo','1y','5y'], defaultRange: '6mo' },
-        '1wk': { allowed: ['3mo','6mo','1y','5y','max'], defaultRange: '1y' },
-        '1mo': { allowed: ['1y','5y','max'],      defaultRange: '5y' },
-        '1y':  { allowed: ['5y','max'],           defaultRange: 'max' },  // 년봉 → 월 × 12 집계
+        '1m':  { allowed: ['1d','5d'],            defaultRange: '1d' },   // 1분 × 1d ≈ 390봉
+        '3m':  { allowed: ['1d','5d'],            defaultRange: '5d' },   // 3분 → 1분 × 3 집계
+        '5m':  { allowed: ['1d','5d'],            defaultRange: '5d' },   // 5d ≈ 390봉
+        '10m': { allowed: ['1d','5d','1mo'],      defaultRange: '1mo' },  // 10분 → 5분 × 2 집계
+        '15m': { allowed: ['5d','1mo'],           defaultRange: '1mo' },
+        '30m': { allowed: ['5d','1mo','3mo'],     defaultRange: '1mo' },
+        '60m': { allowed: ['1mo','3mo','6mo'],    defaultRange: '3mo' },
+        '1h':  { allowed: ['1mo','3mo','6mo'],    defaultRange: '3mo' },  // 하위호환
+        '1d':  { allowed: ['6mo','1y','5y'],      defaultRange: '1y' },   // 일봉 1년치 — 이전엔 6mo
+        '1wk': { allowed: ['1y','5y','max'],      defaultRange: '5y' },   // 주봉 5년치 — 이전엔 1y
+        '1mo': { allowed: ['5y','max'],           defaultRange: 'max' },  // 월봉 전체 — 이전엔 5y
+        '1y':  { allowed: ['max'],                defaultRange: 'max' },  // 년봉 → 월 × 12 집계
     };
 
     function setPeriod(period) {
@@ -1867,9 +1868,10 @@
             }
         });
 
-        // 현재 기간이 유효하지 않으면 기본값으로 변경
-        if (!currentRangeValid) {
+        // 인터벌 변경 시 항상 defaultRange 적용 — 기간 UI 숨겼으므로 인터벌이 곧 기간 결정
+        if (interval !== prevInterval) {
             currentPeriod = config.defaultRange;
+            try { localStorage.setItem('stockai_chart_period', currentPeriod); } catch(e) {}
             rangeButtons.forEach(b => b.classList.toggle('active', b.dataset.range === currentPeriod));
         }
 
