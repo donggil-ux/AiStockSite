@@ -736,13 +736,27 @@
                 <div class="card tv-chart-card" style="padding:0;overflow:hidden;" id="tvChartCard">
                     <div class="chart-toolbar" id="chartToolbar">
                         <span class="chart-tb-label">봉</span>
-                        <div class="chart-toolbar-group">
-                            <button class="chart-tb-btn interval-btn" data-interval="1m" onclick="setChartInterval('1m')">1분</button>
-                            <button class="chart-tb-btn interval-btn" data-interval="5m" onclick="setChartInterval('5m')">5분</button>
-                            <button class="chart-tb-btn interval-btn" data-interval="15m" onclick="setChartInterval('15m')">15분</button>
-                            <button class="chart-tb-btn interval-btn" data-interval="1h" onclick="setChartInterval('1h')">1시간</button>
-                            <button class="chart-tb-btn interval-btn active" data-interval="1d" onclick="setChartInterval('1d')">일봉</button>
-                            <button class="chart-tb-btn interval-btn" data-interval="1wk" onclick="setChartInterval('1wk')">주봉</button>
+                        <div class="chart-toolbar-group" style="position:relative;">
+                            <!-- 분봉 드롭다운 (1, 3, 5, 10, 15, 30, 60, 120, 240) -->
+                            <div class="interval-dropdown" id="intervalDropdown">
+                                <button class="chart-tb-btn interval-dd-btn" id="intervalDdBtn" onclick="_toggleIntervalDropdown(event)" type="button">
+                                    <span id="intervalDdLabel">5분</span>
+                                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:2px;"><polyline points="2 4 6 8 10 4"/></svg>
+                                </button>
+                                <div class="interval-dd-menu" id="intervalDdMenu" style="display:none;">
+                                    <button class="interval-dd-item" data-interval="1m"   onclick="setChartInterval('1m')">1분</button>
+                                    <button class="interval-dd-item" data-interval="3m"   onclick="setChartInterval('3m')">3분</button>
+                                    <button class="interval-dd-item active" data-interval="5m"   onclick="setChartInterval('5m')">5분</button>
+                                    <button class="interval-dd-item" data-interval="10m"  onclick="setChartInterval('10m')">10분</button>
+                                    <button class="interval-dd-item" data-interval="15m"  onclick="setChartInterval('15m')">15분</button>
+                                    <button class="interval-dd-item" data-interval="30m"  onclick="setChartInterval('30m')">30분</button>
+                                    <button class="interval-dd-item" data-interval="60m"  onclick="setChartInterval('60m')">60분</button>
+                                </div>
+                            </div>
+                            <button class="chart-tb-btn interval-btn active" data-interval="1d"  onclick="setChartInterval('1d')">일</button>
+                            <button class="chart-tb-btn interval-btn"        data-interval="1wk" onclick="setChartInterval('1wk')">주</button>
+                            <button class="chart-tb-btn interval-btn"        data-interval="1mo" onclick="setChartInterval('1mo')">월</button>
+                            <button class="chart-tb-btn interval-btn"        data-interval="1y"  onclick="setChartInterval('1y')">년</button>
                         </div>
                         <div class="chart-toolbar-divider"></div>
                         <span class="chart-tb-label">기간</span>
@@ -1216,7 +1230,16 @@
         try { localStorage.setItem(_AI_LS_PREFIX + symbol, JSON.stringify(data)); } catch(e) {}
     }
     function _aiLsLoad(symbol) {
-        try { return JSON.parse(localStorage.getItem(_AI_LS_PREFIX + symbol)); } catch(e) { return null; }
+        try {
+            const raw = JSON.parse(localStorage.getItem(_AI_LS_PREFIX + symbol));
+            if (!raw) return null;
+            // 마이그레이션: 옛 스키마(levels/trendlines)는 무효 처리 — 테스타 신호 카드와 호환 안 됨
+            if (!raw.signal && (Array.isArray(raw.levels) || Array.isArray(raw.trendlines))) {
+                _aiLsRemove(symbol);
+                return null;
+            }
+            return raw;
+        } catch(e) { return null; }
     }
     function _aiLsRemove(symbol) {
         try { localStorage.removeItem(_AI_LS_PREFIX + symbol); } catch(e) {}
@@ -1694,19 +1717,48 @@
         input.value = '';
     }
 
-    // 분봉/시간봉인지 판별
+    // 분봉/시간봉인지 판별 (1m~60m, 1h)
     function isIntraday(interval) {
-        return ['1m','5m','15m','1h'].includes(interval);
+        return /m$/.test(interval) || interval === '1h';
     }
+
+    // 인터벌 → Yahoo API 인터벌 + 집계 factor 매핑
+    // Yahoo Finance가 직접 제공하지 않는 인터벌(3m, 10m)은 작은 단위로 받아서 client에서 합침
+    const INTERVAL_AGG = {
+        '1m':  { yahoo: '1m',  factor: 1 },
+        '3m':  { yahoo: '1m',  factor: 3 },   // 1분 × 3봉 = 3분봉
+        '5m':  { yahoo: '5m',  factor: 1 },
+        '10m': { yahoo: '5m',  factor: 2 },   // 5분 × 2봉 = 10분봉
+        '15m': { yahoo: '15m', factor: 1 },
+        '30m': { yahoo: '30m', factor: 1 },
+        '60m': { yahoo: '60m', factor: 1 },
+        '1h':  { yahoo: '1h',  factor: 1 },   // 하위호환
+        '1d':  { yahoo: '1d',  factor: 1 },
+        '1wk': { yahoo: '1wk', factor: 1 },
+        '1mo': { yahoo: '1mo', factor: 1 },
+        '1y':  { yahoo: '1mo', factor: 12 },  // 월 × 12 = 년봉
+    };
+
+    // 인터벌별 표기 라벨 (드롭다운 + 활성 상태용)
+    const INTERVAL_LABELS = {
+        '1m':'1분','3m':'3분','5m':'5분','10m':'10분','15m':'15분','30m':'30분','60m':'60분','1h':'60분',
+        '1d':'일','1wk':'주','1mo':'월','1y':'년',
+    };
 
     // 봉 타입별 허용 기간 및 기본 기간
     const INTERVAL_RANGES = {
-        '1m':  { allowed: ['1d','5d'], defaultRange: '1d' },
-        '5m':  { allowed: ['1d','5d'], defaultRange: '1d' },
-        '15m': { allowed: ['1d','5d'], defaultRange: '5d' },
-        '1h':  { allowed: ['5d','1mo'], defaultRange: '5d' },
+        '1m':  { allowed: ['1d','5d'],            defaultRange: '1d' },
+        '3m':  { allowed: ['1d','5d'],            defaultRange: '5d' },   // 3분 → 1분 × 3 집계, 1d ≈ 130봉
+        '5m':  { allowed: ['1d','5d'],            defaultRange: '1d' },
+        '10m': { allowed: ['1d','5d','1mo'],      defaultRange: '5d' },
+        '15m': { allowed: ['1d','5d','1mo'],      defaultRange: '5d' },
+        '30m': { allowed: ['5d','1mo'],           defaultRange: '5d' },
+        '60m': { allowed: ['5d','1mo','3mo'],     defaultRange: '1mo' },
+        '1h':  { allowed: ['5d','1mo','3mo'],     defaultRange: '1mo' },  // 하위호환
         '1d':  { allowed: ['1mo','3mo','6mo','1y','5y'], defaultRange: '6mo' },
-        '1wk': { allowed: ['3mo','6mo','1y','5y'], defaultRange: '1y' },
+        '1wk': { allowed: ['3mo','6mo','1y','5y','max'], defaultRange: '1y' },
+        '1mo': { allowed: ['1y','5y','max'],      defaultRange: '5y' },
+        '1y':  { allowed: ['5y','max'],           defaultRange: 'max' },  // 년봉 → 월 × 12 집계
     };
 
     function setPeriod(period) {
@@ -1716,10 +1768,88 @@
         if (currentSymbol) searchStock();
     }
 
+    // 드롭다운 토글
+    function _toggleIntervalDropdown(ev) {
+        if (ev) ev.stopPropagation();
+        const menu = document.getElementById('intervalDdMenu');
+        if (!menu) return;
+        const isOpen = menu.style.display !== 'none' && menu.style.display !== '';
+        menu.style.display = isOpen ? 'none' : 'block';
+    }
+    // 외부 클릭 시 드롭다운 닫기
+    document.addEventListener('click', (e) => {
+        const dd = document.getElementById('intervalDropdown');
+        const menu = document.getElementById('intervalDdMenu');
+        if (dd && menu && !dd.contains(e.target)) menu.style.display = 'none';
+    });
+
+    // OHLCV 봉 집계 함수 — N개 봉을 1개로 합침 (timestamp는 첫 봉 것 사용)
+    function _aggregateBars(quote, timestamps, factor) {
+        if (factor <= 1 || !quote) return { quote, timestamps };
+        const N = (quote.close || []).length;
+        if (N === 0) return { quote, timestamps };
+        const o2 = [], h2 = [], l2 = [], c2 = [], v2 = [], t2 = [];
+        for (let i = 0; i < N; i += factor) {
+            const end = Math.min(i + factor, N);
+            // 청크 내 유효값만 집계
+            let firstOpen = null, lastClose = null, hi = -Infinity, lo = Infinity, vol = 0;
+            for (let j = i; j < end; j++) {
+                if (quote.open[j]  != null && firstOpen === null) firstOpen = quote.open[j];
+                if (quote.close[j] != null) lastClose = quote.close[j];
+                if (quote.high[j]  != null && quote.high[j] > hi) hi = quote.high[j];
+                if (quote.low[j]   != null && quote.low[j]  < lo) lo = quote.low[j];
+                if (quote.volume[j]!= null) vol += quote.volume[j];
+            }
+            t2.push(timestamps[i] || 0);
+            o2.push(firstOpen);
+            c2.push(lastClose);
+            h2.push(hi  === -Infinity ? null : hi);
+            l2.push(lo  ===  Infinity ? null : lo);
+            v2.push(vol);
+        }
+        return {
+            quote: { open: o2, high: h2, low: l2, close: c2, volume: v2 },
+            timestamps: t2,
+        };
+    }
+
     function setChartInterval(interval) {
+        const prevInterval = currentInterval;
         currentInterval = interval;
         try { localStorage.setItem('stockai_chart_interval', interval); } catch(e) {}
+        // 사각 버튼(일/주/월/년)과 드롭다운 항목 활성 상태 동기화
         document.querySelectorAll('.interval-btn').forEach(b => b.classList.toggle('active', b.dataset.interval === interval));
+        document.querySelectorAll('.interval-dd-item').forEach(b => b.classList.toggle('active', b.dataset.interval === interval));
+        // 드롭다운 라벨 업데이트 (분봉이면 X분 표시, 아니면 "분봉")
+        const ddBtn = document.getElementById('intervalDdBtn');
+        const ddLabel = document.getElementById('intervalDdLabel');
+        if (ddLabel && ddBtn) {
+            const isMin = /m$/.test(interval) || interval === '1h';
+            if (isMin) {
+                ddLabel.textContent = INTERVAL_LABELS[interval] || interval;
+                ddBtn.classList.add('active');
+            } else {
+                ddLabel.textContent = '분봉';
+                ddBtn.classList.remove('active');
+            }
+        }
+        // 드롭다운 닫기
+        const menu = document.getElementById('intervalDdMenu');
+        if (menu) menu.style.display = 'none';
+
+        // 5분봉으로 전환 시 자동으로 단타 모드 활성화 + 토스트
+        if (interval === '5m' && prevInterval !== '5m' && typeof currentTestaMode !== 'undefined') {
+            if (currentTestaMode === 'swing') {
+                currentTestaMode = 'day';
+                try { localStorage.setItem('testaMode', 'day'); } catch(_){}
+                document.querySelectorAll('.trade-mode-toggle .tm-btn').forEach(b =>
+                    b.classList.toggle('active', b.dataset.mode === 'day')
+                );
+                if (typeof showToast === 'function') showToast('⚡ 5분봉 돌파 단타 모드로 자동 전환');
+            } else {
+                if (typeof showToast === 'function') showToast('⚡ 5분봉 돌파 단타 모드 활성');
+            }
+        }
 
         // 봉 타입에 맞게 기간 버튼 표시/숨김 및 기본 기간 설정
         const config = INTERVAL_RANGES[interval];
@@ -2913,6 +3043,23 @@
         b.classList.toggle('active', b.dataset.range === currentPeriod));
     document.querySelectorAll('.interval-btn').forEach(b =>
         b.classList.toggle('active', b.dataset.interval === currentInterval));
+    // 분봉 드롭다운 초기 라벨 동기화
+    {
+        const ddBtn   = document.getElementById('intervalDdBtn');
+        const ddLabel = document.getElementById('intervalDdLabel');
+        if (ddLabel && ddBtn) {
+            const isMin = /m$/.test(currentInterval) || currentInterval === '1h';
+            if (isMin) {
+                ddLabel.textContent = INTERVAL_LABELS[currentInterval] || currentInterval;
+                ddBtn.classList.add('active');
+            } else {
+                ddLabel.textContent = '분봉';
+                ddBtn.classList.remove('active');
+            }
+        }
+        document.querySelectorAll('.interval-dd-item').forEach(b =>
+            b.classList.toggle('active', b.dataset.interval === currentInterval));
+    }
 
     // 페이지 로드 시 즉시 실행
     loadTop100();
@@ -7295,14 +7442,17 @@
             // Fetch chart data
             const range = currentPeriod;
             const interval = currentInterval;
-            // Yahoo Finance: includePrePost=true → 프리/애프터마켓 데이터 포함
-            const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${range}&interval=${interval}&includePrePost=true`;
+            // Yahoo Finance가 직접 제공하지 않는 인터벌(3분/10분/년봉)은 작은 단위로 받아서 클라이언트에서 집계
+            const aggCfg = INTERVAL_AGG[interval] || { yahoo: interval, factor: 1 };
+            const yahooInterval = aggCfg.yahoo;
+            // includePrePost=true → 프리/애프터마켓 데이터 포함
+            const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${range}&interval=${yahooInterval}&includePrePost=true`;
             let data = await fetchWithProxy(chartUrl);
 
             // If KR stock fails with .KS, try .KQ (KOSDAQ)
             if (currentMarket === 'KR' && (!data.chart?.result || data.chart?.error)) {
                 symbol = currentSymbol + '.KQ';
-                const chartUrl2 = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${currentPeriod}&interval=${interval}&includePrePost=true`;
+                const chartUrl2 = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${currentPeriod}&interval=${yahooInterval}&includePrePost=true`;
                 data = await fetchWithProxy(chartUrl2);
             }
 
@@ -7311,6 +7461,13 @@
             }
 
             stockData = data.chart.result[0];
+
+            // 집계 필요한 인터벌(3분/10분/년봉)은 클라이언트에서 N봉 합치기
+            if (aggCfg.factor > 1 && stockData?.indicators?.quote?.[0] && stockData?.timestamp) {
+                const agg = _aggregateBars(stockData.indicators.quote[0], stockData.timestamp, aggCfg.factor);
+                stockData.indicators.quote[0] = agg.quote;
+                stockData.timestamp = agg.timestamps;
+            }
             currentFullSymbol = symbol;  // 실시간 업데이트용 풀 심볼 저장
 
             // 브라우저 뒤로가기 지원 — popstate 재호출 시에는 skip
@@ -14345,7 +14502,7 @@
         _renderTestaSignalCard(data);
     }
 
-    // ── 테스타 신호 카드 렌더링 (4가지 신호) ──
+    // ── 테스타 신호 카드 렌더링 (4가지 신호 + 3가지 모드) ──
     function _renderTestaSignalCard(data) {
         const card = document.getElementById('aiSummaryCard');
         if (!card) return;
@@ -14366,45 +14523,93 @@
 
         let body = '';
 
-        const isDayMode = data.mode === 'day';
+        const isBreakout5m = data.mode === 'breakout-5m';
+        const isDayMode = data.mode === 'day' || isBreakout5m;
+        // 모드 라벨
+        const modeLabel = isBreakout5m ? '5분봉 돌파' : (data.mode === 'day' ? '단타' : '스윙');
         if (signal === 'BUY' && data.entry) {
             const e = data.entry;
-            // 단타 모드 권장 청산 안내
-            const URGENCY_LABEL = {
-                intraday: { ko: '당일 청산 권장', cls: 'testa-urgency-high' },
-                short:    { ko: '2~3거래일 청산 권장', cls: 'testa-urgency-medium' },
-                standard: { ko: '4~5거래일 청산 권장', cls: 'testa-urgency-low' },
-            };
-            const urg = URGENCY_LABEL[e.urgency] || URGENCY_LABEL.standard;
-            const dayInfo = isDayMode ? `
-                <div class="testa-day-mode-info">
-                    <span>⚡</span>
-                    <span class="${urg.cls}">${urg.ko}</span>
-                    ${e.expectedHoldDays ? `<span class="testa-day-deadline">· 보유 ${e.expectedHoldDays}일</span>` : ''}
-                </div>
-                ${e.holdDaysRationale ? `<div class="testa-day-deadline">📌 ${escHtml(e.holdDaysRationale)}</div>` : ''}
-                <div class="testa-day-deadline">⏰ 강제 청산 데드라인: ${e.exitDeadlineDays || 5}거래일 (1주 초과 보유 금지)</div>
-            ` : '';
+            // ── 5분봉 돌파 단타 BUY 카드 (별도 디자인) ──
+            if (isBreakout5m) {
+                const SL_TYPE_LABEL = {
+                    'price-break': '돌파선 -0.3% 이탈',
+                    'ma20-break':  'SMA20 이탈',
+                    'loss-pct':    '진입가 -1.5%',
+                };
+                const SOURCE_LABEL = {
+                    'today-box-high':  '당일 박스 상단',
+                    'yesterday-high':  '전일 고점',
+                    'resistance':      '저항선',
+                };
+                const tp1Price = e.price && e.takeProfit1Pct ? e.price * (1 + e.takeProfit1Pct/100) : null;
+                const tp2Price = e.price && e.takeProfit2Pct ? e.price * (1 + e.takeProfit2Pct/100) : null;
+                body = `
+                    <div class="testa-day-mode-info testa-breakout-banner">
+                        <span>⚡</span>
+                        <span class="testa-urgency-high">5분봉 돌파 단타 — 당일 청산 원칙</span>
+                        ${e.expectedHoldMinutes ? `<span class="testa-day-deadline">· 보유 ${e.expectedHoldMinutes}분 (${Math.round(e.expectedHoldMinutes/60*10)/10}시간)</span>` : ''}
+                    </div>
+                    <div class="testa-position-info">
+                        <div class="tpi-row"><span class="tpi-lbl">돌파선 (${SOURCE_LABEL[e.breakoutSource] || '저항선'})</span><span class="tpi-val testa-line-breakout">${_fmtP(e.breakoutPrice)}</span></div>
+                        <div class="tpi-row"><span class="tpi-lbl">진입가</span><span class="tpi-val">${_fmtP(e.price)}</span></div>
+                        <div class="tpi-row"><span class="tpi-lbl">손절가</span><span class="tpi-val tpi-stop">${_fmtP(e.stopLossPrice)} (${_pct(e.stopLossPct)})</span></div>
+                        <div class="tpi-row"><span class="tpi-lbl">손절 유형</span><span class="tpi-val">${SL_TYPE_LABEL[e.stopLossType] || e.stopLossType || '-'}</span></div>
+                        <div class="tpi-row"><span class="tpi-lbl">1차 익절 (50% 청산)</span><span class="tpi-val tpi-take">${_fmtP(tp1Price)} (+${e.takeProfit1Pct ?? 1.5}%)</span></div>
+                        <div class="tpi-row"><span class="tpi-lbl">2차 익절 (30% 청산)</span><span class="tpi-val tpi-take">${_fmtP(tp2Price)} (+${e.takeProfit2Pct ?? 3.0}%)</span></div>
+                        <div class="tpi-row"><span class="tpi-lbl">잔여 20% 트레일링</span><span class="tpi-val">${(e.trailingMA || 'sma5').toUpperCase()}</span></div>
+                        <div class="tpi-row"><span class="tpi-lbl">권장 비중</span><span class="tpi-val">${e.positionSizePct != null ? e.positionSizePct.toFixed(1) + '%' : '5.0%'}</span></div>
+                        <div class="tpi-row"><span class="tpi-lbl">시간 손절</span><span class="tpi-val testa-time-countdown">${e.timeStopMinutes || 30}분 (${e.timeStopBars || 6}봉) 내 +0.5% 미달성 시 정리</span></div>
+                    </div>
+                    ${e.deadline ? `<div class="testa-day-deadline">⏰ ${escHtml(e.deadline)}</div>` : ''}
+                    <div class="testa-criteria-title">진입 근거 (5분봉 돌파 4단계 — 모두 충족)</div>
+                    <ul class="testa-criteria">
+                        ${(e.criteria || []).map(c => `
+                            <li class="${c.passed ? 'pass' : 'fail'}">
+                                <span class="tc-icon">${c.passed ? '✓' : '✗'}</span>
+                                <div class="tc-body">
+                                    <div class="tc-label">${escHtml(c.label || '')}</div>
+                                    ${c.detail ? `<div class="tc-detail">${escHtml(c.detail)}</div>` : ''}
+                                </div>
+                            </li>`).join('')}
+                    </ul>`;
+            } else {
+                // 일봉 단타/스윙 BUY 카드 (기존)
+                const URGENCY_LABEL = {
+                    intraday: { ko: '당일 청산 권장', cls: 'testa-urgency-high' },
+                    short:    { ko: '2~3거래일 청산 권장', cls: 'testa-urgency-medium' },
+                    standard: { ko: '4~5거래일 청산 권장', cls: 'testa-urgency-low' },
+                };
+                const urg = URGENCY_LABEL[e.urgency] || URGENCY_LABEL.standard;
+                const dayInfo = isDayMode ? `
+                    <div class="testa-day-mode-info">
+                        <span>⚡</span>
+                        <span class="${urg.cls}">${urg.ko}</span>
+                        ${e.expectedHoldDays ? `<span class="testa-day-deadline">· 보유 ${e.expectedHoldDays}일</span>` : ''}
+                    </div>
+                    ${e.holdDaysRationale ? `<div class="testa-day-deadline">📌 ${escHtml(e.holdDaysRationale)}</div>` : ''}
+                    <div class="testa-day-deadline">⏰ 강제 청산 데드라인: ${e.exitDeadlineDays || 5}거래일 (1주 초과 보유 금지)</div>
+                ` : '';
 
-            body = `
-                <div class="testa-position-info">
-                    <div class="tpi-row"><span class="tpi-lbl">진입가</span><span class="tpi-val">${_fmtP(e.price)}</span></div>
-                    <div class="tpi-row"><span class="tpi-lbl">손절가 (MA20)</span><span class="tpi-val tpi-stop">${_fmtP(e.stopLossPrice)} (${_pct(e.stopLossPct)})</span></div>
-                    <div class="tpi-row"><span class="tpi-lbl">권장 비중</span><span class="tpi-val">${e.positionSizePct != null ? e.positionSizePct.toFixed(2) + '%' : '-'}</span></div>
-                    <div class="tpi-row"><span class="tpi-lbl">예상 R/R</span><span class="tpi-val">${e.expectedRR || '-'}</span></div>
-                </div>
-                ${dayInfo}
-                <div class="testa-criteria-title">진입 근거 (${isDayMode ? '9개 조건 — 5원칙 + 4 단타 강화' : '5개 조건 모두 충족'})</div>
-                <ul class="testa-criteria">
-                    ${(e.criteria || []).map(c => `
-                        <li class="${c.passed ? 'pass' : 'fail'}">
-                            <span class="tc-icon">${c.passed ? '✓' : '✗'}</span>
-                            <div class="tc-body">
-                                <div class="tc-label">${escHtml(c.label || '')}</div>
-                                ${c.detail ? `<div class="tc-detail">${escHtml(c.detail)}</div>` : ''}
-                            </div>
-                        </li>`).join('')}
-                </ul>`;
+                body = `
+                    <div class="testa-position-info">
+                        <div class="tpi-row"><span class="tpi-lbl">진입가</span><span class="tpi-val">${_fmtP(e.price)}</span></div>
+                        <div class="tpi-row"><span class="tpi-lbl">손절가 (MA20)</span><span class="tpi-val tpi-stop">${_fmtP(e.stopLossPrice)} (${_pct(e.stopLossPct)})</span></div>
+                        <div class="tpi-row"><span class="tpi-lbl">권장 비중</span><span class="tpi-val">${e.positionSizePct != null ? e.positionSizePct.toFixed(2) + '%' : '-'}</span></div>
+                        <div class="tpi-row"><span class="tpi-lbl">예상 R/R</span><span class="tpi-val">${e.expectedRR || '-'}</span></div>
+                    </div>
+                    ${dayInfo}
+                    <div class="testa-criteria-title">진입 근거 (${isDayMode ? '9개 조건 — 5원칙 + 4 단타 강화' : '5개 조건 모두 충족'})</div>
+                    <ul class="testa-criteria">
+                        ${(e.criteria || []).map(c => `
+                            <li class="${c.passed ? 'pass' : 'fail'}">
+                                <span class="tc-icon">${c.passed ? '✓' : '✗'}</span>
+                                <div class="tc-body">
+                                    <div class="tc-label">${escHtml(c.label || '')}</div>
+                                    ${c.detail ? `<div class="tc-detail">${escHtml(c.detail)}</div>` : ''}
+                                </div>
+                            </li>`).join('')}
+                    </ul>`;
+            }
         } else if ((signal === 'SELL_STOP' || signal === 'SELL_TAKE') && data.exit) {
             const x = data.exit;
             const isStop = signal === 'SELL_STOP';
@@ -14431,14 +14636,16 @@
                 <div class="testa-guidance">${escHtml(h.guidance || '조건 충족 시까지 대기')}</div>`;
         }
 
+        // 카드 모드 클래스 — breakout-5m / day / swing 3가지
+        const modeClass = isBreakout5m ? 'mode-breakout-5m' : (isDayMode ? 'mode-day' : 'mode-swing');
         card.style.display = '';
         card.innerHTML = `
-            <div class="testa-card ${meta.klass} ${isDayMode ? 'mode-day' : 'mode-swing'}">
+            <div class="testa-card ${meta.klass} ${modeClass}">
                 <div class="testa-card-head">
                     <span class="testa-badge ${meta.klass}">
                         <span class="tb-icon">${meta.icon}</span>
                         <span class="tb-label">${meta.label}</span>
-                        <span class="tb-mode">${isDayMode ? '단타' : '스윙'}</span>
+                        <span class="tb-mode">${modeLabel}</span>
                     </span>
                     <div class="testa-card-meta">
                         <span class="tcm-sym">${escHtml(sym)}</span>
@@ -14633,13 +14840,29 @@
     // ── 테스타 매매 모드 (스윙 / 단타) ──
     let currentTestaMode = (typeof localStorage !== 'undefined' && localStorage.getItem('testaMode') === 'day') ? 'day' : 'swing';
     function setTradeMode(mode) {
+        // 5분봉 차트에서는 swing 불가 → 자동 day 전환
+        if (mode === 'swing' && currentInterval === '5m') {
+            currentTestaMode = 'day';
+            try { localStorage.setItem('testaMode', 'day'); } catch(_){}
+            document.querySelectorAll('.trade-mode-toggle .tm-btn').forEach(b =>
+                b.classList.toggle('active', b.dataset.mode === 'day')
+            );
+            if (typeof showToast === 'function') {
+                showToast('⚡ 5분봉은 단타 전용입니다. 자동 단타 전환');
+            }
+            return;
+        }
         currentTestaMode = (mode === 'day') ? 'day' : 'swing';
         try { localStorage.setItem('testaMode', currentTestaMode); } catch(_){}
         document.querySelectorAll('.trade-mode-toggle .tm-btn').forEach(b =>
             b.classList.toggle('active', b.dataset.mode === currentTestaMode)
         );
         if (typeof showToast === 'function') {
-            showToast(currentTestaMode === 'day' ? '⚡ 단타 모드 — 1~5거래일 청산' : '📈 스윙 모드 — 추세 종료까지');
+            const isBreakout = currentTestaMode === 'day' && currentInterval === '5m';
+            const msg = isBreakout ? '⚡ 5분봉 돌파 단타 모드 (당일 청산)'
+                : currentTestaMode === 'day' ? '⚡ 단타 모드 — 1~5거래일 청산'
+                : '📈 스윙 모드 — 추세 종료까지';
+            showToast(msg);
         }
     }
     // 페이지 로드 시 저장된 모드 복원
@@ -14648,6 +14871,91 @@
             b.classList.toggle('active', b.dataset.mode === currentTestaMode)
         );
     });
+
+    // ── 5분봉 돌파 단타 컨텍스트 추출 (전일 고점, 당일 박스 상단, 장 시작 후 경과 분 등) ──
+    function _extractBreakoutContext(ohlcv, dates, highs, lows, closes, currentInterval) {
+        // 5분봉 전용 — 그 외 인터벌이면 null 반환
+        if (currentInterval !== '5m') return null;
+        if (!ohlcv || ohlcv.length === 0 || !dates || dates.length === 0) return null;
+
+        // 마지막 봉의 timestamp 기준 → 오늘 날짜 추출
+        const lastTs = (typeof stockData !== 'undefined' && stockData?.timestamp)
+            ? stockData.timestamp[stockData.timestamp.length - 1] : null;
+        if (!lastTs) return null;
+        const lastDate = new Date(lastTs * 1000);
+        const today = lastDate.toISOString().slice(0,10);
+
+        // 어제 날짜 (마지막 봉 기준 1일 전, 주말 건너뛰기)
+        const yesterday = new Date(lastDate);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().slice(0,10);
+
+        // ohlcv를 날짜별로 그룹화 (각 OHLCV 항목의 d 필드는 'YYYY-MM-DD' 형식)
+        const todayBars = ohlcv.filter(o => o.d === today);
+        const yesterdayBars = ohlcv.filter(o => o.d === yesterdayStr);
+
+        // 어제 최고가 (없으면 그제, 그그제 등 가장 최근 다른 날)
+        let yesterdayHigh = null;
+        if (yesterdayBars.length > 0) {
+            yesterdayHigh = Math.max(...yesterdayBars.map(o => o.h ?? -Infinity).filter(v => v > -Infinity));
+        } else {
+            // 폴백: today 가 아닌 가장 최근 날의 최고가
+            const otherDayBars = ohlcv.filter(o => o.d && o.d !== today);
+            if (otherDayBars.length > 0) {
+                const lastOtherDay = otherDayBars[otherDayBars.length - 1].d;
+                const lastOtherDayBars = ohlcv.filter(o => o.d === lastOtherDay);
+                yesterdayHigh = Math.max(...lastOtherDayBars.map(o => o.h ?? -Infinity).filter(v => v > -Infinity));
+            }
+        }
+
+        // 오늘 시가, 현재까지 최고가, 박스 상하단 (첫 6봉 = 30분)
+        let todayOpen = null, todayHighSoFar = null, todayBoxHigh = null, todayBoxLow = null;
+        if (todayBars.length > 0) {
+            todayOpen = todayBars[0].o ?? null;
+            const todayHighs = todayBars.map(o => o.h).filter(v => v != null);
+            todayHighSoFar = todayHighs.length > 0 ? Math.max(...todayHighs) : null;
+            const boxBars = todayBars.slice(0, 6); // 첫 6봉(30분)
+            if (boxBars.length >= 3) { // 최소 3봉(15분)은 있어야 박스 형성으로 인정
+                const boxHighs = boxBars.map(o => o.h).filter(v => v != null);
+                const boxLows  = boxBars.map(o => o.l).filter(v => v != null);
+                todayBoxHigh = boxHighs.length > 0 ? Math.max(...boxHighs) : null;
+                todayBoxLow  = boxLows.length > 0  ? Math.min(...boxLows)  : null;
+            }
+        }
+
+        // 최근 5일 최고가 (today 제외)
+        const recent5dBars = ohlcv.filter(o => o.d && o.d !== today).slice(-5*78); // 약 5거래일치 (78봉/거래일)
+        const recent5dHighs = recent5dBars.map(o => o.h).filter(v => v != null);
+        const recent5dHigh = recent5dHighs.length > 0 ? Math.max(...recent5dHighs) : null;
+
+        // 장 시작 후 경과 분 (오늘 첫 봉 시각부터 마지막 봉 시각까지)
+        let minutesSinceOpen = null, isMarketHours = false;
+        if (todayBars.length > 0 && stockData?.timestamp) {
+            // todayBars 첫 항목의 timestamp 찾기
+            const firstTodayIdx = ohlcv.findIndex(o => o.d === today);
+            if (firstTodayIdx >= 0) {
+                const tsArr = stockData.timestamp;
+                const offset = stockData.timestamp.length - ohlcv.length;
+                const firstTodayTs = tsArr[firstTodayIdx + offset];
+                if (firstTodayTs) {
+                    minutesSinceOpen = Math.round((lastTs - firstTodayTs) / 60);
+                    isMarketHours = minutesSinceOpen >= 0 && minutesSinceOpen <= 6.5 * 60; // ~6.5h US session
+                }
+            }
+        }
+
+        const r2 = v => v == null ? null : +Number(v).toFixed(2);
+        return {
+            yesterdayHigh:    r2(yesterdayHigh),
+            todayOpen:        r2(todayOpen),
+            todayHighSoFar:   r2(todayHighSoFar),
+            todayBoxHigh:     r2(todayBoxHigh),
+            todayBoxLow:      r2(todayBoxLow),
+            recent5dHigh:     r2(recent5dHigh),
+            minutesSinceOpen: minutesSinceOpen,
+            isMarketHours:    isMarketHours,
+        };
+    }
 
     // 단기 스윙 고점/저점 추출 — 좌우 k봉 모두보다 높은(/낮은) 캔들을 swing point로 인정
     function _extractSwingPoints(highs, lows, k = 3, maxPoints = 5) {
@@ -14760,11 +15068,13 @@
         }
 
         const swing = _extractSwingPoints(highs, lows, 3, 5);
+        const intervalActual = (typeof currentInterval !== 'undefined' ? currentInterval : '1d') || '1d';
+        const breakoutContext = _extractBreakoutContext(ohlcv, dates, highs, lows, closes, intervalActual);
 
         return {
             symbol: currentSymbol,
             name: stockData.meta?.longName || stockData.meta?.shortName || '',
-            interval: (typeof currentInterval !== 'undefined' ? currentInterval : '1d') || '1d',
+            interval: intervalActual,
             currency: stockData.meta?.currency || 'USD',
             currentPrice: r2(cur),
             mode: currentTestaMode, // 'swing' | 'day'
@@ -14787,6 +15097,8 @@
             ma5Slope,
             lastCandle,
             atr14: r2(lastVal(atr)),
+            // 5분봉 돌파 단타 전용 컨텍스트 (인터벌 5m 일 때만 채워짐)
+            breakoutContext,
         };
     }
 
@@ -15014,7 +15326,7 @@
         switchSmTab, smDeepDive, smDeepBack, filterSmHoldings, smChartLink,
         renderGuruReal, guruDeepDiveReal, guruDeepBack, renderGuruHolders, goSmartMoneyAndOpen,
         loadGuruHome, goSmartMoneyAndOpenReal, guruRefresh, _guruImgErr,
-        setMarket, searchStock, setChartInterval, setPeriod,
+        setMarket, searchStock, setChartInterval, setPeriod, _toggleIntervalDropdown,
         quickSearch, toggleFavorite, switchTab, toggleChartFullscreen,
         favSearch, removeFavorite, setTop100Filter,
 setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,

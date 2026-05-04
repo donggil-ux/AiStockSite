@@ -1915,11 +1915,33 @@ app.post('/api/chart-draw', _rlChartDraw, upload.single('image'), async (req, re
         return res.status(400).json({ error: 'priceData.currentPrice 필수' });
     }
 
+    // ── Prompt injection 방어: 사용자 입력 화이트리스트 검증 ──
+    if (ctx.symbol && !/^[A-Z0-9._-]{1,20}$/i.test(String(ctx.symbol))) {
+        return res.status(400).json({ error: 'priceData.symbol 형식 오류' });
+    }
+    // 회사명 — 한/영/숫자/공백/일부 특수문자만, 100자 제한
+    if (ctx.name && !/^[\w\sㄱ-ㆎ가-힣.,&'()\-]{0,100}$/.test(String(ctx.name))) {
+        ctx.name = String(ctx.name).replace(/[^\w\sㄱ-ㆎ가-힣.,&'()\-]/g, '').slice(0, 100);
+    }
+    if (typeof ctx.name === 'string') ctx.name = ctx.name.slice(0, 100);
+    if (typeof ctx.symbol === 'string') ctx.symbol = ctx.symbol.slice(0, 20);
+
     const stream = req.query.stream === '1';
     // mode 추출 — 'day' (단타) / 'swing' (스윙). 기본값 swing
-    const mode = String(req.body.mode || ctx.mode || 'swing').toLowerCase() === 'day' ? 'day' : 'swing';
+    let mode = String(req.body.mode || ctx.mode || 'swing').toLowerCase() === 'day' ? 'day' : 'swing';
+    // interval 화이트리스트
+    const VALID_INTERVALS = ['1m','5m','15m','1h','1d','1wk'];
+    const interval = VALID_INTERVALS.includes(String(ctx.interval || '').toLowerCase())
+        ? String(ctx.interval).toLowerCase() : '1d';
+    ctx.interval = interval;
+    // 5m + swing 조합은 자동으로 day 로 전환 (5분봉은 단타 전용)
+    let autoSwitched = false;
+    if (interval === '5m' && mode === 'swing') {
+        mode = 'day';
+        autoSwitched = true;
+    }
     ctx.mode = mode;
-    const fullPrompt = `${buildSystemRole(mode)}\n\n${OUTPUT_CONTRACT}\n\n${buildUserPrompt(ctx)}`;
+    const fullPrompt = `${buildSystemRole(mode, interval)}\n\n${OUTPUT_CONTRACT}\n\n${buildUserPrompt(ctx)}`;
     const imageBase64 = req.file.buffer.toString('base64');
     const mimeType = req.file.mimetype;
 
@@ -1955,15 +1977,20 @@ app.post('/api/chart-draw', _rlChartDraw, upload.single('image'), async (req, re
                     buf += t;
                     sseSend({ chunk: t });
                 }
-                const data = normalizeChartAnalysis(parseJsonLoose(buf));
-                data.mode = mode; // 요청 mode 강제 주입 (AI 응답에 누락돼도 일관성 유지)
-                console.log(`[chart-draw:gemini:stream] 완료: mode=${mode} signal=${data.signal} lines=${data.lines.length}`);
+                const data = normalizeChartAnalysis(parseJsonLoose(buf), ctx);
+                // 모드 강제 주입: 5분봉 돌파 단타는 'breakout-5m', 그 외 day/swing
+                data.mode = (mode === 'day' && interval === '5m') ? 'breakout-5m' : mode;
+                data.interval = interval;
+                if (autoSwitched) data.autoSwitched = true;
+                console.log(`[chart-draw:gemini:stream] 완료: mode=${data.mode} signal=${data.signal} lines=${data.lines.length}`);
                 sseDone(data);
             } else {
                 const result = await model.generateContent(parts);
-                const data = normalizeChartAnalysis(parseJsonLoose(result.response.text()));
-                data.mode = mode;
-                console.log(`[chart-draw:gemini] 완료: mode=${mode} signal=${data.signal} lines=${data.lines.length}`);
+                const data = normalizeChartAnalysis(parseJsonLoose(result.response.text()), ctx);
+                data.mode = (mode === 'day' && interval === '5m') ? 'breakout-5m' : mode;
+                data.interval = interval;
+                if (autoSwitched) data.autoSwitched = true;
+                console.log(`[chart-draw:gemini] 완료: mode=${data.mode} signal=${data.signal} lines=${data.lines.length}`);
                 res.json(data);
             }
         };
@@ -2008,9 +2035,11 @@ app.post('/api/chart-draw', _rlChartDraw, upload.single('image'), async (req, re
     try {
         console.log('[chart-draw:claude] 분석 시작');
         const text = await callAnthropicChartDraw(imageBase64, mimeType, fullPrompt);
-        const data = normalizeChartAnalysis(parseJsonLoose(text));
-        data.mode = mode;
-        console.log(`[chart-draw:claude] 완료: mode=${mode} signal=${data.signal} lines=${data.lines.length}`);
+        const data = normalizeChartAnalysis(parseJsonLoose(text), ctx);
+        data.mode = (mode === 'day' && interval === '5m') ? 'breakout-5m' : mode;
+        data.interval = interval;
+        if (autoSwitched) data.autoSwitched = true;
+        console.log(`[chart-draw:claude] 완료: mode=${data.mode} signal=${data.signal} lines=${data.lines.length}`);
         if (stream) {
             sseSend({ chunk: text });
             sseDone(data);
@@ -2025,17 +2054,28 @@ app.post('/api/chart-draw', _rlChartDraw, upload.single('image'), async (req, re
     }
 });
 
-/** Gemini/Claude 응답 정규화 — 테스타 전략 신호 스키마 검증 (lines / signal / entry / exit / hold) */
-function normalizeChartAnalysis(raw) {
+/** Gemini/Claude 응답 정규화 — 테스타 전략 신호 스키마 검증 (lines / signal / entry / exit / hold)
+ *  @param {Object} raw — AI 원본 응답
+ *  @param {Object} [ctx] — 클라이언트 컨텍스트 (ma/lines fallback용)
+ */
+function normalizeChartAnalysis(raw, ctx = null) {
     const d = raw || {};
     const VALID_SIGNALS = ['BUY', 'SELL_STOP', 'SELL_TAKE', 'HOLD'];
     const signal = VALID_SIGNALS.includes(String(d.signal || '').toUpperCase())
         ? String(d.signal).toUpperCase() : 'HOLD';
     const num = v => (v == null || isNaN(Number(v))) ? null : Number(v);
 
-    // lines 정규화 (3~4개 — MA5/MA20/MA70 + 선택적 entry)
-    const VALID_TYPES = ['ma5', 'ma20', 'ma70', 'entry'];
-    const lines = (Array.isArray(d.lines) ? d.lines : [])
+    // ── ma 값 — AI 응답 우선, 없으면 ctx.indicators 로 fallback ──
+    const ctxInd = (ctx && ctx.indicators) || {};
+    const maOut = {
+        ma5:  num(d.ma?.ma5)  ?? num(ctxInd.sma5),
+        ma20: num(d.ma?.ma20) ?? num(ctxInd.sma20),
+        ma70: num(d.ma?.ma70) ?? num(ctxInd.sma70),
+    };
+
+    // lines 정규화 (3~7개 — MA5/MA20/MA70 + entry, 5분봉 돌파 단타 시 breakout/stopLoss/tp1/tp2)
+    const VALID_TYPES = ['ma5', 'ma20', 'ma70', 'entry', 'breakout', 'stopLoss', 'tp1', 'tp2'];
+    let lines = (Array.isArray(d.lines) ? d.lines : [])
         .map(ln => ({
             type:  VALID_TYPES.includes(ln?.type) ? ln.type : 'ma20',
             price: num(ln?.price),
@@ -2044,17 +2084,89 @@ function normalizeChartAnalysis(raw) {
         }))
         .filter(ln => ln.price != null && ln.price > 0);
 
+    // lines 가 비어있거나 MA 라인이 누락되면 ctx 로 자동 보완
+    const LINE_DEFAULTS = [
+        { type:'ma5',  label:'MA5',           color:'#3b82f6', price: maOut.ma5 },
+        { type:'ma20', label:'MA20 (손절선)', color:'#ef4444', price: maOut.ma20 },
+        { type:'ma70', label:'MA70',          color:'#a78bfa', price: maOut.ma70 },
+    ];
+    LINE_DEFAULTS.forEach(def => {
+        if (def.price != null && def.price > 0 && !lines.find(l => l.type === def.type)) {
+            lines.push(def);
+        }
+    });
+    // 5분봉 돌파 단타 BUY 응답 — entry 값으로 라인 자동 보완 (AI가 lines 누락해도 차트에 표시)
+    if (signal === 'BUY' && d.entry) {
+        const e = d.entry;
+        const breakoutLines = [
+            { type:'breakout', label:'돌파선',         color:'#06b6d4', price: num(e.breakoutPrice) },
+            { type:'entry',    label:'진입가',         color:'#22c55e', price: num(e.price) },
+            { type:'stopLoss', label:'손절',           color:'#dc2626', price: num(e.stopLossPrice) },
+        ];
+        // 분할 익절 라인 — takeProfit*Pct 가 % 단위라 진입가 기준으로 절대가격 계산
+        const entryPrice = num(e.price);
+        if (entryPrice && entryPrice > 0) {
+            const tp1 = num(e.takeProfit1Pct);
+            const tp2 = num(e.takeProfit2Pct);
+            if (tp1 != null && tp1 > 0) breakoutLines.push({ type:'tp1', label:`1차 익절 +${tp1.toFixed(1)}%`, color:'#10b981', price: entryPrice * (1 + tp1/100) });
+            if (tp2 != null && tp2 > 0) breakoutLines.push({ type:'tp2', label:`2차 익절 +${tp2.toFixed(1)}%`, color:'#059669', price: entryPrice * (1 + tp2/100) });
+        }
+        breakoutLines.forEach(def => {
+            if (def.price != null && def.price > 0 && !lines.find(l => l.type === def.type)) {
+                lines.push(def);
+            }
+        });
+    }
+
     // signal 별 필수 필드 검증 (없거나 잘못되면 HOLD 폴백)
     let entry = null, exit = null, hold = null;
     const VALID_URGENCY = ['intraday', 'short', 'standard'];
+
+    // 안전성 헬퍼 — 범위 외 값은 null 처리 (사용자에게 위험 신호 노출 방지)
+    const safeStopLossPct = v => {
+        const n = num(v);
+        if (n == null || n >= 0 || n < -10) return null; // 반드시 음수, 손절폭 -10% 이상이면 거부
+        return +n.toFixed(2);
+    };
+    const safePosSizePct = v => {
+        const n = num(v);
+        if (n == null || n < 0.1 || n > 5.0) return null; // 0.1~5.0 범위 강제
+        return +n.toFixed(2);
+    };
+
+    const VALID_BREAKOUT_SOURCES = ['today-box-high', 'yesterday-high', 'resistance'];
+    const VALID_SL_TYPES = ['price-break', 'ma20-break', 'loss-pct'];
+    const VALID_EXIT_TYPES = ['price-break', 'ma20-break', 'loss-pct', 'time-stop', 'take-profit'];
+
     if (signal === 'BUY' && d.entry) {
         const ehd = num(d.entry.expectedHoldDays);
+        const ehm = num(d.entry.expectedHoldMinutes);
+        const slPct = safeStopLossPct(d.entry.stopLossPct);
+        const posPct = safePosSizePct(d.entry.positionSizePct);
+        // stopLossPct 또는 positionSizePct가 안전 범위 벗어나면 HOLD 강제 폴백
+        if (slPct == null || posPct == null) {
+            console.warn(`[chart-draw] BUY signal 안전 범위 위반 (slPct=${d.entry.stopLossPct}, posPct=${d.entry.positionSizePct}) → HOLD 폴백`);
+            return {
+                signal: 'HOLD',
+                mode: d.mode === 'day' ? 'day' : 'swing',
+                symbol: String(d.symbol || '').slice(0, 20),
+                currentPrice: num(d.currentPrice),
+                ma: maOut,
+                entry: null, exit: null,
+                hold: {
+                    unmet: ['AI 응답 안전성 검증 실패 (손절폭 또는 비중 범위 초과)'],
+                    guidance: '데이터를 다시 확인하고 분석을 재시도하세요',
+                    dayModeRejection: null,
+                },
+                lines, summary: '안전성 검증 실패로 진입 거부',
+            };
+        }
         entry = {
             price:           num(d.entry.price),
             stopLossPrice:   num(d.entry.stopLossPrice),
-            stopLossPct:     num(d.entry.stopLossPct),
-            positionSizePct: num(d.entry.positionSizePct),
-            expectedRR:      String(d.entry.expectedRR || ''),
+            stopLossPct:     slPct,
+            positionSizePct: posPct,
+            expectedRR:      String(d.entry.expectedRR || '').slice(0, 20),
             criteria: (Array.isArray(d.entry.criteria) ? d.entry.criteria : []).map(c => ({
                 label:  String(c?.label  || '').slice(0, 80),
                 passed: c?.passed === true,
@@ -2065,6 +2177,17 @@ function normalizeChartAnalysis(raw) {
             holdDaysRationale: d.entry.holdDaysRationale ? String(d.entry.holdDaysRationale).slice(0, 200) : null,
             exitDeadlineDays:  num(d.entry.exitDeadlineDays),
             urgency:           VALID_URGENCY.includes(d.entry.urgency) ? d.entry.urgency : null,
+            // 5분봉 돌파 단타 전용 필드 (mode=breakout-5m 일 때만 의미 있음)
+            breakoutPrice:     num(d.entry.breakoutPrice),
+            breakoutSource:    VALID_BREAKOUT_SOURCES.includes(d.entry.breakoutSource) ? d.entry.breakoutSource : null,
+            stopLossType:      VALID_SL_TYPES.includes(d.entry.stopLossType) ? d.entry.stopLossType : null,
+            timeStopBars:      num(d.entry.timeStopBars),
+            timeStopMinutes:   num(d.entry.timeStopMinutes),
+            takeProfit1Pct:    num(d.entry.takeProfit1Pct),
+            takeProfit2Pct:    num(d.entry.takeProfit2Pct),
+            trailingMA:        d.entry.trailingMA ? String(d.entry.trailingMA).slice(0, 10) : null,
+            expectedHoldMinutes: (ehm != null && ehm >= 5 && ehm <= 720) ? Math.round(ehm) : null,
+            deadline:          d.entry.deadline ? String(d.entry.deadline).slice(0, 100) : null,
         };
     } else if ((signal === 'SELL_STOP' || signal === 'SELL_TAKE') && d.exit) {
         exit = {
@@ -2072,6 +2195,8 @@ function normalizeChartAnalysis(raw) {
             ma20:      num(d.exit.ma20),
             pnlPct:    num(d.exit.pnlPct),
             rationale: String(d.exit.rationale || '').slice(0, 200),
+            // 5분봉 돌파 단타 전용
+            exitType:  VALID_EXIT_TYPES.includes(d.exit.exitType) ? d.exit.exitType : null,
         };
     } else if (signal === 'HOLD') {
         hold = {
@@ -2083,16 +2208,13 @@ function normalizeChartAnalysis(raw) {
         };
     }
 
+    const VALID_MODES = ['swing', 'day', 'breakout-5m'];
     return {
         signal,
-        mode: d.mode === 'day' ? 'day' : 'swing',
-        symbol:       String(d.symbol || '').slice(0, 20),
-        currentPrice: num(d.currentPrice),
-        ma: {
-            ma5:  num(d.ma?.ma5),
-            ma20: num(d.ma?.ma20),
-            ma70: num(d.ma?.ma70),
-        },
+        mode: VALID_MODES.includes(String(d.mode || '').toLowerCase()) ? String(d.mode).toLowerCase() : 'swing',
+        symbol:       String(d.symbol || (ctx && ctx.symbol) || '').slice(0, 20),
+        currentPrice: num(d.currentPrice) ?? num(ctx && ctx.currentPrice),
+        ma: maOut,
         entry,
         exit,
         hold,
