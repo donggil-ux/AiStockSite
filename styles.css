@@ -4188,3 +4188,12 @@
 @media(max-width:600px){
     .dp-home-grid{grid-template-columns:repeat(2,1fr);}
 }
+
+/* R/R 계산기 — AI 힌트 */
+.rr-ai-hint{
+    margin-top:5px;font-size:11px;color:var(--text2);
+    padding:4px 8px;background:var(--bg2);
+    border:1px solid var(--border);border-radius:6px;
+    line-height:1.4;
+}
+.rr-ai-hint.ai-applied{color:var(--blue);border-color:var(--blue);background:rgba(59,130,246,.08);}
