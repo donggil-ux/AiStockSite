@@ -3987,9 +3987,12 @@ app.get('/api/polymarket/home', async (_req, res) => {
             if (seen.has(ev.id)) return false;
             seen.add(ev.id); return true;
         });
-        // volume 내림차순 정렬 후 정규화
+        // volume 내림차순 정렬 후 정규화 + 한글 번역
         merged.sort((a, b) => (Number(b.volume) || 0) - (Number(a.volume) || 0));
-        const markets = merged.map(_normalizePolyEvent).filter(m => m.question);
+        const raw = merged.map(_normalizePolyEvent).filter(m => m.question);
+        const markets = await Promise.all(raw.map(async m => ({
+            ...m, question: await translateToKo(m.question)
+        })));
         _polyHomeCache.data = markets;
         _polyHomeCache.ts   = now;
         res.json({ markets, cached: false });
@@ -4020,7 +4023,10 @@ app.get('/api/polymarket/symbol/:symbol', async (req, res) => {
     // 제목에 ticker 심볼이 포함된 이벤트 필터
     const re = new RegExp(`\\b${sym}\\b`, 'i');
     const matched = all.filter(ev => re.test(ev.title || ''));
-    const markets = matched.slice(0, 3).map(_normalizePolyEvent).filter(m => m.question);
+    const rawMatched = matched.slice(0, 3).map(_normalizePolyEvent).filter(m => m.question);
+    const markets = await Promise.all(rawMatched.map(async m => ({
+        ...m, question: await translateToKo(m.question)
+    })));
     res.json({ markets, cached: _polyStocksCache.ts === now ? false : true });
 });
 

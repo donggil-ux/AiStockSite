@@ -13136,7 +13136,10 @@
             return `<a class="poly-card" href="https://polymarket.com/event/${slug}" target="_blank" rel="noopener">
                 <div class="poly-q">${m.question}</div>
                 ${yesPct != null ? `
-                <div class="poly-bar-wrap"><div class="poly-bar-yes" style="width:${yesPct}%"></div></div>
+                <div class="poly-bar-wrap">
+                  <div class="poly-bar-yes" style="width:${yesPct}%"></div>
+                  <div class="poly-bar-no" style="width:${noPct}%"></div>
+                </div>
                 <div class="poly-pcts"><span class="poly-yes">Yes ${yesPct}%</span><span class="poly-no">No ${noPct}%</span></div>
                 ` : ''}
                 <div class="poly-meta">${vol ? `거래량 ${vol}` : ''}${vol && ends ? ' · ' : ''}${ends ? `마감 ${ends}` : ''}</div>
