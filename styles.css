@@ -324,7 +324,7 @@
         .swing-name{font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
         .swing-price{font-size:13px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;}
         .swing-chg{font-size:12px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;}
-        .swing-chg.up{color:var(--green);}.swing-chg.down{color:var(--red);}.swing-chg.flat{color:var(--text3);}
+        .swing-chg.up{color:var(--red);}.swing-chg.down{color:var(--blue);}.swing-chg.flat{color:var(--text3);}
         .rr-badge{display:inline-flex;align-items:center;justify-content:center;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums;}
         .rr-badge.excellent{background:rgba(59, 130, 246,.15);color:var(--green);}
         .rr-badge.good{background:rgba(234,179,8,.15);color:var(--yellow);}
@@ -402,8 +402,8 @@
         .thermo-card-name{font-size:11px; color:var(--text3); font-weight:500; white-space:nowrap;}
         .thermo-card-price{font-size:14px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; white-space:nowrap;}
         .thermo-card-chg{font-size:11px; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap;}
-        .thermo-card-chg.up{color:var(--green);}
-        .thermo-card-chg.down{color:var(--red);}
+        .thermo-card-chg.up{color:var(--red);}
+        .thermo-card-chg.down{color:var(--blue);}
         .thermo-card-chg.flat{color:var(--text3);}
         @media(max-width:640px){
             .thermo-ticker{padding:4px 0 6px; gap:6px;}
