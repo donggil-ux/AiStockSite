@@ -66,7 +66,7 @@
                 <button class="side-nav-item" id="sideNavDpBtn" onclick="goDailyPicks();closeSideNav();">
                     <span class="side-nav-item-icon"><i class="ri-star-line"></i></span>
                     <span class="side-nav-item-text">데일리 픽</span>
-                    <span class="side-nav-item-sub">매수 5 · 매도 5</span>
+                    <span class="side-nav-item-sub">매수 10 · 매도 10</span>
                 </button>
             </div>
         </div>
@@ -459,10 +459,10 @@
         <div class="disc-empty" id="leverageEmpty" hidden>조건에 해당하는 ETF가 없습니다.</div>
     </div>
 
-    <!-- ===== Daily Picks Screen — 매수 5 + 매도 5 데일리 추천 ===== -->
+    <!-- ===== Daily Picks Screen — 매수 10 + 매도 10 데일리 추천 ===== -->
     <div class="discover-screen" id="dailyPicksScreen" style="display:none">
         <div class="disc-screen-title">데일리 픽</div>
-        <div class="disc-screen-sub" id="dpSub">AI가 매일 선정하는 매수 5 + 매도 5 종목 — 자세한 분석 포함</div>
+        <div class="disc-screen-sub" id="dpSub">S&amp;P 500 · 나스닥 · NYSE에서 AI가 매일 선정하는 매수 10 + 매도 10 — 자세한 분석 포함</div>
 
         <div class="dp-toolbar">
             <div class="dp-meta">
@@ -476,8 +476,8 @@
         <section class="dp-section dp-section-buy">
             <div class="dp-section-head">
                 <span class="dp-section-icon">▲</span>
-                <span class="dp-section-title">매수 추천 TOP 5</span>
-                <span class="dp-section-sub">상승 모멘텀 강세 종목</span>
+                <span class="dp-section-title">매수 추천 TOP 10</span>
+                <span class="dp-section-sub">S&amp;P 500 · 나스닥 · NYSE 상승 모멘텀 강세 종목</span>
             </div>
             <div class="dp-list" id="dpBuysList">
                 <div class="dp-loading">분석 중... (약 10~20초)</div>
@@ -488,8 +488,8 @@
         <section class="dp-section dp-section-sell">
             <div class="dp-section-head">
                 <span class="dp-section-icon">▼</span>
-                <span class="dp-section-title">매도/회피 추천 TOP 5</span>
-                <span class="dp-section-sub">하락 신호 강한 종목</span>
+                <span class="dp-section-title">매도/회피 추천 TOP 10</span>
+                <span class="dp-section-sub">S&amp;P 500 · 나스닥 · NYSE 하락 신호 강한 종목</span>
             </div>
             <div class="dp-list" id="dpSellsList"></div>
         </section>
@@ -5813,7 +5813,7 @@
     }
 
     // ──────────────────────────────────────────────────────
-    // 데일리 픽 — 매수 5 + 매도 5 추천 (24h 캐시)
+    // 데일리 픽 — 매수 10 + 매도 10 추천 (24h 캐시)
     // ──────────────────────────────────────────────────────
     function goDailyPicks() {
         window._lastScreen = 'dailyPicks';
@@ -5857,7 +5857,7 @@
             return;
         }
 
-        buysEl.innerHTML = '<div class="dp-loading">분석 중... (약 10~20초)</div>';
+        buysEl.innerHTML = '<div class="dp-loading">S&P 500 · 나스닥 · NYSE 분석 중... (약 15~30초)</div>';
         if (sellsEl) sellsEl.innerHTML = '';
 
         try {

@@ -2278,8 +2278,21 @@ Start your response with [ and end with ]`;
     }
 });
 
+// S&P 500 / NASDAQ / NYSE 주요 종목 시드 (데일리 픽 후보 풀 기반)
+const SP500_SEED = [
+    'AAPL','MSFT','NVDA','AMZN','META','GOOGL','GOOG','TSLA','BRK-B','JPM',
+    'V','UNH','XOM','LLY','JNJ','MA','AVGO','PG','HD','MRK',
+    'COST','ABBV','CVX','BAC','PEP','KO','ADBE','CRM','TMO','WMT',
+    'MCD','ACN','CSCO','ABT','WFC','CAT','GE','DHR','LIN','TXN',
+    'NFLX','INTU','IBM','QCOM','RTX','GS','SPG','BLK','LOW','SYK',
+    'AMAT','BKNG','PLD','AXP','AMGN','ISRG','C','NOW','DE','GILD',
+    'MU','ADI','REGN','PGR','PANW','KLAC','LRCX','MSTR','PLTR','ARM',
+    'AMD','INTC','F','GM','DIS','PYPL','UBER','LYFT','SNAP','HOOD',
+    'SQ','COIN','RBLX','U','RIVN','LCID','NIO','XPEV','LI','SMCI',
+];
+
 /**
- * 데일리 픽 — 매수 5 + 매도 5 추천 (24h 캐시)
+ * 데일리 픽 — 매수 10 + 매도 10 추천 (24h 캐시)
  * GET /api/daily-picks → { date, marketContext, buys: [...], sells: [...] }
  *
  * 각 추천 카드:
@@ -2294,33 +2307,39 @@ app.get('/api/daily-picks', async (req, res) => {
             return res.json({ ..._dailyPicksCache.data, cached: true });
         }
 
-        // 1) Yahoo screener에서 후보 종목 수집 (gainers + losers + most_actives)
-        const [gainers, losers, actives] = await Promise.all([
-            _fetchScreenerSymbols('day_gainers',  30).catch(() => ({ symbols: [] })),
-            _fetchScreenerSymbols('day_losers',   30).catch(() => ({ symbols: [] })),
-            _fetchScreenerSymbols('most_actives', 30).catch(() => ({ symbols: [] })),
+        // 1) Yahoo screener 5종 + S&P 500 / NASDAQ 시드 → 후보 풀 구성
+        const [gainers, losers, actives, growth, tech] = await Promise.all([
+            _fetchScreenerSymbols('day_gainers',              40).catch(() => ({ symbols: [] })),
+            _fetchScreenerSymbols('day_losers',               40).catch(() => ({ symbols: [] })),
+            _fetchScreenerSymbols('most_actives',             40).catch(() => ({ symbols: [] })),
+            _fetchScreenerSymbols('undervalued_growth_stocks',30).catch(() => ({ symbols: [] })),
+            _fetchScreenerSymbols('growth_technology_stocks', 30).catch(() => ({ symbols: [] })),
         ]);
-        // 합집합 (중복 제거)
         const candidates = Array.from(new Set([
+            ...SP500_SEED,
             ...(gainers.symbols || []),
             ...(losers.symbols  || []),
             ...(actives.symbols || []),
-        ])).slice(0, 60);
+            ...(growth.symbols  || []),
+            ...(tech.symbols    || []),
+        ])).slice(0, 150);
 
-        if (candidates.length < 5) {
+        if (candidates.length < 10) {
             return res.status(503).json({ error: '후보 종목 데이터를 가져올 수 없습니다. 잠시 후 다시 시도해주세요.' });
         }
 
-        // 2) Gemini 호출 — 매수 5 + 매도 5 + 표준 분석
+        // 2) Gemini 호출 — 매수 10 + 매도 10 + 표준 분석
         const today = new Date().toISOString().slice(0, 10);
         const prompt = `당신은 미국 주식 시니어 트레이더입니다. 오늘은 ${today}.
 
-다음은 오늘 시장에서 거래가 활발하거나 변동이 큰 후보 종목들입니다:
+아래는 오늘 S&P 500·나스닥·뉴욕증시(NYSE)에서 거래가 활발하거나 주목할 만한 후보 종목들입니다:
 ${candidates.join(', ')}
 
-이 후보 중에서 다음을 선정하고 각 종목에 대해 분석해주세요:
-- 매수 추천 5개 (상승 모멘텀 강한 종목 — 거래량 급증, 정배열, 돌파 등)
-- 매도(또는 회피) 추천 5개 (하락 신호 강한 종목 — 거래량 감소, 데드크로스, 고점 이탈 등)
+이 후보 및 당신의 실시간 시장 지식을 활용해 다음을 선정하고 분석하세요:
+- 매수 추천 10개: S&P 500·나스닥·NYSE 전체에서 상승 모멘텀이 가장 강한 종목
+  (거래량 급증, 정배열, 52주 고점 돌파, 섹터 로테이션 수혜 등)
+- 매도(또는 회피) 추천 10개: 하락 신호가 가장 뚜렷한 종목
+  (거래량 감소, 데드크로스, 고점 이탈, 실적 쇼크 가능성 등)
 
 각 종목당 다음 필드 모두 포함 (한국어):
 - ticker: 영문 티커
@@ -2332,16 +2351,16 @@ ${candidates.join(', ')}
 - target: 목표가 (숫자, USD)
 - rr: "1:N.N" 형식 손익비 문자열
 - technicalAnalysis: 기술적 분석 2~3문장 (이동평균선·거래량·RSI/MACD 인용)
-- momentum: 모멘텀 분석 1~2문장 (52주 위치·5일 수익률 등)
+- momentum: 모멘텀 분석 1~2문장 (52주 위치·5일 수익률·섹터 강도 등)
 - entryTiming: 진입 타이밍 권장 1줄 (예: "장 시작 직후 매수" / "5분봉 눌림 대기")
 - riskFactors: 주요 리스크 1~2줄
 
 응답은 다음 JSON 스키마 정확히:
 {
   "date": "${today}",
-  "marketContext": "오늘 시장 분위기 1줄 (S&P 500 / VIX 흐름 등)",
-  "buys":  [ ... 5개 ],
-  "sells": [ ... 5개 ]
+  "marketContext": "오늘 시장 분위기 1줄 (S&P 500 / 나스닥 / VIX 흐름 등)",
+  "buys":  [ ... 10개 ],
+  "sells": [ ... 10개 ]
 }
 
 JSON만 출력. 코드펜스·설명·추가 텍스트 금지. '{' 로 시작 '}' 로 끝.`;
@@ -2372,8 +2391,8 @@ JSON만 출력. 코드펜스·설명·추가 텍스트 금지. '{' 로 시작 '}
             entryTiming:       String(p.entryTiming || '').slice(0, 200),
             riskFactors:       String(p.riskFactors || '').slice(0, 300),
         });
-        const buys  = (Array.isArray(data.buys)  ? data.buys  : []).slice(0, 5).map(p => cleanPick(p, 'BUY'));
-        const sells = (Array.isArray(data.sells) ? data.sells : []).slice(0, 5).map(p => cleanPick(p, 'SELL'));
+        const buys  = (Array.isArray(data.buys)  ? data.buys  : []).slice(0, 10).map(p => cleanPick(p, 'BUY'));
+        const sells = (Array.isArray(data.sells) ? data.sells : []).slice(0, 10).map(p => cleanPick(p, 'SELL'));
 
         const final = {
             date:          data.date || today,
