@@ -3,7 +3,7 @@
  * Yahoo Finance API 프록시 (crumb 인증 자동 처리)
  */
 
-require('dotenv').config({ path: require('path').join(__dirname, '.env') });
+require('dotenv').config({ path: require('path').join(__dirname, '.env'), override: true });
 
 const express    = require('express');
 const cors       = require('cors');
@@ -689,7 +689,7 @@ JSON:`;
     try {
         const genAI = getGenAI();
         if (!genAI) return fallback;
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash', generationConfig: { temperature: 0.3 } });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash', generationConfig: { temperature: 0.3 } });
         const resp = await model.generateContent(prompt);
         let txt = resp.response?.text?.() || '';
         txt = txt.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
@@ -1787,7 +1787,7 @@ app.post('/api/vision-scan', _rlVisionScan, upload.single('image'), async (req, 
 
         const genAI = getGenAI();
         if (!genAI) return res.status(503).json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다.' });
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
         const prompt = `당신은 전문 주식 차트 기술 분석가입니다. 업로드된 차트 이미지를 분석하여 지지선과 저항선을 찾아주세요.
 
@@ -1965,7 +1965,7 @@ app.post('/api/chart-draw', _rlChartDraw, upload.single('image'), async (req, re
         const tryGemini = async () => {
             const genAI = getGenAI();
             const model = genAI.getGenerativeModel({
-                model: 'gemini-2.0-flash',
+                model: 'gemini-2.5-flash',
                 generationConfig: { temperature: 0.2 },
             });
             const parts = [fullPrompt, { inlineData: { data: imageBase64, mimeType } }];
@@ -2246,7 +2246,7 @@ app.get('/api/ai-recommend', _rlAiRecommend, async (req, res) => {
         }
 
         const genAI = getGenAI();
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
         const prompt = `You are a quant-based stock screener AI analyst.
 Return a JSON array of 60-80 US stocks (NYSE/NASDAQ) meeting these criteria:
 - Market cap >= $500M
@@ -2348,7 +2348,7 @@ JSON만 출력. 코드펜스·설명·추가 텍스트 금지. '{' 로 시작 '}
 
         const genAI = getGenAI();
         const model = genAI.getGenerativeModel({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-2.5-flash',
             generationConfig: { temperature: 0.3 },
         });
         const result = await model.generateContent(prompt);
@@ -2465,7 +2465,7 @@ app.get('/api/hot-stocks', _rlHotStocks, async (req, res) => {
     // 2) Gemini 시도
     try {
         const genAI = getGenAI();
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
         const prompt = `You are a quantitative stock analyst for US equities.
 Return a JSON object with exactly 3 keys: institution, value, momentum.
 Each key maps to an array of exactly 5 stock objects.
@@ -2696,7 +2696,7 @@ app.post('/api/economic-ai', async (req, res) => {
 
     const runGemini = async () => {
         const genAI = getGenAI();
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash', generationConfig: { temperature: 0.4 } });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash', generationConfig: { temperature: 0.4 } });
         const result = await model.generateContent(prompt);
         return result.response.text().trim();
     };
