@@ -280,6 +280,17 @@
                 <div class="top100-loading">데이터를 불러오는 중...</div>
             </div>
         </section>
+
+        <!-- 폴리마켓 예측 -->
+        <section class="home-section" id="polymarketHomeSection" style="display:none;">
+            <div class="home-section-header">
+                <div class="home-section-title">🔮 폴리마켓 예측</div>
+                <a class="home-section-more" href="https://polymarket.com" target="_blank" rel="noopener" style="color:var(--blue);font-size:12px;font-weight:600;">Polymarket →</a>
+            </div>
+            <div id="polymarketHomeList" class="poly-list">
+                <div class="top100-loading">데이터를 불러오는 중...</div>
+            </div>
+        </section>
     </div>
 
     <!-- Smart Money Tracker Screen -->
@@ -1163,6 +1174,7 @@
                 <button class="news-refresh-btn" onclick="reloadNewsTab()">↻ 새로고침</button>
             </div>
             <div class="news-filter-bar" id="newsFilterBar" role="tablist" aria-label="뉴스 필터"></div>
+            <div id="polymarketSymbolCard" class="poly-symbol-card" style="display:none;"></div>
             <div id="newsList" class="news-list"></div>
         </div>
         <div class="tab-content" id="tabSocial" data-tab="social" style="padding:16px 24px 24px;">
@@ -3128,6 +3140,7 @@
     loadFavSummary();
     loadGuruHome();
     loadDpHome();
+    loadPolymarketHome();
     // 홈 임베드: 연속 상승세 TOP 5 + 저평가 주식 TOP 5 (초기 로드 시)
     // _DISC_PRESET_META 가 아래에서 const 로 정의되므로 setTimeout 으로 defer
     setTimeout(() => {
@@ -13092,6 +13105,67 @@
     }
 
     // ========================================
+    // ========================================
+    // 폴리마켓 예측
+    // ========================================
+    async function loadPolymarketHome() {
+        const sec = document.getElementById('polymarketHomeSection');
+        const el  = document.getElementById('polymarketHomeList');
+        if (!sec || !el) return;
+        try {
+            const res = await fetch('/api/polymarket/home');
+            if (!res.ok) throw new Error(res.status);
+            const { markets } = await res.json();
+            const valid = (markets || []).filter(m => m.question && m.outcomes);
+            if (!valid.length) { sec.style.display = 'none'; return; }
+            sec.style.display = '';
+            renderPolymarketList(el, valid.slice(0, 8));
+        } catch { sec.style.display = 'none'; }
+    }
+
+    function renderPolymarketList(el, markets) {
+        el.innerHTML = markets.map(m => {
+            const outcomes = typeof m.outcomes === 'string' ? JSON.parse(m.outcomes) : m.outcomes;
+            const prices   = typeof m.outcomePrices === 'string' ? JSON.parse(m.outcomePrices) : (m.outcomePrices || []);
+            const yesIdx   = outcomes.findIndex(o => /yes/i.test(o));
+            const yesPct   = yesIdx >= 0 && prices[yesIdx] != null ? Math.round(parseFloat(prices[yesIdx]) * 100) : null;
+            const noPct    = yesPct != null ? 100 - yesPct : null;
+            const vol      = m.volume ? `$${Number(m.volume).toLocaleString('en-US', {maximumFractionDigits:0})}` : '';
+            const ends     = m.endDate ? new Date(m.endDate).toLocaleDateString('ko-KR', {month:'short', day:'numeric'}) : '';
+            const slug     = m.slug || '';
+            return `<a class="poly-card" href="https://polymarket.com/event/${slug}" target="_blank" rel="noopener">
+                <div class="poly-q">${m.question}</div>
+                ${yesPct != null ? `
+                <div class="poly-bar-wrap"><div class="poly-bar-yes" style="width:${yesPct}%"></div></div>
+                <div class="poly-pcts"><span class="poly-yes">Yes ${yesPct}%</span><span class="poly-no">No ${noPct}%</span></div>
+                ` : ''}
+                <div class="poly-meta">${vol ? `거래량 ${vol}` : ''}${vol && ends ? ' · ' : ''}${ends ? `마감 ${ends}` : ''}</div>
+            </a>`;
+        }).join('');
+    }
+
+    async function loadPolymarketSymbol(symbol) {
+        const card = document.getElementById('polymarketSymbolCard');
+        if (!card || !symbol || /^\d{6}/.test(symbol)) {
+            if (card) card.style.display = 'none';
+            return;
+        }
+        card.style.display = '';
+        card.innerHTML = '<div class="poly-loading">Polymarket 예측 검색 중...</div>';
+        try {
+            const res = await fetch(`/api/polymarket/symbol/${encodeURIComponent(symbol)}`);
+            if (!res.ok) throw new Error(res.status);
+            const { markets } = await res.json();
+            const valid = (markets || []).filter(m => m.question && m.outcomes);
+            if (!valid.length) { card.style.display = 'none'; return; }
+            const listEl = document.createElement('div');
+            listEl.className = 'poly-list';
+            renderPolymarketList(listEl, valid.slice(0, 3));
+            card.innerHTML = '<div class="poly-symbol-header">🔮 폴리마켓 관련 예측</div>';
+            card.appendChild(listEl);
+        } catch { card.style.display = 'none'; }
+    }
+
     // 뉴스 탭
     // ========================================
     let _newsCache = {};
@@ -13103,6 +13177,7 @@
         const label = document.getElementById('newsSymbolLabel');
         if (!list) return;
         if (label) label.textContent = currentSymbol;
+        loadPolymarketSymbol(symbol);
 
         // 캐시 유효하면 즉시 렌더
         if (_newsCache[symbol] && Date.now() - _newsCache[symbol].ts < NEWS_CACHE_MS) {
@@ -15800,6 +15875,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         saveRecentStock, loadRecentStocks,
         loadVolAlert,
         loadNewsTab, reloadNewsTab, renderNewsList, _newsTimeAgo,
+        loadPolymarketHome, loadPolymarketSymbol, renderPolymarketList,
         openTabOrderModal, closeTabOrderModal, saveTabOrder, resetTabOrder,
         loadSocialTab, loadStockTwits, loadApewisdomCard, loadPaxnetBoard, setSocialSource, reloadSocialTab, loadSocialHot, toggleStTranslate,
         loadShortTab, reloadShortTab, renderShortTab, _buildGaugeSVG,

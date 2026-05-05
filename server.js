@@ -3947,6 +3947,83 @@ app.get('/api/cron/earnings-reminder', cronAuth, async (req, res) => {
     }
 });
 
+// ── Polymarket 예측 시장 ───────────────────────────────────────────────────
+const _polyHomeCache   = { data: null, ts: 0 };
+const _polyStocksCache = { data: null, ts: 0 };
+const POLY_HOME_TTL    = 5 * 60 * 1000;
+const POLY_STOCKS_TTL  = 5 * 60 * 1000;
+
+// 이벤트 객체를 클라이언트가 기대하는 포맷으로 정규화
+function _normalizePolyEvent(ev) {
+    const mkts = (ev.markets || []).filter(m => m.active && !m.closed);
+    const m = mkts[0] || {};
+    return {
+        question: ev.title || m.question || '',
+        outcomes: m.outcomes || '["Yes","No"]',
+        outcomePrices: m.outcomePrices || '["0.5","0.5"]',
+        volume: ev.volume || m.volume || 0,
+        endDate: ev.endDate || m.endDate || '',
+        slug: ev.slug || m.slug || '',
+    };
+}
+
+app.get('/api/polymarket/home', async (_req, res) => {
+    const now = Date.now();
+    if (_polyHomeCache.data && now - _polyHomeCache.ts < POLY_HOME_TTL) {
+        return res.json({ markets: _polyHomeCache.data, cached: true });
+    }
+    try {
+        // finance + economics 이벤트 병렬 요청
+        const [rFin, rEco] = await Promise.all([
+            fetch('https://gamma-api.polymarket.com/events?limit=12&active=true&closed=false&tag_slug=finance&order=volume&ascending=false',   { headers: { 'User-Agent': 'StockAI/1.0' } }),
+            fetch('https://gamma-api.polymarket.com/events?limit=12&active=true&closed=false&tag_slug=economics&order=volume&ascending=false', { headers: { 'User-Agent': 'StockAI/1.0' } }),
+        ]);
+        const [finEvents, ecoEvents] = await Promise.all([
+            rFin.ok ? rFin.json() : [],
+            rEco.ok ? rEco.json() : [],
+        ]);
+        const seen = new Set();
+        const merged = [...finEvents, ...ecoEvents].filter(ev => {
+            if (seen.has(ev.id)) return false;
+            seen.add(ev.id); return true;
+        });
+        // volume 내림차순 정렬 후 정규화
+        merged.sort((a, b) => (Number(b.volume) || 0) - (Number(a.volume) || 0));
+        const markets = merged.map(_normalizePolyEvent).filter(m => m.question);
+        _polyHomeCache.data = markets;
+        _polyHomeCache.ts   = now;
+        res.json({ markets, cached: false });
+    } catch (err) {
+        console.error('[polymarket/home]', err.message);
+        res.status(502).json({ error: 'Polymarket 데이터를 가져올 수 없어요' });
+    }
+});
+
+app.get('/api/polymarket/symbol/:symbol', async (req, res) => {
+    const { symbol } = req.params;
+    if (!validSymbol(symbol)) return res.status(400).json({ error: 'invalid symbol' });
+    const sym = symbol.toUpperCase().replace(/\.(KS|KQ)$/i, '');
+    const now = Date.now();
+
+    // stocks 이벤트 공유 캐시 — 전체를 한번만 가져오고 ticker로 필터
+    if (!_polyStocksCache.data || now - _polyStocksCache.ts > POLY_STOCKS_TTL) {
+        try {
+            const r = await fetch('https://gamma-api.polymarket.com/events?limit=50&active=true&closed=false&tag_slug=stocks&order=volume&ascending=false', { headers: { 'User-Agent': 'StockAI/1.0' } });
+            if (r.ok) {
+                _polyStocksCache.data = await r.json();
+                _polyStocksCache.ts   = now;
+            }
+        } catch { /* silent — fall through to empty */ }
+    }
+
+    const all = _polyStocksCache.data || [];
+    // 제목에 ticker 심볼이 포함된 이벤트 필터
+    const re = new RegExp(`\\b${sym}\\b`, 'i');
+    const matched = all.filter(ev => re.test(ev.title || ''));
+    const markets = matched.slice(0, 3).map(_normalizePolyEvent).filter(m => m.question);
+    res.json({ markets, cached: _polyStocksCache.ts === now ? false : true });
+});
+
 // index.html fallback (SPA 라우팅)
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));

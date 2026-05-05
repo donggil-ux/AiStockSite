@@ -4223,3 +4223,18 @@
     margin-top:12px;font-size:11px;color:var(--text3);
     border-top:1px solid var(--border);padding-top:8px;line-height:1.6;
 }
+
+/* ── Polymarket 예측 ──────────────────────────────────────────────── */
+.poly-list{display:flex;flex-direction:column;gap:8px;padding:0 16px 16px;}
+.poly-card{display:block;background:var(--card-bg,var(--bg2));border:1px solid var(--border);border-radius:10px;padding:12px 14px;text-decoration:none;color:var(--text);transition:border-color .15s;}
+.poly-card:hover{border-color:var(--blue);}
+.poly-q{font-size:13px;font-weight:600;line-height:1.4;margin-bottom:8px;color:var(--text);}
+.poly-bar-wrap{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:4px;}
+.poly-bar-yes{height:100%;background:#22c55e;border-radius:3px;transition:width .3s;}
+.poly-pcts{display:flex;justify-content:space-between;font-size:11px;font-weight:600;margin-bottom:4px;}
+.poly-yes{color:#22c55e;}
+.poly-no{color:#ef4444;}
+.poly-meta{font-size:11px;color:var(--sub,var(--text3));margin-top:4px;}
+.poly-symbol-card{margin:0 0 12px;}
+.poly-symbol-header{font-size:13px;font-weight:700;padding:12px 16px 8px;color:var(--text);}
+.poly-loading{padding:16px;font-size:13px;color:var(--sub,var(--text3));text-align:center;}
