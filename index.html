@@ -2051,11 +2051,22 @@
     async function fetchTop100Single(filter) {
         // 저가주 전용 경로
         if (filter === 'penny_stocks') {
+            // 유효한 US 티커만 허용: 알파벳 시작, 밑줄 없음, 해외 거래소 suffix 제외
+            // 유효한 US 상장 티커만 허용 (알파벳 1~5자, US 클래스 접미사만 허용)
+            const _US_SUFFIXES = new Set(['A','B','C','D','U','W','WS','WT','R']);
+            const _isValidTicker = sym => {
+                if (!sym || /^\d/.test(sym)) return false;   // 숫자 시작 제외
+                if (sym.includes('_') || sym.includes(' ')) return false; // 파생/인덱스 제외
+                const parts = sym.split('.');
+                if (parts.length > 2) return false;
+                if (parts.length === 2 && !_US_SUFFIXES.has(parts[1].toUpperCase())) return false; // .HK .MI .V .TO 등 제외
+                return /^[A-Za-z]/.test(parts[0]) && parts[0].length >= 1 && parts[0].length <= 5;
+            };
             try {
                 const data = await fetch('/api/penny-stocks').then(r => r.json());
                 const quotes = data?.quotes;
                 if (quotes?.length) {
-                    const items = quotes.slice(0, 100);
+                    const items = quotes.filter(q => _isValidTicker(q.symbol)).slice(0, 100);
                     top100Cache[filter] = { items, ts: Date.now() };
                     saveTop100LS();
                     if (top100Filter === filter) renderTop100(items);
@@ -14059,7 +14070,28 @@
               <div class="short-stat-sub" style="color:var(--text3)">공매도 청산 예상 기간</div>
             </div>
           </div>
-          <div class="short-date-note">기준일: ${dateStr} (FINRA 보고 기준)</div>
+          <div class="short-date-note">
+            기준일: ${dateStr} (FINRA 보고 기준) &nbsp;·&nbsp; <span style="color:var(--text3)">최신 데이터</span>
+            ${(() => {
+              if (!d.dateShortInterest?.raw) return '';
+              const lastTs = d.dateShortInterest.raw * 1000;
+              const lastDate = new Date(lastTs);
+              const day = lastDate.getUTCDate();
+              // FINRA settlement: ~15일, ~말일 → 다음 결산일 추정
+              let nextSettlement;
+              if (day < 20) {
+                // 이번달 말일 결산
+                nextSettlement = new Date(Date.UTC(lastDate.getUTCFullYear(), lastDate.getUTCMonth() + 1, 0));
+              } else {
+                // 다음달 15일 결산
+                nextSettlement = new Date(Date.UTC(lastDate.getUTCFullYear(), lastDate.getUTCMonth() + 1, 15));
+              }
+              // FINRA 공표: 결산 후 8영업일 후 (≈ +11일 달력 기준)
+              const nextPub = new Date(nextSettlement.getTime() + 11 * 24 * 60 * 60 * 1000);
+              const nextPubStr = nextPub.toLocaleDateString('ko-KR');
+              return `<br><span style="font-size:11px;color:var(--text3)">다음 FINRA 발표 예정: 약 ${nextPubStr}</span>`;
+            })()}
+          </div>
           ${(() => {
             const a = _analyzeShort(pct, ratio, deltaPct, !!prev);
             return `<div class="short-ai-section">
