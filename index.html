@@ -13114,6 +13114,14 @@
         const sec = document.getElementById('polymarketHomeSection');
         const el  = document.getElementById('polymarketHomeList');
         if (!sec || !el) return;
+        // localStorage 캐시 즉시 표시 (5분 유효) → 백그라운드 갱신
+        try {
+            const cached = JSON.parse(localStorage.getItem('polyHomeCache') || 'null');
+            if (cached && Date.now() - cached.ts < 5 * 60 * 1000 && cached.markets?.length) {
+                sec.style.display = '';
+                renderPolymarketList(el, cached.markets.slice(0, 8));
+            }
+        } catch {}
         try {
             const res = await fetch('/api/polymarket/home');
             if (!res.ok) throw new Error(res.status);
@@ -13122,7 +13130,11 @@
             if (!valid.length) { sec.style.display = 'none'; return; }
             sec.style.display = '';
             renderPolymarketList(el, valid.slice(0, 8));
-        } catch { sec.style.display = 'none'; }
+            try { localStorage.setItem('polyHomeCache', JSON.stringify({ ts: Date.now(), markets: valid })); } catch {}
+        } catch {
+            // 네트워크 실패 시 캐시가 이미 표시 중이면 유지, 없으면 숨김
+            if (!el.querySelector('.poly-card')) sec.style.display = 'none';
+        }
     }
 
     function renderPolymarketList(el, markets) {
@@ -13155,20 +13167,44 @@
             if (card) card.style.display = 'none';
             return;
         }
-        card.style.display = '';
-        card.innerHTML = '<div class="poly-loading">Polymarket 예측 검색 중...</div>';
+        // localStorage 캐시 즉시 표시 후 백그라운드 갱신
+        const cacheKey = `polySym_${symbol.toUpperCase()}`;
+        let shownFromCache = false;
+        try {
+            const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+            if (cached && Date.now() - cached.ts < 3 * 60 * 1000 && cached.markets?.length) {
+                card.style.display = '';
+                const listEl = document.createElement('div');
+                listEl.className = 'poly-list';
+                renderPolymarketList(listEl, cached.markets.slice(0, 3));
+                card.innerHTML = '<div class="poly-symbol-header">🔮 폴리마켓 관련 예측</div>';
+                card.appendChild(listEl);
+                shownFromCache = true;
+            }
+        } catch {}
+        if (!shownFromCache) {
+            card.style.display = '';
+            card.innerHTML = '<div class="poly-loading">Polymarket 예측 검색 중...</div>';
+        }
         try {
             const res = await fetch(`/api/polymarket/symbol/${encodeURIComponent(symbol)}`);
             if (!res.ok) throw new Error(res.status);
             const { markets } = await res.json();
             const valid = (markets || []).filter(m => m.question && m.outcomes);
-            if (!valid.length) { card.style.display = 'none'; return; }
+            if (!valid.length) {
+                if (!shownFromCache) card.style.display = 'none';
+                try { localStorage.removeItem(cacheKey); } catch {}
+                return;
+            }
             const listEl = document.createElement('div');
             listEl.className = 'poly-list';
             renderPolymarketList(listEl, valid.slice(0, 3));
             card.innerHTML = '<div class="poly-symbol-header">🔮 폴리마켓 관련 예측</div>';
             card.appendChild(listEl);
-        } catch { card.style.display = 'none'; }
+            try { localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), markets: valid })); } catch {}
+        } catch {
+            if (!shownFromCache) card.style.display = 'none';
+        }
     }
 
     // 뉴스 탭

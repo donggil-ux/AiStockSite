@@ -3968,6 +3968,7 @@ function _normalizePolyEvent(ev) {
 }
 
 app.get('/api/polymarket/home', async (_req, res) => {
+    res.set('Cache-Control', 'public, max-age=120, stale-while-revalidate=300');
     const now = Date.now();
     if (_polyHomeCache.data && now - _polyHomeCache.ts < POLY_HOME_TTL) {
         return res.json({ markets: _polyHomeCache.data, cached: true });
@@ -4005,29 +4006,34 @@ app.get('/api/polymarket/home', async (_req, res) => {
 app.get('/api/polymarket/symbol/:symbol', async (req, res) => {
     const { symbol } = req.params;
     if (!validSymbol(symbol)) return res.status(400).json({ error: 'invalid symbol' });
+    res.set('Cache-Control', 'public, max-age=120, stale-while-revalidate=300');
     const sym = symbol.toUpperCase().replace(/\.(KS|KQ)$/i, '');
     const now = Date.now();
 
-    // stocks 이벤트 공유 캐시 — 전체를 한번만 가져오고 ticker로 필터
+    // stocks 이벤트 공유 캐시 — 정규화 + 번역까지 미리 처리해 저장
+    // 캐시 항목: { rawTitle: 원본 영어 제목(필터용), market: 번역된 정규화 객체 }
     if (!_polyStocksCache.data || now - _polyStocksCache.ts > POLY_STOCKS_TTL) {
         try {
             const r = await fetch('https://gamma-api.polymarket.com/events?limit=50&active=true&closed=false&tag_slug=stocks&order=volume&ascending=false', { headers: { 'User-Agent': 'StockAI/1.0' } });
             if (r.ok) {
-                _polyStocksCache.data = await r.json();
-                _polyStocksCache.ts   = now;
+                const events = await r.json();
+                _polyStocksCache.data = await Promise.all(events.map(async ev => {
+                    const norm = _normalizePolyEvent(ev);
+                    if (!norm.question) return null;
+                    const translated = await translateToKo(norm.question);
+                    return { rawTitle: ev.title || '', market: { ...norm, question: translated } };
+                })).then(arr => arr.filter(Boolean));
+                _polyStocksCache.ts = now;
             }
         } catch { /* silent — fall through to empty */ }
     }
 
     const all = _polyStocksCache.data || [];
-    // 제목에 ticker 심볼이 포함된 이벤트 필터
-    const re = new RegExp(`\\b${sym}\\b`, 'i');
-    const matched = all.filter(ev => re.test(ev.title || ''));
-    const rawMatched = matched.slice(0, 3).map(_normalizePolyEvent).filter(m => m.question);
-    const markets = await Promise.all(rawMatched.map(async m => ({
-        ...m, question: await translateToKo(m.question)
-    })));
-    res.json({ markets, cached: _polyStocksCache.ts === now ? false : true });
+    // 정규식 특수문자 이스케이프 후 ticker 매칭 (BRK.A 등 안전)
+    const escSym = sym.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`\\b${escSym}\\b`, 'i');
+    const markets = all.filter(c => re.test(c.rawTitle)).slice(0, 3).map(c => c.market);
+    res.json({ markets, cached: _polyStocksCache.ts < now });
 });
 
 // index.html fallback (SPA 라우팅)
@@ -4054,6 +4060,43 @@ function logEnvStatus() {
     console.log('');
 }
 
+// 폴리마켓 캐시 워밍 — 첫 사용자가 콜드 캐시 대기 안 하도록 백그라운드 fetch
+async function _warmupPolymarket() {
+    try {
+        // home 캐시 워밍
+        const [rFin, rEco] = await Promise.all([
+            fetch('https://gamma-api.polymarket.com/events?limit=12&active=true&closed=false&tag_slug=finance&order=volume&ascending=false',   { headers: { 'User-Agent': 'StockAI/1.0' } }),
+            fetch('https://gamma-api.polymarket.com/events?limit=12&active=true&closed=false&tag_slug=economics&order=volume&ascending=false', { headers: { 'User-Agent': 'StockAI/1.0' } }),
+        ]);
+        const [finEvents, ecoEvents] = await Promise.all([
+            rFin.ok ? rFin.json() : [],
+            rEco.ok ? rEco.json() : [],
+        ]);
+        const seen = new Set();
+        const merged = [...finEvents, ...ecoEvents].filter(ev => { if (seen.has(ev.id)) return false; seen.add(ev.id); return true; });
+        merged.sort((a, b) => (Number(b.volume) || 0) - (Number(a.volume) || 0));
+        const raw = merged.map(_normalizePolyEvent).filter(m => m.question);
+        const markets = await Promise.all(raw.map(async m => ({ ...m, question: await translateToKo(m.question) })));
+        _polyHomeCache.data = markets;
+        _polyHomeCache.ts = Date.now();
+
+        // stocks 캐시 워밍
+        const r = await fetch('https://gamma-api.polymarket.com/events?limit=50&active=true&closed=false&tag_slug=stocks&order=volume&ascending=false', { headers: { 'User-Agent': 'StockAI/1.0' } });
+        if (r.ok) {
+            const events = await r.json();
+            _polyStocksCache.data = (await Promise.all(events.map(async ev => {
+                const norm = _normalizePolyEvent(ev);
+                if (!norm.question) return null;
+                return { rawTitle: ev.title || '', market: { ...norm, question: await translateToKo(norm.question) } };
+            }))).filter(Boolean);
+            _polyStocksCache.ts = Date.now();
+        }
+        console.log(`✓ Polymarket 워밍 완료: home ${markets.length}, stocks ${_polyStocksCache.data?.length || 0}`);
+    } catch (err) {
+        console.error('⚠️  Polymarket 워밍 실패:', err.message);
+    }
+}
+
 if (require.main === module) {
     // 로컬 실행
     app.listen(PORT, () => {
@@ -4061,11 +4104,13 @@ if (require.main === module) {
         console.log(`📡 Health check    →  http://localhost:${PORT}/health`);
         logEnvStatus();
         getCrumb().catch(err => console.error('⚠️  Initial crumb fetch 실패:', err.message));
+        _warmupPolymarket();  // 백그라운드 워밍
     });
 } else {
     // Vercel 서버리스: cold start 시 crumb 미리 발급
     logEnvStatus();
     getCrumb().catch(() => {});
+    _warmupPolymarket();
 }
 
 module.exports = app;
