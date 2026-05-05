@@ -2365,13 +2365,39 @@ ${candidates.join(', ')}
 
 JSON만 출력. 코드펜스·설명·추가 텍스트 금지. '{' 로 시작 '}' 로 끝.`;
 
+        // Gemini 호출 — 2.5-flash → 2.0-flash → Claude Haiku 순 폴백
         const genAI = getGenAI();
-        const model = genAI.getGenerativeModel({
-            model: 'gemini-2.5-flash',
-            generationConfig: { temperature: 0.3 },
-        });
-        const result = await model.generateContent(prompt);
-        const raw = result.response.text().trim();
+        const _dpTryGemini = async (modelName) => {
+            const m = genAI.getGenerativeModel({ model: modelName, generationConfig: { temperature: 0.3 } });
+            const r = await m.generateContent(prompt);
+            return r.response.text().trim();
+        };
+        const _isGeminiOverloaded = (e) => {
+            const msg = String(e?.message || '');
+            return msg.includes('503') || msg.includes('429') || msg.includes('Resource exhausted') || msg.includes('Service Unavailable');
+        };
+        let raw;
+        try {
+            raw = await _dpTryGemini('gemini-2.5-flash');
+        } catch (e25) {
+            if (_isGeminiOverloaded(e25)) {
+                console.warn('[daily-picks] gemini-2.5-flash 과부하 → gemini-2.0-flash 폴백');
+                try {
+                    raw = await _dpTryGemini('gemini-2.0-flash');
+                } catch (e20) {
+                    if (_isGeminiOverloaded(e20) && process.env.ANTHROPIC_API_KEY) {
+                        console.warn('[daily-picks] gemini-2.0-flash 과부하 → Claude Haiku 폴백');
+                        const anthropic = getAnthropic();
+                        const msg = await anthropic.messages.create({
+                            model: 'claude-haiku-4-5-20251001',
+                            max_tokens: 8192,
+                            messages: [{ role: 'user', content: prompt }],
+                        });
+                        raw = msg.content.find(b => b.type === 'text')?.text?.trim() || '';
+                    } else { throw e20; }
+                }
+            } else { throw e25; }
+        }
         const jsonStr = raw.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
         const data = JSON.parse(jsonStr);
 
@@ -2405,7 +2431,12 @@ JSON만 출력. 코드펜스·설명·추가 텍스트 금지. '{' 로 시작 '}
     } catch (e) {
         console.error('[daily-picks]', e.message);
         if (_dailyPicksCache.data) return res.json({ ..._dailyPicksCache.data, cached: true, stale: true });
-        res.status(500).json({ error: 'AI 분석에 실패했습니다. 잠시 후 다시 시도해주세요.' });
+        const msg = String(e?.message || '');
+        const userMsg = msg.includes('credit balance') ? 'AI 크레딧이 부족합니다. 관리자에게 문의하세요.'
+            : msg.includes('503') || msg.includes('Service Unavailable') ? 'AI 서버가 일시적으로 과부하 상태입니다. 잠시 후 다시 시도해주세요.'
+            : msg.includes('429') || msg.includes('Resource exhausted') ? 'AI 쿼터가 소진되었습니다. 잠시 후 다시 시도해주세요.'
+            : 'AI 분석에 실패했습니다. 잠시 후 다시 시도해주세요.';
+        res.status(500).json({ error: userMsg });
     }
 });
 
