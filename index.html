@@ -2066,7 +2066,11 @@
                 const data = await fetch('/api/penny-stocks').then(r => r.json());
                 const quotes = data?.quotes;
                 if (quotes?.length) {
-                    const items = quotes.filter(q => _isValidTicker(q.symbol)).slice(0, 100);
+                    const items = quotes.filter(q =>
+                        _isValidTicker(q.symbol) &&
+                        (q.regularMarketVolume || 0) > 0 &&   // 당일 거래량 있는 종목만
+                        q.regularMarketPrice != null           // 가격 데이터 있는 종목만
+                    ).slice(0, 100);
                     top100Cache[filter] = { items, ts: Date.now() };
                     saveTop100LS();
                     if (top100Filter === filter) renderTop100(items);

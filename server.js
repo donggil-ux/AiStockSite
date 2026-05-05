@@ -504,8 +504,9 @@ app.get('/api/penny-stocks', async (req, res) => {
         return res.json(_pennyCache.data);
     }
     try {
+        // NYSE(NYQ), NASDAQ(NMS/NGM/NGA), NYSE Arca(PCX), NYSE American(ASE) 만 포함
         const body = {
-            offset: 0, size: 100,
+            offset: 0, size: 150,
             sortField: 'percentchange',
             sortType: 'desc',
             quoteType: 'EQUITY',
@@ -514,7 +515,20 @@ app.get('/api/penny-stocks', async (req, res) => {
                 operands: [
                     { operator: 'lt',  operands: ['intradayprice', 5] },
                     { operator: 'gte', operands: ['intradayprice', 0.01] },
-                    { operator: 'gte', operands: ['dayvolume', 500000] },
+                    { operator: 'gte', operands: ['dayvolume', 200000] },
+                    { operator: 'gte', operands: ['averagedailyvol3month', 50000] },
+                    { operator: 'gt',  operands: ['intradayprice', 0] },
+                    {
+                        operator: 'or',
+                        operands: [
+                            { operator: 'eq', operands: ['exchange', 'NYQ'] },
+                            { operator: 'eq', operands: ['exchange', 'NMS'] },
+                            { operator: 'eq', operands: ['exchange', 'NGM'] },
+                            { operator: 'eq', operands: ['exchange', 'NGA'] },
+                            { operator: 'eq', operands: ['exchange', 'PCX'] },
+                            { operator: 'eq', operands: ['exchange', 'ASE'] },
+                        ],
+                    },
                 ],
             },
             userId: '', userIdType: 'guid',
