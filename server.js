@@ -87,6 +87,8 @@ function getAnthropic() {
 // AI 추천 종목 인메모리 캐시 (24시간 TTL — 무료 쿼터 절약)
 let _aiRecCache = { data: null, ts: 0 };
 const AI_REC_TTL = 24 * 60 * 60 * 1000;
+let _dailyPicksCache = { data: null, ts: 0 };
+const DAILY_PICKS_TTL = 24 * 60 * 60 * 1000;
 
 // [Fix-F] _supabase = null(미설정) or createClient 인스턴스 — 최초 1회만 생성
 let _supabase;
@@ -2273,6 +2275,118 @@ Start your response with [ and end with ]`;
         console.error('[ai-recommend]', e.message);
         if (_aiRecCache.data) return res.json(_aiRecCache.data);
         res.status(500).json({ error: e.message });
+    }
+});
+
+/**
+ * 데일리 픽 — 매수 5 + 매도 5 추천 (24h 캐시)
+ * GET /api/daily-picks → { date, marketContext, buys: [...], sells: [...] }
+ *
+ * 각 추천 카드:
+ * { ticker, name, signal: "BUY"|"SELL", oneLineReason,
+ *   entry, stopLoss, target, rr,
+ *   technicalAnalysis, momentum, entryTiming, riskFactors }
+ */
+app.get('/api/daily-picks', async (req, res) => {
+    try {
+        // 24h 캐시 hit
+        if (_dailyPicksCache.data && Date.now() - _dailyPicksCache.ts < DAILY_PICKS_TTL) {
+            return res.json({ ..._dailyPicksCache.data, cached: true });
+        }
+
+        // 1) Yahoo screener에서 후보 종목 수집 (gainers + losers + most_actives)
+        const [gainers, losers, actives] = await Promise.all([
+            _fetchScreenerSymbols('day_gainers',  30).catch(() => ({ symbols: [] })),
+            _fetchScreenerSymbols('day_losers',   30).catch(() => ({ symbols: [] })),
+            _fetchScreenerSymbols('most_actives', 30).catch(() => ({ symbols: [] })),
+        ]);
+        // 합집합 (중복 제거)
+        const candidates = Array.from(new Set([
+            ...(gainers.symbols || []),
+            ...(losers.symbols  || []),
+            ...(actives.symbols || []),
+        ])).slice(0, 60);
+
+        if (candidates.length < 5) {
+            return res.status(503).json({ error: '후보 종목 데이터를 가져올 수 없습니다. 잠시 후 다시 시도해주세요.' });
+        }
+
+        // 2) Gemini 호출 — 매수 5 + 매도 5 + 표준 분석
+        const today = new Date().toISOString().slice(0, 10);
+        const prompt = `당신은 미국 주식 시니어 트레이더입니다. 오늘은 ${today}.
+
+다음은 오늘 시장에서 거래가 활발하거나 변동이 큰 후보 종목들입니다:
+${candidates.join(', ')}
+
+이 후보 중에서 다음을 선정하고 각 종목에 대해 분석해주세요:
+- 매수 추천 5개 (상승 모멘텀 강한 종목 — 거래량 급증, 정배열, 돌파 등)
+- 매도(또는 회피) 추천 5개 (하락 신호 강한 종목 — 거래량 감소, 데드크로스, 고점 이탈 등)
+
+각 종목당 다음 필드 모두 포함 (한국어):
+- ticker: 영문 티커
+- name: 영문 회사명
+- signal: "BUY" 또는 "SELL"
+- oneLineReason: 1줄 핵심 이유 (정량 근거 1~2개 포함, 예: "거래량 2.5배 + RSI 65 정배열")
+- entry: 진입가 (숫자, USD)
+- stopLoss: 손절가 (숫자, USD)
+- target: 목표가 (숫자, USD)
+- rr: "1:N.N" 형식 손익비 문자열
+- technicalAnalysis: 기술적 분석 2~3문장 (이동평균선·거래량·RSI/MACD 인용)
+- momentum: 모멘텀 분석 1~2문장 (52주 위치·5일 수익률 등)
+- entryTiming: 진입 타이밍 권장 1줄 (예: "장 시작 직후 매수" / "5분봉 눌림 대기")
+- riskFactors: 주요 리스크 1~2줄
+
+응답은 다음 JSON 스키마 정확히:
+{
+  "date": "${today}",
+  "marketContext": "오늘 시장 분위기 1줄 (S&P 500 / VIX 흐름 등)",
+  "buys":  [ ... 5개 ],
+  "sells": [ ... 5개 ]
+}
+
+JSON만 출력. 코드펜스·설명·추가 텍스트 금지. '{' 로 시작 '}' 로 끝.`;
+
+        const genAI = getGenAI();
+        const model = genAI.getGenerativeModel({
+            model: 'gemini-2.0-flash',
+            generationConfig: { temperature: 0.3 },
+        });
+        const result = await model.generateContent(prompt);
+        const raw = result.response.text().trim();
+        const jsonStr = raw.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
+        const data = JSON.parse(jsonStr);
+
+        // 3) 응답 검증 + 정규화
+        const num = v => (v == null || isNaN(Number(v))) ? null : Number(v);
+        const cleanPick = (p, expectedSignal) => ({
+            ticker:            String(p.ticker || '').slice(0, 20).toUpperCase(),
+            name:              String(p.name || '').slice(0, 100),
+            signal:            expectedSignal,
+            oneLineReason:     String(p.oneLineReason || '').slice(0, 200),
+            entry:             num(p.entry),
+            stopLoss:          num(p.stopLoss),
+            target:            num(p.target),
+            rr:                String(p.rr || '').slice(0, 20),
+            technicalAnalysis: String(p.technicalAnalysis || '').slice(0, 500),
+            momentum:          String(p.momentum || '').slice(0, 300),
+            entryTiming:       String(p.entryTiming || '').slice(0, 200),
+            riskFactors:       String(p.riskFactors || '').slice(0, 300),
+        });
+        const buys  = (Array.isArray(data.buys)  ? data.buys  : []).slice(0, 5).map(p => cleanPick(p, 'BUY'));
+        const sells = (Array.isArray(data.sells) ? data.sells : []).slice(0, 5).map(p => cleanPick(p, 'SELL'));
+
+        const final = {
+            date:          data.date || today,
+            marketContext: String(data.marketContext || '').slice(0, 200),
+            buys, sells,
+            generatedAt:   Date.now(),
+        };
+        _dailyPicksCache = { data: final, ts: Date.now() };
+        res.json(final);
+    } catch (e) {
+        console.error('[daily-picks]', e.message);
+        if (_dailyPicksCache.data) return res.json({ ..._dailyPicksCache.data, cached: true, stale: true });
+        res.status(500).json({ error: 'AI 분석에 실패했습니다. 잠시 후 다시 시도해주세요.' });
     }
 });
 
