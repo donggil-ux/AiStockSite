@@ -2991,8 +2991,8 @@
         if (!sec || !el) return;
         const favs = getFavorites();
         const usFavs = favs.filter(f => f.market === 'US');
-        if (!usFavs.length) { sec.style.display = 'none'; return; }
-        sec.style.display = '';
+        sec.style.display = 'none'; return; // 홈에서 즐겨찾기 요약 숨김
+        if (!usFavs.length) { return; }
         // 스켈레톤
         el.innerHTML = usFavs.map(() =>
             '<div class="ai-rec-card" style="min-height:110px;opacity:.35;pointer-events:none;background:var(--bg3);"></div>'
