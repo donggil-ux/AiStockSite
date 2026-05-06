@@ -2398,7 +2398,7 @@
             line-height:1.15!important;
         }
         .home-section-header{margin-bottom:0!important;}
-        .home-section-sub{font-size:14px!important;color:var(--text3)!important;margin-top:4px!important;}
+        .home-section-sub{font-size:11px!important;color:var(--text3)!important;margin-top:2px!important;}
         @media(max-width:480px){
             .home-section-title{font-size:20px!important;}
         }
