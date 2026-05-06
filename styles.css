@@ -3193,13 +3193,16 @@
 
 /* 모바일 */
 @media (max-width: 640px) {
-    .earn-topnav { flex-wrap: wrap; gap: 0; padding: 8px 0 0; }
-    .earn-topnav-dates { order: 1; padding-right: 0; border-right: none; margin-right: 0; padding-bottom: 4px; border-bottom: none; width: 100%; }
-    .earn-topnav-actions { order: 2; padding-top: 8px; flex-wrap: wrap; row-gap: 8px; width: 100%; }
+    /* 가로 스크롤 → 세로 줄바꿈으로 전환 */
+    .earn-topnav { flex-wrap: wrap; gap: 0; padding: 8px 0 0; overflow-x: visible; overflow-y: visible; }
+    .earn-topnav-dates { order: 1; padding-right: 0; border-right: none; margin-right: 0; padding-bottom: 4px; border-bottom: none; width: 100%; flex: 0 0 100%; }
+    /* flex:1 데스크탑 값 무력화 → 풀 너비 강제 */
+    .earn-topnav-actions { order: 2; padding-top: 8px; flex-wrap: wrap; row-gap: 8px; width: 100%; flex: 0 0 100%; min-width: 0; }
+    .earn-chip-group { margin-right: 8px; }
     .earn-date-chip, .earn-topnav-actions .earn-chip { height: 28px; padding: 0 10px; font-size: 12px; }
     /* 검색창: 새 줄 + 풀 너비 */
     .earn-topnav-search { width: 100%; margin-left: 0; padding-right: 0; flex: 0 0 100%; }
-    .earn-topnav-search input { width: 100%; height: 34px; }
+    .earn-topnav-search input { width: 100%; height: 34px; box-sizing: border-box; }
 }
 
 /* 구버전 .earn-window-label 호환 유지 */
