@@ -282,7 +282,7 @@
 
         /* ===== HOME SECTIONS ===== */
         .home-section{margin-bottom:12px;padding:0 16px;}
-        .home-section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:6px;}
+        .home-section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:0;flex-wrap:wrap;gap:6px;}
         .home-section-title{font-size:15px;font-weight:700;letter-spacing:-0.012em;display:flex;align-items:center;gap:6px;}
         .home-section-sub{font-size:11px;color:var(--text3);}
         /* 섹션 타이틀 옆 칩(.hs-badge) — 디자인 정리 차원에서 일괄 비노출 */
@@ -2397,7 +2397,7 @@
             letter-spacing:-0.02em!important;
             line-height:1.15!important;
         }
-        .home-section-header{margin-bottom:18px!important;}
+        .home-section-header{margin-bottom:0!important;}
         .home-section-sub{font-size:14px!important;color:var(--text3)!important;margin-top:4px!important;}
         @media(max-width:480px){
             .home-section-title{font-size:20px!important;}
