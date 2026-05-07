@@ -21,7 +21,7 @@
 </head>
 <body>
 <!-- Side Navigation -->
-<nav class="side-nav open" id="sideNav">
+<nav class="side-nav" id="sideNav">
     <div class="side-nav-header">
         <button class="side-nav-hamburger" onclick="toggleSideNav()" title="메뉴"><i class="ri-menu-line"></i></button>
         <div class="side-nav-title">StockAI</div>
@@ -129,7 +129,7 @@
              ════════════════════════════════════════ -->
         <section id="radarSection" class="radar-section">
 
-            <!-- ② 레이더 탭 -->
+            <!-- ② 레이더 탭 (데스크탑) -->
             <div class="radar-tab-bar">
                 <button class="radar-tab active" data-tab="oversold" onclick="switchRadarTab('oversold')">과매도 레이더</button>
                 <button class="radar-tab" data-tab="value" onclick="switchRadarTab('value')">저평가 가치주</button>
@@ -137,6 +137,14 @@
                 <button class="radar-tab" data-tab="swing" onclick="switchRadarTab('swing')">스윙 R/R</button>
                 <button class="radar-tab" data-tab="streak" onclick="switchRadarTab('streak')">연속 상승세</button>
             </div>
+            <!-- ②-mobile 레이더 드롭다운 -->
+            <select class="radar-tab-select" id="radarTabSelect" onchange="switchRadarTab(this.value)">
+                <option value="oversold" selected>과매도 레이더</option>
+                <option value="value">저평가 가치주</option>
+                <option value="leverage">레버리지 ETF</option>
+                <option value="swing">스윙 R/R</option>
+                <option value="streak">연속 상승세</option>
+            </select>
 
             <!-- ④ 스나이퍼 리스트 본문 -->
             <div id="sniperList" class="sniper-list">
@@ -271,6 +279,18 @@
             </div>
             <div class="dp-home-sub">S&amp;P 500 · 나스닥 · NYSE 매수 3 + 매도 3</div>
             <div id="dpHomeGrid" class="dp-home-grid"></div>
+        </section>
+
+        <!-- 오늘의 실적발표 + AI 어닝콜 요약 -->
+        <section id="earnHomeSection" class="home-section" style="display:none">
+            <div class="home-section-header">
+                <div class="home-section-title">오늘의 실적발표
+                    <span class="hs-badge green">AI 요약</span>
+                </div>
+                <button class="home-section-more" onclick="goEarnings()">전체 보기</button>
+            </div>
+            <div class="earn-home-sub" id="earnHomeSub">발표 완료한 종목 · 어닝콜 한 줄 요약</div>
+            <div class="earn-home-scroll" id="earnHomeScroll"></div>
         </section>
 
         <!-- 미국주식 인기 TOP 100 -->
@@ -438,8 +458,8 @@
                 </div>
                 <div class="earn-chip-group" data-filter-group="result">
                     <button class="earn-chip active" data-value="all"    onclick="_earnSetFilter('result','all', this)">전체</button>
-                    <button class="earn-chip"        data-value="beat"   onclick="_earnSetFilter('result','beat', this)">서프라이즈</button>
-                    <button class="earn-chip"        data-value="miss"   onclick="_earnSetFilter('result','miss', this)">쇼크</button>
+                    <button class="earn-chip"        data-value="beat"   onclick="_earnSetFilter('result','beat', this)">상회</button>
+                    <button class="earn-chip"        data-value="miss"   onclick="_earnSetFilter('result','miss', this)">하회</button>
                 </div>
                 <!-- 검색창 -->
                 <div class="earn-topnav-search">
@@ -1347,10 +1367,7 @@
         document.getElementById('sideNav').classList.remove('open');
         document.getElementById('sideNavBackdrop').classList.remove('show');
     }
-    // 모바일에서 페이지 로드 시 backdrop 초기화
-    if (window.innerWidth < 1024) {
-        document.getElementById('sideNavBackdrop').classList.add('show');
-    }
+    // 모바일에서는 기본으로 nav 닫혀있음 (사용자가 햄버거 클릭 시에만 열림)
     function collapseNavDesktop() {
         const collapsed = document.body.classList.toggle('nav-collapsed');
         try { localStorage.setItem('navCollapsed', collapsed ? '1' : '0'); } catch(e){}
@@ -1358,15 +1375,9 @@
         const btn = document.querySelector('.side-nav-collapse-btn i');
         if (btn) btn.className = collapsed ? 'ri-sidebar-unfold-line' : 'ri-sidebar-fold-line';
     }
-    // 페이지 로드 시 이전 상태 복원
-    if (localStorage.getItem('navCollapsed') === '1') {
-        document.body.classList.add('nav-collapsed');
-        // 아이콘도 접힌 상태로 (DOM 준비 후 적용)
-        document.addEventListener('DOMContentLoaded', () => {
-            const btn = document.querySelector('.side-nav-collapse-btn i');
-            if (btn) btn.className = 'ri-sidebar-unfold-line';
-        }, { once: true });
-    }
+    // 페이지 로드 시 항상 열린 상태로 시작 (이전 접힘 상태 무시)
+    try { localStorage.removeItem('navCollapsed'); } catch(e){}
+    document.body.classList.remove('nav-collapsed');
     // [Fix-B] window 노출 — HTML onclick="closeSideNav()" 처리용 (addEventListener 이중 바인딩 제거)
     window.closeSideNav = closeSideNav;
     window.toggleSideNav = toggleSideNav;
@@ -2351,7 +2362,7 @@
             const on = idx < 0;
             btn.classList.toggle('on', on);
             const icon = btn.querySelector('i');
-            if (icon) icon.className = on ? 'ri-heart-fill' : 'ri-heart-line';
+            if (icon) icon.className = on ? 'ri-star-fill' : 'ri-star-line';
         }
     }
 
@@ -2369,7 +2380,7 @@
         const priceText = price != null ? `$${price.toFixed(2)}` : '-';
         const rankCls = (opts && opts.showTop3 && i < 3) ? 'top3' : '';
         const faved = isFavorited(symbol, market);
-        const heartCls = faved ? 'ri-heart-fill' : 'ri-heart-line';
+        const heartCls = faved ? 'ri-star-fill' : 'ri-star-line';
         const safeName = escHtml(name).replace(/'/g,'&#39;');
         return `<div class="top100-row" onclick="quickSearch('${symbol}','US')">
             <button class="top100-fav ${faved?'on':''}" aria-label="즐겨찾기" onclick="_top100ToggleFav(event,'${symbol}','${market}','${safeName}')"><i class="${heartCls}"></i></button>
@@ -2386,15 +2397,16 @@
 
     // 상승/하락 이유(뉴스 헤드라인 요약) 배치 로드 + 주입
     // 캐시: 메모리 Map + localStorage (새로고침/세션 간 유지, TTL 15분)
-    const _REASON_LS_KEY = 'stockai_top100_reasons_v3'; // v1=22자잘림, v2=raw뉴스헤드라인, v3=Gemini요약
+    const _REASON_LS_KEY = 'stockai_top100_reasons_v4'; // v1=22자잘림, v2=raw뉴스헤드라인, v3=Gemini요약, v4=빈응답캐시초기화
     const _REASON_CLIENT_TTL = 15 * 60 * 1000;
     const _REASON_LS_MAX = 300; // 엔트리 상한 (오래된 것 삭제)
     const _reasonClientCache = (() => {
         const m = new Map();
         try {
-            // 레거시 키 정리 (v1=22자잘림, v2=raw뉴스)
+            // 레거시 키 정리 (v1~v3)
             localStorage.removeItem('stockai_top100_reasons_v1');
             localStorage.removeItem('stockai_top100_reasons_v2');
+            localStorage.removeItem('stockai_top100_reasons_v3');
             const raw = localStorage.getItem(_REASON_LS_KEY);
             if (raw) {
                 const now = Date.now();
@@ -2488,9 +2500,10 @@
                 document.querySelectorAll(`.top100-reason[data-reason-for="${s}"]`)
                     .forEach(el => { el.textContent = map[s]; el.title = map[s]; });
             });
-            // 응답에 없는 티커도 빈값으로 캐시 (재시도 폭주 방지)
+            // 빈 응답은 짧은 TTL로 캐시 (1분) — 다음 페이지 로드 시 재시도
+            const SHORT_TTL_TS = Date.now() - (_REASON_CLIENT_TTL - 60_000);
             needFetch.filter(s => !map[s]).forEach(s => {
-                _reasonClientCache.set(s, { text:'', ts: Date.now() });
+                _reasonClientCache.set(s, { text:'', ts: SHORT_TTL_TS });
             });
             _persistReasonCache();
         } catch (e) {}
@@ -3211,6 +3224,7 @@
     loadFavSummary();
     loadGuruHome();
     loadDpHome();
+    loadEarnHome();
     loadPolymarketHome();
     // 홈 임베드: 연속 상승세 TOP 5 + 저평가 주식 TOP 5 (초기 로드 시)
     // _DISC_PRESET_META 가 아래에서 const 로 정의되므로 setTimeout 으로 defer
@@ -3318,6 +3332,7 @@
         loadFavSummary();
         loadGuruHome();
         loadDpHome();
+        loadEarnHome();
         // 홈 임베드: 연속 상승세 TOP 5 + 저평가 주식 TOP 5 (프리셋 고정)
         if (typeof loadDiscover === 'function') {
             const prevPreset = window._discPreset;
@@ -5086,7 +5101,7 @@
         const chgText = chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '-';
         const priceText = price != null ? `$${price.toFixed(2)}` : '-';
         const faved = (typeof isFavorited === 'function') ? isFavorited(symbol, market) : false;
-        const heartCls = faved ? 'ri-heart-fill' : 'ri-heart-line';
+        const heartCls = faved ? 'ri-star-fill' : 'ri-star-line';
         const safeName = escHtml(name).replace(/'/g,'&#39;');
         const km = q.keyMetric || { label: '', value: '-', dir: 'flat' };
         const kmCls = km.dir === 'up' ? 'up' : km.dir === 'down' ? 'down' : '';
@@ -5329,11 +5344,11 @@
         if (v >= 1e6)  return '$' + (v / 1e6).toFixed(0)  + 'M';
         return '$' + v.toFixed(0);
     }
-    // 서프라이즈/쇼크 라벨 + 클래스
+    // 상회/하회 라벨 + 클래스
     function _earnSurpriseLabel(s) {
         if (typeof s !== 'number' || isNaN(s)) return { label: '-', cls: 'pending' };
-        if (s >=  1) return { label: '서프라이즈 +' + s.toFixed(1) + '%', cls: 'beat' };
-        if (s <= -1) return { label: '쇼크 ' + s.toFixed(1) + '%',         cls: 'miss' };
+        if (s >=  1) return { label: '상회 +' + s.toFixed(1) + '%', cls: 'beat' };
+        if (s <= -1) return { label: '하회 ' + s.toFixed(1) + '%',  cls: 'miss' };
         return { label: '부합 ' + (s>=0?'+':'') + s.toFixed(1) + '%', cls: 'meet' };
     }
     // YoY 텍스트 (화살표 없이 +/- 부호만)
@@ -5355,7 +5370,7 @@
         const name   = item.name || symbol;
         const safeName = escHtml(name).replace(/'/g, '&#39;');
         const faved  = (typeof isFavorited === 'function') ? isFavorited(symbol, market) : false;
-        const heartCls = faved ? 'ri-heart-fill' : 'ri-heart-line';
+        const heartCls = faved ? 'ri-star-fill' : 'ri-star-line';
         const surprise = _earnSurpriseLabel(item.surprisePct);
         // 검색 매칭용 lower-cased
         const searchKey = (symbol + ' ' + name).toLowerCase().replace(/"/g, '');
@@ -5385,6 +5400,7 @@
             </div>
             <div class="earn-cell-yoy">${_earnYoyHtml(item.yoy)}</div>
             <div class="earn-cell-status earn-status-${surprise.cls}">${surprise.label}</div>
+            <div class="earn-cell-ai${item.epsAct == null ? ' earn-cell-ai--empty' : ''}" data-earnings-ai="${symbol}">${item.epsAct != null ? '<span class="earn-ai-loading">분석 중…</span>' : ''}</div>
         </div>`;
     }
 
@@ -5405,16 +5421,6 @@
             const cls = sortF === field ? (sortDir === 'asc' ? ' sort-asc' : ' sort-desc') : '';
             return `<div class="earn-th sortable${cls}" data-sort="${field}" onclick="_earnSortBy('${field}')">${label}</div>`;
         };
-        const groupColHead = `<div class="earn-group-col-head">
-            <div class="earn-th-fav"></div>
-            <div class="earn-th earn-th-stock">종목</div>
-            <div class="earn-th earn-th-time">시기</div>
-            ${thSort('marketCap','시가총액')}
-            ${thSort('epsEst','EPS (예상/실제)')}
-            ${thSort('revEst','매출 (예상/실제)')}
-            ${thSort('yoy','YoY')}
-            ${thSort('surprisePct','상태')}
-        </div>`;
         return `<div class="earn-date-group${collapsedCls}" data-past="${isPast}" data-date="${g.date}">
             <div class="earn-date-header" role="${isPast ? 'button' : 'heading'}" tabindex="${isPast ? '0' : '-1'}">
                 <span class="earn-date-main">${m}/${d}</span>
@@ -5422,7 +5428,6 @@
                 <span class="earn-date-count">${g.count}개 종목</span>
                 ${chevron}
             </div>
-            ${groupColHead}
             <div class="earn-date-rows">${rows}</div>
         </div>`;
     }
@@ -5614,11 +5619,96 @@
             grid.innerHTML = groups.map(_earnBuildGroup).join('');
             if (emptyEl) emptyEl.hidden = true;
             _earnApplyFilters(); // 신규 그룹 렌더 직후 검색·필터 재적용
+            // AI 어닝콜 요약 비동기 enrich (epsAct 있는 종목만)
+            try {
+                const reportedItems = groups.flatMap(g => (g.items || [])).filter(it => it.epsAct != null);
+                _enrichEarningsWithAI(reportedItems);
+            } catch(e) { /* enrich 실패는 무시 */ }
         } catch (err) {
             if (!cached || !cached.groups?.length) {
                 grid.innerHTML = `<div class="disc-empty-inline">불러오기에 실패했어요. 잠시 후 다시 시도해 주세요.</div>`;
             }
         }
+    }
+
+    // ── AI 어닝콜 요약 + 감성 분석 enrich ─────────────────────────
+    const _EARN_AI_LS_KEY = 'earnings_ai_v1';
+    const _EARN_AI_TTL = 2 * 60 * 60 * 1000; // 2h
+
+    function _earnAiLoadLS() {
+        try {
+            const raw = localStorage.getItem(_EARN_AI_LS_KEY);
+            if (!raw) return {};
+            const obj = JSON.parse(raw);
+            const now = Date.now();
+            const fresh = {};
+            Object.keys(obj || {}).forEach(k => {
+                const v = obj[k];
+                if (v && typeof v._t === 'number' && now - v._t < _EARN_AI_TTL) fresh[k] = v;
+            });
+            return fresh;
+        } catch { return {}; }
+    }
+    function _earnAiSaveLS(map) {
+        try {
+            // 200개 상한 — 오래된 것부터 삭제
+            const entries = Object.entries(map).sort((a,b) => (b[1]._t||0) - (a[1]._t||0)).slice(0, 200);
+            const trimmed = Object.fromEntries(entries);
+            localStorage.setItem(_EARN_AI_LS_KEY, JSON.stringify(trimmed));
+        } catch {}
+    }
+
+    function _earnAiRender(symbol, data) {
+        const cells = document.querySelectorAll(`.earn-cell-ai[data-earnings-ai="${symbol}"]`);
+        if (!cells.length) return;
+        const sentMap = { positive: { emoji:'🟢', label:'긍정' }, negative: { emoji:'🔴', label:'부정' }, neutral: { emoji:'🟡', label:'보통' } };
+        const s = sentMap[data?.sentiment] || sentMap.neutral;
+        const summary = (data?.summary || '').trim();
+        cells.forEach(el => {
+            if (!summary) { el.innerHTML = ''; el.classList.add('earn-cell-ai--empty'); return; }
+            el.classList.remove('earn-cell-ai--empty');
+            el.innerHTML = `<span class="earn-sent-badge earn-sent-${data.sentiment}" title="${s.label}">${s.emoji} ${s.label}</span><span class="earn-ai-summary" title="${escHtml(summary)}">${escHtml(summary)}</span>`;
+        });
+    }
+
+    async function _enrichEarningsWithAI(items) {
+        if (!Array.isArray(items) || !items.length) return;
+        const cache = _earnAiLoadLS();
+        // 클라이언트 캐시 hit 먼저 렌더
+        const need = [];
+        items.forEach(it => {
+            const sym = it.symbol;
+            if (!sym) return;
+            const c = cache[sym];
+            if (c && c.summary) {
+                _earnAiRender(sym, c);
+            } else {
+                need.push(sym);
+            }
+        });
+        // 캐시 미스 — 한 번에 최대 20개씩 끊어서 요청
+        if (!need.length) return;
+        const CHUNK = 20;
+        for (let i = 0; i < need.length; i += CHUNK) {
+            const batch = need.slice(i, i + CHUNK);
+            try {
+                const res = await fetch(`/api/earnings-summary?symbols=${batch.join(',')}`);
+                if (!res.ok) continue;
+                const map = await res.json();
+                Object.keys(map || {}).forEach(sym => {
+                    const data = map[sym];
+                    if (!data || !data.summary) return;
+                    cache[sym] = { ...data, _t: Date.now() };
+                    _earnAiRender(sym, data);
+                });
+                // 응답에 없는 종목은 빈 셀로 정리
+                batch.filter(s => !map[s]).forEach(sym => {
+                    const cells = document.querySelectorAll(`.earn-cell-ai[data-earnings-ai="${sym}"]`);
+                    cells.forEach(el => { el.innerHTML = ''; });
+                });
+            } catch(e) { /* 무시 */ }
+        }
+        _earnAiSaveLS(cache);
     }
 
     function setEarningsWindow(key) {
@@ -6286,6 +6376,8 @@
     function switchRadarTab(tab) {
         _radarTab = tab;
         _radarPage = 0;
+        const sel = document.getElementById('radarTabSelect');
+        if (sel && sel.value !== tab) sel.value = tab;
         document.querySelectorAll('.radar-tab').forEach(b => {
             b.classList.toggle('active', b.dataset.tab === tab);
         });
@@ -6518,6 +6610,79 @@
     }
 
     window.switchRadarTab = switchRadarTab;
+
+    // ── 홈 — 오늘의 실적발표 + AI 어닝콜 요약 ──────────────────────
+    let _earnHomeCache = null;
+    async function loadEarnHome() {
+        const sec = document.getElementById('earnHomeSection');
+        const el  = document.getElementById('earnHomeScroll');
+        if (!sec || !el) return;
+        // 5분 캐시
+        if (_earnHomeCache && Date.now() - _earnHomeCache.ts < 5 * 60 * 1000) {
+            _renderEarnHome(_earnHomeCache.items); return;
+        }
+        // 스켈레톤
+        el.innerHTML = Array.from({length:6}, () =>
+            `<div class="earn-home-card" style="opacity:.5"><div class="earn-hc-top"><span class="earn-hc-ticker">···</span></div><div class="earn-hc-ai"><span class="earn-hc-ai-loading">불러오는 중…</span></div></div>`
+        ).join('');
+        sec.style.display = '';
+        try {
+            // 미국 동부 기준 오늘
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm   = String(now.getMonth()+1).padStart(2,'0');
+            const dd   = String(now.getDate()).padStart(2,'0');
+            const today = `${yyyy}-${mm}-${dd}`;
+            const r = await fetch(`/api/earnings-calendar?from=${today}&to=${today}`);
+            if (!r.ok) throw new Error('http '+r.status);
+            const data = await r.json();
+            const groups = Array.isArray(data.groups) ? data.groups : [];
+            // 발표 완료(epsAct 있음) 우선, 없으면 시가총액 큰 순
+            const all = groups.flatMap(g => g.items || []);
+            const reported = all.filter(it => it.epsAct != null);
+            reported.sort((a,b) => (b.marketCap||0) - (a.marketCap||0));
+            const items = reported.slice(0, 6);
+            if (!items.length) {
+                sec.style.display = 'none';
+                return;
+            }
+            _earnHomeCache = { items, ts: Date.now() };
+            _renderEarnHome(items);
+            // AI 요약 enrich (기존 캐시/엔드포인트 재사용)
+            try { _enrichEarningsWithAI(items); } catch(e) {}
+        } catch (e) {
+            sec.style.display = 'none';
+        }
+    }
+
+    function _renderEarnHome(items) {
+        const el = document.getElementById('earnHomeScroll');
+        if (!el) return;
+        el.innerHTML = items.map(_renderEarnHomeCard).join('');
+    }
+
+    function _renderEarnHomeCard(item) {
+        const symbol = item.symbol;
+        const name   = item.name || symbol;
+        const surprise = _earnSurpriseLabel(item.surprisePct);
+        const yoy = (typeof item.yoy === 'number' && !isNaN(item.yoy))
+            ? `<span class="earn-hc-meta-item"><span class="earn-hc-meta-label">YoY</span><span class="earn-yoy ${item.yoy>=0?'up':'down'}">${item.yoy>=0?'+':''}${item.yoy.toFixed(1)}%</span></span>` : '';
+        return `<div class="earn-home-card" onclick="quickSearch('${symbol}','US')">
+            <div class="earn-hc-top">
+                ${_tickerLogoHTML(symbol, 'US')}
+                <span class="earn-hc-ticker">${escHtml(symbol)}</span>
+                <span class="earn-hc-name" title="${escHtml(name)}">${escHtml(name)}</span>
+                <span class="earn-hc-status ${surprise.cls}">${escHtml(surprise.label)}</span>
+            </div>
+            <div class="earn-hc-meta">
+                <span class="earn-hc-meta-item"><span class="earn-hc-meta-label">EPS</span>${_earnFmtEps(item.epsEst)} → <strong>${_earnFmtEps(item.epsAct)}</strong></span>
+                ${yoy}
+            </div>
+            <div class="earn-hc-ai earn-cell-ai" data-earnings-ai="${symbol}">
+                <span class="earn-hc-ai-loading">AI 분석 중…</span>
+            </div>
+        </div>`;
+    }
 
     async function loadDpHome() {
         const el = document.getElementById('dpHomeGrid');
@@ -16410,8 +16575,9 @@
         goLeverage, loadLeverageETFs, renderLeverageGrid, _levSetFilter, _renderLevCard, _levFormatVol,
         goDailyPicks, loadDailyPicks, renderDailyPicks, _renderDpCard, _dpToggleDetail,
         loadDpHome, _renderDpHome, _renderDpHomeCard,
+        loadEarnHome, _renderEarnHome, _renderEarnHomeCard,
         loadLeverageHome, renderLeverageHome, _renderLevStripCard, _fetchLevQuotesBatched, _levTracksLabel,
-        goEarnings, loadEarnings, setEarningsWindow, _earnToggleGroup,
+        goEarnings, loadEarnings, setEarningsWindow, _earnToggleGroup, _enrichEarningsWithAI,
         _earnSetFilter, _earnApplyFilters, _earnSortBy, _earnBuildDateChips, _earnSelectDateChip,
         goDiscover, setDiscoverPreset, loadDiscover,
         closeSideNav, toggleSideNav, openSideNav, goHome, goBack, goSmartMoney,

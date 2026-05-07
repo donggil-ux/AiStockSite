@@ -160,21 +160,35 @@ async function getCrumb() {
 }
 
 async function _fetchCrumb() {
-    // Step 1: Yahoo Finance 홈 접속 → 세션 쿠키 획득
-    const r1 = await axios.get('https://finance.yahoo.com/', {
-        headers: {
-            'User-Agent': UA,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-        },
-        timeout: 15000,
-        maxRedirects: 5,
-        httpAgent,
-        httpsAgent,
-    });
-
-    const rawCookies = r1.headers['set-cookie'] || [];
-    _cookies = rawCookies.map(c => c.split(';')[0]).join('; ');
+    // Step 1: 경량 Yahoo 인증 엔드포인트로 세션 쿠키 획득 (fc.yahoo.com이 header가 작음)
+    const COOKIE_URLS = [
+        'https://fc.yahoo.com/',
+        'https://query1.finance.yahoo.com/',
+        'https://finance.yahoo.com/news/',
+    ];
+    let cookies = '';
+    for (const url of COOKIE_URLS) {
+        try {
+            const r1 = await axios.get(url, {
+                headers: {
+                    'User-Agent': UA,
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.5',
+                },
+                timeout: 10000,
+                maxRedirects: 3,
+                httpAgent,
+                httpsAgent,
+                // 응답 본문 불필요 — 쿠키만 확인
+                validateStatus: s => s < 500,
+            });
+            const raw = r1.headers['set-cookie'] || [];
+            if (raw.length) { cookies = raw.map(c => c.split(';')[0]).join('; '); break; }
+        } catch (e) {
+            console.warn(`[crumb] cookie URL ${url} fail:`, e.message);
+        }
+    }
+    _cookies = cookies;
 
     // Step 2: crumb 토큰 획득
     const r2 = await axios.get('https://query1.finance.yahoo.com/v1/test/getcrumb', {
@@ -188,6 +202,7 @@ async function _fetchCrumb() {
         httpsAgent,
     });
 
+    if (!r2.data || r2.data === 'null') throw new Error('crumb empty');
     _crumb     = r2.data;
     _crumbTime = Date.now();
     console.log(`✅ Yahoo Finance crumb 갱신 완료`);
@@ -595,6 +610,11 @@ const _reasonCache = new LRUMap(5000); // symbol -> { text, ts } (메모리)
 const REASON_TTL = 5 * 60 * 1000;           // 메모리 TTL (5분)
 const REASON_SUPABASE_TTL = 6 * 60 * 60 * 1000; // DB TTL (6시간) — 유저 간 공유
 
+// 어닝콜 요약 캐시
+const _earnSumCache = new LRUMap(2000); // symbol -> { data, ts }
+const EARN_SUM_TTL = 5 * 60 * 1000;             // 메모리 TTL (5분)
+const EARN_SUM_SUPABASE_TTL = 30 * 24 * 60 * 60 * 1000; // 30일 (분기마다만 갱신)
+
 // Supabase 에서 캐시 일괄 조회 (없으면 빈 Map)
 async function _reasonLoadFromSupabase(symbols) {
     const sb = getSupabase();
@@ -609,11 +629,11 @@ async function _reasonLoadFromSupabase(symbols) {
         const m = new Map();
         (data || []).forEach(r => {
             const age = now - new Date(r.updated_at).getTime();
-            // 25자 이하 = 구버전 22자 잘림 캐시 → TTL 무시하고 재fetch 유도
             const len = (r.text || '').length;
+            const isEmpty = len === 0;                       // 빈 텍스트 → 재fetch 유도
             const isTruncated = len > 0 && len <= 25;       // 구버전 22자 잘림
             const isLegacyRaw = len > 65;                   // 구버전 raw 뉴스 헤드라인(요약 전)
-            if (age < REASON_SUPABASE_TTL && !isTruncated && !isLegacyRaw) m.set(r.symbol, r.text || '');
+            if (age < REASON_SUPABASE_TTL && !isEmpty && !isTruncated && !isLegacyRaw) m.set(r.symbol, r.text);
         });
         return m;
     } catch { return new Map(); }
@@ -647,15 +667,48 @@ function _shortenReason(text) {
 }
 
 // 개별 심볼의 원본 뉴스 제목(영→한 번역) + 퍼블리셔 반환 (캐시 없음 — 요약 후 캐시)
+// Google News RSS 무료 fallback — Yahoo가 429/빈응답일 때 사용
+async function _fetchNewsTitleFromGoogle(symbol) {
+    try {
+        const url = `https://news.google.com/rss/search?q=${encodeURIComponent(symbol + ' stock')}&hl=en-US&gl=US&ceid=US:en`;
+        const res = await axios.get(url, {
+            headers: { 'User-Agent': UA, 'Accept': 'application/rss+xml,application/xml;q=0.9,*/*;q=0.8' },
+            timeout: 10000,
+            httpAgent,
+            httpsAgent,
+        });
+        const xml = res.data || '';
+        // 첫 <item> 의 <title> 추출 (RSS 채널 헤더의 <title>은 건너뛰기)
+        const itemMatch = xml.match(/<item>[\s\S]*?<title>([\s\S]*?)<\/title>/);
+        if (!itemMatch) return '';
+        let title = itemMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/s, '$1').trim();
+        // " - PublisherName" 꼬리 제거
+        title = title.replace(/\s+-\s+[^-]+$/, '').trim();
+        return title;
+    } catch { return ''; }
+}
+
 async function _fetchNewsTitle(symbol) {
+    let raw = '';
+    let publisher = '';
+    // 1차: Yahoo Finance
     try {
         const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(symbol)}&quotesCount=0&newsCount=1&enableFuzzyQuery=false`;
         const data = await yfRequest(url);
         const first = (data?.news || [])[0];
-        if (!first?.title) return { symbol, title:'', publisher:'' };
-        const ko = await translateToKo(first.title);
-        return { symbol, title: ko || first.title, publisher: first.publisher || '' };
-    } catch { return { symbol, title:'', publisher:'' }; }
+        if (first?.title) {
+            raw = first.title;
+            publisher = first.publisher || '';
+        }
+    } catch {}
+    // 2차 fallback: Google News RSS (Yahoo 실패/빈응답 시)
+    if (!raw) {
+        raw = await _fetchNewsTitleFromGoogle(symbol);
+        if (raw) publisher = 'Google News';
+    }
+    if (!raw) return { symbol, title:'', publisher:'' };
+    const ko = await translateToKo(raw);
+    return { symbol, title: ko || raw, publisher };
 }
 
 // 배치 quote snapshot — 최대 40 심볼 한 번에
@@ -723,6 +776,275 @@ JSON:`;
     }
 }
 
+// ─────────────────────────────────────────────
+// 어닝콜 요약 + 감성 분석
+//   1차 시도: Finnhub transcripts (premium tier 필요할 수 있음)
+//   2차 fallback: Yahoo Finance 뉴스 + 실적 이벤트 데이터
+// ─────────────────────────────────────────────
+
+// Finnhub 어닝콜 transcript 가져오기 — 최신 분기 1개만 (premium 필요)
+async function _fetchFinnhubTranscript(symbol) {
+    const key = process.env.FINNHUB_API_KEY;
+    if (!key) return null;
+    try {
+        // 1) 최근 transcript 목록
+        const listRes = await axios.get(`https://finnhub.io/api/v1/stock/transcripts/list`, {
+            params: { symbol, token: key },
+            timeout: 8000,
+        });
+        const tList = listRes.data?.transcripts || [];
+        if (!tList.length) return null;
+        const id = tList[0].id;
+        // 2) transcript 본문
+        const trRes = await axios.get(`https://finnhub.io/api/v1/stock/transcripts`, {
+            params: { id, token: key },
+            timeout: 12000,
+        });
+        const tr = trRes.data;
+        if (!tr?.transcript) return null;
+        const lines = tr.transcript || [];
+        const exec = lines.filter(t => /CEO|CFO|Chief|President/i.test(t.name || '') || /CEO|CFO|Chief|President/i.test(t.description || ''));
+        const pool = exec.length ? exec : lines;
+        const text = pool.map(t => Array.isArray(t.speech) ? t.speech.join(' ') : (t.speech || '')).join('\n').slice(0, 12000);
+        if (text.length < 200) return null;
+        const quarter = (tr.year && tr.quarter) ? `${tr.year}Q${tr.quarter}` : (tr.time ? new Date(tr.time*1000).toISOString().slice(0,7) : 'unknown');
+        return { text, quarter, source: 'transcript' };
+    } catch (e) {
+        // 403 = 무료 티어 권한 없음, 404 = transcript 없음 — 조용히 fallback
+        const status = e?.response?.status;
+        if (status !== 403 && status !== 404) {
+            console.warn('[earnings-summary] Finnhub fail', symbol, e?.message?.slice(0,80));
+        }
+        return null;
+    }
+}
+
+// Fallback: 실적 관련 뉴스 헤드라인 + Yahoo earnings 이벤트 데이터 수집
+async function _fetchEarningsContextFromNews(symbol) {
+    try {
+        // 1) Yahoo quoteSummary 에서 earningsHistory + price 한 번에
+        let epsActual = null, epsEstimate = null, epsSurprise = null, revActual = null, revEstimate = null, quarter = null, longName = null;
+        try {
+            const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=earningsHistory,earnings,price`;
+            const data = await yfRequest(url);
+            const result = data?.quoteSummary?.result?.[0];
+            longName = result?.price?.longName || result?.price?.shortName || null;
+            const hist = result?.earningsHistory?.history || [];
+            const last = hist.filter(h => h.epsActual?.raw != null).slice(-1)[0];
+            if (last) {
+                epsActual = last.epsActual?.raw;
+                epsEstimate = last.epsEstimate?.raw;
+                epsSurprise = last.surprisePercent?.raw;
+                if (last.quarter?.fmt) quarter = last.quarter.fmt; // YYYY-MM-DD
+            }
+            const earnings = result?.earnings;
+            const lastFin = (earnings?.financialsChart?.quarterly || []).slice(-1)[0];
+            if (lastFin) {
+                revActual = lastFin.revenue?.raw;
+                if (!quarter && lastFin.date) quarter = lastFin.date;
+            }
+            const lastQ = (earnings?.earningsChart?.quarterly || []).slice(-1)[0];
+            if (lastQ && epsActual == null) {
+                epsActual = lastQ.actual?.raw;
+                epsEstimate = lastQ.estimate?.raw;
+            }
+        } catch {}
+
+        // 2) 뉴스 제목 — 기존 _fetchNewsTitle 재사용 (Yahoo + Google News fallback 내장)
+        let newsTitle = '';
+        try {
+            const t = await _fetchNewsTitle(symbol);
+            newsTitle = t?.title || '';
+        } catch {}
+
+        // 둘 다 없으면 의미 없음
+        if (!newsTitle && epsActual == null) return null;
+
+        // 텍스트 컨텍스트 조립 (Gemini 입력용)
+        const parts = [];
+        if (longName) parts.push(`회사: ${longName}`);
+        if (epsActual != null) {
+            const beat = (epsEstimate != null && epsActual >= epsEstimate) ? '상회' : (epsEstimate != null ? '하회' : '');
+            parts.push(`EPS 실제 ${epsActual}${epsEstimate != null ? ` / 예상 ${epsEstimate}` : ''}${beat ? ` (${beat})` : ''}${Number.isFinite(epsSurprise) ? `, 서프라이즈 ${epsSurprise.toFixed(2)}%` : ''}`);
+        }
+        if (revActual != null) parts.push(`매출 실제 ${(revActual/1e9).toFixed(2)}B${revEstimate != null ? ` / 예상 ${(revEstimate/1e9).toFixed(2)}B` : ''}`);
+        if (newsTitle) parts.push(`최신 뉴스: ${newsTitle}`);
+
+        const text = parts.join('\n');
+        if (text.length < 20) return null;
+        const q = quarter ? quarter.slice(0,7) : 'recent';
+        return { text, quarter: q, source: 'news+earnings' };
+    } catch (e) {
+        console.warn('[earnings-summary] context fail', symbol, e?.message?.slice(0,80));
+        return null;
+    }
+}
+
+// Gemini 배치 요약 + 감성 분류
+// items: [{symbol, text, quarter}] → Map<symbol, {summary, sentiment, highlights, quarter}>
+async function _summarizeEarningsBatch(items) {
+    const out = new Map();
+    if (!process.env.GEMINI_API_KEY || !items.length) return out;
+    // 한 번에 너무 길지 않도록 종목별 텍스트 8000자로 제한
+    const lines = items.map(x => `### ${x.symbol} (${x.quarter})\n${(x.text || '').slice(0, 8000)}`).join('\n\n');
+    const prompt = `다음은 종목별 실적 정보(어닝콜 발췌 또는 EPS/매출 결과 + 최신 뉴스)입니다. 각 종목 핵심을 한국어로 요약하고 감성을 분류하세요.
+
+규칙:
+- summary: 한국어 한 문장(30~60자). 실적/가이던스/시장 반응 중심. 인용·수식어 최소화.
+- sentiment: positive(상회·상향·호재) / negative(하회·하향·악재) / neutral(혼재·중립·정보 부족).
+- highlights: 한국어 짧은 키포인트 2~3개 (각 6~20자, 예: "EPS 12% 상회", "가이던스 상향", "AI 매출 +40%").
+- 티커/회사명 출력 금지(이미 표시됨).
+- 정보 부족하면 sentiment는 neutral, summary는 "데이터 부족" 같은 짧은 표현 사용.
+- JSON 배열만 출력: [{"s":"SYMBOL","q":"YYYY-Q","summary":"...","sentiment":"positive|negative|neutral","highlights":["...","..."]}]
+
+입력:
+${lines}
+
+JSON:`;
+    const tryGemini = async (modelName) => {
+        const genAI = getGenAI();
+        if (!genAI) throw new Error('no genAI');
+        const model = genAI.getGenerativeModel({ model: modelName, generationConfig: { temperature: 0.3 } });
+        const resp = await model.generateContent(prompt);
+        let txt = resp.response?.text?.() || '';
+        txt = txt.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+        return JSON.parse(txt);
+    };
+    let arr = null;
+    try {
+        arr = await tryGemini('gemini-2.5-flash');
+    } catch (e) {
+        const msg = e?.message || '';
+        const overloaded = msg.includes('503') || msg.includes('429') || msg.includes('overload') || msg.includes('UNAVAILABLE');
+        if (!overloaded) {
+            console.warn('[earnings-summary] Gemini 2.5 fail:', msg.slice(0, 100));
+            return out;
+        }
+        try {
+            console.warn('[earnings-summary] gemini-2.5-flash 과부하 → gemini-2.0-flash 폴백');
+            arr = await tryGemini('gemini-2.0-flash');
+        } catch (e2) {
+            console.warn('[earnings-summary] Gemini 2.0 fail:', e2?.message?.slice(0, 100));
+            return out;
+        }
+    }
+    if (!Array.isArray(arr)) return out;
+    const validSent = new Set(['positive', 'negative', 'neutral']);
+    arr.forEach(x => {
+        if (!x || typeof x.s !== 'string') return;
+        const sym = x.s.toUpperCase();
+        const summary = (x.summary || '').toString().trim().slice(0, 80);
+        const sentiment = validSent.has(x.sentiment) ? x.sentiment : 'neutral';
+        const highlights = Array.isArray(x.highlights) ? x.highlights.filter(h => typeof h === 'string').slice(0, 3).map(h => h.slice(0, 30)) : [];
+        const quarter = (x.q || '').toString().slice(0, 16) || (items.find(i => i.symbol === sym)?.quarter || '');
+        if (summary.length >= 8) out.set(sym, { summary, sentiment, highlights, quarter });
+    });
+    return out;
+}
+
+// Supabase 캐시 — 어닝콜 요약 일괄 조회
+async function _earnSumLoadFromSupabase(symbols) {
+    const sb = getSupabase();
+    if (!sb || !symbols.length) return new Map();
+    try {
+        const { data, error } = await sb
+            .from('earnings_summary')
+            .select('symbol,summary,sentiment,highlights,transcript_quarter,updated_at')
+            .in('symbol', symbols)
+            .order('updated_at', { ascending: false });
+        if (error) return new Map();
+        const now = Date.now();
+        const m = new Map();
+        (data || []).forEach(r => {
+            if (m.has(r.symbol)) return; // 같은 심볼의 가장 최신 row만
+            const age = now - new Date(r.updated_at).getTime();
+            if (age < EARN_SUM_SUPABASE_TTL && r.summary) {
+                m.set(r.symbol, {
+                    summary: r.summary,
+                    sentiment: r.sentiment || 'neutral',
+                    highlights: r.highlights || [],
+                    quarter: r.transcript_quarter || '',
+                });
+            }
+        });
+        return m;
+    } catch { return new Map(); }
+}
+
+function _earnSumSaveToSupabase(rows) {
+    const sb = getSupabase();
+    if (!sb || !rows.length) return;
+    sb.from('earnings_summary')
+      .upsert(rows, { onConflict: 'symbol,transcript_quarter' })
+      .then(r => { if (r.error) console.warn('[earnings-summary] upsert', r.error.message); })
+      .catch(() => {});
+}
+
+// 메인 라우트 — GET /api/earnings-summary?symbols=AAPL,MSFT,...
+app.get('/api/earnings-summary', async (req, res) => {
+    const raw = (req.query.symbols || '').toString();
+    const syms = raw.split(',').map(s => s.trim().toUpperCase())
+        .filter(s => /^[A-Z0-9.\-]{1,15}$/.test(s))
+        .slice(0, 20);
+    if (!syms.length) return res.json({});
+    try {
+        const now = Date.now();
+        const out = {};
+        const missMem = [];
+        // L1: 메모리 캐시
+        syms.forEach(s => {
+            const c = _earnSumCache.get(s);
+            if (c && now - c.ts < EARN_SUM_TTL) {
+                if (c.data) out[s] = c.data;
+            } else missMem.push(s);
+        });
+        // L2: Supabase
+        if (missMem.length) {
+            const sbHit = await _earnSumLoadFromSupabase(missMem);
+            sbHit.forEach((data, sym) => {
+                _earnSumCache.set(sym, { data, ts: now });
+                out[sym] = data;
+            });
+        }
+        // L3: Finnhub transcript 시도 → 실패 시 뉴스+실적 fallback → Gemini (동시성 5)
+        const missAll = syms.filter(s => !(s in out));
+        if (missAll.length) {
+            const todo = missAll.slice(0, 5);
+            const transcripts = (await Promise.all(todo.map(async s => {
+                let t = await _fetchFinnhubTranscript(s);
+                if (!t) t = await _fetchEarningsContextFromNews(s);
+                return t ? { symbol: s, text: t.text, quarter: t.quarter, source: t.source } : null;
+            }))).filter(Boolean);
+            if (transcripts.length) {
+                const summaryMap = await _summarizeEarningsBatch(transcripts);
+                const upsertRows = [];
+                summaryMap.forEach((data, sym) => {
+                    out[sym] = data;
+                    _earnSumCache.set(sym, { data, ts: Date.now() });
+                    upsertRows.push({
+                        symbol: sym,
+                        transcript_quarter: data.quarter || 'unknown',
+                        summary: data.summary,
+                        sentiment: data.sentiment,
+                        highlights: data.highlights || [],
+                        updated_at: new Date().toISOString(),
+                    });
+                });
+                if (upsertRows.length) _earnSumSaveToSupabase(upsertRows);
+            }
+            // transcript 없거나 요약 실패한 심볼은 짧은 TTL로 메모리에 캐시 (재시도 폭주 방지, 2분)
+            todo.filter(s => !(s in out)).forEach(s => {
+                _earnSumCache.set(s, { data: null, ts: Date.now() - (EARN_SUM_TTL - 2 * 60 * 1000) });
+            });
+        }
+        res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+        res.json(out);
+    } catch (err) {
+        console.error('[earnings-summary]', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/news-reason', async (req, res) => {
     const raw = (req.query.symbols || '').toString();
     const syms = raw.split(',').map(s => s.trim().toUpperCase())
@@ -762,13 +1084,19 @@ app.get('/api/news-reason', async (req, res) => {
             });
             const summaryMap = await _summarizeReasonsBatch(items);
             const upsertRows = [];
+            const SHORT_EMPTY_TTL = 2 * 60 * 1000; // 빈 응답은 2분만 캐시 (재시도 가능)
             missAll.forEach(s => {
                 const t = summaryMap.get(s) || '';
-                _reasonCache.set(s, { text: t, ts: Date.now() });
-                if (t) out[s] = t;
-                upsertRows.push({ symbol: s, text: t, updated_at: new Date().toISOString() });
+                if (t) {
+                    _reasonCache.set(s, { text: t, ts: Date.now() });
+                    out[s] = t;
+                    upsertRows.push({ symbol: s, text: t, updated_at: new Date().toISOString() });
+                } else {
+                    // 빈 텍스트는 짧은 TTL로 메모리에만 캐시 (Supabase에는 저장 안 함)
+                    _reasonCache.set(s, { text: '', ts: Date.now() - (REASON_TTL - SHORT_EMPTY_TTL) });
+                }
             });
-            _reasonSaveToSupabase(upsertRows);
+            if (upsertRows.length) _reasonSaveToSupabase(upsertRows);
         }
 
         res.json(out);
@@ -3084,6 +3412,205 @@ app.post('/api/guru-refresh/:cik', async (req, res) => {
     } catch (e) {
         console.error('[guru-refresh]', cik, e.message);
         res.status(500).json({ error: e.message });
+    }
+});
+
+// ─────────────────────────────────────────────
+// /api/oversold-radar — 역발상 스윙 레이더 (과매도/저평가/레버리지 ETF)
+// ─────────────────────────────────────────────
+const LEVERAGE_ETF_TICKERS = ['TQQQ','SOXL','UPRO','SPXL','TECL','QLD','SSO','LABU','SQQQ','SOXS','FNGU','TNA'];
+
+// 스크리너 실패시 fallback: 대형주 + 섹터 리더
+const RADAR_FALLBACK_UNIVERSE = [
+    'AAPL','MSFT','GOOGL','AMZN','NVDA','META','TSLA','AMD','INTC','QCOM',
+    'JPM','BAC','WFC','GS','MS','C','BLK','AXP',
+    'JNJ','PFE','ABBV','MRK','UNH','LLY','AMGN',
+    'XOM','CVX','COP','SLB','OXY',
+    'DIS','NFLX','CMCSA','T','VZ',
+    'BA','GE','CAT','HON','LMT',
+    'AMZN','WMT','TGT','COST','HD','LOW',
+    'GLD','SLV','USO','UNG',
+    'F','GM','RIVN','NIO','LCID',
+    'SOFI','COIN','HOOD','MARA','RIOT',
+    'PLTR','SNOW','CRWD','DDOG','ZS','NET',
+];
+const _radarCache = { ts: 0, oversold: [], value: [] };
+const RADAR_TTL   = 12 * 60 * 1000; // 12분 캐시
+
+function _radarCalcRSI14(closes) {
+    if (!closes || closes.length < 15) return null;
+    const c = closes.slice(-15);
+    let g = 0, l = 0;
+    for (let i = 1; i < c.length; i++) { const d = c[i] - c[i-1]; d > 0 ? g += d : l -= d; }
+    const al = l / 14;
+    if (al === 0) return 100;
+    return Math.round(100 - 100 / (1 + (g / 14) / al));
+}
+
+app.get('/api/oversold-radar', async (req, res) => {
+    const tab = String(req.query.tab || 'oversold');
+    const now = Date.now();
+
+    try {
+        // ── 레버리지 ETF 탭: 단순 quote fetch ──
+        if (tab === 'leverage') {
+            const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${LEVERAGE_ETF_TICKERS.join(',')}`;
+            const data = await yfRequest(url);
+            const items = (data?.quoteResponse?.result || [])
+                .filter(q => q.regularMarketPrice != null)
+                .map(q => ({
+                    symbol:    q.symbol,
+                    name:      q.shortName || q.symbol,
+                    price:     q.regularMarketPrice,
+                    changePct: q.regularMarketChangePercent ?? 0,
+                    volume:    q.regularMarketVolume,
+                    avgVolume: q.averageDailyVolume10Day || q.averageDailyVolume3Month || null,
+                    spark:     null,
+                    ma200:     q.twoHundredDayAverage || null,
+                    rsi:       null,
+                    volMult:   null,
+                    per:       q.trailingPE ?? q.forwardPE ?? null,
+                    pbr:       q.priceToBook ?? null,
+                }));
+            return res.json({ tab, items, ts: now });
+        }
+
+        // ── 캐시 유효 ──
+        if (now - _radarCache.ts < RADAR_TTL) {
+            return res.json({ tab, items: _radarCache[tab] || [], ts: _radarCache.ts });
+        }
+
+        // ── Universe 빌드: day_losers + undervalued_growth_stocks (실패시 curated fallback) ──
+        const [lRes, uRes] = await Promise.allSettled([
+            yfRequest(`https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&scrIds=day_losers&count=40`),
+            yfRequest(`https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&scrIds=undervalued_growth_stocks&count=40`),
+        ]);
+        const losersQ  = lRes.status  === 'fulfilled' ? (lRes.value?.finance?.result?.[0]?.quotes  || []) : [];
+        const undervalQ = uRes.status === 'fulfilled' ? (uRes.value?.finance?.result?.[0]?.quotes || []) : [];
+
+        // 스크리너 실패 → fallback universe로 quote 직접 조회
+        let fallbackQ = [];
+        if (losersQ.length === 0 && undervalQ.length === 0) {
+            console.warn('[radar] screeners empty, using fallback universe');
+            try {
+                const fbUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${RADAR_FALLBACK_UNIVERSE.join(',')}`;
+                const fbData = await yfRequest(fbUrl);
+                fallbackQ = (fbData?.quoteResponse?.result || []).filter(q => q.regularMarketPrice != null);
+            } catch (e2) { console.warn('[radar] fallback quote fail:', e2.message); }
+        }
+
+        const allQuotes = losersQ.length || undervalQ.length ? [...losersQ, ...undervalQ] : fallbackQ;
+        const allSyms = [...new Set(allQuotes.map(q => q.symbol))]
+            .filter(s => /^[A-Z]{1,5}$/.test(s)).slice(0, 60);
+
+        // ── Spark batch (3개월 종가/거래량) — v7 spark (crumb 불필요) ──
+        const sparkMap = {};
+        const SPARK_CHUNK = 20;
+        for (let i = 0; i < allSyms.length; i += SPARK_CHUNK) {
+            const chunk = allSyms.slice(i, i + SPARK_CHUNK);
+            try {
+                const url = `https://query1.finance.yahoo.com/v7/finance/spark?symbols=${encodeURIComponent(chunk.join(','))}&range=3mo&interval=1d`;
+                const r = await axios.get(url, {
+                    headers: { 'User-Agent': UA, 'Accept': 'application/json' },
+                    timeout: 12000, httpAgent, httpsAgent,
+                });
+                (r.data?.spark?.result || []).forEach(item => {
+                    const resp = item?.response?.[0];
+                    const q = resp?.indicators?.quote?.[0] || {};
+                    sparkMap[item.symbol] = {
+                        close:  (q.close  || []).filter(v => v != null),
+                        volume: (q.volume || []).filter(v => v != null),
+                    };
+                });
+            } catch (e) {
+                // v7 실패시 yfRequest(crumb) 재시도
+                try {
+                    const url2 = `https://query1.finance.yahoo.com/v7/finance/spark?symbols=${encodeURIComponent(chunk.join(','))}&range=3mo&interval=1d`;
+                    const data2 = await yfRequest(url2);
+                    (data2?.spark?.result || []).forEach(item => {
+                        const resp = item?.response?.[0];
+                        const q = resp?.indicators?.quote?.[0] || {};
+                        sparkMap[item.symbol] = {
+                            close:  (q.close  || []).filter(v => v != null),
+                            volume: (q.volume || []).filter(v => v != null),
+                        };
+                    });
+                } catch (e2) { console.warn('[radar] spark chunk fail:', e2.message); }
+            }
+        }
+
+        // ── quote map 구성 ──
+        const qMap = {};
+        allQuotes.forEach(q => { if (!qMap[q.symbol]) qMap[q.symbol] = q; });
+
+        // ── Oversold 목록 ──
+        const oversoldSrc = losersQ.length ? losersQ : allQuotes;
+        const oversoldItems = oversoldSrc
+            .filter(q => q.symbol && q.regularMarketPrice != null)
+            .map(q => {
+                const sp = sparkMap[q.symbol] || {};
+                const closes = sp.close || [];
+                const volumes = sp.volume || [];
+                const rsi = _radarCalcRSI14(closes);
+                const vol20 = volumes.length >= 10 ? volumes.slice(-20).reduce((a,b)=>a+b,0) / Math.min(volumes.length,20) : null;
+                const volMult = (vol20 && q.regularMarketVolume) ? q.regularMarketVolume / vol20 : null;
+                return {
+                    symbol:    q.symbol,
+                    name:      q.shortName || q.displayName || q.symbol,
+                    price:     q.regularMarketPrice,
+                    changePct: q.regularMarketChangePercent ?? 0,
+                    volume:    q.regularMarketVolume,
+                    avgVolume: vol20 || q.averageDailyVolume10Day || null,
+                    spark:     closes.slice(-30),
+                    ma200:     q.twoHundredDayAverage || null,
+                    rsi,
+                    volMult,
+                    per:       q.trailingPE ?? q.forwardPE ?? null,
+                    pbr:       q.priceToBook ?? null,
+                };
+            })
+            .sort((a, b) => (a.rsi ?? 50) - (b.rsi ?? 50))
+            .slice(0, 20);
+
+        // ── Value 목록 ──
+        const valueSrc = undervalQ.length ? undervalQ : allQuotes;
+        const valueItems = valueSrc
+            .filter(q => q.symbol && q.regularMarketPrice != null)
+            .filter(q => {
+                const pe = q.trailingPE ?? q.forwardPE;
+                const pb = q.priceToBook;
+                return pe != null && pe > 0 && pe <= 25 && pb != null && pb > 0;
+            })
+            .map(q => {
+                const sp = sparkMap[q.symbol] || {};
+                const closes = sp.close || [];
+                const rsi = _radarCalcRSI14(closes);
+                return {
+                    symbol:    q.symbol,
+                    name:      q.shortName || q.symbol,
+                    price:     q.regularMarketPrice,
+                    changePct: q.regularMarketChangePercent ?? 0,
+                    volume:    q.regularMarketVolume,
+                    avgVolume: q.averageDailyVolume10Day || null,
+                    spark:     closes.slice(-30),
+                    ma200:     q.twoHundredDayAverage || null,
+                    rsi,
+                    volMult:   null,
+                    per:       q.trailingPE ?? q.forwardPE ?? null,
+                    pbr:       q.priceToBook ?? null,
+                };
+            })
+            .sort((a, b) => (a.pbr ?? 99) - (b.pbr ?? 99))
+            .slice(0, 20);
+
+        _radarCache.ts      = now;
+        _radarCache.oversold = oversoldItems;
+        _radarCache.value    = valueItems;
+
+        res.json({ tab, items: _radarCache[tab] || [], ts: now });
+    } catch (e) {
+        console.error('[oversold-radar]', e.message);
+        res.status(500).json({ error: e.message, tab, items: [] });
     }
 });
 
