@@ -6628,7 +6628,7 @@
         // 스켈레톤 — 실제 카드 구조와 동일
         el.innerHTML = _renderEarnHomeSkeleton(6);
         try {
-            // 최근 2일(오늘 포함) 발표 완료 종목 모두 가져와서 시가총액 순으로 6개
+            // 최근 5일 발표 완료 종목 (epsAct 없으면 발표 예정도 포함해서 폴백)
             const fmt = (d) => {
                 const y = d.getFullYear();
                 const m = String(d.getMonth()+1).padStart(2,'0');
@@ -6637,28 +6637,34 @@
             };
             const today = new Date();
             const past = new Date(today);
-            past.setDate(past.getDate() - 2);
-            const r = await fetch(`/api/earnings-calendar?from=${fmt(past)}&to=${fmt(today)}`);
+            past.setDate(past.getDate() - 5);
+            const url = `/api/earnings-calendar?from=${fmt(past)}&to=${fmt(today)}`;
+            console.log('[loadEarnHome] fetching:', url);
+            const r = await fetch(url);
             if (!r.ok) throw new Error('http '+r.status);
             const data = await r.json();
             const groups = Array.isArray(data.groups) ? data.groups : [];
-            // 발표 완료(epsAct 있음)만, 시가총액 큰 순으로 6개
+            console.log('[loadEarnHome] groups:', groups.length, 'total items:', groups.reduce((s,g)=>s+(g.items?.length||0),0));
+            // 발표 완료(epsAct 있음) 우선, 없으면 발표 예정 종목으로 폴백
             const all = groups.flatMap(g => (g.items || []).map(it => ({...it, _date: g.date})));
             const reported = all.filter(it => it.epsAct != null);
-            reported.sort((a,b) => (b.marketCap||0) - (a.marketCap||0));
-            const items = reported.slice(0, 6);
+            const fallback = all.filter(it => it.epsAct == null);
+            const sortByMcap = (a,b) => (b.marketCap||0) - (a.marketCap||0);
+            reported.sort(sortByMcap);
+            fallback.sort(sortByMcap);
+            // 발표 완료가 6개 이상이면 그것만, 부족하면 예정으로 채움
+            const items = [...reported, ...fallback].slice(0, 6);
+            console.log('[loadEarnHome] reported:', reported.length, 'fallback:', fallback.length, 'shown:', items.length);
             if (!items.length) {
-                // 최근 7일에도 발표 종목이 0개인 경우 (드물지만): 섹션 자체를 숨김
-                sec.style.display = 'none';
+                el.innerHTML = '<div style="padding:14px;color:var(--text3);font-size:13px;">최근 5일간 발표된 종목이 없어요.</div>';
                 return;
             }
             _earnHomeCache = { items, ts: Date.now() };
             _renderEarnHome(items);
-            // AI 요약 enrich (기존 캐시/엔드포인트 재사용)
-            try { _enrichEarningsWithAI(items); } catch(e) {}
+            // AI 요약 enrich (epsAct 있는 종목만)
+            try { _enrichEarningsWithAI(items.filter(it => it.epsAct != null)); } catch(e) {}
         } catch (e) {
             console.error('[loadEarnHome]', e);
-            // 에러 시 스켈레톤만 남기되 섹션은 보이게 유지
             el.innerHTML = '<div style="padding:14px;color:var(--text3);font-size:13px;">실적발표 불러오기 실패 — 잠시 후 다시 시도해 주세요.</div>';
         }
     }
@@ -6696,25 +6702,32 @@
     }
 
     function _renderEarnHomeCard(item) {
-        const symbol = item.symbol;
+        const symbol = String(item.symbol || '').replace(/[^A-Z0-9.\-]/gi,'');
         const name   = item.name || symbol;
+        const isReported = item.epsAct != null;
         const surprise = _earnSurpriseLabel(item.surprisePct);
         const yoy = (typeof item.yoy === 'number' && !isNaN(item.yoy))
             ? `<span class="earn-hc-meta-item"><span class="earn-hc-meta-label">YoY</span><span class="earn-yoy ${item.yoy>=0?'up':'down'}">${item.yoy>=0?'+':''}${item.yoy.toFixed(1)}%</span></span>` : '';
+        // 발표 예정: 상태 칩 대신 발표일 표시
+        const statusBadge = isReported
+            ? `<span class="earn-hc-status ${surprise.cls}">${escHtml(surprise.label)}</span>`
+            : `<span class="earn-hc-status meet">${escHtml(item._date || '예정')}</span>`;
+        // AI 셀: 발표 완료만 표시
+        const aiCell = isReported
+            ? `<div class="earn-hc-ai earn-cell-ai" data-earnings-ai="${symbol}"><span class="earn-hc-ai-loading">AI 분석 중…</span></div>`
+            : `<div class="earn-hc-ai" style="opacity:.7"><span class="earn-hc-ai-loading">발표 예정</span></div>`;
         return `<div class="earn-home-card" onclick="quickSearch('${symbol}','US')">
             <div class="earn-hc-top">
                 ${_tickerLogoHTML(symbol, 'US')}
                 <span class="earn-hc-ticker">${escHtml(symbol)}</span>
                 <span class="earn-hc-name" title="${escHtml(name)}">${escHtml(name)}</span>
-                <span class="earn-hc-status ${surprise.cls}">${escHtml(surprise.label)}</span>
+                ${statusBadge}
             </div>
             <div class="earn-hc-meta">
                 <span class="earn-hc-meta-item"><span class="earn-hc-meta-label">EPS</span>${_earnFmtEps(item.epsEst)} → <strong>${_earnFmtEps(item.epsAct)}</strong></span>
                 ${yoy}
             </div>
-            <div class="earn-hc-ai earn-cell-ai" data-earnings-ai="${symbol}">
-                <span class="earn-hc-ai-loading">AI 분석 중…</span>
-            </div>
+            ${aiCell}
         </div>`;
     }
 
