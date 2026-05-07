@@ -6617,15 +6617,18 @@
         const sec = document.getElementById('earnHomeSection');
         const el  = document.getElementById('earnHomeScroll');
         if (!sec || !el) return;
-        // 5분 캐시
-        if (_earnHomeCache && Date.now() - _earnHomeCache.ts < 5 * 60 * 1000) {
-            _renderEarnHome(_earnHomeCache.items); return;
+        // 섹션은 항상 표시 (스켈레톤 → 데이터 로드 후 카드)
+        sec.style.display = '';
+        // 5분 캐시 — 캐시 hit 시에도 섹션 보이게 유지
+        if (_earnHomeCache && _earnHomeCache.items?.length && Date.now() - _earnHomeCache.ts < 5 * 60 * 1000) {
+            _renderEarnHome(_earnHomeCache.items);
+            try { _enrichEarningsWithAI(_earnHomeCache.items); } catch(e) {}
+            return;
         }
         // 스켈레톤
         el.innerHTML = Array.from({length:6}, () =>
             `<div class="earn-home-card" style="opacity:.5"><div class="earn-hc-top"><span class="earn-hc-ticker">···</span></div><div class="earn-hc-ai"><span class="earn-hc-ai-loading">불러오는 중…</span></div></div>`
         ).join('');
-        sec.style.display = '';
         try {
             // 최근 2일(오늘 포함) 발표 완료 종목 모두 가져와서 시가총액 순으로 6개
             const fmt = (d) => {
