@@ -6625,10 +6625,8 @@
             try { _enrichEarningsWithAI(_earnHomeCache.items); } catch(e) {}
             return;
         }
-        // 스켈레톤
-        el.innerHTML = Array.from({length:6}, () =>
-            `<div class="earn-home-card" style="opacity:.5"><div class="earn-hc-top"><span class="earn-hc-ticker">···</span></div><div class="earn-hc-ai"><span class="earn-hc-ai-loading">불러오는 중…</span></div></div>`
-        ).join('');
+        // 스켈레톤 — 실제 카드 구조와 동일
+        el.innerHTML = _renderEarnHomeSkeleton(6);
         try {
             // 최근 2일(오늘 포함) 발표 완료 종목 모두 가져와서 시가총액 순으로 6개
             const fmt = (d) => {
@@ -6669,6 +6667,32 @@
         const el = document.getElementById('earnHomeScroll');
         if (!el) return;
         el.innerHTML = items.map(_renderEarnHomeCard).join('');
+    }
+
+    function _renderEarnHomeSkeleton(count = 6) {
+        const card = (i) => {
+            const d = (i * 0.08).toFixed(2);
+            return `<div class="earn-home-skel" aria-hidden="true">
+                <div class="earn-home-skel-row">
+                    <div class="earn-home-skel-circle" style="--d:${d}s"></div>
+                    <div class="earn-home-skel-bar" style="width:48px; height:14px; --d:${d}s"></div>
+                    <div class="earn-home-skel-bar" style="flex:1; height:11px; --d:${d}s"></div>
+                    <div class="earn-home-skel-bar" style="width:54px; height:18px; border-radius:6px; --d:${d}s"></div>
+                </div>
+                <div class="earn-home-skel-row">
+                    <div class="earn-home-skel-bar" style="width:120px; height:11px; --d:${d}s"></div>
+                    <div class="earn-home-skel-bar" style="width:60px; height:11px; --d:${d}s"></div>
+                </div>
+                <div class="earn-home-skel-row" style="background:var(--bg3); border-radius:8px; padding:8px 10px; min-height:44px; gap:6px; align-items:flex-start;">
+                    <div class="earn-home-skel-bar" style="width:48px; height:18px; border-radius:8px; --d:${d}s; flex-shrink:0;"></div>
+                    <div style="flex:1; display:flex; flex-direction:column; gap:6px; min-width:0;">
+                        <div class="earn-home-skel-bar" style="width:100%; height:10px; --d:${d}s"></div>
+                        <div class="earn-home-skel-bar" style="width:75%; height:10px; --d:${d}s"></div>
+                    </div>
+                </div>
+            </div>`;
+        };
+        return Array.from({length: count}, (_, i) => card(i)).join('');
     }
 
     function _renderEarnHomeCard(item) {
@@ -16585,7 +16609,7 @@
         goLeverage, loadLeverageETFs, renderLeverageGrid, _levSetFilter, _renderLevCard, _levFormatVol,
         goDailyPicks, loadDailyPicks, renderDailyPicks, _renderDpCard, _dpToggleDetail,
         loadDpHome, _renderDpHome, _renderDpHomeCard,
-        loadEarnHome, _renderEarnHome, _renderEarnHomeCard,
+        loadEarnHome, _renderEarnHome, _renderEarnHomeCard, _renderEarnHomeSkeleton,
         loadLeverageHome, renderLeverageHome, _renderLevStripCard, _fetchLevQuotesBatched, _levTracksLabel,
         goEarnings, loadEarnings, setEarningsWindow, _earnToggleGroup, _enrichEarningsWithAI,
         _earnSetFilter, _earnApplyFilters, _earnSortBy, _earnBuildDateChips, _earnSelectDateChip,
