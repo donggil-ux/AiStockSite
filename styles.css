@@ -4753,6 +4753,10 @@
 }
 .earn-home-card:hover{background:var(--bg3); border-color:var(--text3);}
 .earn-hc-top{display:flex; align-items:center; gap:8px; min-width:0;}
+.earn-home-card .tlogo-wrap{ width:32px; height:32px; flex-shrink:0; overflow:visible; }
+.earn-home-card .tlogo,
+.earn-home-card .tlogo-fb{ width:32px; height:32px; font-size:12px; border-radius:50%; }
+.earn-home-card .tlogo-flag{ width:13px; height:13px; font-size:8px; right:-1px; bottom:-1px; border-width:1.5px; }
 .earn-hc-ticker{font-size:14px; font-weight:700; color:var(--text); flex-shrink:0;}
 .earn-hc-name{font-size:11px; color:var(--text2); flex:1; min-width:0;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
