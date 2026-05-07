@@ -31,41 +31,41 @@
         <div class="side-nav-section">
             <div class="side-nav-menu">
                 <button class="side-nav-item active" onclick="goHome();closeSideNav();">
-                    <span class="side-nav-item-icon"><i class="ri-home-5-line"></i></span>
+                    <span class="side-nav-item-icon"><i class="ri-home-5-fill"></i></span>
                     <span class="side-nav-item-text">홈</span>
                 </button>
                 <button class="side-nav-item" id="sideNavSmBtn" onclick="goSmartMoney();closeSideNav();">
-                    <span class="side-nav-item-icon"><i class="ri-briefcase-line"></i></span>
+                    <span class="side-nav-item-icon"><i class="ri-briefcase-fill"></i></span>
                     <span class="side-nav-item-text">기관 포트폴리오</span>
                     <span class="side-nav-item-sub">13F</span>
                 </button>
                 <button class="side-nav-item" id="sideNavVsBtn" onclick="goVisionScanner();closeSideNav();">
-                    <span class="side-nav-item-icon"><i class="ri-search-eye-line"></i></span>
+                    <span class="side-nav-item-icon"><i class="ri-search-eye-fill"></i></span>
                     <span class="side-nav-item-text">AI 차트 판독기</span>
                     <span class="side-nav-item-sub">NEW</span>
                 </button>
                 <button class="side-nav-item" id="sideNavEcoBtn" onclick="goEconomic();closeSideNav();">
-                    <span class="side-nav-item-icon"><i class="ri-bar-chart-2-line"></i></span>
+                    <span class="side-nav-item-icon"><i class="ri-bar-chart-2-fill"></i></span>
                     <span class="side-nav-item-text">경제지표</span>
                     <span class="side-nav-item-sub">CPI/PPI</span>
                 </button>
                 <button class="side-nav-item" id="sideNavDcBtn" onclick="goDiscover();closeSideNav();">
-                    <span class="side-nav-item-icon"><i class="ri-sparkling-2-line"></i></span>
+                    <span class="side-nav-item-icon"><i class="ri-sparkling-2-fill"></i></span>
                     <span class="side-nav-item-text">주식 골라보기</span>
                     <span class="side-nav-item-sub">NEW</span>
                 </button>
                 <button class="side-nav-item" id="sideNavErnBtn" onclick="goEarnings();closeSideNav();">
-                    <span class="side-nav-item-icon"><i class="ri-calendar-event-line"></i></span>
+                    <span class="side-nav-item-icon"><i class="ri-calendar-event-fill"></i></span>
                     <span class="side-nav-item-text">실적발표 일정</span>
                     <span class="side-nav-item-sub">NEW</span>
                 </button>
                 <button class="side-nav-item" id="sideNavLevBtn" onclick="goLeverage();closeSideNav();">
-                    <span class="side-nav-item-icon"><i class="ri-flashlight-line"></i></span>
+                    <span class="side-nav-item-icon"><i class="ri-flashlight-fill"></i></span>
                     <span class="side-nav-item-text">레버리지 ETF</span>
                     <span class="side-nav-item-sub">2x · 3x</span>
                 </button>
                 <button class="side-nav-item" id="sideNavDpBtn" onclick="goDailyPicks();closeSideNav();">
-                    <span class="side-nav-item-icon"><i class="ri-star-line"></i></span>
+                    <span class="side-nav-item-icon"><i class="ri-star-fill"></i></span>
                     <span class="side-nav-item-text">데일리 픽</span>
                     <span class="side-nav-item-sub">매수 10 · 매도 10</span>
                 </button>
@@ -16461,46 +16461,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         _togglePushBell, _openCurrentPriceAlert,
     });
 
-    // ── 사이드 내비 아이콘: active 시 -line → -fill 자동 스왑 ──────────
-    (function() {
-        const ICON_MAP = {
-            'ri-home-5-line':        'ri-home-5-fill',
-            'ri-briefcase-line':     'ri-briefcase-fill',
-            'ri-search-eye-line':    'ri-search-eye-fill',
-            'ri-bar-chart-2-line':   'ri-bar-chart-2-fill',
-            'ri-sparkling-2-line':   'ri-sparkling-2-fill',
-            'ri-calendar-event-line':'ri-calendar-event-fill',
-            'ri-flashlight-line':    'ri-flashlight-fill',
-            'ri-star-line':          'ri-star-fill',
-        };
-        const FILL_TO_LINE = Object.fromEntries(Object.entries(ICON_MAP).map(([k,v])=>[v,k]));
-
-        function syncIcons() {
-            document.querySelectorAll('.side-nav-item').forEach(btn => {
-                const icon = btn.querySelector('.side-nav-item-icon i');
-                if (!icon) return;
-                const isActive = btn.classList.contains('active');
-                if (isActive) {
-                    for (const [line, fill] of Object.entries(ICON_MAP)) {
-                        if (icon.classList.contains(line)) { icon.classList.replace(line, fill); break; }
-                    }
-                } else {
-                    for (const [fill, line] of Object.entries(FILL_TO_LINE)) {
-                        if (icon.classList.contains(fill)) { icon.classList.replace(fill, line); break; }
-                    }
-                }
-            });
-        }
-
-        // 초기 실행
-        syncIcons();
-
-        // active 클래스 변경 감지
-        const observer = new MutationObserver(syncIcons);
-        document.querySelectorAll('.side-nav-item').forEach(btn => {
-            observer.observe(btn, { attributes: true, attributeFilter: ['class'] });
-        });
-    })();
+    // ── 사이드 내비 아이콘: 모든 아이콘 -fill 고정 (active 여부 무관) ──
     </script>
 
     <!-- ===== 모바일 검색 모달 ===== -->
