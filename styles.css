@@ -1476,32 +1476,36 @@
             .header-top{max-width:100%;margin:0 auto;}
             .tab-nav{padding:0 32px;}
         }
-        /* 데스크탑 — 헤더 완전 고정 (position:fixed) */
+        /* 데스크탑 — header-top 만 고정, thermometer 는 자연 스크롤 */
         @media(min-width:768px){
             .app-wrapper{overflow-x:visible;}
             .app{overflow-x:visible;}
             #mainHeader.header{
-                position:fixed!important;
+                position:static!important;
+                /* header-top fixed 만큼 본문이 가려지지 않도록 padding-top */
+                padding-top:calc(72px + env(safe-area-inset-top));
+            }
+            #mainHeader .header-top{
+                position:fixed;
                 top:0; left:0; right:0;
                 width:100%;
                 z-index:1100;
+                background:color-mix(in srgb, var(--bg) 92%, transparent);
+                backdrop-filter:blur(24px);
+                -webkit-backdrop-filter:blur(24px);
+                padding:16px 32px 12px;
+                padding-top:calc(16px + env(safe-area-inset-top));
+                margin-bottom:0;
+                box-sizing:border-box;
             }
-            /* 헤더 내부 콘텐츠를 본문(.app) 과 같은 max-width 1200 으로 중앙 정렬 */
-            #mainHeader.header > *{
-                max-width:1200px;
-                margin-left:auto;
-                margin-right:auto;
-            }
-            /* fixed 헤더 만큼 본문 내려주기 */
-            .app{padding-top:80px;}
         }
-        /* ≥1024px: 사이드 네비 펼친 상태 — 헤더가 사이드 네비를 가리지 않도록 */
+        /* ≥1024px: 사이드 네비 펼친 상태 — header-top 도 그만큼 우측에서 시작 */
         @media(min-width:1024px){
-            #mainHeader.header{
+            #mainHeader .header-top{
                 left:280px;
                 width:calc(100% - 280px);
             }
-            body.nav-collapsed #mainHeader.header{
+            body.nav-collapsed #mainHeader .header-top{
                 left:72px;
                 width:calc(100% - 72px);
             }
