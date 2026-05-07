@@ -11585,18 +11585,16 @@
         try {
             const inst = r?.institutionOwnership?.ownershipList || [];
             if (!inst.length) throw 0;
-            // 13F 보고서 기준일 가격 ≒ value/position → 추정 평균 매입가
-            const fmtPrice = v => v == null ? '-' : v >= 100 ? `$${v.toFixed(0)}` : `$${v.toFixed(2)}`;
             let html = '<div class="cp-holder-list">';
             inst.slice(0,15).forEach((h,i) => {
                 const shares = h.position?.raw;
                 const value  = h.value?.raw;
-                const avgPx  = (shares && value && shares > 0) ? value / shares : null;
+                const totalVal = value != null ? fmtMoney(value) : null;
                 const reportFmt = h.reportDate?.fmt || '';
                 html += `<div class="cp-holder-item">
                     <div class="cp-holder-rank">${i+1}</div>
                     <div class="cp-holder-name">${escHtml(h.organization||'-')}${reportFmt?`<div class="cp-holder-sub">기준일 ${escHtml(reportFmt)}</div>`:''}</div>
-                    <div class="cp-holder-pct">${h.pctHeld?.raw!=null?(h.pctHeld.raw*100).toFixed(2)+'%':'-'}${avgPx!=null?`<div class="cp-holder-sub cp-holder-price">추정 ${fmtPrice(avgPx)}</div>`:''}</div>
+                    <div class="cp-holder-pct">${h.pctHeld?.raw!=null?(h.pctHeld.raw*100).toFixed(2)+'%':'-'}${totalVal!=null?`<div class="cp-holder-sub cp-holder-price">보유 ${totalVal}</div>`:''}</div>
                     <div class="cp-holder-shares">${fmtShares(shares)}</div>
                 </div>`;
             });
