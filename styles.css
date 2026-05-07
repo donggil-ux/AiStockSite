@@ -4732,7 +4732,7 @@
 /* ==================================================================
    오늘의 실적발표 홈 프리뷰 — 가로 스크롤 카드
    ================================================================== */
-#earnHomeSection{padding-left:0!important;padding-right:0!important;}
+#earnHomeSection{padding-left:0!important;padding-right:0!important;margin-top:0;}
 .earn-home-sub{font-size:12px;color:var(--text2);margin:-6px 0 12px;}
 .earn-home-scroll{
     display:flex; gap:10px;

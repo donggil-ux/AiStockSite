@@ -164,6 +164,18 @@
             </div>
         </section>
 
+        <!-- 오늘의 실적발표 + AI 어닝콜 요약 (레이더 바로 아래) -->
+        <section id="earnHomeSection" class="home-section" style="display:none">
+            <div class="home-section-header">
+                <div class="home-section-title">오늘의 실적발표
+                    <span class="hs-badge green">AI 요약</span>
+                </div>
+                <button class="home-section-more" onclick="goEarnings()">전체 보기</button>
+            </div>
+            <div class="earn-home-sub" id="earnHomeSub">발표 완료한 종목 · 어닝콜 한 줄 요약</div>
+            <div class="earn-home-scroll" id="earnHomeScroll"></div>
+        </section>
+
         <!-- 핫 종목 섹션 (숨김 유지) -->
         <section id="hotStocksSection" class="home-section" style="display:none;">
             <div class="home-section-header">
@@ -279,18 +291,6 @@
             </div>
             <div class="dp-home-sub">S&amp;P 500 · 나스닥 · NYSE 매수 3 + 매도 3</div>
             <div id="dpHomeGrid" class="dp-home-grid"></div>
-        </section>
-
-        <!-- 오늘의 실적발표 + AI 어닝콜 요약 -->
-        <section id="earnHomeSection" class="home-section" style="display:none">
-            <div class="home-section-header">
-                <div class="home-section-title">오늘의 실적발표
-                    <span class="hs-badge green">AI 요약</span>
-                </div>
-                <button class="home-section-more" onclick="goEarnings()">전체 보기</button>
-            </div>
-            <div class="earn-home-sub" id="earnHomeSub">발표 완료한 종목 · 어닝콜 한 줄 요약</div>
-            <div class="earn-home-scroll" id="earnHomeScroll"></div>
         </section>
 
         <!-- 미국주식 인기 TOP 100 -->
