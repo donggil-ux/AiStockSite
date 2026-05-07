@@ -6627,22 +6627,27 @@
         ).join('');
         sec.style.display = '';
         try {
-            // 미국 동부 기준 오늘
-            const now = new Date();
-            const yyyy = now.getFullYear();
-            const mm   = String(now.getMonth()+1).padStart(2,'0');
-            const dd   = String(now.getDate()).padStart(2,'0');
-            const today = `${yyyy}-${mm}-${dd}`;
-            const r = await fetch(`/api/earnings-calendar?from=${today}&to=${today}`);
+            // 최근 7일(오늘 포함) 발표 완료 종목 모두 가져와서 시가총액 순으로 6개
+            const fmt = (d) => {
+                const y = d.getFullYear();
+                const m = String(d.getMonth()+1).padStart(2,'0');
+                const dd2 = String(d.getDate()).padStart(2,'0');
+                return `${y}-${m}-${dd2}`;
+            };
+            const today = new Date();
+            const past = new Date(today);
+            past.setDate(past.getDate() - 7);
+            const r = await fetch(`/api/earnings-calendar?from=${fmt(past)}&to=${fmt(today)}`);
             if (!r.ok) throw new Error('http '+r.status);
             const data = await r.json();
             const groups = Array.isArray(data.groups) ? data.groups : [];
-            // 발표 완료(epsAct 있음) 우선, 없으면 시가총액 큰 순
-            const all = groups.flatMap(g => g.items || []);
+            // 발표 완료(epsAct 있음)만, 시가총액 큰 순으로 6개
+            const all = groups.flatMap(g => (g.items || []).map(it => ({...it, _date: g.date})));
             const reported = all.filter(it => it.epsAct != null);
             reported.sort((a,b) => (b.marketCap||0) - (a.marketCap||0));
             const items = reported.slice(0, 6);
             if (!items.length) {
+                // 최근 7일에도 발표 종목이 0개인 경우 (드물지만): 섹션 자체를 숨김
                 sec.style.display = 'none';
                 return;
             }
@@ -6651,7 +6656,9 @@
             // AI 요약 enrich (기존 캐시/엔드포인트 재사용)
             try { _enrichEarningsWithAI(items); } catch(e) {}
         } catch (e) {
-            sec.style.display = 'none';
+            console.error('[loadEarnHome]', e);
+            // 에러 시 스켈레톤만 남기되 섹션은 보이게 유지
+            el.innerHTML = '<div style="padding:14px;color:var(--text3);font-size:13px;">실적발표 불러오기 실패 — 잠시 후 다시 시도해 주세요.</div>';
         }
     }
 
