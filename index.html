@@ -11497,7 +11497,7 @@
 
         // 캐시 히트 → 즉시 렌더
         if (cpCache[symbol]) {
-            renderCPData(cpCache[symbol], ovEl, exEl, hdEl, inEl, ihEl, fmtMoney, fmtShares, fmtCap);
+            renderCPData(cpCache[symbol].r, cpCache[symbol].qtrCloses, ovEl, exEl, hdEl, inEl, ihEl, fmtMoney, fmtShares, fmtCap);
             return;
         }
 
@@ -11505,16 +11505,23 @@
         ovEl.innerHTML = exEl.innerHTML = hdEl.innerHTML = inEl.innerHTML = loading;
         if (ihEl) ihEl.innerHTML = loading;
 
-        // 단일 API 호출, 프록시 레이스
+        // 기업 정보 + 5년 분기 주가 병렬 요청
         const modules = 'assetProfile,majorHoldersBreakdown,institutionOwnership,insiderTransactions,insiderHolders,price';
-        const data = await fetchRace(`https://query1.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=${modules}`, 5000);
+        const [data, chartData] = await Promise.all([
+            fetchRace(`https://query1.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=${modules}`, 5000),
+            fetch(`/api/chart/${encodeURIComponent(symbol)}?range=5y&interval=3mo`).then(r=>r.ok?r.json():null).catch(()=>null)
+        ]);
         const r = data?.quoteSummary?.result?.[0];
 
-        if (r) cpCache[symbol] = r;
-        renderCPData(r, ovEl, exEl, hdEl, inEl, ihEl, fmtMoney, fmtShares, fmtCap);
+        // 분기별 종가 배열 (시간 순)
+        const chartRes = chartData?.chart?.result?.[0];
+        const qtrCloses = (chartRes?.indicators?.quote?.[0]?.close || []).filter(v=>v!=null);
+
+        if (r) cpCache[symbol] = { r, qtrCloses };
+        renderCPData(r, qtrCloses, ovEl, exEl, hdEl, inEl, ihEl, fmtMoney, fmtShares, fmtCap);
     }
 
-    function renderCPData(r, ovEl, exEl, hdEl, inEl, ihEl, fmtMoney, fmtShares, fmtCap) {
+    function renderCPData(r, qtrCloses, ovEl, exEl, hdEl, inEl, ihEl, fmtMoney, fmtShares, fmtCap) {
         // === 개요 (기본정보 + 지분구성 + 거버넌스) ===
         try {
             const ap = r?.assetProfile || {};
@@ -11585,16 +11592,35 @@
         try {
             const inst = r?.institutionOwnership?.ownershipList || [];
             if (!inst.length) throw 0;
+            // 보유 비율 → 추정 누적 기간(분기 수) 매핑
+            // 대형 지수펀드(≥5%)는 수년간 지속 매수, 소형 기관은 최근 진입 경향
+            const estAvgPrice = (pctHeld, pctChange) => {
+                if (!qtrCloses || qtrCloses.length === 0) return null;
+                let nQ = pctHeld >= 0.05 ? 20          // 5Y: Vanguard·BlackRock 급
+                       : pctHeld >= 0.02 ? 12           // 3Y
+                       : pctHeld >= 0.01 ? 8            // 2Y
+                       : pctHeld >= 0.005 ? 4           // 1Y
+                       : 2;                             // 6M: 소형 기관
+                // 최근 대량 신규 진입(+20%↑)이면 최근 4분기로 좁힘
+                if (pctChange != null && pctChange > 0.2) nQ = Math.min(nQ, 4);
+                const slice = qtrCloses.slice(-nQ).filter(v=>v!=null);
+                if (!slice.length) return null;
+                return slice.reduce((a,b)=>a+b,0) / slice.length;
+            };
+            const fmtPx = v => v==null?'-': v>=100?`$${v.toFixed(0)}`:`$${v.toFixed(2)}`;
+
             let html = '<div class="cp-holder-list">';
             inst.slice(0,15).forEach((h,i) => {
                 const shares = h.position?.raw;
                 const value  = h.value?.raw;
-                const totalVal = value != null ? fmtMoney(value) : null;
+                const pctHeld   = h.pctHeld?.raw ?? 0;
+                const pctChange = h.pctChange?.raw ?? null;
+                const avgEst = estAvgPrice(pctHeld, pctChange);
                 const reportFmt = h.reportDate?.fmt || '';
                 html += `<div class="cp-holder-item">
                     <div class="cp-holder-rank">${i+1}</div>
                     <div class="cp-holder-name">${escHtml(h.organization||'-')}${reportFmt?`<div class="cp-holder-sub">기준일 ${escHtml(reportFmt)}</div>`:''}</div>
-                    <div class="cp-holder-pct">${h.pctHeld?.raw!=null?(h.pctHeld.raw*100).toFixed(2)+'%':'-'}${totalVal!=null?`<div class="cp-holder-sub cp-holder-price">보유 ${totalVal}</div>`:''}</div>
+                    <div class="cp-holder-pct">${pctHeld!=null?(pctHeld*100).toFixed(2)+'%':'-'}${avgEst!=null?`<div class="cp-holder-sub cp-holder-price">추정 평단 ${fmtPx(avgEst)}</div>`:''}</div>
                     <div class="cp-holder-shares">${fmtShares(shares)}</div>
                 </div>`;
             });
