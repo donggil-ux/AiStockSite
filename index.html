@@ -167,7 +167,7 @@
         <!-- 오늘의 실적발표 + AI 어닝콜 요약 (레이더 바로 아래) -->
         <section id="earnHomeSection" class="home-section" style="display:none">
             <div class="home-section-header">
-                <div class="home-section-title">오늘의 실적발표
+                <div class="home-section-title">실적발표 브리핑
                     <span class="hs-badge green">AI 요약</span>
                 </div>
                 <button class="home-section-more" onclick="goEarnings()">전체 보기</button>
@@ -289,7 +289,7 @@
                 </div>
                 <button class="home-section-more" onclick="goDailyPicks()">전체 보기</button>
             </div>
-            <div class="dp-home-sub">S&amp;P 500 · 나스닥 · NYSE 매수 3 + 매도 3</div>
+            <div class="dp-home-sub">과매도 · 저평가 · 성장 기준 AI 선별</div>
             <div id="dpHomeGrid" class="dp-home-grid"></div>
         </section>
 
@@ -5625,7 +5625,7 @@
     }
 
     // ── AI 어닝콜 요약 + 감성 분석 enrich ─────────────────────────
-    const _EARN_AI_LS_KEY = 'earnings_ai_v1';
+    const _EARN_AI_LS_KEY = 'earnings_ai_v3';
     const _EARN_AI_TTL = 2 * 60 * 60 * 1000; // 2h
 
     function _earnAiLoadLS() {
@@ -5657,10 +5657,20 @@
         const sentMap = { positive: { emoji:'🟢', label:'긍정' }, negative: { emoji:'🔴', label:'부정' }, neutral: { emoji:'🟡', label:'보통' } };
         const s = sentMap[data?.sentiment] || sentMap.neutral;
         const summary = (data?.summary || '').trim();
+        const pros = (data?.highlights?.[0] || '').trim();
+        const cons = (data?.highlights?.[1] || '').trim();
         cells.forEach(el => {
-            if (!summary) { el.innerHTML = ''; el.classList.add('earn-cell-ai--empty'); return; }
+            if (!summary && !pros) { el.innerHTML = ''; el.classList.add('earn-cell-ai--empty'); return; }
             el.classList.remove('earn-cell-ai--empty');
-            el.innerHTML = `<span class="earn-sent-badge earn-sent-${data.sentiment}" title="${s.label}">${s.emoji} ${s.label}</span><span class="earn-ai-summary" title="${escHtml(summary)}">${escHtml(summary)}</span>`;
+            // 홈 카드(.earn-hc-ai)는 긍정/부정 두 줄 렌더, 일반 셀은 기존 방식
+            const isHomeCard = el.classList.contains('earn-hc-ai');
+            if (isHomeCard && (pros || cons)) {
+                const prosHtml = pros ? `<div class="earn-hc-point positive"><span class="earn-sent-badge earn-sent-positive">🟢 긍정</span><span class="earn-ai-summary">${escHtml(pros)}</span></div>` : '';
+                const consHtml = cons ? `<div class="earn-hc-point negative"><span class="earn-sent-badge earn-sent-negative">🔴 부정</span><span class="earn-ai-summary">${escHtml(cons)}</span></div>` : '';
+                el.innerHTML = prosHtml + consHtml;
+            } else {
+                el.innerHTML = `<span class="earn-sent-badge earn-sent-${data.sentiment}" title="${s.label}">${s.emoji} ${s.label}</span><span class="earn-ai-summary" title="${escHtml(summary)}">${escHtml(summary)}</span>`;
+            }
         });
     }
 
@@ -6615,7 +6625,7 @@
         // 5분 캐시 — 캐시 hit 시에도 섹션 보이게 유지
         if (_earnHomeCache && _earnHomeCache.items?.length && Date.now() - _earnHomeCache.ts < 5 * 60 * 1000) {
             _renderEarnHome(_earnHomeCache.items);
-            try { _enrichEarningsWithAI(_earnHomeCache.items); } catch(e) {}
+            try { _enrichEarningsWithAI(_earnHomeCache.items.filter(it => it?.epsAct != null)); } catch(e) {}
             return;
         }
         // 스켈레톤 — 실제 카드 구조와 동일
@@ -6643,24 +6653,10 @@
             const reported = all.filter(it => it.epsAct != null);
             const fallback = all.filter(it => it.epsAct == null);
             const sortByMcap = (a,b) => (b.marketCap||0) - (a.marketCap||0);
-            // 긍정(상회) 상단 → 부정(하회) 하단 배치
-            const beats  = reported.filter(it => (it.surprisePct ?? 0) >= 0).sort(sortByMcap);
-            const misses = reported.filter(it => (it.surprisePct ?? 0) < 0).sort(sortByMcap);
+            // 시가총액 큰 순으로 최대 6개
             const target = 6;
-            const half = Math.floor(target / 2);
-            const wantBeats  = Math.min(half, beats.length);
-            const wantMisses = Math.min(target - wantBeats, misses.length);
-            // beats 먼저, misses 뒤에
-            const mixed = [...beats.slice(0, wantBeats), ...misses.slice(0, wantMisses)];
-            // 부족하면 남은 reported 로 채움
-            if (mixed.length < target) {
-                const used = new Set(mixed.map(it => it.symbol));
-                const rest = reported.filter(it => !used.has(it.symbol)).sort(sortByMcap);
-                mixed.push(...rest.slice(0, target - mixed.length));
-            }
-            // 그래도 부족하면 발표 예정 종목으로 채움
-            const items = [...mixed, ...fallback.sort(sortByMcap)].slice(0, target);
-            console.log('[loadEarnHome] reported:', reported.length, '(beats:', beats.length, 'misses:', misses.length, ') fallback:', fallback.length, 'shown:', items.length);
+            const items = reported.sort(sortByMcap).slice(0, target);
+            console.log('[loadEarnHome] reported:', reported.length, 'shown:', items.length);
             if (!items.length) {
                 el.innerHTML = '<div style="padding:14px;color:var(--text3);font-size:13px;">최근 5일간 발표된 종목이 없어요.</div>';
                 return;
@@ -6668,7 +6664,7 @@
             _earnHomeCache = { items, ts: Date.now() };
             _renderEarnHome(items);
             // AI 요약 enrich (epsAct 있는 종목만)
-            try { _enrichEarningsWithAI(items.filter(it => it.epsAct != null)); } catch(e) {}
+            try { _enrichEarningsWithAI(items.filter(it => it?.epsAct != null)); } catch(e) {}
         } catch (e) {
             console.error('[loadEarnHome]', e);
             el.innerHTML = '<div style="padding:14px;color:var(--text3);font-size:13px;">실적발표 불러오기 실패 — 잠시 후 다시 시도해 주세요.</div>';
@@ -6679,6 +6675,48 @@
         const el = document.getElementById('earnHomeScroll');
         if (!el) return;
         el.innerHTML = items.map(_renderEarnHomeCard).join('');
+    }
+    function _renderEarnHomePairs(pairs) {
+        const el = document.getElementById('earnHomeScroll');
+        if (!el) return;
+        el.innerHTML = pairs.map(([beat, miss]) => _renderEarnHomePairCard(beat, miss)).join('');
+    }
+    function _renderEarnHomePairCard(beat, miss) {
+        const rowHtml = (item) => {
+            if (!item) return '';
+            const symbol = String(item.symbol || '').replace(/[^A-Z0-9.\-]/gi,'');
+            const name   = item.name || symbol;
+            const isReported = item.epsAct != null;
+            const surprise = _earnSurpriseLabel(item.surprisePct);
+            const yoy = (typeof item.yoy === 'number' && !isNaN(item.yoy))
+                ? `<span class="earn-hc-meta-item"><span class="earn-hc-meta-label">YoY</span><span class="earn-yoy ${item.yoy>=0?'up':'down'}">${item.yoy>=0?'+':''}${item.yoy.toFixed(1)}%</span></span>` : '';
+            const statusBadge = isReported
+                ? `<span class="earn-hc-status ${surprise.cls}">${escHtml(surprise.label)}</span>`
+                : `<span class="earn-hc-status meet">${escHtml(item._date || '예정')}</span>`;
+            const aiCell = isReported
+                ? `<div class="earn-hc-ai earn-cell-ai" data-earnings-ai="${symbol}"><span class="earn-hc-ai-loading">AI 분석 중…</span></div>`
+                : `<div class="earn-hc-ai" style="opacity:.7"><span class="earn-hc-ai-loading">발표 예정</span></div>`;
+            return `<div class="earn-pair-row" onclick="quickSearch('${symbol}','US')">
+                <div class="earn-hc-top">
+                    ${_tickerLogoHTML(symbol, 'US')}
+                    <div class="earn-hc-id">
+                        <span class="earn-hc-ticker">${escHtml(symbol)}</span>
+                        <span class="earn-hc-name" title="${escHtml(name)}">${escHtml(name)}</span>
+                    </div>
+                    ${statusBadge}
+                </div>
+                <div class="earn-hc-meta">
+                    <span class="earn-hc-meta-item"><span class="earn-hc-meta-label">EPS</span>${_earnFmtEps(item.epsEst)} → <strong>${_earnFmtEps(item.epsAct)}</strong></span>
+                    ${yoy}
+                </div>
+                ${aiCell}
+            </div>`;
+        };
+        return `<div class="earn-home-card earn-home-pair-card">
+            ${rowHtml(beat)}
+            ${beat && miss ? '<div class="earn-pair-divider"></div>' : ''}
+            ${rowHtml(miss)}
+        </div>`;
     }
 
     function _renderEarnHomeSkeleton(count = 6) {
@@ -6760,27 +6798,49 @@
     function _renderDpHome(data) {
         const el = document.getElementById('dpHomeGrid');
         if (!el) return;
-        const buys  = (data.buys  || []).slice(0, 3);
-        const sells = (data.sells || []).slice(0, 3);
-        const all = [...buys.map(p => _renderDpHomeCard(p, 'BUY')), ...sells.map(p => _renderDpHomeCard(p, 'SELL'))];
-        el.innerHTML = all.length ? all.join('') : '<div class="dp-home-loading">데이터 없음</div>';
+        const cats = [
+            { key: 'oversold',    label: '과매도',  emoji: '📉', cls: 'dp-cat-oversold',    items: data.oversold    || [] },
+            { key: 'undervalued', label: '저평가',  emoji: '💎', cls: 'dp-cat-undervalued', items: data.undervalued || [] },
+            { key: 'growth',      label: '성장',    emoji: '🚀', cls: 'dp-cat-growth',      items: data.growth      || [] },
+        ];
+        // 새 구조가 없으면 기존 buys/sells 폴백
+        const hasNew = cats.some(c => c.items.length > 0);
+        if (!hasNew) {
+            const buys  = (data.buys  || []).slice(0, 3);
+            const sells = (data.sells || []).slice(0, 3);
+            const all = [...buys.map(p => _renderDpHomeCard(p, 'BUY')), ...sells.map(p => _renderDpHomeCard(p, 'SELL'))];
+            el.innerHTML = all.length ? all.join('') : '<div class="dp-home-loading">데이터 없음</div>';
+            return;
+        }
+        let html = '';
+        cats.forEach(cat => {
+            if (!cat.items.length) return;
+            html += `<div class="dp-cat-section">
+                <div class="dp-cat-label ${cat.cls}">${cat.emoji} ${cat.label}</div>
+                <div class="dp-cat-cards">${cat.items.slice(0, 2).map(p => _renderDpHomeCard(p, cat.key)).join('')}</div>
+            </div>`;
+        });
+        el.innerHTML = html || '<div class="dp-home-loading">데이터 없음</div>';
     }
 
-    function _renderDpHomeCard(p, signal) {
-        const isBuy = signal === 'BUY';
-        const klass = isBuy ? 'dp-hc-buy' : 'dp-hc-sell';
-        const icon  = isBuy ? '▲' : '▼';
+    function _renderDpHomeCard(p, catKey) {
+        const catMeta = {
+            oversold:    { cls: 'dp-hc-oversold',    badge: '과매도' },
+            undervalued: { cls: 'dp-hc-undervalued',  badge: '저평가' },
+            growth:      { cls: 'dp-hc-growth',       badge: '성장'   },
+            BUY:         { cls: 'dp-hc-buy',          badge: '매수'   },
+            SELL:        { cls: 'dp-hc-sell',         badge: '매도'   },
+        };
+        const meta  = catMeta[catKey] || catMeta.BUY;
         const safeT = escHtml(p.ticker || '');
         const safeN = escHtml(p.name || '');
         const safeR = escHtml(p.oneLineReason || '');
         const logo  = typeof _tickerLogoHTML === 'function' ? _tickerLogoHTML(p.ticker, 'US') : '';
-        return `<div class="dp-home-card ${klass}" onclick="quickSearch('${safeT}','US')">
+        return `<div class="dp-home-card ${meta.cls}" onclick="quickSearch('${safeT}','US')">
             <div class="dp-hc-top">
                 ${logo}
                 <span class="dp-hc-ticker">${safeT}</span>
-                <span class="dp-hc-sig ${klass}">${icon}</span>
             </div>
-            <div class="dp-hc-name">${safeN}</div>
             <div class="dp-hc-reason">${safeR}</div>
         </div>`;
     }

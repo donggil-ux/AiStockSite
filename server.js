@@ -887,15 +887,17 @@ async function _summarizeEarningsBatch(items) {
     if (!process.env.GEMINI_API_KEY || !items.length) return out;
     // 한 번에 너무 길지 않도록 종목별 텍스트 8000자로 제한
     const lines = items.map(x => `### ${x.symbol} (${x.quarter})\n${(x.text || '').slice(0, 8000)}`).join('\n\n');
-    const prompt = `다음은 종목별 실적 정보(어닝콜 발췌 또는 EPS/매출 결과 + 최신 뉴스)입니다. 각 종목 핵심을 한국어로 요약하고 감성을 분류하세요.
+    const prompt = `다음은 종목별 실적 발표 데이터(어닝콜 발췌 / EPS·매출 수치 / 뉴스)입니다. 반드시 입력 데이터에 있는 실제 수치와 발언을 근거로 분석하세요.
 
 규칙:
-- summary: 한국어 한 문장(30~60자). 실적/가이던스/시장 반응 중심. 인용·수식어 최소화.
-- sentiment: positive(상회·상향·호재) / negative(하회·하향·악재) / neutral(혼재·중립·정보 부족).
-- highlights: 한국어 짧은 키포인트 2~3개 (각 6~20자, 예: "EPS 12% 상회", "가이던스 상향", "AI 매출 +40%").
-- 티커/회사명 출력 금지(이미 표시됨).
-- 정보 부족하면 sentiment는 neutral, summary는 "데이터 부족" 같은 짧은 표현 사용.
-- JSON 배열만 출력: [{"s":"SYMBOL","q":"YYYY-Q","summary":"...","sentiment":"positive|negative|neutral","highlights":["...","..."]}]
+- summary: 한국어 한 문장(40~70자). 실적 핵심 총평. 구체적 수치 1개 포함 필수.
+- sentiment: positive / negative / neutral (전반적 시장 반응 기준).
+- highlights: 반드시 2개 배열.
+  · highlights[0] = 긍정 포인트 (40~80자). 실제 EPS/매출/가이던스/어닝콜 발언 중 가장 강한 호재 수치나 내용. 예: "EPS $1.37로 예상 $1.20 대비 14% 상회, AI 데이터센터 매출 전분기 대비 57% 급증"
+  · highlights[1] = 부정 포인트 (40~80자). 실제 데이터 중 가장 우려되는 하회·비용 증가·리스크. 예: "PC·게이밍 부문 매출 전년 대비 8% 감소, 2분기 가이던스 시장 기대치 5% 하회"
+  · 입력 데이터가 부족할 경우에만 "관련 데이터 없음" 사용.
+- 티커/회사명 반복 출력 금지.
+- JSON 배열만 출력: [{"s":"SYMBOL","q":"YYYY-Q","summary":"...","sentiment":"positive|negative|neutral","highlights":["긍정 포인트...","부정 포인트..."]}]
 
 입력:
 ${lines}
@@ -933,9 +935,9 @@ JSON:`;
     arr.forEach(x => {
         if (!x || typeof x.s !== 'string') return;
         const sym = x.s.toUpperCase();
-        const summary = (x.summary || '').toString().trim().slice(0, 80);
+        const summary = (x.summary || '').toString().trim().slice(0, 120);
         const sentiment = validSent.has(x.sentiment) ? x.sentiment : 'neutral';
-        const highlights = Array.isArray(x.highlights) ? x.highlights.filter(h => typeof h === 'string').slice(0, 3).map(h => h.slice(0, 30)) : [];
+        const highlights = Array.isArray(x.highlights) ? x.highlights.filter(h => typeof h === 'string').slice(0, 2).map(h => h.slice(0, 160)) : [];
         const quarter = (x.q || '').toString().slice(0, 16) || (items.find(i => i.symbol === sym)?.quarter || '');
         if (summary.length >= 8) out.set(sym, { summary, sentiment, highlights, quarter });
     });
@@ -2670,39 +2672,37 @@ app.get('/api/daily-picks', async (req, res) => {
             return res.status(503).json({ error: '후보 종목 데이터를 가져올 수 없습니다. 잠시 후 다시 시도해주세요.' });
         }
 
-        // 2) Gemini 호출 — 매수 10 + 매도 10 + 표준 분석
+        // 2) Gemini 호출 — 과매도 · 저평가 · 성장 3카테고리
         const today = new Date().toISOString().slice(0, 10);
-        const prompt = `당신은 미국 주식 시니어 트레이더입니다. 오늘은 ${today}.
+        const prompt = `당신은 미국 주식 시니어 애널리스트입니다. 오늘은 ${today}.
 
-아래는 오늘 S&P 500·나스닥·뉴욕증시(NYSE)에서 거래가 활발하거나 주목할 만한 후보 종목들입니다:
+아래는 S&P 500·나스닥·NYSE에서 주목할 만한 후보 종목들입니다:
 ${candidates.join(', ')}
 
-이 후보 및 당신의 실시간 시장 지식을 활용해 다음을 선정하고 분석하세요:
-- 매수 추천 10개: S&P 500·나스닥·NYSE 전체에서 상승 모멘텀이 가장 강한 종목
-  (거래량 급증, 정배열, 52주 고점 돌파, 섹터 로테이션 수혜 등)
-- 매도(또는 회피) 추천 10개: 하락 신호가 가장 뚜렷한 종목
-  (거래량 감소, 데드크로스, 고점 이탈, 실적 쇼크 가능성 등)
+이 후보 및 당신의 시장 지식을 활용해 3가지 기준으로 각 3개씩 종목을 선정하세요:
 
-각 종목당 다음 필드 모두 포함 (한국어):
+1. oversold (과매도): RSI 35 이하, 지지선 근접, 기술적 반등 가능성이 높은 종목
+2. undervalued (저평가): PER·PBR이 업종 평균 이하, 52주 저점 근처, 가치 재평가 기대 종목
+3. growth (성장): 매출·이익 성장률 높음, 섹터 모멘텀 강함, 상승 추세 지속 중인 종목
+
+각 종목 필드 (한국어):
 - ticker: 영문 티커
 - name: 영문 회사명
-- signal: "BUY" 또는 "SELL"
-- oneLineReason: 1줄 핵심 이유 (정량 근거 1~2개 포함, 예: "거래량 2.5배 + RSI 65 정배열")
+- oneLineReason: 핵심 이유 1줄 (정량 근거 포함, 예: "RSI 28 + 200일선 지지", "PER 12 업종 평균 대비 40% 저평가")
 - entry: 진입가 (숫자, USD)
 - stopLoss: 손절가 (숫자, USD)
 - target: 목표가 (숫자, USD)
-- rr: "1:N.N" 형식 손익비 문자열
-- technicalAnalysis: 기술적 분석 2~3문장 (이동평균선·거래량·RSI/MACD 인용)
-- momentum: 모멘텀 분석 1~2문장 (52주 위치·5일 수익률·섹터 강도 등)
-- entryTiming: 진입 타이밍 권장 1줄 (예: "장 시작 직후 매수" / "5분봉 눌림 대기")
-- riskFactors: 주요 리스크 1~2줄
+- rr: "1:N.N" 형식 손익비
+- technicalAnalysis: 기술적 분석 2문장
+- riskFactors: 주요 리스크 1줄
 
-응답은 다음 JSON 스키마 정확히:
+응답 JSON 스키마:
 {
   "date": "${today}",
-  "marketContext": "오늘 시장 분위기 1줄 (S&P 500 / 나스닥 / VIX 흐름 등)",
-  "buys":  [ ... 10개 ],
-  "sells": [ ... 10개 ]
+  "marketContext": "오늘 시장 분위기 1줄",
+  "oversold":    [ ...3개 ],
+  "undervalued": [ ...3개 ],
+  "growth":      [ ...3개 ]
 }
 
 JSON만 출력. 코드펜스·설명·추가 텍스트 금지. '{' 로 시작 '}' 로 끝.`;
@@ -2759,12 +2759,17 @@ JSON만 출력. 코드펜스·설명·추가 텍스트 금지. '{' 로 시작 '}
             entryTiming:       String(p.entryTiming || '').slice(0, 200),
             riskFactors:       String(p.riskFactors || '').slice(0, 300),
         });
+        const oversold    = (Array.isArray(data.oversold)    ? data.oversold    : []).slice(0, 3).map(p => cleanPick(p, 'OVERSOLD'));
+        const undervalued = (Array.isArray(data.undervalued) ? data.undervalued : []).slice(0, 3).map(p => cleanPick(p, 'UNDERVALUED'));
+        const growth      = (Array.isArray(data.growth)      ? data.growth      : []).slice(0, 3).map(p => cleanPick(p, 'GROWTH'));
+        // 하위 호환: buys/sells 필드도 유지
         const buys  = (Array.isArray(data.buys)  ? data.buys  : []).slice(0, 10).map(p => cleanPick(p, 'BUY'));
         const sells = (Array.isArray(data.sells) ? data.sells : []).slice(0, 10).map(p => cleanPick(p, 'SELL'));
 
         const final = {
             date:          data.date || today,
             marketContext: String(data.marketContext || '').slice(0, 200),
+            oversold, undervalued, growth,
             buys, sells,
             generatedAt:   Date.now(),
         };
