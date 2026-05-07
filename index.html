@@ -21,10 +21,10 @@
 </head>
 <body>
 <!-- Side Navigation -->
-<nav class="side-nav" id="sideNav">
+<nav class="side-nav open" id="sideNav">
     <div class="side-nav-header">
+        <button class="side-nav-hamburger" onclick="toggleSideNav()" title="메뉴"><i class="ri-menu-line"></i></button>
         <div class="side-nav-title">StockAI</div>
-        <button class="side-nav-collapse-btn" onclick="collapseNavDesktop()" title="숨기기"><i class="ri-sidebar-fold-line"></i></button>
         <button class="side-nav-close" onclick="closeSideNav()">&times;</button>
     </div>
     <div class="side-nav-body">
@@ -1346,6 +1346,10 @@
     function closeSideNav() {
         document.getElementById('sideNav').classList.remove('open');
         document.getElementById('sideNavBackdrop').classList.remove('show');
+    }
+    // 모바일에서 페이지 로드 시 backdrop 초기화
+    if (window.innerWidth < 1024) {
+        document.getElementById('sideNavBackdrop').classList.add('show');
     }
     function collapseNavDesktop() {
         const collapsed = document.body.classList.toggle('nav-collapsed');
