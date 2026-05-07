@@ -6648,11 +6648,25 @@
             const reported = all.filter(it => it.epsAct != null);
             const fallback = all.filter(it => it.epsAct == null);
             const sortByMcap = (a,b) => (b.marketCap||0) - (a.marketCap||0);
-            reported.sort(sortByMcap);
-            fallback.sort(sortByMcap);
-            // 발표 완료가 6개 이상이면 그것만, 부족하면 예정으로 채움
-            const items = [...reported, ...fallback].slice(0, 6);
-            console.log('[loadEarnHome] reported:', reported.length, 'fallback:', fallback.length, 'shown:', items.length);
+            // 긍정(상회) / 부정(하회) 종목 모두 보여주기 위해 4:2 비율로 섞음
+            const beats  = reported.filter(it => (it.surprisePct ?? 0) >= 0).sort(sortByMcap);
+            const misses = reported.filter(it => (it.surprisePct ?? 0) < 0).sort(sortByMcap);
+            // 시가총액 큰 순으로 인터리브: beats 4 + misses 2 → 부족하면 다른 쪽으로 채움
+            const target = 6;
+            const wantMisses = Math.min(2, misses.length);
+            const wantBeats  = Math.min(target - wantMisses, beats.length);
+            let mixed = [...beats.slice(0, wantBeats), ...misses.slice(0, wantMisses)];
+            // 부족하면 남은 reported 로 채움
+            if (mixed.length < target) {
+                const used = new Set(mixed.map(it => it.symbol));
+                const rest = reported.filter(it => !used.has(it.symbol)).sort(sortByMcap);
+                mixed = [...mixed, ...rest].slice(0, target);
+            }
+            // 시가총액 큰 순으로 최종 정렬
+            mixed.sort(sortByMcap);
+            // 그래도 부족하면 발표 예정 종목으로 채움
+            const items = [...mixed, ...fallback.sort(sortByMcap)].slice(0, target);
+            console.log('[loadEarnHome] reported:', reported.length, '(beats:', beats.length, 'misses:', misses.length, ') fallback:', fallback.length, 'shown:', items.length);
             if (!items.length) {
                 el.innerHTML = '<div style="padding:14px;color:var(--text3);font-size:13px;">최근 5일간 발표된 종목이 없어요.</div>';
                 return;
