@@ -1484,7 +1484,7 @@
                 position:static!important;
                 padding-top:calc(72px + env(safe-area-inset-top));
             }
-            /* 헤더 fixed 영역 — 전체 가용 폭 사용 */
+            /* 헤더 fixed 영역 — 전체 가용 폭 사용 (좌우 패딩 0) */
             #mainHeader .header-top{
                 position:fixed;
                 top:0; left:0; right:0;
@@ -1493,9 +1493,9 @@
                 background:color-mix(in srgb, var(--bg) 92%, transparent);
                 backdrop-filter:blur(24px);
                 -webkit-backdrop-filter:blur(24px);
-                margin-bottom:0;
+                margin:0;
                 box-sizing:border-box;
-                padding:16px 24px 12px;
+                padding:16px 0 12px;
                 padding-top:calc(16px + env(safe-area-inset-top));
             }
         }
