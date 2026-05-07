@@ -1065,6 +1065,25 @@
             margin-top:12px;padding-top:10px;border-top:1px solid var(--border);
             font-size:11px;color:var(--text3);line-height:1.5;
         }
+        /* 퀀트 매매 신호 행 */
+        .quant-signal-row{
+            display:flex; align-items:center; gap:8px;
+            background:var(--bg3); border-radius:10px; padding:12px 14px;
+            margin-bottom:12px; flex-wrap:wrap;
+        }
+        .quant-signal-item{display:flex; flex-direction:column; align-items:center; gap:2px; flex:1; min-width:60px;}
+        .quant-signal-lbl{font-size:10.5px; color:var(--text3); font-weight:600; text-transform:uppercase; letter-spacing:.4px;}
+        .quant-signal-price{font-size:14px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums;}
+        .quant-signal-price.up{color:#00A882;}
+        .quant-signal-price.down{color:var(--red);}
+        .quant-signal-sub{font-size:10px; color:var(--text3);}
+        .quant-signal-arrow{font-size:13px; color:var(--text3); flex-shrink:0;}
+        .quant-signal-rr{font-size:11px; font-weight:700; color:var(--blue); background:rgba(59,130,246,.1); padding:3px 8px; border-radius:6px; flex-shrink:0; margin-left:auto;}
+        @media(max-width:480px){
+            .quant-signal-row{gap:4px; padding:10px;}
+            .quant-signal-price{font-size:12.5px;}
+            .quant-signal-arrow{display:none;}
+        }
         @media(max-width:600px){
             .quant-composite-score{font-size:32px;}
             .quant-axis{padding:10px 12px;}

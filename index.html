@@ -1077,7 +1077,7 @@
             </div>
 
             <!-- ===== 단타 분석 (통합) ===== -->
-            <div id="tsPanelDay" style="padding:0 16px;">
+            <div id="tsPanelDay" style="padding:0;">
                 <div class="card">
                     <div class="card-title"><span class="dot" style="background:var(--yellow)"></span>5분봉 돌파 단타 <span class="trade-badge day-badge">DAY</span></div>
                     <div class="ai-score-container">
@@ -12534,6 +12534,46 @@
             </div>`;
         };
 
+        // ───── 퀀트 기반 매매 가격 계산 ─────
+        const fmt$  = v => isKR ? Math.round(v).toLocaleString()+'원' : '$'+v.toFixed(2);
+        const atr   = atrLast || price * 0.015;
+        // 매수 진입: 과매도(z<-1 or RSI<35)면 현재가, 아니면 BB하단 or 현재가-0.5ATR
+        const entryQ = (z < -1 || (rsi != null && rsi < 35))
+            ? price
+            : (lower && lower < price ? lower : price - atr * 0.5);
+        const slQ    = entryQ - atr * 1.5;                     // 손절: 진입가 - 1.5×ATR
+        const tp1Q   = mean60;                                  // 1차 목표: 60일 평균
+        const tp2Q   = upper || price + atr * 3;               // 2차 목표: BB 상단
+        const rrQ    = entryQ - slQ > 0 ? (tp1Q - entryQ) / (entryQ - slQ) : 0;
+        const entryLbl = (z < -1 || (rsi != null && rsi < 35)) ? '현재가 (과매도)' : (lower && lower < price ? 'BB 하단' : '현재가-½ATR');
+        const signalRowHtml = `
+        <div class="quant-signal-row">
+            <div class="quant-signal-item">
+                <div class="quant-signal-lbl">매수 진입</div>
+                <div class="quant-signal-price up">${fmt$(entryQ)}</div>
+                <div class="quant-signal-sub">${entryLbl}</div>
+            </div>
+            <div class="quant-signal-arrow">→</div>
+            <div class="quant-signal-item">
+                <div class="quant-signal-lbl">손절</div>
+                <div class="quant-signal-price down">${fmt$(slQ)}</div>
+                <div class="quant-signal-sub">−1.5×ATR</div>
+            </div>
+            <div class="quant-signal-arrow">→</div>
+            <div class="quant-signal-item">
+                <div class="quant-signal-lbl">1차 목표</div>
+                <div class="quant-signal-price">${fmt$(tp1Q)}</div>
+                <div class="quant-signal-sub">60일 평균</div>
+            </div>
+            <div class="quant-signal-arrow">→</div>
+            <div class="quant-signal-item">
+                <div class="quant-signal-lbl">2차 목표</div>
+                <div class="quant-signal-price">${fmt$(tp2Q)}</div>
+                <div class="quant-signal-sub">BB 상단</div>
+            </div>
+            <div class="quant-signal-rr">R/R ${rrQ.toFixed(2)}</div>
+        </div>`;
+
         el.innerHTML = `<div class="card quant-card">
             <div class="card-title">
                 <span class="dot" style="background:var(--purple)"></span>
@@ -12551,6 +12591,7 @@
                     <div class="quant-composite-fill ${vCls}" style="width:${Math.round(composite)}%"></div>
                 </div>
             </div>
+            ${signalRowHtml}
             <div class="quant-grid">
                 ${axisCard('🚀 모멘텀', momScore, [
                     { label: '1개월',    value: fmtPct(ret1m),  cls: ret1m>=0?'up':'down' },
