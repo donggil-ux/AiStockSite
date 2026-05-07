@@ -6627,7 +6627,7 @@
         ).join('');
         sec.style.display = '';
         try {
-            // 최근 7일(오늘 포함) 발표 완료 종목 모두 가져와서 시가총액 순으로 6개
+            // 최근 2일(오늘 포함) 발표 완료 종목 모두 가져와서 시가총액 순으로 6개
             const fmt = (d) => {
                 const y = d.getFullYear();
                 const m = String(d.getMonth()+1).padStart(2,'0');
@@ -6636,7 +6636,7 @@
             };
             const today = new Date();
             const past = new Date(today);
-            past.setDate(past.getDate() - 7);
+            past.setDate(past.getDate() - 2);
             const r = await fetch(`/api/earnings-calendar?from=${fmt(past)}&to=${fmt(today)}`);
             if (!r.ok) throw new Error('http '+r.status);
             const data = await r.json();
