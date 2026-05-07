@@ -24,6 +24,7 @@
 <nav class="side-nav" id="sideNav">
     <div class="side-nav-header">
         <div class="side-nav-title">StockAI</div>
+        <button class="side-nav-collapse-btn" onclick="collapseNavDesktop()" title="숨기기"><i class="ri-sidebar-fold-line"></i></button>
         <button class="side-nav-close" onclick="closeSideNav()">&times;</button>
     </div>
     <div class="side-nav-body">
@@ -122,7 +123,40 @@
 
     <!-- Welcome Screen -->
     <div class="welcome-screen" id="welcomeScreen">
-        <!-- 핫 종목 섹션 -->
+
+        <!-- ════════════════════════════════════════
+             OVERSOLD & DEEP VALUE RADAR DASHBOARD
+             ════════════════════════════════════════ -->
+        <section id="radarSection" class="radar-section">
+
+            <!-- ② 레이더 탭 -->
+            <div class="radar-tab-bar">
+                <button class="radar-tab active" data-tab="oversold" onclick="switchRadarTab('oversold')">과매도 레이더</button>
+                <button class="radar-tab" data-tab="value" onclick="switchRadarTab('value')">저평가 가치주</button>
+                <button class="radar-tab" data-tab="leverage" onclick="switchRadarTab('leverage')">레버리지 ETF</button>
+                <button class="radar-tab" data-tab="swing" onclick="switchRadarTab('swing')">스윙 R/R</button>
+                <button class="radar-tab" data-tab="streak" onclick="switchRadarTab('streak')">연속 상승세</button>
+            </div>
+
+            <!-- ④ 스나이퍼 리스트 본문 -->
+            <div id="sniperList" class="sniper-list">
+                <div class="sniper-loading">
+                    <div class="sniper-skel" style="--d:0s"></div>
+                    <div class="sniper-skel" style="--d:.07s"></div>
+                    <div class="sniper-skel" style="--d:.14s"></div>
+                    <div class="sniper-skel" style="--d:.21s"></div>
+                    <div class="sniper-skel" style="--d:.28s"></div>
+                    <div class="sniper-skel" style="--d:.35s"></div>
+                </div>
+            </div>
+
+            <!-- ⑤ 더 보기 -->
+            <div class="radar-footer">
+                <button class="radar-more-btn" id="radarMoreBtn" onclick="radarLoadMore()" style="display:none">더 보기</button>
+            </div>
+        </section>
+
+        <!-- 핫 종목 섹션 (숨김 유지) -->
         <section id="hotStocksSection" class="home-section" style="display:none;">
             <div class="home-section-header">
                 <div class="home-section-title">오늘의 핫 종목
@@ -189,8 +223,8 @@
             <div id="favSummaryList" class="ai-rec-list"></div>
         </section>
 
-        <!-- 섹션 3: 스윙 R/R 타점 레이더 -->
-        <section id="swingRadar" class="home-section">
+        <!-- 섹션 3: 스윙 R/R 타점 레이더 (레이더 탭으로 통합됨) -->
+        <section id="swingRadar" class="home-section" style="display:none">
             <div class="home-section-header">
                 <div class="home-section-title">스윙 R/R 타점 레이더
                     <span class="hs-badge purple">R/R ≥ 1.5</span>
@@ -257,8 +291,8 @@
             </div>
         </div>
 
-        <!-- 주식 골라보기 (홈 임베드: 연속 상승세 TOP 10) -->
-        <section class="discover-section home-section" id="discoverHomeSection">
+        <!-- 주식 골라보기 (홈 임베드: 연속 상승세 TOP 10) — 레이더 탭으로 통합됨 -->
+        <section class="discover-section home-section" id="discoverHomeSection" style="display:none">
             <div class="home-section-header">
                 <div class="home-section-title">🔥 연속 상승세 TOP 10</div>
                 <a class="home-section-more" onclick="goDiscover()" style="cursor:pointer;color:var(--blue);font-size:12px;font-weight:600;">더 보기</a>
@@ -269,7 +303,7 @@
         </section>
 
         <!-- 주식 골라보기 (홈 임베드: 저평가 주식 TOP 10) -->
-        <section class="discover-section home-section" id="discoverHomeUndervaluedSection">
+        <section class="discover-section home-section" id="discoverHomeUndervaluedSection" style="display:none;">
             <div class="home-section-header">
                 <div class="home-section-title">💎 저평가 주식 TOP 10</div>
                 <a class="home-section-more" onclick="window._discPreset='undervalued'; goDiscover();" style="cursor:pointer;color:var(--blue);font-size:12px;font-weight:600;">더 보기</a>
@@ -671,7 +705,7 @@
                 </button>
             </div>
             <!-- 데모 모드 경고 배너 -->
-            <div id="vsDemoBanner" style="padding:14px 16px;border-radius:var(--r2);background:rgba(239,68,68,.1);border:1.5px solid rgba(239,68,68,.4);margin-bottom:16px;">
+            <div id="vsDemoBanner" style="padding:14px 16px;border-radius:var(--r2);background:rgba(255,69,58,.1);border:1.5px solid rgba(255,69,58,.4);margin-bottom:16px;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
                     <i class="ri-error-warning-fill" style="color:var(--red);font-size:18px;flex-shrink:0;"></i>
                     <span style="font-size:14px;color:var(--red);font-weight:800;">⚠️ 주의 — 이것은 가짜 샘플 데이터입니다</span>
@@ -866,11 +900,11 @@
                         <div class="draw-tb-divider"></div>
                         <!-- 색상 -->
                         <span class="draw-tb-label">색상</span>
-                        <button class="draw-color-btn active" style="background:#ef4444;color:#ef4444" onclick="setDrawColor('#ef4444')" title="빨강"></button>
-                        <button class="draw-color-btn" style="background:#3b82f6;color:#3b82f6" onclick="setDrawColor('#3b82f6')" title="파랑"></button>
-                        <button class="draw-color-btn" style="background:#3b82f6;color:#3b82f6" onclick="setDrawColor('#3b82f6')" title="초록"></button>
+                        <button class="draw-color-btn active" style="background:var(--red);color:var(--red)" onclick="setDrawColor('#ef4444')" title="빨강"></button>
+                        <button class="draw-color-btn" style="background:var(--blue);color:var(--blue)" onclick="setDrawColor('#3b82f6')" title="파랑"></button>
+                        <button class="draw-color-btn" style="background:var(--blue);color:var(--blue)" onclick="setDrawColor('#3b82f6')" title="초록"></button>
                         <button class="draw-color-btn" style="background:#eab308;color:#eab308" onclick="setDrawColor('#eab308')" title="노랑"></button>
-                        <button class="draw-color-btn" style="background:#a78bfa;color:#a78bfa" onclick="setDrawColor('#a78bfa')" title="보라"></button>
+                        <button class="draw-color-btn" style="background:var(--purple);color:#a78bfa" onclick="setDrawColor('#a78bfa')" title="보라"></button>
                         <button class="draw-color-btn" style="background:#ffffff;color:#ffffff" onclick="setDrawColor('#ffffff')" title="흰색"></button>
                         <div class="draw-tb-divider"></div>
                         <!-- 두께 -->
@@ -934,7 +968,7 @@
                         <div class="sub-chart-container"><canvas id="adxChart"></canvas></div>
                     </div>
                     <div class="card">
-                        <div class="card-title"><span class="dot" style="background:#e879f9"></span>OBV (On Balance Volume)</div>
+                        <div class="card-title"><span class="dot" style="background:var(--purple)"></span>OBV (On Balance Volume)</div>
                         <div class="sub-chart-container"><canvas id="obvChart"></canvas></div>
                     </div>
                 </div>
@@ -1032,7 +1066,7 @@
             <!-- ===== 단타 분석 (통합) ===== -->
             <div id="tsPanelDay" style="padding:0 16px;">
                 <div class="card">
-                    <div class="card-title"><span class="dot" style="background:#f97316"></span>5분봉 돌파 단타 <span class="trade-badge day-badge">DAY</span></div>
+                    <div class="card-title"><span class="dot" style="background:var(--yellow)"></span>5분봉 돌파 단타 <span class="trade-badge day-badge">DAY</span></div>
                     <div class="ai-score-container">
                         <div class="ai-score-circle" id="dayScoreCircle">
                             <div class="ai-score-number" id="dayScoreNumber">-</div>
@@ -1297,8 +1331,13 @@
     // Side Navigation
     // ========================================
     function toggleSideNav() {
-        document.getElementById('sideNav').classList.toggle('open');
-        document.getElementById('sideNavBackdrop').classList.toggle('show');
+        if (window.innerWidth >= 1024) {
+            // 데스크탑: collapse 토글 방식 사용 (CSS transform 기반)
+            collapseNavDesktop();
+        } else {
+            document.getElementById('sideNav').classList.toggle('open');
+            document.getElementById('sideNavBackdrop').classList.toggle('show');
+        }
     }
     function openSideNav() {
         document.getElementById('sideNav').classList.add('open');
@@ -1308,10 +1347,27 @@
         document.getElementById('sideNav').classList.remove('open');
         document.getElementById('sideNavBackdrop').classList.remove('show');
     }
+    function collapseNavDesktop() {
+        const collapsed = document.body.classList.toggle('nav-collapsed');
+        try { localStorage.setItem('navCollapsed', collapsed ? '1' : '0'); } catch(e){}
+        // 접기 버튼 아이콘 업데이트
+        const btn = document.querySelector('.side-nav-collapse-btn i');
+        if (btn) btn.className = collapsed ? 'ri-sidebar-unfold-line' : 'ri-sidebar-fold-line';
+    }
+    // 페이지 로드 시 이전 상태 복원
+    if (localStorage.getItem('navCollapsed') === '1') {
+        document.body.classList.add('nav-collapsed');
+        // 아이콘도 접힌 상태로 (DOM 준비 후 적용)
+        document.addEventListener('DOMContentLoaded', () => {
+            const btn = document.querySelector('.side-nav-collapse-btn i');
+            if (btn) btn.className = 'ri-sidebar-unfold-line';
+        }, { once: true });
+    }
     // [Fix-B] window 노출 — HTML onclick="closeSideNav()" 처리용 (addEventListener 이중 바인딩 제거)
     window.closeSideNav = closeSideNav;
     window.toggleSideNav = toggleSideNav;
     window.openSideNav = openSideNav;
+    window.collapseNavDesktop = collapseNavDesktop;
     // 사이드바는 항상 닫힌 상태로 시작 (수동으로 햄버거 버튼 클릭 시 열림)
 
     // ========================================
@@ -2119,7 +2175,7 @@
                 top100Cache[filter] = { items, ts: Date.now() };
                 saveTop100LS();
                 if (top100Filter === filter) renderTop100(items);
-                if (filter === 'day_gainers') { renderSwingRadar(items); }
+                if (filter === 'day_gainers') { renderSwingRadar(items); if (_radarTab === 'swing') _renderSwingInRadar(); }
                 return;
             }
         } catch(e) {}
@@ -2137,7 +2193,7 @@
                 top100Cache[filter] = { items, ts: Date.now() };
                 saveTop100LS();
                 if (top100Filter === filter) renderTop100(items);
-                if (filter === 'day_gainers') { renderSwingRadar(items); }
+                if (filter === 'day_gainers') { renderSwingRadar(items); if (_radarTab === 'swing') _renderSwingInRadar(); }
                 return;
             }
         } catch(e) {}
@@ -2191,7 +2247,7 @@
 
     // 티커 → 색상 (이니셜 아바타 폴백용, 결정적)
     function _tickerColor(sym) {
-        const palette = ['#6366f1','#0ea5e9','#14b8a6','#f59e0b','#ef4444','#8b5cf6','#ec4899','#3b82f6','#3b82f6','#f97316'];
+        const palette = ['#6366f1','#0ea5e9','#14b8a6','#f59e0b','#ef4444','#8b5cf6','#ec4899','#3b82f6','#3b82f6','var(--yellow)'];
         let h = 0;
         for (let i = 0; i < sym.length; i++) h = (h * 31 + sym.charCodeAt(i)) >>> 0;
         return palette[h % palette.length];
@@ -2741,7 +2797,7 @@
         ctx.lineTo(cssW, cssH);
         ctx.lineTo(0, cssH);
         ctx.closePath();
-        const color = isUp ? 'rgba(59, 130, 246,' : 'rgba(239,68,68,';
+        const color = isUp ? 'rgba(0,128,251,' : 'rgba(255,69,58,';
         const grad = ctx.createLinearGradient(0,0,0,cssH);
         grad.addColorStop(0, color+'.22)');
         grad.addColorStop(1, color+'0)');
@@ -2810,16 +2866,24 @@
 
         // 스파크라인 그리기 (각 chartRes 와 카드 매칭)
         const canvases = el.querySelectorAll('.thermo-spark');
+        const _sparkDataMap = {};
         THERMO_SYMS.forEach((s, i) => {
             const cv = canvases[i];
             if (!cv) return;
             const chart = chartRes[i];
             const closes = (chart?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter(v => v != null);
+            _sparkDataMap[s.key] = closes;
             if (closes.length < 2) return;
             const q = bySym[s.key];
             const isUp = (q?.regularMarketChange ?? 0) >= 0;
             _thermoSpark(cv, closes, isUp);
         });
+
+        // 레이더 대시보드용 전역 노출
+        window._thermoBySymbol = bySym;
+        window._thermoSparkMap = _sparkDataMap;
+        // 레이더 시장 컨텍스트 업데이트 트리거
+        if (typeof updateMktCtx === 'function') updateMktCtx();
     }
 
     // ========================================
@@ -2914,7 +2978,7 @@
         } catch(e) {
             _hotStocksData = HOT_STOCKS_DUMMY;
         }
-        if (sec) sec.style.display = '';
+        // hotStocksSection은 홈에서 숨김 처리
         renderHotStocks();
     }
 
@@ -3126,12 +3190,16 @@
             b.classList.toggle('active', b.dataset.interval === currentInterval));
     }
 
+    // 공유 캐시 — loadDailyPicks / loadDpHome 양쪽에서 사용 (선언 위치를 호출 전으로 이동)
+    let _dpCache = null;
+
     // 페이지 로드 시 즉시 실행
     loadTop100();
     loadPremarketScanner();
     loadSwingRadar();
     loadRecentStocks();
     loadSocialHot();
+    loadRadarDashboard();   // 과매도/저평가 레이더
     loadVolAlert();
     loadMarketThermometer();
     // loadAIRecommend(); // [DISABLED] 쿼터 절약
@@ -5866,7 +5934,6 @@
         loadDailyPicks();
     }
 
-    let _dpCache = null;
     async function loadDailyPicks(forceRefresh) {
         const buysEl = document.getElementById('dpBuysList');
         const sellsEl = document.getElementById('dpSellsList');
@@ -6017,6 +6084,437 @@
         `).join('');
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // OVERSOLD & DEEP VALUE RADAR — JS
+    // ═══════════════════════════════════════════════════════════
+    let _radarTab    = 'oversold';
+    let _radarItems  = [];
+    let _radarPage   = 0;
+    const RADAR_PAGE_SIZE = 10;
+
+    // ── 시장 컨텍스트 바 업데이트 (loadMarketThermometer 데이터 재활용) ──
+    function updateMktCtx() {
+        const map = window._thermoBySymbol || {};
+        if (!Object.keys(map).length) return;
+
+        function fillCard(cardId, sym) {
+            const t = map[sym];
+            if (!t) return;
+            const card = document.getElementById(cardId);
+            if (!card) return;
+            const price = t.regularMarketPrice;
+            const chgPct = t.regularMarketChangePercent;
+            const isUp = (t.regularMarketChange || 0) >= 0;
+            card.querySelector('.mkt-ctx-price').textContent = typeof price === 'number'
+                ? (price > 1000 ? price.toLocaleString('en-US',{maximumFractionDigits:0})
+                : price.toFixed(2)) : '—';
+            const chgEl = card.querySelector('.mkt-ctx-chg');
+            const sign = isUp ? '+' : '';
+            chgEl.textContent = `${sign}${(chgPct||0).toFixed(2)}%`;
+            chgEl.className = `mkt-ctx-chg mono ${isUp ? 'up' : 'down'}`;
+        }
+
+        fillCard('mktCtxSP500', '^GSPC');
+        fillCard('mktCtxNasd',  '^IXIC');
+        fillCard('mktCtxVix',   '^VIX');
+
+        // 시장 온도 (VIX 기반: VIX<15=탐욕, >30=공포)
+        const vix = map['^VIX'];
+        if (vix) {
+            const v = vix.regularMarketPrice || 20;
+            // VIX 10~40 → fill 100~0% (역방향: 높을수록 공포=왼쪽)
+            const pct = Math.max(5, Math.min(95, 100 - ((v - 10) / 30) * 100));
+            const fill = document.getElementById('mktSignalFill');
+            if (fill) fill.style.width = pct + '%';
+            // 시그널 텍스트
+            const label = document.getElementById('mktSignalLabel');
+            if (label) label.textContent = v < 16 ? '탐욕' : v < 24 ? '중립' : v < 32 ? '불안' : '공포';
+        }
+    }
+
+    // ── 스파크라인 SVG 생성 ──
+    function drawRadarSpark(closes, ma200, w=52, h=26) {
+        if (!closes || closes.length < 3) return `<svg width="${w}" height="${h}"></svg>`;
+        const valid = closes.filter(v => v != null && isFinite(v));
+        if (valid.length < 3) return `<svg width="${w}" height="${h}"></svg>`;
+        const min = Math.min(...valid);
+        const max = Math.max(...valid);
+        const range = max - min || 1;
+        const pad = 1;
+        const toX = (i) => pad + (i / (valid.length - 1)) * (w - 2 * pad);
+        const toY = (v) => h - pad - ((v - min) / range) * (h - 2 * pad);
+
+        const pts = valid.map((v, i) => `${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
+        const last = valid[valid.length - 1];
+        const first = valid[0];
+        const isDown = last < first;
+        const stroke = isDown ? '#64D2FF' : '#0CF5B0'; // oversold=cyan, up=green
+
+        let maLine = '';
+        if (ma200 != null && isFinite(ma200)) {
+            const maY = toY(ma200).toFixed(1);
+            if (maY >= 0 && maY <= h) {
+                maLine = `<line x1="${pad}" y1="${maY}" x2="${w-pad}" y2="${maY}" stroke="rgba(255,255,255,0.22)" stroke-width="1" stroke-dasharray="2,2"/>`;
+            }
+        }
+
+        // Gradient fill under line
+        const fillPts = `${pad},${h} ${pts} ${toX(valid.length-1).toFixed(1)},${h}`;
+        const gradId = 'sg' + Math.random().toString(36).slice(2,6);
+
+        return `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible">
+            <defs>
+                <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="${stroke}" stop-opacity="0.18"/>
+                    <stop offset="100%" stop-color="${stroke}" stop-opacity="0"/>
+                </linearGradient>
+            </defs>
+            ${maLine}
+            <polygon points="${fillPts}" fill="url(#${gradId})"/>
+            <polyline points="${pts}" fill="none" stroke="${stroke}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>`;
+    }
+
+    // ── 마켓 컨텍스트 스파크 그리기 (loadMarketThermometer spark data 활용) ──
+    function drawMktSpark(svgId, sym) {
+        const sp = (window._thermoSparkMap || {})[sym];
+        if (!sp || sp.length < 3) return;
+        const svg = document.getElementById(svgId);
+        if (!svg) return;
+        const w = 80, h = 28;
+        const valid = sp.filter(v => v != null && isFinite(v));
+        if (valid.length < 3) return;
+        const min = Math.min(...valid), max = Math.max(...valid), range = max - min || 1;
+        const pts = valid.map((v, i) => {
+            const x = (i / (valid.length - 1)) * w;
+            const y = h - ((v - min) / range) * h;
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+        }).join(' ');
+        const isDown = valid[valid.length-1] < valid[0];
+        const stroke = isDown ? '#64D2FF' : '#0CF5B0';
+        svg.innerHTML = `<polyline points="${pts}" fill="none" stroke="${stroke}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+    }
+
+    // ── 로고 HTML ──
+    function _sniperLogo(sym) {
+        const url = `https://assets.parqet.com/logos/symbol/${sym}?format=svg`;
+        return `<div class="sniper-logo">
+            <img src="${url}" alt="${sym}" onerror="this.parentElement.textContent='${sym.slice(0,2)}'">
+        </div>`;
+    }
+
+    // ── 스나이퍼 아이템 HTML (top100-row 레이아웃) ──
+    function _renderSniperItem(item, tab) {
+        const chg = item.changePct || 0;
+        const isUp = chg > 0, isDown = chg < 0;
+        const chgClass = isUp ? 'up' : isDown ? 'down' : 'flat';
+        const sign = isUp ? '+' : '';
+
+        // 가격 포맷
+        const price = item.price || 0;
+        const priceFmt = price >= 10 ? price.toFixed(2) : price.toFixed(3);
+        const curr = item.currency === 'KRW' ? '₩' : '$';
+
+        // 로고 — tlogo-wrap + 국기 플래그 (top100 동일 구조)
+        const logoUrl = `https://assets.parqet.com/logos/symbol/${item.symbol}?format=svg`;
+        const fb2 = item.symbol.slice(0,2);
+        const logoHtml = `<div class="tlogo-wrap">
+            <img class="tlogo" src="${logoUrl}" alt="${item.symbol}" loading="lazy"
+                onerror="this.outerHTML='<span class=\\'tlogo tlogo-fb\\'>${fb2}</span>'">
+            <span class="tlogo-flag">🇺🇸</span>
+        </div>`;
+
+        // 배지
+        let badges = '';
+        if (tab !== 'leverage') {
+            if (item.rsi != null && item.rsi < 35)
+                badges += `<span class="sniper-badge sniper-badge--rsi">RSI ${item.rsi}</span>`;
+            if (item.volMult != null && item.volMult >= 2)
+                badges += `<span class="sniper-badge sniper-badge--vol">Vol ×${item.volMult.toFixed(1)}</span>`;
+            if (tab === 'value') {
+                if (item.per != null)
+                    badges += `<span class="sniper-badge sniper-badge--per">PER ${item.per.toFixed(1)}</span>`;
+                if (item.pbr != null && item.pbr < 1)
+                    badges += `<span class="sniper-badge sniper-badge--pbr">PBR ${item.pbr.toFixed(2)}</span>`;
+            }
+        } else {
+            if (item.per != null)
+                badges += `<span class="sniper-badge sniper-badge--per">PER ${item.per.toFixed(1)}</span>`;
+        }
+        if (!badges) badges = `<span style="opacity:.3;font-size:10px;color:var(--text3)">—</span>`;
+
+        // 스파크라인
+        const sparkSvg = item.spark && item.spark.length >= 3
+            ? drawRadarSpark(item.spark, item.ma200)
+            : `<svg width="52" height="26"></svg>`;
+
+        // 펀더멘털 (가격 아래 보조)
+        let fundHtml = '';
+        if (tab !== 'leverage' && (item.per != null || item.pbr != null)) {
+            const perStr = item.per != null ? `PER ${item.per.toFixed(1)}` : '';
+            const pbrNum = item.pbr != null ? item.pbr.toFixed(2) : '';
+            const pbrStr = pbrNum
+                ? (parseFloat(pbrNum) < 1
+                    ? `PBR <span class="pbr-hi">${pbrNum}</span>`
+                    : `PBR ${pbrNum}`)
+                : '';
+            const parts = [perStr, pbrStr].filter(Boolean).join(' · ');
+            if (parts) fundHtml = `<div class="sniper-fund">${parts}</div>`;
+        }
+
+        return `<div class="sniper-item" onclick="quickSearch('${item.symbol}','US')">
+            ${logoHtml}
+            <div class="sniper-info">
+                <div class="sniper-ticker">${item.symbol}</div>
+                <div class="sniper-name">${item.name || ''}</div>
+            </div>
+            <div class="sniper-badges">${badges}</div>
+            <div class="sniper-spark">${sparkSvg}</div>
+            <div class="sniper-price-wrap">
+                <div class="sniper-price">${curr}${priceFmt}</div>
+                ${fundHtml}
+            </div>
+            <div class="sniper-chg ${chgClass}">${sign}${chg.toFixed(2)}%</div>
+        </div>`;
+    }
+
+    // ── 탭 전환 ──
+    function switchRadarTab(tab) {
+        _radarTab = tab;
+        _radarPage = 0;
+        document.querySelectorAll('.radar-tab').forEach(b => {
+            b.classList.toggle('active', b.dataset.tab === tab);
+        });
+
+        const list = document.getElementById('sniperList');
+        if (list) list.innerHTML = '<div class="sniper-loading">' + Array(5).fill('<div class="sniper-skel"></div>').join('') + '</div>';
+
+        if (tab === 'swing') {
+            _renderSwingInRadar();
+        } else if (tab === 'streak') {
+            _renderStreakInRadar();
+        } else {
+            _fetchRadar(tab);
+        }
+    }
+
+    // ── 연속 상승세 탭: /api/discover?preset=streak_up 렌더 ──
+    async function _renderStreakInRadar() {
+        const list = document.getElementById('sniperList');
+        const moreBtn = document.getElementById('radarMoreBtn');
+        if (!list) return;
+        if (moreBtn) moreBtn.style.display = 'none';
+
+        // 1) LS 캐시 우선 렌더
+        const cached = (typeof _discLoadLS === 'function') ? _discLoadLS('streak_up') : null;
+        if (cached?.length) {
+            list.innerHTML = cached.slice(0, 20).map(q => _renderSniperStreakItem(q)).join('');
+        }
+
+        // 2) 최신 데이터 fetch
+        try {
+            const res = await fetch('/api/discover?preset=streak_up');
+            if (!res.ok) throw new Error('http ' + res.status);
+            const data = await res.json();
+            const items = Array.isArray(data.items) ? data.items : [];
+            if (typeof _discSaveLS === 'function') _discSaveLS('streak_up', items);
+            if (!items.length) {
+                list.innerHTML = '<div class="sniper-empty">상승 모멘텀 종목이 오늘은 없어요</div>';
+                return;
+            }
+            if (_radarTab === 'streak') {
+                list.innerHTML = items.slice(0, 20).map(q => _renderSniperStreakItem(q)).join('');
+            }
+        } catch (e) {
+            if (!cached?.length) {
+                list.innerHTML = '<div class="sniper-empty">데이터 로드 실패 — 잠시 후 다시 시도하세요</div>';
+            }
+        }
+    }
+
+    function _renderSniperStreakItem(q) {
+        const sym = q.symbol || '';
+        const chg = q.changePct || 0;
+        const isUp = chg > 0, isDown = chg < 0;
+        const chgClass = isUp ? 'up' : isDown ? 'down' : 'flat';
+        const sign = isUp ? '+' : '';
+        const price = q.price || 0;
+        const priceFmt = price >= 10 ? price.toFixed(2) : price.toFixed(3);
+
+        const fb2 = sym.slice(0, 2);
+        const logoUrl = `https://assets.parqet.com/logos/symbol/${sym}?format=svg`;
+        const logoHtml = `<div class="tlogo-wrap">
+            <img class="tlogo" src="${logoUrl}" alt="${sym}" loading="lazy"
+                onerror="this.outerHTML='<span class=\\'tlogo tlogo-fb\\'>${fb2}</span>'">
+            <span class="tlogo-flag">🇺🇸</span>
+        </div>`;
+
+        const km = q.keyMetric || {};
+        const kmVal = km.value || (chg >= 0 ? `+${chg.toFixed(2)}%` : `${chg.toFixed(2)}%`);
+        const badges = `<span class="sniper-badge sniper-badge--streak">${kmVal}</span>`;
+        const safe = sym.replace(/'/g, "\\'");
+
+        return `<div class="sniper-item" onclick="quickSearch('${safe}','US')">
+            ${logoHtml}
+            <div class="sniper-info">
+                <div class="sniper-ticker">${escHtml(sym)}</div>
+                <div class="sniper-name">${escHtml(q.name || sym)}</div>
+            </div>
+            <div class="sniper-badges">${badges}</div>
+            <div class="sniper-spark"><svg width="52" height="26"></svg></div>
+            <div class="sniper-price-wrap">
+                <div class="sniper-price">$${priceFmt}</div>
+            </div>
+            <div class="sniper-chg ${chgClass}">${sign}${chg.toFixed(2)}%</div>
+        </div>`;
+    }
+
+    // ── 스윙 R/R 탭: top100Cache 데이터를 스나이퍼 형식으로 렌더 ──
+    function _renderSwingInRadar() {
+        const items = top100Cache['day_gainers']?.items;
+        const list = document.getElementById('sniperList');
+        const moreBtn = document.getElementById('radarMoreBtn');
+        const ts = document.getElementById('radarTs');
+        if (!list) return;
+
+        if (!items?.length) {
+            list.innerHTML = '<div class="sniper-empty">데이터 로딩 중… 잠시 후 다시 시도하세요</div>';
+            if (moreBtn) moreBtn.style.display = 'none';
+            if (ts) ts.textContent = '';
+            return;
+        }
+
+        const qualified = items.map(q => {
+            const p = q.regularMarketPrice, h = q.fiftyTwoWeekHigh;
+            if (!p || !h || h <= p) return null;
+            const rr = (h - p) / (p * 0.05);
+            return rr >= 1.5 ? {...q, _rr: rr} : null;
+        }).filter(Boolean).sort((a, b) => b._rr - a._rr);
+
+        if (!qualified.length) {
+            list.innerHTML = '<div class="sniper-empty">현재 R/R ≥ 1.5 조건 종목 없음</div>';
+            if (moreBtn) moreBtn.style.display = 'none';
+            if (ts) ts.textContent = '';
+            return;
+        }
+
+        list.innerHTML = qualified.map(q => _renderSniperSwingItem(q)).join('');
+        if (moreBtn) moreBtn.style.display = 'none';
+        if (ts) ts.textContent = `${qualified.length}개 종목 · R/R ≥ 1.5`;
+    }
+
+    function _renderSniperSwingItem(q) {
+        const chg = q.regularMarketChangePercent || 0;
+        const isUp = chg > 0, isDown = chg < 0;
+        const chgClass = isUp ? 'up' : isDown ? 'down' : 'flat';
+        const sign = isUp ? '+' : '';
+        const price = q.regularMarketPrice || 0;
+        const priceFmt = price >= 10 ? price.toFixed(2) : price.toFixed(3);
+
+        const sym = q.symbol || '';
+        const fb2 = sym.slice(0, 2);
+        const logoUrl = `https://assets.parqet.com/logos/symbol/${sym}?format=svg`;
+        const logoHtml = `<div class="tlogo-wrap">
+            <img class="tlogo" src="${logoUrl}" alt="${sym}" loading="lazy"
+                onerror="this.outerHTML='<span class=\\'tlogo tlogo-fb\\'>${fb2}</span>'">
+            <span class="tlogo-flag">🇺🇸</span>
+        </div>`;
+
+        const rrCls = q._rr >= 3 ? 'excellent' : q._rr >= 2 ? 'good' : 'ok';
+        const badges = `<span class="sniper-badge sniper-badge--rr ${rrCls}">1:${q._rr.toFixed(1)}</span>`;
+        const safe = sym.replace(/'/g, "\\'");
+
+        return `<div class="sniper-item" onclick="quickSearch('${safe}','US')">
+            ${logoHtml}
+            <div class="sniper-info">
+                <div class="sniper-ticker">${escHtml(sym)}</div>
+                <div class="sniper-name">${escHtml(q.shortName || sym)}</div>
+            </div>
+            <div class="sniper-badges">${badges}</div>
+            <div class="sniper-spark"><svg width="52" height="26"></svg></div>
+            <div class="sniper-price-wrap">
+                <div class="sniper-price">$${priceFmt}</div>
+            </div>
+            <div class="sniper-chg ${chgClass}">${sign}${chg.toFixed(2)}%</div>
+        </div>`;
+    }
+
+    // ── 더 보기 ──
+    function radarLoadMore() {
+        _radarPage++;
+        _renderRadarPage();
+    }
+    window.radarLoadMore = radarLoadMore;
+
+    function _renderRadarPage() {
+        const list = document.getElementById('sniperList');
+        if (!list) return;
+        const start = _radarPage * RADAR_PAGE_SIZE;
+        const slice = _radarItems.slice(0, start + RADAR_PAGE_SIZE);
+        list.innerHTML = slice.map(item => _renderSniperItem(item, _radarTab)).join('');
+
+        const moreBtn = document.getElementById('radarMoreBtn');
+        if (moreBtn) {
+            const remaining = _radarItems.length - (start + RADAR_PAGE_SIZE);
+            if (remaining > 0) {
+                moreBtn.textContent = `나머지 ${remaining}개 더 보기 ↓`;
+                moreBtn.style.display = 'block';
+            } else {
+                moreBtn.style.display = 'none';
+            }
+        }
+    }
+
+    // ── API 호출 ──
+    async function _fetchRadar(tab) {
+        try {
+            const res = await fetch(`/api/oversold-radar?tab=${tab}`);
+            if (!res.ok) throw new Error('API error');
+            const data = await res.json();
+            _radarItems = data.items || [];
+            _radarPage  = 0;
+
+            if (_radarItems.length === 0) {
+                document.getElementById('sniperList').innerHTML =
+                    '<div class="sniper-empty">데이터 없음 — 잠시 후 다시 시도하세요</div>';
+                return;
+            }
+
+            _renderRadarPage();
+
+            const ts = document.getElementById('radarTs');
+            if (ts && data.ts) {
+                const d = new Date(data.ts);
+                ts.textContent = `업데이트 ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+            }
+        } catch (e) {
+            console.error('[radar]', e);
+            document.getElementById('sniperList').innerHTML =
+                '<div class="sniper-empty">데이터 로드 실패</div>';
+        }
+    }
+
+    // ── 초기 로드 ──
+    async function loadRadarDashboard() {
+        // 시장 컨텍스트 (헤더 데이터 준비될 때까지 대기)
+        const tryMkt = () => {
+            if (window._thermoBySymbol && Object.keys(window._thermoBySymbol).length) {
+                updateMktCtx();
+                drawMktSpark('mktSparkSP',  '^GSPC');
+                drawMktSpark('mktSparkNQ',  '^IXIC');
+                drawMktSpark('mktSparkVIX', '^VIX');
+            }
+        };
+        tryMkt();
+        setTimeout(tryMkt, 2000);
+        setTimeout(tryMkt, 5000);
+
+        // 과매도 레이더 데이터 로드
+        await _fetchRadar('oversold');
+    }
+
+    window.switchRadarTab = switchRadarTab;
+
     async function loadDpHome() {
         const el = document.getElementById('dpHomeGrid');
         if (!el) return;
@@ -6148,7 +6646,7 @@
             // 로고: 일반 종목/ETF만 (M7 같은 가상 티커는 이모지 fallback)
             const logoHtml = (ticker && ticker !== 'M7')
                 ? _tickerLogoHTML(ticker, 'US')
-                : `<div class="tlogo-wrap"><span class="tlogo tlogo-fb" style="background:#a78bfa">${ticker === 'M7' ? '7' : '?'}</span></div>`;
+                : `<div class="tlogo-wrap"><span class="tlogo tlogo-fb" style="background:var(--purple)">${ticker === 'M7' ? '7' : '?'}</span></div>`;
             const koName = tracks?.ko || underlying;
             const tickerSpan = ticker && ticker !== 'M7'
                 ? ` <span class="lev-group-ticker">${escHtml(ticker)}</span>` : '';
@@ -6634,7 +7132,7 @@
                         <div class="sm-inst-manager">${inst.manager}</div>
                     </div>
                     <div style="text-align:right;flex-shrink:0">
-                        <div style="font-size:18px;font-weight:700;color:#3b82f6">+${inst.ret1y}%</div>
+                        <div style="font-size:18px;font-weight:700;color:var(--blue)">+${inst.ret1y}%</div>
                         <div style="font-size:10px;color:var(--text-secondary)">1Y 수익률</div>
                     </div>
                 </div>
@@ -6659,7 +7157,7 @@
             const rank = i + 1;
             const tags = inst.tags.map(t => `<span class="guru-tag">${t}</span>`).join('');
             const top3html = inst.top3.map(h =>
-                `<span class="sm-top3-hold">${h.ticker} <span style="color:#3b82f6">${h.wt}%</span></span>`
+                `<span class="sm-top3-hold">${h.ticker} <span style="color:var(--blue)">${h.wt}%</span></span>`
             ).join('');
             return `<div class="sm-inst-card" onclick="smDeepDive('kingdom_${inst.id}')">
                 <div class="sm-inst-header">
@@ -6714,7 +7212,7 @@
                     <span class="sm-add-chg">▲ +${h.wtChg.toFixed(1)}%p</span>
                 </div>
                 <div style="font-size:11px;color:var(--text-secondary);margin:3px 0">${h.name}</div>
-                <div style="font-size:11px;color:#f59e0b;font-weight:600">${h.theme}</div>
+                <div style="font-size:11px;color:var(--yellow);font-weight:600">${h.theme}</div>
                 <div style="font-size:10px;color:var(--text-secondary);margin-top:4px">평균단가 $${h.avgPrice.toFixed(2)}</div>
             </div>`
         ).join('');
@@ -6978,7 +7476,7 @@
                         <div style="font-size:10px;color:var(--text-secondary)">AUM · ${filed}</div>
                     </div>`;
             const bottom = isEmpty
-                ? `<div style="margin-top:8px;font-size:11px;color:#ff8a8a">⚠️ 최근 13F 공시 데이터를 불러오지 못했습니다.</div>`
+                ? `<div style="margin-top:8px;font-size:11px;color:var(--red)">⚠️ 최근 13F 공시 데이터를 불러오지 못했습니다.</div>`
                 : `<div class="sm-sector-tags" style="margin-top:8px">${top3 || '<span style="color:var(--text-secondary);font-size:11px">보유 종목 없음</span>'}</div>`;
             return `<div class="sm-inst-card ${isEmpty ? 'guru-card-disabled' : ''}" ${clickHandler}>
                 <div class="sm-inst-header">
@@ -7048,8 +7546,8 @@
             const subName = p.ticker ? `<div style="font-size:10px;color:var(--text-secondary)">${escHtml((p.name||'').slice(0,30))}</div>` : '';
             const deltaShares = (p.prev_shares != null && p.shares != null) ? (p.shares - p.prev_shares) : 0;
             const deltaStr = deltaShares === 0 ? '—' :
-                deltaShares > 0 ? `<span style="color:#3b82f6">+${_guruFmtShares(deltaShares)}</span>` :
-                `<span style="color:#ef4444">${_guruFmtShares(deltaShares)}</span>`;
+                deltaShares > 0 ? `<span style="color:var(--blue)">+${_guruFmtShares(deltaShares)}</span>` :
+                `<span style="color:var(--red)">${_guruFmtShares(deltaShares)}</span>`;
             return `<tr>
                 <td style="font-size:10px;color:var(--text-secondary)">${i+1}</td>
                 <td>${ticker}${subName}</td>
@@ -8491,7 +8989,7 @@
                         lwVolumeSeries.update({
                             time: lastTs,
                             value: q.regularMarketVolume || lastQ.volume[lastIdx] || 0,
-                            color: regPrice >= open ? 'rgba(239,68,68,0.25)' : 'rgba(59,130,246,0.25)',
+                            color: regPrice >= open ? 'rgba(255,69,58,0.25)' : 'rgba(0,128,251,0.25)',
                         });
                     }
                 }
@@ -9107,7 +9605,7 @@
         // 현재 테마 감지
         const isLight = document.documentElement.getAttribute('data-theme') === 'light';
         const chartBg = isLight ? '#ffffff' : '#111620';
-        const chartText = isLight ? '#4a5568' : '#94a3b8';
+        const chartText = isLight ? '#6C6C70' : '#8E8E93';
         const chartGrid = isLight ? 'rgba(0,0,0,0.06)' : 'rgba(45,58,77,0.2)';
 
         // 차트 생성
@@ -9125,8 +9623,8 @@
             },
             crosshair: {
                 mode: LightweightCharts.CrosshairMode.Normal,
-                vertLine: { color: 'rgba(59,130,246,0.3)', width: 1, style: 2 },
-                horzLine: { color: 'rgba(59,130,246,0.3)', width: 1, style: 2 },
+                vertLine: { color: 'rgba(0,128,251,0.3)', width: 1, style: 2 },
+                horzLine: { color: 'rgba(0,128,251,0.3)', width: 1, style: 2 },
             },
             rightPriceScale: {
                 borderColor: 'rgba(45,58,77,0.3)',
@@ -9181,7 +9679,7 @@
             volumeData.push({
                 time,
                 value: v || 0,
-                color: c >= o ? 'rgba(239,68,68,0.25)' : 'rgba(59,130,246,0.25)',
+                color: c >= o ? 'rgba(255,69,58,0.25)' : 'rgba(0,128,251,0.25)',
             });
         }
 
@@ -9841,15 +10339,15 @@
                     const y70 = y.getPixelForValue(70);
                     const y30 = y.getPixelForValue(30);
                     ctx.save();
-                    ctx.strokeStyle = 'rgba(239,68,68,0.4)';
+                    ctx.strokeStyle = 'rgba(255,69,58,0.4)';
                     ctx.setLineDash([4,4]);
                     ctx.beginPath(); ctx.moveTo(left, y70); ctx.lineTo(right, y70); ctx.stroke();
-                    ctx.strokeStyle = 'rgba(59,130,246,0.4)';
+                    ctx.strokeStyle = 'rgba(0,128,251,0.4)';
                     ctx.beginPath(); ctx.moveTo(left, y30); ctx.lineTo(right, y30); ctx.stroke();
                     // Fill zones
-                    ctx.fillStyle = 'rgba(239,68,68,0.05)';
+                    ctx.fillStyle = 'rgba(255,69,58,0.05)';
                     ctx.fillRect(left, top, right - left, y70 - top);
-                    ctx.fillStyle = 'rgba(59,130,246,0.05)';
+                    ctx.fillStyle = 'rgba(0,128,251,0.05)';
                     ctx.fillRect(left, y30, right - left, bottom - y30);
                     ctx.restore();
                 }
@@ -9868,7 +10366,7 @@
         const labels = timestamps.map(t => new Date(t * 1000));
         const { macdLine, signalLine, histogram } = calcMACD(closes);
 
-        const histColors = histogram.map(v => v >= 0 ? 'rgba(239,68,68,0.5)' : 'rgba(59,130,246,0.5)');
+        const histColors = histogram.map(v => v >= 0 ? 'rgba(255,69,58,0.5)' : 'rgba(0,128,251,0.5)');
 
         const ctx = document.getElementById('macdChart').getContext('2d');
         macdChart = new Chart(ctx, {
@@ -10664,8 +11162,8 @@
                       <div class="analyst-marker-label" style="color:var(--text3);">현재</div>
                     </div>` : ''}
                     <div class="analyst-marker" style="left:${meanPct}%;">
-                      <div class="analyst-marker-dot" style="background:#3b82f6;"></div>
-                      <div class="analyst-marker-label" style="color:#3b82f6;">목표</div>
+                      <div class="analyst-marker-dot" style="background:var(--blue);"></div>
+                      <div class="analyst-marker-label" style="color:var(--blue);">목표</div>
                     </div>
                   </div>
                   <div class="analyst-range-labels">
@@ -10814,7 +11312,7 @@
                 html += `<div class="cp-holder-item">
                     <div class="cp-holder-rank">${i+1}</div>
                     <div class="cp-holder-name">${escHtml(h.organization||'-')}${reportFmt?`<div class="cp-holder-sub">기준일 ${escHtml(reportFmt)}</div>`:''}</div>
-                    <div class="cp-holder-pct">${h.pctHeld?.raw!=null?(h.pctHeld.raw*100).toFixed(2)+'%':'-'}${avgPx!=null?`<div class="cp-holder-sub">추정 ${fmtPrice(avgPx)}</div>`:''}</div>
+                    <div class="cp-holder-pct">${h.pctHeld?.raw!=null?(h.pctHeld.raw*100).toFixed(2)+'%':'-'}${avgPx!=null?`<div class="cp-holder-sub cp-holder-price">추정 ${fmtPrice(avgPx)}</div>`:''}</div>
                     <div class="cp-holder-shares">${fmtShares(shares)}</div>
                 </div>`;
             });
@@ -12087,7 +12585,7 @@
         // Lightweight Charts 배경 업데이트
         if (lwChart) {
             const bgColor = theme === 'light' ? '#ffffff' : '#111620';
-            const textColor = theme === 'light' ? '#4a5568' : '#94a3b8';
+            const textColor = theme === 'light' ? '#6C6C70' : '#8E8E93';
             const gridColor = theme === 'light' ? 'rgba(0,0,0,0.06)' : 'rgba(45,58,77,0.2)';
             lwChart.applyOptions({
                 layout: { background: { type: 'solid', color: bgColor }, textColor },
@@ -12972,11 +13470,11 @@
         const fmtV = v => isKR ? Math.round(v) : parseFloat(v.toFixed(2));
 
         const badgeStyles = [
-            'background:rgba(59, 130, 246,.22);color:var(--green)',
-            'background:rgba(59, 130, 246,.14);color:var(--green)',
+            'background:rgba(12,245,176,.22);color:var(--green)',
+            'background:rgba(12,245,176,.14);color:var(--green)',
             'background:rgba(234,179,8,.18);color:var(--yellow)',
             'background:rgba(234,179,8,.12);color:var(--yellow)',
-            'background:rgba(239,68,68,.18);color:var(--red)'
+            'background:rgba(255,69,58,.18);color:var(--red)'
         ];
         const priceLabels = ['즉시 진입', 'ATR × 0.3', 'ATR × 0.6', 'ATR × 1.0', 'ATR × 1.5'];
 
@@ -13079,11 +13577,11 @@
         });
 
         const badges = [
-            'background:rgba(59, 130, 246,.22);color:var(--green)',
-            'background:rgba(59, 130, 246,.14);color:var(--green)',
+            'background:rgba(12,245,176,.22);color:var(--green)',
+            'background:rgba(12,245,176,.14);color:var(--green)',
             'background:rgba(234,179,8,.18);color:var(--yellow)',
             'background:rgba(234,179,8,.12);color:var(--yellow)',
-            'background:rgba(239,68,68,.18);color:var(--red)'
+            'background:rgba(255,69,58,.18);color:var(--red)'
         ];
 
         document.getElementById('fabTableBody').innerHTML = rows.map((r, i) =>
@@ -13108,14 +13606,14 @@
 
         if (tp1 && tp1 > finalAvg) {
             const profit = (tp1-finalAvg)*totalSh, pct = (tp1-finalAvg)/finalAvg*100;
-            html += `<div class="sc-sum-item" style="border:1px solid rgba(59, 130, 246,.25);background:rgba(59, 130, 246,.05);">
+            html += `<div class="sc-sum-item" style="border:1px solid rgba(0,128,251,.25);background:rgba(0,128,251,.05);">
                 <div class="sc-sum-label">TP1 (${fmtP(tp1)}) 도달시 수익</div>
                 <div class="sc-sum-val" style="color:var(--green)">+${fmtA(profit)} <small style="font-size:11px">(+${pct.toFixed(1)}%)</small></div>
             </div>`;
         }
         if (slPrice && slPrice < finalAvg) {
             const loss = (slPrice-finalAvg)*totalSh, pct = (slPrice-finalAvg)/finalAvg*100;
-            html += `<div class="sc-sum-item" style="border:1px solid rgba(239,68,68,.25);background:rgba(239,68,68,.05);">
+            html += `<div class="sc-sum-item" style="border:1px solid rgba(255,69,58,.25);background:rgba(255,69,58,.05);">
                 <div class="sc-sum-label">손절 (${fmtP(slPrice)}) 도달시 손실</div>
                 <div class="sc-sum-val" style="color:var(--red)">${fmtA(loss)} <small style="font-size:11px">(${pct.toFixed(1)}%)</small></div>
             </div>`;
@@ -14078,7 +14576,7 @@
     }
 
     function _analyzeShort(pct, ratio, deltaPct, hasPrev) {
-        const scoreColors = ['var(--green)', '#f59e0b', '#f97316', 'var(--red)'];
+        const scoreColors = ['var(--green)', '#f59e0b', 'var(--yellow)', 'var(--red)'];
         const items = [];
         const scores = [];
         const pctVal = pct * 100;
@@ -14117,7 +14615,7 @@
         let verdict, verdictColor, verdictEmoji, verdictMsg;
         if (avg < 0.7)      { verdict='안전'; verdictColor='var(--green)'; verdictEmoji='✅'; verdictMsg='공매도 지표가 전반적으로 안전한 수준입니다. 초보 투자자도 크게 걱정하지 않아도 됩니다.'; }
         else if (avg < 1.5) { verdict='주의'; verdictColor='#f59e0b';     verdictEmoji='🟡'; verdictMsg='일부 지표에서 주의가 필요합니다. 매수 전 추가적인 확인을 권장합니다.'; }
-        else if (avg < 2.3) { verdict='경고'; verdictColor='#f97316';     verdictEmoji='⚠️'; verdictMsg='공매도 압력이 상당합니다. 단기 하락 가능성을 충분히 고려한 후 투자하세요.'; }
+        else if (avg < 2.3) { verdict='경고'; verdictColor='var(--yellow)';     verdictEmoji='⚠️'; verdictMsg='공매도 압력이 상당합니다. 단기 하락 가능성을 충분히 고려한 후 투자하세요.'; }
         else                { verdict='위험'; verdictColor='var(--red)';   verdictEmoji='🔴'; verdictMsg='공매도 지표가 위험 수준입니다! 초보 투자자라면 신중하게 접근하세요.'; }
 
         // 쇼트 스퀴즈
@@ -14867,9 +15365,9 @@
             const isHov   = _vsHoveredIdx === idx;
             const str     = zone.strength ?? 0.7;
             const isSupp  = zone.type === 'support';
-            const fillC   = isSupp ? 'rgba(59, 130, 246,' : 'rgba(239,68,68,';
+            const fillC   = isSupp ? 'rgba(0,128,251,' : 'rgba(255,69,58,';
             const strokeC = isSupp ? '#3b82f6' : '#ef4444';
-            const glowC   = isSupp ? 'rgba(59, 130, 246,' : 'rgba(239,68,68,';
+            const glowC   = isSupp ? 'rgba(0,128,251,' : 'rgba(255,69,58,';
 
             const rx = zone.xRatio * cssW;
             const ry = zone.yRatio * cssH;
@@ -15935,7 +16433,8 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         openCalcFab, closeCalcFab, _calcSplitFab, _fabCommaFmt,
         loadMarketWeather, renderMarketWeather, drawSparkline,
         loadPremarketScanner, renderPremarketScanner,
-        loadSwingRadar, renderSwingRadar,
+        loadSwingRadar, renderSwingRadar, _renderSwingInRadar, _renderSniperSwingItem,
+        _renderStreakInRadar, _renderSniperStreakItem,
         loadMarketThermometer, renderAIRecommend, loadAIRecommend, renderAIRecommendCards, openAIRecModal, closeAIRecModal, loadFavSummary,
         loadHotStocks, switchHotTab, renderHotStocks, showMoreTop100,
         saveRecentStock, loadRecentStocks,
@@ -15961,6 +16460,47 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         openPriceAlertModal, _setPaDir, _savePriceAlert, _deletePriceAlert,
         _togglePushBell, _openCurrentPriceAlert,
     });
+
+    // ── 사이드 내비 아이콘: active 시 -line → -fill 자동 스왑 ──────────
+    (function() {
+        const ICON_MAP = {
+            'ri-home-5-line':        'ri-home-5-fill',
+            'ri-briefcase-line':     'ri-briefcase-fill',
+            'ri-search-eye-line':    'ri-search-eye-fill',
+            'ri-bar-chart-2-line':   'ri-bar-chart-2-fill',
+            'ri-sparkling-2-line':   'ri-sparkling-2-fill',
+            'ri-calendar-event-line':'ri-calendar-event-fill',
+            'ri-flashlight-line':    'ri-flashlight-fill',
+            'ri-star-line':          'ri-star-fill',
+        };
+        const FILL_TO_LINE = Object.fromEntries(Object.entries(ICON_MAP).map(([k,v])=>[v,k]));
+
+        function syncIcons() {
+            document.querySelectorAll('.side-nav-item').forEach(btn => {
+                const icon = btn.querySelector('.side-nav-item-icon i');
+                if (!icon) return;
+                const isActive = btn.classList.contains('active');
+                if (isActive) {
+                    for (const [line, fill] of Object.entries(ICON_MAP)) {
+                        if (icon.classList.contains(line)) { icon.classList.replace(line, fill); break; }
+                    }
+                } else {
+                    for (const [fill, line] of Object.entries(FILL_TO_LINE)) {
+                        if (icon.classList.contains(fill)) { icon.classList.replace(fill, line); break; }
+                    }
+                }
+            });
+        }
+
+        // 초기 실행
+        syncIcons();
+
+        // active 클래스 변경 감지
+        const observer = new MutationObserver(syncIcons);
+        document.querySelectorAll('.side-nav-item').forEach(btn => {
+            observer.observe(btn, { attributes: true, attributeFilter: ['class'] });
+        });
+    })();
     </script>
 
     <!-- ===== 모바일 검색 모달 ===== -->
