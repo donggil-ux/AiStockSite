@@ -6651,9 +6651,9 @@
             // 긍정(상회) / 부정(하회) 종목 모두 보여주기 위해 4:2 비율로 섞음
             const beats  = reported.filter(it => (it.surprisePct ?? 0) >= 0).sort(sortByMcap);
             const misses = reported.filter(it => (it.surprisePct ?? 0) < 0).sort(sortByMcap);
-            // 시가총액 큰 순으로 인터리브: beats 4 + misses 2 → 부족하면 다른 쪽으로 채움
+            // 시가총액 큰 순으로 인터리브: beats 3 + misses 3 → 부족하면 다른 쪽으로 채움
             const target = 6;
-            const wantMisses = Math.min(2, misses.length);
+            const wantMisses = Math.min(3, misses.length);
             const wantBeats  = Math.min(target - wantMisses, beats.length);
             let mixed = [...beats.slice(0, wantBeats), ...misses.slice(0, wantMisses)];
             // 부족하면 남은 reported 로 채움
