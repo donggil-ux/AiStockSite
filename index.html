@@ -6731,8 +6731,10 @@
         return `<div class="earn-home-card" onclick="quickSearch('${symbol}','US')">
             <div class="earn-hc-top">
                 ${_tickerLogoHTML(symbol, 'US')}
-                <span class="earn-hc-ticker">${escHtml(symbol)}</span>
-                <span class="earn-hc-name" title="${escHtml(name)}">${escHtml(name)}</span>
+                <div class="earn-hc-id">
+                    <span class="earn-hc-ticker">${escHtml(symbol)}</span>
+                    <span class="earn-hc-name" title="${escHtml(name)}">${escHtml(name)}</span>
+                </div>
                 ${statusBadge}
             </div>
             <div class="earn-hc-meta">
