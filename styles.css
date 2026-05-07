@@ -1484,7 +1484,7 @@
                 position:static!important;
                 padding-top:calc(72px + env(safe-area-inset-top));
             }
-            /* 헤더 fixed 영역 — 전체 폭 배경 블러 */
+            /* 헤더 fixed 영역 — 전체 가용 폭 사용 */
             #mainHeader .header-top{
                 position:fixed;
                 top:0; left:0; right:0;
@@ -1495,20 +1495,15 @@
                 -webkit-backdrop-filter:blur(24px);
                 margin-bottom:0;
                 box-sizing:border-box;
-                /* 내부 콘텐츠를 1200px 폭으로 중앙 정렬 (좌우 padding 으로 처리) */
-                padding-left:max(16px, calc((100% - 1200px) / 2));
-                padding-right:max(16px, calc((100% - 1200px) / 2));
+                padding:16px 24px 12px;
                 padding-top:calc(16px + env(safe-area-inset-top));
-                padding-bottom:12px;
             }
         }
-        /* ≥1024px: 사이드 네비 펼친 상태 — header-top 시작 위치 보정 */
+        /* ≥1024px: 사이드 네비 펼친 상태 — header-top 시작 위치만 보정 */
         @media(min-width:1024px){
             #mainHeader .header-top{
                 left:280px;
                 width:calc(100% - 280px);
-                padding-left:max(16px, calc((100% - 1200px) / 2));
-                padding-right:max(16px, calc((100% - 1200px) / 2));
             }
             body.nav-collapsed #mainHeader .header-top{
                 left:72px;
