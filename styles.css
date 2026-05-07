@@ -1476,6 +1476,13 @@
             .header-top{max-width:100%;margin:0 auto;}
             .tab-nav{padding:0 32px;}
         }
+        /* 데스크탑 — overflow-x:hidden 가 sticky 를 깨뜨리므로 제거 → sticky 정상 작동 */
+        @media(min-width:768px){
+            .app-wrapper{overflow-x:visible;}
+            .app{overflow-x:visible;}
+            /* sticky 가 확실히 동작하도록 보장 */
+            .header{position:sticky!important; top:0; z-index:1100;}
+        }
         @media(min-width:1100px){
             .app{max-width:1200px;}
             /* 1100px+: 2컬럼 복귀. minmax(0,1fr) 로 내부 자식이 강제 최소폭 요구해도 오버플로우 방지 */
