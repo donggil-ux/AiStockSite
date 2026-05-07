@@ -200,8 +200,8 @@
         .header{position:sticky;top:0;z-index:1100;background:color-mix(in srgb, var(--bg) 92%, transparent);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);padding:16px 20px 12px;padding-top:calc(16px + env(safe-area-inset-top));}
         .header-top{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
         /* ===== HEADER 시장 온도계 (탭 위 노출) ===== */
-        .header-thermo{margin-top:0;margin-bottom:12px;}
-        .thermo-ticker{margin-top:12px;}
+        .header-thermo{margin-top:0;margin-bottom:12px;margin-left:0;margin-right:0;}
+        .thermo-ticker{margin-top:12px;padding-left:0!important;}
         .header-thermo .thermo-banner{margin:0;}
         #mainHeader.stock-loaded .header-thermo{display:none!important;}
         /* ===== HEADER QUICK NAV — 탭(Toss 스타일) ===== */
@@ -1482,7 +1482,8 @@
             .app{overflow-x:visible;}
             #mainHeader.header{
                 position:static!important;
-                padding-top:calc(72px + env(safe-area-inset-top));
+                padding:0!important;
+                padding-top:calc(72px + env(safe-area-inset-top))!important;
             }
             /* 헤더 fixed 영역 — 전체 가용 폭 사용 (좌우 패딩 0) */
             #mainHeader .header-top{
