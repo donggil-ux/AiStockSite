@@ -800,7 +800,6 @@
     <!-- Tab Navigation -->
     <nav class="tab-nav" id="tabNav">
         <button class="tab-item active" data-tab="chart" onclick="switchTab('chart')">차트</button>
-        <button class="tab-item" data-tab="analysis" onclick="switchTab('analysis')">차트 분석</button>
         <button class="tab-item" data-tab="info" onclick="switchTab('info')">종목정보</button>
         <button class="tab-item" data-tab="company" onclick="switchTab('company')">기업개요</button>
         <button class="tab-item" data-tab="options" onclick="switchTab('options')">옵션</button>
@@ -993,12 +992,6 @@
                     </div>
                 </div>
             </div>
-            <!-- 폴리마켓 예측 (차트 탭 하단) -->
-            <div id="polymarketChartCard" class="poly-symbol-card" style="display:none;margin:0 0 12px;"></div>
-        </div>
-
-        <!-- Tab 2: 분석 -->
-        <div class="tab-content" id="tabAnalysis" data-tab="analysis">
             <!-- 자동 분석 갱신 바 -->
             <div class="analysis-refresh-bar" id="analysisRefreshBar" style="display:none;">
                 <span class="analysis-refresh-dot"></span>
@@ -1110,6 +1103,8 @@
             <!-- RSI 모멘텀 진단 (동적 밴드 + 다이버전스) -->
             <div id="rsiMomentum"></div>
 
+            <!-- 폴리마켓 예측 (차트 탭 하단) -->
+            <div id="polymarketChartCard" class="poly-symbol-card" style="display:none;margin:0 0 12px;"></div>
         </div>
 
         <!-- Tab 3: 종목정보 -->
@@ -6648,22 +6643,21 @@
             const reported = all.filter(it => it.epsAct != null);
             const fallback = all.filter(it => it.epsAct == null);
             const sortByMcap = (a,b) => (b.marketCap||0) - (a.marketCap||0);
-            // 긍정(상회) / 부정(하회) 종목 모두 보여주기 위해 4:2 비율로 섞음
+            // 긍정(상회) 상단 → 부정(하회) 하단 배치
             const beats  = reported.filter(it => (it.surprisePct ?? 0) >= 0).sort(sortByMcap);
             const misses = reported.filter(it => (it.surprisePct ?? 0) < 0).sort(sortByMcap);
-            // 시가총액 큰 순으로 인터리브: beats 3 + misses 3 → 부족하면 다른 쪽으로 채움
             const target = 6;
-            const wantMisses = Math.min(3, misses.length);
-            const wantBeats  = Math.min(target - wantMisses, beats.length);
-            let mixed = [...beats.slice(0, wantBeats), ...misses.slice(0, wantMisses)];
+            const half = Math.floor(target / 2);
+            const wantBeats  = Math.min(half, beats.length);
+            const wantMisses = Math.min(target - wantBeats, misses.length);
+            // beats 먼저, misses 뒤에
+            const mixed = [...beats.slice(0, wantBeats), ...misses.slice(0, wantMisses)];
             // 부족하면 남은 reported 로 채움
             if (mixed.length < target) {
                 const used = new Set(mixed.map(it => it.symbol));
                 const rest = reported.filter(it => !used.has(it.symbol)).sort(sortByMcap);
-                mixed = [...mixed, ...rest].slice(0, target);
+                mixed.push(...rest.slice(0, target - mixed.length));
             }
-            // 시가총액 큰 순으로 최종 정렬
-            mixed.sort(sortByMcap);
             // 그래도 부족하면 발표 예정 종목으로 채움
             const items = [...mixed, ...fallback.sort(sortByMcap)].slice(0, target);
             console.log('[loadEarnHome] reported:', reported.length, '(beats:', beats.length, 'misses:', misses.length, ') fallback:', fallback.length, 'shown:', items.length);
@@ -14133,7 +14127,6 @@
     const TAB_ORDER_KEY = 'stockai_tab_order';
     const TAB_DEFS = [
         { tab: 'chart',    label: '차트' },
-        { tab: 'analysis', label: '차트 분석' },
         { tab: 'info',     label: '종목정보' },
         { tab: 'company',  label: '기업개요' },
         { tab: 'options',  label: '옵션' },
