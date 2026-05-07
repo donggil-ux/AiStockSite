@@ -3209,6 +3209,7 @@
 
     // 공유 캐시 — loadDailyPicks / loadDpHome 양쪽에서 사용 (선언 위치를 호출 전으로 이동)
     let _dpCache = null;
+    let _earnHomeCache = null; // 호출 전에 선언 필요 (TDZ 방지)
 
     // 페이지 로드 시 즉시 실행
     loadTop100();
@@ -6612,7 +6613,7 @@
     window.switchRadarTab = switchRadarTab;
 
     // ── 홈 — 오늘의 실적발표 + AI 어닝콜 요약 ──────────────────────
-    let _earnHomeCache = null;
+    // (_earnHomeCache 는 호출 전에 미리 선언됨 — TDZ 방지)
     async function loadEarnHome() {
         const sec = document.getElementById('earnHomeSection');
         const el  = document.getElementById('earnHomeScroll');
