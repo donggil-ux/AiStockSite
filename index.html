@@ -6631,7 +6631,7 @@
         // 스켈레톤 — 실제 카드 구조와 동일
         el.innerHTML = _renderEarnHomeSkeleton(6);
         try {
-            // 최근 5일 발표 완료 종목 (epsAct 없으면 발표 예정도 포함해서 폴백)
+            // 최근 30일 소급 → 실제 발표 완료 종목 우선 표시 (날짜 최신순)
             const fmt = (d) => {
                 const y = d.getFullYear();
                 const m = String(d.getMonth()+1).padStart(2,'0');
@@ -6640,25 +6640,26 @@
             };
             const today = new Date();
             const past = new Date(today);
-            past.setDate(past.getDate() - 5);
+            past.setDate(past.getDate() - 30);
             const url = `/api/earnings-calendar?from=${fmt(past)}&to=${fmt(today)}`;
-            console.log('[loadEarnHome] fetching:', url);
             const r = await fetch(url);
             if (!r.ok) throw new Error('http '+r.status);
             const data = await r.json();
             const groups = Array.isArray(data.groups) ? data.groups : [];
-            console.log('[loadEarnHome] groups:', groups.length, 'total items:', groups.reduce((s,g)=>s+(g.items?.length||0),0));
-            // 발표 완료(epsAct 있음) 우선, 없으면 발표 예정 종목으로 폴백
-            const all = groups.flatMap(g => (g.items || []).map(it => ({...it, _date: g.date})));
-            const reported = all.filter(it => it.epsAct != null);
-            const fallback = all.filter(it => it.epsAct == null);
-            const sortByMcap = (a,b) => (b.marketCap||0) - (a.marketCap||0);
-            // 시가총액 큰 순으로 최대 6개
-            const target = 6;
-            const items = reported.sort(sortByMcap).slice(0, target);
-            console.log('[loadEarnHome] reported:', reported.length, 'shown:', items.length);
+            // 날짜 내림차순으로 정렬 후 flatten (최신 발표 먼저)
+            const sortedGroups = [...groups].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+            const all = sortedGroups.flatMap(g => (g.items || []).map(it => ({...it, _date: g.date})));
+            // 발표 완료(epsAct 있음)만 추출 → 날짜 최신순, 동일날짜면 시가총액순
+            const reported = all
+                .filter(it => it.epsAct != null)
+                .sort((a, b) => {
+                    const dateDiff = (b._date || '').localeCompare(a._date || '');
+                    if (dateDiff !== 0) return dateDiff;
+                    return (b.marketCap || 0) - (a.marketCap || 0);
+                });
+            const items = reported.slice(0, 6);
             if (!items.length) {
-                el.innerHTML = '<div style="padding:14px;color:var(--text3);font-size:13px;">최근 5일간 발표된 종목이 없어요.</div>';
+                el.innerHTML = '<div style="padding:14px;color:var(--text3);font-size:13px;">최근 30일간 발표된 종목이 없어요.</div>';
                 return;
             }
             _earnHomeCache = { items, ts: Date.now() };
@@ -6752,9 +6753,10 @@
         const surprise = _earnSurpriseLabel(item.surprisePct);
         const yoy = (typeof item.yoy === 'number' && !isNaN(item.yoy))
             ? `<span class="earn-hc-meta-item"><span class="earn-hc-meta-label">YoY</span><span class="earn-yoy ${item.yoy>=0?'up':'down'}">${item.yoy>=0?'+':''}${item.yoy.toFixed(1)}%</span></span>` : '';
-        // 발표 예정: 상태 칩 대신 발표일 표시
+        // 상태 칩: beat/miss + 발표일
+        const dateStr = item._date ? item._date.slice(5) : ''; // MM-DD
         const statusBadge = isReported
-            ? `<span class="earn-hc-status ${surprise.cls}">${escHtml(surprise.label)}</span>`
+            ? `<span class="earn-hc-status ${surprise.cls}">${escHtml(surprise.label)}<span class="earn-hc-date">${dateStr}</span></span>`
             : `<span class="earn-hc-status meet">${escHtml(item._date || '예정')}</span>`;
         // AI 셀: 발표 완료만 표시
         const aiCell = isReported

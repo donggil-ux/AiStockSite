@@ -4838,7 +4838,9 @@
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .earn-hc-status{
     font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:6px; flex-shrink:0;
+    display:inline-flex; align-items:center; gap:4px;
 }
+.earn-hc-date{font-size:9.5px; font-weight:400; opacity:.75;}
 .earn-hc-status.beat{background:rgba(0,168,130,.15); color:#00A882;}
 .earn-hc-status.miss{background:rgba(255,69,58,.15); color:#FF3B30;}
 .earn-hc-status.meet{background:var(--bg3); color:var(--text2);}
