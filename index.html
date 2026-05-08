@@ -6629,7 +6629,7 @@
             return;
         }
         // 스켈레톤 — 실제 카드 구조와 동일
-        el.innerHTML = _renderEarnHomeSkeleton(6);
+        el.innerHTML = _renderEarnHomeSkeleton(12);
         try {
             // 최근 30일 소급 → 실제 발표 완료 종목 우선 표시 (날짜 최신순)
             const fmt = (d) => {
@@ -6657,7 +6657,7 @@
                     if (dateDiff !== 0) return dateDiff;
                     return (b.marketCap || 0) - (a.marketCap || 0);
                 });
-            const items = reported.slice(0, 6);
+            const items = reported.slice(0, 12);
             if (!items.length) {
                 el.innerHTML = '<div style="padding:14px;color:var(--text3);font-size:13px;">최근 30일간 발표된 종목이 없어요.</div>';
                 return;
