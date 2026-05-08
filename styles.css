@@ -4780,7 +4780,7 @@
 .dp-cat-growth     {background:rgba(59,130,246,.12);  color:var(--blue);}
 .dp-cat-overbought {background:rgba(245,158,11,.12);  color:#D97706;}
 .dp-hc-overbought  {}
-.dp-cat-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+.dp-cat-cards{display:grid;grid-template-columns:1fr;gap:8px;}
 
 .dp-home-card{
     background:var(--bg2);border:1px solid var(--border);
@@ -4815,9 +4815,6 @@
 .dp-hc-undervalued{}
 .dp-hc-growth     {}
 
-@media(max-width:600px){
-    .dp-cat-cards{grid-template-columns:1fr;}
-}
 
 /* ==================================================================
    오늘의 실적발표 홈 프리뷰 — 가로 스크롤 카드

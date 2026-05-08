@@ -6835,7 +6835,7 @@
             if (!cat.items.length) return;
             html += `<div class="dp-cat-section">
                 <div class="dp-cat-label ${cat.cls}">${cat.emoji} ${cat.label}</div>
-                <div class="dp-cat-cards">${cat.items.slice(0, 2).map(p => _renderDpHomeCard(p, cat.key)).join('')}</div>
+                <div class="dp-cat-cards">${cat.items.slice(0, 3).map(p => _renderDpHomeCard(p, cat.key)).join('')}</div>
             </div>`;
         });
         el.innerHTML = html || '<div class="dp-home-loading">데이터 없음</div>';
