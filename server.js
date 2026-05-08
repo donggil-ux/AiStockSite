@@ -2672,23 +2672,24 @@ app.get('/api/daily-picks', async (req, res) => {
             return res.status(503).json({ error: '후보 종목 데이터를 가져올 수 없습니다. 잠시 후 다시 시도해주세요.' });
         }
 
-        // 2) Gemini 호출 — 과매도 · 저평가 · 성장 3카테고리
+        // 2) Gemini 호출 — 과매도 · 저평가 · 성장 · 과매수 4카테고리
         const today = new Date().toISOString().slice(0, 10);
         const prompt = `당신은 미국 주식 시니어 애널리스트입니다. 오늘은 ${today}.
 
 아래는 S&P 500·나스닥·NYSE에서 주목할 만한 후보 종목들입니다:
 ${candidates.join(', ')}
 
-이 후보 및 당신의 시장 지식을 활용해 3가지 기준으로 각 3개씩 종목을 선정하세요:
+이 후보 및 당신의 시장 지식을 활용해 4가지 기준으로 각 3개씩 종목을 선정하세요:
 
 1. oversold (과매도): RSI 35 이하, 지지선 근접, 기술적 반등 가능성이 높은 종목
 2. undervalued (저평가): PER·PBR이 업종 평균 이하, 52주 저점 근처, 가치 재평가 기대 종목
 3. growth (성장): 매출·이익 성장률 높음, 섹터 모멘텀 강함, 상승 추세 지속 중인 종목
+4. overbought (과매수): RSI 70 이상, 52주 고점 근접, 단기 차익실현·조정 가능성이 높은 종목
 
 각 종목 필드 (한국어):
 - ticker: 영문 티커
 - name: 영문 회사명
-- oneLineReason: 핵심 이유 1줄 (정량 근거 포함, 예: "RSI 28 + 200일선 지지", "PER 12 업종 평균 대비 40% 저평가")
+- oneLineReason: 핵심 이유 1줄 (정량 근거 포함, 예: "RSI 28 + 200일선 지지", "RSI 78 + 52주 고점 돌파 후 과열")
 - entry: 진입가 (숫자, USD)
 - stopLoss: 손절가 (숫자, USD)
 - target: 목표가 (숫자, USD)
@@ -2702,7 +2703,8 @@ ${candidates.join(', ')}
   "marketContext": "오늘 시장 분위기 1줄",
   "oversold":    [ ...3개 ],
   "undervalued": [ ...3개 ],
-  "growth":      [ ...3개 ]
+  "growth":      [ ...3개 ],
+  "overbought":  [ ...3개 ]
 }
 
 JSON만 출력. 코드펜스·설명·추가 텍스트 금지. '{' 로 시작 '}' 로 끝.`;
@@ -2762,6 +2764,7 @@ JSON만 출력. 코드펜스·설명·추가 텍스트 금지. '{' 로 시작 '}
         const picksOversold    = (Array.isArray(data.oversold)    ? data.oversold    : []).slice(0, 3).map(p => cleanPick(p, 'OVERSOLD'));
         const picksUndervalued = (Array.isArray(data.undervalued) ? data.undervalued : []).slice(0, 3).map(p => cleanPick(p, 'UNDERVALUED'));
         const picksGrowth      = (Array.isArray(data.growth)      ? data.growth      : []).slice(0, 3).map(p => cleanPick(p, 'GROWTH'));
+        const picksOverbought  = (Array.isArray(data.overbought)  ? data.overbought  : []).slice(0, 3).map(p => cleanPick(p, 'OVERBOUGHT'));
         // 하위 호환: buys/sells 필드도 유지
         const buys  = (Array.isArray(data.buys)  ? data.buys  : []).slice(0, 10).map(p => cleanPick(p, 'BUY'));
         const sells = (Array.isArray(data.sells) ? data.sells : []).slice(0, 10).map(p => cleanPick(p, 'SELL'));
@@ -2769,7 +2772,7 @@ JSON만 출력. 코드펜스·설명·추가 텍스트 금지. '{' 로 시작 '}
         const final = {
             date:          data.date || today,
             marketContext: String(data.marketContext || '').slice(0, 200),
-            oversold: picksOversold, undervalued: picksUndervalued, growth: picksGrowth,
+            oversold: picksOversold, undervalued: picksUndervalued, growth: picksGrowth, overbought: picksOverbought,
             buys, sells,
             generatedAt:   Date.now(),
         };

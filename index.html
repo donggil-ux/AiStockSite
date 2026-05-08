@@ -6804,6 +6804,7 @@
             { key: 'oversold',    label: '과매도',  emoji: '📉', cls: 'dp-cat-oversold',    items: data.oversold    || [] },
             { key: 'undervalued', label: '저평가',  emoji: '💎', cls: 'dp-cat-undervalued', items: data.undervalued || [] },
             { key: 'growth',      label: '성장',    emoji: '🚀', cls: 'dp-cat-growth',      items: data.growth      || [] },
+            { key: 'overbought',  label: '과매수',  emoji: '🔥', cls: 'dp-cat-overbought',  items: data.overbought  || [] },
         ];
         // 새 구조가 없으면 기존 buys/sells 폴백
         const hasNew = cats.some(c => c.items.length > 0);
@@ -6854,6 +6855,7 @@
             oversold:    { cls: 'dp-hc-oversold',    badge: '과매도' },
             undervalued: { cls: 'dp-hc-undervalued',  badge: '저평가' },
             growth:      { cls: 'dp-hc-growth',       badge: '성장'   },
+            overbought:  { cls: 'dp-hc-overbought',   badge: '과매수' },
             BUY:         { cls: 'dp-hc-buy',          badge: '매수'   },
             SELL:        { cls: 'dp-hc-sell',         badge: '매도'   },
         };

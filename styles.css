@@ -4773,6 +4773,8 @@
 .dp-cat-oversold   {background:rgba(255,69,58,.12);   color:#FF3B30;}
 .dp-cat-undervalued{background:rgba(0,168,130,.12);   color:#00A882;}
 .dp-cat-growth     {background:rgba(59,130,246,.12);  color:var(--blue);}
+.dp-cat-overbought {background:rgba(245,158,11,.12);  color:#D97706;}
+.dp-hc-overbought  {}
 .dp-cat-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
 
 .dp-home-card{
