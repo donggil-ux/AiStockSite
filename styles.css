@@ -4783,7 +4783,9 @@
 }
 .dp-home-card:hover{background:var(--bg3);}
 .dp-hc-top{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
-.dp-hc-ticker{font-size:13px;font-weight:700;color:var(--text);flex:1;min-width:0;}
+.dp-hc-id{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0;}
+.dp-hc-ticker{font-size:13px;font-weight:700;color:var(--text);}
+.dp-hc-name{font-size:10.5px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .dp-hc-sig{font-size:10px;font-weight:700;flex-shrink:0;}
 .dp-hc-sig.dp-hc-buy {color:var(--green);}
 .dp-hc-sig.dp-hc-sell{color:var(--red);}

@@ -6841,7 +6841,10 @@
         return `<div class="dp-home-card ${meta.cls}" onclick="quickSearch('${safeT}','US')">
             <div class="dp-hc-top">
                 ${logo}
-                <span class="dp-hc-ticker">${safeT}</span>
+                <div class="dp-hc-id">
+                    <span class="dp-hc-ticker">${safeT}</span>
+                    ${safeN ? `<span class="dp-hc-name">${safeN}</span>` : ''}
+                </div>
             </div>
             <div class="dp-hc-reason">${safeR}</div>
         </div>`;
