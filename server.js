@@ -2679,7 +2679,7 @@ app.get('/api/daily-picks', async (req, res) => {
 아래는 S&P 500·나스닥·NYSE에서 주목할 만한 후보 종목들입니다:
 ${candidates.join(', ')}
 
-이 후보 및 당신의 시장 지식을 활용해 4가지 기준으로 각 3개씩 종목을 선정하세요:
+이 후보 및 당신의 시장 지식을 활용해 4가지 기준으로 각 9개씩 종목을 선정하세요:
 
 1. oversold (과매도): RSI 35 이하, 지지선 근접, 기술적 반등 가능성이 높은 종목
 2. undervalued (저평가): PER·PBR이 업종 평균 이하, 52주 저점 근처, 가치 재평가 기대 종목
@@ -2701,10 +2701,10 @@ ${candidates.join(', ')}
 {
   "date": "${today}",
   "marketContext": "오늘 시장 분위기 1줄",
-  "oversold":    [ ...3개 ],
-  "undervalued": [ ...3개 ],
-  "growth":      [ ...3개 ],
-  "overbought":  [ ...3개 ]
+  "oversold":    [ ...9개 ],
+  "undervalued": [ ...9개 ],
+  "growth":      [ ...9개 ],
+  "overbought":  [ ...9개 ]
 }
 
 JSON만 출력. 코드펜스·설명·추가 텍스트 금지. '{' 로 시작 '}' 로 끝.`;
@@ -2761,10 +2761,10 @@ JSON만 출력. 코드펜스·설명·추가 텍스트 금지. '{' 로 시작 '}
             entryTiming:       String(p.entryTiming || '').slice(0, 200),
             riskFactors:       String(p.riskFactors || '').slice(0, 300),
         });
-        const picksOversold    = (Array.isArray(data.oversold)    ? data.oversold    : []).slice(0, 3).map(p => cleanPick(p, 'OVERSOLD'));
-        const picksUndervalued = (Array.isArray(data.undervalued) ? data.undervalued : []).slice(0, 3).map(p => cleanPick(p, 'UNDERVALUED'));
-        const picksGrowth      = (Array.isArray(data.growth)      ? data.growth      : []).slice(0, 3).map(p => cleanPick(p, 'GROWTH'));
-        const picksOverbought  = (Array.isArray(data.overbought)  ? data.overbought  : []).slice(0, 3).map(p => cleanPick(p, 'OVERBOUGHT'));
+        const picksOversold    = (Array.isArray(data.oversold)    ? data.oversold    : []).slice(0, 9).map(p => cleanPick(p, 'OVERSOLD'));
+        const picksUndervalued = (Array.isArray(data.undervalued) ? data.undervalued : []).slice(0, 9).map(p => cleanPick(p, 'UNDERVALUED'));
+        const picksGrowth      = (Array.isArray(data.growth)      ? data.growth      : []).slice(0, 9).map(p => cleanPick(p, 'GROWTH'));
+        const picksOverbought  = (Array.isArray(data.overbought)  ? data.overbought  : []).slice(0, 9).map(p => cleanPick(p, 'OVERBOUGHT'));
         // 하위 호환: buys/sells 필드도 유지
         const buys  = (Array.isArray(data.buys)  ? data.buys  : []).slice(0, 10).map(p => cleanPick(p, 'BUY'));
         const sells = (Array.isArray(data.sells) ? data.sells : []).slice(0, 10).map(p => cleanPick(p, 'SELL'));

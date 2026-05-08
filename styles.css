@@ -4787,6 +4787,7 @@
 .dp-cat-overbought {background:rgba(245,158,11,.12);  color:#D97706;}
 .dp-hc-overbought  {}
 .dp-cat-cards{display:grid;grid-template-columns:1fr;gap:8px;}
+@media(min-width:900px){.dp-cat-cards{grid-template-columns:repeat(3,1fr);}}
 
 .dp-home-card{
     background:var(--bg2);border:1px solid var(--border);

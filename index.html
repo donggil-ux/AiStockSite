@@ -6839,7 +6839,7 @@
         ).join('');
         const panels = activeCats.map((cat, i) =>
             `<div class="dp-cat-panel" data-cat="${cat.key}" style="${i !== 0 ? 'display:none' : ''}">
-                <div class="dp-cat-cards">${cat.items.slice(0, 3).map(p => _renderDpHomeCard(p, cat.key)).join('')}</div>
+                <div class="dp-cat-cards">${cat.items.slice(0, 9).map(p => _renderDpHomeCard(p, cat.key)).join('')}</div>
             </div>`
         ).join('');
         el.innerHTML = `<div class="dp-chip-row">${chips}</div>${panels}`;
