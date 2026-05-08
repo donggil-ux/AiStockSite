@@ -2646,9 +2646,11 @@ const SP500_SEED = [
  */
 app.get('/api/daily-picks', async (req, res) => {
     try {
-        // 24h 캐시 hit
+        // 24h 캐시 hit (단, 카테고리당 9개 미만이면 stale 처리하여 재생성)
         if (_dailyPicksCache.data && Date.now() - _dailyPicksCache.ts < DAILY_PICKS_TTL) {
-            return res.json({ ..._dailyPicksCache.data, cached: true });
+            const c = _dailyPicksCache.data;
+            const enoughItems = (c.oversold?.length || 0) >= 6 && (c.undervalued?.length || 0) >= 6;
+            if (enoughItems) return res.json({ ...c, cached: true });
         }
 
         // 1) Yahoo screener 5종 + S&P 500 / NASDAQ 시드 → 후보 풀 구성
