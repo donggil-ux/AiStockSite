@@ -6858,12 +6858,19 @@
 
     async function _enrichDpPrices(tickers) {
         try {
-            const syms = [...new Set(tickers)].slice(0, 20).join(',');
-            const r = await fetch(`/api/quote?symbols=${encodeURIComponent(syms)}`);
-            if (!r.ok) return;
-            const data = await r.json();
-            const quotes = data?.quoteResponse?.result || [];
-            quotes.forEach(q => {
+            const all = [...new Set(tickers)];
+            const BATCH = 40; // /api/quote 한도(50) 안전 마진
+            const batches = [];
+            for (let i = 0; i < all.length; i += BATCH) batches.push(all.slice(i, i + BATCH));
+            const results = await Promise.all(batches.map(async (b) => {
+                try {
+                    const r = await fetch(`/api/quote?symbols=${encodeURIComponent(b.join(','))}`);
+                    if (!r.ok) return [];
+                    const data = await r.json();
+                    return data?.quoteResponse?.result || [];
+                } catch { return []; }
+            }));
+            results.flat().forEach(q => {
                 const px = q.regularMarketPrice;
                 if (px == null) return;
                 const fmtPx = px >= 1000 ? `$${px.toFixed(0)}` : px >= 10 ? `$${px.toFixed(2)}` : `$${px.toFixed(3)}`;
