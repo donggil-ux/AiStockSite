@@ -4775,11 +4775,12 @@
 /* 카테고리 섹션 */
 .dp-cat-section{display:flex;flex-direction:column;gap:8px;}
 .dp-cat-label{font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;display:inline-flex;align-items:center;gap:4px;width:fit-content;}
-/* 칩 탭 */
-.dp-chip-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
-.dp-chip{font-size:12px;font-weight:700;padding:5px 14px;border-radius:999px;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:4px;opacity:.55;transition:opacity .15s,transform .1s;}
-.dp-chip:hover{opacity:.8;}
-.dp-chip.active{opacity:1;transform:scale(1.04);}
+/* 칩 탭 — top100-filter 스타일 */
+.dp-chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;background:var(--bg2);padding:4px;border-radius:10px;width:fit-content;}
+.dp-chip{padding:7px 14px;border:none;background:transparent;color:var(--text3);border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;transition:background .15s,color .15s;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:4px;}
+.dp-chip:hover:not(.active){color:var(--text);}
+.dp-chip.active{background:var(--bg3);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,0.15);}
+[data-theme="light"] .dp-chip.active{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.08),0 0 0 1px rgba(0,0,0,0.04);}
 .dp-cat-panel{}
 .dp-cat-oversold   {background:rgba(255,69,58,.12);   color:#FF3B30;}
 .dp-cat-undervalued{background:rgba(0,168,130,.12);   color:#00A882;}
