@@ -6823,6 +6823,30 @@
             </div>`;
         });
         el.innerHTML = html || '<div class="dp-home-loading">데이터 없음</div>';
+        // 현재 주가 비동기 enrich
+        const allTickers = cats.flatMap(c => c.items.map(p => p.ticker)).filter(Boolean);
+        if (allTickers.length) _enrichDpPrices(allTickers);
+    }
+
+    async function _enrichDpPrices(tickers) {
+        try {
+            const syms = [...new Set(tickers)].slice(0, 20).join(',');
+            const r = await fetch(`/api/quote?symbols=${encodeURIComponent(syms)}`);
+            if (!r.ok) return;
+            const data = await r.json();
+            const quotes = data?.quoteResponse?.result || [];
+            quotes.forEach(q => {
+                const px = q.regularMarketPrice;
+                if (px == null) return;
+                const fmtPx = px >= 1000 ? `$${px.toFixed(0)}` : px >= 10 ? `$${px.toFixed(2)}` : `$${px.toFixed(3)}`;
+                const chg = q.regularMarketChangePercent;
+                const chgCls = chg == null ? '' : chg >= 0 ? 'dp-px-up' : 'dp-px-dn';
+                const chgStr = chg != null ? `<span class="dp-hc-chg ${chgCls}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>` : '';
+                document.querySelectorAll(`[data-dp-price="${q.symbol}"]`).forEach(el => {
+                    el.innerHTML = `<span class="dp-hc-px">${fmtPx}</span>${chgStr}`;
+                });
+            });
+        } catch(e) {}
     }
 
     function _renderDpHomeCard(p, catKey) {
@@ -6845,6 +6869,7 @@
                     <span class="dp-hc-ticker">${safeT}</span>
                     ${safeN ? `<span class="dp-hc-name">${safeN}</span>` : ''}
                 </div>
+                <div class="dp-hc-price" data-dp-price="${safeT}">—</div>
             </div>
             <div class="dp-hc-reason">${safeR}</div>
         </div>`;
@@ -16757,7 +16782,7 @@
         _loadStockEarningsBadge, _calcDaysUntil,
         goLeverage, loadLeverageETFs, renderLeverageGrid, _levSetFilter, _renderLevCard, _levFormatVol,
         goDailyPicks, loadDailyPicks, renderDailyPicks, _renderDpCard, _dpToggleDetail,
-        loadDpHome, _renderDpHome, _renderDpHomeCard,
+        loadDpHome, _renderDpHome, _renderDpHomeCard, _enrichDpPrices,
         loadEarnHome, _renderEarnHome, _renderEarnHomeCard, _renderEarnHomeSkeleton,
         loadLeverageHome, renderLeverageHome, _renderLevStripCard, _fetchLevQuotesBatched, _levTracksLabel,
         goEarnings, loadEarnings, setEarningsWindow, _earnToggleGroup, _enrichEarningsWithAI,
