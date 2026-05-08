@@ -4571,6 +4571,10 @@
 
 /* Logo cell — tlogo-wrap 재활용, 플래그 overflow 허용 */
 .sniper-item .tlogo-wrap { margin: 0; overflow: visible; }
+@media(max-width:899px){
+    .sniper-item .tlogo-wrap{width:48px;height:48px;}
+    .sniper-item .tlogo{width:48px;height:48px;}
+}
 
 /* Info: Ticker(굵게) + Name(회색) — top100-name 동일 폰트 */
 .sniper-info { min-width: 0; }
