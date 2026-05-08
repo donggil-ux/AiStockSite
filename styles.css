@@ -4775,6 +4775,12 @@
 /* 카테고리 섹션 */
 .dp-cat-section{display:flex;flex-direction:column;gap:8px;}
 .dp-cat-label{font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;display:inline-flex;align-items:center;gap:4px;width:fit-content;}
+/* 칩 탭 */
+.dp-chip-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.dp-chip{font-size:12px;font-weight:700;padding:5px 14px;border-radius:999px;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:4px;opacity:.55;transition:opacity .15s,transform .1s;}
+.dp-chip:hover{opacity:.8;}
+.dp-chip.active{opacity:1;transform:scale(1.04);}
+.dp-cat-panel{}
 .dp-cat-oversold   {background:rgba(255,69,58,.12);   color:#FF3B30;}
 .dp-cat-undervalued{background:rgba(0,168,130,.12);   color:#00A882;}
 .dp-cat-growth     {background:rgba(59,130,246,.12);  color:var(--blue);}

@@ -6830,18 +6830,30 @@
             el.innerHTML = all.length ? all.join('') : '<div class="dp-home-loading">데이터 없음</div>';
             return;
         }
-        let html = '';
-        cats.forEach(cat => {
-            if (!cat.items.length) return;
-            html += `<div class="dp-cat-section">
-                <div class="dp-cat-label ${cat.cls}">${cat.emoji} ${cat.label}</div>
+        const activeCats = cats.filter(c => c.items.length > 0);
+        if (!activeCats.length) { el.innerHTML = '<div class="dp-home-loading">데이터 없음</div>'; return; }
+
+        // 칩 탭 + 카드 패널 구조
+        const chips = activeCats.map((cat, i) =>
+            `<button class="dp-chip ${cat.cls}${i === 0 ? ' active' : ''}" onclick="_dpSwitchCat('${cat.key}')">${cat.emoji} ${cat.label}</button>`
+        ).join('');
+        const panels = activeCats.map((cat, i) =>
+            `<div class="dp-cat-panel" data-cat="${cat.key}" style="${i !== 0 ? 'display:none' : ''}">
                 <div class="dp-cat-cards">${cat.items.slice(0, 3).map(p => _renderDpHomeCard(p, cat.key)).join('')}</div>
-            </div>`;
-        });
-        el.innerHTML = html || '<div class="dp-home-loading">데이터 없음</div>';
+            </div>`
+        ).join('');
+        el.innerHTML = `<div class="dp-chip-row">${chips}</div>${panels}`;
+
         // 현재 주가 비동기 enrich
         const allTickers = cats.flatMap(c => c.items.map(p => p.ticker)).filter(Boolean);
         if (allTickers.length) _enrichDpPrices(allTickers);
+    }
+
+    function _dpSwitchCat(key) {
+        const el = document.getElementById('dpHomeGrid');
+        if (!el) return;
+        el.querySelectorAll('.dp-chip').forEach(b => b.classList.toggle('active', b.getAttribute('onclick').includes(`'${key}'`)));
+        el.querySelectorAll('.dp-cat-panel').forEach(p => { p.style.display = p.dataset.cat === key ? '' : 'none'; });
     }
 
     async function _enrichDpPrices(tickers) {
@@ -16799,7 +16811,7 @@
         _loadStockEarningsBadge, _calcDaysUntil,
         goLeverage, loadLeverageETFs, renderLeverageGrid, _levSetFilter, _renderLevCard, _levFormatVol,
         goDailyPicks, loadDailyPicks, renderDailyPicks, _renderDpCard, _dpToggleDetail,
-        loadDpHome, _renderDpHome, _renderDpHomeCard, _enrichDpPrices,
+        loadDpHome, _renderDpHome, _renderDpHomeCard, _enrichDpPrices, _dpSwitchCat,
         loadEarnHome, _renderEarnHome, _renderEarnHomeCard, _renderEarnHomeSkeleton,
         loadLeverageHome, renderLeverageHome, _renderLevStripCard, _fetchLevQuotesBatched, _levTracksLabel,
         goEarnings, loadEarnings, setEarningsWindow, _earnToggleGroup, _enrichEarningsWithAI,
