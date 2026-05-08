@@ -4801,6 +4801,7 @@
 .dp-hc-price{display:flex;flex-direction:column;align-items:flex-end;gap:1px;flex-shrink:0;min-width:44px;}
 .dp-hc-px{font-size:12.5px;font-weight:700;color:var(--text);}
 .dp-hc-chg{font-size:10px;font-weight:600;}
+@media(min-width:900px){.dp-hc-px{font-size:18px;} .dp-hc-chg{font-size:13px;}}
 .dp-px-up{color:var(--green);}
 .dp-px-dn{color:var(--red);}
 .dp-hc-reason{font-size:12.5px;font-weight:500;color:var(--text);line-height:1.5;
