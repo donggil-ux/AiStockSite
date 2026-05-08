@@ -4793,9 +4793,9 @@
     letter-spacing:-0.01em;opacity:0.85;}
 
 /* 카테고리별 카드 왼쪽 accent */
-.dp-hc-oversold   {border-left:3px solid #FF3B30;}
-.dp-hc-undervalued{border-left:3px solid #00A882;}
-.dp-hc-growth     {border-left:3px solid var(--blue);}
+.dp-hc-oversold   {}
+.dp-hc-undervalued{}
+.dp-hc-growth     {}
 
 @media(max-width:600px){
     .dp-cat-cards{grid-template-columns:1fr;}
