@@ -2759,9 +2759,9 @@ JSON만 출력. 코드펜스·설명·추가 텍스트 금지. '{' 로 시작 '}
             entryTiming:       String(p.entryTiming || '').slice(0, 200),
             riskFactors:       String(p.riskFactors || '').slice(0, 300),
         });
-        const oversold    = (Array.isArray(data.oversold)    ? data.oversold    : []).slice(0, 3).map(p => cleanPick(p, 'OVERSOLD'));
-        const undervalued = (Array.isArray(data.undervalued) ? data.undervalued : []).slice(0, 3).map(p => cleanPick(p, 'UNDERVALUED'));
-        const growth      = (Array.isArray(data.growth)      ? data.growth      : []).slice(0, 3).map(p => cleanPick(p, 'GROWTH'));
+        const picksOversold    = (Array.isArray(data.oversold)    ? data.oversold    : []).slice(0, 3).map(p => cleanPick(p, 'OVERSOLD'));
+        const picksUndervalued = (Array.isArray(data.undervalued) ? data.undervalued : []).slice(0, 3).map(p => cleanPick(p, 'UNDERVALUED'));
+        const picksGrowth      = (Array.isArray(data.growth)      ? data.growth      : []).slice(0, 3).map(p => cleanPick(p, 'GROWTH'));
         // 하위 호환: buys/sells 필드도 유지
         const buys  = (Array.isArray(data.buys)  ? data.buys  : []).slice(0, 10).map(p => cleanPick(p, 'BUY'));
         const sells = (Array.isArray(data.sells) ? data.sells : []).slice(0, 10).map(p => cleanPick(p, 'SELL'));
@@ -2769,7 +2769,7 @@ JSON만 출력. 코드펜스·설명·추가 텍스트 금지. '{' 로 시작 '}
         const final = {
             date:          data.date || today,
             marketContext: String(data.marketContext || '').slice(0, 200),
-            oversold, undervalued, growth,
+            oversold: picksOversold, undervalued: picksUndervalued, growth: picksGrowth,
             buys, sells,
             generatedAt:   Date.now(),
         };
