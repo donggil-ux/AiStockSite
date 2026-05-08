@@ -6359,11 +6359,26 @@
             if (parts) fundHtml = `<div class="sniper-fund">${parts}</div>`;
         }
 
+        // 이동평균선 위치 표시
+        let maHtml = '';
+        const maFmt = v => v >= 1000 ? v.toFixed(0) : v >= 10 ? v.toFixed(2) : v.toFixed(3);
+        const maParts = [];
+        if (item.ma50 != null) {
+            const abv = price >= item.ma50;
+            maParts.push(`<span class="sniper-ma ${abv ? 'ma-above' : 'ma-below'}">MA50 <b>${maFmt(item.ma50)}</b></span>`);
+        }
+        if (item.ma200 != null) {
+            const abv = price >= item.ma200;
+            maParts.push(`<span class="sniper-ma ${abv ? 'ma-above' : 'ma-below'}">MA200 <b>${maFmt(item.ma200)}</b></span>`);
+        }
+        if (maParts.length) maHtml = `<div class="sniper-ma-row">${maParts.join('')}</div>`;
+
         return `<div class="sniper-item" onclick="quickSearch('${item.symbol}','US')">
             ${logoHtml}
             <div class="sniper-info">
                 <div class="sniper-ticker">${item.symbol}</div>
                 <div class="sniper-name">${item.name || ''}</div>
+                ${maHtml}
             </div>
             <div class="sniper-badges">${badges}</div>
             <div class="sniper-spark">${sparkSvg}</div>

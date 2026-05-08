@@ -4683,6 +4683,11 @@
     text-overflow: ellipsis;
 }
 .sniper-fund .pbr-hi { color: var(--radar-value); font-weight: 600; }
+.sniper-ma-row { display:flex; gap:5px; margin-top:3px; flex-wrap:wrap; }
+.sniper-ma { font-size:10px; color:var(--text3); white-space:nowrap; }
+.sniper-ma b { font-weight:600; }
+.sniper-ma.ma-above b { color:var(--green); }
+.sniper-ma.ma-below b { color:var(--red); }
 
 /* Skeleton loader */
 .sniper-loading { padding: 4px 0; }
