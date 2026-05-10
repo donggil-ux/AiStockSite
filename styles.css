@@ -4810,7 +4810,30 @@
     padding-right:90px; /* price-wrap 영역과 겹치지 않게 */
 }
 .sniper-item > .sniper-badges{ grid-column:3; grid-row:1 / span 3; align-self:center; }
-.sniper-item > .sniper-spark { grid-column:4; grid-row:1 / span 3; align-self:center; }
+.sniper-item > .sniper-spark { display:none !important; } /* 추천 이유 텍스트로 교체 */
+.sniper-item > .sniper-reason-text {
+    grid-column:4;
+    grid-row:1 / span 3;
+    align-self:center;
+    font-size:12px;
+    line-height:1.4;
+    color:var(--text2);
+    font-weight:400;
+    letter-spacing:-0.005em;
+    max-width:160px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    text-align:right;
+    padding-right:4px;
+}
+@media(max-width:640px){
+    .sniper-item > .sniper-reason-text{
+        font-size:11px;max-width:120px;
+    }
+}
 
 /* sniper-info: 티커+가격 한 줄, 이름+변동률 한 줄, 펀드 한 줄 */
 .sniper-info::before{ content:none; }
