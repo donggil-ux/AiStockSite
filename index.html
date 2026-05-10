@@ -23,8 +23,15 @@
 <!-- Side Navigation -->
 <nav class="side-nav" id="sideNav">
     <div class="side-nav-header">
-        <div class="side-nav-title">StockAI</div>
+        <div class="side-nav-title">전체 메뉴</div>
         <button class="side-nav-close" onclick="closeSideNav()">&times;</button>
+    </div>
+    <!-- 상단 검색 -->
+    <div class="side-nav-search-wrap">
+        <div class="side-nav-search-box">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input type="text" class="side-nav-search-input" id="sideNavSearchInput" placeholder="종목 검색 (예: AAPL, 삼성전자)" autocomplete="off" onkeydown="_sideNavSearchKey(event)" oninput="_sideNavSearchInput(this.value)">
+        </div>
     </div>
     <div class="side-nav-body">
         <div class="side-nav-section">
@@ -71,6 +78,13 @@
             <div id="favList" class="side-nav-menu">
                 <div class="fav-empty">즐겨찾기한 종목이 없습니다.<br>종목 분석 후 &#9734; 버튼으로 추가하세요.</div>
             </div>
+        </div>
+    </div>
+    <!-- 하단 검색 -->
+    <div class="side-nav-search-wrap side-nav-search-bottom">
+        <div class="side-nav-search-box">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input type="text" class="side-nav-search-input" placeholder="종목 검색 (예: AAPL, 삼성전자)" autocomplete="off" onkeydown="_sideNavSearchKey(event)" oninput="_sideNavSearchInput(this.value)">
         </div>
     </div>
     <div class="side-nav-footer">
@@ -17076,6 +17090,21 @@
         }, 'image/png');
     }
 
+    // ── 사이드 메뉴 검색 ─────────────────────────────────────────
+    function _sideNavSearchKey(e) {
+        if (e.key === 'Enter') {
+            const val = e.target.value.trim();
+            if (!val) return;
+            closeSideNav();
+            document.getElementById('searchInput').value = val;
+            searchStock();
+        }
+    }
+    function _sideNavSearchInput(val) {
+        // 두 검색창 동기화
+        document.querySelectorAll('.side-nav-search-input').forEach(el => { if (el.value !== val) el.value = val; });
+    }
+
     // ── 모바일 미리보기 ──────────────────────────────────────────
     function openMobilePreview() {
         const modal = document.getElementById('mobilePreviewModal');
@@ -17156,6 +17185,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         openPriceAlertModal, _setPaDir, _savePriceAlert, _deletePriceAlert,
         _togglePushBell, _openCurrentPriceAlert,
         openMobilePreview, closeMobilePreview,
+        _sideNavSearchKey, _sideNavSearchInput,
     });
 
     // ── 사이드 내비 아이콘: 모든 아이콘 -fill 고정 (active 여부 무관) ──

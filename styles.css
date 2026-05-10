@@ -1749,6 +1749,24 @@
         [data-theme="light"] .side-nav-backdrop{background:rgba(0,0,0,.25);}
 
         /* Side nav theme toggle */
+        /* 사이드 메뉴 검색창 */
+        .side-nav-search-wrap{padding:12px 20px;}
+        .side-nav-search-wrap.side-nav-search-bottom{padding-top:0;border-top:1px solid var(--border);padding-bottom:8px;}
+        .side-nav-search-box{
+            display:flex;align-items:center;gap:10px;
+            background:var(--bg3);
+            border-radius:14px;
+            padding:11px 14px;
+            border:1.5px solid transparent;
+            transition:border-color .15s;
+        }
+        .side-nav-search-box:focus-within{border-color:var(--blue);}
+        .side-nav-search-box svg{flex-shrink:0;color:var(--text3);}
+        .side-nav-search-input{
+            flex:1;background:none;border:none;outline:none;
+            color:var(--text);font-size:15px;font-family:inherit;
+        }
+        .side-nav-search-input::placeholder{color:var(--text3);}
         .side-nav-footer{padding:16px;border-top:1px solid var(--border);}
         /* PWA 설치 버튼 */
         .pwa-install-btn{display:none;align-items:center;gap:12px;width:100%;padding:12px 14px;border:1.5px solid var(--blue);background:rgba(0,128,251,.08);color:var(--blue);border-radius:var(--r3);cursor:pointer;font-size:14px;font-weight:700;font-family:inherit;transition:all .18s;margin-bottom:10px;}
