@@ -5084,7 +5084,7 @@
     display:flex;flex-direction:column;
 }
 .dp-home-card:hover{background:var(--bg3);}
-.dp-hc-top{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+.dp-hc-top{display:flex;align-items:center;gap:12px;margin-bottom:8px;}
 .dp-hc-id{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0;}
 .dp-hc-ticker{font-size:13px;font-weight:700;color:var(--text);}
 @media(min-width:900px){.dp-hc-ticker{font-size:16px;}}
@@ -5404,7 +5404,7 @@
 @media(max-width:375px){
     .dp-cat-cards{gap:4px;}
     .dp-home-card{padding:8px 8px;}
-    .dp-hc-top{gap:5px;}
+    .dp-hc-top{gap:10px;}
     .dp-home-card .tlogo-wrap,.dp-home-card .tlogo,.dp-home-card .tlogo-fb{width:26px;height:26px;}
     .dp-home-card .tlogo-flag{width:12px;height:12px;font-size:7px;}
     .dp-home-card .dp-hc-price{min-width:34px;}
