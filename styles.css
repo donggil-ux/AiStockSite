@@ -324,7 +324,7 @@
         .dp-chip.active,
         .radar-tab.active{
             background:#FFFFFF;
-            color:#000;
+            color:#000000!important;
             font-weight:590;
             box-shadow:
                 0 3px 8px rgba(0,0,0,0.12),
@@ -335,7 +335,7 @@
         [data-theme="dark"] .dp-chip.active,
         [data-theme="dark"] .radar-tab.active{
             background:rgba(118,118,128,0.36);
-            color:#fff;
+            color:#000000!important;
         }
         .top100-filter:hover:not(.active),
         .dp-chip:hover:not(.active),
