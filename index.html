@@ -1660,10 +1660,51 @@
     function goSearch() {
         document.getElementById('mobSearchModal').style.display = '';
         updateBnActive('search');
+        _renderRecentSearchStrip();
         setTimeout(() => {
             const inp = document.getElementById('mobSearchInput');
             if (inp) { inp.focus(); _renderMobDropdown('empty', null); }
         }, 100);
+    }
+
+    // ── 최근 검색 (스와이프 strip) ───────────────────────────────
+    function _renderRecentSearchStrip() {
+        const wrap = document.getElementById('mobRecentSearches');
+        const strip = document.getElementById('mobRecentStrip');
+        if (!wrap || !strip) return;
+        let recent = [];
+        try { recent = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch(e) {}
+        if (!recent.length) { wrap.style.display = 'none'; return; }
+        wrap.style.display = '';
+        strip.innerHTML = recent.map((r, i) => {
+            const flag = r.market === 'KR' ? '🇰🇷' : '🇺🇸';
+            const sym = String(r.symbol || '').replace(/[<>"']/g, '');
+            const name = String(r.name || sym).replace(/[<>"']/g, '');
+            return `<div class="mob-recent-chip" data-idx="${i}" data-symbol="${sym}" data-market="${r.market||'US'}" onclick="_clickRecentChip(event, '${sym}', '${r.market||'US'}')">
+                <span class="mrc-flag">${flag}</span>
+                <span class="mrc-sym">${sym}</span>
+                <button class="mrc-del" onclick="event.stopPropagation();_deleteRecentSearch('${sym}','${r.market||'US'}')" aria-label="삭제">×</button>
+            </div>`;
+        }).join('');
+    }
+    function _clickRecentChip(e, symbol, market) {
+        if (e.target.closest('.mrc-del')) return;
+        closeSearch();
+        setMarket(market);
+        document.getElementById('searchInput').value = symbol;
+        searchStock();
+    }
+    function _deleteRecentSearch(symbol, market) {
+        try {
+            let r = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+            r = r.filter(x => !(x.symbol === symbol && x.market === market));
+            localStorage.setItem(RECENT_KEY, JSON.stringify(r));
+        } catch(e) {}
+        _renderRecentSearchStrip();
+    }
+    function _clearAllRecentSearches() {
+        try { localStorage.removeItem(RECENT_KEY); } catch(e) {}
+        _renderRecentSearchStrip();
     }
 
     function closeSearch() {
@@ -1753,7 +1794,12 @@
         // 모바일 검색 모달 입력 이벤트
         const mobInp = document.getElementById('mobSearchInput');
         if (mobInp) {
-            mobInp.addEventListener('input', () => _debMobSearch(mobInp.value));
+            mobInp.addEventListener('input', () => {
+                _debMobSearch(mobInp.value);
+                // 입력 시 최근 검색 strip 숨김, 비우면 다시 표시
+                const wrap = document.getElementById('mobRecentSearches');
+                if (wrap) wrap.style.display = mobInp.value.trim() ? 'none' : '';
+            });
             mobInp.addEventListener('keydown', e => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
@@ -17181,6 +17227,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         _togglePushBell, _openCurrentPriceAlert,
         openMobilePreview, closeMobilePreview,
         _sideNavSearchKey, _sideNavSearchInput,
+        _renderRecentSearchStrip, _clickRecentChip, _deleteRecentSearch, _clearAllRecentSearches,
     });
 
     // ── 사이드 내비 아이콘: 모든 아이콘 -fill 고정 (active 여부 무관) ──
@@ -17196,6 +17243,14 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
                 <i class="ri-search-2-line" style="color:var(--text3);font-size:16px;flex-shrink:0;"></i>
                 <input type="text" id="mobSearchInput" placeholder="종목 입력 (예: 삼성전자, AAPL)" autocomplete="off" inputmode="search">
             </div>
+        </div>
+        <!-- 최근 검색 (스와이프 형식) -->
+        <div id="mobRecentSearches" class="mob-recent-wrap" style="display:none;">
+            <div class="mob-recent-header">
+                <span class="mob-recent-title">최근 검색</span>
+                <button class="mob-recent-clear" onclick="_clearAllRecentSearches()">전체 삭제</button>
+            </div>
+            <div class="mob-recent-strip" id="mobRecentStrip"></div>
         </div>
         <div id="mobSearchResults"></div>
     </div>

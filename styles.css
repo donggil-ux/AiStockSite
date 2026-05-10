@@ -5352,3 +5352,79 @@
 @media(max-height:700px){
     .mp-phone{transform:scale(0.64);transform-origin:center center;margin:-155px 0;}
 }
+
+/* ═══════════════════════════════════════════════════════
+   최근 검색 (모바일 검색 모달 내 스와이프 strip)
+   ═══════════════════════════════════════════════════════ */
+.mob-recent-wrap{
+    padding:14px 0 12px;
+    border-bottom:1px solid var(--border);
+    flex-shrink:0;
+}
+.mob-recent-header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 16px 8px;
+}
+.mob-recent-title{
+    font-size:13px;font-weight:700;color:var(--text2);
+    letter-spacing:-0.01em;
+}
+.mob-recent-clear{
+    background:none;border:none;
+    font-size:12px;color:var(--text3);
+    cursor:pointer;padding:4px 6px;
+    font-family:inherit;
+    transition:color .15s;
+    -webkit-tap-highlight-color:transparent;
+}
+.mob-recent-clear:hover{color:var(--text);}
+.mob-recent-clear:active{opacity:.5;}
+
+.mob-recent-strip{
+    display:flex;flex-direction:row;
+    gap:8px;
+    overflow-x:auto;overflow-y:hidden;
+    padding:0 16px 4px;
+    scroll-snap-type:x proximity;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+}
+.mob-recent-strip::-webkit-scrollbar{display:none;}
+
+.mob-recent-chip{
+    display:inline-flex;align-items:center;
+    gap:6px;flex-shrink:0;
+    padding:7px 8px 7px 12px;
+    background:var(--bg3);
+    border:1px solid var(--border);
+    border-radius:100px;
+    cursor:pointer;
+    transition:background .15s,transform .1s;
+    scroll-snap-align:start;
+    -webkit-tap-highlight-color:transparent;
+}
+.mob-recent-chip:hover{background:var(--bg4);}
+.mob-recent-chip:active{transform:scale(0.96);}
+
+.mob-recent-chip .mrc-flag{font-size:14px;line-height:1;}
+.mob-recent-chip .mrc-sym{
+    font-size:13px;font-weight:700;
+    color:var(--text);
+    letter-spacing:-0.01em;
+}
+.mob-recent-chip .mrc-del{
+    display:flex;align-items:center;justify-content:center;
+    width:18px;height:18px;
+    background:var(--bg);
+    border:none;border-radius:50%;
+    color:var(--text3);
+    font-size:13px;font-weight:600;
+    cursor:pointer;line-height:1;
+    transition:all .15s;
+    -webkit-tap-highlight-color:transparent;
+    padding:0;
+}
+.mob-recent-chip .mrc-del:hover{
+    background:var(--red,#ef4444);color:#fff;
+}
+.mob-recent-chip .mrc-del:active{transform:scale(0.85);}
