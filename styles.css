@@ -300,7 +300,7 @@
             flex:0 0 auto;
             padding:3px 14px;height:28px;
             border:none;background:transparent;
-            color:rgba(60,60,67,0.6)!important;
+            color:rgba(60,60,67,0.46)!important;
             border-radius:20px;
             cursor:pointer;
             font-family:-apple-system,'SF Pro Text',inherit;
@@ -314,20 +314,20 @@
         }
         .top100-filter:hover:not(.active),
         .dp-chip:hover:not(.active),
-        .radar-tab:hover:not(.active){color:rgba(60,60,67,0.6)!important;}
+        .radar-tab:hover:not(.active){color:rgba(60,60,67,0.46)!important;}
         [data-theme="light"] .top100-filter,
         [data-theme="light"] .dp-chip,
-        [data-theme="light"] .radar-tab{color:rgba(60,60,67,0.6)!important;}
+        [data-theme="light"] .radar-tab{color:rgba(60,60,67,0.46)!important;}
         [data-theme="dark"] .top100-filter:not(.active),
         [data-theme="dark"] .dp-chip:not(.active),
-        [data-theme="dark"] .radar-tab:not(.active){color:rgba(235,235,245,0.6)!important;}
+        [data-theme="dark"] .radar-tab:not(.active){color:rgba(235,235,245,0.46)!important;}
 
         .top100-filter.active,
         .dp-chip.active,
         .radar-tab.active{
             background:#FFFFFF;
             color:#000000!important;
-            font-weight:590;
+            font-weight:700;
             box-shadow:
                 0 3px 8px rgba(0,0,0,0.12),
                 0 3px 1px rgba(0,0,0,0.04),
