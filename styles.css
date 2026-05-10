@@ -300,7 +300,7 @@
             flex:0 0 auto;
             padding:3px 14px;height:28px;
             border:none;background:transparent;
-            color:var(--text);
+            color:#3C3C43;
             border-radius:20px;
             cursor:pointer;
             font-family:-apple-system,'SF Pro Text',inherit;
@@ -312,7 +312,7 @@
         }
         [data-theme="light"] .top100-filter,
         [data-theme="light"] .dp-chip,
-        [data-theme="light"] .radar-tab{color:#000;}
+        [data-theme="light"] .radar-tab{color:#3C3C43;}
 
         .top100-filter.active,
         .dp-chip.active,
