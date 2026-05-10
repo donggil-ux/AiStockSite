@@ -7365,7 +7365,8 @@
     }
 
     function updateBnActive(tab) {
-        const map = { home: 'bnHome', search: 'bnSearch', scanner: 'bnScanner', smartmoney: 'bnSmartmoney', fav: 'bnFav', vision: 'bnVision' };
+        const map = { home: 'bnHome', dailypicks: 'bnDailyPicks', scanner: 'bnScanner', smartmoney: 'bnSmartmoney', fav: 'bnFav', vision: 'bnVision' };
+        // 'all'(전체 메뉴)은 active 상태 없음
         // 모든 탭 비활성화 + 아이콘 line으로
         document.querySelectorAll('.bn-item').forEach(btn => {
             btn.classList.remove('active');
@@ -7391,6 +7392,7 @@
     }
 
     function bnGo(tab) {
+        if (tab === 'all') { toggleSideNav(); return; } // active 상태 변경 없이 메뉴만 토글
         updateBnActive(tab);
         if (tab === 'home') {
             // 종목이 로드된 상태면 차트를 유지하고 다른 화면만 숨김 (Keep-alive)
@@ -7412,6 +7414,8 @@
             goSmartMoney();
         } else if (tab === 'vision') {
             goVisionScanner();
+        } else if (tab === 'all') {
+            toggleSideNav();
         }
     }
 
@@ -17183,7 +17187,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
             { key: 'dailypicks', id: 'bnDailyPicks', label: '데일리픽', iconLine: 'ri-sparkling-2-line',  iconFill: 'ri-sparkling-2-fill' },
             { key: 'scanner',    id: 'bnScanner',    label: '스캐너',   iconLine: 'ri-radar-line',       iconFill: 'ri-radar-fill' },
             { key: 'smartmoney', id: 'bnSmartmoney', label: '기관',     iconLine: 'ri-briefcase-4-line', iconFill: 'ri-briefcase-4-fill' },
-            { key: 'vision',     id: 'bnVision',     label: 'AI분석', iconLine: 'ri-eye-2-line',       iconFill: 'ri-eye-2-fill' },
+            { key: 'all',        id: 'bnAll',        label: '전체',   iconLine: 'ri-grid-line',        iconFill: 'ri-grid-fill' },
         ];
 
         // 필 래퍼 생성 (플로팅 필 디자인)
