@@ -383,7 +383,7 @@
         /* TOSS Invest 스펙 — 84px 행, Noto Sans KR */
         .top100-row{
             display:grid;
-            grid-template-columns:24px 28px 44px minmax(100px,1fr) auto auto;
+            grid-template-columns:24px 24px 44px minmax(100px,1fr) auto auto;
             grid-template-areas:"fav rank logo info price tv";
             align-items:center;
             min-height:84px;
@@ -392,12 +392,18 @@
             border-radius:0!important;
             cursor:pointer;
             transition:background .15s;
-            column-gap:12px;
+            column-gap:0;
             border-bottom:1px solid rgba(0,0,0,0.04);
             overflow:visible;
             min-width:0;
             font-family:'Noto Sans KR',-apple-system,inherit;
         }
+        /* 셀별 좌측 여백으로 간격 조절 (fav-rank 0, logo부터 띄움) */
+        .top100-row > .top100-rank{margin-left:0;}
+        .top100-row > .tlogo-wrap{margin-left:8px;}
+        .top100-row > .top100-info{margin-left:10px;}
+        .top100-row > .top100-price-wrap{margin-left:12px;}
+        .top100-row > .top100-tv-wrap{margin-left:8px;}
         .top100-row > .top100-tv-wrap{
             grid-area:tv;
             display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:2px;
@@ -956,13 +962,17 @@
             .welcome-top{padding:60px 20px 36px;}
             .top100-section{padding:0;}
             .top100-row, .top100-row-head{
-                grid-template-columns:22px 22px 40px minmax(0,1fr) auto auto;
+                grid-template-columns:22px 20px 40px minmax(0,1fr) auto auto;
                 grid-template-areas:"fav rank logo info price tv";
                 padding:8px 4px;
-                gap:0 8px;
+                column-gap:0;
                 align-items:center;
                 min-height:76px;
             }
+            .top100-row > .tlogo-wrap{margin-left:6px;}
+            .top100-row > .top100-info{margin-left:8px;}
+            .top100-row > .top100-price-wrap{margin-left:8px;}
+            .top100-row > .top100-tv-wrap{margin-left:6px;}
             .top100-vol{display:none;}
             .top100-row > .tlogo-wrap, .top100-row > .tlogo-wrap .tlogo, .top100-row > .tlogo-wrap .tlogo-fb{width:40px;height:40px;}
             .top100-ticker-sym{font-size:15px;}
@@ -975,10 +985,10 @@
         @media(min-width:900px){
             .top100-section{padding:0;}
             .top100-row, .top100-row-head{
-                grid-template-columns:32px 28px 44px minmax(0,1fr) auto auto;
+                grid-template-columns:28px 24px 44px minmax(0,1fr) auto auto;
                 grid-template-areas:"fav rank logo info price tv";
                 padding:14px 0;
-                column-gap:20px;
+                column-gap:0;
                 align-items:center;
                 min-height:84px;
             }
