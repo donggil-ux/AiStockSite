@@ -14446,8 +14446,8 @@
         if (!sec || !el) return;
         sec.style.display = '';
 
-        // localStorage 캐시 (10분 TTL) — v2로 캐시 키 갱신해 기존 1개만 나오는 캐시 무효화
-        const CK = 'stockai_optpop_v2';
+        // localStorage 캐시 (10분 TTL) — v3 갱신 (TOP 15 확장)
+        const CK = 'stockai_optpop_v3';
         try {
             const cached = JSON.parse(localStorage.getItem(CK) || 'null');
             if (cached && Date.now() - cached.ts < 10 * 60 * 1000) {
@@ -14473,13 +14473,13 @@
 
         // ── 클라이언트 사이드 폴백: 기존 엔드포인트로 집계 ──
         try {
-            const sr = await fetch('/api/screener/most_actives?count=20');
+            const sr = await fetch('/api/screener/most_actives?count=40');
             if (!sr.ok) throw new Error('screener ' + sr.status);
             const sj = await sr.json();
             const symbols = (sj?.finance?.result?.[0]?.quotes || [])
                 .map(q => q.symbol)
                 .filter(s => s && /^[A-Z][A-Z0-9.\-]{0,9}$/.test(s))
-                .slice(0, 15);
+                .slice(0, 30);
 
             // 병렬 옵션 fetch (15개)
             const optPromises = symbols.map(async (sym) => {
@@ -14508,13 +14508,13 @@
             });
 
             const results = (await Promise.all(optPromises)).filter(Boolean);
-            // 콜/풋 각각의 절대 거래량 기준 TOP 8 (우세 비교 없이)
+            // 콜/풋 각각의 절대 거래량 기준 TOP 15 (우세 비교 없이)
             const topCalls = results
                 .filter(r => r.callVol > 500)
-                .sort((a, b) => b.callVol - a.callVol).slice(0, 8);
+                .sort((a, b) => b.callVol - a.callVol).slice(0, 15);
             const topPuts = results
                 .filter(r => r.putVol > 500)
-                .sort((a, b) => b.putVol - a.putVol).slice(0, 8);
+                .sort((a, b) => b.putVol - a.putVol).slice(0, 15);
 
             if (!topCalls.length && !topPuts.length) {
                 el.innerHTML = '<div class="top100-loading" style="padding:24px;text-align:center;color:var(--text3);font-size:13px;">옵션 거래 데이터를 가져오지 못했습니다.</div>';

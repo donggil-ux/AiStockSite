@@ -498,15 +498,15 @@ app.get('/api/options-popular', async (req, res) => {
 
         const results = (await Promise.all(optionPromises)).filter(Boolean);
 
-        // 3) 콜/풋 각각의 절대 거래량 기준 TOP 8
+        // 3) 콜/풋 각각의 절대 거래량 기준 TOP 15
         const topCalls = results
             .filter(r => r.callVol > 1000)
             .sort((a, b) => b.callVol - a.callVol)
-            .slice(0, 8);
+            .slice(0, 15);
         const topPuts = results
             .filter(r => r.putVol > 1000)
             .sort((a, b) => b.putVol - a.putVol)
-            .slice(0, 8);
+            .slice(0, 15);
 
         const payload = { topCalls, topPuts, ts: Date.now() };
         _optPopCache.data = payload;
