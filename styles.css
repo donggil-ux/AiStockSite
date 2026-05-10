@@ -400,7 +400,7 @@
         }
         /* fav-rank 붙임 / logo 약간 띄움 / info와 logo 사이 14px / 가격·거래대금 */
         .top100-row > .tlogo-wrap{margin-left:6px;flex-shrink:0;}
-        .top100-row > .top100-info{margin-left:14px;min-width:0;overflow:hidden;}
+        .top100-row > .top100-info{margin-left:12px;min-width:0;overflow:hidden;}
         .top100-row > .top100-price-wrap{margin-left:14px;}
         .top100-row > .top100-tv-wrap{margin-left:10px;}
         .top100-row > .top100-tv-wrap{
