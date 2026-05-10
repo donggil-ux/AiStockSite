@@ -4734,32 +4734,8 @@
 /* ── ② 레이더 탭 — 세그먼트 컨트롤 (컨테이너 배경 + 활성 탭 강조) ── */
 /* legacy .radar-tab-bar 정의 — segmented control 통합 규칙으로 오버라이드됨 */
 .radar-tab-bar { margin: 12px 0 10px; }
-/* 레이더 드롭다운 — 모바일 전용 */
-.radar-tab-select {
-    display: none;
-    width: 100%;
-    margin: 12px 0 10px;
-    padding: 12px 14px;
-    background: var(--bg2);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    font-size: 14px;
-    font-weight: 600;
-    font-family: inherit;
-    letter-spacing: -0.01em;
-    cursor: pointer;
-    -webkit-appearance: none;
-    appearance: none;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
-    background-repeat: no-repeat;
-    background-position: right 14px center;
-    padding-right: 38px;
-}
-@media (max-width: 768px) {
-    .radar-tab-bar { display: none !important; }
-    .radar-tab-select { display: block; }
-}
+/* 레이더 드롭다운 제거 — 세그먼트 컨트롤만 사용 */
+.radar-tab-select { display: none !important; }
 [data-theme="light"] .radar-tab-bar {
     background: #f1f3f5;
 }
