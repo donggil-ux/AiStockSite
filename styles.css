@@ -300,7 +300,7 @@
             flex:0 0 auto;
             padding:3px 14px;height:28px;
             border:none;background:transparent;
-            color:#3C3C43;
+            color:#3C3C43!important;
             border-radius:20px;
             cursor:pointer;
             font-family:-apple-system,'SF Pro Text',inherit;
@@ -310,9 +310,15 @@
             transition:background .15s,font-weight .15s;
             -webkit-tap-highlight-color:transparent;
         }
+        .top100-filter:hover:not(.active),
+        .dp-chip:hover:not(.active),
+        .radar-tab:hover:not(.active){color:#3C3C43!important;}
         [data-theme="light"] .top100-filter,
         [data-theme="light"] .dp-chip,
-        [data-theme="light"] .radar-tab{color:#3C3C43;}
+        [data-theme="light"] .radar-tab{color:#3C3C43!important;}
+        [data-theme="dark"] .top100-filter:not(.active),
+        [data-theme="dark"] .dp-chip:not(.active),
+        [data-theme="dark"] .radar-tab:not(.active){color:rgba(235,235,245,0.6)!important;} /* 다크에서는 가독성 위해 */
 
         .top100-filter.active,
         .dp-chip.active,
