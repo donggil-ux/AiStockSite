@@ -4774,7 +4774,7 @@
 .sniper-item .sniper-price-wrap{ flex-direction:column; }
 .sniper-item .sniper-price{ font-size:13px; }
 .sniper-item .sniper-chg{ font-size:11.5px; }
-.sniper-item .sniper-fund{ font-size:11px; text-align:right; }
+.sniper-item .sniper-fund{ display:none; } /* PER · PBR 숨김 */
 .sniper-item:hover { background: var(--bg3); }
 
 /* Logo cell — tlogo-wrap 재활용, 플래그 overflow 허용 */
