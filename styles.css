@@ -452,7 +452,7 @@
         .top100-row > *{min-width:0;}
         .top100-row:last-child{border-bottom:none;}
         .top100-row:hover{background:var(--bg3);transform:none;}
-        .top100-row-head{background:transparent;padding:6px 12px;cursor:default;font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.3px;border-bottom:none;grid-template-columns:28px 24px 40px minmax(120px,1fr) 90px;grid-template-areas:"fav rank logo info pricewrap";}
+        .top100-row-head{background:transparent;padding:6px 12px;cursor:default;font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.3px;border-bottom:none;grid-template-columns:24px 28px 44px minmax(100px,1fr) auto auto;grid-template-areas:"fav rank logo info price tv";}
         .top100-row-head:hover{background:transparent;}
         .top100-rank{font-size:15px;font-weight:500;color:rgba(0,12,30,0.8);text-align:center;font-variant-numeric:tabular-nums;letter-spacing:-0.01em;line-height:22px;}
         [data-theme="dark"] .top100-rank{color:var(--text2)!important;}
@@ -956,40 +956,34 @@
             .welcome-top{padding:60px 20px 36px;}
             .top100-section{padding:0;}
             .top100-row, .top100-row-head{
-                grid-template-columns:24px 20px 40px minmax(0,1fr) 80px;
-                grid-template-areas:"fav rank logo info pricewrap";
-                padding:10px 8px;
-                gap:4px 8px;
+                grid-template-columns:22px 22px 40px minmax(0,1fr) auto auto;
+                grid-template-areas:"fav rank logo info price tv";
+                padding:8px 4px;
+                gap:0 8px;
                 align-items:center;
+                min-height:76px;
             }
-            .top100-row > .top100-fav{grid-area:fav;}
-            .top100-row > .top100-rank{grid-area:rank;}
-            .top100-row > .tlogo-wrap{grid-area:logo;}
-            .top100-row > .top100-info{grid-area:info;}
-            .top100-row > .top100-price-wrap{grid-area:pricewrap;}
             .top100-vol{display:none;}
-            .tlogo-wrap, .tlogo, .tlogo-fb{width:40px;height:40px;}
-            .top100-price{font-size:13px;}
-            .top100-change{font-size:12px;}
+            .top100-row > .tlogo-wrap, .top100-row > .tlogo-wrap .tlogo, .top100-row > .tlogo-wrap .tlogo-fb{width:40px;height:40px;}
+            .top100-ticker-sym{font-size:15px;}
+            .top100-reason{font-size:12px;}
+            .top100-price{font-size:14px;}
+            .top100-change{font-size:13px;}
+            .top100-tv{font-size:13px;}
+            .top100-tv-label{font-size:10px;}
         }
         @media(min-width:900px){
             .top100-section{padding:0;}
-            /* 토스증권 스타일 — 고정 컬럼 폭으로 모든 행 정렬 일관화 */
             .top100-row, .top100-row-head{
-                grid-template-columns:32px 28px 44px minmax(0,1fr) 100px;
-                grid-template-areas:"fav rank logo info pricewrap";
-                padding:14px 0;gap:20px;
+                grid-template-columns:32px 28px 44px minmax(0,1fr) auto auto;
+                grid-template-areas:"fav rank logo info price tv";
+                padding:14px 0;
+                column-gap:20px;
                 align-items:center;
+                min-height:84px;
             }
-            .top100-row > .top100-fav{grid-area:fav;}
-            .top100-row > .top100-rank{grid-area:rank;}
-            .top100-row > .tlogo-wrap{grid-area:logo;}
-            .top100-row > .top100-info{grid-area:info;max-width:none;}
-            .top100-row > .top100-price-wrap{grid-area:pricewrap;}
-            .tlogo-wrap, .tlogo, .tlogo-fb{width:44px;height:44px;}
+            .top100-row > .top100-info{max-width:none;}
             .tlogo-fb{font-size:14px;}
-            .top100-ticker-sym{font-size:15px;}
-            .top100-reason{font-size:12px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
         }
 
         /* ===== MAIN CONTENT ===== */
