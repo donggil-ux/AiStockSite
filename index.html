@@ -318,6 +318,21 @@
             </div>
         </div>
 
+        <!-- 인기 옵션 종목 (콜/풋) -->
+        <section class="home-section" id="optionsPopularSection">
+            <div class="home-section-header">
+                <div class="home-section-title">🔥 옵션 인기 종목</div>
+                <div class="home-section-sub">콜·풋 거래량 기준 상위 종목</div>
+            </div>
+            <div class="opt-pop-tabs">
+                <button class="opt-pop-tab active" data-tab="call" onclick="_optPopSwitch('call')">📞 콜 옵션</button>
+                <button class="opt-pop-tab" data-tab="put" onclick="_optPopSwitch('put')">📉 풋 옵션</button>
+            </div>
+            <div id="optionsPopularList" class="opt-pop-list">
+                <div class="top100-loading">데이터를 불러오는 중...</div>
+            </div>
+        </section>
+
         <!-- 폴리마켓 예측 -->
         <section class="home-section" id="polymarketHomeSection" style="display:none;">
             <div class="home-section-header">
@@ -3222,6 +3237,7 @@
     loadGuruHome();
     loadDpHome();
     loadEarnHome();
+    loadOptionsPopular();
     loadPolymarketHome();
 
     // ────────────────────────────────────────────────────────────
@@ -14364,6 +14380,84 @@
     }
 
     // ========================================
+    // 옵션 인기 종목
+    // ========================================
+    let _optPopData = null;
+    let _optPopTab = 'call';
+
+    async function loadOptionsPopular() {
+        const sec = document.getElementById('optionsPopularSection');
+        const el = document.getElementById('optionsPopularList');
+        if (!sec || !el) return;
+        try {
+            const r = await fetch('/api/options-popular');
+            if (!r.ok) throw new Error('http ' + r.status);
+            const data = await r.json();
+            if (!data.topCalls?.length && !data.topPuts?.length) {
+                sec.style.display = 'none';
+                return;
+            }
+            _optPopData = data;
+            sec.style.display = '';
+            _renderOptionsPopular();
+        } catch (e) {
+            console.warn('[opt-popular]', e.message);
+            sec.style.display = 'none';
+        }
+    }
+
+    function _optPopSwitch(tab) {
+        _optPopTab = tab;
+        document.querySelectorAll('.opt-pop-tab').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tab);
+        });
+        _renderOptionsPopular();
+    }
+
+    function _renderOptionsPopular() {
+        const el = document.getElementById('optionsPopularList');
+        if (!el || !_optPopData) return;
+        const list = _optPopTab === 'call' ? _optPopData.topCalls : _optPopData.topPuts;
+        if (!list?.length) {
+            el.innerHTML = `<div class="top100-loading" style="padding:20px;text-align:center;color:var(--text3);">${_optPopTab === 'call' ? '콜' : '풋'} 우세 종목이 없습니다.</div>`;
+            return;
+        }
+        const isCall = _optPopTab === 'call';
+        el.innerHTML = list.map((r, i) => {
+            const sym = String(r.symbol || '').replace(/[<>"']/g, '');
+            const name = String(r.name || sym).replace(/[<>"']/g, '');
+            const price = r.price ? `$${Number(r.price).toFixed(2)}` : '-';
+            const chg = r.change != null ? Number(r.change).toFixed(2) : '0';
+            const chgClass = (r.change || 0) >= 0 ? 'up' : 'down';
+            const chgSign = (r.change || 0) >= 0 ? '+' : '';
+            const vol = isCall ? r.callVol : r.putVol;
+            const oppVol = isCall ? r.putVol : r.callVol;
+            const dominance = vol > 0 ? Math.round((vol / (vol + oppVol)) * 100) : 0;
+            const strike = isCall ? r.topCallStrike : r.topPutStrike;
+            const fmtVol = (n) => n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'K' : String(n);
+            return `<div class="opt-pop-row" onclick="quickSearch('${sym}','US')">
+                <span class="opt-pop-rank">${i + 1}</span>
+                <div class="tlogo-wrap">
+                    <img class="tlogo" src="https://assets.parqet.com/logos/symbol/${sym}?format=png" alt="" loading="lazy" onerror="this.outerHTML='<span class=\\'tlogo tlogo-fb\\'>${sym[0] || '?'}</span>'">
+                    <span class="tlogo-flag">🇺🇸</span>
+                </div>
+                <div class="opt-pop-info">
+                    <div class="opt-pop-sym">${sym}</div>
+                    <div class="opt-pop-name">${name}</div>
+                </div>
+                <div class="opt-pop-meta">
+                    <div class="opt-pop-vol ${isCall ? 'call' : 'put'}">${fmtVol(vol)} ${isCall ? '콜' : '풋'}</div>
+                    <div class="opt-pop-dom">${dominance}% 우세${strike ? ` · $${strike}` : ''}</div>
+                </div>
+                <div class="opt-pop-price">
+                    <div class="opt-pop-px">${price}</div>
+                    <div class="opt-pop-chg ${chgClass}">${chgSign}${chg}%</div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // ========================================
     // ========================================
     // 폴리마켓 예측
     // ========================================
@@ -17228,6 +17322,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         openMobilePreview, closeMobilePreview,
         _sideNavSearchKey, _sideNavSearchInput,
         _renderRecentSearchStrip, _clickRecentChip, _deleteRecentSearch, _clearAllRecentSearches,
+        loadOptionsPopular, _optPopSwitch, _renderOptionsPopular,
     });
 
     // ── 사이드 내비 아이콘: 모든 아이콘 -fill 고정 (active 여부 무관) ──

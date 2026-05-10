@@ -438,6 +438,87 @@ app.get('/api/options/:symbol', async (req, res) => {
 });
 
 /**
+ * 인기 옵션 종목 (Call/Put 거래량 기준)
+ * GET /api/options-popular
+ * 응답: { topCalls: [...], topPuts: [...] }
+ * 거래량 상위 종목들의 1차 만기 옵션을 종합하여 콜/풋 활성도 순위 산출
+ */
+const _optPopCache = { data: null, ts: 0 };
+const OPT_POP_TTL = 5 * 60 * 1000; // 5분 캐시
+
+app.get('/api/options-popular', async (req, res) => {
+    try {
+        // 캐시 사용
+        if (_optPopCache.data && Date.now() - _optPopCache.ts < OPT_POP_TTL) {
+            return res.json(_optPopCache.data);
+        }
+
+        // 1) 거래량 TOP 30 종목 가져오기
+        const screenerUrl = `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&lang=en-US&region=US&scrIds=most_actives&count=30`;
+        const scrData = await yfRequest(screenerUrl);
+        const symbols = (scrData?.finance?.result?.[0]?.quotes || [])
+            .map(q => q.symbol)
+            .filter(s => s && /^[A-Z][A-Z0-9.\-]{0,9}$/.test(s))
+            .slice(0, 25);
+
+        // 2) 각 종목의 옵션 체인 병렬 fetch
+        const optionPromises = symbols.map(async (sym) => {
+            try {
+                const url = `https://query2.finance.yahoo.com/v7/finance/options/${encodeURIComponent(sym)}`;
+                const data = await yfRequest(url);
+                const result = data?.optionChain?.result?.[0];
+                if (!result?.options?.[0]) return null;
+                const meta = result.quote || {};
+                const opts = result.options[0];
+                const price = meta.regularMarketPrice || 0;
+                const change = meta.regularMarketChangePercent || 0;
+                const name = meta.longName || meta.shortName || sym;
+
+                // 콜/풋 거래량 합산
+                const callVol = (opts.calls || []).reduce((s, o) => s + (Number(o.volume) || 0), 0);
+                const putVol = (opts.puts || []).reduce((s, o) => s + (Number(o.volume) || 0), 0);
+                const callOI = (opts.calls || []).reduce((s, o) => s + (Number(o.openInterest) || 0), 0);
+                const putOI = (opts.puts || []).reduce((s, o) => s + (Number(o.openInterest) || 0), 0);
+
+                // 가장 거래량 높은 콜/풋 (ATM 근처)
+                const topCall = (opts.calls || []).slice().sort((a, b) => (b.volume || 0) - (a.volume || 0))[0];
+                const topPut = (opts.puts || []).slice().sort((a, b) => (b.volume || 0) - (a.volume || 0))[0];
+
+                return {
+                    symbol: sym, name, price, change,
+                    callVol, putVol, callOI, putOI,
+                    pcRatio: callVol > 0 ? (putVol / callVol) : null,
+                    topCallStrike: topCall?.strike || null,
+                    topPutStrike: topPut?.strike || null,
+                };
+            } catch (e) {
+                return null;
+            }
+        });
+
+        const results = (await Promise.all(optionPromises)).filter(Boolean);
+
+        // 3) 콜 우세 / 풋 우세 분류
+        const topCalls = results
+            .filter(r => r.callVol > r.putVol && r.callVol > 1000)
+            .sort((a, b) => b.callVol - a.callVol)
+            .slice(0, 8);
+        const topPuts = results
+            .filter(r => r.putVol > r.callVol && r.putVol > 1000)
+            .sort((a, b) => b.putVol - a.putVol)
+            .slice(0, 8);
+
+        const payload = { topCalls, topPuts, ts: Date.now() };
+        _optPopCache.data = payload;
+        _optPopCache.ts = Date.now();
+        res.json(payload);
+    } catch (err) {
+        console.error('[options-popular]:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
  * 스크리너 (상승률/하락률/거래량 상위 종목)
  * GET /api/screener/:filter?count=100
  * filter: day_gainers | day_losers | most_actives
