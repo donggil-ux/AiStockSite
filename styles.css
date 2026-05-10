@@ -198,6 +198,18 @@
         }
         .header-search-icon-btn:hover{background:var(--bg3);}
         .header-search-icon-btn:active{opacity:.6;}
+        /* 헤더 알림 버튼 — 검색 아이콘과 동일 스타일 */
+        .header-bell-btn{
+            display:flex;align-items:center;justify-content:center;
+            width:38px;height:38px;flex-shrink:0;
+            background:none;border:none;cursor:pointer;
+            color:var(--text);border-radius:12px;
+            transition:background .15s,opacity .15s;
+            -webkit-tap-highlight-color:transparent;
+            position:relative;
+        }
+        .header-bell-btn:hover{background:var(--bg3);}
+        .header-bell-btn:active{opacity:.6;}
         /* ===== HEADER 시장 온도계 (탭 위 노출) ===== */
         .header-thermo{margin-top:0;margin-bottom:12px;margin-left:0;margin-right:0;}
         .thermo-ticker{margin-top:12px;padding-left:0!important;}
