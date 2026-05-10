@@ -404,7 +404,7 @@
         .top100-row > .tlogo-wrap{grid-area:logo;width:44px;height:44px;}
         .top100-row > .tlogo-wrap .tlogo,
         .top100-row > .tlogo-wrap .tlogo-fb{width:44px;height:44px;border-radius:9999px;}
-        .top100-row > .top100-info{grid-area:info;padding-left:8px;}
+        .top100-row > .top100-info{grid-area:info;padding-left:0;}
         .top100-row > .top100-price-wrap{
             grid-area:price / price / price / change;
             display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:2px;
