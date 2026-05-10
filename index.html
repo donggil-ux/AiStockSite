@@ -65,6 +65,11 @@
                     <span class="side-nav-item-text">레버리지 ETF</span>
                     <span class="side-nav-item-sub">2x · 3x</span>
                 </button>
+                <button class="side-nav-item" id="sideNavTop100Btn" onclick="goTop100();closeSideNav();">
+                    <span class="side-nav-item-icon"><i class="ri-fire-fill"></i></span>
+                    <span class="side-nav-item-text">미국주식 인기 TOP 100</span>
+                    <span class="side-nav-item-sub">실시간</span>
+                </button>
                 <button class="side-nav-item" id="sideNavDpBtn" onclick="goDailyPicks();closeSideNav();">
                     <span class="side-nav-item-icon"><i class="ri-star-fill"></i></span>
                     <span class="side-nav-item-text">데일리 픽</span>
@@ -300,23 +305,7 @@
             <div id="dpHomeGrid" class="dp-home-grid"></div>
         </section>
 
-        <!-- 미국주식 인기 TOP 100 -->
-        <div class="top100-section">
-            <div class="top100-header">
-                <div class="top100-title">미국주식 당일 인기 TOP 100</div>
-                <div class="top100-updated" id="top100Updated"></div>
-            </div>
-            <div class="top100-filters">
-                <button class="top100-filter active" data-filter="most_actives" onclick="setTop100Filter('most_actives')">거래량 TOP</button>
-                <button class="top100-filter" data-filter="day_gainers" onclick="setTop100Filter('day_gainers')">상승률 TOP</button>
-                <button class="top100-filter" data-filter="day_losers" onclick="setTop100Filter('day_losers')">하락률 TOP</button>
-                <button class="top100-filter" data-filter="penny_stocks" onclick="setTop100Filter('penny_stocks')">저가주 TOP</button>
-            </div>
-
-            <div class="top100-grid" id="top100Grid">
-                <div class="top100-loading">데이터를 불러오는 중...</div>
-            </div>
-        </div>
+        <!-- 미국주식 인기 TOP 100 (홈에서 제거 — 메뉴에서 접근) -->
 
         <!-- 인기 옵션 종목 (콜/풋) -->
         <section class="home-section" id="optionsPopularSection">
@@ -516,6 +505,25 @@
             </div>
             <div class="dp-list" id="dpSellsList"></div>
         </section>
+    </div>
+
+    <!-- ===== TOP 100 Screen (메뉴에서 접근) ===== -->
+    <div id="top100Screen" style="display:none;">
+        <div class="top100-section">
+            <div class="top100-header">
+                <div class="top100-title">미국주식 당일 인기 TOP 100</div>
+                <div class="top100-updated" id="top100Updated"></div>
+            </div>
+            <div class="top100-filters">
+                <button class="top100-filter active" data-filter="most_actives" onclick="setTop100Filter('most_actives')">거래량 TOP</button>
+                <button class="top100-filter" data-filter="day_gainers" onclick="setTop100Filter('day_gainers')">상승률 TOP</button>
+                <button class="top100-filter" data-filter="day_losers" onclick="setTop100Filter('day_losers')">하락률 TOP</button>
+                <button class="top100-filter" data-filter="penny_stocks" onclick="setTop100Filter('penny_stocks')">저가주 TOP</button>
+            </div>
+            <div class="top100-grid" id="top100Grid">
+                <div class="top100-loading">데이터를 불러오는 중...</div>
+            </div>
+        </div>
     </div>
 
     <!-- Fav Screen -->
@@ -3236,8 +3244,7 @@
     let _dpCache = null;
     let _earnHomeCache = null; // 호출 전에 선언 필요 (TDZ 방지)
 
-    // 페이지 로드 시 즉시 실행
-    loadTop100();
+    // 페이지 로드 시 즉시 실행 (TOP100은 메뉴에서만 로드)
     loadPremarketScanner();
     loadSwingRadar();
     loadRecentStocks();
@@ -3313,6 +3320,7 @@
         document.getElementById('visionScannerScreen').style.display = 'none';
         document.getElementById('economicSection').style.display = 'none';
         document.getElementById('mainContent').style.display = 'none';
+        const _t100 = document.getElementById('top100Screen'); if (_t100) _t100.style.display = 'none';
         window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded'); const _fab=document.getElementById('calcFab'); if(_fab)_fab.style.display='none';
         document.querySelectorAll('.side-nav-item').forEach(b => b.classList.remove('active'));
@@ -3331,9 +3339,7 @@
         stockData = null;
         stopLiveUpdate();
         stopAnalysisRefresh();
-        // 홈 이동 시 top100 캐시 만료 → 강제 재fetch (수치 데이터 미렌더링 방지)
-        TOP100_FILTERS.forEach(f => { if (top100Cache[f]) top100Cache[f].ts = 0; });
-        loadTop100();
+        // top100은 메뉴에서만 로드 (홈에서 제거)
         loadRecentStocks();
         loadSwingRadar();
         loadSocialHot();
@@ -5851,6 +5857,33 @@
     // ──────────────────────────────────────────────────────
     // 데일리 픽 — 매수 10 + 매도 10 추천 (24h 캐시)
     // ──────────────────────────────────────────────────────
+    function goTop100() {
+        window._lastScreen = 'top100';
+        document.getElementById('welcomeScreen').style.display = 'none';
+        document.getElementById('smartMoneyScreen').style.display = 'none';
+        document.getElementById('alphaScannerScreen').style.display = 'none';
+        document.getElementById('favScreen').style.display = 'none';
+        document.getElementById('visionScannerScreen').style.display = 'none';
+        const _ern = document.getElementById('earningsScreen'); if (_ern) _ern.style.display = 'none';
+        const _lev = document.getElementById('leverageScreen'); if (_lev) _lev.style.display = 'none';
+        const _dp = document.getElementById('dailyPicksScreen'); if (_dp) _dp.style.display = 'none';
+        const ecoEl = document.getElementById('economicSection');
+        if (ecoEl) ecoEl.style.display = 'none';
+        const thermoEl = document.getElementById('marketThermometer');
+        if (thermoEl) thermoEl.style.display = 'none';
+        const qnavEl = document.getElementById('headerQNav');
+        if (qnavEl) qnavEl.style.display = 'none';
+        document.getElementById('top100Screen').style.display = '';
+        window._vsActive = false;
+        document.getElementById('mainHeader')?.classList.remove('stock-loaded');
+        const _fab = document.getElementById('calcFab'); if (_fab) _fab.style.display = 'none';
+        document.getElementById('stockHero').classList.remove('show');
+        document.getElementById('tabNav').classList.remove('show');
+        // 데이터 로드
+        loadTop100();
+        try { window.scrollTo(0, 0); } catch(e){}
+    }
+
     function goDailyPicks() {
         window._lastScreen = 'dailyPicks';
         document.getElementById('welcomeScreen').style.display = 'none';
@@ -17399,7 +17432,7 @@
         loadGuruHome, goSmartMoneyAndOpenReal, guruRefresh, _guruImgErr,
         setMarket, searchStock, setChartInterval, setPeriod, _toggleIntervalDropdown,
         quickSearch, toggleFavorite, switchTab, toggleChartFullscreen,
-        favSearch, removeFavorite, setTop100Filter,
+        favSearch, removeFavorite, setTop100Filter, goTop100,
 setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         toggleTheme, showLoading, hideLoading, showToast, showSnackbar,
         loadOptionsDate, setOptionsFilter,
