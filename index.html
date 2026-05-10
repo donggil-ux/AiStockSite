@@ -14406,20 +14406,89 @@
         const sec = document.getElementById('optionsPopularSection');
         const el = document.getElementById('optionsPopularList');
         if (!sec || !el) return;
-        sec.style.display = ''; // 항상 표시
+        sec.style.display = '';
+
+        // localStorage 캐시 (10분 TTL)
+        const CK = 'stockai_optpop_v1';
         try {
-            const r = await fetch('/api/options-popular');
-            if (!r.ok) throw new Error('http ' + r.status);
-            const data = await r.json();
-            if (!data.topCalls?.length && !data.topPuts?.length) {
-                el.innerHTML = '<div class="top100-loading" style="padding:24px;text-align:center;color:var(--text3);font-size:13px;">데이터를 가져올 수 없습니다.<br>잠시 후 다시 시도해주세요.</div>';
+            const cached = JSON.parse(localStorage.getItem(CK) || 'null');
+            if (cached && Date.now() - cached.ts < 10 * 60 * 1000) {
+                _optPopData = cached;
+                _renderOptionsPopular();
                 return;
             }
+        } catch(e){}
+
+        // 새 서버 엔드포인트 우선 시도, 실패 시 클라이언트 집계
+        try {
+            const r = await fetch('/api/options-popular');
+            if (r.ok) {
+                const data = await r.json();
+                if (data.topCalls?.length || data.topPuts?.length) {
+                    _optPopData = data;
+                    try { localStorage.setItem(CK, JSON.stringify({...data, ts: Date.now()})); } catch(e){}
+                    _renderOptionsPopular();
+                    return;
+                }
+            }
+        } catch(e){}
+
+        // ── 클라이언트 사이드 폴백: 기존 엔드포인트로 집계 ──
+        try {
+            const sr = await fetch('/api/screener/most_actives?count=20');
+            if (!sr.ok) throw new Error('screener ' + sr.status);
+            const sj = await sr.json();
+            const symbols = (sj?.finance?.result?.[0]?.quotes || [])
+                .map(q => q.symbol)
+                .filter(s => s && /^[A-Z][A-Z0-9.\-]{0,9}$/.test(s))
+                .slice(0, 15);
+
+            // 병렬 옵션 fetch (15개)
+            const optPromises = symbols.map(async (sym) => {
+                try {
+                    const or = await fetch(`/api/options/${encodeURIComponent(sym)}`);
+                    if (!or.ok) return null;
+                    const od = await or.json();
+                    const result = od?.optionChain?.result?.[0];
+                    if (!result?.options?.[0]) return null;
+                    const meta = result.quote || {};
+                    const opts = result.options[0];
+                    const callVol = (opts.calls || []).reduce((s, o) => s + (Number(o.volume) || 0), 0);
+                    const putVol = (opts.puts || []).reduce((s, o) => s + (Number(o.volume) || 0), 0);
+                    const topCall = (opts.calls || []).slice().sort((a, b) => (b.volume || 0) - (a.volume || 0))[0];
+                    const topPut = (opts.puts || []).slice().sort((a, b) => (b.volume || 0) - (a.volume || 0))[0];
+                    return {
+                        symbol: sym,
+                        name: meta.longName || meta.shortName || sym,
+                        price: meta.regularMarketPrice || 0,
+                        change: meta.regularMarketChangePercent || 0,
+                        callVol, putVol,
+                        topCallStrike: topCall?.strike || null,
+                        topPutStrike: topPut?.strike || null,
+                    };
+                } catch(e) { return null; }
+            });
+
+            const results = (await Promise.all(optPromises)).filter(Boolean);
+            const topCalls = results
+                .filter(r => r.callVol > r.putVol && r.callVol > 500)
+                .sort((a, b) => b.callVol - a.callVol).slice(0, 8);
+            const topPuts = results
+                .filter(r => r.putVol > r.callVol && r.putVol > 500)
+                .sort((a, b) => b.putVol - a.putVol).slice(0, 8);
+
+            if (!topCalls.length && !topPuts.length) {
+                el.innerHTML = '<div class="top100-loading" style="padding:24px;text-align:center;color:var(--text3);font-size:13px;">옵션 거래 데이터를 가져오지 못했습니다.</div>';
+                return;
+            }
+
+            const data = { topCalls, topPuts, ts: Date.now() };
             _optPopData = data;
+            try { localStorage.setItem(CK, JSON.stringify(data)); } catch(e){}
             _renderOptionsPopular();
         } catch (e) {
-            console.warn('[opt-popular]', e.message);
-            el.innerHTML = `<div class="top100-loading" style="padding:24px;text-align:center;color:var(--text3);font-size:13px;">옵션 데이터 로딩 실패<br><span style="font-size:11px;opacity:0.7;">서버가 재시작되었는지 확인해주세요</span></div>`;
+            console.warn('[opt-popular fallback]', e.message);
+            el.innerHTML = `<div class="top100-loading" style="padding:24px;text-align:center;color:var(--text3);font-size:13px;">옵션 데이터를 불러올 수 없습니다.<br><span style="font-size:11px;opacity:0.7;">잠시 후 다시 시도해주세요</span></div>`;
         }
     }
 
