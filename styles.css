@@ -383,8 +383,8 @@
         /* TOSS Invest 스펙 — 84px 행, Noto Sans KR */
         .top100-row{
             display:grid;
-            grid-template-columns:24px 28px 44px minmax(110px,1fr) auto auto;
-            grid-template-areas:"fav rank logo info price change";
+            grid-template-columns:24px 28px 44px minmax(100px,1fr) auto auto;
+            grid-template-areas:"fav rank logo info price tv";
             align-items:center;
             min-height:84px;
             padding:8px 2px;
@@ -398,6 +398,30 @@
             min-width:0;
             font-family:'Noto Sans KR',-apple-system,inherit;
         }
+        .top100-row > .top100-tv-wrap{
+            grid-area:tv;
+            display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:2px;
+            min-width:80px;height:44px;
+            padding-left:8px;
+        }
+        .top100-tv-label{
+            font-size:11px;color:#9CA3AF;
+            font-weight:400;line-height:14px;
+            white-space:nowrap;
+        }
+        .top100-tv{
+            font-size:14px;font-weight:500;
+            color:#333D4B;
+            line-height:18px;letter-spacing:-0.01em;
+            font-variant-numeric:tabular-nums;
+            white-space:nowrap;
+        }
+        [data-theme="dark"] .top100-tv{color:var(--text2)!important;}
+        @media(max-width:480px){
+            .top100-row > .top100-tv-wrap{min-width:70px;padding-left:4px;}
+            .top100-tv{font-size:13px;}
+            .top100-tv-label{font-size:10px;}
+        }
         [data-theme="dark"] .top100-row{border-bottom:1px solid rgba(255,255,255,0.06);}
         .top100-row > .top100-fav{grid-area:fav;}
         .top100-row > .top100-rank{grid-area:rank;}
@@ -406,7 +430,7 @@
         .top100-row > .tlogo-wrap .tlogo-fb{width:44px;height:44px;border-radius:9999px;}
         .top100-row > .top100-info{grid-area:info;padding-left:0;}
         .top100-row > .top100-price-wrap{
-            grid-area:price / price / price / change;
+            grid-area:price;
             display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:2px;
             min-width:0;height:44px;
         }
