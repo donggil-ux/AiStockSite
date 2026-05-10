@@ -5002,14 +5002,7 @@
 .dp-cat-label.dp-cat-undervalued{background:rgba(0,168,130,.12);   color:#00A882;}
 .dp-cat-label.dp-cat-growth     {background:rgba(59,130,246,.12);  color:var(--blue);}
 .dp-cat-label.dp-cat-overbought {background:rgba(245,158,11,.12);  color:#D97706;}
-.dp-chip.dp-cat-oversold,
-.dp-chip.dp-cat-undervalued,
-.dp-chip.dp-cat-growth,
-.dp-chip.dp-cat-overbought{background:transparent;color:var(--text2);}
-.dp-chip.dp-cat-oversold.active,
-.dp-chip.dp-cat-undervalued.active,
-.dp-chip.dp-cat-growth.active,
-.dp-chip.dp-cat-overbought.active{color:var(--text);}
+/* legacy dp-cat 색상 룰 제거 — 통합 segmented control 컬러 사용 */
 .dp-hc-overbought  {}
 .dp-cat-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
 
@@ -5278,8 +5271,7 @@
    Daily Picks — 반등 스캐너 탭 (Home bounce scanner chip/card)
    ═══════════════════════════════════════════════════════════════ */
 /* chip tab */
-.dp-chip.dp-cat-bounce{background:transparent;color:var(--text2);}
-.dp-chip.dp-cat-bounce.active{color:var(--text);}
+/* legacy dp-cat-bounce 색상 룰 제거 — 통합 segmented control 컬러 사용 */
 
 /* filter bar inside bounce panel */
 .dp-bounce-bar{display:flex;align-items:center;gap:8px;padding:6px 0 10px;}
