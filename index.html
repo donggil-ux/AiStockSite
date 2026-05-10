@@ -8899,15 +8899,17 @@
         const change = price - prevClose;
         const changePercent = prevClose ? (change / prevClose * 100) : 0;
 
+        // 상단(stock-name): 티커 + 거래소 / 하단(stock-code): 회사 풀네임
         let name = meta.symbol;
         if (currentMarket === 'KR') {
             const code = currentSymbol;
-            name = meta.longName || meta.shortName || KR_STOCK_NAMES[code] || meta.symbol.replace('.KS','').replace('.KQ','');
-            document.getElementById('stockCode').textContent = `${code} · ${meta.exchangeName || 'KRX'}`;
+            name = `${code} · ${meta.exchangeName || 'KRX'}`;
+            const fullName = meta.longName || meta.shortName || KR_STOCK_NAMES[code] || code;
+            document.getElementById('stockCode').textContent = fullName;
         } else {
-            // 풀네임 우선 (longName > shortName > symbol)
-            name = meta.longName || meta.shortName || meta.symbol;
-            document.getElementById('stockCode').textContent = `${meta.symbol} · ${meta.exchangeName || 'US'}`;
+            name = `${meta.symbol} · ${meta.exchangeName || 'US'}`;
+            const fullName = meta.longName || meta.shortName || meta.symbol;
+            document.getElementById('stockCode').textContent = fullName;
         }
 
         document.getElementById('stockName').textContent = name;
