@@ -80,11 +80,11 @@
             border-right:none;
             z-index:1300;
             display:flex;flex-direction:column;
-            transform:translateY(100%);
+            transform:translateX(100%);
             transition:transform .32s cubic-bezier(.4,0,.2,1);
             overflow:hidden;
         }
-        .side-nav.open{transform:translateY(0);}
+        .side-nav.open{transform:translateX(0);}
         /* 백드롭 불필요 (풀스크린) */
         .side-nav-backdrop{display:none!important;}
         .side-nav-header{
