@@ -98,7 +98,8 @@
             </button>
             <div class="logo" id="headerLogo" onclick="goHome()" style="cursor:pointer;">Stock<span>AI</span></div>
             <span class="mob-stock-name" id="mobStockName"></span>
-            <div class="search-wrap" id="searchWrap">
+            <!-- 숨김 처리된 기존 검색 input (JS searchStock() 호환용) -->
+            <div class="search-wrap" id="searchWrap" style="display:none;position:absolute;left:-9999px;">
                 <div class="search-box">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
                     <input type="text" id="searchInput"
@@ -109,6 +110,10 @@
                 <button class="search-btn" onclick="searchStock()">검색</button>
                 <div class="search-dropdown" id="searchDropdown" role="listbox"></div>
             </div>
+            <!-- 헤더 검색 아이콘 버튼 -->
+            <button class="header-search-icon-btn" onclick="goSearch()" title="검색" aria-label="검색">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            </button>
 <button class="hamburger-btn" id="pushBellBtn" onclick="_togglePushBell()" title="알림 설정" style="font-size:16px;display:none;">🔔</button>
             <button class="hamburger-btn" onclick="toggleSideNav()" title="메뉴">&#9776;</button>
         </div>
