@@ -1289,21 +1289,18 @@
     // Side Navigation
     // ========================================
     function toggleSideNav() {
-        if (window.innerWidth >= 1024) {
-            // 데스크탑: collapse 토글 방식 사용 (CSS transform 기반)
-            collapseNavDesktop();
-        } else {
-            document.getElementById('sideNav').classList.toggle('open');
-            document.getElementById('sideNavBackdrop').classList.toggle('show');
-        }
+        const nav = document.getElementById('sideNav');
+        nav.classList.toggle('open');
+        // 열릴 때 body 스크롤 잠금
+        document.body.style.overflow = nav.classList.contains('open') ? 'hidden' : '';
     }
     function openSideNav() {
         document.getElementById('sideNav').classList.add('open');
-        document.getElementById('sideNavBackdrop').classList.add('show');
+        document.body.style.overflow = 'hidden';
     }
     function closeSideNav() {
         document.getElementById('sideNav').classList.remove('open');
-        document.getElementById('sideNavBackdrop').classList.remove('show');
+        document.body.style.overflow = '';
     }
     // 모바일에서는 기본으로 nav 닫혀있음 (사용자가 햄버거 클릭 시에만 열림)
     function collapseNavDesktop() {
