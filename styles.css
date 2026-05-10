@@ -2704,7 +2704,7 @@
 
         /* ---- 4-C: 사이드 네비 Revolut 정리 ---- */
         .side-nav{background:var(--bg)!important;border-right:none!important;}
-        .side-nav-title{font-weight:500!important;letter-spacing:-0.015em!important;color:var(--text2)!important;font-size:12px!important;text-transform:uppercase;}
+        .side-nav-title{font-weight:700!important;letter-spacing:-0.02em!important;color:var(--text)!important;font-size:20px!important;text-transform:none;}
         .side-nav-item{color:var(--text2)!important;transition:background .15s,color .15s!important;}
         .side-nav-item:hover{background:var(--bg3)!important;color:var(--text)!important;}
         .side-nav-item.active{background:var(--text)!important;color:var(--bg)!important;}
