@@ -368,9 +368,32 @@
 
         /* ===== HOME SECTIONS ===== */
         .home-section{margin-bottom:12px;padding:0;}
-        .home-section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:0;flex-wrap:wrap;gap:6px;}
-        .home-section-title{font-size:15px;font-weight:700;letter-spacing:-0.012em;display:flex;align-items:center;gap:6px;}
-        .home-section-sub{font-size:11px;color:var(--text3);}
+        /* 타이틀+서브 좌측 묶음, 더보기 버튼 우측 세로 가운데 */
+        .home-section-header{
+            display:grid;
+            grid-template-columns:1fr auto;
+            grid-template-rows:auto auto;
+            grid-template-areas:
+                "title  more"
+                "sub    more";
+            align-items:center;
+            margin-bottom:0;
+            column-gap:12px;
+            row-gap:2px;
+        }
+        .home-section-title{
+            grid-area:title;
+            font-size:15px;font-weight:700;letter-spacing:-0.012em;
+            display:flex;align-items:center;gap:6px;
+            align-self:end;
+        }
+        .home-section-sub{
+            grid-area:sub;
+            font-size:12px;color:var(--text3);
+            align-self:start;
+        }
+        /* 서브가 없을 때도 타이틀 vertically center */
+        .home-section-header:not(:has(.home-section-sub)) .home-section-title{align-self:center;}
         /* 섹션 타이틀 옆 칩(.hs-badge) — 디자인 정리 차원에서 일괄 비노출 */
         .hs-badge{display:none;}
         .hs-label{font-size:13px;font-weight:700;color:var(--text2);margin-bottom:8px;}
@@ -2132,7 +2155,7 @@
         .guru-home-card:last-child{border-bottom:none;}
         .guru-home-card:hover{opacity:.8;}
         /* 전체 보기 버튼 — 배경 없음 */
-        .home-section-more{background:none;border:none;font-size:12px;font-weight:600;color:var(--text3);cursor:pointer;padding:2px 0;transition:color .15s;}
+        .home-section-more{grid-area:more;align-self:center;background:none;border:none;font-size:12px;font-weight:600;color:var(--text3);cursor:pointer;padding:2px 0;transition:color .15s;}
         .home-section-more:hover{color:var(--text);}
         /* Guru 홈 스켈레톤 */
         .guru-home-skel-card{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);}
@@ -4912,7 +4935,7 @@
    데일리 픽 홈 프리뷰 — 매수 3 + 매도 3 컴팩트 카드
    ================================================================== */
 /* dp/guru 섹션은 home-section 공통 패딩(20px) 상속 — 별도 override 없음 */
-.dp-home-sub{font-size:12px;color:var(--text2);margin:-6px 0 12px;}
+.dp-home-sub{font-size:12px;color:var(--text3);} /* legacy 호환 */
 .dp-home-loading{font-size:13px;color:var(--text2);padding:16px 0;text-align:center;}
 .dp-home-grid{display:flex;flex-direction:column;gap:16px;}
 
