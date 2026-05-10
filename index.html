@@ -14403,20 +14403,20 @@
         const sec = document.getElementById('optionsPopularSection');
         const el = document.getElementById('optionsPopularList');
         if (!sec || !el) return;
+        sec.style.display = ''; // 항상 표시
         try {
             const r = await fetch('/api/options-popular');
             if (!r.ok) throw new Error('http ' + r.status);
             const data = await r.json();
             if (!data.topCalls?.length && !data.topPuts?.length) {
-                sec.style.display = 'none';
+                el.innerHTML = '<div class="top100-loading" style="padding:24px;text-align:center;color:var(--text3);font-size:13px;">데이터를 가져올 수 없습니다.<br>잠시 후 다시 시도해주세요.</div>';
                 return;
             }
             _optPopData = data;
-            sec.style.display = '';
             _renderOptionsPopular();
         } catch (e) {
             console.warn('[opt-popular]', e.message);
-            sec.style.display = 'none';
+            el.innerHTML = `<div class="top100-loading" style="padding:24px;text-align:center;color:var(--text3);font-size:13px;">옵션 데이터 로딩 실패<br><span style="font-size:11px;opacity:0.7;">서버가 재시작되었는지 확인해주세요</span></div>`;
         }
     }
 
