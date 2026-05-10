@@ -14446,8 +14446,8 @@
         if (!sec || !el) return;
         sec.style.display = '';
 
-        // localStorage 캐시 (10분 TTL)
-        const CK = 'stockai_optpop_v1';
+        // localStorage 캐시 (10분 TTL) — v2로 캐시 키 갱신해 기존 1개만 나오는 캐시 무효화
+        const CK = 'stockai_optpop_v2';
         try {
             const cached = JSON.parse(localStorage.getItem(CK) || 'null');
             if (cached && Date.now() - cached.ts < 10 * 60 * 1000) {
@@ -14508,11 +14508,12 @@
             });
 
             const results = (await Promise.all(optPromises)).filter(Boolean);
+            // 콜/풋 각각의 절대 거래량 기준 TOP 8 (우세 비교 없이)
             const topCalls = results
-                .filter(r => r.callVol > r.putVol && r.callVol > 500)
+                .filter(r => r.callVol > 500)
                 .sort((a, b) => b.callVol - a.callVol).slice(0, 8);
             const topPuts = results
-                .filter(r => r.putVol > r.callVol && r.putVol > 500)
+                .filter(r => r.putVol > 500)
                 .sort((a, b) => b.putVol - a.putVol).slice(0, 8);
 
             if (!topCalls.length && !topPuts.length) {

@@ -498,13 +498,13 @@ app.get('/api/options-popular', async (req, res) => {
 
         const results = (await Promise.all(optionPromises)).filter(Boolean);
 
-        // 3) 콜 우세 / 풋 우세 분류
+        // 3) 콜/풋 각각의 절대 거래량 기준 TOP 8
         const topCalls = results
-            .filter(r => r.callVol > r.putVol && r.callVol > 1000)
+            .filter(r => r.callVol > 1000)
             .sort((a, b) => b.callVol - a.callVol)
             .slice(0, 8);
         const topPuts = results
-            .filter(r => r.putVol > r.callVol && r.putVol > 1000)
+            .filter(r => r.putVol > 1000)
             .sort((a, b) => b.putVol - a.putVol)
             .slice(0, 8);
 
