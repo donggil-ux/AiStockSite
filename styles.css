@@ -272,8 +272,8 @@
         .dp-chip-row,
         .radar-tab-bar{
             display:inline-flex;flex-direction:row;
-            justify-content:flex-start;align-items:center;
-            padding:2px;gap:0;
+            justify-content:center;align-items:center;
+            padding:2px;gap:4px;
             width:fit-content;max-width:100%;height:32px;
             background:rgba(118,118,128,0.12);
             border-radius:100px;
@@ -300,25 +300,27 @@
             flex:0 0 auto;
             padding:3px 14px;height:28px;
             border:none;background:transparent;
-            color:#3C3C43!important;
+            color:rgba(60,60,67,0.6)!important;
             border-radius:20px;
             cursor:pointer;
             font-family:-apple-system,'SF Pro Text',inherit;
-            font-size:13px;font-weight:510;
+            font-size:13.333px;font-weight:510;
+            line-height:18px;
             letter-spacing:-0.08px;
+            text-align:center;
             white-space:nowrap;text-overflow:ellipsis;overflow:hidden;
-            transition:background .15s,font-weight .15s;
+            transition:background .15s,font-weight .15s,color .15s;
             -webkit-tap-highlight-color:transparent;
         }
         .top100-filter:hover:not(.active),
         .dp-chip:hover:not(.active),
-        .radar-tab:hover:not(.active){color:#3C3C43!important;}
+        .radar-tab:hover:not(.active){color:rgba(60,60,67,0.6)!important;}
         [data-theme="light"] .top100-filter,
         [data-theme="light"] .dp-chip,
-        [data-theme="light"] .radar-tab{color:#3C3C43!important;}
+        [data-theme="light"] .radar-tab{color:rgba(60,60,67,0.6)!important;}
         [data-theme="dark"] .top100-filter:not(.active),
         [data-theme="dark"] .dp-chip:not(.active),
-        [data-theme="dark"] .radar-tab:not(.active){color:rgba(235,235,245,0.6)!important;} /* 다크에서는 가독성 위해 */
+        [data-theme="dark"] .radar-tab:not(.active){color:rgba(235,235,245,0.6)!important;}
 
         .top100-filter.active,
         .dp-chip.active,
