@@ -5297,7 +5297,7 @@
 .sniper-item.bounce-card{
     display:flex;
     flex-direction:row;
-    align-items:flex-start;
+    align-items:center;
     padding:14px 16px;
     gap:10px;
     grid-template-columns:none;
