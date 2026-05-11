@@ -144,7 +144,6 @@
             <!-- ② 레이더 탭 (데스크탑) -->
             <div class="radar-tab-bar">
                 <button class="radar-tab active" data-tab="oversold" onclick="switchRadarTab('oversold')">과매도 레이더</button>
-                <button class="radar-tab" data-tab="value" onclick="switchRadarTab('value')">저평가 가치주</button>
                 <button class="radar-tab" data-tab="swing" onclick="switchRadarTab('swing')">스윙 R/R</button>
                 <button class="radar-tab" data-tab="surge" onclick="switchRadarTab('surge')">급등 스캐너</button>
                 <button class="radar-tab" data-tab="bounce" onclick="switchRadarTab('bounce')">반등 스캐너</button>
@@ -152,7 +151,6 @@
             <!-- ②-mobile 레이더 드롭다운 -->
             <select class="radar-tab-select" id="radarTabSelect" onchange="switchRadarTab(this.value)">
                 <option value="oversold" selected>과매도 레이더</option>
-                <option value="value">저평가 가치주</option>
                 <option value="swing">스윙 R/R</option>
                 <option value="surge">급등 스캐너</option>
                 <option value="bounce">반등 스캐너</option>
