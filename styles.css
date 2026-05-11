@@ -411,6 +411,23 @@
         .alpha-time-desc{color:var(--text2);}
         .alpha-time-skip .alpha-time-desc{color:var(--text3);}
 
+        /* 급등 예상 적중률 카드 */
+        .alpha-stats-card{
+            background:var(--bg2);border:1px solid var(--border);
+            border-radius:12px;padding:14px 16px;margin-bottom:12px;
+        }
+        .alpha-stats-empty{font-size:12px;color:var(--text2);line-height:1.55;}
+        .alpha-stats-empty .alpha-stats-sub{color:var(--text3);font-size:11px;}
+        .alpha-stats-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+        .alpha-stats-label{font-size:12px;font-weight:600;color:var(--text2);}
+        .alpha-stats-rate{font-size:22px;font-weight:800;color:var(--green);font-variant-numeric:tabular-nums;letter-spacing:-0.02em;}
+        .alpha-stats-bar{height:6px;background:var(--bg3);border-radius:99px;overflow:hidden;margin-bottom:8px;}
+        .alpha-stats-bar-hit{height:100%;background:linear-gradient(90deg,var(--green),#4ade80);border-radius:99px;transition:width .4s ease;}
+        .alpha-stats-detail{display:flex;gap:10px;align-items:center;font-size:11px;flex-wrap:wrap;}
+        .alpha-stats-hit{color:var(--green);font-weight:700;}
+        .alpha-stats-miss{color:var(--red);font-weight:700;}
+        .alpha-stats-detail .alpha-stats-sub{color:var(--text3);margin-left:auto;}
+
         /* Tier 범례 */
         .alpha-tier-legend{
             display:flex;flex-wrap:wrap;gap:12px;align-items:center;

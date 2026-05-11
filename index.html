@@ -5035,6 +5035,99 @@
     //   - swing   : 스윙 진입 (R/R ≥ 1.5, 52주 고점까지 여유)
     // ═══════════════════════════════════════════════════════════
     let _alphaTab = 'surge';
+
+    // ── 급등 예상 적중률 추적 ────────────────────────────────────
+    // localStorage 에 추천 시점 가격을 저장 → 3일 뒤 현재가와 비교
+    // 적중 기준: +5% 이상 = 맞춤, -3% 이하 또는 +5% 미만 = 틀림
+    const _ALPHA_SURGE_KEY = 'alpha_surge_picks_v1';
+    const _ALPHA_SURGE_EVAL_DAYS = 3;    // 평가 시점 (recommend → +3일)
+    const _ALPHA_SURGE_HIT_THRESH = 5;   // 적중 임계 (%)
+    const _ALPHA_SURGE_MAX_AGE = 30;     // 표시 기간 (일)
+
+    function _loadAlphaSurgePicks() {
+        try { return JSON.parse(localStorage.getItem(_ALPHA_SURGE_KEY) || '[]'); }
+        catch { return []; }
+    }
+    function _saveAlphaSurgePicks(picks) {
+        try {
+            const now = Date.now();
+            const filtered = picks.filter(p => (now - p.ts) < _ALPHA_SURGE_MAX_AGE * 86400000);
+            localStorage.setItem(_ALPHA_SURGE_KEY, JSON.stringify(filtered.slice(-200)));
+        } catch(e) {}
+    }
+    // 추천된 종목 저장 (같은 심볼은 24h 이내 중복 저장 안 함)
+    function _recordAlphaSurgePicks(items) {
+        if (!Array.isArray(items) || !items.length) return;
+        const picks = _loadAlphaSurgePicks();
+        const now = Date.now();
+        const ONE_DAY = 24 * 3600 * 1000;
+        for (const it of items) {
+            const sym = it.symbol || it.ticker;
+            const price = Number(it.regularMarketPrice || it.price || it.close);
+            if (!sym || !price) continue;
+            const dup = picks.find(p => p.symbol === sym && (now - p.ts) < ONE_DAY);
+            if (dup) continue;
+            picks.push({ symbol: sym, scanPrice: price, ts: now, evaluated: false, hit: null, evalPrice: null });
+        }
+        _saveAlphaSurgePicks(picks);
+    }
+    // 평가 가능한 항목들 처리 (3일 경과 + 미평가) → /api/quote 로 현재가 조회 후 hit 마킹
+    async function _evaluateAlphaSurgePicks() {
+        const picks = _loadAlphaSurgePicks();
+        const now = Date.now();
+        const due = picks.filter(p => !p.evaluated && (now - p.ts) >= _ALPHA_SURGE_EVAL_DAYS * 86400000);
+        if (!due.length) return picks;
+        try {
+            const symbols = [...new Set(due.map(p => p.symbol))].slice(0, 50);
+            const r = await fetch('/api/quote?symbols=' + encodeURIComponent(symbols.join(',')));
+            if (!r.ok) return picks;
+            const j = await r.json();
+            const quotes = j?.quoteResponse?.result || [];
+            const priceBy = {};
+            for (const q of quotes) {
+                const p = q.regularMarketPrice;
+                if (q.symbol && p) priceBy[q.symbol] = p;
+            }
+            for (const p of due) {
+                const cur = priceBy[p.symbol];
+                if (cur == null) continue;
+                const pct = (cur - p.scanPrice) / p.scanPrice * 100;
+                p.evaluated = true;
+                p.evalPrice = cur;
+                p.evalPct = pct;
+                p.hit = pct >= _ALPHA_SURGE_HIT_THRESH;
+            }
+            _saveAlphaSurgePicks(picks);
+        } catch(e) { console.warn('[alpha surge eval]', e); }
+        return picks;
+    }
+    // 적중률 요약 카드 HTML
+    function _alphaSurgeStatsHTML(picks) {
+        const evaluated = picks.filter(p => p.evaluated);
+        if (!evaluated.length) {
+            return `<div class="alpha-stats-card alpha-stats-empty">
+                📊 <strong>적중률 추적</strong> — 추천 후 ${_ALPHA_SURGE_EVAL_DAYS}일이 지나면 +${_ALPHA_SURGE_HIT_THRESH}% 이상 상승 여부로 평가합니다.
+                <br><span class="alpha-stats-sub">아직 평가된 추천이 없습니다 (${picks.length}개 추적 중)</span>
+            </div>`;
+        }
+        const hits = evaluated.filter(p => p.hit).length;
+        const miss = evaluated.length - hits;
+        const rate = (hits / evaluated.length * 100).toFixed(0);
+        return `<div class="alpha-stats-card">
+            <div class="alpha-stats-row">
+                <span class="alpha-stats-label">최근 ${_ALPHA_SURGE_MAX_AGE}일 적중률</span>
+                <span class="alpha-stats-rate">${rate}%</span>
+            </div>
+            <div class="alpha-stats-bar">
+                <div class="alpha-stats-bar-hit" style="width:${rate}%"></div>
+            </div>
+            <div class="alpha-stats-detail">
+                <span class="alpha-stats-hit">✅ 맞춤 ${hits}</span>
+                <span class="alpha-stats-miss">❌ 틀림 ${miss}</span>
+                <span class="alpha-stats-sub">기준: +${_ALPHA_SURGE_HIT_THRESH}% / ${_ALPHA_SURGE_EVAL_DAYS}일</span>
+            </div>
+        </div>`;
+    }
     const _ALPHA_DESC = {
         surge:    '거래량이 평소보다 폭발적으로 늘면서 강한 모멘텀이 나오는 종목 — 단기 급등 가능성이 높습니다.',
         bounce:   'RSI 극저 + 장기 이동평균선 -15% 이상 이격된 종목 — 과매도 후 반등 가능성이 높습니다.',
@@ -5122,6 +5215,13 @@
                 const d = await r.json();
                 const items = (Array.isArray(d.items) ? d.items : []).slice(0, 30);
                 if (_alphaTab !== 'surge') return;
+                // 추천 종목 추적 + 기존 추천 평가 (병렬)
+                _recordAlphaSurgePicks(items);
+                _evaluateAlphaSurgePicks().then(() => {
+                    if (_alphaTab !== 'surge') return;
+                    const statsEl = document.getElementById('alphaSurgeStats');
+                    if (statsEl) statsEl.outerHTML = _alphaSurgeStatsHTML(_loadAlphaSurgePicks());
+                });
                 _alphaRender(items.map(q => ({ ...q, _alphaKind: 'surge' })), tab);
             } else if (tab === 'bounce') {
                 const r = await fetch('/api/oversold-radar?tab=oversold');
@@ -5188,9 +5288,14 @@
     function _alphaRender(items, tab) {
         const el = document.getElementById('alphaResults');
         if (!el) return;
-        const timing = _alphaTimingGuide(tab || _alphaTab);
+        const useTab = tab || _alphaTab;
+        const timing = _alphaTimingGuide(useTab);
+        // 급등 예상 탭에만 적중률 카드 + 자리 표시자
+        const surgeStats = useTab === 'surge'
+            ? `<div id="alphaSurgeStats">${_alphaSurgeStatsHTML(_loadAlphaSurgePicks())}</div>`
+            : '';
         if (!items.length) {
-            el.innerHTML = timing + '<div class="sniper-empty">현재 조건에 맞는 종목이 없습니다</div>';
+            el.innerHTML = timing + surgeStats + '<div class="sniper-empty">현재 조건에 맞는 종목이 없습니다</div>';
             return;
         }
         const tierLegend = `<div class="alpha-tier-legend">
@@ -5199,7 +5304,7 @@
             <span class="alpha-legend-item"><span class="alpha-dot alpha-dot--t3"></span>TIER 3 (1~2개)</span>
         </div>`;
         const cards = items.map((q, idx) => _alphaRenderCard(q, idx)).join('');
-        el.innerHTML = timing + tierLegend + '<div class="alpha-card-list">' + cards + '</div>';
+        el.innerHTML = timing + surgeStats + tierLegend + '<div class="alpha-card-list">' + cards + '</div>';
     }
 
     function _alphaToggleCard(cardId) {
