@@ -5859,6 +5859,7 @@
     // ──────────────────────────────────────────────────────
     function goTop100() {
         window._lastScreen = 'top100';
+        _restoreHeaderChrome();
         document.getElementById('welcomeScreen').style.display = 'none';
         document.getElementById('smartMoneyScreen').style.display = 'none';
         document.getElementById('alphaScannerScreen').style.display = 'none';
@@ -6181,42 +6182,45 @@
     }
 
     // ── 스나이퍼 아이템 HTML (top100-row 레이아웃) ──
-    // 레이더 종목 추천 이유 1줄 요약 — 룰 기반 동적 생성
+    // 레이더 종목 추천 이유 1줄 요약 — 룰 기반 동적 생성 (null-safe)
     function _buildSniperReason(item, tab) {
         const r = [];
-        const rsi = item.rsi;
-        const vol = item.volMult;
-        const chg = item.changePct || 0;
+        const rsi = (typeof item.rsi === 'number') ? item.rsi : null;
+        const vol = (typeof item.volMult === 'number') ? item.volMult : null;
+        const chg = (typeof item.changePct === 'number') ? item.changePct : 0;
+        const per = (typeof item.per === 'number') ? item.per : null;
+        const pbr = (typeof item.pbr === 'number') ? item.pbr : null;
+        const rr  = (typeof item.rr === 'number') ? item.rr : null;
+        const score = (typeof item.score === 'number') ? item.score : null;
 
         if (tab === 'oversold') {
             if (rsi != null && rsi <= 30) r.push(`RSI ${rsi} 극심한 과매도`);
             else if (rsi != null && rsi <= 35) r.push(`RSI ${rsi} 과매도 진입`);
             if (item.ma200 && item.price && item.price < item.ma200 * 0.85) r.push('200일선 -15% 이격');
             else if (item.ma200 && item.price && item.price < item.ma200) r.push('200일선 하회');
-            if (vol >= 2) r.push(`거래량 ×${vol.toFixed(1)} 급증`);
+            if (vol != null && vol >= 2) r.push(`거래량 ×${vol.toFixed(1)} 급증`);
             if (chg <= -5) r.push(`당일 ${chg.toFixed(1)}% 급락`);
         } else if (tab === 'value') {
-            if (item.per != null && item.per > 0 && item.per < 10) r.push(`PER ${item.per.toFixed(1)} 저평가`);
-            if (item.pbr != null && item.pbr < 1) r.push(`PBR ${item.pbr.toFixed(2)} 자산가치 이하`);
+            if (per != null && per > 0 && per < 10) r.push(`PER ${per.toFixed(1)} 저평가`);
+            if (pbr != null && pbr < 1) r.push(`PBR ${pbr.toFixed(2)} 자산가치 이하`);
             if (rsi != null && rsi <= 40) r.push(`RSI ${rsi} 매수권`);
         } else if (tab === 'swing') {
-            if (item.rr != null) r.push(`R/R ${item.rr.toFixed(1)}:1 우수한 손익비`);
+            if (rr != null) r.push(`R/R ${rr.toFixed(1)}:1 우수한 손익비`);
             if (rsi != null && rsi <= 40) r.push(`RSI ${rsi} 매수권`);
-            if (vol >= 1.5) r.push(`거래량 ×${vol.toFixed(1)} 증가`);
+            if (vol != null && vol >= 1.5) r.push(`거래량 ×${vol.toFixed(1)} 증가`);
         } else if (tab === 'surge') {
-            if (vol >= 3) r.push(`거래량 ×${vol.toFixed(1)} 폭발`);
-            else if (vol >= 2) r.push(`거래량 ×${vol.toFixed(1)} 급증`);
+            if (vol != null && vol >= 3) r.push(`거래량 ×${vol.toFixed(1)} 폭발`);
+            else if (vol != null && vol >= 2) r.push(`거래량 ×${vol.toFixed(1)} 급증`);
             if (chg >= 5) r.push(`당일 +${chg.toFixed(1)}% 강세`);
         } else if (tab === 'bounce') {
-            if (item.score) r.push(`반등 시그널 ${item.score}/6 충족`);
+            if (score != null) r.push(`반등 시그널 ${score}/6 충족`);
             if (rsi != null && rsi <= 32) r.push(`RSI ${rsi} 과매도`);
             if (chg <= -5) r.push(`당일 ${chg.toFixed(1)}% 급락 후 반등 가능성`);
         }
 
         if (!r.length) {
-            // 기본 fallback
             if (rsi != null) r.push(`RSI ${rsi}`);
-            if (vol >= 1.5) r.push(`거래량 ×${vol.toFixed(1)}`);
+            if (vol != null && vol >= 1.5) r.push(`거래량 ×${vol.toFixed(1)}`);
         }
         return r.length ? r.join(', ') : '주요 시그널 포착';
     }
@@ -14514,8 +14518,8 @@
                 .filter(s => s && /^[A-Z][A-Z0-9.\-]{0,9}$/.test(s))
                 .slice(0, 30);
 
-            // 병렬 옵션 fetch (15개)
-            const optPromises = symbols.map(async (sym) => {
+            // 4개씩 청크 단위 옵션 fetch (서버/네트워크 부담 완화)
+            const fetchOne = async (sym) => {
                 try {
                     const or = await fetch(`/api/options/${encodeURIComponent(sym)}`);
                     if (!or.ok) return null;
@@ -14538,9 +14542,14 @@
                         topPutStrike: topPut?.strike || null,
                     };
                 } catch(e) { return null; }
-            });
-
-            const results = (await Promise.all(optPromises)).filter(Boolean);
+            };
+            const CHUNK = 4;
+            const results = [];
+            for (let i = 0; i < symbols.length; i += CHUNK) {
+                const chunk = symbols.slice(i, i + CHUNK);
+                const settled = await Promise.allSettled(chunk.map(fetchOne));
+                settled.forEach(s => { if (s.status === 'fulfilled' && s.value) results.push(s.value); });
+            }
             // 콜/풋 각각의 절대 거래량 기준 TOP 15 (우세 비교 없이)
             const topCalls = results
                 .filter(r => r.callVol > 500)

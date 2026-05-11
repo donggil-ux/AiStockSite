@@ -443,77 +443,91 @@ app.get('/api/options/:symbol', async (req, res) => {
  * 응답: { topCalls: [...], topPuts: [...] }
  * 거래량 상위 종목들의 1차 만기 옵션을 종합하여 콜/풋 활성도 순위 산출
  */
-const _optPopCache = { data: null, ts: 0 };
-const OPT_POP_TTL = 5 * 60 * 1000; // 5분 캐시
+const _optPopCache = { data: null, ts: 0, fetching: null };
+const OPT_POP_TTL = 5 * 60 * 1000; // 5분 캐시 (장 마감 시 연장 검토 가능)
+const OPT_FETCH_TIMEOUT_MS = 8000;
+
+// AbortController + fetch with timeout (yfRequest는 일반 fetch 가정)
+function _withTimeout(promise, ms, label) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error(`timeout ${label} ${ms}ms`)), ms)),
+    ]);
+}
+
+async function _buildOptionsPopular() {
+    // 1) 거래량 TOP 30 종목
+    const screenerUrl = `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&lang=en-US&region=US&scrIds=most_actives&count=30`;
+    const scrData = await _withTimeout(yfRequest(screenerUrl), OPT_FETCH_TIMEOUT_MS, 'screener');
+    const symbols = (scrData?.finance?.result?.[0]?.quotes || [])
+        .map(q => q.symbol)
+        .filter(s => s && /^[A-Z][A-Z0-9.\-]{0,9}$/.test(s))
+        .slice(0, 25);
+
+    // 2) 각 종목 옵션 체인 — Promise.allSettled + 개별 타임아웃 (한 종목 실패가 전체 막지 않음)
+    const optionPromises = symbols.map(async (sym) => {
+        const url = `https://query2.finance.yahoo.com/v7/finance/options/${encodeURIComponent(sym)}`;
+        const data = await _withTimeout(yfRequest(url), OPT_FETCH_TIMEOUT_MS, `options ${sym}`);
+        const result = data?.optionChain?.result?.[0];
+        if (!result?.options?.[0]) return null;
+        const meta = result.quote || {};
+        const opts = result.options[0];
+        const callVol = (opts.calls || []).reduce((s, o) => s + (Number(o.volume) || 0), 0);
+        const putVol = (opts.puts || []).reduce((s, o) => s + (Number(o.volume) || 0), 0);
+        const callOI = (opts.calls || []).reduce((s, o) => s + (Number(o.openInterest) || 0), 0);
+        const putOI = (opts.puts || []).reduce((s, o) => s + (Number(o.openInterest) || 0), 0);
+        const topCall = (opts.calls || []).slice().sort((a, b) => (b.volume || 0) - (a.volume || 0))[0];
+        const topPut = (opts.puts || []).slice().sort((a, b) => (b.volume || 0) - (a.volume || 0))[0];
+        return {
+            symbol: sym,
+            name: meta.longName || meta.shortName || sym,
+            price: meta.regularMarketPrice || 0,
+            change: meta.regularMarketChangePercent || 0,
+            callVol, putVol, callOI, putOI,
+            pcRatio: callVol > 0 ? (putVol / callVol) : null,
+            topCallStrike: topCall?.strike || null,
+            topPutStrike: topPut?.strike || null,
+        };
+    });
+
+    // allSettled — 일부 실패해도 나머지 결과 사용
+    const settled = await Promise.allSettled(optionPromises);
+    const results = settled
+        .filter(s => s.status === 'fulfilled' && s.value)
+        .map(s => s.value);
+
+    const topCalls = results.filter(r => r.callVol > 1000)
+        .sort((a, b) => b.callVol - a.callVol).slice(0, 15);
+    const topPuts = results.filter(r => r.putVol > 1000)
+        .sort((a, b) => b.putVol - a.putVol).slice(0, 15);
+
+    return { topCalls, topPuts, ts: Date.now() };
+}
 
 app.get('/api/options-popular', async (req, res) => {
     try {
-        // 캐시 사용
+        // 캐시 hit
         if (_optPopCache.data && Date.now() - _optPopCache.ts < OPT_POP_TTL) {
             return res.json(_optPopCache.data);
         }
-
-        // 1) 거래량 TOP 30 종목 가져오기
-        const screenerUrl = `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&lang=en-US&region=US&scrIds=most_actives&count=30`;
-        const scrData = await yfRequest(screenerUrl);
-        const symbols = (scrData?.finance?.result?.[0]?.quotes || [])
-            .map(q => q.symbol)
-            .filter(s => s && /^[A-Z][A-Z0-9.\-]{0,9}$/.test(s))
-            .slice(0, 25);
-
-        // 2) 각 종목의 옵션 체인 병렬 fetch
-        const optionPromises = symbols.map(async (sym) => {
-            try {
-                const url = `https://query2.finance.yahoo.com/v7/finance/options/${encodeURIComponent(sym)}`;
-                const data = await yfRequest(url);
-                const result = data?.optionChain?.result?.[0];
-                if (!result?.options?.[0]) return null;
-                const meta = result.quote || {};
-                const opts = result.options[0];
-                const price = meta.regularMarketPrice || 0;
-                const change = meta.regularMarketChangePercent || 0;
-                const name = meta.longName || meta.shortName || sym;
-
-                // 콜/풋 거래량 합산
-                const callVol = (opts.calls || []).reduce((s, o) => s + (Number(o.volume) || 0), 0);
-                const putVol = (opts.puts || []).reduce((s, o) => s + (Number(o.volume) || 0), 0);
-                const callOI = (opts.calls || []).reduce((s, o) => s + (Number(o.openInterest) || 0), 0);
-                const putOI = (opts.puts || []).reduce((s, o) => s + (Number(o.openInterest) || 0), 0);
-
-                // 가장 거래량 높은 콜/풋 (ATM 근처)
-                const topCall = (opts.calls || []).slice().sort((a, b) => (b.volume || 0) - (a.volume || 0))[0];
-                const topPut = (opts.puts || []).slice().sort((a, b) => (b.volume || 0) - (a.volume || 0))[0];
-
-                return {
-                    symbol: sym, name, price, change,
-                    callVol, putVol, callOI, putOI,
-                    pcRatio: callVol > 0 ? (putVol / callVol) : null,
-                    topCallStrike: topCall?.strike || null,
-                    topPutStrike: topPut?.strike || null,
-                };
-            } catch (e) {
-                return null;
-            }
-        });
-
-        const results = (await Promise.all(optionPromises)).filter(Boolean);
-
-        // 3) 콜/풋 각각의 절대 거래량 기준 TOP 15
-        const topCalls = results
-            .filter(r => r.callVol > 1000)
-            .sort((a, b) => b.callVol - a.callVol)
-            .slice(0, 15);
-        const topPuts = results
-            .filter(r => r.putVol > 1000)
-            .sort((a, b) => b.putVol - a.putVol)
-            .slice(0, 15);
-
-        const payload = { topCalls, topPuts, ts: Date.now() };
-        _optPopCache.data = payload;
-        _optPopCache.ts = Date.now();
+        // In-flight 락 — 동시 요청 합치기 (썬더링 허드 방지)
+        if (_optPopCache.fetching) {
+            const data = await _optPopCache.fetching;
+            return res.json(data);
+        }
+        _optPopCache.fetching = _buildOptionsPopular()
+            .then(payload => {
+                _optPopCache.data = payload;
+                _optPopCache.ts = Date.now();
+                return payload;
+            })
+            .finally(() => { _optPopCache.fetching = null; });
+        const payload = await _optPopCache.fetching;
         res.json(payload);
     } catch (err) {
         console.error('[options-popular]:', err.message);
+        // 캐시된 stale 데이터라도 있으면 반환 (degrade gracefully)
+        if (_optPopCache.data) return res.json(_optPopCache.data);
         res.status(500).json({ error: err.message });
     }
 });
