@@ -4889,6 +4889,12 @@
     gap: 3px;
     align-items: flex-start;
 }
+/* 급등 스캐너: 배수 배지(x14.6) + 등락률 배지(+26.42%)를 가로 1열로 배치 */
+.sniper-badges:has(.sniper-badge--surge){
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+}
 .sniper-badge {
     display: inline-flex;
     align-items: center;
