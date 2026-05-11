@@ -1787,7 +1787,7 @@
             .tab-item{padding:5px 12px;font-size:13px;white-space:nowrap;flex-shrink:0;}
 
             /* ----- Cards ----- */
-            .card{margin:4px 0;padding:16px 0;}
+            .card{margin:4px 16px;padding:16px 0;}
             .card-title{font-size:14px;margin-bottom:12px;}
             .ai-summary,.ai-detail-text,.entry-subtitle,.entry-check-desc,.warning-box .text,.entry-strategy-label{overflow-wrap:break-word;word-break:keep-all;}
             .ai-detail-title{flex-wrap:wrap;gap:4px;}
@@ -3259,7 +3259,7 @@
             .stock-price{font-size:32px!important;letter-spacing:-0.02em!important;margin-top:8px!important;}
             .stock-name{font-size:16px!important;}
             .stock-change{font-size:13px!important;}
-            .stock-hero{padding:14px 12px 10px;}
+            .stock-hero{padding:14px 16px 10px;}
 
             /* Session badges */
             .session-badge{padding:6px 8px;gap:4px;}
