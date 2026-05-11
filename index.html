@@ -5822,6 +5822,55 @@
         { symbol: 'UTSL', name: 'Direxion Utilities Bull 3x',      leverage: 3, direction: 'bull', kind: 'sector', underlying: '유틸리티' },
         { symbol: 'JNUG', name: 'Direxion Junior Gold Miners 2x',  leverage: 2, direction: 'bull', kind: 'sector', underlying: '주니어 금광주' },
         { symbol: 'JDST', name: 'Direxion Junior Gold Miners -2x', leverage: 2, direction: 'bear', kind: 'sector', underlying: '주니어 금광주' },
+        // ── AI 인프라 / 네트워킹 ───────────────────────────────
+        { symbol: 'NETX', name: 'T-Rex 2x Long NET',               leverage: 2, direction: 'bull', kind: 'single', underlying: 'Cloudflare' },
+        { symbol: 'ALAX', name: 'Tradr 2x Long ALAB',              leverage: 2, direction: 'bull', kind: 'single', underlying: 'Astera Labs' },
+        { symbol: 'ANEL', name: 'Tradr 2x Long ANET',              leverage: 2, direction: 'bull', kind: 'single', underlying: 'Arista Networks' },
+        { symbol: 'VRTX', name: 'Tradr 2x Long VRT',               leverage: 2, direction: 'bull', kind: 'single', underlying: 'Vertiv' },
+        { symbol: 'MRVX', name: 'GraniteShares MRVL Long 2x',      leverage: 2, direction: 'bull', kind: 'single', underlying: 'Marvell' },
+        { symbol: 'MULL', name: 'GraniteShares MU Long 2x',        leverage: 2, direction: 'bull', kind: 'single', underlying: 'Micron' },
+        { symbol: 'MUSH', name: 'GraniteShares MU Short 2x',       leverage: 2, direction: 'bear', kind: 'single', underlying: 'Micron' },
+        // ── 클라우드 / SaaS ────────────────────────────────────
+        { symbol: 'ORCX', name: 'Tradr 2x Long ORCL',              leverage: 2, direction: 'bull', kind: 'single', underlying: 'Oracle' },
+        { symbol: 'CRML', name: 'GraniteShares CRM Long 2x',       leverage: 2, direction: 'bull', kind: 'single', underlying: 'Salesforce' },
+        { symbol: 'ADBL', name: 'GraniteShares ADBE Long 2x',      leverage: 2, direction: 'bull', kind: 'single', underlying: 'Adobe' },
+        { symbol: 'NOWX', name: 'Tradr 2x Long NOW',               leverage: 2, direction: 'bull', kind: 'single', underlying: 'ServiceNow' },
+        { symbol: 'SNOX', name: 'Tradr 2x Long SNOW',              leverage: 2, direction: 'bull', kind: 'single', underlying: 'Snowflake' },
+        { symbol: 'DDGX', name: 'Tradr 2x Long DDOG',              leverage: 2, direction: 'bull', kind: 'single', underlying: 'Datadog' },
+        // ── 반도체 추가 ────────────────────────────────────────
+        { symbol: 'INTX', name: 'Tradr 2x Long INTC',              leverage: 2, direction: 'bull', kind: 'single', underlying: 'Intel' },
+        { symbol: 'INTS', name: 'Tradr 2x Short INTC',             leverage: 2, direction: 'bear', kind: 'single', underlying: 'Intel' },
+        { symbol: 'QCML', name: 'GraniteShares QCOM Long 2x',      leverage: 2, direction: 'bull', kind: 'single', underlying: 'Qualcomm' },
+        { symbol: 'TXNL', name: 'Tradr 2x Long TXN',               leverage: 2, direction: 'bull', kind: 'single', underlying: 'Texas Instruments' },
+        // ── 미디어 / 컨슈머 ────────────────────────────────────
+        { symbol: 'DISL', name: 'Direxion DIS Bull 2x',            leverage: 2, direction: 'bull', kind: 'single', underlying: 'Disney' },
+        { symbol: 'COSL', name: 'GraniteShares COST Long 2x',      leverage: 2, direction: 'bull', kind: 'single', underlying: 'Costco' },
+        { symbol: 'WMTL', name: 'Tradr 2x Long WMT',               leverage: 2, direction: 'bull', kind: 'single', underlying: 'Walmart' },
+        { symbol: 'HDL',  name: 'GraniteShares HD Long 2x',        leverage: 2, direction: 'bull', kind: 'single', underlying: 'Home Depot' },
+        // ── 결제 / 금융 ────────────────────────────────────────
+        { symbol: 'VISL', name: 'GraniteShares V Long 2x',         leverage: 2, direction: 'bull', kind: 'single', underlying: 'Visa' },
+        { symbol: 'MAXL', name: 'GraniteShares MA Long 2x',        leverage: 2, direction: 'bull', kind: 'single', underlying: 'Mastercard' },
+        { symbol: 'GSL',  name: 'GraniteShares GS Long 2x',        leverage: 2, direction: 'bull', kind: 'single', underlying: 'Goldman Sachs' },
+        { symbol: 'BACX', name: 'Tradr 2x Long BAC',               leverage: 2, direction: 'bull', kind: 'single', underlying: 'Bank of America' },
+        { symbol: 'WFCL', name: 'GraniteShares WFC Long 2x',       leverage: 2, direction: 'bull', kind: 'single', underlying: 'Wells Fargo' },
+        // ── 헬스케어 / 제약 ───────────────────────────────────
+        { symbol: 'JNJL', name: 'GraniteShares JNJ Long 2x',       leverage: 2, direction: 'bull', kind: 'single', underlying: 'Johnson & Johnson' },
+        { symbol: 'PFEL', name: 'GraniteShares PFE Long 2x',       leverage: 2, direction: 'bull', kind: 'single', underlying: 'Pfizer' },
+        { symbol: 'NVOX', name: 'Tradr 2x Long NVO',               leverage: 2, direction: 'bull', kind: 'single', underlying: 'Novo Nordisk' },
+        // ── EV / 차량 ─────────────────────────────────────────
+        { symbol: 'FORD', name: 'Tradr 2x Long F',                 leverage: 2, direction: 'bull', kind: 'single', underlying: 'Ford' },
+        { symbol: 'GMGX', name: 'Tradr 2x Long GM',                leverage: 2, direction: 'bull', kind: 'single', underlying: 'General Motors' },
+        { symbol: 'XPEX', name: 'Tradr 2x Long XPEV',              leverage: 2, direction: 'bull', kind: 'single', underlying: 'XPeng' },
+        { symbol: 'LIDX', name: 'Tradr 2x Long LI',                leverage: 2, direction: 'bull', kind: 'single', underlying: 'Li Auto' },
+        // ── 항공 / 여행 ────────────────────────────────────────
+        { symbol: 'ABNL', name: 'Tradr 2x Long ABNB',              leverage: 2, direction: 'bull', kind: 'single', underlying: 'Airbnb' },
+        { symbol: 'DASX', name: 'Tradr 2x Long DASH',              leverage: 2, direction: 'bull', kind: 'single', underlying: 'DoorDash' },
+        // ── 에너지 / 정유 ─────────────────────────────────────
+        { symbol: 'XOML', name: 'GraniteShares XOM Long 2x',       leverage: 2, direction: 'bull', kind: 'single', underlying: 'ExxonMobil' },
+        { symbol: 'CVXL', name: 'GraniteShares CVX Long 2x',       leverage: 2, direction: 'bull', kind: 'single', underlying: 'Chevron' },
+        // ── 신규 IPO / 모멘텀 ─────────────────────────────────
+        { symbol: 'RDDX', name: 'Tradr 2x Long RDDT',              leverage: 2, direction: 'bull', kind: 'single', underlying: 'Reddit' },
+        { symbol: 'SMRX', name: 'Tradr 2x Long SMR',               leverage: 2, direction: 'bull', kind: 'single', underlying: 'NuScale Power' },
     ];
     let _levFilters = { leverage: 'all', direction: 'bull', kind: 'all' };
     let _levSearchQuery = '';
