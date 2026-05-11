@@ -8144,7 +8144,8 @@
         const domain = SM_FIRM_DOMAIN[inst.id];
         const emoji = fallbackEmoji || inst.emoji || inst.hotBadge || '🏛️';
         if (!domain) return `<span class="sm-firm-emoji">${emoji}</span>`;
-        const url = `https://logo.clearbit.com/${domain}`;
+        // Google favicon API — 가장 안정적, 실패 시 이모지로 폴백
+        const url = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
         const fb  = `<span class=&quot;sm-firm-emoji&quot;>${emoji}</span>`;
         return `<img src="${url}" class="sm-firm-logo" alt="" loading="lazy" onerror="this.outerHTML='${fb}'"/>`;
     }
