@@ -56,12 +56,25 @@ app.use(cors({
 app.use(express.json({ limit: '64kb' })); // ai-analysis 저장 남용 방지
 
 // multer: 메모리 저장 (20MB 제한)
+// 일부 모바일 브라우저에서 mimetype 누락(application/octet-stream)되는 케이스를 대비해
+// 확장자 폴백을 추가 (PNG/JPEG/WEBP/GIF)
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 20 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
-        if (['image/png','image/jpeg','image/webp','image/gif'].includes(file.mimetype)) cb(null, true);
-        else cb(new Error('지원하지 않는 이미지 형식입니다.'));
+        const validMime = ['image/png','image/jpeg','image/webp','image/gif'];
+        const extMatch = /\.(png|jpe?g|webp|gif)$/i.test(file.originalname || '');
+        if (validMime.includes(file.mimetype) || extMatch) {
+            // mimetype 없거나 octet-stream 이면 확장자 기반으로 png 로 보정
+            if (!validMime.includes(file.mimetype) && extMatch) {
+                const ext = (file.originalname.match(/\.(\w+)$/) || [])[1]?.toLowerCase();
+                const mimeMap = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', webp:'image/webp', gif:'image/gif' };
+                file.mimetype = mimeMap[ext] || 'image/png';
+            }
+            cb(null, true);
+        } else {
+            cb(new Error('지원하지 않는 이미지 형식입니다.'));
+        }
     },
 });
 

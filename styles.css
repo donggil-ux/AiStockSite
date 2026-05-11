@@ -5831,9 +5831,9 @@
 .mob-recent-chip .mrc-del{
     display:flex;align-items:center;justify-content:center;
     width:18px;height:18px;
-    background:var(--bg);
+    background:var(--bg4);
     border:none;border-radius:50%;
-    color:var(--text3);
+    color:var(--text2);
     font-size:13px;font-weight:600;
     cursor:pointer;line-height:1;
     transition:all .15s;

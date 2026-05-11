@@ -17831,8 +17831,14 @@
         ctx.fillRect(0, 0, TARGET_W, TARGET_H);
         canvases.forEach(c => { try { ctx.drawImage(c, 0, 0, TARGET_W, TARGET_H); } catch(e) {} });
 
-        offscreen.toBlob(async blob => {
-            if (!blob) { showToast('캡처에 실패했습니다.'); _aiProgressHide(); return; }
+        // 'image/png' 명시 — 일부 브라우저에서 type 누락되는 케이스 방지
+        offscreen.toBlob(async rawBlob => {
+            if (!rawBlob) { showToast('캡처에 실패했습니다.'); _aiProgressHide(); return; }
+            // iOS/모바일 일부 브라우저에서 blob.type 이 비거나 octet-stream 으로 잡혀
+            // 서버 multer 가 거부하는 케이스 → image/png 로 강제 래핑
+            const blob = rawBlob.type === 'image/png'
+                ? rawBlob
+                : new Blob([rawBlob], { type: 'image/png' });
 
             const btn = document.getElementById('chartAiReaderBtn');
             if (btn) { btn.disabled = true; btn.textContent = '⏳ 분석 중...'; }
