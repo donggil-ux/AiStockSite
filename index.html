@@ -8518,7 +8518,25 @@
         if (!panel) return;
         const now = Date.now();
         if (!_guruCache.list || now - _guruCache.ts > _GURU_TTL) {
-            panel.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-secondary)">💎 부자 포트폴리오 데이터를 불러오는 중...</div>`;
+            // 스켈레톤 카드 — 실제 카드 레이아웃과 동일 (아바타 36px / 이름·매니저 / AUM / 홀딩 칩)
+            const skelCard = `
+                <div class="sm-inst-card sm-skel-card">
+                    <div class="sm-inst-header">
+                        <div class="sm-inst-rank sm-inst-rank-logo"><div class="sk sk-avatar"></div></div>
+                        <div class="sm-inst-info" style="display:flex;flex-direction:column;gap:6px">
+                            <div class="sk sk-name"></div>
+                            <div class="sk sk-manager"></div>
+                        </div>
+                        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+                            <div class="sk sk-aum"></div>
+                            <div class="sk sk-aum-sub"></div>
+                        </div>
+                    </div>
+                    <div class="sm-sector-tags" style="margin-top:8px;display:flex;gap:6px">
+                        <div class="sk sk-chip"></div><div class="sk sk-chip"></div><div class="sk sk-chip"></div>
+                    </div>
+                </div>`;
+            panel.innerHTML = skelCard.repeat(6);
             try {
                 const r = await fetch('/api/guru');
                 if (!r.ok) throw new Error('HTTP ' + r.status);

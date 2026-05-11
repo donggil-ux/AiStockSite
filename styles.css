@@ -2520,6 +2520,21 @@
         .guru-empty-block{padding:32px 20px;text-align:center;color:var(--text2);background:var(--bg2);border-radius:10px;font-size:13px;line-height:1.7;}
         .guru-empty-block button{margin-top:10px;padding:8px 16px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-weight:600;cursor:pointer;}
         .guru-card-disabled{opacity:.7;}
+        /* ===== 부자 포트폴리오 패널 스켈레톤 (실제 카드 레이아웃 동일) ===== */
+        .sm-skel-card{pointer-events:none;cursor:default;}
+        .sm-skel-card .sk{
+            background:linear-gradient(90deg,var(--bg3) 25%,var(--bg4) 50%,var(--bg3) 75%);
+            background-size:600px 100%;
+            animation:shimmer 1.2s infinite linear;
+            border-radius:6px;
+            display:block;
+        }
+        .sm-skel-card .sk-avatar{width:36px;height:36px;border-radius:50%;}
+        .sm-skel-card .sk-name{width:60%;height:14px;}
+        .sm-skel-card .sk-manager{width:40%;height:11px;}
+        .sm-skel-card .sk-aum{width:64px;height:16px;}
+        .sm-skel-card .sk-aum-sub{width:44px;height:10px;}
+        .sm-skel-card .sk-chip{width:64px;height:20px;border-radius:5px;}
         /* ===== 부자 포트폴리오 Swipe Carousel ===== */
         .guru-swipe{
             display:flex;gap:12px;
