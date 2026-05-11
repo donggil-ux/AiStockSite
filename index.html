@@ -8149,6 +8149,15 @@
         const fb  = `<span class=&quot;sm-firm-emoji&quot;>${emoji}</span>`;
         return `<img src="${url}" class="sm-firm-logo" alt="" loading="lazy" onerror="this.outerHTML='${fb}'"/>`;
     }
+    // 큰 사이즈 운용사 로고 (rank 칼럼용, 36px)
+    function _smFirmLogoLg(inst) {
+        const domain = SM_FIRM_DOMAIN[inst.id];
+        const emoji = inst.emoji || inst.hotBadge || '🏛️';
+        if (!domain) return `<div class="sm-firm-logo-lg sm-firm-logo-lg-emoji">${emoji}</div>`;
+        const url = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+        const fb  = `<div class=&quot;sm-firm-logo-lg sm-firm-logo-lg-emoji&quot;>${emoji}</div>`;
+        return `<img src="${url}" class="sm-firm-logo-lg" alt="" loading="lazy" onerror="this.outerHTML='${fb}'"/>`;
+    }
 
     function renderSmTop10() {
         const sorted = [...SM_HOT].sort((a, b) => b.ret1y - a.ret1y);
@@ -8158,11 +8167,12 @@
             const rankLabel = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `<span style="font-size:12px;color:var(--text-secondary)">${rank}</span>`;
             const tags = inst.tags.map(t => `<span class="sm-sector-tag">${t}</span>`).join('');
             const volatiles = inst.volatilePicks.map(t => `<span class="sm-volatile-badge">${t}</span>`).join('');
+            const medalBadge = rank <= 3 ? `<span class="sm-medal-badge">${rankLabel}</span>` : `<span class="sm-rank-num">${rank}</span>`;
             return `<div class="sm-inst-card" onclick="smDeepDive('hot_${inst.id}')">
                 <div class="sm-inst-header">
-                    <div class="sm-inst-rank">${rankLabel}</div>
+                    <div class="sm-inst-rank sm-inst-rank-logo">${_smFirmLogoLg(inst)}${medalBadge}</div>
                     <div class="sm-inst-info">
-                        <div class="sm-inst-name">${_smFirmLogo(inst, inst.hotBadge)} ${inst.name}</div>
+                        <div class="sm-inst-name">${inst.name}</div>
                         <div class="sm-inst-manager">${inst.manager}</div>
                     </div>
                     <div style="text-align:right;flex-shrink:0">
@@ -8193,11 +8203,13 @@
             const top3html = inst.top3.map(h =>
                 `<span class="sm-top3-hold"><img src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(h.ticker)}?format=png" class="sm-chip-logo" alt="" loading="lazy" onerror="this.style.display='none'"/>${h.ticker} <span style="color:var(--blue)">${h.wt}%</span></span>`
             ).join('');
+            const kRankLabel = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
+            const kBadge = rank <= 3 ? `<span class="sm-medal-badge">${kRankLabel}</span>` : `<span class="sm-rank-num">${rank}</span>`;
             return `<div class="sm-inst-card" onclick="smDeepDive('kingdom_${inst.id}')">
                 <div class="sm-inst-header">
-                    <div class="sm-inst-rank">${rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `<span style="font-size:12px;color:var(--text-secondary)">${rank}</span>`}</div>
+                    <div class="sm-inst-rank sm-inst-rank-logo">${_smFirmLogoLg(inst)}${kBadge}</div>
                     <div class="sm-inst-info">
-                        <div class="sm-inst-name">${_smFirmLogo(inst, inst.emoji)} ${inst.name}</div>
+                        <div class="sm-inst-name">${inst.name}</div>
                         <div class="sm-inst-manager">${inst.manager}</div>
                     </div>
                     <div style="text-align:right;flex-shrink:0">
