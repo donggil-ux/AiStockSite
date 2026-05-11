@@ -3453,15 +3453,15 @@
    날짜별 그룹핑 + BMO/AMC 배지 + Beat/Miss 배지
    ═══════════════════════════════════════════════════════════ */
 
-/* ── earningsScreen: 풀 너비 1600px ─────────────────────────── */
+/* ── earningsScreen: .app(834px) 박스 내 정렬, 네비게이션 폭과 일치 ─────── */
 #earningsScreen {
-    max-width: 1600px !important;
+    max-width: 100%;
     width: 100%;
-    padding-left: 24px;
-    padding-right: 24px;
+    padding-left: 16px;
+    padding-right: 16px;
     box-sizing: border-box;
 }
-@media(min-width:900px){ #earningsScreen{ padding-left:32px; padding-right:32px; } }
+@media(min-width:768px){ #earningsScreen{ padding-left:0; padding-right:0; } }
 
 /* ── 가로형 상단 탭 바 (Toss 스타일) ─────────────────────────── */
 .earn-topnav {
@@ -3706,8 +3706,8 @@
    ───────────────────────────────────────────────────────── */
 /* 9컬럼 그리드: fav | stock | time | mcap | eps | rev | yoy | status | AI 요약 */
 :root {
-    --earn-grid-cols: 28px minmax(160px, 1.2fr) 50px 90px 130px 150px 110px 130px minmax(180px, 1.4fr);
-    --earn-grid-cols-sm: 22px minmax(120px, 1fr) 40px 90px 110px 120px;
+    --earn-grid-cols: 24px minmax(120px, 1.2fr) 40px 70px 100px 110px 70px 90px minmax(100px, 1.2fr);
+    --earn-grid-cols-sm: 22px minmax(110px, 1fr) 40px 70px 90px 100px;
     --earn-grid-cols-xs: 1fr 60px 75px 80px;
 }
 
