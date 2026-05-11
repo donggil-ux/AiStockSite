@@ -2718,12 +2718,12 @@
 
         body{padding-bottom:calc(82px + env(safe-area-inset-bottom));}
 
-        /* PWA(홈 화면 설치) 모드 — 바텀 네비 하단에서 8px 띄움 */
+        /* PWA(홈 화면 설치) 모드 — 바텀 네비 하단에서 12px 띄움 */
         @media (display-mode: standalone), (display-mode: fullscreen){
             .bottom-nav{
-                padding:6px 12px 8px!important;
+                padding:6px 12px 12px!important;
             }
-            body{padding-bottom:72px!important;}
+            body{padding-bottom:78px!important;}
         }
 
         /* ===== ALPHA SCANNER ===== */
