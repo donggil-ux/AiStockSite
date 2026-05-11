@@ -8140,23 +8140,51 @@
         deshaw:'deshaw.com', aqr:'aqr.com', dimensional:'dimensional.com', wellington:'wellington.com',
         ariel:'arielinvestments.com',
     };
+    // 로고 다중 폴백 체인: Brandfetch → Clearbit → Google favicon → 이모지
+    function _smLogoSources(domain) {
+        return [
+            `https://cdn.brandfetch.io/${domain}/w/128/h/128`,
+            `https://logo.clearbit.com/${domain}`,
+            `https://www.google.com/s2/favicons?domain=${domain}&sz=128`,
+        ];
+    }
+    // 전역 폴백 핸들러: data-fb(JSON 배열)에서 다음 URL을 꺼내 src 교체, 끝나면 이모지로 치환
+    window._smLogoErr = function(img) {
+        try {
+            const list = JSON.parse(img.dataset.fb || '[]');
+            if (list.length) {
+                img.dataset.fb = JSON.stringify(list.slice(1));
+                img.src = list[0];
+                return;
+            }
+        } catch(e) {}
+        const emoji = img.dataset.emoji || '🏛️';
+        const cls = img.dataset.fbClass || 'sm-firm-emoji';
+        const span = document.createElement('span');
+        span.className = cls;
+        span.textContent = emoji;
+        img.replaceWith(span);
+    };
     function _smFirmLogo(inst, fallbackEmoji) {
         const domain = SM_FIRM_DOMAIN[inst.id];
         const emoji = fallbackEmoji || inst.emoji || inst.hotBadge || '🏛️';
         if (!domain) return `<span class="sm-firm-emoji">${emoji}</span>`;
-        // Google favicon API — 가장 안정적, 실패 시 이모지로 폴백
-        const url = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
-        const fb  = `<span class=&quot;sm-firm-emoji&quot;>${emoji}</span>`;
-        return `<img src="${url}" class="sm-firm-logo" alt="" loading="lazy" onerror="this.outerHTML='${fb}'"/>`;
+        const [first, ...rest] = _smLogoSources(domain);
+        const fbJson = escHtml(JSON.stringify(rest));
+        return `<img src="${first}" class="sm-firm-logo" alt="" loading="lazy"
+            data-fb="${fbJson}" data-emoji="${escHtml(emoji)}" data-fb-class="sm-firm-emoji"
+            onerror="_smLogoErr(this)"/>`;
     }
     // 큰 사이즈 운용사 로고 (rank 칼럼용, 36px)
     function _smFirmLogoLg(inst) {
         const domain = SM_FIRM_DOMAIN[inst.id];
         const emoji = inst.emoji || inst.hotBadge || '🏛️';
         if (!domain) return `<div class="sm-firm-logo-lg sm-firm-logo-lg-emoji">${emoji}</div>`;
-        const url = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
-        const fb  = `<div class=&quot;sm-firm-logo-lg sm-firm-logo-lg-emoji&quot;>${emoji}</div>`;
-        return `<img src="${url}" class="sm-firm-logo-lg" alt="" loading="lazy" onerror="this.outerHTML='${fb}'"/>`;
+        const [first, ...rest] = _smLogoSources(domain);
+        const fbJson = escHtml(JSON.stringify(rest));
+        return `<img src="${first}" class="sm-firm-logo-lg" alt="" loading="lazy"
+            data-fb="${fbJson}" data-emoji="${escHtml(emoji)}" data-fb-class="sm-firm-logo-lg sm-firm-logo-lg-emoji"
+            onerror="_smLogoErr(this)"/>`;
     }
 
     function renderSmTop10() {
