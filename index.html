@@ -5051,6 +5051,69 @@
         swing:    '52주 고점까지 충분한 상승 여력(R/R ≥ 1.5)이 있고 추세가 살아있는 종목 — 며칠~몇 주 단위 스윙에 적합합니다.',
     };
 
+    // ─── 알파 카드 헬퍼 ──────────────────────────────────────
+    // 테마 추정 (티커/이름 휴리스틱)
+    function _alphaTheme(q) {
+        const sym = (q.symbol || q.ticker || '').toUpperCase();
+        const name = (q.name || q.shortName || q.longName || '').toUpperCase();
+        const blob = sym + ' ' + name;
+        if (/NVDA|AMD|TSMC|MU|MRVL|AVGO|ASML|LRCX|AMAT|SMCI|INTEL|INTC|QCOM|반도체|SEMI/.test(blob)) return 'AI반도체';
+        if (/PLTR|SNOW|DDOG|NET|ALAB|ANET|VRT|AI/.test(blob)) return 'AI인프라';
+        if (/MSTR|COIN|MARA|RIOT|CLSK|BTC|BITCOIN/.test(blob)) return 'BTC채굴';
+        if (/TSLA|RIVN|LCID|NIO|XPEV|LI|FORD|GM/.test(blob)) return 'EV';
+        if (/LMT|RTX|NOC|GD|BA|방산/.test(blob)) return '우주/국방';
+        if (/PFE|JNJ|MRK|LLY|BIIB|MRNA|NVO|바이오|BIO/.test(blob)) return '바이오';
+        if (/DIS|NFLX|RBLX|SPOT|미디어/.test(blob)) return '미디어';
+        if (/V|MA|PYPL|SQ|SOFI|HOOD|핀테크/.test(blob)) return '핀테크';
+        if (/AMZN|WMT|COST|HD|TGT/.test(blob)) return '리테일';
+        if (/XOM|CVX|OXY|에너지/.test(blob)) return '에너지';
+        if (/IONQ|RGTI|QBTS|QUANTUM/.test(blob)) return '양자컴';
+        if (/OKLO|NUE|SMR|NUSCALE|핵발전/.test(blob)) return '원자력';
+        return '기타';
+    }
+
+    // 리스크 등급 (변동성 기반)
+    function _alphaRisk(q) {
+        const chg = Math.abs(q.changePct ?? q.regularMarketChangePercent ?? 0);
+        const price = q.price || q.regularMarketPrice || 0;
+        if (chg >= 15 || price < 5) return 'extreme';
+        if (chg >= 8 || price < 10) return 'high';
+        if (chg >= 4) return 'medium';
+        return 'low';
+    }
+
+    // 타이밍 정보 (탭별 한국시간 가이드)
+    function _alphaTimingGuide(tab) {
+        if (tab === 'surge') {
+            return `<div class="alpha-timing-card">
+                <div class="alpha-timing-title">⏰ 급등 스캐너 최적 시간 (한국 기준)</div>
+                <div class="alpha-timing-row alpha-time-best"><span class="alpha-time-bullet">●</span><span class="alpha-time-when">06:00~09:00</span><span class="alpha-time-desc">미국장 마감 직후 → 오늘 장 결과 반영, 내일 급등 후보 가장 신선</span></div>
+                <div class="alpha-timing-row alpha-time-good"><span class="alpha-time-bullet">●</span><span class="alpha-time-when">21:00~23:00</span><span class="alpha-time-desc">프리마켓 전 → 당일 옵션 플로우 + 소셜 신호 확인 후 진입 준비</span></div>
+                <div class="alpha-timing-row alpha-time-skip"><span class="alpha-time-bullet">○</span><span class="alpha-time-when">11:00~18:00</span><span class="alpha-time-desc">낮 시간대 → 신호 부족, 결과 신뢰도 낮음</span></div>
+            </div>`;
+        } else if (tab === 'bounce') {
+            return `<div class="alpha-timing-card">
+                <div class="alpha-timing-title alpha-timing-title--blue">⏰ 과매도 반등 스캐너 최적 시간 (한국 기준)</div>
+                <div class="alpha-timing-row alpha-time-best"><span class="alpha-time-bullet">●</span><span class="alpha-time-when">06:00~08:00</span><span class="alpha-time-desc">미국장 마감 직후 → 오늘 하락 종목 확정, 반등 후보 가장 신선</span></div>
+                <div class="alpha-timing-row alpha-time-good"><span class="alpha-time-bullet">●</span><span class="alpha-time-when">02:00~05:00</span><span class="alpha-time-desc">장 중 → 실시간 급락 종목 포착, 당일 반등 노릴 때</span></div>
+                <div class="alpha-timing-row alpha-time-skip"><span class="alpha-time-bullet">○</span><span class="alpha-time-when">23:30 이전</span><span class="alpha-time-desc">장 시작 전 → 전날 데이터 기준, 참고용으로만</span></div>
+            </div>`;
+        } else if (tab === 'daytrade') {
+            return `<div class="alpha-timing-card">
+                <div class="alpha-timing-title alpha-timing-title--cyan">⏰ 단타 진입 최적 시간 (한국 기준)</div>
+                <div class="alpha-timing-row alpha-time-best"><span class="alpha-time-bullet">●</span><span class="alpha-time-when">23:30~01:00</span><span class="alpha-time-desc">미국 개장 직후 → 변동성 극대, 거래량 가장 활발</span></div>
+                <div class="alpha-timing-row alpha-time-good"><span class="alpha-time-bullet">●</span><span class="alpha-time-when">04:00~05:00</span><span class="alpha-time-desc">마감 1시간 전 → 종가 베팅 + 단기 모멘텀</span></div>
+            </div>`;
+        } else if (tab === 'swing') {
+            return `<div class="alpha-timing-card">
+                <div class="alpha-timing-title alpha-timing-title--purple">⏰ 스윙 진입 최적 시간 (한국 기준)</div>
+                <div class="alpha-timing-row alpha-time-best"><span class="alpha-time-bullet">●</span><span class="alpha-time-when">06:00~09:00</span><span class="alpha-time-desc">미국장 마감 직후 → R/R 비율 신선, 며칠 보유 계획 수립</span></div>
+                <div class="alpha-timing-row alpha-time-good"><span class="alpha-time-bullet">●</span><span class="alpha-time-when">화/수 저녁</span><span class="alpha-time-desc">주간 진입 → 금요일까지 보유 흐름 잡기 좋음</span></div>
+            </div>`;
+        }
+        return '';
+    }
+
     async function _alphaSwitchTab(tab) {
         _alphaTab = tab;
         document.querySelectorAll('.alpha-tab').forEach(b => {
@@ -5060,7 +5123,7 @@
         if (descEl) descEl.textContent = _ALPHA_DESC[tab] || '';
         const el = document.getElementById('alphaResults');
         if (!el) return;
-        el.innerHTML = '<div class="sniper-loading">' + Array(6).fill('<div class="sniper-skel"></div>').join('') + '</div>';
+        el.innerHTML = _alphaTimingGuide(tab) + '<div class="sniper-loading">' + Array(6).fill('<div class="sniper-skel"></div>').join('') + '</div>';
         try {
             if (tab === 'surge') {
                 const r = await fetch('/api/discover?preset=vol_surge');
@@ -5068,7 +5131,7 @@
                 const d = await r.json();
                 const items = (Array.isArray(d.items) ? d.items : []).slice(0, 30);
                 if (_alphaTab !== 'surge') return;
-                _alphaRender(items.map(q => ({ ...q, _alphaKind: 'surge' })));
+                _alphaRender(items.map(q => ({ ...q, _alphaKind: 'surge' })), tab);
             } else if (tab === 'bounce') {
                 const r = await fetch('/api/oversold-radar?tab=oversold');
                 if (!r.ok) throw new Error('http ' + r.status);
@@ -5081,9 +5144,8 @@
                     .slice(0, 30)
                     .map(({ item, signals }) => ({ ...item, _alphaKind: 'bounce', _bounceSignals: signals }));
                 if (_alphaTab !== 'bounce') return;
-                _alphaRender(scored);
+                _alphaRender(scored, tab);
             } else if (tab === 'daytrade' || tab === 'swing') {
-                // top100Cache 없으면 직접 day_gainers 가져오기 (fallback)
                 let items = (top100Cache?.['day_gainers']?.items) || [];
                 if (!items.length) {
                     try {
@@ -5091,19 +5153,16 @@
                         if (r.ok) {
                             const d = await r.json();
                             items = d?.finance?.result?.[0]?.quotes || [];
-                            // 가져온 데이터 캐시에도 저장 (다른 곳에서 재사용)
                             if (items.length) top100Cache['day_gainers'] = { items, ts: Date.now() };
                         }
                     } catch(e) { console.warn('[alpha day_gainers fetch]', e); }
                 }
                 if (_alphaTab !== tab) return;
                 if (!items.length) {
-                    document.getElementById('alphaResults').innerHTML =
-                        '<div class="sniper-empty">데이터를 불러올 수 없습니다 — 잠시 후 다시 시도하세요</div>';
+                    el.innerHTML = _alphaTimingGuide(tab) + '<div class="sniper-empty">데이터를 불러올 수 없습니다 — 잠시 후 다시 시도하세요</div>';
                     return;
                 }
                 if (tab === 'daytrade') {
-                    // 단타: 거래량 평균 대비 1.5배 + 주가 ≥ $1
                     const candidates = items.filter(q => {
                         const vol = q.regularMarketVolume || 0;
                         const avgVol = q.averageDailyVolume3Month || 0;
@@ -5113,92 +5172,216 @@
                         if (price < 1) return false;
                         return true;
                     }).slice(0, 30).map(q => ({ ...q, _alphaKind: 'daytrade', volMult: (q.regularMarketVolume / q.averageDailyVolume3Month) }));
-                    // 후보가 없으면 거래량 필터 완화하여 폴백
                     const final = candidates.length ? candidates : items.slice(0, 30).map(q => {
                         const vol = q.regularMarketVolume || 0;
                         const avgVol = q.averageDailyVolume3Month || 1;
                         return { ...q, _alphaKind: 'daytrade', volMult: vol / avgVol };
                     });
-                    _alphaRender(final);
+                    _alphaRender(final, tab);
                 } else {
-                    // 스윙: R/R ≥ 1.5
                     const qualified = items.map(q => {
                         const p = q.regularMarketPrice, h = q.fiftyTwoWeekHigh;
                         if (!p || !h || h <= p) return null;
                         const rr = (h - p) / (p * 0.05);
                         return rr >= 1.5 ? { ...q, _rr: rr, _alphaKind: 'swing' } : null;
                     }).filter(Boolean).sort((a, b) => b._rr - a._rr).slice(0, 30);
-                    _alphaRender(qualified);
+                    _alphaRender(qualified, tab);
                 }
             }
         } catch (e) {
             console.error('[alphaSwitchTab]', e);
-            if (_alphaTab === tab) el.innerHTML = '<div class="sniper-empty">데이터 로드 실패 — 잠시 후 다시 시도하세요</div>';
+            if (_alphaTab === tab) el.innerHTML = _alphaTimingGuide(tab) + '<div class="sniper-empty">데이터 로드 실패 — 잠시 후 다시 시도하세요</div>';
         }
     }
 
-    function _alphaRender(items) {
+    function _alphaRender(items, tab) {
         const el = document.getElementById('alphaResults');
         if (!el) return;
+        const timing = _alphaTimingGuide(tab || _alphaTab);
         if (!items.length) {
-            el.innerHTML = '<div class="sniper-empty">현재 조건에 맞는 종목이 없습니다</div>';
+            el.innerHTML = timing + '<div class="sniper-empty">현재 조건에 맞는 종목이 없습니다</div>';
             return;
         }
-        // 기존 스나이퍼 카드 렌더 재사용 (top100-row 레이아웃)
-        // _alphaKind 에 맞춰 reason 생성
-        const cards = items.map(q => _alphaRenderCard(q)).join('');
-        el.innerHTML = cards;
+        const tierLegend = `<div class="alpha-tier-legend">
+            <span class="alpha-legend-item"><span class="alpha-dot alpha-dot--t1"></span>TIER 1 (4+ 시그널)</span>
+            <span class="alpha-legend-item"><span class="alpha-dot alpha-dot--t2"></span>TIER 2 (2~3개)</span>
+            <span class="alpha-legend-item"><span class="alpha-dot alpha-dot--t3"></span>TIER 3 (1~2개)</span>
+        </div>`;
+        const cards = items.map((q, idx) => _alphaRenderCard(q, idx)).join('');
+        el.innerHTML = timing + tierLegend + '<div class="alpha-card-list">' + cards + '</div>';
     }
 
-    function _alphaRenderCard(q) {
+    function _alphaToggleCard(cardId) {
+        const card = document.getElementById(cardId);
+        if (card) card.classList.toggle('alpha-card--expanded');
+    }
+
+    function _alphaRenderCard(q, idx) {
         const sym = q.symbol || q.ticker || '';
         const name = q.name || q.shortName || q.longName || sym;
         const price = q.price || q.regularMarketPrice || 0;
         const priceFmt = price >= 10 ? price.toFixed(2) : price.toFixed(3);
         const chg = q.changePct ?? q.regularMarketChangePercent ?? 0;
-        const isUp = chg > 0, isDown = chg < 0;
-        const chgClass = isUp ? 'up' : isDown ? 'down' : 'flat';
-        const sign = isUp ? '+' : '';
+        const isUp = chg > 0;
+        const chgSign = isUp ? '+' : '';
+        const cardId = `alphacard-${sym}-${idx}`;
         const logoUrl = `https://assets.parqet.com/logos/symbol/${sym}?format=svg`;
         const fb2 = sym.slice(0, 2);
-        const logoHtml = `<div class="tlogo-wrap">
-            <img class="tlogo" src="${logoUrl}" alt="${sym}" loading="lazy"
-                onerror="this.outerHTML='<span class=\\'tlogo tlogo-fb\\'>${fb2}</span>'">
-            <span class="tlogo-flag">🇺🇸</span>
-        </div>`;
-        // reason + badges
-        let badge = '', reason = '';
-        if (q._alphaKind === 'surge') {
+        const theme = _alphaTheme(q);
+        const risk = _alphaRisk(q);
+        const riskLabel = { low:'낮음', medium:'중간', high:'높음', extreme:'극고위험' }[risk] || '중간';
+
+        // 시그널 + 점수 + reason 계산 (탭별)
+        let signals = [], score = 0, reason = '', timingBadge = '', expectedMove = '';
+        const kind = q._alphaKind;
+
+        if (kind === 'surge') {
+            const vm = q.volMult || (q.regularMarketVolume / (q.averageDailyVolume3Month || 1));
+            if (vm >= 3) signals.push({label:`거래량 ×${vm.toFixed(1)} 폭발`, cls:'orange'});
+            else if (vm >= 2) signals.push({label:`거래량 ×${vm.toFixed(1)} 급증`, cls:'orange'});
+            else if (vm >= 1.5) signals.push({label:`거래량 ×${vm.toFixed(1)}`, cls:'blue'});
+            if (chg >= 10) signals.push({label:`당일 +${chg.toFixed(1)}% 강세`, cls:'emerald'});
+            else if (chg >= 5) signals.push({label:`당일 +${chg.toFixed(1)}% 상승`, cls:'emerald'});
+            if (chg >= 5) signals.push({label:'⚠️ 이미 오른 종목', cls:'red'});
+            const km = q.keyMetric || {};
+            if (km.value) signals.push({label:`배수 ${km.value}`, cls:'purple'});
+            score = Math.min(6, signals.length + (vm >= 3 ? 2 : vm >= 2 ? 1 : 0));
+            reason = vm >= 3 ? `거래량 ×${vm.toFixed(1)} 폭발 + 당일 ${chgSign}${chg.toFixed(1)}% 강세, 단기 급등 가능성 높음.`
+                   : `거래량 평균 대비 활발 (×${vm.toFixed(1)}), 모멘텀 발생 중.`;
+            timingBadge = chg >= 10 ? {label:'⚡ 오늘 강세', cls:'amber'} : {label:'📅 단기 추격', cls:'emerald'};
+            expectedMove = chg >= 5 ? Math.min(15, Math.round(chg * 0.8)) : Math.round(5 + vm);
+        } else if (kind === 'bounce') {
+            const bs = q._bounceSignals || [];
+            bs.forEach(s => signals.push({label:`${s.label}${s.detail ? ' ' + s.detail : ''}`, cls:'blue'}));
+            const rsi = q.rsi;
+            if (rsi != null && rsi <= 25) signals.push({label:`RSI ${rsi} 극심 과매도`, cls:'blue'});
+            if (q.ma200 && q.price && q.price < q.ma200 * 0.85) signals.push({label:'200일선 -15%↓ 이격', cls:'purple'});
+            if (chg <= -7) signals.push({label:`당일 ${chg.toFixed(1)}% 급락`, cls:'red'});
+            score = Math.min(6, bs.length + (rsi != null && rsi <= 25 ? 1 : 0));
+            reason = `${bs.length}/6 반등 시그널 충족 — 과매도 후 단기 반등 가능성.`;
+            timingBadge = bs.length >= 4 ? {label:'⚡ 내일 반등', cls:'emerald'} : {label:'📅 내일모레', cls:'amber'};
+            expectedMove = Math.round(5 + bs.length * 2);
+        } else if (kind === 'daytrade') {
             const vm = q.volMult || 0;
-            badge = vm >= 2 ? `<span class="sniper-badge sniper-badge--surge">×${vm.toFixed(1)}</span>` : '';
-            reason = vm >= 3 ? `거래량 ×${vm.toFixed(1)} 폭발, 당일 ${sign}${chg.toFixed(1)}% 강세`
-                              : `거래량 급증, 당일 ${sign}${chg.toFixed(1)}%`;
-        } else if (q._alphaKind === 'bounce') {
-            const cnt = (q._bounceSignals || []).length;
-            badge = `<span class="sniper-badge sniper-badge--rsi">${cnt}/6</span>`;
-            reason = (q._bounceSignals || []).slice(0, 2).map(s => `${s.label}${s.detail ? ' ' + s.detail : ''}`).join(', ') || '반등 시그널 충족';
-        } else if (q._alphaKind === 'daytrade') {
-            const vm = q.volMult || 0;
-            badge = `<span class="sniper-badge sniper-badge--vol">×${vm.toFixed(1)}</span>`;
-            reason = `거래량 ×${vm.toFixed(1)} 활발, 당일 ${sign}${chg.toFixed(1)}% 변동`;
-        } else if (q._alphaKind === 'swing') {
+            const absChg = Math.abs(chg);
+            if (vm >= 2) signals.push({label:`거래량 ×${vm.toFixed(1)}`, cls:'orange'});
+            else if (vm >= 1.5) signals.push({label:`거래량 ×${vm.toFixed(1)} 활발`, cls:'blue'});
+            if (absChg >= 5) signals.push({label:`당일 변동 ${chgSign}${chg.toFixed(1)}%`, cls:'cyan'});
+            if (price >= 10 && price < 100) signals.push({label:'적정 가격대', cls:'emerald'});
+            if (q.marketCap && q.marketCap >= 1e9) signals.push({label:'대형주 유동성', cls:'purple'});
+            score = Math.min(6, signals.length + (vm >= 2 ? 1 : 0));
+            reason = `거래량 ×${vm.toFixed(1)} 활발 + 변동성 충분, 당일 매매 적합.`;
+            timingBadge = {label:'⚡ 미국장 개장 직후', cls:'cyan'};
+            expectedMove = Math.round(absChg + vm * 1.5);
+        } else if (kind === 'swing') {
             const rr = q._rr || 0;
-            const cls = rr >= 3 ? 'excellent' : rr >= 2 ? 'good' : 'ok';
-            badge = `<span class="sniper-badge sniper-badge--rr ${cls}">R/R ${rr.toFixed(1)}</span>`;
             const upside = ((q.fiftyTwoWeekHigh - price) / price * 100);
-            reason = `52주 고점까지 +${upside.toFixed(1)}%, 손익비 ${rr.toFixed(1)}:1`;
+            if (rr >= 3) signals.push({label:`R/R ${rr.toFixed(1)}:1 우수`, cls:'emerald'});
+            else if (rr >= 2) signals.push({label:`R/R ${rr.toFixed(1)}:1 양호`, cls:'cyan'});
+            else signals.push({label:`R/R ${rr.toFixed(1)}:1`, cls:'amber'});
+            if (upside >= 20) signals.push({label:`고점까지 +${upside.toFixed(0)}%`, cls:'emerald'});
+            if (chg > 0) signals.push({label:'추세 살아있음', cls:'blue'});
+            if (q.marketCap && q.marketCap >= 5e9) signals.push({label:'대형주 안정성', cls:'purple'});
+            score = Math.min(6, signals.length + (rr >= 3 ? 1 : 0));
+            reason = `52주 고점까지 +${upside.toFixed(1)}% 여유, 손익비 ${rr.toFixed(1)}:1로 스윙 진입 매력적.`;
+            timingBadge = rr >= 3 ? {label:'⚡ 며칠~몇주', cls:'emerald'} : {label:'📅 스윙 보유', cls:'amber'};
+            expectedMove = Math.round(Math.min(25, upside * 0.4));
         }
-        return `<div class="sniper-item" onclick="quickSearch('${sym}','US')">
-            ${logoHtml}
-            <div class="sniper-info">
-                <div class="sniper-ticker">${escHtml(sym)}</div>
-                <div class="sniper-name">${escHtml(name)}</div>
+
+        // Tier 결정
+        const tier = score >= 5 ? 1 : score >= 3 ? 2 : 3;
+        const tierClass = tier === 1 ? 'alpha-tier1' : tier === 2 ? 'alpha-tier2' : 'alpha-tier3';
+        const tierLabel = `TIER ${tier}`;
+
+        // 진입가/손절/목표 (탭별 휴리스틱)
+        let entry = price, stopLoss = price * 0.95, target = price * 1.10;
+        if (kind === 'swing') {
+            target = q.fiftyTwoWeekHigh || price * 1.15;
+            stopLoss = price * 0.93;
+        } else if (kind === 'bounce') {
+            stopLoss = price * 0.96;
+            target = price * (1 + (expectedMove || 8) / 100);
+        } else if (kind === 'surge') {
+            stopLoss = price * 0.94;
+            target = price * (1 + (expectedMove || 10) / 100);
+        } else if (kind === 'daytrade') {
+            stopLoss = price * 0.97;
+            target = price * 1.04;
+        }
+        const rrRatio = ((target - entry) / Math.max(entry - stopLoss, 0.01)).toFixed(1);
+
+        const signalPills = signals.slice(0, 6).map(s =>
+            `<span class="alpha-sig-pill alpha-sig--${s.cls}">${escHtml(s.label)}</span>`
+        ).join('');
+
+        const scorePct = (score / 6) * 100;
+        const scoreColor = score >= 5 ? '#10b981' : score >= 3 ? '#f59e0b' : '#64748b';
+
+        const reasonBox = kind === 'bounce' ?
+            `<div class="alpha-reason alpha-reason--red"><i class="ri-arrow-down-circle-line"></i><span>${escHtml(reason)}</span></div>`
+            : `<div class="alpha-reason alpha-reason--zap"><i class="ri-flashlight-line"></i><span>${escHtml(reason)}</span></div>`;
+
+        return `<div id="${cardId}" class="alpha-card ${tierClass}">
+            <div class="alpha-card-main" onclick="_alphaToggleCard('${cardId}')">
+                <div class="alpha-card-head">
+                    <div class="alpha-rank">#${idx + 1}</div>
+                    <div class="tlogo-wrap alpha-card-logo">
+                        <img class="tlogo" src="${logoUrl}" alt="${sym}" loading="lazy"
+                            onerror="this.outerHTML='<span class=\\'tlogo tlogo-fb\\'>${fb2}</span>'">
+                        <span class="tlogo-flag">🇺🇸</span>
+                    </div>
+                    <div class="alpha-card-id">
+                        <div class="alpha-card-top-row">
+                            <span class="alpha-sym">${escHtml(sym)}</span>
+                            <span class="alpha-tier-badge ${tierClass}">${tierLabel}</span>
+                            <span class="alpha-theme-tag">${escHtml(theme)}</span>
+                        </div>
+                        <div class="alpha-name">${escHtml(name)}</div>
+                    </div>
+                    <div class="alpha-card-price">
+                        <div class="alpha-price">$${priceFmt}</div>
+                        <div class="alpha-chg ${isUp ? 'up' : 'down'}">${chgSign}${chg.toFixed(2)}%</div>
+                    </div>
+                </div>
+
+                ${signalPills ? `<div class="alpha-signals">${signalPills}</div>` : ''}
+
+                <div class="alpha-score-row">
+                    <div class="alpha-score-bar"><div class="alpha-score-fill" style="width:${scorePct}%;background:${scoreColor}"></div></div>
+                    <span class="alpha-score-text" style="color:${scoreColor}">${score}/6</span>
+                </div>
+
+                ${reasonBox}
+
+                <div class="alpha-meta-row">
+                    <span class="alpha-timing-badge alpha-timing--${timingBadge.cls}">${timingBadge.label}</span>
+                    ${expectedMove > 0 ? `<span class="alpha-expect-badge">예상 ${kind === 'bounce' ? '반등' : '수익'} +${expectedMove}%</span>` : ''}
+                    <span class="alpha-tap-hint">탭하여 진입가 보기 →</span>
+                </div>
             </div>
-            <div class="sniper-badges">${badge}</div>
-            <div class="sniper-reason-text">${escHtml(reason)}</div>
-            <div class="sniper-price-wrap">
-                <div class="sniper-price">$${priceFmt}</div>
-                <div class="sniper-chg ${chgClass}">${sign}${chg.toFixed(2)}%</div>
+
+            <div class="alpha-card-expand">
+                <div class="alpha-levels">
+                    <div class="alpha-level alpha-level--entry">
+                        <div class="alpha-level-label">진입가</div>
+                        <div class="alpha-level-val">$${entry.toFixed(2)}</div>
+                    </div>
+                    <div class="alpha-level alpha-level--stop">
+                        <div class="alpha-level-label">손절</div>
+                        <div class="alpha-level-val">$${stopLoss.toFixed(2)}</div>
+                    </div>
+                    <div class="alpha-level alpha-level--target">
+                        <div class="alpha-level-label">목표가</div>
+                        <div class="alpha-level-val">$${target.toFixed(2)}</div>
+                    </div>
+                </div>
+                <div class="alpha-expand-meta">
+                    <span class="alpha-rr">R/R <b>1:${rrRatio}</b></span>
+                    <span class="alpha-risk alpha-risk--${risk}">리스크 <b>${riskLabel}</b></span>
+                    <button class="alpha-deep-btn" onclick="event.stopPropagation();quickSearch('${sym}','US')">
+                        상세 분석 보기 →
+                    </button>
+                </div>
             </div>
         </div>`;
     }
@@ -17697,7 +17880,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         vsMouseMove, vsMouseLeave, vsRedrawCanvas,
         toggleScannerChip, setScannerPreset, syncScannerChipUI,
         debounceScannerFetch, runScannerFetch, filterScannerResults, renderScannerResults,
-        _alphaSwitchTab, _alphaRender, _alphaRenderCard,
+        _alphaSwitchTab, _alphaRender, _alphaRenderCard, _alphaToggleCard, _alphaTheme, _alphaRisk, _alphaTimingGuide,
         captureChartAndAnalyze, clearAiChartLines, drawAiChartLines, toggleAiReport, setTradeMode,
         renderAnalysisReport, buildChartContextJson,
         deleteSelectedAiTrendline,
