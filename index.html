@@ -8399,7 +8399,7 @@
         const lg = el.classList.contains('guru-photo-lg');
         const div = document.createElement('div');
         div.className = 'guru-home-emoji';
-        if (lg) div.style.cssText = 'font-size:40px;width:56px;height:56px';
+        if (lg) div.style.cssText = 'font-size:24px;width:36px;height:36px';
         div.textContent = emoji;
         if (el.parentNode) el.parentNode.replaceChild(div, el);
     }
@@ -8408,7 +8408,7 @@
         const cls = 'guru-photo' + (lg ? ' guru-photo-lg' : '');
         const emoji = g.emoji || '💎';
         if (!g.photo_url) {
-            const sty = lg ? ' style="font-size:40px;width:56px;height:56px"' : '';
+            const sty = lg ? ' style="font-size:24px;width:36px;height:36px"' : '';
             return `<div class="guru-home-emoji"${sty}>${emoji}</div>`;
         }
         const safeUrl   = escHtml(g.photo_url);
