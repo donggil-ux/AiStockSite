@@ -4813,24 +4813,24 @@
 .sniper-item > .sniper-badges{ grid-column:3; grid-row:1 / span 3; align-self:center; }
 .sniper-item > .sniper-spark { display:none !important; } /* 추천 이유 텍스트로 교체 */
 .sniper-item > .sniper-reason-text {
-    grid-column:4;
-    grid-row:1 / span 3;
-    align-self:center;
+    grid-column:2 / -1;
+    grid-row:4;
+    align-self:start;
     font-size:12px;
     line-height:1.4;
     color:var(--text2);
     font-weight:400;
     letter-spacing:-0.005em;
     max-width:none;
-    text-align:right;
-    padding-right:4px;
+    text-align:left;
+    padding:4px 0 0;
     white-space:normal;
     word-break:keep-all;
     overflow-wrap:anywhere;
 }
 @media(max-width:640px){
     .sniper-item > .sniper-reason-text{
-        font-size:11px;max-width:none;
+        font-size:11px;
     }
 }
 
