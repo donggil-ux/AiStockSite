@@ -8162,7 +8162,7 @@
             const rank = i + 1;
             const tags = inst.tags.map(t => `<span class="guru-tag">${t}</span>`).join('');
             const top3html = inst.top3.map(h =>
-                `<span class="sm-top3-hold">${h.ticker} <span style="color:var(--blue)">${h.wt}%</span></span>`
+                `<span class="sm-top3-hold"><img src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(h.ticker)}?format=png" class="sm-chip-logo" alt="" loading="lazy" onerror="this.style.display='none'"/>${h.ticker} <span style="color:var(--blue)">${h.wt}%</span></span>`
             ).join('');
             return `<div class="sm-inst-card" onclick="smDeepDive('kingdom_${inst.id}')">
                 <div class="sm-inst-header">
@@ -8227,9 +8227,12 @@
             const hidden = smCurrentFilter !== 'all' && h.action !== smCurrentFilter ? ' hidden' : '';
             const shares = inst.aum ? _smFmtShares(inst.aum, h.wt, h.avgPrice) : '—';
             return `<div class="sm-holding-row${hidden}" onclick="smChartLink('${h.ticker}',${h.avgPrice},'${inst.name}')">
-                <div>
-                    <div class="sm-tick">${h.ticker}</div>
-                    <div class="sm-chart-hint">차트 보기 ›</div>
+                <div style="display:flex;align-items:center;gap:8px;min-width:0">
+                    <img src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(h.ticker)}?format=png" class="sm-row-logo" alt="" loading="lazy" onerror="this.style.display='none'"/>
+                    <div style="min-width:0">
+                        <div class="sm-tick">${h.ticker}</div>
+                        <div class="sm-chart-hint">차트 보기 ›</div>
+                    </div>
                 </div>
                 <div>
                     <div class="sm-wt">${h.wt.toFixed(1)}%</div>
@@ -8285,9 +8288,12 @@
             const hidden = smCurrentFilter !== 'all' && h.action !== smCurrentFilter ? ' hidden' : '';
             const shares = _smFmtShares(inst.aum, h.wt, h.avgPrice);
             return `<div class="sm-holding-row${hidden}" onclick="smChartLink('${h.ticker}',${h.avgPrice},'${inst.name}')">
-                <div>
-                    <div class="sm-tick">${h.ticker}</div>
-                    <div class="sm-chart-hint">차트 보기 ›</div>
+                <div style="display:flex;align-items:center;gap:8px;min-width:0">
+                    <img src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(h.ticker)}?format=png" class="sm-row-logo" alt="" loading="lazy" onerror="this.style.display='none'"/>
+                    <div style="min-width:0">
+                        <div class="sm-tick">${h.ticker}</div>
+                        <div class="sm-chart-hint">차트 보기 ›</div>
+                    </div>
                 </div>
                 <div>
                     <div class="sm-wt">${h.wt.toFixed(1)}%</div>
@@ -8467,7 +8473,7 @@
         panel.innerHTML = list.map(g => {
             const isEmpty = g.data_status === 'empty' || (!g.aum_usd && !(g.top3 && g.top3.length));
             const top3 = (g.top3 || []).map(t =>
-                `<span class="sm-sector-tag">${escHtml(t.ticker)} ${(t.weight||0).toFixed(1)}%</span>`
+                `<span class="sm-sector-tag"><img src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(t.ticker)}?format=png" class="sm-chip-logo" alt="" loading="lazy" onerror="this.style.display='none'"/>${escHtml(t.ticker)} ${(t.weight||0).toFixed(1)}%</span>`
             ).join('');
             const aum = isEmpty ? '' : _guruFmtUSD(g.aum_usd);
             const filed = g.last_filed_at ? g.last_filed_at : '—';
@@ -8545,8 +8551,11 @@
 
         const rows = positions.map((p, i) => {
             const shortName = (p.name || '').replace(/ (CORP|INC|LTD|PLC|CO|GROUP|HOLDINGS|TECHNOLOGIES|TECHNOLOGY|INTERNATIONAL|BANCSHARES|FINANCIAL)\.?$/i, '').slice(0, 22);
+            const tickerLogo = p.ticker
+                ? `<img src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(p.ticker)}?format=png" class="sm-row-logo" alt="" loading="lazy" onerror="this.style.display='none'" style="vertical-align:middle;margin-right:6px"/>`
+                : '';
             const ticker = p.ticker
-                ? `<a href="#" onclick="event.preventDefault();smChartLink('${p.ticker}',0,'${escHtml(meta.name||'Guru')}')" style="color:var(--accent);font-weight:700;font-size:13px">${escHtml(p.ticker)}</a>`
+                ? `${tickerLogo}<a href="#" onclick="event.preventDefault();smChartLink('${p.ticker}',0,'${escHtml(meta.name||'Guru')}')" style="color:var(--accent);font-weight:700;font-size:13px;vertical-align:middle">${escHtml(p.ticker)}</a>`
                 : `<span style="color:var(--text);font-weight:700;font-size:12px" title="${escHtml(p.name||'')}">${escHtml(shortName)}</span>`;
             const subName = p.ticker ? `<div style="font-size:10px;color:var(--text-secondary)">${escHtml((p.name||'').slice(0,30))}</div>` : '';
             const deltaShares = (p.prev_shares != null && p.shares != null) ? (p.shares - p.prev_shares) : 0;

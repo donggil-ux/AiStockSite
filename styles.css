@@ -2623,7 +2623,12 @@
         .sm-top3-add-card:hover{border-color:var(--yellow);transform:translateY(-1px);}
         .sm-add-chg{font-size:11px;font-weight:700;color:var(--blue);background:rgba(0,128,251,.1);border-radius:4px;padding:2px 5px;}
         /* 🏛️ KINGDOM — 월가 킹덤 */
-        .sm-top3-hold{display:inline-flex;align-items:center;gap:3px;background:var(--bg3);border-radius:5px;padding:2px 7px;font-size:11px;font-weight:600;color:var(--text2);margin-right:4px;margin-bottom:3px;}
+        .sm-top3-hold{display:inline-flex;align-items:center;gap:4px;background:var(--bg3);border-radius:5px;padding:2px 7px;font-size:11px;font-weight:600;color:var(--text2);margin-right:4px;margin-bottom:3px;}
+        /* 칩 내부 종목 로고(top3·sector-tag 공용) */
+        .sm-chip-logo{width:14px;height:14px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--bg2);}
+        .sm-sector-tag{display:inline-flex!important;align-items:center;gap:4px;}
+        /* 딥다이브 보유 종목 행 로고 */
+        .sm-row-logo{width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--bg3);}
         .sm-treemap-wrap{background:var(--bg2);border-radius:10px;padding:10px;margin-bottom:6px;overflow:hidden;}
 
         /* ===== BOTTOM NAV — 플로팅 필 ===== */
