@@ -2459,13 +2459,15 @@
         /* ===== BOTTOM NAV — 플로팅 필 ===== */
         .bottom-nav{
             position:fixed;bottom:0;left:0;right:0;
-            padding:10px 20px calc(18px + env(safe-area-inset-bottom));
+            width:100%;max-width:834px;margin:0 auto;
+            padding:10px 16px calc(18px + env(safe-area-inset-bottom));
             background:transparent;
             border-top:none;
             display:flex;align-items:center;justify-content:center;
             z-index:900;
             transform:translateY(0);transition:transform .3s ease;
             pointer-events:none;
+            box-sizing:border-box;
         }
         .bottom-nav.hidden{transform:translateY(110%);}
 
