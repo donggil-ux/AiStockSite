@@ -1860,11 +1860,12 @@
             #tabYoutube.active{display:block;}
             #tabInfo.active,#tabCompany.active{gap:8px;}
             #tabInfo .tab-info-top{grid-column:1/-1;padding:0;}
-            #tabInfo .tab-col-left,#tabCompany .tab-col-left{padding-right:0;}
-            #tabInfo .tab-col-right,#tabCompany .tab-col-right{padding-left:0;}
-            #tabInfo .tab-col-left .card{margin-right:0;}
-            #tabInfo .tab-col-right .card{margin-left:0;}
-            .tab-col-left,.tab-col-right{display:flex;flex-direction:column;padding:0;}
+            /* tab-col-left/right · 그 안의 카드 — 좌우 패딩/마진 강제 0 (hero 와 동일 폭) */
+            .tab-col-left,.tab-col-right{display:flex;flex-direction:column;padding:0!important;}
+            #tabInfo .tab-col-left,#tabCompany .tab-col-left,
+            #tabInfo .tab-col-right,#tabCompany .tab-col-right{padding:0!important;}
+            #tabInfo .tab-col-left .card,#tabCompany .tab-col-left .card,
+            #tabInfo .tab-col-right .card,#tabCompany .tab-col-right .card{margin-left:0!important;margin-right:0!important;}
             .tv-chart-wrap{height:650px;}
             .sub-chart-grid{grid-template-columns:1fr 1fr;}
             .sub-chart-grid .card{margin:4px 12px;}
