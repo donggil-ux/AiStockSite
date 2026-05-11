@@ -5293,11 +5293,24 @@
 .bounce-filter-bar{display:flex;align-items:center;gap:8px;padding:10px 16px 6px;}
 .bounce-toggle-label{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;user-select:none;}
 .bounce-toggle-label input[type=checkbox]{width:16px;height:16px;accent-color:var(--blue);cursor:pointer;}
-.bounce-card{flex-direction:row;align-items:flex-start;padding:14px 16px;gap:10px;}
+/* bounce-card는 .sniper-item의 grid를 오버라이드해 flex로 재배치 */
+.sniper-item.bounce-card{
+    display:flex;
+    flex-direction:row;
+    align-items:flex-start;
+    padding:14px 16px;
+    gap:10px;
+    grid-template-columns:none;
+    grid-template-rows:none;
+}
+.sniper-item.bounce-card > .tlogo-wrap{grid-column:auto;grid-row:auto;flex-shrink:0;align-self:center;}
+.sniper-item.bounce-card > .sniper-info{grid-column:auto;grid-row:auto;flex:1;min-width:0;padding-right:0;}
+.sniper-item.bounce-card > .bounce-meta{grid-column:auto;grid-row:auto;}
+.sniper-item.bounce-card > .sniper-price-wrap{grid-column:auto;grid-row:auto;position:static;justify-self:auto;align-self:center;align-items:flex-end;display:flex;flex-direction:column;flex-shrink:0;}
 .bounce-signals{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;}
 .bounce-signal-tag{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:var(--radius-full);background:rgba(255,255,255,0.06);font-size:10px;font-weight:600;color:var(--text2);}
 .bounce-signal-tag em{font-style:normal;color:var(--blue);}
-.bounce-meta{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;margin-left:auto;padding-left:6px;}
+.bounce-meta{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;padding-left:6px;}
 .bounce-tier-badge{display:inline-block;padding:3px 8px;border-radius:var(--radius-full);font-size:11px;font-weight:700;letter-spacing:.02em;}
 .bounce-tier1{background:rgba(12,245,176,.15);color:var(--green);}
 .bounce-tier2{background:rgba(0,128,251,.12);color:var(--blue);}
