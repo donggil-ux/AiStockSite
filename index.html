@@ -5082,31 +5082,54 @@
                     .map(({ item, signals }) => ({ ...item, _alphaKind: 'bounce', _bounceSignals: signals }));
                 if (_alphaTab !== 'bounce') return;
                 _alphaRender(scored);
-            } else if (tab === 'daytrade') {
-                // 단타: day_gainers + 평균 거래량 대비 1.5배 이상 + ATR/price ≥ 3%
-                const items = (top100Cache?.['day_gainers']?.items) || [];
-                const candidates = items.filter(q => {
-                    const vol = q.regularMarketVolume || 0;
-                    const avgVol = q.averageDailyVolume3Month || 0;
-                    if (!vol || !avgVol) return false;
-                    const volMult = vol / avgVol;
-                    if (volMult < 1.5) return false;
-                    const price = q.regularMarketPrice || 0;
-                    if (price < 1) return false;
-                    return true;
-                }).slice(0, 30).map(q => ({ ...q, _alphaKind: 'daytrade', volMult: (q.regularMarketVolume / q.averageDailyVolume3Month) }));
-                if (_alphaTab !== 'daytrade') return;
-                _alphaRender(candidates);
-            } else if (tab === 'swing') {
-                const items = (top100Cache?.['day_gainers']?.items) || [];
-                const qualified = items.map(q => {
-                    const p = q.regularMarketPrice, h = q.fiftyTwoWeekHigh;
-                    if (!p || !h || h <= p) return null;
-                    const rr = (h - p) / (p * 0.05);
-                    return rr >= 1.5 ? { ...q, _rr: rr, _alphaKind: 'swing' } : null;
-                }).filter(Boolean).sort((a, b) => b._rr - a._rr).slice(0, 30);
-                if (_alphaTab !== 'swing') return;
-                _alphaRender(qualified);
+            } else if (tab === 'daytrade' || tab === 'swing') {
+                // top100Cache 없으면 직접 day_gainers 가져오기 (fallback)
+                let items = (top100Cache?.['day_gainers']?.items) || [];
+                if (!items.length) {
+                    try {
+                        const r = await fetch('/api/screener/day_gainers?count=100');
+                        if (r.ok) {
+                            const d = await r.json();
+                            items = d?.finance?.result?.[0]?.quotes || [];
+                            // 가져온 데이터 캐시에도 저장 (다른 곳에서 재사용)
+                            if (items.length) top100Cache['day_gainers'] = { items, ts: Date.now() };
+                        }
+                    } catch(e) { console.warn('[alpha day_gainers fetch]', e); }
+                }
+                if (_alphaTab !== tab) return;
+                if (!items.length) {
+                    document.getElementById('alphaResults').innerHTML =
+                        '<div class="sniper-empty">데이터를 불러올 수 없습니다 — 잠시 후 다시 시도하세요</div>';
+                    return;
+                }
+                if (tab === 'daytrade') {
+                    // 단타: 거래량 평균 대비 1.5배 + 주가 ≥ $1
+                    const candidates = items.filter(q => {
+                        const vol = q.regularMarketVolume || 0;
+                        const avgVol = q.averageDailyVolume3Month || 0;
+                        if (!vol || !avgVol) return false;
+                        if (vol / avgVol < 1.5) return false;
+                        const price = q.regularMarketPrice || 0;
+                        if (price < 1) return false;
+                        return true;
+                    }).slice(0, 30).map(q => ({ ...q, _alphaKind: 'daytrade', volMult: (q.regularMarketVolume / q.averageDailyVolume3Month) }));
+                    // 후보가 없으면 거래량 필터 완화하여 폴백
+                    const final = candidates.length ? candidates : items.slice(0, 30).map(q => {
+                        const vol = q.regularMarketVolume || 0;
+                        const avgVol = q.averageDailyVolume3Month || 1;
+                        return { ...q, _alphaKind: 'daytrade', volMult: vol / avgVol };
+                    });
+                    _alphaRender(final);
+                } else {
+                    // 스윙: R/R ≥ 1.5
+                    const qualified = items.map(q => {
+                        const p = q.regularMarketPrice, h = q.fiftyTwoWeekHigh;
+                        if (!p || !h || h <= p) return null;
+                        const rr = (h - p) / (p * 0.05);
+                        return rr >= 1.5 ? { ...q, _rr: rr, _alphaKind: 'swing' } : null;
+                    }).filter(Boolean).sort((a, b) => b._rr - a._rr).slice(0, 30);
+                    _alphaRender(qualified);
+                }
             }
         } catch (e) {
             console.error('[alphaSwitchTab]', e);
