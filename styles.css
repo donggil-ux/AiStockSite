@@ -5490,6 +5490,16 @@
 .mf-tier-b{color:#0080FB;background:rgba(0,128,251,.12);}
 .mf-tier-c{color:#FFD60A;background:rgba(255,214,10,.10);}
 .mf-tier-d{color:#FF453A;background:rgba(255,69,58,.12);}
+/* 라이트 모드 — 밝은 배경에서 가독성 확보 (특히 C/노랑) */
+[data-theme="light"] .mf-tier-a{color:#047857;background:rgba(5,150,105,.12);}
+[data-theme="light"] .mf-tier-b{color:#0058B0;background:rgba(0,88,176,.10);}
+[data-theme="light"] .mf-tier-c{color:#B45309;background:rgba(180,83,9,.12);}
+[data-theme="light"] .mf-tier-d{color:#B91C1C;background:rgba(185,28,28,.10);}
+/* 게이지 점수 텍스트도 라이트 모드에서 대비 보강 */
+[data-theme="light"] .mf-g-high{color:#047857;}
+[data-theme="light"] .mf-g-mid{color:#0058B0;}
+[data-theme="light"] .mf-g-low{color:#B45309;}
+[data-theme="light"] .mf-g-crit{color:#B91C1C;}
 .mf-gauges{display:flex;flex-direction:column;gap:12px;padding:0 16px 14px;}
 .mf-factor{display:flex;flex-direction:column;gap:4px;}
 .mf-factor-hd{display:flex;justify-content:space-between;align-items:center;}
