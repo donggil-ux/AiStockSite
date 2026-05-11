@@ -6903,49 +6903,41 @@
     function _renderDpHome(data) {
         const el = document.getElementById('dpHomeGrid');
         if (!el) return;
-        const cats = [
-            { key: 'oversold',    label: '과매도',  cls: 'dp-cat-oversold',    items: data.oversold    || [] },
-            { key: 'undervalued', label: '저평가',  cls: 'dp-cat-undervalued', items: data.undervalued || [] },
-            { key: 'growth',      label: '성장',    cls: 'dp-cat-growth',      items: data.growth      || [] },
-            { key: 'overbought',  label: '과매수',  cls: 'dp-cat-overbought',  items: data.overbought  || [] },
-        ];
-        // 새 구조가 없으면 기존 buys/sells 폴백
-        const hasNew = cats.some(c => c.items.length > 0);
-        if (!hasNew) {
-            const buys  = (data.buys  || []).slice(0, 3);
-            const sells = (data.sells || []).slice(0, 3);
-            const all = [...buys.map(p => _renderDpHomeCard(p, 'BUY')), ...sells.map(p => _renderDpHomeCard(p, 'SELL'))];
-            el.innerHTML = all.length ? all.join('') : '<div class="dp-home-loading">데이터 없음</div>';
-            return;
+        try {
+            const cats = [
+                { key: 'oversold',    items: data.oversold    || [] },
+                { key: 'undervalued', items: data.undervalued || [] },
+                { key: 'growth',      items: data.growth      || [] },
+                { key: 'overbought',  items: data.overbought  || [] },
+            ];
+            // 모든 카테고리에서 최대 1~2개씩 뽑아 합쳐 홈 프리뷰 4개 카드 노출
+            const picks = [];
+            for (const c of cats) {
+                for (const item of c.items.slice(0, 1)) {
+                    if (item && item.ticker) picks.push({ item, key: c.key });
+                    if (picks.length >= 4) break;
+                }
+                if (picks.length >= 4) break;
+            }
+            // 부족하면 buys/sells 폴백
+            if (picks.length < 4) {
+                const buys  = (data.buys  || []);
+                const sells = (data.sells || []);
+                for (const item of buys)  { if (picks.length >= 4) break; picks.push({ item, key: 'BUY'  }); }
+                for (const item of sells) { if (picks.length >= 4) break; picks.push({ item, key: 'SELL' }); }
+            }
+            if (!picks.length) {
+                el.innerHTML = '<div class="dp-home-loading">데이터가 없습니다</div>';
+                return;
+            }
+            el.innerHTML = `<div class="dp-cat-cards">${picks.map(p => _renderDpHomeCard(p.item, p.key)).join('')}</div>`;
+            // 현재 주가 비동기 enrich
+            const tickers = picks.map(p => p.item.ticker).filter(Boolean);
+            if (tickers.length) _enrichDpPrices(tickers);
+        } catch(e) {
+            console.error('[dp-home render]', e);
+            el.innerHTML = '<div class="dp-home-loading">불러오기 실패 — 잠시 후 다시 시도하세요</div>';
         }
-        const activeCats = cats.filter(c => c.items.length > 0);
-        if (!activeCats.length) { el.innerHTML = '<div class="dp-home-loading">데이터 없음</div>'; return; }
-
-        // 칩 탭 + 카드 패널 구조 (반등 스캐너 탭 포함)
-        const allCats = [...activeCats, { key: 'bounce', label: '반등 스캐너', cls: 'dp-cat-bounce' }];
-        const chips = allCats.map((cat, i) =>
-            `<button class="dp-chip ${cat.cls}${i === 0 ? ' active' : ''}" onclick="_dpSwitchCat('${cat.key}')">${cat.label}</button>`
-        ).join('');
-        const panels = activeCats.map((cat, i) =>
-            `<div class="dp-cat-panel" data-cat="${cat.key}" style="${i !== 0 ? 'display:none' : ''}">
-                <div class="dp-cat-cards">${cat.items.slice(0, 8).map(p => _renderDpHomeCard(p, cat.key)).join('')}</div>
-            </div>`
-        ).join('');
-        // 반등 스캐너 패널 (lazy 로드)
-        const bouncePanel = `<div class="dp-cat-panel" data-cat="bounce" style="display:none">
-            <div class="dp-bounce-bar">
-                <label class="dp-bounce-label">
-                    <input type="checkbox" id="dpBounceExclude" ${_bounceExcludeBigTech ? 'checked' : ''} onchange="_dpBounceToggle(this.checked)">
-                    빅테크 제외
-                </label>
-            </div>
-            <div class="dp-cat-cards" id="dpBounceCards"><div class="dp-home-loading">불러오는 중...</div></div>
-        </div>`;
-        el.innerHTML = `<div class="dp-chip-row">${chips}</div>${panels}${bouncePanel}`;
-
-        // 현재 주가 비동기 enrich
-        const allTickers = activeCats.flatMap(c => c.items.map(p => p.ticker)).filter(Boolean);
-        if (allTickers.length) _enrichDpPrices(allTickers);
     }
 
     function _dpSwitchCat(key) {
