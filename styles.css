@@ -210,7 +210,7 @@
         .header-bell-btn:hover{background:var(--bg3);}
         .header-bell-btn:active{opacity:.6;}
         /* ===== HEADER 시장 온도계 (탭 위 노출) ===== */
-        .header-thermo{margin-top:0;margin-bottom:12px;margin-left:0;margin-right:0;padding-left:16px;}
+        .header-thermo{margin-top:0;margin-bottom:12px;margin-left:0;margin-right:0;padding-left:0;}
         .thermo-ticker{margin-top:12px;padding-left:0!important;}
         .header-thermo .thermo-banner{margin:0;}
         #mainHeader.stock-loaded .header-thermo{display:none!important;}
