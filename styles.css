@@ -2626,6 +2626,9 @@
         .sm-top3-hold{display:inline-flex;align-items:center;gap:4px;background:var(--bg3);border-radius:5px;padding:2px 7px;font-size:11px;font-weight:600;color:var(--text2);margin-right:4px;margin-bottom:3px;}
         /* 칩 내부 종목 로고(top3·sector-tag 공용) */
         .sm-chip-logo{width:14px;height:14px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--bg2);}
+        /* 운용사 회사명 옆 로고 (이모지 자리 대체) */
+        .sm-firm-logo{width:18px;height:18px;border-radius:50%;object-fit:contain;background:var(--bg3);vertical-align:-4px;margin-right:2px;display:inline-block;}
+        .sm-firm-emoji{display:inline-block;vertical-align:baseline;margin-right:2px;}
         .sm-sector-tag{display:inline-flex!important;align-items:center;gap:4px;}
         /* 딥다이브 보유 종목 행 로고 */
         .sm-row-logo{width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--bg3);}
