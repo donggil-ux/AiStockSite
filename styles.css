@@ -3502,78 +3502,8 @@
 }
 .earn-topnav::-webkit-scrollbar { display: none; }
 
-/* 날짜 칩 영역 — 좌측 */
-.earn-topnav-dates {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-shrink: 0;
-    padding-right: 14px;
-    margin-right: 8px;
-    border-right: 1px solid var(--border);
-}
-
-/* 칩 그룹: 그룹간 큰 간격 */
-.earn-chip-group {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-shrink: 0;
-    margin-right: 18px;
-}
-
-/* 공통 칩 — Toss 스타일 풀 라운드 pill */
-.earn-date-chip,
-.earn-topnav-actions .earn-chip {
-    flex-shrink: 0;
-    height: 36px;
-    padding: 0 16px;
-    background: transparent;
-    border: none;
-    border-radius: 9999px;
-    color: var(--text2);
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background .12s, color .12s;
-    letter-spacing: -0.01em;
-}
-.earn-date-chip:hover,
-.earn-topnav-actions .earn-chip:hover {
-    color: var(--text);
-}
-.earn-date-chip.active,
-.earn-topnav-actions .earn-chip.active {
-    background: var(--bg3);
-    color: var(--text);
-    font-weight: 700;
-}
-/* 라이트모드: 칩 그룹 컨테이너에 회색 배경 → 흰 active 칩이 도드라짐 */
-[data-theme="light"] .earn-topnav-dates,
-[data-theme="light"] .earn-chip-group {
-    background: #EBEBF0;
-    border-radius: 10px;
-    padding: 3px;
-    gap: 2px;
-}
-[data-theme="light"] .earn-date-chip,
-[data-theme="light"] .earn-topnav-actions .earn-chip {
-    color: var(--text2);
-    height: 30px;
-    padding: 0 13px;
-}
-[data-theme="light"] .earn-date-chip.active,
-[data-theme="light"] .earn-topnav-actions .earn-chip.active {
-    background: #fff;
-    box-shadow: 0 1px 4px rgba(0,0,0,.12), 0 0 0 0.5px rgba(0,0,0,.06);
-    color: var(--text);
-}
-[data-theme="light"] .earn-date-chip:hover:not(.active),
-[data-theme="light"] .earn-topnav-actions .earn-chip:hover:not(.active) {
-    background: rgba(0,0,0,.05);
-    color: var(--text);
-}
+/* 날짜 칩 영역 / 칩 그룹 — 세그먼트 컨트롤 통합 규칙(파일 상단)에서 처리.
+   레거시 Toss 풀라운드 pill 스타일은 제거 — 홈과 동일한 iOS 세그먼트로 통일. */
 
 /* 필터 액션 영역 — 우측 */
 .earn-topnav-actions {
