@@ -3208,19 +3208,15 @@
             .sm-screen-sub{font-size:14px!important;margin-bottom:20px!important;}
         }
 
-        /* 서브 탭 — 데스크톱에서 전체 너비 안 차도록 */
+        /* 서브 탭 — 3개 균등 분할 */
         .sm-sub-tabs{
-            gap:6px!important;margin-bottom:20px!important;
-            overflow-x:auto;scrollbar-width:none;
+            gap:8px!important;margin-bottom:20px!important;
         }
-        .sm-sub-tabs::-webkit-scrollbar{display:none;}
         .sm-sub-tab{
-            flex:1 1 auto!important;
+            flex:1 1 0!important;
+            min-width:0;
             white-space:nowrap;
-        }
-        @media(min-width:768px){
-            .sm-sub-tabs{flex-wrap:wrap;gap:8px!important;}
-            .sm-sub-tab{flex:0 0 auto!important;min-width:140px;}
+            text-align:center;
         }
 
         /* 공시 안내 박스 */
