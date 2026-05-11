@@ -5595,6 +5595,7 @@
 /* ═══════════════════════════════════════════════════════
    옵션 인기 종목 섹션
    ═══════════════════════════════════════════════════════ */
+#optionsPopularSection{padding-top:24px;}
 .opt-pop-tabs{
     display:flex;gap:8px;
     margin-bottom:12px;
