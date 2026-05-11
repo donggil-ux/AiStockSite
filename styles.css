@@ -4821,7 +4821,7 @@
     color:var(--text2);
     font-weight:400;
     letter-spacing:-0.005em;
-    max-width:220px;
+    max-width:none;
     text-align:right;
     padding-right:4px;
     white-space:normal;
@@ -4830,7 +4830,7 @@
 }
 @media(max-width:640px){
     .sniper-item > .sniper-reason-text{
-        font-size:11px;max-width:150px;
+        font-size:11px;max-width:none;
     }
 }
 
