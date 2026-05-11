@@ -2629,21 +2629,21 @@
         /* 운용사 회사명 옆 로고 (이모지 자리 대체) */
         .sm-firm-logo{width:18px;height:18px;border-radius:50%;object-fit:contain;background:var(--bg3);vertical-align:-4px;margin-right:2px;display:inline-block;}
         .sm-firm-emoji{display:inline-block;vertical-align:baseline;margin-right:2px;}
-        /* 운용사 카드 좌측 큰 로고 (홈 종목 리스트 .tlogo-wrap 40px 와 정렬) */
+        /* 운용사 카드 좌측 로고 (부자 포트폴리오 36px 와 통일) */
         .sm-inst-rank.sm-inst-rank-logo{
             position:relative;
-            width:40px;min-width:40px;height:40px;
+            width:36px;min-width:36px;height:36px;
             display:flex;align-items:center;justify-content:center;
             padding:0;flex-shrink:0;
         }
         .sm-firm-logo-lg{
-            width:40px;height:40px;border-radius:50%;
+            width:36px;height:36px;border-radius:50%;
             object-fit:contain;background:var(--bg3);
             display:block;
         }
         .sm-firm-logo-lg-emoji{
             display:flex;align-items:center;justify-content:center;
-            font-size:22px;line-height:1;
+            font-size:20px;line-height:1;
         }
         .sm-medal-badge{
             position:absolute;top:-6px;left:-6px;
