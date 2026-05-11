@@ -3271,7 +3271,7 @@
     function goFav() {
         window._lastScreen = 'fav';
         const _t = document.getElementById('marketThermometer');
-        if (_t && _t.innerHTML.trim()) _t.style.display = '';
+        if (_t) _t.style.display = 'none';
         const _q = document.getElementById('headerQNav');
         if (_q) _q.style.display = '';
         document.getElementById('welcomeScreen').style.display = 'none';
@@ -4977,9 +4977,10 @@
     let smDeepMode = 'hot';
 
     // 헤더 시장 테마/qnav 복원 (Discover 페이지에서 숨겨졌을 수 있음)
+    // 시장 온도계는 홈에서만 노출 → 비홈 페이지에서는 항상 숨김
     function _restoreHeaderChrome() {
         const t = document.getElementById('marketThermometer');
-        if (t && t.innerHTML.trim()) t.style.display = '';
+        if (t) t.style.display = 'none';
         const q = document.getElementById('headerQNav');
         if (q) q.style.display = '';
     }
