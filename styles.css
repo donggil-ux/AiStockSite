@@ -3980,6 +3980,27 @@
 .lev-chip.active{background:var(--bg3);color:var(--text);border-color:var(--bg3);font-weight:700;}
 [data-theme="light"] .lev-chip.active{background:var(--text);color:var(--bg);border-color:var(--text);}
 
+.lev-search-wrap{
+    position:relative;display:flex;align-items:center;gap:8px;
+    background:var(--bg2);border:1px solid var(--border);
+    border-radius:12px;padding:10px 12px;
+    margin:6px 0 12px;transition:border-color .15s;
+}
+.lev-search-wrap:focus-within{border-color:var(--blue);}
+.lev-search-wrap svg{color:var(--text3);flex-shrink:0;}
+.lev-search-input{
+    flex:1;min-width:0;background:transparent;border:none;outline:none;
+    color:var(--text);font-size:14px;font-family:inherit;letter-spacing:-0.01em;
+}
+.lev-search-input::placeholder{color:var(--text3);}
+.lev-search-clear{
+    width:22px;height:22px;border-radius:50%;
+    background:var(--bg3);border:none;color:var(--text2);
+    font-size:12px;cursor:pointer;font-family:inherit;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;line-height:1;
+}
+.lev-search-clear:hover{background:var(--bg4);color:var(--text);}
+
 .lev-toolbar{
     display:flex;align-items:center;justify-content:space-between;
     margin-bottom:14px;padding:0 4px;
