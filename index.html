@@ -8121,7 +8121,7 @@
         if (tab === 'real') renderGuruReal();
     }
 
-    // 운용사 id → 도메인 매핑 (Clearbit 로고용)
+    // 운용사 id → 도메인 매핑 (Brandfetch/Clearbit/Google favicon용)
     const SM_FIRM_DOMAIN = {
         coatue:'coatue.com', sachem:'sachemhead.com', darsana:'darsanacapital.com',
         altimeter:'altimeter.com', iconiq:'iconiqcapital.com', greenlight:'greenlightcapital.com',
@@ -8140,13 +8140,37 @@
         deshaw:'deshaw.com', aqr:'aqr.com', dimensional:'dimensional.com', wellington:'wellington.com',
         ariel:'arielinvestments.com',
     };
-    // 로고 다중 폴백 체인: Brandfetch → Clearbit → Google favicon → 이모지
-    function _smLogoSources(domain) {
-        return [
+    // 보조 도메인 (1차 도메인이 로고 검색 안 될 때 시도) — 일부 운용사는 모회사/계열사 도메인이 더 잘 잡힘
+    const SM_FIRM_DOMAIN_ALT = {
+        statestreet:'statestreet.com',
+        goldmansacham:'goldmansachs.com',
+        balyasny:'balyasny.com',
+        millennium:'millenniummgmt.com',
+        bnymellon:'bnymellonim.com',
+        jpmorgan:'jpmorganchase.com',
+        invesco:'us.invesco.com',
+        renaissance:'rentec.com',
+        ariel:'arielinvestments.com',
+        wellington:'wellington.com',
+        capitalgroup:'thecapitalgroup.com',
+        dimensional:'dimensional.com',
+    };
+    // 로고 다중 폴백 체인: 도메인별 여러 CDN 시도 → 보조 도메인까지 시도
+    function _smLogoSources(domain, altDomain) {
+        const urls = [
             `https://cdn.brandfetch.io/${domain}/w/128/h/128`,
             `https://logo.clearbit.com/${domain}`,
             `https://www.google.com/s2/favicons?domain=${domain}&sz=128`,
+            `https://icons.duckduckgo.com/ip3/${domain}.ico`,
         ];
+        if (altDomain && altDomain !== domain) {
+            urls.push(
+                `https://cdn.brandfetch.io/${altDomain}/w/128/h/128`,
+                `https://logo.clearbit.com/${altDomain}`,
+                `https://www.google.com/s2/favicons?domain=${altDomain}&sz=128`,
+            );
+        }
+        return urls;
     }
     // 전역 폴백 핸들러: data-fb(JSON 배열)에서 다음 URL을 꺼내 src 교체, 끝나면 이모지로 치환
     window._smLogoErr = function(img) {
@@ -8169,7 +8193,8 @@
         const domain = SM_FIRM_DOMAIN[inst.id];
         const emoji = fallbackEmoji || inst.emoji || inst.hotBadge || '🏛️';
         if (!domain) return `<span class="sm-firm-emoji">${emoji}</span>`;
-        const [first, ...rest] = _smLogoSources(domain);
+        const alt = SM_FIRM_DOMAIN_ALT[inst.id];
+        const [first, ...rest] = _smLogoSources(domain, alt);
         const fbJson = escHtml(JSON.stringify(rest));
         return `<img src="${first}" class="sm-firm-logo" alt="" loading="lazy"
             data-fb="${fbJson}" data-emoji="${escHtml(emoji)}" data-fb-class="sm-firm-emoji"
@@ -8180,7 +8205,8 @@
         const domain = SM_FIRM_DOMAIN[inst.id];
         const emoji = inst.emoji || inst.hotBadge || '🏛️';
         if (!domain) return `<div class="sm-firm-logo-lg sm-firm-logo-lg-emoji">${emoji}</div>`;
-        const [first, ...rest] = _smLogoSources(domain);
+        const alt = SM_FIRM_DOMAIN_ALT[inst.id];
+        const [first, ...rest] = _smLogoSources(domain, alt);
         const fbJson = escHtml(JSON.stringify(rest));
         return `<img src="${first}" class="sm-firm-logo-lg" alt="" loading="lazy"
             data-fb="${fbJson}" data-emoji="${escHtml(emoji)}" data-fb-class="sm-firm-logo-lg sm-firm-logo-lg-emoji"
