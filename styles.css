@@ -5482,7 +5482,7 @@
 .mf-card{padding:0;}
 .mf-card .card-title{padding:16px 16px 12px;}
 .mf-header{display:flex;align-items:center;gap:14px;padding:0 16px 14px;}
-.mf-total-score{font-size:44px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-0.03em;min-width:60px;}
+.mf-total-score{font-size:44px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-0.03em;min-width:60px;background:transparent!important;padding:0;}
 .mf-header-right{display:flex;flex-direction:column;gap:5px;}
 .mf-tier-badge{display:inline-block;padding:4px 12px;border-radius:var(--radius-full);font-size:12px;font-weight:700;letter-spacing:.04em;width:fit-content;}
 .mf-tier-desc{font-size:12px;color:var(--text2);font-weight:500;line-height:1.4;}
