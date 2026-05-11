@@ -3186,16 +3186,16 @@
          * Level 8: Smart Money 화면 반응형 최적화 (모바일/태블릿/데스크톱)
          * ============================================================ */
 
-        /* 컨테이너 — 데스크톱에서 더 넓게, 모바일은 edge-safe */
+        /* 컨테이너 — 헤더(16px L/R)와 정렬 통일 */
         .smart-money-screen{
             max-width:834px!important;
             padding:20px 16px 80px!important;
         }
         @media(min-width:768px){
-            .smart-money-screen{padding:28px 24px 100px!important;}
+            .smart-money-screen{padding:28px 16px 100px!important;}
         }
         @media(min-width:1024px){
-            .smart-money-screen{padding:32px 32px 120px!important;}
+            .smart-money-screen{padding:32px 16px 120px!important;}
         }
 
         /* 스크린 타이틀 — 데스크톱에서 billboard */
