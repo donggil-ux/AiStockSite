@@ -1166,7 +1166,7 @@
         .tab-content.active{display:block;}
 
         /* ===== CARDS ===== */
-        .card{background:var(--bg2);border-radius:var(--r);padding:24px;margin:4px 24px;}
+        .card{background:var(--bg2);border-radius:var(--r);padding:24px 0;margin:4px 16px;}
         .card-title{font-size:16px;font-weight:800;margin-bottom:18px;display:flex;align-items:center;gap:8px;letter-spacing:-0.3px;}
 
         /* ═══════ 🔬 퀀트 분석 카드 ═══════ */
@@ -1785,7 +1785,7 @@
             .tab-item{padding:5px 12px;font-size:13px;white-space:nowrap;flex-shrink:0;}
 
             /* ----- Cards ----- */
-            .card{margin:4px 10px;padding:16px;}
+            .card{margin:4px 16px;padding:16px 0;}
             .card-title{font-size:14px;margin-bottom:12px;}
             .ai-summary,.ai-detail-text,.entry-subtitle,.entry-check-desc,.warning-box .text,.entry-strategy-label{overflow-wrap:break-word;word-break:keep-all;}
             .ai-detail-title{flex-wrap:wrap;gap:4px;}
