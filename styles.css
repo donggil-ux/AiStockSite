@@ -91,7 +91,6 @@
             display:flex;align-items:center;gap:8px;
             padding:env(safe-area-inset-top,16px) 20px 16px;
             padding-top:calc(env(safe-area-inset-top,0px) + 16px);
-            border-bottom:1px solid var(--border);
         }
         .side-nav-hamburger{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:none;color:var(--text);border-radius:50%;cursor:pointer;font-size:22px;font-family:inherit;flex-shrink:0;transition:background .15s;}
         .side-nav-hamburger:hover{background:var(--bg3);}
