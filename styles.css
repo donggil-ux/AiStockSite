@@ -1088,7 +1088,7 @@
 
         /* ===== 공매도 탭 ===== */
         #tabShort{padding:16px 16px 24px;}
-        @media(min-width:900px){#tabShort.active{display:block;padding:16px 32px 24px;}}
+        @media(min-width:900px){#tabShort.active{display:block;padding:16px 0 24px;}}
         .short-header{display:flex;justify-content:space-between;align-items:center;padding:0 0 14px;margin-bottom:4px;}
         .short-header-title{font-size:20px;font-weight:800;color:var(--text);}
         .short-charts-row{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px;}
@@ -1850,28 +1850,28 @@
             /* 900-1099px: 단일 컬럼 (우측 패널이 좌측 아래로 스택) */
             .tab-content.active{display:grid;grid-template-columns:1fr;gap:0;align-items:start;}
             #tabChart.active{display:block;}
-            #tabAnalysis.active{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;padding:0 32px;align-items:start;}
+            #tabAnalysis.active{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;padding:0;align-items:start;}
             #tabAnalysis .analysis-refresh-bar,#tabAnalysis #rrAnalysis{grid-column:1/-1;}
             #tabAnalysis #tsPanelDay{padding:0 !important;}
             #tabOptions.active{display:block;}
-            #tabNews.active{display:block;padding:16px 32px 24px;}
+            #tabNews.active{display:block;padding:16px 0 24px;}
             #tabSocial.active{display:block;}
             #tabShort.active{display:block;}
             #tabYoutube.active{display:block;}
             #tabInfo.active,#tabCompany.active{gap:8px;}
-            #tabInfo .tab-info-top{grid-column:1/-1;padding:0 32px;}
+            #tabInfo .tab-info-top{grid-column:1/-1;padding:0;}
             #tabInfo .tab-col-left,#tabCompany .tab-col-left{padding-right:0;}
             #tabInfo .tab-col-right,#tabCompany .tab-col-right{padding-left:0;}
             #tabInfo .tab-col-left .card{margin-right:0;}
             #tabInfo .tab-col-right .card{margin-left:0;}
-            .tab-col-left,.tab-col-right{display:flex;flex-direction:column;padding:0 32px;}
+            .tab-col-left,.tab-col-right{display:flex;flex-direction:column;padding:0;}
             .tv-chart-wrap{height:650px;}
             .sub-chart-grid{grid-template-columns:1fr 1fr;}
             .sub-chart-grid .card{margin:4px 12px;}
             .indicator-grid{grid-template-columns:repeat(3,1fr);}
             .header{padding-left:16px;padding-right:16px;}
             .header-top{max-width:100%;margin:0 auto;}
-            .tab-nav{padding:0 32px;}
+            .tab-nav{padding:0;}
         }
         /* 데스크탑 — header-top 만 고정, thermometer 는 자연 스크롤 */
         @media(min-width:768px){
