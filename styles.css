@@ -1745,8 +1745,8 @@
             /* ----- Header ----- */
             .header{padding:10px 16px 10px;padding-top:calc(10px + env(safe-area-inset-top));}
             .header-top{flex-wrap:nowrap;gap:4px;margin-bottom:6px;}
-            /* 로고 중앙, 좌우 아이콘 배치 */
-            .logo{font-size:22px;flex:1;text-align:center;}
+            /* 로고 좌측, 아이콘은 우측 (margin-left:auto로 push) */
+            .logo{font-size:22px;flex:0 0 auto;text-align:left;}
             /* 숨겨진 검색 wrap 완전 제거 */
             #searchWrap{display:none !important;position:absolute!important;left:-9999px!important;}
             .header-search-icon-btn{margin-left:auto;}
