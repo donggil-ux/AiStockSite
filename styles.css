@@ -1637,7 +1637,7 @@
         /* ===== DESKTOP 2-COL ===== */
         @media(min-width:900px){
             .app{max-width:834px;}
-            .stock-hero{padding:32px 32px 24px;}
+            .stock-hero{padding:32px 0 24px;}
             .card{margin:4px 0px;}
             /* 900-1099px: 단일 컬럼 (우측 패널이 좌측 아래로 스택) */
             .tab-content.active{display:grid;grid-template-columns:1fr;gap:0;align-items:start;}
@@ -1669,6 +1669,8 @@
         @media(min-width:768px){
             .app-wrapper{overflow-x:visible;}
             .app{overflow-x:visible;}
+            /* 768~899px 구간: header content 0 L/R 와 정렬 (≥900px은 위 블록에서 처리) */
+            .stock-hero{padding-left:0;padding-right:0;}
             #mainHeader.header{
                 position:static!important;
                 padding:0!important;
