@@ -266,12 +266,13 @@
         @media(max-width:480px){.top100-title{font-size:20px;}}
         .top100-title .badge{font-size:11px;font-weight:700;background:var(--blue);color:#fff;padding:3px 10px;border-radius:12px;}
         .top100-updated{font-size:11px;color:var(--text3);font-weight:500;}
-        /* ═══ iOS Segmented Control (Apple HIG) — top100-filters / dp-chip-row / radar-tab-bar / earn-topnav 공통 ═══ */
+        /* ═══ iOS Segmented Control (Apple HIG) — top100-filters / dp-chip-row / radar-tab-bar / earn-topnav / alpha-tabs 공통 ═══ */
         .top100-filters,
         .dp-chip-row,
         .radar-tab-bar,
         .earn-topnav-dates,
-        .earn-chip-group{
+        .earn-chip-group,
+        .alpha-tabs{
             display:inline-flex;flex-direction:row;
             justify-content:center;align-items:center;
             padding:2px;gap:4px;
@@ -291,20 +292,23 @@
         [data-theme="light"] .dp-chip-row,
         [data-theme="light"] .radar-tab-bar,
         [data-theme="light"] .earn-topnav-dates,
-        [data-theme="light"] .earn-chip-group{
+        [data-theme="light"] .earn-chip-group,
+        [data-theme="light"] .alpha-tabs{
             background:rgba(118,118,128,0.12);
         }
         .top100-filters::-webkit-scrollbar,
         .dp-chip-row::-webkit-scrollbar,
         .radar-tab-bar::-webkit-scrollbar,
         .earn-topnav-dates::-webkit-scrollbar,
-        .earn-chip-group::-webkit-scrollbar{display:none;}
+        .earn-chip-group::-webkit-scrollbar,
+        .alpha-tabs::-webkit-scrollbar{display:none;}
 
         .top100-filter,
         .dp-chip,
         .radar-tab,
         .earn-date-chip,
-        .earn-topnav-actions .earn-chip{
+        .earn-topnav-actions .earn-chip,
+        .alpha-tab{
             position:relative;
             display:flex;align-items:center;justify-content:center;
             flex:0 0 auto;
@@ -327,23 +331,27 @@
         .dp-chip:hover:not(.active),
         .radar-tab:hover:not(.active),
         .earn-date-chip:hover:not(.active),
-        .earn-topnav-actions .earn-chip:hover:not(.active){color:rgba(60,60,67,0.46)!important;background:transparent!important;}
+        .earn-topnav-actions .earn-chip:hover:not(.active),
+        .alpha-tab:hover:not(.active){color:rgba(60,60,67,0.46)!important;background:transparent!important;}
         [data-theme="light"] .top100-filter,
         [data-theme="light"] .dp-chip,
         [data-theme="light"] .radar-tab,
         [data-theme="light"] .earn-date-chip,
-        [data-theme="light"] .earn-topnav-actions .earn-chip{color:rgba(60,60,67,0.46)!important;}
+        [data-theme="light"] .earn-topnav-actions .earn-chip,
+        [data-theme="light"] .alpha-tab{color:rgba(60,60,67,0.46)!important;}
         [data-theme="dark"] .top100-filter:not(.active),
         [data-theme="dark"] .dp-chip:not(.active),
         [data-theme="dark"] .radar-tab:not(.active),
         [data-theme="dark"] .earn-date-chip:not(.active),
-        [data-theme="dark"] .earn-topnav-actions .earn-chip:not(.active){color:rgba(235,235,245,0.46)!important;}
+        [data-theme="dark"] .earn-topnav-actions .earn-chip:not(.active),
+        [data-theme="dark"] .alpha-tab:not(.active){color:rgba(235,235,245,0.46)!important;}
 
         .top100-filter.active,
         .dp-chip.active,
         .radar-tab.active,
         .earn-date-chip.active,
-        .earn-topnav-actions .earn-chip.active{
+        .earn-topnav-actions .earn-chip.active,
+        .alpha-tab.active{
             background:#FFFFFF!important;
             color:#000000!important;
             font-weight:700!important;
@@ -356,7 +364,8 @@
         [data-theme="dark"] .dp-chip.active,
         [data-theme="dark"] .radar-tab.active,
         [data-theme="dark"] .earn-date-chip.active,
-        [data-theme="dark"] .earn-topnav-actions .earn-chip.active{
+        [data-theme="dark"] .earn-topnav-actions .earn-chip.active,
+        [data-theme="dark"] .alpha-tab.active{
             background:rgba(118,118,128,0.36)!important;
             color:#FFFFFF!important;
         }
@@ -364,7 +373,11 @@
         .dp-chip:hover:not(.active),
         .radar-tab:hover:not(.active),
         .earn-date-chip:hover:not(.active),
-        .earn-topnav-actions .earn-chip:hover:not(.active){opacity:.7;}
+        .earn-topnav-actions .earn-chip:hover:not(.active),
+        .alpha-tab:hover:not(.active){opacity:.7;}
+        /* 알파 스캐너 설명·결과 영역 */
+        .alpha-desc{font-size:13px;color:var(--text2);line-height:1.55;margin:8px 0 14px;letter-spacing:-0.01em;}
+        .alpha-results{display:flex;flex-direction:column;gap:0;}
         .top100-grid{display:flex;flex-direction:column;gap:0;}
 
         /* ===== Top100 컬럼 헤더 (토스증권 스타일) ===== */
