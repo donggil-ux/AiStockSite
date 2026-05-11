@@ -272,7 +272,8 @@
         .radar-tab-bar,
         .earn-topnav-dates,
         .earn-chip-group,
-        .alpha-tabs{
+        .alpha-tabs,
+        .sm-sub-tabs{
             display:inline-flex;flex-direction:row;
             justify-content:center;align-items:center;
             padding:2px;gap:4px;
@@ -293,7 +294,8 @@
         [data-theme="light"] .radar-tab-bar,
         [data-theme="light"] .earn-topnav-dates,
         [data-theme="light"] .earn-chip-group,
-        [data-theme="light"] .alpha-tabs{
+        [data-theme="light"] .alpha-tabs,
+        [data-theme="light"] .sm-sub-tabs{
             background:rgba(118,118,128,0.12);
         }
         .top100-filters::-webkit-scrollbar,
@@ -301,14 +303,16 @@
         .radar-tab-bar::-webkit-scrollbar,
         .earn-topnav-dates::-webkit-scrollbar,
         .earn-chip-group::-webkit-scrollbar,
-        .alpha-tabs::-webkit-scrollbar{display:none;}
+        .alpha-tabs::-webkit-scrollbar,
+        .sm-sub-tabs::-webkit-scrollbar{display:none;}
 
         .top100-filter,
         .dp-chip,
         .radar-tab,
         .earn-date-chip,
         .earn-topnav-actions .earn-chip,
-        .alpha-tab{
+        .alpha-tab,
+        .sm-sub-tab{
             position:relative;
             display:flex;align-items:center;justify-content:center;
             flex:0 0 auto;
@@ -332,26 +336,30 @@
         .radar-tab:hover:not(.active),
         .earn-date-chip:hover:not(.active),
         .earn-topnav-actions .earn-chip:hover:not(.active),
-        .alpha-tab:hover:not(.active){color:rgba(60,60,67,0.46)!important;background:transparent!important;}
+        .alpha-tab:hover:not(.active),
+        .sm-sub-tab:hover:not(.active){color:rgba(60,60,67,0.46)!important;background:transparent!important;}
         [data-theme="light"] .top100-filter,
         [data-theme="light"] .dp-chip,
         [data-theme="light"] .radar-tab,
         [data-theme="light"] .earn-date-chip,
         [data-theme="light"] .earn-topnav-actions .earn-chip,
-        [data-theme="light"] .alpha-tab{color:rgba(60,60,67,0.46)!important;}
+        [data-theme="light"] .alpha-tab,
+        [data-theme="light"] .sm-sub-tab{color:rgba(60,60,67,0.46)!important;}
         [data-theme="dark"] .top100-filter:not(.active),
         [data-theme="dark"] .dp-chip:not(.active),
         [data-theme="dark"] .radar-tab:not(.active),
         [data-theme="dark"] .earn-date-chip:not(.active),
         [data-theme="dark"] .earn-topnav-actions .earn-chip:not(.active),
-        [data-theme="dark"] .alpha-tab:not(.active){color:rgba(235,235,245,0.46)!important;}
+        [data-theme="dark"] .alpha-tab:not(.active),
+        [data-theme="dark"] .sm-sub-tab:not(.active){color:rgba(235,235,245,0.46)!important;}
 
         .top100-filter.active,
         .dp-chip.active,
         .radar-tab.active,
         .earn-date-chip.active,
         .earn-topnav-actions .earn-chip.active,
-        .alpha-tab.active{
+        .alpha-tab.active,
+        .sm-sub-tab.active{
             background:#FFFFFF!important;
             color:#000000!important;
             font-weight:700!important;
@@ -365,7 +373,8 @@
         [data-theme="dark"] .radar-tab.active,
         [data-theme="dark"] .earn-date-chip.active,
         [data-theme="dark"] .earn-topnav-actions .earn-chip.active,
-        [data-theme="dark"] .alpha-tab.active{
+        [data-theme="dark"] .alpha-tab.active,
+        [data-theme="dark"] .sm-sub-tab.active{
             background:rgba(118,118,128,0.36)!important;
             color:#FFFFFF!important;
         }
@@ -374,7 +383,8 @@
         .radar-tab:hover:not(.active),
         .earn-date-chip:hover:not(.active),
         .earn-topnav-actions .earn-chip:hover:not(.active),
-        .alpha-tab:hover:not(.active){opacity:.7;}
+        .alpha-tab:hover:not(.active),
+        .sm-sub-tab:hover:not(.active){opacity:.7;}
         /* 알파 스캐너 설명·결과 영역 */
         .alpha-desc{font-size:13px;color:var(--text2);line-height:1.55;margin:8px 0 14px;letter-spacing:-0.01em;}
         .alpha-results{display:flex;flex-direction:column;gap:0;}
@@ -2448,9 +2458,7 @@
         .sm-disclaimer{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:10px;padding:10px 14px;font-size:11px;color:var(--text2);line-height:1.7;margin-bottom:16px;display:flex;gap:8px;align-items:flex-start;}
         .sm-disclaimer-icon{font-size:15px;flex-shrink:0;margin-top:2px;}
         .sm-quarter-badge{display:inline-block;background:rgba(245,158,11,.15);color:var(--yellow);border-radius:5px;padding:1px 7px;font-weight:700;font-size:11px;}
-        .sm-sub-tabs{display:flex;gap:8px;margin-bottom:16px;}
-        .sm-sub-tab{flex:1;padding:9px;border-radius:8px;border:none;background:var(--bg2);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .18s;}
-        .sm-sub-tab.active{background:var(--blue);color:#fff;}
+        /* .sm-sub-tabs / .sm-sub-tab — iOS Segmented Control 공용 룰(269줄~) 사용 */
         .sm-panel{display:none;}.sm-panel.active{display:block;}
         .sm-screen-title{font-size:18px;font-weight:800;color:var(--text);margin-bottom:4px;}
         .sm-screen-sub{font-size:12px;color:var(--text3);margin-bottom:16px;}
@@ -2913,7 +2921,7 @@
         /* Filter chip / Tab chip — 작지만 넉넉한 좌우 여백 */
         .hot-tab, .example-chip,
         .fav-star-btn, .trade-style-tab, .rr-tab,
-        .sm-holdings-tab, .sm-sub-tab, .cp-exec-tab, .cp-insider-tab,
+        .sm-holdings-tab, .cp-exec-tab, .cp-insider-tab,
         .economic-tab, .history-tab, .scanner-preset-btn {
             padding:9px 18px!important;
             font-size:13px!important;
@@ -2952,7 +2960,7 @@
             .search-btn, .pwa-install-btn, .tab-order-save{padding:12px 22px!important;font-size:14px!important;}
             .top100-more-btn, .market-btn, .ai-generate-btn, .ai-rec-more-btn{padding:10px 20px!important;}
             .hot-tab, .example-chip, .fav-star-btn,
-            .trade-style-tab, .rr-tab, .sm-holdings-tab, .sm-sub-tab,
+            .trade-style-tab, .rr-tab, .sm-holdings-tab,
             .cp-exec-tab, .cp-insider-tab, .economic-tab, .history-tab, .scanner-preset-btn{
                 padding:7px 14px!important;font-size:12px!important;
             }
@@ -2976,7 +2984,7 @@
         /* (tab 스타일로 교체됨 — 위 .hqnav-item.active::after underline 규칙 사용) */
         .hot-tab.active{background:var(--text)!important;color:var(--bg)!important;}
         .trade-style-tab.active, .rr-tab.active, .sm-holdings-tab.active,
-        .sm-sub-tab.active, .cp-exec-tab.active, .cp-insider-tab.active,
+        .cp-exec-tab.active, .cp-insider-tab.active,
         .economic-tab.active, .history-tab.active {
             background:var(--text)!important;color:var(--bg)!important;
         }
@@ -3208,16 +3216,8 @@
             .sm-screen-sub{font-size:14px!important;margin-bottom:20px!important;}
         }
 
-        /* 서브 탭 — 3개 균등 분할 */
-        .sm-sub-tabs{
-            gap:8px!important;margin-bottom:20px!important;
-        }
-        .sm-sub-tab{
-            flex:1 1 0!important;
-            min-width:0;
-            white-space:nowrap;
-            text-align:center;
-        }
+        /* 서브 탭 → iOS Segmented Control 공용 룰(269줄~) 사용. 여기서는 하단 여백만 보정 */
+        .sm-sub-tabs{margin-bottom:20px!important;}
 
         /* 공시 안내 박스 */
         @media(min-width:768px){
