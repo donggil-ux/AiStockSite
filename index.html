@@ -8142,6 +8142,7 @@
     };
     // 보조 도메인 (1차 도메인이 로고 검색 안 될 때 시도) — 일부 운용사는 모회사/계열사 도메인이 더 잘 잡힘
     const SM_FIRM_DOMAIN_ALT = {
+        // 월가 킹덤
         statestreet:'statestreet.com',
         goldmansacham:'goldmansachs.com',
         balyasny:'balyasny.com',
@@ -8154,6 +8155,23 @@
         wellington:'wellington.com',
         capitalgroup:'thecapitalgroup.com',
         dimensional:'dimensional.com',
+        // 폼 미친 기관들 (사모펀드 — 보조 도메인 후보)
+        pershing:'pershingsquare.com',
+        appaloosa:'appaloosamanagement.com',
+        sachem:'sachem-head.com',
+        darsana:'darsana.com',
+        pelham:'pelham.com',
+        longpine:'longpine.com',
+        whalerock:'whalerockcapital.com',
+        lightstreet:'lightstreet.com',
+        maverick:'maverickcap.com',
+        graham:'grahamcapitalmanagement.com',
+        glenview:'glenviewcap.com',
+        dragoneer:'dragoneerinvestmentgroup.com',
+        iconiq:'iconiqcapital.com',
+        tci:'tcifundmanagement.com',
+        farallon:'faralloncap.com',
+        thirdpoint:'thirdpointllc.com',
     };
     // 로고 다중 폴백 체인: 도메인별 여러 CDN 시도 → 보조 도메인까지 시도
     function _smLogoSources(domain, altDomain) {
@@ -8172,7 +8190,7 @@
         }
         return urls;
     }
-    // 전역 폴백 핸들러: data-fb(JSON 배열)에서 다음 URL을 꺼내 src 교체, 끝나면 이모지로 치환
+    // 전역 폴백 핸들러: data-fb(JSON 배열)에서 다음 URL을 꺼내 src 교체, 끝나면 이니셜 아바타로 치환
     window._smLogoErr = function(img) {
         try {
             const list = JSON.parse(img.dataset.fb || '[]');
@@ -8182,34 +8200,51 @@
                 return;
             }
         } catch(e) {}
-        const emoji = img.dataset.emoji || '🏛️';
         const cls = img.dataset.fbClass || 'sm-firm-emoji';
-        const span = document.createElement('span');
-        span.className = cls;
-        span.textContent = emoji;
-        img.replaceWith(span);
+        const initial = (img.dataset.initial || '?').toUpperCase();
+        const color = img.dataset.color || '#3a3a3c';
+        const div = document.createElement('div');
+        div.className = cls + ' sm-initial-avatar';
+        div.style.cssText = `background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;`;
+        div.textContent = initial;
+        img.replaceWith(div);
     };
+    // 회사명에서 결정적 색상 생성 (Gmail/Slack 스타일 이니셜 아바타용)
+    function _smNameColor(name) {
+        const palette = ['#1f6feb','#0CF5B0','#a371f7','#f78166','#f0883e','#f85149','#3fb950','#bc8cff','#39c5cf'];
+        let h = 0;
+        for (let i = 0; i < (name||'').length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+        return palette[h % palette.length];
+    }
     function _smFirmLogo(inst, fallbackEmoji) {
         const domain = SM_FIRM_DOMAIN[inst.id];
-        const emoji = fallbackEmoji || inst.emoji || inst.hotBadge || '🏛️';
-        if (!domain) return `<span class="sm-firm-emoji">${emoji}</span>`;
+        const name = inst.name || '';
+        const initial = (name.replace(/^[^A-Za-z]+/, '').charAt(0) || name.charAt(0) || '?');
+        const color = _smNameColor(name);
+        if (!domain) {
+            return `<div class="sm-firm-emoji sm-initial-avatar" style="background:${color};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:700">${initial.toUpperCase()}</div>`;
+        }
         const alt = SM_FIRM_DOMAIN_ALT[inst.id];
         const [first, ...rest] = _smLogoSources(domain, alt);
         const fbJson = escHtml(JSON.stringify(rest));
         return `<img src="${first}" class="sm-firm-logo" alt="" loading="lazy"
-            data-fb="${fbJson}" data-emoji="${escHtml(emoji)}" data-fb-class="sm-firm-emoji"
+            data-fb="${fbJson}" data-initial="${escHtml(initial)}" data-color="${color}" data-fb-class="sm-firm-logo"
             onerror="_smLogoErr(this)"/>`;
     }
     // 큰 사이즈 운용사 로고 (rank 칼럼용, 36px)
     function _smFirmLogoLg(inst) {
         const domain = SM_FIRM_DOMAIN[inst.id];
-        const emoji = inst.emoji || inst.hotBadge || '🏛️';
-        if (!domain) return `<div class="sm-firm-logo-lg sm-firm-logo-lg-emoji">${emoji}</div>`;
+        const name = inst.name || '';
+        const initial = (name.replace(/^[^A-Za-z]+/, '').charAt(0) || name.charAt(0) || '?');
+        const color = _smNameColor(name);
+        if (!domain) {
+            return `<div class="sm-firm-logo-lg sm-initial-avatar" style="background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px">${initial.toUpperCase()}</div>`;
+        }
         const alt = SM_FIRM_DOMAIN_ALT[inst.id];
         const [first, ...rest] = _smLogoSources(domain, alt);
         const fbJson = escHtml(JSON.stringify(rest));
         return `<img src="${first}" class="sm-firm-logo-lg" alt="" loading="lazy"
-            data-fb="${fbJson}" data-emoji="${escHtml(emoji)}" data-fb-class="sm-firm-logo-lg sm-firm-logo-lg-emoji"
+            data-fb="${fbJson}" data-initial="${escHtml(initial)}" data-color="${color}" data-fb-class="sm-firm-logo-lg"
             onerror="_smLogoErr(this)"/>`;
     }
 

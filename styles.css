@@ -2662,6 +2662,18 @@
             font-size:20px;line-height:1;
             border:1px solid var(--border);background:var(--bg3);
         }
+        /* 이니셜 아바타 폴백 (로고 못 찾을 때) */
+        .sm-firm-logo-lg.sm-initial-avatar{
+            width:36px;height:36px;border-radius:50%;
+            font-size:16px;line-height:1;
+            border:1px solid var(--border);
+        }
+        .sm-firm-logo.sm-initial-avatar{
+            width:18px;height:18px;border-radius:50%;
+            font-size:10px;line-height:1;
+            border:1px solid var(--border);
+            vertical-align:-4px;margin-right:2px;
+        }
         .sm-medal-badge{
             position:absolute;top:-6px;left:-6px;
             font-size:16px;line-height:1;
