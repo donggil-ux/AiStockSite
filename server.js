@@ -93,6 +93,7 @@ if (!process.env.GEMINI_API_KEY)  console.warn('⚠️  GEMINI_API_KEY 환경변
 if (!process.env.SUPABASE_URL)    console.warn('⚠️  SUPABASE_URL 환경변수가 없습니다.');
 if (!process.env.SUPABASE_ANON_KEY) console.warn('⚠️  SUPABASE_ANON_KEY 환경변수가 없습니다.');
 if (!process.env.FRED_API_KEY)    console.warn('⚠️  FRED_API_KEY 환경변수가 없습니다. 경제지표 기능이 비활성화됩니다.');
+if (!process.env.FINNHUB_API_KEY) console.warn('⚠️  FINNHUB_API_KEY 환경변수가 없습니다. 종목별 뉴스/실적 서프라이즈 기능이 비활성화됩니다.');
 
 // [Fix-F] 싱글턴 캐싱 — 매 요청마다 인스턴스 재생성 방지
 let _genAI = null;
