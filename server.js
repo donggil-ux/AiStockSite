@@ -1147,11 +1147,11 @@ async function _fetchEarningsHeadlineFromFinnhub(symbol) {
         const first = pool[0];
         const headlineEn = String(first.headline || '').trim();
         if (!headlineEn) return null;
-        // Sentiment 휴리스틱
+        // Sentiment 휴리스틱 (frontend 와 동일 키: positive/negative/neutral)
         const lower = headlineEn.toLowerCase();
         let sentiment = 'neutral';
-        if (/\b(beat|beats|exceed|exceeds|surge|jumps?|soars?|strong|rally|tops?|crush)\b/.test(lower)) sentiment = 'bullish';
-        else if (/\b(miss|misses|disappoint|drop|drops|fall|falls|plunge|tumbles?|weak|warn|cut|slash)\b/.test(lower)) sentiment = 'bearish';
+        if (/\b(beat|beats|exceed|exceeds|surge|jumps?|soars?|strong|rally|tops?|crush)\b/.test(lower)) sentiment = 'positive';
+        else if (/\b(miss|misses|disappoint|drop|drops|fall|falls|plunge|tumbles?|weak|warn|cut|slash)\b/.test(lower)) sentiment = 'negative';
         // 영→한 번역
         const ko = await translateToKo(headlineEn);
         return {
@@ -3938,8 +3938,11 @@ async function _refreshEarningsCache(key, fromTs, toTs, favs) {
     const promise = (async () => {
         try {
             const universe = Array.from(new Set([..._SP500, ..._NASDAQ_NYSE_EXTRAS, ...favs]));
-            const qsMap = await _fetchEarningsBatch(universe);
-            const data = _buildEarningsResponse(qsMap, fromTs, toTs);
+            const [qsMap, finnhubItems] = await Promise.all([
+                _fetchEarningsBatch(universe),
+                _fetchFinnhubEarningsCalendar(fromTs, toTs),
+            ]);
+            const data = _buildEarningsResponse(qsMap, fromTs, toTs, finnhubItems);
             _earningsCache.set(key, { data, ts: Date.now() });
             return data;
         } finally {
@@ -3950,10 +3953,60 @@ async function _refreshEarningsCache(key, fromTs, toTs, favs) {
     return promise;
 }
 
-function _buildEarningsResponse(qsMap, fromTs, toTs) {
+// Finnhub earnings calendar — 모든 미국 상장사 한 번에 조회 (60 req/min 무료)
+async function _fetchFinnhubEarningsCalendar(fromTs, toTs) {
+    if (!process.env.FINNHUB_API_KEY) return [];
+    try {
+        const fmt = ts => new Date(ts * 1000).toISOString().slice(0, 10);
+        const url = `https://finnhub.io/api/v1/calendar/earnings?from=${fmt(fromTs)}&to=${fmt(toTs)}&token=${process.env.FINNHUB_API_KEY}`;
+        const res = await axios.get(url, { timeout: 15000, httpAgent, httpsAgent });
+        const arr = res.data?.earningsCalendar || [];
+        return arr.map(e => {
+            // hour: "bmo" / "amc" / "dmh" / null
+            const timing = e.hour === 'bmo' ? 'BMO' : e.hour === 'amc' ? 'AMC' : 'TBD';
+            const ts = Math.floor(new Date(e.date + 'T13:30:00Z').getTime() / 1000); // 미국 장 시작 시각으로 정규화
+            const epsAct = (typeof e.epsActual === 'number') ? e.epsActual : null;
+            const epsEst = (typeof e.epsEstimate === 'number') ? e.epsEstimate : null;
+            const revAct = (typeof e.revenueActual === 'number') ? e.revenueActual : null;
+            const revEst = (typeof e.revenueEstimate === 'number') ? e.revenueEstimate : null;
+            let beat = null;
+            if (typeof epsAct === 'number' && typeof epsEst === 'number') {
+                beat = epsAct > epsEst ? 'beat' : (epsAct < epsEst ? 'miss' : 'meet');
+            }
+            let surprisePct = null;
+            if (typeof epsAct === 'number' && typeof epsEst === 'number' && epsEst !== 0) {
+                surprisePct = ((epsAct - epsEst) / Math.abs(epsEst)) * 100;
+            }
+            return {
+                symbol: e.symbol,
+                name: e.symbol, // Finnhub 응답엔 회사명 없음 → 심볼로 폴백 (Yahoo 데이터가 있으면 그쪽이 우선)
+                timing, ts,
+                date: e.date,
+                epsEst, epsAct, revEst, revAct,
+                yoy: null, beat, marketCap: null, surprisePct,
+                inSP500: false,
+                _src: 'finnhub',
+            };
+        }).filter(it => it.symbol && /^[A-Z0-9.\-]{1,15}$/.test(it.symbol));
+    } catch (e) {
+        console.warn('[earnings-calendar] Finnhub fail:', e?.message?.slice(0, 80));
+        return [];
+    }
+}
+
+function _buildEarningsResponse(qsMap, fromTs, toTs, finnhubItems = []) {
     const items = [];
     qsMap.forEach((qs, sym) => {
         items.push(..._extractEarningsItems(sym, qs, fromTs, toTs));
+    });
+    // Finnhub 데이터 병합: Yahoo 와 같은 symbol+date 는 Yahoo 우선 (회사명/marketCap/yoy 포함)
+    const yhKeys = new Set(items.map(it => it.symbol + '_' + it.date));
+    finnhubItems.forEach(fi => {
+        const key = fi.symbol + '_' + fi.date;
+        if (!yhKeys.has(key)) {
+            items.push(fi);
+            yhKeys.add(key);
+        }
     });
     const byDate = new Map();
     items.forEach(it => {
@@ -4014,10 +4067,13 @@ app.get('/api/earnings-calendar', async (req, res) => {
             _refreshEarningsCache(key, fromTs, toTs, favs).catch(() => {}); // fire-and-forget
             return res.json({ ...cached.data, cached: true, stale: true });
         }
-        // 3) 캐시 미스 또는 너무 오래된 stale → 동기 fetch
+        // 3) 캐시 미스 또는 너무 오래된 stale → 동기 fetch (Yahoo + Finnhub 병렬)
         const universe = Array.from(new Set([..._SP500, ..._NASDAQ_NYSE_EXTRAS, ...favs]));
-        const qsMap = await _fetchEarningsBatch(universe);
-        const data = _buildEarningsResponse(qsMap, fromTs, toTs);
+        const [qsMap, finnhubItems] = await Promise.all([
+            _fetchEarningsBatch(universe),
+            _fetchFinnhubEarningsCalendar(fromTs, toTs),
+        ]);
+        const data = _buildEarningsResponse(qsMap, fromTs, toTs, finnhubItems);
         _earningsCache.set(key, { data, ts: Date.now() });
         res.json(data);
     } catch (err) {

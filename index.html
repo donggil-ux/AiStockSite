@@ -5339,7 +5339,8 @@
     // 날짜 칩 선택 상태 (특정 날짜만 보기; null = 전체 기간)
     window._earnDayFilter = null;
     // 정렬 상태 — null 이면 기본(시가총액 내림차순)
-    window._earnSort = { field: 'marketCap', dir: 'desc' };
+    // 기본은 서버 정렬(장전 BMO → 장후 AMC) 유지 — null
+    window._earnSort = { field: null, dir: 'desc' };
 
     function _earnComputeRange(key) {
         // 반환: {from:'YYYY-MM-DD', to:'YYYY-MM-DD', label:'...'}
@@ -5737,7 +5738,8 @@
     function _earnAiRender(symbol, data) {
         const cells = document.querySelectorAll(`.earn-cell-ai[data-earnings-ai="${symbol}"]`);
         if (!cells.length) return;
-        const sentMap = { positive: { emoji:'🟢', label:'긍정' }, negative: { emoji:'🔴', label:'부정' }, neutral: { emoji:'🟡', label:'보통' } };
+        // 동그라미 이모지 제거 — 라벨 텍스트만 표시 (v543)
+        const sentMap = { positive: { label:'긍정' }, negative: { label:'부정' }, neutral: { label:'보통' } };
         const s = sentMap[data?.sentiment] || sentMap.neutral;
         const summary = (data?.summary || '').trim();
         const pros = (data?.highlights?.[0] || '').trim();
@@ -5745,14 +5747,13 @@
         cells.forEach(el => {
             if (!summary && !pros) { el.innerHTML = ''; el.classList.add('earn-cell-ai--empty'); return; }
             el.classList.remove('earn-cell-ai--empty');
-            // 홈 카드(.earn-hc-ai)는 긍정/부정 두 줄 렌더, 일반 셀은 기존 방식
             const isHomeCard = el.classList.contains('earn-hc-ai');
             if (isHomeCard && (pros || cons)) {
-                const prosHtml = pros ? `<div class="earn-hc-point positive"><span class="earn-sent-badge earn-sent-positive">🟢 긍정</span><span class="earn-ai-summary">${escHtml(pros)}</span></div>` : '';
-                const consHtml = cons ? `<div class="earn-hc-point negative"><span class="earn-sent-badge earn-sent-negative">🔴 부정</span><span class="earn-ai-summary">${escHtml(cons)}</span></div>` : '';
+                const prosHtml = pros ? `<div class="earn-hc-point positive"><span class="earn-sent-badge earn-sent-positive">긍정</span><span class="earn-ai-summary">${escHtml(pros)}</span></div>` : '';
+                const consHtml = cons ? `<div class="earn-hc-point negative"><span class="earn-sent-badge earn-sent-negative">부정</span><span class="earn-ai-summary">${escHtml(cons)}</span></div>` : '';
                 el.innerHTML = prosHtml + consHtml;
             } else {
-                el.innerHTML = `<span class="earn-sent-badge earn-sent-${data.sentiment}" title="${s.label}">${s.emoji} ${s.label}</span><span class="earn-ai-summary" title="${escHtml(summary)}">${escHtml(summary)}</span>`;
+                el.innerHTML = `<span class="earn-sent-badge earn-sent-${data.sentiment}" title="${s.label}">${s.label}</span><span class="earn-ai-summary" title="${escHtml(summary)}">${escHtml(summary)}</span>`;
             }
         });
     }
