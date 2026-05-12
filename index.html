@@ -181,23 +181,7 @@
             <div class="earn-home-scroll" id="earnHomeScroll"></div>
         </section>
 
-        <!-- 핫 종목 섹션 (숨김 유지) -->
-        <section id="hotStocksSection" class="home-section" style="display:none;">
-            <div class="home-section-header">
-                <div class="home-section-title">오늘의 핫 종목
-                    <span class="hs-badge green">AI 선별</span>
-                </div>
-                <div class="home-section-sub" id="hotStocksSub"></div>
-            </div>
-            <div class="hot-tabs" id="hotTabs">
-                <button class="hot-tab active" data-tab="institution" onclick="switchHotTab('institution')">기관</button>
-                <button class="hot-tab" data-tab="value" onclick="switchHotTab('value')">밸류</button>
-                <button class="hot-tab" data-tab="momentum" onclick="switchHotTab('momentum')">모멘텀</button>
-            </div>
-            <div id="hotStocksList" class="hot-list">
-                <div class="swing-empty">데이터 로딩 중...</div>
-            </div>
-        </section>
+        <!-- 핫 종목 섹션 — 제거됨 (홈에 미노출 + /api/hot-stocks Gemini 낭비 차단) -->
 
         <!-- 최근 본 종목 (최상단) -->
         <section id="recentSection" class="home-section" style="display:none;margin-top:16px">
@@ -2903,88 +2887,8 @@
     // ========================================
     // 핫 종목 섹션
     // ========================================
-    let _hotStocksData = null;
-    let _hotTab = 'institution';
-    const HOT_STOCKS_DUMMY = {
-        institution: [
-            {ticker:'NVDA',name:'NVIDIA Corp.',reason:'블랙록·피델리티 신규 대규모 매수',signal:'buy'},
-            {ticker:'META',name:'Meta Platforms',reason:'헤지펀드 13F 신규편입 급증',signal:'buy'},
-            {ticker:'AVGO',name:'Broadcom Inc.',reason:'기관 누적 매수 4주 연속',signal:'buy'},
-            {ticker:'LLY', name:'Eli Lilly & Co.',reason:'보험·연금펀드 비중 확대',signal:'buy'},
-            {ticker:'MSFT',name:'Microsoft Corp.',reason:'ETF 수급 + 기관 매집 병행',signal:'watch'},
-        ],
-        value: [
-            {ticker:'PFE', name:'Pfizer Inc.',reason:'PER 9.2, PBR 1.1 — 역사적 저평가',signal:'buy'},
-            {ticker:'INTC',name:'Intel Corp.',reason:'PER 12, 배당수익률 4.8%',signal:'watch'},
-            {ticker:'VZ',  name:'Verizon Comm.',reason:'PER 8.5, 배당수익률 7.2%',signal:'buy'},
-            {ticker:'MO',  name:'Altria Group',reason:'PER 9.0, 배당수익률 9.1%',signal:'buy'},
-            {ticker:'T',   name:'AT&T Inc.',reason:'PER 10.4, PBR 0.9 저평가',signal:'watch'},
-        ],
-        momentum: [
-            {ticker:'NVDA',name:'NVIDIA Corp.',reason:'5일선>20일선, RSI 62, 거래량 폭증',signal:'buy'},
-            {ticker:'AMD', name:'Advanced Micro Devices',reason:'골든크로스 발생, RSI 58',signal:'buy'},
-            {ticker:'AMZN',name:'Amazon.com Inc.',reason:'RSI 55 상승세, 볼린저밴드 상단 돌파',signal:'buy'},
-            {ticker:'TSLA',name:'Tesla Inc.',reason:'RSI 61, 5일선 반등 + 거래량 확대',signal:'watch'},
-            {ticker:'PLTR',name:'Palantir Technologies',reason:'모멘텀 지속, RSI 57',signal:'buy'},
-        ]
-    };
-
-    async function loadHotStocks() {
-        const sec = document.getElementById('hotStocksSection');
-        const el  = document.getElementById('hotStocksList');
-        if (!el) return;
-        // 스켈레톤 UI — hot-card 레이아웃과 동일한 구조
-        const skelCard = `<div class="hot-skel-card">
-            <div class="hot-skel-rank skel-block"></div>
-            <div class="hot-skel-sym skel-block"></div>
-            <div class="hot-skel-info">
-                <div class="hot-skel-name skel-block"></div>
-                <div class="hot-skel-reason skel-block"></div>
-            </div>
-            <div class="hot-skel-sig skel-block"></div>
-        </div>`;
-        el.innerHTML = skelCard.repeat(5);
-        try {
-            const res = await fetch('/api/hot-stocks');
-            if (!res.ok) throw new Error('fetch failed');
-            const data = await res.json();
-            if (data.institution && data.value && data.momentum) {
-                _hotStocksData = data;
-            } else {
-                throw new Error('invalid format');
-            }
-        } catch(e) {
-            _hotStocksData = HOT_STOCKS_DUMMY;
-        }
-        // hotStocksSection은 홈에서 숨김 처리
-        renderHotStocks();
-    }
-
-    function switchHotTab(tab) {
-        _hotTab = tab;
-        document.querySelectorAll('.hot-tab').forEach(b => {
-            b.classList.toggle('active', b.dataset.tab === tab);
-        });
-        renderHotStocks();
-    }
-
-    function renderHotStocks() {
-        const el = document.getElementById('hotStocksList');
-        if (!el || !_hotStocksData) return;
-        const items = _hotStocksData[_hotTab] || [];
-        el.innerHTML = items.map((p, i) => {
-            const sym = (p.ticker || '').replace(/'/g, "\\'");
-            return `<div class="hot-card" onclick="quickSearch('${sym}','US')">
-                <span class="hot-rank">${i + 1}</span>
-                ${_tickerLogoHTML(p.ticker,'US')}
-                <div class="hot-info">
-                    <div class="hot-name">${escHtml(p.name)}<span class="hot-ticker">${escHtml(p.ticker)}</span></div>
-                    <div class="hot-reason">${escHtml(p.reason)}</div>
-                </div>
-                <span class="hot-sig${p.signal !== 'buy' ? ' watch' : ''}">${p.signal === 'buy' ? '매수' : '관망'}</span>
-            </div>`;
-        }).join('');
-    }
+    // loadHotStocks / switchHotTab / renderHotStocks / HOT_STOCKS_DUMMY — 제거됨
+    // (홈 #hotStocksSection 영구 숨김이라 호출 자체가 죽은 Gemini 낭비였음)
 
     async function loadAIRecommend() {
         const el = document.getElementById('aiRecommendList');
@@ -3179,7 +3083,7 @@
     loadVolAlert();
     loadMarketThermometer();
     // loadAIRecommend(); // [DISABLED] 쿼터 절약
-    loadHotStocks();
+    // loadHotStocks() — 제거됨 (hotStocksSection 영구 숨김, Gemini 낭비)
     loadFavSummary();
     loadGuruHome();
     loadEarnHome();
@@ -3271,7 +3175,7 @@
         loadSocialHot();
         loadMarketThermometer();
         // loadAIRecommend(); // [DISABLED] 쿼터 절약
-        loadHotStocks();
+        // loadHotStocks() — 제거됨 (hotStocksSection 영구 숨김, Gemini 낭비)
         loadFavSummary();
         loadGuruHome();
         loadEarnHome();
@@ -17678,7 +17582,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         _renderBouncePage, _renderBounceCard, _calcBounceScore, _isBigTech, _onBounceToggle,
         _renderMultiFactorCard,
         loadMarketThermometer, renderAIRecommend, loadAIRecommend, renderAIRecommendCards, openAIRecModal, closeAIRecModal, loadFavSummary,
-        loadHotStocks, switchHotTab, renderHotStocks, showMoreTop100,
+        showMoreTop100,
         saveRecentStock, loadRecentStocks,
         loadVolAlert,
         loadNewsTab, reloadNewsTab, renderNewsList, _newsTimeAgo,
