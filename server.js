@@ -3733,8 +3733,9 @@ const _NASDAQ_NYSE_EXTRAS = (
     // 기타 mid-cap growth
     'WIX FVRR SQSP HUBS CWAN GLBE ASND APPF MIME TENB DV PRO ' +
     'ETSY EBAY EXAS DOCN VEEV ZEN SLAB FCN BAH SAIC LDOS ' +
-    // 한국 기업 ADR (참고용)
-    'CPNG KEP KB KT SKM PKX ' +
+    // 한국 기업 ADR — 실적발표에서 제외 (_isKoreanSymbol 로 필터)
+    // 'CPNG KEP KB KT SKM PKX ' +
+
     // 일본/유럽 ADR 추가
     'NMR MFG MUFG SMFG HMC TM NTT IX NTTYY TKOMY HTHIY KYOCY ' +
     'AZN BUD HEINY UNCRY UMG VOW3 BAYRY DTEGY OR.PA MC.PA AIR ' +
@@ -3953,6 +3954,20 @@ async function _refreshEarningsCache(key, fromTs, toTs, favs) {
     return promise;
 }
 
+// 한국 종목·한국 ADR 제외 (실적발표 페이지에서 사용자 요청으로 한국 제거)
+// 미국 시장 상장 한국 기업: CPNG, KB, KEP, KT, SKM, PKX, LPL, GRVY 등
+const _KR_EXCLUDE = new Set([
+    'CPNG', 'KB', 'KEP', 'KT', 'SKM', 'PKX', 'LPL', 'GRVY',
+    'HMI', // (참고: 헷갈리는 케이스, 한국 아님이지만 안전상 제외)
+]);
+function _isKoreanSymbol(symbol) {
+    if (!symbol) return false;
+    const s = String(symbol).toUpperCase();
+    if (/\.(KS|KQ|KR)$/i.test(s)) return true;
+    if (_KR_EXCLUDE.has(s)) return true;
+    return false;
+}
+
 // Finnhub earnings calendar — 모든 미국 상장사 한 번에 조회 (60 req/min 무료)
 async function _fetchFinnhubEarningsCalendar(fromTs, toTs) {
     if (!process.env.FINNHUB_API_KEY) return [];
@@ -3987,7 +4002,7 @@ async function _fetchFinnhubEarningsCalendar(fromTs, toTs) {
                 inSP500: false,
                 _src: 'finnhub',
             };
-        }).filter(it => it.symbol && /^[A-Z0-9.\-]{1,15}$/.test(it.symbol));
+        }).filter(it => it.symbol && /^[A-Z0-9.\-]{1,15}$/.test(it.symbol) && !_isKoreanSymbol(it.symbol));
     } catch (e) {
         console.warn('[earnings-calendar] Finnhub fail:', e?.message?.slice(0, 80));
         return [];
@@ -3997,6 +4012,7 @@ async function _fetchFinnhubEarningsCalendar(fromTs, toTs) {
 function _buildEarningsResponse(qsMap, fromTs, toTs, finnhubItems = []) {
     const items = [];
     qsMap.forEach((qs, sym) => {
+        if (_isKoreanSymbol(sym)) return; // 한국 종목 제외
         items.push(..._extractEarningsItems(sym, qs, fromTs, toTs));
     });
     // Finnhub 데이터 병합: Yahoo 와 같은 symbol+date 는 Yahoo 우선 (회사명/marketCap/yoy 포함)
