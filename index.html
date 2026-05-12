@@ -12444,105 +12444,127 @@
         return valid.slice(-period).reduce((a,b)=>a+b,0) / period;
     }
 
-    // 1) 밥그릇 — U자형 바닥 + 손잡이(눌림) + 돌파 시그널
+    // 1) 밥그릇 — U자형 바닥 + 손잡이(눌림) + 돌파 시그널 (완화된 임계)
     function _danteBapgeureut(highs, lows, closes, volumes) {
         const N = closes.length;
-        if (N < 60) return { hit: false };
+        if (N < 40) return { hit: false };
         const last = closes[N-1];
-        const lookback = closes.slice(-60);
-        const peakIdx = lookback.indexOf(Math.max(...lookback.filter(v=>v!=null)));
-        const peakPrice = lookback[peakIdx];
-        if (!peakPrice) return { hit: false };
-        const trough = Math.min(...lookback.filter(v=>v!=null));
+        const lookback = closes.slice(-Math.min(60, N));
+        const cleanLb = lookback.filter(v=>v!=null);
+        if (cleanLb.length < 20) return { hit: false };
+        const peakPrice = Math.max(...cleanLb);
+        const trough = Math.min(...cleanLb);
         const drop = (peakPrice - trough) / peakPrice * 100;
-        if (drop < 15 || drop > 40) return { hit: false };
-        // 손잡이: 최근 3~7봉 사이 작은 눌림 + 거래량 감소
-        const recent = closes.slice(-7);
-        const recentHigh = Math.max(...recent.filter(v=>v!=null));
-        const handleDip = (recentHigh - last) / recentHigh * 100;
-        const avgVol60 = volumes.slice(-60).filter(v=>v!=null).reduce((a,b)=>a+(b||0),0) / 60;
+        // 컵 깊이: 10~45% (기존 15~40%)
+        if (drop < 10 || drop > 45) return { hit: false };
+        // 손잡이: 최근 7봉 작은 눌림 OR 임박 돌파
+        const recent = closes.slice(-7).filter(v=>v!=null);
+        if (!recent.length) return { hit: false };
+        const recentHigh = Math.max(...recent);
+        const handleDip = Math.max(0, (recentHigh - last) / recentHigh * 100);
+        const avgVol60 = volumes.slice(-Math.min(60, N)).filter(v=>v!=null).reduce((a,b)=>a+(b||0),0) / Math.min(60, N);
         const avgVol7 = volumes.slice(-7).filter(v=>v!=null).reduce((a,b)=>a+(b||0),0) / 7;
-        const volShrink = avgVol7 < avgVol60 * 0.9;
-        const breakout = last > recentHigh * 0.99;
-        if (handleDip > 1 && handleDip < 8 && volShrink && breakout) {
-            return { hit: true, target: last + (peakPrice - trough), stop: Math.min(...recent.filter(v=>v!=null)) * 0.98, note: `깊이 ${drop.toFixed(0)}% 컵 손잡이 돌파 임박` };
+        const volShrink = avgVol7 < avgVol60 * 1.0;  // 1.0배 이하면 통과 (감소 아니어도 OK)
+        // 손잡이 조건 완화: handleDip 0~12% + 돌파 임박(95% 이상)
+        const breakout = last >= recentHigh * 0.95;
+        if (handleDip < 12 && breakout && (volShrink || handleDip < 4)) {
+            const stop = Math.min(...recent) * 0.97;
+            return { hit: true, target: last + (peakPrice - trough) * 0.6, stop, note: `컵 깊이 ${drop.toFixed(0)}% · 손잡이 ${handleDip.toFixed(1)}% 눌림` };
         }
         return { hit: false };
     }
 
-    // 2) 공구리 — 거래량 매물대 돌파 → 지지선 전환
+    // 2) 공구리 — 거래량 매물대 돌파 → 지지선 전환 (완화)
     function _danteGonguri(closes, volumes) {
         const N = closes.length;
-        if (N < 30) return { hit: false };
+        if (N < 20) return { hit: false };
         const last = closes[N-1];
-        // 최근 30일 중 거래량 상위 5%
-        const vols = volumes.slice(-30).map((v,i)=>({v: v||0, p: closes[N-30+i]})).filter(o=>o.v && o.p);
-        if (vols.length < 10) return { hit: false };
+        const winLen = Math.min(30, N);
+        const vols = volumes.slice(-winLen).map((v,i)=>({v: v||0, p: closes[N-winLen+i]})).filter(o=>o.v && o.p);
+        if (vols.length < 8) return { hit: false };
         vols.sort((a,b) => b.v - a.v);
-        const topZone = vols.slice(0, Math.max(2, Math.floor(vols.length * 0.15)));
+        const topZone = vols.slice(0, Math.max(2, Math.floor(vols.length * 0.2)));
         const zonePrice = topZone.reduce((s,o)=>s+o.p,0) / topZone.length;
         const distance = (last - zonePrice) / zonePrice * 100;
-        // 매물대 위 5일 이상 유지 → 지지선 전환
+        // 매물대 위 최근 5일 중 3일 이상 유지 (기존 4일)
         const above = closes.slice(-5).filter(c => c != null && c > zonePrice).length;
-        if (distance > 0 && distance < 8 && above >= 4) {
-            return { hit: true, support: zonePrice, note: `매물대 $${zonePrice.toFixed(2)} 돌파 후 지지선 전환` };
+        // distance 범위 확장: 0~12% (기존 0~8%)
+        if (distance > 0 && distance < 12 && above >= 3) {
+            return { hit: true, support: zonePrice, note: `매물대 $${zonePrice.toFixed(2)} 위 ${distance.toFixed(1)}% 지지` };
         }
         return { hit: false };
     }
 
-    // 3) 하이힐 — V자 반등 후 직전 고점 돌파
+    // 3) 하이힐 — V자 반등 후 직전 고점 근접 (완화)
     function _danteHighheel(closes) {
         const N = closes.length;
-        if (N < 12) return { hit: false };
+        if (N < 10) return { hit: false };
         const last = closes[N-1];
-        const window = closes.slice(-12);
-        const peakIdx = window.indexOf(Math.max(...window.filter(v=>v!=null)));
-        const peak = window[peakIdx];
-        if (peakIdx < 2 || peakIdx > 8) return { hit: false };
-        // 직전 고점 이후 30% 이상 되돌림
-        const postPeak = window.slice(peakIdx + 1);
-        const trough = Math.min(...postPeak.filter(v=>v!=null));
+        const window = closes.slice(-Math.min(15, N));
+        const clean = window.filter(v=>v!=null);
+        if (clean.length < 8) return { hit: false };
+        const peak = Math.max(...clean);
+        const peakIdx = window.indexOf(peak);
+        // peak 위치 완화: 1~12일 전
+        if (peakIdx < 1 || peakIdx >= window.length - 1) return { hit: false };
+        const postPeak = window.slice(peakIdx + 1).filter(v=>v!=null);
+        if (!postPeak.length) return { hit: false };
+        const trough = Math.min(...postPeak);
         const retrace = (peak - trough) / peak * 100;
-        if (retrace < 5) return { hit: false };
+        if (retrace < 3) return { hit: false };  // 3% 이상 되돌림 (기존 5%)
         const rebound = (last - trough) / trough * 100;
-        if (rebound > 3 && last > peak * 0.98) {
-            return { hit: true, target: last + (peak - trough), stop: trough * 0.97, note: `V자 반등 후 직전 고점 돌파 임박` };
+        // 직전 고점의 92% 이상 회복 (기존 98%)
+        if (rebound > 2 && last >= peak * 0.92) {
+            return { hit: true, target: last + (peak - trough) * 0.7, stop: trough * 0.97, note: `V자 반등 ${rebound.toFixed(1)}% · 고점 ${((last/peak)*100).toFixed(0)}% 회복` };
         }
         return { hit: false };
     }
 
-    // 4) 매집봉/세력봉 — 평균 거래량 3배 이상 + 양봉
+    // 4) 매집봉/세력봉 — 평균 거래량 2배 이상 + 양봉 (기존 3배 → 2배)
     function _danteMaejip(opens, closes, volumes) {
         const N = closes.length;
-        if (N < 60) return { hit: false };
-        const avgVol = volumes.slice(-61, -1).filter(v=>v!=null).reduce((a,b)=>a+(b||0),0) / 60;
-        for (let i = Math.max(0, N - 10); i < N; i++) {
-            if (volumes[i] && opens[i] && closes[i] && volumes[i] > avgVol * 3 && closes[i] > opens[i]) {
-                const ago = N - 1 - i;
-                return { hit: true, support: opens[i], note: `${ago}일 전 거래량 ${(volumes[i]/avgVol).toFixed(1)}배 양봉 — 지지선 $${opens[i].toFixed(2)}` };
-            }
+        if (N < 30) return { hit: false };
+        const winLen = Math.min(60, N - 1);
+        const volSlice = volumes.slice(-(winLen+1), -1).filter(v=>v!=null);
+        if (!volSlice.length) return { hit: false };
+        const avgVol = volSlice.reduce((a,b)=>a+(b||0),0) / volSlice.length;
+        // 최근 15일 내 가장 강한 매집봉 1개 찾기 (기존 10일)
+        let best = null;
+        for (let i = Math.max(1, N - 15); i < N; i++) {
+            if (!volumes[i] || !opens[i] || !closes[i]) continue;
+            const ratio = volumes[i] / avgVol;
+            if (ratio < 2 || closes[i] <= opens[i]) continue;
+            if (!best || ratio > best.ratio) best = { i, ratio };
         }
-        return { hit: false };
+        if (!best) return { hit: false };
+        const ago = N - 1 - best.i;
+        const support = opens[best.i];
+        return { hit: true, support, note: `${ago}일 전 거래량 ${best.ratio.toFixed(1)}배 양봉 (지지선 $${support.toFixed(2)})` };
     }
 
-    // 5) 눌림목 — 정배열 + 5일선 지지 양봉
+    // 5) 눌림목 — 정배열 + 단기 이평선 지지 (완화)
     function _danteNullim(opens, closes) {
         const N = closes.length;
-        if (N < 60) return { hit: false };
+        if (N < 30) return { hit: false };
         const sma = (n) => {
             if (N < n) return null;
-            return closes.slice(-n).filter(v=>v!=null).reduce((a,b)=>a+b,0) / n;
+            const slice = closes.slice(-n).filter(v=>v!=null);
+            if (slice.length < n * 0.8) return null;
+            return slice.reduce((a,b)=>a+b,0) / slice.length;
         };
-        const ma5 = sma(5), ma20 = sma(20), ma60 = sma(60);
-        if (!ma5 || !ma20 || !ma60) return { hit: false };
-        const aligned = ma5 > ma20 && ma20 > ma60;
+        const ma5 = sma(5), ma20 = sma(20), ma60 = sma(60) || sma(Math.min(N-1, 50));
+        if (!ma5 || !ma20) return { hit: false };
+        // 완전 정배열 OR 부분 정배열 (ma5>ma20)
+        const aligned = ma5 > ma20 && (!ma60 || ma20 > ma60 * 0.98);
         if (!aligned) return { hit: false };
-        const last = closes[N-1], lastOpen = opens[N-1];
-        if (!last || !lastOpen) return { hit: false };
-        const nearMa5 = Math.abs(last - ma5) / ma5 < 0.02;
-        const bullish = last > lastOpen;
+        const last = closes[N-1];
+        if (!last) return { hit: false };
+        // 5일선 ±4% 근접 (기존 2%)
+        const nearMa5 = Math.abs(last - ma5) / ma5 < 0.04;
+        const lastOpen = opens[N-1];
+        const bullish = !lastOpen || last >= lastOpen * 0.998; // 양봉 or 거의 양봉
         if (nearMa5 && bullish) {
-            return { hit: true, support: ma5, stop: ma20 * 0.99, note: `정배열 + 5일선 지지 양봉 (MA5 $${ma5.toFixed(2)})` };
+            return { hit: true, support: ma5, stop: ma20 * 0.97, note: `정배열 + MA5 ${((last-ma5)/ma5*100).toFixed(1)}% 근접` };
         }
         return { hit: false };
     }
