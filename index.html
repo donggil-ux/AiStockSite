@@ -4951,6 +4951,13 @@
                 <div class="alpha-timing-row alpha-time-best"><span class="alpha-time-bullet">●</span><span class="alpha-time-when">06:00~09:00</span><span class="alpha-time-desc">미국장 마감 직후 → R/R 비율 신선, 며칠 보유 계획 수립</span></div>
                 <div class="alpha-timing-row alpha-time-good"><span class="alpha-time-bullet">●</span><span class="alpha-time-when">화/수 저녁</span><span class="alpha-time-desc">주간 진입 → 금요일까지 보유 흐름 잡기 좋음</span></div>
             </div>`;
+        } else if (tab === 'dante') {
+            return `<div class="alpha-timing-card">
+                <div class="alpha-timing-title alpha-timing-title--amber">⏰ 단테 스캐너 — 단타 기법 발굴 최적 시간</div>
+                <div class="alpha-timing-row alpha-time-best"><span class="alpha-time-bullet">●</span><span class="alpha-time-when">22:00~23:00</span><span class="alpha-time-desc">프리마켓 직전 → 시그널 종목 가장 신선, 즉시 진입 가능</span></div>
+                <div class="alpha-timing-row alpha-time-good"><span class="alpha-time-bullet">●</span><span class="alpha-time-when">23:30~01:00</span><span class="alpha-time-desc">개장 직후 변동성 활용 → 단테 패턴 실전 검증</span></div>
+                <div class="alpha-timing-row alpha-time-skip"><span class="alpha-time-bullet">○</span><span class="alpha-time-when">11:00~18:00</span><span class="alpha-time-desc">시그널 신선도 낮음 — 참고용으로만</span></div>
+            </div>`;
         }
         return '';
     }
@@ -5103,35 +5110,11 @@
         }).filter(Boolean).sort((a, b) => b._danteScore - a._danteScore).slice(0, 30);
 
         if (!scored.length) {
-            el.innerHTML = '<div class="sniper-empty">오늘 단테 시그널 종목이 없습니다</div>';
+            el.innerHTML = _alphaTimingGuide('dante') + '<div class="sniper-empty">오늘 단테 시그널 종목이 없습니다</div>';
             return;
         }
-        const cards = scored.map((q, idx) => {
-            const sym = q.symbol;
-            const price = q.regularMarketPrice;
-            const change = q.regularMarketChangePercent || 0;
-            const chgCls = change >= 0 ? 'pos' : 'neg';
-            const sigPills = q._danteSigs.map(s => `<span class="dante-scan-pill">${s.label}</span>`).join('');
-            const sigDesc = q._danteSigs[0].desc;
-            return `<div class="alpha-card alpha-tier${q._danteScore >= 7 ? 1 : q._danteScore >= 5 ? 2 : 3}" onclick="quickSearch('${escHtml(sym)}','US')">
-                <div class="alpha-card-header">
-                    <span class="alpha-rank">#${idx+1}</span>
-                    <span class="alpha-sym">${escHtml(sym)}</span>
-                    <span class="alpha-name">${escHtml(q.shortName || q.longName || '')}</span>
-                    <span class="alpha-price">$${price?.toFixed(2) || '-'}</span>
-                    <span class="alpha-chg ${chgCls}">${change >= 0 ? '+' : ''}${change.toFixed(2)}%</span>
-                </div>
-                <div class="alpha-card-body">
-                    <div class="dante-scan-pills">${sigPills}</div>
-                    <div class="dante-scan-reason">시그널 ${q._danteScore}/10 · ${escHtml(sigDesc)}</div>
-                </div>
-            </div>`;
-        }).join('');
-        el.innerHTML = `
-            <div class="dante-scan-header">📊 <strong>단테 시그널 종목</strong> — 단타 기법 휴리스틱으로 발굴된 ${scored.length}개</div>
-            <div class="alpha-card-list">${cards}</div>
-            <div class="dante-scan-footer">메타 필드 기반 근사 — 종목 클릭 시 상세 단테 분석 카드에서 정밀 확인</div>
-        `;
+        // 다른 스캐너 탭과 동일한 _alphaRender 사용 → UI 일관성 확보
+        _alphaRender(scored, 'dante');
     }
 
     function _alphaRender(items, tab) {
@@ -5231,6 +5214,15 @@
             reason = `52주 고점까지 +${upside.toFixed(1)}% 여유, 손익비 ${rr.toFixed(1)}:1로 스윙 진입 매력적.`;
             timingBadge = rr >= 3 ? {label:'⚡ 며칠~몇주', cls:'emerald'} : {label:'📅 스윙 보유', cls:'amber'};
             expectedMove = Math.round(Math.min(25, upside * 0.4));
+        } else if (kind === 'dante') {
+            const sigs = q._danteSigs || [];
+            const sigClassMap = { maejip:'orange', nullim:'blue', gonguri:'cyan', bapgeureut:'emerald', highheel:'amber' };
+            sigs.forEach(s => signals.push({ label: `${s.label} · ${s.desc}`, cls: sigClassMap[s.k] || 'purple' }));
+            if (chg >= 3) signals.push({ label: `당일 +${chg.toFixed(1)}%`, cls: 'emerald' });
+            score = Math.min(6, sigs.length + (q._danteScore >= 7 ? 2 : q._danteScore >= 5 ? 1 : 0));
+            reason = `단테 기법 ${sigs.length}개 시그널 발동 — ${sigs.map(s=>s.label).join(' · ')}.`;
+            timingBadge = q._danteScore >= 7 ? {label:'⚡ 즉시 단타', cls:'emerald'} : {label:'📅 분할 진입', cls:'amber'};
+            expectedMove = Math.round(3 + sigs.length * 1.5);
         }
 
         // Tier 결정
@@ -5252,6 +5244,9 @@
         } else if (kind === 'daytrade') {
             stopLoss = price * 0.97;
             target = price * 1.04;
+        } else if (kind === 'dante') {
+            stopLoss = price * 0.97;
+            target = price * (1 + (expectedMove || 5) / 100);
         }
         const rrRatio = ((target - entry) / Math.max(entry - stopLoss, 0.01)).toFixed(1);
 
