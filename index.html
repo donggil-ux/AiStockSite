@@ -378,7 +378,8 @@
             </div>
             <div class="lev-chip-divider"></div>
             <div class="lev-chip-group" data-filter-group="direction">
-                <button class="lev-chip active" data-value="bull" onclick="_levSetFilter('direction','bull',this)">롱</button>
+                <button class="lev-chip active" data-value="all" onclick="_levSetFilter('direction','all',this)">전체</button>
+                <button class="lev-chip" data-value="bull" onclick="_levSetFilter('direction','bull',this)">롱</button>
                 <button class="lev-chip" data-value="bear" onclick="_levSetFilter('direction','bear',this)">숏</button>
             </div>
             <div class="lev-chip-divider"></div>
@@ -6194,7 +6195,7 @@
         { symbol: 'CPER', name: 'United States Copper Index Fund',   leverage: 1, direction: 'bull', kind: 'commodity', underlying: '구리' },
         { symbol: 'JJC',  name: 'iPath Bloomberg Copper Subindex',   leverage: 1, direction: 'bull', kind: 'commodity', underlying: '구리' },
     ];
-    let _levFilters = { leverage: 'all', direction: 'bull', kind: 'all' };
+    let _levFilters = { leverage: 'all', direction: 'all', kind: 'all' };
     let _levSearchQuery = '';
     let _levQuotes = {};        // { SYMBOL: { price, change, changePct, volume } }
     let _underlyingQuotes = {}; // { TICKER: changePct } — 기초자산 등락률 (괴리율 계산용)
