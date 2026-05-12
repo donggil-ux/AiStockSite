@@ -5612,6 +5612,40 @@
 .dante-strat-pct{font-size:10.5px;font-weight:600;color:var(--text3);}
 .dante-footer{font-size:10.5px;color:var(--text3);line-height:1.5;padding-top:10px;border-top:1px solid var(--border);}
 
+/* 단테 백테스트 (Phase 4) */
+.dante-backtest-bar{margin:14px 0 10px;}
+.dante-bt-btn{
+    width:100%;padding:11px 14px;border-radius:10px;
+    background:var(--bg3);border:1px solid var(--border);
+    color:var(--text);font-size:13px;font-weight:700;cursor:pointer;
+    transition:background .15s,opacity .15s;
+}
+.dante-bt-btn:hover:not(:disabled){background:var(--bg4);}
+.dante-bt-btn:disabled{opacity:.6;cursor:wait;}
+.dante-bt-result{margin-top:12px;}
+.dante-bt-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px;}
+.dante-bt-cell{background:var(--bg3);border-radius:8px;padding:10px 8px;text-align:center;}
+.dante-bt-label{font-size:10.5px;color:var(--text3);font-weight:600;margin-bottom:3px;}
+.dante-bt-value{font-size:16px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em;color:var(--text);}
+.dante-bt-value.good{color:var(--green);}
+.dante-bt-value.mid{color:var(--yellow);}
+.dante-bt-value.bad{color:var(--red);}
+.dante-bt-detail{font-size:11.5px;color:var(--text2);text-align:center;padding:8px;background:var(--bg3);border-radius:8px;line-height:1.5;}
+.dante-bt-empty{padding:18px;text-align:center;font-size:12px;color:var(--text3);background:var(--bg3);border-radius:8px;}
+
+/* 단테 스캐너 (Phase 3) — 알파 스캐너 탭 */
+.dante-scan-header{font-size:12px;color:var(--text2);padding:6px 2px 12px;line-height:1.5;}
+.dante-scan-header strong{color:var(--text);font-weight:700;}
+.dante-scan-footer{font-size:10.5px;color:var(--text3);padding:14px 4px 0;text-align:center;}
+.dante-scan-pills{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px;}
+.dante-scan-pill{
+    display:inline-block;padding:3px 9px;border-radius:99px;
+    font-size:10.5px;font-weight:700;
+    background:rgba(12,245,176,.12);color:var(--green);
+    border:1px solid rgba(12,245,176,.22);
+}
+.dante-scan-reason{font-size:11.5px;color:var(--text3);line-height:1.4;}
+
 .mf-card{padding:0;}
 .mf-card .card-title{padding:16px 16px 12px;}
 .mf-header{display:flex;align-items:center;gap:14px;padding:0 16px 14px;}

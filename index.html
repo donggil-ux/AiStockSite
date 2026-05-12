@@ -318,6 +318,7 @@
             <button class="alpha-tab"        data-tab="bounce"   onclick="_alphaSwitchTab('bounce')">과매도 반등</button>
             <button class="alpha-tab"        data-tab="daytrade" onclick="_alphaSwitchTab('daytrade')">단타 진입</button>
             <button class="alpha-tab"        data-tab="swing"    onclick="_alphaSwitchTab('swing')">스윙 진입</button>
+            <button class="alpha-tab"        data-tab="dante"    onclick="_alphaSwitchTab('dante')">단테 스캐너</button>
         </div>
         <!-- 탭별 설명 -->
         <div class="alpha-desc" id="alphaDesc"></div>
@@ -972,7 +973,11 @@
                     </div>
                     <div class="dante-signals" id="danteSignals"></div>
                     <div class="dante-strategy" id="danteStrategy"></div>
-                    <div class="dante-footer">⚠️ 한국 단타 기법을 미국장에 이식한 근사치입니다 — 백테스트 미검증, 학습/참고용.</div>
+                    <div class="dante-backtest-bar">
+                        <button class="dante-bt-btn" onclick="runDanteBacktest()" id="danteBtBtn">📈 과거 6개월 백테스트 실행</button>
+                        <div class="dante-bt-result" id="danteBtResult" style="display:none"></div>
+                    </div>
+                    <div class="dante-footer">⚠️ 한국 단타 기법을 미국장에 이식한 근사치입니다 — 백테스트는 참고용 지표일 뿐 미래 수익 보장 X.</div>
                 </div>
             </div>
 
@@ -4886,6 +4891,7 @@
         bounce:   'RSI 극저 + 장기 이동평균선 -15% 이상 이격된 종목 — 과매도 후 반등 가능성이 높습니다.',
         daytrade: 'ATR 변동성이 충분하고 거래량이 평균 대비 활발한 종목 — 당일 매매(데이 트레이드)에 적합합니다.',
         swing:    '52주 고점까지 충분한 상승 여력(R/R ≥ 1.5)이 있고 추세가 살아있는 종목 — 며칠~몇 주 단위 스윙에 적합합니다.',
+        dante:    '주식단테 17년 기법(밥그릇·공구리·하이힐·매집봉·눌림목)을 시세 메타로 근사 적용한 종목 — 정밀 확인은 종목 상세의 단테 분석기에서.',
     };
 
     // ─── 알파 카드 헬퍼 ──────────────────────────────────────
@@ -5031,11 +5037,103 @@
                     }).filter(Boolean).sort((a, b) => b._rr - a._rr).slice(0, 30);
                     _alphaRender(qualified, tab);
                 }
+            } else if (tab === 'dante') {
+                await _alphaRenderDanteScanner(el);
             }
         } catch (e) {
             console.error('[alphaSwitchTab]', e);
             if (_alphaTab === tab) el.innerHTML = _alphaTimingGuide(tab) + '<div class="sniper-empty">데이터 로드 실패 — 잠시 후 다시 시도하세요</div>';
         }
+    }
+
+    // ── 단테 스캐너 (Phase 3) ────────────────────────────────────────
+    // day_gainers + most_actives 의 시세 메타 필드로 단테 시그널 근사 → 점수화
+    // (60일 OHLCV 미가공 → 가벼운 휴리스틱: 매집·눌림·거래량·52주 위치)
+    async function _alphaRenderDanteScanner(el) {
+        el.innerHTML = '<div class="sniper-loading">' + Array(6).fill('<div class="sniper-skel"></div>').join('') + '</div>';
+        let pool = [];
+        try {
+            const cached = top100Cache?.['day_gainers']?.items;
+            if (cached && cached.length) pool = cached.slice();
+            else {
+                const r = await fetch('/api/screener/day_gainers?count=100');
+                if (r.ok) {
+                    const d = await r.json();
+                    pool = d?.finance?.result?.[0]?.quotes || [];
+                    if (pool.length) top100Cache['day_gainers'] = { items: pool, ts: Date.now() };
+                }
+            }
+            const r2 = await fetch('/api/screener/most_actives?count=100').catch(()=>null);
+            if (r2 && r2.ok) {
+                const d2 = await r2.json();
+                const extra = d2?.finance?.result?.[0]?.quotes || [];
+                const seen = new Set(pool.map(q => q.symbol));
+                extra.forEach(q => { if (!seen.has(q.symbol)) { pool.push(q); seen.add(q.symbol); } });
+            }
+        } catch (e) { console.warn('[dante-scan]', e); }
+        if (_alphaTab !== 'dante') return;
+        if (!pool.length) {
+            el.innerHTML = '<div class="sniper-empty">데이터를 불러올 수 없습니다 — 잠시 후 다시 시도하세요</div>';
+            return;
+        }
+        // 시그널 휴리스틱 (메타 필드 기반)
+        const scored = pool.map(q => {
+            const price = q.regularMarketPrice || 0;
+            const ma50 = q.fiftyDayAverage || 0;
+            const ma200 = q.twoHundredDayAverage || 0;
+            const high52 = q.fiftyTwoWeekHigh || 0;
+            const low52 = q.fiftyTwoWeekLow || 0;
+            const vol = q.regularMarketVolume || 0;
+            const avgVol = q.averageDailyVolume3Month || 0;
+            const change = q.regularMarketChangePercent || 0;
+            const cap = q.marketCap || 0;
+            const sigs = [];
+            if (cap < 300e6 || cap > 50e9 || price < 1 || !avgVol || avgVol < 1e6) return null; // 단타 유동성 필터
+            // 매집봉 근사: 거래량 1.5배 이상 + 양봉
+            if (avgVol && vol > avgVol * 1.5 && change > 0) sigs.push({ k: 'maejip', label: '매집봉', desc: `거래량 ${(vol/avgVol).toFixed(1)}배 양봉` });
+            // 정배열 + 5일선 근접 (눌림목 후보)
+            if (ma50 && ma200 && price > ma50 && ma50 > ma200 && Math.abs(price - ma50) / ma50 < 0.04) sigs.push({ k: 'nullim', label: '눌림목', desc: '정배열 + MA50 지지' });
+            // 공구리: 52주 중간 이상 + ma200 위
+            if (high52 && low52 && ma200 && price > ma200 && (price - low52) / (high52 - low52) > 0.5) sigs.push({ k: 'gonguri', label: '공구리', desc: 'MA200 위 지지선 안착' });
+            // 밥그릇 근사: 52주 고점 -15~30% + 최근 양전환
+            if (high52 && price < high52 * 0.85 && price > high52 * 0.7 && change > 1) sigs.push({ k: 'bapgeureut', label: '밥그릇', desc: `52주 -${((high52-price)/high52*100).toFixed(0)}% + 반등 시도` });
+            // 하이힐: 52주 저점 +30% 이내 + 당일 +3% 이상
+            if (low52 && price < low52 * 1.3 && change > 3) sigs.push({ k: 'highheel', label: '하이힐', desc: 'V자 반등 후보' });
+            if (sigs.length === 0) return null;
+            const score = Math.min(10, sigs.length * 2 + Math.floor(change / 2));
+            return { ...q, _alphaKind: 'dante', _danteSigs: sigs, _danteScore: score };
+        }).filter(Boolean).sort((a, b) => b._danteScore - a._danteScore).slice(0, 30);
+
+        if (!scored.length) {
+            el.innerHTML = '<div class="sniper-empty">오늘 단테 시그널 종목이 없습니다</div>';
+            return;
+        }
+        const cards = scored.map((q, idx) => {
+            const sym = q.symbol;
+            const price = q.regularMarketPrice;
+            const change = q.regularMarketChangePercent || 0;
+            const chgCls = change >= 0 ? 'pos' : 'neg';
+            const sigPills = q._danteSigs.map(s => `<span class="dante-scan-pill">${s.label}</span>`).join('');
+            const sigDesc = q._danteSigs[0].desc;
+            return `<div class="alpha-card alpha-tier${q._danteScore >= 7 ? 1 : q._danteScore >= 5 ? 2 : 3}" onclick="quickSearch('${escHtml(sym)}','US')">
+                <div class="alpha-card-header">
+                    <span class="alpha-rank">#${idx+1}</span>
+                    <span class="alpha-sym">${escHtml(sym)}</span>
+                    <span class="alpha-name">${escHtml(q.shortName || q.longName || '')}</span>
+                    <span class="alpha-price">$${price?.toFixed(2) || '-'}</span>
+                    <span class="alpha-chg ${chgCls}">${change >= 0 ? '+' : ''}${change.toFixed(2)}%</span>
+                </div>
+                <div class="alpha-card-body">
+                    <div class="dante-scan-pills">${sigPills}</div>
+                    <div class="dante-scan-reason">시그널 ${q._danteScore}/10 · ${escHtml(sigDesc)}</div>
+                </div>
+            </div>`;
+        }).join('');
+        el.innerHTML = `
+            <div class="dante-scan-header">📊 <strong>단테 시그널 종목</strong> — 단타 기법 휴리스틱으로 발굴된 ${scored.length}개</div>
+            <div class="alpha-card-list">${cards}</div>
+            <div class="dante-scan-footer">메타 필드 기반 근사 — 종목 클릭 시 상세 단테 분석 카드에서 정밀 확인</div>
+        `;
     }
 
     function _alphaRender(items, tab) {
@@ -12583,6 +12681,101 @@
         }
     }
 
+    // ── 단테 백테스트 (Phase 4) ─────────────────────────────────────
+    // 과거 N봉에서 각 시점의 OHLCV 슬라이스로 단테 분석 → 시그널 hit 시 진입 가정 →
+    // K일 이내 목표가 도달(승) vs 손절가 도달(패) 집계
+    async function runDanteBacktest() {
+        const btn = document.getElementById('danteBtBtn');
+        const resEl = document.getElementById('danteBtResult');
+        if (!btn || !resEl) return;
+        if (!stockData) { showToast('먼저 종목을 검색해주세요.'); return; }
+        const q = stockData.indicators.quote[0];
+        const opens = q.open || [], closes = q.close || [], highs = q.high || [], lows = q.low || [], volumes = q.volume || [];
+        const N = closes.length;
+        if (N < 90) { showToast('백테스트에 최소 90봉(약 4개월) 이상 필요합니다.'); return; }
+
+        btn.disabled = true; btn.textContent = '🔄 백테스트 진행 중...';
+        resEl.style.display = 'none';
+        // UI block 방지 — setTimeout 으로 다음 tick
+        await new Promise(r => setTimeout(r, 30));
+
+        const HOLD_DAYS = 5;           // 진입 후 최대 보유 일수
+        const lookback = Math.min(126, N - 30);  // 최근 6개월 (영업일 기준 ~126)
+        const startIdx = Math.max(60, N - lookback);
+
+        let entries = 0, wins = 0, losses = 0;
+        let totalReturnPct = 0;
+        const trades = [];
+        let lastEntry = -10; // 동일 시그널 중복 진입 방지 (5일 쿨다운)
+
+        for (let i = startIdx; i < N - HOLD_DAYS; i++) {
+            if (i - lastEntry < HOLD_DAYS) continue;
+            const slice = {
+                open: opens.slice(0, i + 1),
+                close: closes.slice(0, i + 1),
+                high: highs.slice(0, i + 1),
+                low: lows.slice(0, i + 1),
+                volume: volumes.slice(0, i + 1),
+            };
+            // 임시 stockData 로 시뮬레이션 (mutating 안 함)
+            const origStockData = stockData;
+            stockData = { indicators: { quote: [slice] } };
+            const analysis = _danteCalc();
+            stockData = origStockData;
+            if (!analysis || analysis.score < 5) continue;
+
+            const entryPrice = closes[i];
+            const target1 = analysis.target1;
+            const stop = analysis.finalStop;
+            if (!entryPrice || !target1 || !stop) continue;
+
+            // K일 이내 결과
+            let result = null, exitPrice = entryPrice, exitDay = HOLD_DAYS;
+            for (let k = 1; k <= HOLD_DAYS; k++) {
+                const hi = highs[i + k], lo = lows[i + k];
+                if (hi == null || lo == null) continue;
+                if (lo <= stop) { result = 'loss'; exitPrice = stop; exitDay = k; break; }
+                if (hi >= target1) { result = 'win'; exitPrice = target1; exitDay = k; break; }
+            }
+            if (!result) {
+                exitPrice = closes[i + HOLD_DAYS] || entryPrice;
+                result = exitPrice >= entryPrice ? 'win' : 'loss';
+            }
+            const retPct = (exitPrice - entryPrice) / entryPrice * 100;
+            entries++;
+            if (result === 'win') wins++; else losses++;
+            totalReturnPct += retPct;
+            trades.push({ idx: i, score: analysis.score, ret: retPct, days: exitDay, result });
+            lastEntry = i;
+        }
+
+        btn.disabled = false; btn.textContent = '📈 과거 6개월 백테스트 재실행';
+        if (entries === 0) {
+            resEl.style.display = 'block';
+            resEl.innerHTML = '<div class="dante-bt-empty">최근 6개월 동안 단테 시그널(점수 5+) 발동 없음 — 다른 종목 시도</div>';
+            return;
+        }
+        const winRate = (wins / entries * 100).toFixed(0);
+        const avgRet = (totalReturnPct / entries).toFixed(2);
+        const wAvg = trades.filter(t=>t.result==='win').reduce((s,t)=>s+t.ret,0) / Math.max(1, wins);
+        const lAvg = trades.filter(t=>t.result==='loss').reduce((s,t)=>s+t.ret,0) / Math.max(1, losses);
+        const rrR = losses > 0 ? Math.abs(wAvg / lAvg).toFixed(2) : '∞';
+        const avgDays = (trades.reduce((s,t)=>s+t.days,0) / entries).toFixed(1);
+        const cls = winRate >= 60 ? 'good' : winRate >= 40 ? 'mid' : 'bad';
+        resEl.style.display = 'block';
+        resEl.innerHTML = `
+            <div class="dante-bt-grid">
+                <div class="dante-bt-cell"><div class="dante-bt-label">진입</div><div class="dante-bt-value">${entries}회</div></div>
+                <div class="dante-bt-cell"><div class="dante-bt-label">승률</div><div class="dante-bt-value ${cls}">${winRate}%</div></div>
+                <div class="dante-bt-cell"><div class="dante-bt-label">평균 수익</div><div class="dante-bt-value ${avgRet>0?'good':'bad'}">${avgRet>0?'+':''}${avgRet}%</div></div>
+                <div class="dante-bt-cell"><div class="dante-bt-label">손익비</div><div class="dante-bt-value">${rrR}</div></div>
+            </div>
+            <div class="dante-bt-detail">
+                ✅ ${wins}승 (평균 +${wAvg.toFixed(2)}%) · ❌ ${losses}패 (평균 ${lAvg.toFixed(2)}%) · 평균 보유 ${avgDays}일
+            </div>
+        `;
+    }
+
     // ========================================
     // Entry/Exit Timing (단타)
     // ========================================
@@ -17726,7 +17919,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         setOptionsStrikeRange, toggleOptionsVolFilter, sortOptionsBy,
         manualAnalysisRefresh, pwaInstall,
         handleSearchKeydown, openSearchDropdown, closeSearchDropdown, searchSuggest, levenshtein,
-        renderDayUnified,
+        renderDayUnified, renderDanteAnalysis, runDanteBacktest,
         renderRRAnalysis, renderRSIMomentum, analyzeRSIDynamic,
         renderMACDSignal, analyzeMACDRayner, _applyRRGate, _isFallingKnife,
         toggleChecklist,
