@@ -9021,6 +9021,10 @@
             _restoreHeaderChrome();
             document.getElementById('welcomeScreen').style.display = 'none';
             document.getElementById('visionScannerScreen').style.display = 'none';
+            const _alpha = document.getElementById('alphaScannerScreen'); if (_alpha) _alpha.style.display = 'none';
+            const _sm = document.getElementById('smartMoneyScreen'); if (_sm) _sm.style.display = 'none';
+            const _fav = document.getElementById('favScreen'); if (_fav) _fav.style.display = 'none';
+            const _eco = document.getElementById('economicSection'); if (_eco) _eco.style.display = 'none';
             const _t100 = document.getElementById('top100Screen'); if (_t100) _t100.style.display = 'none';
             const _ern = document.getElementById('earningsScreen'); if (_ern) _ern.style.display = 'none';
             const _lev = document.getElementById('leverageScreen'); if (_lev) _lev.style.display = 'none';
