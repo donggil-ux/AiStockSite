@@ -1127,7 +1127,49 @@ function _earnSumSaveToSupabase(rows) {
       .catch(() => {});
 }
 
+// 실적 관련 헤드라인을 Finnhub 에서 추출 (Gemini 대체용)
+// 키워드 매칭으로 sentiment 추정: beat/strong/exceed → bullish, miss/drop/weak → bearish
+async function _fetchEarningsHeadlineFromFinnhub(symbol) {
+    if (!process.env.FINNHUB_API_KEY) return null;
+    try {
+        const to = new Date();
+        const from = new Date(to.getTime() - 30 * 86400000);
+        const fmt = d => d.toISOString().slice(0, 10);
+        const url = `https://finnhub.io/api/v1/company-news?symbol=${encodeURIComponent(symbol)}&from=${fmt(from)}&to=${fmt(to)}&token=${process.env.FINNHUB_API_KEY}`;
+        const res = await axios.get(url, { timeout: 8000, httpAgent, httpsAgent });
+        const arr = Array.isArray(res.data) ? res.data : [];
+        if (!arr.length) return null;
+        // 실적 관련 키워드 매칭
+        const earningsRe = /\b(earnings|quarterly|quarter|Q[1-4]\b|EPS|revenue|results|beat|miss|guidance|forecast|outlook|profit|sales)\b/i;
+        const hits = arr.filter(n => earningsRe.test(n.headline || '') || earningsRe.test(n.summary || ''));
+        const pool = hits.length ? hits : arr;
+        pool.sort((a, b) => (b.datetime || 0) - (a.datetime || 0));
+        const first = pool[0];
+        const headlineEn = String(first.headline || '').trim();
+        if (!headlineEn) return null;
+        // Sentiment 휴리스틱
+        const lower = headlineEn.toLowerCase();
+        let sentiment = 'neutral';
+        if (/\b(beat|beats|exceed|exceeds|surge|jumps?|soars?|strong|rally|tops?|crush)\b/.test(lower)) sentiment = 'bullish';
+        else if (/\b(miss|misses|disappoint|drop|drops|fall|falls|plunge|tumbles?|weak|warn|cut|slash)\b/.test(lower)) sentiment = 'bearish';
+        // 영→한 번역
+        const ko = await translateToKo(headlineEn);
+        return {
+            summary: (ko || headlineEn).slice(0, 200),
+            sentiment,
+            highlights: [],
+            quarter: 'recent',
+            source: 'finnhub-headline',
+            publisher: String(first.source || 'Finnhub').slice(0, 30),
+        };
+    } catch (e) {
+        console.warn('[earnings-summary] Finnhub headline fail', symbol, e?.message?.slice(0, 80));
+        return null;
+    }
+}
+
 // 메인 라우트 — GET /api/earnings-summary?symbols=AAPL,MSFT,...
+// v541: Gemini 요약 → Finnhub 헤드라인 + 영한 번역 으로 교체 (Gemini 비용 0)
 app.get('/api/earnings-summary', async (req, res) => {
     const raw = (req.query.symbols || '').toString();
     const syms = raw.split(',').map(s => s.trim().toUpperCase())
@@ -1153,36 +1195,33 @@ app.get('/api/earnings-summary', async (req, res) => {
                 out[sym] = data;
             });
         }
-        // L3: Finnhub transcript 시도 → 실패 시 뉴스+실적 fallback → Gemini (동시성 5)
+        // L3: Finnhub 헤드라인 (Gemini 호출 없음) — 동시성 8
         const missAll = syms.filter(s => !(s in out));
         if (missAll.length) {
-            const todo = missAll.slice(0, 5);
-            const transcripts = (await Promise.all(todo.map(async s => {
-                let t = await _fetchFinnhubTranscript(s);
-                if (!t) t = await _fetchEarningsContextFromNews(s);
-                return t ? { symbol: s, text: t.text, quarter: t.quarter, source: t.source } : null;
-            }))).filter(Boolean);
-            if (transcripts.length) {
-                const summaryMap = await _summarizeEarningsBatch(transcripts);
-                const upsertRows = [];
-                summaryMap.forEach((data, sym) => {
+            const todo = missAll.slice(0, 8);
+            const results = await Promise.all(todo.map(async s => {
+                const data = await _fetchEarningsHeadlineFromFinnhub(s);
+                return { sym: s, data };
+            }));
+            const upsertRows = [];
+            results.forEach(({ sym, data }) => {
+                if (data) {
                     out[sym] = data;
                     _earnSumCache.set(sym, { data, ts: Date.now() });
                     upsertRows.push({
                         symbol: sym,
-                        transcript_quarter: data.quarter || 'unknown',
+                        transcript_quarter: data.quarter || 'recent',
                         summary: data.summary,
                         sentiment: data.sentiment,
                         highlights: data.highlights || [],
                         updated_at: new Date().toISOString(),
                     });
-                });
-                if (upsertRows.length) _earnSumSaveToSupabase(upsertRows);
-            }
-            // transcript 없거나 요약 실패한 심볼은 짧은 TTL로 메모리에 캐시 (재시도 폭주 방지, 2분)
-            todo.filter(s => !(s in out)).forEach(s => {
-                _earnSumCache.set(s, { data: null, ts: Date.now() - (EARN_SUM_TTL - 2 * 60 * 1000) });
+                } else {
+                    // 헤드라인 없으면 짧은 TTL 로 메모리에만 (재시도 폭주 방지)
+                    _earnSumCache.set(sym, { data: null, ts: Date.now() - (EARN_SUM_TTL - 30 * 60 * 1000) });
+                }
             });
+            if (upsertRows.length) _earnSumSaveToSupabase(upsertRows);
         }
         res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
         res.json(out);
@@ -3644,28 +3683,67 @@ const _SP500 = (
 const _NASDAQ_NYSE_EXTRAS = (
     // Chinese ADRs (NYSE/NASDAQ)
     'BABA BIDU JD NIO LI XPEV PDD ZTO BILI EDU TAL TME WB IQ NTES BGNE TCOM BZUN HUYA YMM FUTU TIGR HSAI ZH ' +
+    'KE TUYA BEKE DOYU LX QFIN MOMO VIPS DADA TIGO ATAT LOT ' +
     // Hot IPOs / Growth (NYSE/NASDAQ)
     'COIN HOOD AFRM RBLX U SOFI UPST PATH OPEN PINS RIVN LCID DASH SQ SHOP SNAP SPOT DKNG ETSY CHWY W ' +
-    'HIMS BIRK ARM CART RDDT ASTS RKLB JOBY ACHR DUOL TOST RNG ZG ' +
-    // Semiconductors
-    'ASML TSM UMC AEHR AMBA SIMO MXL WOLF ALAB ' +
-    // SaaS / Cloud / Cybersecurity
+    'HIMS BIRK ARM CART RDDT ASTS RKLB JOBY ACHR DUOL TOST RNG ZG IOT GFI ' +
+    'CAVA SG INST KLAR KSPI ASTR LUNR PLAB ANTX REPX TARS ' +
+    // Quantum / AI 신흥
+    'IONQ QBTS RGTI QUBT BBAI SOUN VERI CXAI MGNI ' +
+    // Semiconductors (확장)
+    'ASML TSM UMC AEHR AMBA SIMO MXL WOLF ALAB POWI INDI ONTO LSCC MTSI VECO ACMR FORM PI ' +
+    'CRDO HIMX CRUS NVMI ICHR UCTT KOPN AMKR ATEN ' +
+    // SaaS / Cloud / Cybersecurity (확장)
     'NET ZS DDOG MDB SNOW OKTA TEAM CFLT TWLO ESTC GTLB MNDY FROG S BIGC PD APPS ASAN AI APP BILL ' +
-    // Crypto / Blockchain
-    'MSTR MARA RIOT CLSK BITF HUT CIFR WULF CAN IREN APLD ' +
-    // International blue-chip ADRs
-    'SAP NVO TM SONY HMC LVMUY ' +
-    // Biotech (non-S&P500)
+    'PCTY PSN PLAN ATEX BSY DOMO BV BLKB BL BAND ENV ENV TYL EVCM ZIP FOUR JAMF NCNO PYCR ' +
+    'PSTG VRNT VRNS QLYS RPD AMBA TENB RBRK ' +
+    // FinTech / Payments
+    'SOFI HOOD MQ AFRM PAYO PYPL TOST EVTC FOUR FLT WEX GLBE ALKT ' +
+    // Crypto / Blockchain (확장)
+    'MSTR MARA RIOT CLSK BITF HUT CIFR WULF CAN IREN APLD COIN GBTC ETHE BITO BITX BITF SMLR ' +
+    // International blue-chip ADRs (확장)
+    'SAP NVO TM SONY HMC LVMUY UL DEO HSBC BCS RIO BHP TTE BP SHEL E ABEV ATHM SE GRAB MELI ' +
+    'STM NXPI YMAB SPOT RBA TRP SU CP CNI ENB BTI ROG.SW IXTC LFC PBR ' +
+    // Biotech (확장)
     'SGEN ALNY GMAB EXAS NVAX SAVA REPL ARWR EDIT NTLA BEAM BNTX PRMS RYTM TGTX VKTX SRPT IONS GH ARGX ' +
-    'GSK NVS RXRX HALO RNA ASND ' +
-    // EV / Auto (non-SP500 추가)
-    'FSR NKLA BLNK CHPT EVGO QS PSNY VFS ' +
-    // Energy / Oil (non-SP500)
-    'PBR ARLP SU CNQ CVE IMO ' +
-    // Financials mid-cap (non-SP500)
-    'NYCB PACW WAL OZK EWBC FHN PNFP IBKR ' +
+    'GSK NVS RXRX HALO RNA ASND VRTX ABCL TWST PACB VOR OMIC OCGN ATAI ATXS LGND CRSP ALEC TARS ' +
+    'CRMD ORIC VRDN PROK ROIV AKRO INVA ELAN ZLAB MNMD CGEM AKERO ' +
+    // EV / Auto (확장)
+    'FSR NKLA BLNK CHPT EVGO QS PSNY VFS LCID PSN MULN CENN NWTN ZEV WKHS HYZN GP REE ' +
+    // Energy / Oil (확장)
+    'PBR ARLP SU CNQ CVE IMO TPL CRC CRGY CNX SM RRC AR CHRD MTDR PR CDEV NOG ESTE PARR ' +
+    // Solar / Renewables / Hydrogen
+    'FSLR ENPH SEDG RUN NOVA SHLS ARRY MAXN BE PLUG BLDP FCEL HYZN CWEN AY ' +
+    // Financials mid-cap (확장)
+    'NYCB PACW WAL OZK EWBC FHN PNFP IBKR LPLA SF EVR HLNE MC CG OWL PJT VIRT BGC TW ' +
+    'BLDP CINF GL CRT THRY APAM TROW ALLY LC SOFI NAVI ' +
+    // REIT / Real Estate mid-cap
+    'BRX CUZ EPRT FR HHC IRT KRG MAA NHI OFC OUT RHP SAFE SBRA SPG STAG ' +
+    // Consumer / Retail mid-cap
+    'BJ OLLI BOOT BURL DKS DDS GES PLCE LULU CROX SKX UA UAA ANF BBY GME AMC ' +
+    'CAKE EAT DPZ DRI MCD WING SHAK TXRH BROS CMG PZZA WEN ' +
+    // Industrial / Defense mid-cap
+    'HEI KTOS LDOS BWXT LMT NOC GD RTX TDY HII AVAV PSN PWR FLR DY MTZ ' +
+    'WCC WSO POOL LECO RBC RBC ATKR SNDR XPO LSTR GXO HUBG WERN SAIA ' +
+    // Healthcare / Med devices (mid-cap)
+    'TMO HOLX ISRG MASI PEN BSX BIIB NTRA NTLA PEN OMI TFX LIVN ' +
+    'ATEC PRCT PROCEPT INSP ITGR NVCR SDC TDOC HIMS GDRX ACCD '+
+    // Media / Communication mid-cap
+    'NWS NWSA NYT WBD CHTR LBRDA LBRDK SIRI IHRT SBGI TGNA DISH ROKU ' +
     // 기타 mid-cap growth
-    'WIX FVRR SQSP HUBS CWAN GLBE'
+    'WIX FVRR SQSP HUBS CWAN GLBE ASND APPF MIME TENB DV PRO ' +
+    'ETSY EBAY EXAS DOCN VEEV ZEN SLAB FCN BAH SAIC LDOS ' +
+    // 한국 기업 ADR (참고용)
+    'CPNG KEP KB KT SKM PKX ' +
+    // 일본/유럽 ADR 추가
+    'NMR MFG MUFG SMFG HMC TM NTT IX NTTYY TKOMY HTHIY KYOCY ' +
+    'AZN BUD HEINY UNCRY UMG VOW3 BAYRY DTEGY OR.PA MC.PA AIR ' +
+    // 인도 ADR
+    'INFY WIT IBN HDB DRRX TTM ' +
+    // 라틴 ADR
+    'PBR VALE ITUB BBD BSBR CIB MELI VIST CSAN BBAR PAGS NU XP ' +
+    // 중동 / 이스라엘
+    'TEVA CHKP NICE WIX MNDY GLBE PAGS VRDN GRWG ARMK PERI '
 ).split(/\s+/).filter(Boolean);
 
 function _classifyEarningsTime(raw) {
