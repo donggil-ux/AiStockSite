@@ -783,6 +783,29 @@ function _shortenReason(text) {
     return t;
 }
 
+// Finnhub 종목별 뉴스 — 60 req/min 무료, 헤드라인 풍부함
+// 미국 주식 외(KR/HK/JP)는 응답이 거의 없어 자동으로 Yahoo 폴백
+async function _fetchNewsTitleFromFinnhub(symbol) {
+    if (!process.env.FINNHUB_API_KEY) return { title: '', publisher: '' };
+    try {
+        // 최근 14일 — 신선한 헤드라인만
+        const to = new Date();
+        const from = new Date(to.getTime() - 14 * 86400000);
+        const fmt = d => d.toISOString().slice(0, 10);
+        const url = `https://finnhub.io/api/v1/company-news?symbol=${encodeURIComponent(symbol)}&from=${fmt(from)}&to=${fmt(to)}&token=${process.env.FINNHUB_API_KEY}`;
+        const res = await axios.get(url, { timeout: 8000, httpAgent, httpsAgent });
+        const arr = Array.isArray(res.data) ? res.data : [];
+        if (!arr.length) return { title: '', publisher: '' };
+        // 가장 최근 (Finnhub 응답은 datetime 내림차순이나 안전하게 정렬)
+        arr.sort((a, b) => (b.datetime || 0) - (a.datetime || 0));
+        const first = arr[0];
+        return {
+            title: String(first.headline || '').trim(),
+            publisher: String(first.source || 'Finnhub').slice(0, 30),
+        };
+    } catch { return { title: '', publisher: '' }; }
+}
+
 // 개별 심볼의 원본 뉴스 제목(영→한 번역) + 퍼블리셔 반환 (캐시 없음 — 요약 후 캐시)
 // Google News RSS 무료 fallback — Yahoo가 429/빈응답일 때 사용
 async function _fetchNewsTitleFromGoogle(symbol) {
@@ -808,17 +831,24 @@ async function _fetchNewsTitleFromGoogle(symbol) {
 async function _fetchNewsTitle(symbol) {
     let raw = '';
     let publisher = '';
-    // 1차: Yahoo Finance
-    try {
-        const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(symbol)}&quotesCount=0&newsCount=1&enableFuzzyQuery=false`;
-        const data = await yfRequest(url);
-        const first = (data?.news || [])[0];
-        if (first?.title) {
-            raw = first.title;
-            publisher = first.publisher || '';
-        }
-    } catch {}
-    // 2차 fallback: Google News RSS (Yahoo 실패/빈응답 시)
+    // 1차: Finnhub company-news (60 req/min 무료, 헤드라인 가장 풍부)
+    if (process.env.FINNHUB_API_KEY) {
+        const fh = await _fetchNewsTitleFromFinnhub(symbol);
+        if (fh.title) { raw = fh.title; publisher = fh.publisher; }
+    }
+    // 2차: Yahoo Finance (Finnhub 응답 없거나 키 미설정 시)
+    if (!raw) {
+        try {
+            const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(symbol)}&quotesCount=0&newsCount=1&enableFuzzyQuery=false`;
+            const data = await yfRequest(url);
+            const first = (data?.news || [])[0];
+            if (first?.title) {
+                raw = first.title;
+                publisher = first.publisher || '';
+            }
+        } catch {}
+    }
+    // 3차 fallback: Google News RSS
     if (!raw) {
         raw = await _fetchNewsTitleFromGoogle(symbol);
         if (raw) publisher = 'Google News';
