@@ -12620,28 +12620,53 @@
         const score10 = Math.round(hitWeight / totalWeight * 10);
 
         const sym = _danteSymmetry(closes);
-        // 매수가 후보: 현재가 (1차) + 최근 ATR 0.5배 눌림 (2차)
+        // 시그널에서 추출한 지지선 후보 (매집봉/공구리/눌림목)
+        const supports = signals.map(s => s.result.support).filter(s => s && s < last && s > 0);
+        const strongestSupport = supports.length ? Math.max(...supports) : null;
+        // 데이터 기반 분할매수 진입가 (volatility-aware)
+        //   1차: 현재가 (즉시)
+        //   2차: 현재가 - 0.7 ATR (단기 눌림)
+        //   3차: 더 깊은 눌림 — 강한 지지선 OR 현재가 - 1.5 ATR
         const entry1 = last;
-        const entry2 = last - atr * 0.5;
-        // 목표가: 시그널별 target 중 가장 높은 것 또는 대칭이론 + ATR 2배
+        const entry2 = last - atr * 0.7;
+        const entry3 = strongestSupport && strongestSupport > last - atr * 2.5
+            ? strongestSupport
+            : last - atr * 1.5;
+        const entry3Source = strongestSupport && strongestSupport > last - atr * 2.5
+            ? '지지선' : '하방 변동성';
+
+        // 점수에 따라 분할 비중 동적 결정
+        let splitRatios;
+        if (score10 >= 7)      splitRatios = [50, 30, 20]; // 강한 시그널 → 즉시 진입 비중 ↑
+        else if (score10 >= 5) splitRatios = [30, 40, 30]; // 보통 → 균형
+        else if (score10 >= 3) splitRatios = [20, 35, 45]; // 약함 → 눌림 대기 비중 ↑
+        else                   splitRatios = [10, 30, 60]; // 매우 약함 → 즉시 진입 최소
+
+        // 예상 평단가 (모두 체결 시)
+        const totalW = splitRatios.reduce((a,b)=>a+b,0);
+        const avgEntry = (entry1 * splitRatios[0] + entry2 * splitRatios[1] + entry3 * splitRatios[2]) / totalW;
+
+        // 목표가: 시그널 target + 대칭이론 + ATR 기반
         const candidateTargets = signals.map(s => s.result.target).filter(t => t && t > last);
         const symTarget = sym ? sym.target : null;
         const target1 = last + atr * 1.5;
         const target2 = Math.max(...[...candidateTargets, symTarget, last + atr * 3].filter(Boolean));
-        // 손절: 손절 3원칙 + 시그널별 stop 중 가장 보수적인 값
-        const stops = signals.map(s => s.result.stop).filter(t => t && t < last);
-        const sjr = _danteSonjeolRules(closes, ma20, entry1);
-        const finalStop = Math.max(...[sjr.finalStop, ...stops]);
+
+        // 손절: 평단가 기준 -3% OR MA20 -1% (둘 중 보수적)
+        const sjr = _danteSonjeolRules(closes, ma20, avgEntry);
+        const sigStops = signals.map(s => s.result.stop).filter(t => t && t < last);
+        const finalStop = Math.max(...[sjr.finalStop, ...sigStops]);
 
         let verdict, verdictSub;
-        if (score10 >= 7)      { verdict = '강한 매수 시그널'; verdictSub = '다중 패턴 동시 발동 — 분할 진입 권장'; }
-        else if (score10 >= 5) { verdict = '관심 종목';        verdictSub = '일부 패턴 발동 — 추가 확인 후 진입'; }
-        else if (score10 >= 3) { verdict = '관망';            verdictSub = '시그널 약함 — 명확한 트리거 대기'; }
-        else                   { verdict = '진입 비추천';      verdictSub = '단테 기법 시그널 없음'; }
+        if (score10 >= 7)      { verdict = '강한 매수 시그널'; verdictSub = '다중 패턴 발동 — 적극 분할 진입 (5:3:2)'; }
+        else if (score10 >= 5) { verdict = '관심 종목';        verdictSub = '균형 분할 (3:4:3) — 눌림목 대기'; }
+        else if (score10 >= 3) { verdict = '관망 우위';         verdictSub = '눌림 비중 ↑ (2:3.5:4.5) — 강한 지지선 대기'; }
+        else                   { verdict = '진입 비추천';      verdictSub = '시그널 약함 — 다른 종목 탐색 권장'; }
 
         return {
             score: score10, verdict, verdictSub,
-            signals, entry1, entry2, target1, target2, finalStop,
+            entry1, entry2, entry3, entry3Source, avgEntry, splitRatios,
+            target1, target2, finalStop,
             atr, ma20, last,
         };
     }
@@ -12670,31 +12695,57 @@
             data.score >= 3 ? 'var(--yellow)' : 'var(--red)');
         if (vEl) vEl.textContent = data.verdict;
         if (vSubEl) vSubEl.textContent = data.verdictSub;
-        if (sigEl) {
-            sigEl.innerHTML = data.signals.map(s => `
-                <div class="dante-signal ${s.result.hit ? 'hit' : 'miss'}">
-                    <span class="dante-sig-icon">${s.result.hit ? '✅' : '⚪'}</span>
-                    <span class="dante-sig-label">${s.label}</span>
-                    <span class="dante-sig-desc">${s.result.hit && s.result.note ? s.result.note : s.desc}</span>
-                </div>
-            `).join('');
-        }
+        // 시그널 체크리스트 — 제거됨 (v536)
+        if (sigEl) sigEl.innerHTML = '';
         if (stEl) {
             const fmt = v => v == null ? '-' : '$' + Number(v).toFixed(2);
             const pct = (a, b) => ((a - b) / b * 100).toFixed(1);
+            const [w1, w2, w3] = data.splitRatios;
+            const atrPct = (data.atr / data.last * 100).toFixed(1);
             stEl.innerHTML = `
+                <div class="dante-buy-plan">
+                    <div class="dante-plan-title">📥 분할 매수 계획 <span class="dante-plan-meta">변동성 ATR ${atrPct}% 반영</span></div>
+                    <div class="dante-step-list">
+                        <div class="dante-step">
+                            <div class="dante-step-num">1차</div>
+                            <div class="dante-step-body">
+                                <div class="dante-step-price">${fmt(data.entry1)} <span class="dante-step-pct">현재가</span></div>
+                                <div class="dante-step-note">즉시 진입 — 시그널 확정 비중</div>
+                            </div>
+                            <div class="dante-step-weight">${w1}%</div>
+                        </div>
+                        <div class="dante-step">
+                            <div class="dante-step-num">2차</div>
+                            <div class="dante-step-body">
+                                <div class="dante-step-price">${fmt(data.entry2)} <span class="dante-step-pct">${pct(data.entry2, data.entry1)}%</span></div>
+                                <div class="dante-step-note">단기 눌림 (−0.7 ATR) — 1차 평단 보정</div>
+                            </div>
+                            <div class="dante-step-weight">${w2}%</div>
+                        </div>
+                        <div class="dante-step">
+                            <div class="dante-step-num">3차</div>
+                            <div class="dante-step-body">
+                                <div class="dante-step-price">${fmt(data.entry3)} <span class="dante-step-pct">${pct(data.entry3, data.entry1)}%</span></div>
+                                <div class="dante-step-note">${data.entry3Source === '지지선' ? '강한 지지선 도달' : '깊은 눌림 (−1.5 ATR)'} — 만족 시에만 체결</div>
+                            </div>
+                            <div class="dante-step-weight">${w3}%</div>
+                        </div>
+                    </div>
+                    <div class="dante-avg-row">
+                        <span class="dante-avg-label">예상 평단가 (전부 체결 시)</span>
+                        <span class="dante-avg-value">${fmt(data.avgEntry)} <span class="dante-step-pct">${pct(data.avgEntry, data.entry1)}%</span></span>
+                    </div>
+                </div>
                 <div class="dante-strat-grid">
                     <div class="dante-strat-col">
-                        <div class="dante-strat-title">매수 전략</div>
-                        <div class="dante-strat-row"><span class="dante-strat-label">1차 매수</span><span class="dante-strat-value">${fmt(data.entry1)}</span></div>
-                        <div class="dante-strat-row"><span class="dante-strat-label">2차 매수</span><span class="dante-strat-value">${fmt(data.entry2)} <span class="dante-strat-pct">(${pct(data.entry2, data.entry1)}%)</span></span></div>
-                        <div class="dante-strat-row"><span class="dante-strat-label">분할 비중</span><span class="dante-strat-value">5 : 5</span></div>
+                        <div class="dante-strat-title">목표가</div>
+                        <div class="dante-strat-row"><span class="dante-strat-label">1차 (보수)</span><span class="dante-strat-value" style="color:var(--green)">${fmt(data.target1)} <span class="dante-strat-pct">(+${pct(data.target1, data.avgEntry)}%)</span></span></div>
+                        <div class="dante-strat-row"><span class="dante-strat-label">2차 (적극)</span><span class="dante-strat-value" style="color:var(--green)">${fmt(data.target2)} <span class="dante-strat-pct">(+${pct(data.target2, data.avgEntry)}%)</span></span></div>
                     </div>
                     <div class="dante-strat-col">
-                        <div class="dante-strat-title">매도/손절</div>
-                        <div class="dante-strat-row"><span class="dante-strat-label">1차 목표</span><span class="dante-strat-value" style="color:var(--green)">${fmt(data.target1)} <span class="dante-strat-pct">(+${pct(data.target1, data.entry1)}%)</span></span></div>
-                        <div class="dante-strat-row"><span class="dante-strat-label">2차 목표</span><span class="dante-strat-value" style="color:var(--green)">${fmt(data.target2)} <span class="dante-strat-pct">(+${pct(data.target2, data.entry1)}%)</span></span></div>
-                        <div class="dante-strat-row"><span class="dante-strat-label">손절가</span><span class="dante-strat-value" style="color:var(--red)">${fmt(data.finalStop)} <span class="dante-strat-pct">(${pct(data.finalStop, data.entry1)}%)</span></span></div>
+                        <div class="dante-strat-title">손절가</div>
+                        <div class="dante-strat-row"><span class="dante-strat-label">평단 기준</span><span class="dante-strat-value" style="color:var(--red)">${fmt(data.finalStop)} <span class="dante-strat-pct">(${pct(data.finalStop, data.avgEntry)}%)</span></span></div>
+                        <div class="dante-strat-row"><span class="dante-strat-label">손익비</span><span class="dante-strat-value">${((data.target1 - data.avgEntry) / Math.max(0.01, data.avgEntry - data.finalStop)).toFixed(2)} : 1</span></div>
                     </div>
                 </div>
             `;
