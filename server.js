@@ -3943,7 +3943,11 @@ async function _refreshEarningsCache(key, fromTs, toTs, favs) {
                 _fetchEarningsBatch(universe),
                 _fetchFinnhubEarningsCalendar(fromTs, toTs),
             ]);
-            const data = _buildEarningsResponse(qsMap, fromTs, toTs, finnhubItems);
+            // Finnhub-only 심볼 (Yahoo qsMap 에 없는 것) 시총·거래량 enrichment
+            const yhSyms = new Set(qsMap.keys());
+            const needEnrich = [...new Set(finnhubItems.filter(fi => !yhSyms.has(fi.symbol)).map(fi => fi.symbol))];
+            const enrichMap = await _fetchYahooQuoteBatch(needEnrich.slice(0, 500));
+            const data = _buildEarningsResponse(qsMap, fromTs, toTs, finnhubItems, enrichMap);
             _earningsCache.set(key, { data, ts: Date.now() });
             return data;
         } finally {
@@ -3966,6 +3970,39 @@ function _isKoreanSymbol(symbol) {
     if (/\.(KS|KQ|KR)$/i.test(s)) return true;
     if (_KR_EXCLUDE.has(s)) return true;
     return false;
+}
+
+// 비주식 접미사 (warrants/units/rights/preferred) — 실적발표에서 즉시 제외
+const _NON_STOCK_SUFFIX = /\.(U|W|WS|R|RT|P|PR|PRA|PRB|PRC|PRD)$/i;
+// 거래량 필터 임계 (애플 기준 1억주/일, NVDA 4000만주/일 → 100K 면 충분히 낮은 컷)
+const _MIN_AVG_VOLUME = 100_000;
+const _MIN_MARKET_CAP = 100_000_000; // $100M
+
+// Yahoo /v7/quote 배치 enrichment — Finnhub-only 심볼 시총·거래량 보강
+async function _fetchYahooQuoteBatch(symbols) {
+    const out = new Map();
+    if (!symbols.length) return out;
+    const CHUNK = 100; // Yahoo 한 번에 100개까지 안전
+    for (let i = 0; i < symbols.length; i += CHUNK) {
+        const chunk = symbols.slice(i, i + CHUNK);
+        try {
+            const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(chunk.join(','))}`;
+            const d = await yfRequest(url);
+            const results = d?.quoteResponse?.result || [];
+            results.forEach(q => {
+                if (q?.symbol) {
+                    out.set(q.symbol, {
+                        marketCap: q.marketCap ?? null,
+                        avgVolume: q.averageDailyVolume3Month ?? q.averageDailyVolume10Day ?? null,
+                        name: q.shortName || q.longName || q.symbol,
+                    });
+                }
+            });
+        } catch (e) {
+            // 청크 실패는 무시 (다음 청크 진행)
+        }
+    }
+    return out;
 }
 
 // Finnhub earnings calendar — 모든 미국 상장사 한 번에 조회 (60 req/min 무료)
@@ -4002,28 +4039,67 @@ async function _fetchFinnhubEarningsCalendar(fromTs, toTs) {
                 inSP500: false,
                 _src: 'finnhub',
             };
-        }).filter(it => it.symbol && /^[A-Z0-9.\-]{1,15}$/.test(it.symbol) && !_isKoreanSymbol(it.symbol));
+        }).filter(it =>
+            it.symbol
+            && /^[A-Z0-9.\-]{1,15}$/.test(it.symbol)
+            && !_isKoreanSymbol(it.symbol)
+            && !_NON_STOCK_SUFFIX.test(it.symbol)    // warrants/units/rights/preferred 제외
+        );
     } catch (e) {
         console.warn('[earnings-calendar] Finnhub fail:', e?.message?.slice(0, 80));
         return [];
     }
 }
 
-function _buildEarningsResponse(qsMap, fromTs, toTs, finnhubItems = []) {
+function _buildEarningsResponse(qsMap, fromTs, toTs, finnhubItems = [], enrichMap = new Map()) {
     const items = [];
     qsMap.forEach((qs, sym) => {
         if (_isKoreanSymbol(sym)) return; // 한국 종목 제외
         items.push(..._extractEarningsItems(sym, qs, fromTs, toTs));
     });
-    // Finnhub 데이터 병합: Yahoo 와 같은 symbol+date 는 Yahoo 우선 (회사명/marketCap/yoy 포함)
+    // Finnhub 데이터 병합: Yahoo 와 같은 symbol+date 는 Yahoo 우선
     const yhKeys = new Set(items.map(it => it.symbol + '_' + it.date));
     finnhubItems.forEach(fi => {
         const key = fi.symbol + '_' + fi.date;
         if (!yhKeys.has(key)) {
+            // enrichMap 으로 시총/거래량 보강 + 회사명 채우기
+            const en = enrichMap.get(fi.symbol);
+            if (en) {
+                fi.marketCap = en.marketCap;
+                if (en.name && fi.name === fi.symbol) fi.name = en.name;
+                fi._avgVolume = en.avgVolume;
+            }
             items.push(fi);
             yhKeys.add(key);
         }
     });
+    // 거래량·시총 필터 — 비주식·비유동성 제거
+    // 로직:
+    // 1) 한국·warrants/units → 무조건 제외
+    // 2) Yahoo qsMap 에 있는 종목(우리 universe) → 신뢰 가능, marketCap 검사만
+    // 3) Finnhub-only 종목 → enrichMap 확인 필수, marketCap/거래량 둘 다 못 받았으면 제외
+    const knownSet = new Set([..._SP500, ..._NASDAQ_NYSE_EXTRAS]);
+    const filtered = items.filter(it => {
+        if (_isKoreanSymbol(it.symbol)) return false;
+        if (_NON_STOCK_SUFFIX.test(it.symbol)) return false;
+        // marketCap 또는 enrich 의 marketCap 확정 검사
+        const enMC = enrichMap.get(it.symbol)?.marketCap;
+        const enAV = enrichMap.get(it.symbol)?.avgVolume;
+        const mc = it.marketCap ?? enMC;
+        const av = it._avgVolume ?? enAV;
+        if (mc != null && mc < _MIN_MARKET_CAP) return false;
+        if (av != null && av < _MIN_AVG_VOLUME) return false;
+        // 둘 다 unknown 인 경우: known universe 면 통과, 아니면 제외 (Finnhub-only 잡종 차단)
+        if (mc == null && av == null) {
+            return knownSet.has(it.symbol);
+        }
+        return true;
+    });
+    // _avgVolume 은 내부 필드 → 응답에서 제거
+    filtered.forEach(it => { delete it._avgVolume; });
+    // 다음 단계에서 사용할 items 배열 교체
+    items.length = 0;
+    items.push(...filtered);
     const byDate = new Map();
     items.forEach(it => {
         if (!byDate.has(it.date)) byDate.set(it.date, []);
@@ -4089,7 +4165,11 @@ app.get('/api/earnings-calendar', async (req, res) => {
             _fetchEarningsBatch(universe),
             _fetchFinnhubEarningsCalendar(fromTs, toTs),
         ]);
-        const data = _buildEarningsResponse(qsMap, fromTs, toTs, finnhubItems);
+        // Finnhub-only 심볼 enrichment (시총·거래량 컷용)
+        const yhSyms = new Set(qsMap.keys());
+        const needEnrich = [...new Set(finnhubItems.filter(fi => !yhSyms.has(fi.symbol)).map(fi => fi.symbol))];
+        const enrichMap = await _fetchYahooQuoteBatch(needEnrich.slice(0, 500));
+        const data = _buildEarningsResponse(qsMap, fromTs, toTs, finnhubItems, enrichMap);
         _earningsCache.set(key, { data, ts: Date.now() });
         res.json(data);
     } catch (err) {
