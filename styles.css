@@ -209,11 +209,12 @@
         }
         .header-bell-btn:hover{background:var(--bg3);}
         .header-bell-btn:active{opacity:.6;}
-        /* ===== HEADER 시장 온도계 (탭 위 노출) ===== */
-        .header-thermo{margin-top:0;margin-bottom:12px;margin-left:0;margin-right:0;padding-left:0;}
+        /* ===== HEADER 시장 온도계 (헤더 밖, 자연 스크롤) ===== */
+        .header-thermo{margin:0 0 12px;padding:0 16px;}
         .thermo-ticker{margin-top:12px;padding-left:0!important;}
         .header-thermo .thermo-banner{margin:0;}
-        #mainHeader.stock-loaded .header-thermo{display:none!important;}
+        /* 종목 상세 진입 시(헤더에 .stock-loaded 부여) 형제 노드 .header-thermo 도 숨김 */
+        #mainHeader.stock-loaded ~ .header-thermo{display:none!important;}
         /* ===== HEADER QUICK NAV — 탭(Toss 스타일) ===== */
         .header-qnav{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;margin-top:10px;padding:0;border-bottom:1px solid var(--border);}
         .header-qnav::-webkit-scrollbar{display:none;}
