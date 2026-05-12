@@ -4051,8 +4051,9 @@
 .earn-cell-eps .ec-est, .earn-cell-rev .ec-est{ color:var(--text3); font-weight:500; }
 .earn-cell-eps .ec-sep, .earn-cell-rev .ec-sep{ color:var(--text3); margin:0 3px; }
 .earn-cell-eps .ec-act, .earn-cell-rev .ec-act{ color:var(--text); font-weight:700; }
-.earn-cell-eps .ec-act.pos, .earn-cell-rev .ec-act.pos{ color:var(--blue); }
-.earn-cell-eps .ec-act.neg, .earn-cell-rev .ec-act.neg{ color:var(--red); }
+/* v546: 상회=빨강, 하회=파랑 (한국식 색상 컨벤션) */
+.earn-cell-eps .ec-act.pos, .earn-cell-rev .ec-act.pos{ color:var(--red); }
+.earn-cell-eps .ec-act.neg, .earn-cell-rev .ec-act.neg{ color:var(--blue); }
 
 /* YoY 화살표 */
 .earn-cell-yoy{ text-align:right; font-variant-numeric:tabular-nums; }
@@ -4080,8 +4081,9 @@
     max-width:100%;
 }
 .earn-status-pending{ padding:6px 4px; }
-.earn-status-beat{    background:rgba(0,128,251,.16);  color:var(--blue); }   /* 파랑 — 긍정 */
-.earn-status-miss{    background:rgba(255,69,58,.16);   color:var(--red); }   /* 빨강 — 부정 */
+/* v546: 한국식 색상 컨벤션 — 상회=빨강(상승), 하회=파랑(하락) */
+.earn-status-beat{    background:rgba(255,69,58,.16);   color:var(--red); }   /* 빨강 — 상회 */
+.earn-status-miss{    background:rgba(0,128,251,.16);  color:var(--blue); }   /* 파랑 — 하회 */
 .earn-status-meet{    background:rgba(72,72,74,.12); color:var(--text2); }   /* 회색 — 중립 */
 .earn-status-pending{ background:transparent; color:var(--text3); }
 
@@ -4089,10 +4091,11 @@
 [data-theme="light"] .earn-time-icon.bmo{ background:#fff7ed; }
 [data-theme="light"] .earn-time-icon.amc{ background:#f3e8ff; }
 [data-theme="light"] .earn-time-icon.tbd{ background:#f1f5f9; }
+/* v546: 라이트 모드도 상회=빨강, 하회=파랑 */
 [data-theme="light"] .earn-cell-eps .ec-act.pos,
-[data-theme="light"] .earn-cell-rev .ec-act.pos{ color:var(--blue); }
+[data-theme="light"] .earn-cell-rev .ec-act.pos{ color:#dc2626; }
 [data-theme="light"] .earn-cell-eps .ec-act.neg,
-[data-theme="light"] .earn-cell-rev .ec-act.neg{ color:#dc2626; }
+[data-theme="light"] .earn-cell-rev .ec-act.neg{ color:var(--blue); }
 [data-theme="light"] .earn-yoy.up{ color:var(--blue); background:none; }
 [data-theme="light"] .earn-yoy.down{ color:var(--red); background:none; }
 [data-theme="light"] .earn-status-beat{ background:#dbeafe; color:var(--blue); }  /* 파랑 */
@@ -5406,8 +5409,9 @@
     display:inline-flex; align-items:center; gap:4px;
 }
 .earn-hc-date{font-size:9.5px; font-weight:400; opacity:.75;}
-.earn-hc-status.beat{background:rgba(0,168,130,.15); color:#00A882;}
-.earn-hc-status.miss{background:rgba(255,69,58,.15); color:#FF3B30;}
+/* v546: 상회=빨강, 하회=파랑 (한국식) */
+.earn-hc-status.beat{background:rgba(255,69,58,.15); color:#FF3B30;}
+.earn-hc-status.miss{background:rgba(0,128,251,.15); color:var(--blue);}
 .earn-hc-status.meet{background:var(--bg3); color:var(--text2);}
 .earn-hc-meta{display:flex; gap:10px; font-size:11px; color:var(--text2);}
 .earn-hc-meta-item{display:flex; gap:4px; align-items:center;}
@@ -5486,8 +5490,9 @@
         padding:8px 10px; align-items:flex-start;
     }
 }
-[data-theme="light"] .earn-hc-status.beat{background:rgba(0,168,130,.12); color:#00875A;}
-[data-theme="light"] .earn-hc-status.miss{background:rgba(255,59,48,.1); color:#dc2626;}
+/* v546: 라이트 모드도 한국식 (상회 빨강, 하회 파랑) */
+[data-theme="light"] .earn-hc-status.beat{background:rgba(255,59,48,.1); color:#dc2626;}
+[data-theme="light"] .earn-hc-status.miss{background:rgba(0,128,251,.1); color:#1d4ed8;}
 
 @media(max-width:600px){
     .earn-home-card{flex:0 0 240px; min-width:240px;}
