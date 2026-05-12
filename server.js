@@ -40,15 +40,25 @@ const PORT = process.env.PORT || 3000;
 // (1 = 첫 번째 hop 만 신뢰. Vercel은 자체적으로 x-forwarded-for 를 안전하게 세팅)
 app.set('trust proxy', 1);
 
+// CORS: 명시적 allowlist + 본인 프로젝트 vercel 도메인만 허용
+// 기존 /\.vercel\.app$/ 는 다른 사람 vercel 앱도 허용해 credentials:true 와 결합 시 위험.
 const allowedOrigins = [
     'http://localhost:3000',
+    'http://localhost:3001',
     'https://stockss.vercel.app',
-    /\.vercel\.app$/,
+    'https://stock-site.vercel.app',
+    'https://stock-site-iota.vercel.app',
+];
+// 본 프로젝트의 미리보기 배포 도메인 패턴만 허용 (예: stock-site-xyz-rkd687-...vercel.app)
+const allowedOriginPatterns = [
+    /^https:\/\/stock-site-[a-z0-9-]+-rkd687-6555s-projects\.vercel\.app$/,
+    /^https:\/\/stock-site-git-[a-z0-9-]+-rkd687-6555s-projects\.vercel\.app$/,
 ];
 app.use(cors({
     origin: (origin, cb) => {
         if (!origin) return cb(null, true); // same-origin / curl
-        if (allowedOrigins.some(o => o instanceof RegExp ? o.test(origin) : o === origin)) return cb(null, true);
+        if (allowedOrigins.includes(origin)) return cb(null, true);
+        if (allowedOriginPatterns.some(re => re.test(origin))) return cb(null, true);
         cb(new Error('Not allowed by CORS'));
     },
     credentials: true,
@@ -3013,17 +3023,28 @@ app.post('/api/economic-ai', async (req, res) => {
     const latestPPI = ppiObs[0];
     if (!latestCPI || !prevCPI || !latestPPI) return res.status(400).json({ error: '데이터 부족' });
 
+    // ── Prompt injection 방어: value 숫자, date YYYY-MM-DD 화이트리스트 ──
+    const isNum = v => Number.isFinite(parseFloat(v));
+    const isDate = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ''));
+    if (![latestCPI, prevCPI, latestPPI].every(o => isNum(o.value) && isDate(o.date))) {
+        return res.status(400).json({ error: 'cpiObs/ppiObs value(숫자)·date(YYYY-MM-DD) 형식 오류' });
+    }
+    const safeCPIv = parseFloat(latestCPI.value).toFixed(3);
+    const safePPIv = parseFloat(latestPPI.value).toFixed(3);
+    const safeCPId = latestCPI.date;
+    const safePPId = latestPPI.date;
+
     const cpiMoM = (((parseFloat(latestCPI.value) - parseFloat(prevCPI.value)) / parseFloat(prevCPI.value)) * 100).toFixed(2);
     const prevYearCPI = cpiObs[12];
-    const cpiYoY = prevYearCPI
+    const cpiYoY = prevYearCPI && isNum(prevYearCPI.value)
         ? (((parseFloat(latestCPI.value) - parseFloat(prevYearCPI.value)) / parseFloat(prevYearCPI.value)) * 100).toFixed(2)
         : 'N/A';
 
     const prompt = `당신은 매크로 경제 전문 애널리스트입니다.
 다음 최신 경제지표를 바탕으로 주식 시장 영향을 분석해주세요.
 
-[최신 CPI] ${latestCPI.value} (${latestCPI.date}) / 전월 대비: ${cpiMoM}% / 전년 대비: ${cpiYoY}%
-[최신 PPI] ${latestPPI.value} (${latestPPI.date})
+[최신 CPI] ${safeCPIv} (${safeCPId}) / 전월 대비: ${cpiMoM}% / 전년 대비: ${cpiYoY}%
+[최신 PPI] ${safePPIv} (${safePPId})
 
 분석 형식:
 1. 인플레이션 방향성 판단 (1문장)
@@ -3347,10 +3368,8 @@ async function refreshGuru(cik, { quarters = 2 } = {}) {
 app.post('/api/guru-refresh/:cik', async (req, res) => {
     const cik = req.params.cik;
     if (!validCIK(cik)) return res.status(400).json({ error: 'invalid CIK (10 digits required)' });
-    const token = req.get('X-Admin-Token');
-    if (!process.env.ADMIN_TOKEN || token !== process.env.ADMIN_TOKEN) {
-        return res.status(401).json({ error: 'unauthorized' });
-    }
+    // timing-safe admin token 검증 (_checkAdminToken 사용 — !== 비교 제거)
+    if (!_checkAdminToken(req, res)) return;
     try {
         const quarters = Math.min(parseInt(req.query.quarters || '2', 10) || 2, 8);
         const result = await refreshGuru(cik, { quarters });
@@ -3655,11 +3674,8 @@ app.get('/api/guru/:cik/positions', async (req, res) => {
 
 // ──────── POST: null-ticker CUSIP 일괄 재조회 (관리자) ────────
 app.post('/api/guru-fix-tickers', async (req, res) => {
-    const token = req.get('X-Admin-Token') || req.headers['x-admin-token'];
-    // fail-closed: ADMIN_TOKEN 미설정이면 즉시 거부 (프로덕션 env 누락 방지)
-    if (!process.env.ADMIN_TOKEN || token !== process.env.ADMIN_TOKEN) {
-        return res.status(401).json({ error: 'unauthorized' });
-    }
+    // timing-safe admin token 검증 (_checkAdminToken 사용)
+    if (!_checkAdminToken(req, res)) return;
     const supabase = getSupabase();
     if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
     try {

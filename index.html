@@ -3202,6 +3202,7 @@
             scanner:       goScanner,
             fav:           goFav,
             top100:        goTop100,
+            leverage:      goLeverage,
         };
         const fn = map[dest];
         if (typeof fn === 'function') fn();
@@ -6144,6 +6145,9 @@
         // ── 핵발전 / 차세대 에너지 ────────────────────────────
         { symbol: 'OKLL', name: 'Defiance OKLO Long 2x',           leverage: 2, direction: 'bull', kind: 'single', underlying: 'Oklo' },
         { symbol: 'NUEL', name: 'GraniteShares NUE Long 2x',       leverage: 2, direction: 'bull', kind: 'single', underlying: 'Nucor (원자력)' },
+        // ── Vistra Energy (VST) ───────────────────────────────
+        { symbol: 'VSTL', name: 'GraniteShares VST Long 2x',       leverage: 2, direction: 'bull', kind: 'single', underlying: 'Vistra Energy' },
+        { symbol: 'VSTS', name: 'GraniteShares VST Short 2x',      leverage: 2, direction: 'bear', kind: 'single', underlying: 'Vistra Energy' },
         // ── 핀테크 ─────────────────────────────────────────
         { symbol: 'HOOX', name: 'Defiance HOOD Long 2x',           leverage: 2, direction: 'bull', kind: 'single', underlying: 'Robinhood' },
         { symbol: 'SOFX', name: 'Defiance SOFI Long 2x',           leverage: 2, direction: 'bull', kind: 'single', underlying: 'SoFi' },
@@ -10231,40 +10235,32 @@
         return result;
     }
 
-    // ADX (Average Directional Index)
+    // ADX (Average Directional Index) — null-safe directional movement + tracked prev ADX
     function calcADX(highs, lows, closes, period = 14) {
         const pDI = [], mDI = [], adx = [];
         const trList = [], pDMList = [], mDMList = [];
+        let prevAdx = null;
         for (let i = 0; i < closes.length; i++) {
-            if (i === 0 || highs[i]==null || lows[i]==null || closes[i-1]==null) {
+            if (i === 0 || highs[i]==null || lows[i]==null || closes[i-1]==null
+                || highs[i-1]==null || lows[i-1]==null) {
                 trList.push(null); pDMList.push(null); mDMList.push(null);
                 pDI.push(null); mDI.push(null); adx.push(null);
                 continue;
             }
             const tr = Math.max(highs[i]-lows[i], Math.abs(highs[i]-closes[i-1]), Math.abs(lows[i]-closes[i-1]));
-            const upMove = highs[i] - (highs[i-1]||0);
-            const downMove = (lows[i-1]||0) - lows[i];
+            const upMove = highs[i] - highs[i-1];
+            const downMove = lows[i-1] - lows[i];
             trList.push(tr);
             pDMList.push(upMove > downMove && upMove > 0 ? upMove : 0);
             mDMList.push(downMove > upMove && downMove > 0 ? downMove : 0);
             if (i < period) { pDI.push(null); mDI.push(null); adx.push(null); continue; }
-            if (i === period) {
-                let sTR=0, sPDM=0, sMDM=0;
-                for(let j=1;j<=period;j++){sTR+=(trList[j]||0);sPDM+=(pDMList[j]||0);sMDM+=(mDMList[j]||0);}
-                const p = sTR===0?0:(sPDM/sTR)*100, m = sTR===0?0:(sMDM/sTR)*100;
-                pDI.push(p); mDI.push(m);
-                const dx = (p+m)===0?0:Math.abs(p-m)/(p+m)*100;
-                adx.push(dx);
-            } else {
-                const prevPDI = pDI[pDI.length-1]||0, prevMDI = mDI[mDI.length-1]||0;
-                const smoothTR = (trList.slice(i-period+1,i+1).reduce((a,b)=>a+(b||0),0));
-                const p = smoothTR===0?0:(pDMList.slice(i-period+1,i+1).reduce((a,b)=>a+(b||0),0)/smoothTR)*100;
-                const m = smoothTR===0?0:(mDMList.slice(i-period+1,i+1).reduce((a,b)=>a+(b||0),0)/smoothTR)*100;
-                pDI.push(p); mDI.push(m);
-                const dx = (p+m)===0?0:Math.abs(p-m)/(p+m)*100;
-                const prevADX = adx.filter(v=>v!=null).pop() || dx;
-                adx.push(((prevADX*(period-1))+dx)/period);
-            }
+            const smoothTR = (trList.slice(i-period+1,i+1).reduce((a,b)=>a+(b||0),0));
+            const p = smoothTR===0?0:(pDMList.slice(i-period+1,i+1).reduce((a,b)=>a+(b||0),0)/smoothTR)*100;
+            const m = smoothTR===0?0:(mDMList.slice(i-period+1,i+1).reduce((a,b)=>a+(b||0),0)/smoothTR)*100;
+            pDI.push(p); mDI.push(m);
+            const dx = (p+m)===0?0:Math.abs(p-m)/(p+m)*100;
+            if (prevAdx == null) { prevAdx = dx; adx.push(dx); }
+            else { prevAdx = (prevAdx*(period-1)+dx)/period; adx.push(prevAdx); }
         }
         return { pDI, mDI, adx };
     }
@@ -10283,19 +10279,21 @@
         return vwap;
     }
 
-    // ATR (Average True Range)
+    // ATR (Average True Range) — Wilder smoothing with tracked prev (O(N), not O(N²))
     function calcATR(highs, lows, closes, period = 14) {
         const tr = [], atr = [];
+        let prevAtr = null;
         for (let i = 0; i < closes.length; i++) {
             if (i===0||highs[i]==null||lows[i]==null||closes[i-1]==null) { tr.push(null); atr.push(null); continue; }
             tr.push(Math.max(highs[i]-lows[i], Math.abs(highs[i]-closes[i-1]), Math.abs(lows[i]-closes[i-1])));
             if (i < period) { atr.push(null); continue; }
-            if (i === period) {
-                let sum=0; for(let j=1;j<=period;j++) sum+=(tr[j]||0);
-                atr.push(sum/period);
+            if (prevAtr == null) {
+                let sum=0; for(let j=i-period+1;j<=i;j++) sum+=(tr[j]||0);
+                prevAtr = sum/period;
+                atr.push(prevAtr);
             } else {
-                const prev = atr.filter(v=>v!=null).pop()||0;
-                atr.push((prev*(period-1)+(tr[i]||0))/period);
+                prevAtr = (prevAtr*(period-1)+(tr[i]||0))/period;
+                atr.push(prevAtr);
             }
         }
         return atr;
@@ -11344,10 +11342,8 @@
     // ========================================
     function renderTechnicalIndicators() {
         const q = stockData.indicators.quote[0];
+        // CLAUDE.md 규칙: ATR/ADX/VWAP/MFI 는 raw nullable 배열을 전달해야 인덱스 정합 유지
         const closes = q.close.filter(v => v != null);
-        const highs = q.high.filter(v => v != null);
-        const lows = q.low.filter(v => v != null);
-        const volumes = q.volume.filter(v => v != null);
         const price = closes[closes.length - 1];
 
         const ma5 = calcSMA(closes, 5);
@@ -11357,26 +11353,29 @@
         const rsi = calcRSI(closes);
         const { macdLine, signalLine } = calcMACD(closes);
         const bb = calcBollingerBands(closes);
-        const { adx } = calcADX(highs, lows, closes);
-        const atr = calcATR(highs, lows, closes);
-        const vwap = calcVWAP(highs, lows, closes, volumes);
-        const wr = calcWilliamsR(highs, lows, closes);
-        const mfi = calcMFI(highs, lows, closes, volumes);
+        // OHLCV 계열: raw nullable 배열 사용 (필터링하면 high/low/close 인덱스 어긋남)
+        const { adx } = calcADX(q.high, q.low, q.close);
+        const atr = calcATR(q.high, q.low, q.close);
+        const vwap = calcVWAP(q.high, q.low, q.close, q.volume);
+        const wr = calcWilliamsR(q.high, q.low, q.close);
+        const mfi = calcMFI(q.high, q.low, q.close, q.volume);
 
-        const lastRSI = rsi.filter(v => v != null).pop();
-        const lastMACD = macdLine.filter(v => v != null).pop();
-        const lastSignal = signalLine.filter(v => v != null).pop();
-        const lastBBUpper = bb.upper.filter(v => v != null).pop();
-        const lastBBLower = bb.lower.filter(v => v != null).pop();
-        const lastMA5 = ma5.filter(v => v != null).pop();
-        const lastMA20 = ma20.filter(v => v != null).pop();
-        const lastMA60 = ma60.filter(v => v != null).pop();
-        const lastMA120 = ma120.filter(v => v != null).pop();
-        const lastADX = adx.filter(v => v != null).pop();
-        const lastATR = atr.filter(v => v != null).pop();
-        const lastVWAP = vwap.filter(v => v != null).pop();
-        const lastWR = wr.filter(v => v != null).pop();
-        const lastMFI = mfi.filter(v => v != null).pop();
+        // 단일 헬퍼: 마지막 non-null 값 반환 (O(N) → O(1)+truthy skip)
+        const lastVal = arr => { for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != null) return arr[i]; return undefined; };
+        const lastRSI = lastVal(rsi);
+        const lastMACD = lastVal(macdLine);
+        const lastSignal = lastVal(signalLine);
+        const lastBBUpper = lastVal(bb.upper);
+        const lastBBLower = lastVal(bb.lower);
+        const lastMA5 = lastVal(ma5);
+        const lastMA20 = lastVal(ma20);
+        const lastMA60 = lastVal(ma60);
+        const lastMA120 = lastVal(ma120);
+        const lastADX = lastVal(adx);
+        const lastATR = lastVal(atr);
+        const lastVWAP = lastVal(vwap);
+        const lastWR = lastVal(wr);
+        const lastMFI = lastVal(mfi);
 
         const isKR = currentMarket === 'KR';
         const fmt = v => v == null ? '-' : isKR ? Math.round(v).toLocaleString() : v.toFixed(2);
@@ -15430,7 +15429,7 @@
             feed.innerHTML = `<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">${msg}</div></div>`;
             return;
         }
-        const escHtml = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        // escHtml 는 전역 정의(8853 줄) 사용 — 중복 정의 제거
         const cards = posts.map(p => {
             const date  = escHtml(p.date || '');
             const auth  = escHtml(p.author || '익명');
@@ -15478,7 +15477,7 @@
             feed.innerHTML = '<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">팍스넷 토론 글이 없어요.</div></div>';
             return;
         }
-        const escHtml = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        // escHtml 는 전역 정의(8853 줄) 사용 — 중복 정의 제거
         const cards = posts.map(p => {
             const date  = escHtml(p.date || '');
             const auth  = escHtml(p.author || '익명');

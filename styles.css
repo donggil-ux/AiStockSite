@@ -185,7 +185,7 @@
 
         /* ===== HEADER - 토스증권 스타일 ===== */
         .header{position:sticky;top:0;z-index:1100;background:color-mix(in srgb, var(--bg) 92%, transparent);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);padding:16px 16px 12px;padding-top:calc(16px + env(safe-area-inset-top));}
-        .header-top{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+        .header-top{display:flex;align-items:center;gap:8px;margin-bottom:10px;margin-left:-16px;}
         /* 헤더 검색 아이콘 버튼 */
         .header-search-icon-btn{
             display:flex;align-items:center;justify-content:center;
@@ -1892,7 +1892,7 @@
             .sub-chart-grid .card{margin:4px 12px;}
             .indicator-grid{grid-template-columns:repeat(3,1fr);}
             .header{padding-left:16px;padding-right:16px;}
-            .header-top{max-width:100%;margin:0 auto;}
+            .header-top{max-width:100%;margin:0 auto;padding-left:0;}
             .tab-nav{padding:0;}
         }
         /* 데스크탑 — header-top 만 고정, thermometer 는 자연 스크롤 */
@@ -1919,7 +1919,7 @@
                 -webkit-backdrop-filter:blur(24px);
                 margin:0;
                 box-sizing:border-box;
-                padding:16px 16px 12px;
+                padding:16px 16px 12px 0;
                 padding-top:calc(16px + env(safe-area-inset-top));
             }
         }
