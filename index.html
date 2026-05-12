@@ -954,6 +954,28 @@
                 </div>
             </div>
 
+            <!-- ===== 단테 단타 분석기 (Dante Trader) ===== -->
+            <div id="dantePanel" style="padding:0;">
+                <div class="card dante-card">
+                    <div class="card-title">단테 단타 분석기 <span class="trade-badge day-badge">DAY</span>
+                        <span class="dante-sub">주식단테 17년 노하우 → 알고리즘 (참고용)</span>
+                    </div>
+                    <div class="dante-score-row">
+                        <div class="dante-score-circle" id="danteScoreCircle">
+                            <div class="dante-score-num" id="danteScoreNum">-</div>
+                            <div class="dante-score-label">시그널</div>
+                        </div>
+                        <div class="dante-score-text">
+                            <div class="dante-verdict" id="danteVerdict">데이터 로딩 중...</div>
+                            <div class="dante-verdict-sub" id="danteVerdictSub">-</div>
+                        </div>
+                    </div>
+                    <div class="dante-signals" id="danteSignals"></div>
+                    <div class="dante-strategy" id="danteStrategy"></div>
+                    <div class="dante-footer">⚠️ 한국 단타 기법을 미국장에 이식한 근사치입니다 — 백테스트 미검증, 학습/참고용.</div>
+                </div>
+            </div>
+
             <!-- ===== 단타 분석 (통합) ===== -->
             <div id="tsPanelDay" style="padding:0;">
                 <div class="card">
@@ -8932,6 +8954,7 @@
             renderADXChart();
             renderOBVChart();
             renderEntryTiming();
+            try { renderDanteAnalysis(); } catch (e) { console.warn('[dante] render fail', e); }
             renderAIAnalysis();
             renderRRAnalysis();
             try { _renderMultiFactorCard(); } catch (e) { console.warn('[mf] render fail', e); }
@@ -9519,6 +9542,7 @@
             renderADXChart();
             renderOBVChart();
             renderEntryTiming();
+            try { renderDanteAnalysis(); } catch (e) { console.warn('[dante] render fail', e); }
             renderAIAnalysis();
             renderRRAnalysis();
             try { _renderMultiFactorCard(); } catch (e) { console.warn('[mf] render fail', e); }
@@ -12302,6 +12326,261 @@
             { label: '거래량비', value: volRatio+'%', signal: volRatio>=150?'급증':volRatio<=50?'감소':'보통', color: volRatio>=150?'var(--cyan)':volRatio<=50?'var(--text3)':'var(--yellow)' },
             { label: '전일 대비', value: chg1+'%', signal: parseFloat(chg1)>=0?'상승':'하락', color: parseFloat(chg1)>=0?'var(--green)':'var(--red)' },
         ].map(i=>`<div class="indicator-item"><div class="indicator-label">${i.label}</div><div class="indicator-value" style="color:${i.color}">${i.value}</div><div class="indicator-signal" style="color:${i.color}">${i.signal}</div></div>`).join('');
+    }
+
+    // ========================================
+    // 단테 단타 분석기 — 한국 단타 기법 8종을 미국장 가격/거래량에 적용
+    //   1) 밥그릇   2) 공구리   3) 하이힐   4) 매집봉
+    //   5) 눌림목   6) 대칭이론  7) 손절 3원칙  8) 종합 점수
+    // ⚠️ 백테스트 미검증 — 학습/참고용 (근사치)
+    // ========================================
+    function _danteSafeNum(v) { return Number.isFinite(v) ? v : null; }
+    function _danteATR(highs, lows, closes, period = 14) {
+        const tr = [];
+        for (let i = 1; i < closes.length; i++) {
+            if (highs[i] == null || lows[i] == null || closes[i-1] == null) { tr.push(null); continue; }
+            tr.push(Math.max(highs[i]-lows[i], Math.abs(highs[i]-closes[i-1]), Math.abs(lows[i]-closes[i-1])));
+        }
+        const valid = tr.filter(v => v != null);
+        if (valid.length < period) return null;
+        return valid.slice(-period).reduce((a,b)=>a+b,0) / period;
+    }
+
+    // 1) 밥그릇 — U자형 바닥 + 손잡이(눌림) + 돌파 시그널
+    function _danteBapgeureut(highs, lows, closes, volumes) {
+        const N = closes.length;
+        if (N < 60) return { hit: false };
+        const last = closes[N-1];
+        const lookback = closes.slice(-60);
+        const peakIdx = lookback.indexOf(Math.max(...lookback.filter(v=>v!=null)));
+        const peakPrice = lookback[peakIdx];
+        if (!peakPrice) return { hit: false };
+        const trough = Math.min(...lookback.filter(v=>v!=null));
+        const drop = (peakPrice - trough) / peakPrice * 100;
+        if (drop < 15 || drop > 40) return { hit: false };
+        // 손잡이: 최근 3~7봉 사이 작은 눌림 + 거래량 감소
+        const recent = closes.slice(-7);
+        const recentHigh = Math.max(...recent.filter(v=>v!=null));
+        const handleDip = (recentHigh - last) / recentHigh * 100;
+        const avgVol60 = volumes.slice(-60).filter(v=>v!=null).reduce((a,b)=>a+(b||0),0) / 60;
+        const avgVol7 = volumes.slice(-7).filter(v=>v!=null).reduce((a,b)=>a+(b||0),0) / 7;
+        const volShrink = avgVol7 < avgVol60 * 0.9;
+        const breakout = last > recentHigh * 0.99;
+        if (handleDip > 1 && handleDip < 8 && volShrink && breakout) {
+            return { hit: true, target: last + (peakPrice - trough), stop: Math.min(...recent.filter(v=>v!=null)) * 0.98, note: `깊이 ${drop.toFixed(0)}% 컵 손잡이 돌파 임박` };
+        }
+        return { hit: false };
+    }
+
+    // 2) 공구리 — 거래량 매물대 돌파 → 지지선 전환
+    function _danteGonguri(closes, volumes) {
+        const N = closes.length;
+        if (N < 30) return { hit: false };
+        const last = closes[N-1];
+        // 최근 30일 중 거래량 상위 5%
+        const vols = volumes.slice(-30).map((v,i)=>({v: v||0, p: closes[N-30+i]})).filter(o=>o.v && o.p);
+        if (vols.length < 10) return { hit: false };
+        vols.sort((a,b) => b.v - a.v);
+        const topZone = vols.slice(0, Math.max(2, Math.floor(vols.length * 0.15)));
+        const zonePrice = topZone.reduce((s,o)=>s+o.p,0) / topZone.length;
+        const distance = (last - zonePrice) / zonePrice * 100;
+        // 매물대 위 5일 이상 유지 → 지지선 전환
+        const above = closes.slice(-5).filter(c => c != null && c > zonePrice).length;
+        if (distance > 0 && distance < 8 && above >= 4) {
+            return { hit: true, support: zonePrice, note: `매물대 $${zonePrice.toFixed(2)} 돌파 후 지지선 전환` };
+        }
+        return { hit: false };
+    }
+
+    // 3) 하이힐 — V자 반등 후 직전 고점 돌파
+    function _danteHighheel(closes) {
+        const N = closes.length;
+        if (N < 12) return { hit: false };
+        const last = closes[N-1];
+        const window = closes.slice(-12);
+        const peakIdx = window.indexOf(Math.max(...window.filter(v=>v!=null)));
+        const peak = window[peakIdx];
+        if (peakIdx < 2 || peakIdx > 8) return { hit: false };
+        // 직전 고점 이후 30% 이상 되돌림
+        const postPeak = window.slice(peakIdx + 1);
+        const trough = Math.min(...postPeak.filter(v=>v!=null));
+        const retrace = (peak - trough) / peak * 100;
+        if (retrace < 5) return { hit: false };
+        const rebound = (last - trough) / trough * 100;
+        if (rebound > 3 && last > peak * 0.98) {
+            return { hit: true, target: last + (peak - trough), stop: trough * 0.97, note: `V자 반등 후 직전 고점 돌파 임박` };
+        }
+        return { hit: false };
+    }
+
+    // 4) 매집봉/세력봉 — 평균 거래량 3배 이상 + 양봉
+    function _danteMaejip(opens, closes, volumes) {
+        const N = closes.length;
+        if (N < 60) return { hit: false };
+        const avgVol = volumes.slice(-61, -1).filter(v=>v!=null).reduce((a,b)=>a+(b||0),0) / 60;
+        for (let i = Math.max(0, N - 10); i < N; i++) {
+            if (volumes[i] && opens[i] && closes[i] && volumes[i] > avgVol * 3 && closes[i] > opens[i]) {
+                const ago = N - 1 - i;
+                return { hit: true, support: opens[i], note: `${ago}일 전 거래량 ${(volumes[i]/avgVol).toFixed(1)}배 양봉 — 지지선 $${opens[i].toFixed(2)}` };
+            }
+        }
+        return { hit: false };
+    }
+
+    // 5) 눌림목 — 정배열 + 5일선 지지 양봉
+    function _danteNullim(opens, closes) {
+        const N = closes.length;
+        if (N < 60) return { hit: false };
+        const sma = (n) => {
+            if (N < n) return null;
+            return closes.slice(-n).filter(v=>v!=null).reduce((a,b)=>a+b,0) / n;
+        };
+        const ma5 = sma(5), ma20 = sma(20), ma60 = sma(60);
+        if (!ma5 || !ma20 || !ma60) return { hit: false };
+        const aligned = ma5 > ma20 && ma20 > ma60;
+        if (!aligned) return { hit: false };
+        const last = closes[N-1], lastOpen = opens[N-1];
+        if (!last || !lastOpen) return { hit: false };
+        const nearMa5 = Math.abs(last - ma5) / ma5 < 0.02;
+        const bullish = last > lastOpen;
+        if (nearMa5 && bullish) {
+            return { hit: true, support: ma5, stop: ma20 * 0.99, note: `정배열 + 5일선 지지 양봉 (MA5 $${ma5.toFixed(2)})` };
+        }
+        return { hit: false };
+    }
+
+    // 6) 대칭 이론 — 직전 파동 폭만큼 반등 목표가 산출
+    function _danteSymmetry(closes) {
+        const N = closes.length;
+        if (N < 40) return null;
+        const window = closes.slice(-40);
+        const peakIdx = window.indexOf(Math.max(...window.filter(v=>v!=null)));
+        const troughIdx = window.indexOf(Math.min(...window.filter(v=>v!=null)));
+        if (peakIdx >= troughIdx) return null; // 상승 후 하락 후 반등 시나리오만
+        const peak = window[peakIdx], trough = window[troughIdx];
+        const wave = peak - trough;
+        return { target: closes[N-1] + wave, peak, trough };
+    }
+
+    // 7) 손절 3원칙 — 진입가 가정 시 손절가 산출
+    function _danteSonjeolRules(closes, ma20, entry) {
+        const rule1 = entry * 0.97;
+        const rule2 = ma20 ? ma20 * 0.99 : null;
+        return { rule1, rule2, finalStop: rule2 ? Math.max(rule1, rule2) : rule1 };
+    }
+
+    // 8) 종합 점수 + 매수/매도/손절 권장가
+    function _danteCalc() {
+        if (!stockData) return null;
+        const q = stockData.indicators.quote[0];
+        const opens = (q.open || []).slice();
+        const closes = (q.close || []).slice();
+        const highs = (q.high || []).slice();
+        const lows = (q.low || []).slice();
+        const volumes = (q.volume || []).slice();
+        if (closes.length < 30) return null;
+        const last = [...closes].reverse().find(v => v != null);
+        if (!last) return null;
+        const atr = _danteATR(highs, lows, closes, 14) || last * 0.02;
+        const sma20Arr = [];
+        for (let i = 0; i < closes.length; i++) {
+            if (i < 19) { sma20Arr.push(null); continue; }
+            const slice = closes.slice(i-19, i+1).filter(v=>v!=null);
+            sma20Arr.push(slice.length === 20 ? slice.reduce((a,b)=>a+b,0) / 20 : null);
+        }
+        const ma20 = [...sma20Arr].reverse().find(v => v != null);
+
+        const signals = [
+            { key: 'bapgeureut', label: '밥그릇', desc: '컵 손잡이 돌파', result: _danteBapgeureut(highs, lows, closes, volumes), weight: 2 },
+            { key: 'gonguri',    label: '공구리', desc: '매물대 지지 전환', result: _danteGonguri(closes, volumes), weight: 2 },
+            { key: 'highheel',   label: '하이힐', desc: 'V자 반등', result: _danteHighheel(closes), weight: 1.5 },
+            { key: 'maejip',     label: '매집봉', desc: '세력 진입 흔적', result: _danteMaejip(opens, closes, volumes), weight: 1.5 },
+            { key: 'nullim',     label: '눌림목', desc: '정배열 + 5일선 지지', result: _danteNullim(opens, closes), weight: 2 },
+        ];
+        const totalWeight = signals.reduce((s, x) => s + x.weight, 0);
+        const hitWeight = signals.reduce((s, x) => s + (x.result.hit ? x.weight : 0), 0);
+        const score10 = Math.round(hitWeight / totalWeight * 10);
+
+        const sym = _danteSymmetry(closes);
+        // 매수가 후보: 현재가 (1차) + 최근 ATR 0.5배 눌림 (2차)
+        const entry1 = last;
+        const entry2 = last - atr * 0.5;
+        // 목표가: 시그널별 target 중 가장 높은 것 또는 대칭이론 + ATR 2배
+        const candidateTargets = signals.map(s => s.result.target).filter(t => t && t > last);
+        const symTarget = sym ? sym.target : null;
+        const target1 = last + atr * 1.5;
+        const target2 = Math.max(...[...candidateTargets, symTarget, last + atr * 3].filter(Boolean));
+        // 손절: 손절 3원칙 + 시그널별 stop 중 가장 보수적인 값
+        const stops = signals.map(s => s.result.stop).filter(t => t && t < last);
+        const sjr = _danteSonjeolRules(closes, ma20, entry1);
+        const finalStop = Math.max(...[sjr.finalStop, ...stops]);
+
+        let verdict, verdictSub;
+        if (score10 >= 7)      { verdict = '강한 매수 시그널'; verdictSub = '다중 패턴 동시 발동 — 분할 진입 권장'; }
+        else if (score10 >= 5) { verdict = '관심 종목';        verdictSub = '일부 패턴 발동 — 추가 확인 후 진입'; }
+        else if (score10 >= 3) { verdict = '관망';            verdictSub = '시그널 약함 — 명확한 트리거 대기'; }
+        else                   { verdict = '진입 비추천';      verdictSub = '단테 기법 시그널 없음'; }
+
+        return {
+            score: score10, verdict, verdictSub,
+            signals, entry1, entry2, target1, target2, finalStop,
+            atr, ma20, last,
+        };
+    }
+
+    function renderDanteAnalysis() {
+        const data = _danteCalc();
+        const circleEl = document.getElementById('danteScoreCircle');
+        const numEl = document.getElementById('danteScoreNum');
+        const vEl = document.getElementById('danteVerdict');
+        const vSubEl = document.getElementById('danteVerdictSub');
+        const sigEl = document.getElementById('danteSignals');
+        const stEl = document.getElementById('danteStrategy');
+        if (!circleEl || !numEl) return;
+        if (!data) {
+            numEl.textContent = '-';
+            if (vEl) vEl.textContent = '데이터 부족';
+            if (vSubEl) vSubEl.textContent = '최소 30봉 이상 필요';
+            if (sigEl) sigEl.innerHTML = '';
+            if (stEl) stEl.innerHTML = '';
+            return;
+        }
+        numEl.textContent = data.score + '/10';
+        circleEl.style.setProperty('--dante-color',
+            data.score >= 7 ? 'var(--green)' :
+            data.score >= 5 ? 'var(--blue)' :
+            data.score >= 3 ? 'var(--yellow)' : 'var(--red)');
+        if (vEl) vEl.textContent = data.verdict;
+        if (vSubEl) vSubEl.textContent = data.verdictSub;
+        if (sigEl) {
+            sigEl.innerHTML = data.signals.map(s => `
+                <div class="dante-signal ${s.result.hit ? 'hit' : 'miss'}">
+                    <span class="dante-sig-icon">${s.result.hit ? '✅' : '⚪'}</span>
+                    <span class="dante-sig-label">${s.label}</span>
+                    <span class="dante-sig-desc">${s.result.hit && s.result.note ? s.result.note : s.desc}</span>
+                </div>
+            `).join('');
+        }
+        if (stEl) {
+            const fmt = v => v == null ? '-' : '$' + Number(v).toFixed(2);
+            const pct = (a, b) => ((a - b) / b * 100).toFixed(1);
+            stEl.innerHTML = `
+                <div class="dante-strat-grid">
+                    <div class="dante-strat-col">
+                        <div class="dante-strat-title">매수 전략</div>
+                        <div class="dante-strat-row"><span class="dante-strat-label">1차 매수</span><span class="dante-strat-value">${fmt(data.entry1)}</span></div>
+                        <div class="dante-strat-row"><span class="dante-strat-label">2차 매수</span><span class="dante-strat-value">${fmt(data.entry2)} <span class="dante-strat-pct">(${pct(data.entry2, data.entry1)}%)</span></span></div>
+                        <div class="dante-strat-row"><span class="dante-strat-label">분할 비중</span><span class="dante-strat-value">5 : 5</span></div>
+                    </div>
+                    <div class="dante-strat-col">
+                        <div class="dante-strat-title">매도/손절</div>
+                        <div class="dante-strat-row"><span class="dante-strat-label">1차 목표</span><span class="dante-strat-value" style="color:var(--green)">${fmt(data.target1)} <span class="dante-strat-pct">(+${pct(data.target1, data.entry1)}%)</span></span></div>
+                        <div class="dante-strat-row"><span class="dante-strat-label">2차 목표</span><span class="dante-strat-value" style="color:var(--green)">${fmt(data.target2)} <span class="dante-strat-pct">(+${pct(data.target2, data.entry1)}%)</span></span></div>
+                        <div class="dante-strat-row"><span class="dante-strat-label">손절가</span><span class="dante-strat-value" style="color:var(--red)">${fmt(data.finalStop)} <span class="dante-strat-pct">(${pct(data.finalStop, data.entry1)}%)</span></span></div>
+                    </div>
+                </div>
+            `;
+        }
     }
 
     // ========================================

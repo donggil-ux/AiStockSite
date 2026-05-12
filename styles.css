@@ -5572,6 +5572,46 @@
 /* ═══════════════════════════════════════════════════════════════
    멀티팩터 스코어 카드 (Multi-Factor Score)
    ═══════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   단테 단타 분석기 — 한국 단타 기법 8종 알고리즘
+   ═══════════════════════════════════════════════════════════════ */
+.dante-card{padding:20px 22px;}
+.dante-card .card-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.dante-sub{font-size:11px;font-weight:500;color:var(--text3);letter-spacing:-.01em;}
+.dante-score-row{display:flex;align-items:center;gap:18px;margin-bottom:14px;}
+.dante-score-circle{
+    --dante-color:var(--text3);
+    width:74px;height:74px;border-radius:50%;flex-shrink:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:var(--bg3);border:2px solid var(--dante-color);
+}
+.dante-score-num{font-size:20px;font-weight:800;color:var(--dante-color);font-variant-numeric:tabular-nums;letter-spacing:-.02em;}
+.dante-score-label{font-size:10px;color:var(--text3);font-weight:600;margin-top:2px;}
+.dante-score-text{flex:1;min-width:0;}
+.dante-verdict{font-size:16px;font-weight:800;color:var(--text);margin-bottom:3px;letter-spacing:-.02em;}
+.dante-verdict-sub{font-size:12px;color:var(--text2);line-height:1.45;}
+.dante-signals{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+.dante-signal{
+    display:flex;align-items:center;gap:8px;
+    padding:9px 12px;background:var(--bg3);border-radius:8px;
+    font-size:12px;
+}
+.dante-signal.hit{background:rgba(12,245,176,.08);border:1px solid rgba(12,245,176,.18);}
+.dante-signal.miss{opacity:.6;}
+.dante-sig-icon{font-size:13px;flex-shrink:0;}
+.dante-sig-label{font-weight:700;color:var(--text);min-width:54px;flex-shrink:0;}
+.dante-sig-desc{color:var(--text2);font-size:11.5px;flex:1;min-width:0;line-height:1.4;}
+.dante-strategy{margin-bottom:10px;}
+.dante-strat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+@media(max-width:600px){.dante-strat-grid{grid-template-columns:1fr;}}
+.dante-strat-col{background:var(--bg3);border-radius:10px;padding:12px 14px;}
+.dante-strat-title{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;}
+.dante-strat-row{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:4px 0;}
+.dante-strat-label{color:var(--text2);font-weight:600;}
+.dante-strat-value{font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;}
+.dante-strat-pct{font-size:10.5px;font-weight:600;color:var(--text3);}
+.dante-footer{font-size:10.5px;color:var(--text3);line-height:1.5;padding-top:10px;border-top:1px solid var(--border);}
+
 .mf-card{padding:0;}
 .mf-card .card-title{padding:16px 16px 12px;}
 .mf-header{display:flex;align-items:center;gap:14px;padding:0 16px 14px;}
