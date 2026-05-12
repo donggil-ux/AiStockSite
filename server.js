@@ -109,8 +109,7 @@ function getAnthropic() {
 }
 
 // AI 추천 종목 인메모리 캐시 (24시간 TTL — 무료 쿼터 절약)
-let _aiRecCache = { data: null, ts: 0 };
-const AI_REC_TTL = 24 * 60 * 60 * 1000;
+// _aiRecCache / AI_REC_TTL — /api/ai-recommend 와 함께 제거됨 (v530)
 
 // [Fix-F] _supabase = null(미설정) or createClient 인스턴스 — 최초 1회만 생성
 let _supabase;
@@ -344,8 +343,7 @@ function makeIpRateLimiter(windowMs, message, key) {
 // 3번째 인자는 Supabase rate_limits.key 컬럼 — 엔드포인트별 식별
 const _rlVisionScan  = makeIpRateLimiter(30 * 1000, '차트 분석은 30초에 1회만 가능합니다.',   'vision-scan');
 const _rlChartDraw   = makeIpRateLimiter(30 * 1000, '차트 그리기는 30초에 1회만 가능합니다.', 'chart-draw');
-const _rlAiRecommend = makeIpRateLimiter(60 * 1000, 'AI 추천은 1분에 1회만 가능합니다.',      'ai-recommend');
-const _rlHotStocks   = makeIpRateLimiter(60 * 1000, '핫스탁 분석은 1분에 1회만 가능합니다.', 'hot-stocks');
+// _rlAiRecommend / _rlHotStocks — 해당 엔드포인트 제거에 따라 함께 삭제됨 (v530)
 
 /**
  * 차트 데이터
@@ -724,8 +722,8 @@ class LRUMap extends Map {
 }
 
 const _reasonCache = new LRUMap(5000); // symbol -> { text, ts } (메모리)
-const REASON_TTL = 5 * 60 * 1000;           // 메모리 TTL (5분)
-const REASON_SUPABASE_TTL = 6 * 60 * 60 * 1000; // DB TTL (6시간) — 유저 간 공유
+const REASON_TTL = 15 * 60 * 1000;          // 메모리 TTL (15분, v530 5→15)
+const REASON_SUPABASE_TTL = 24 * 60 * 60 * 1000; // DB TTL (24시간, v530 6h→24h) — 사용자 간 공유
 
 // 어닝콜 요약 캐시
 const _earnSumCache = new LRUMap(2000); // symbol -> { data, ts }
@@ -1233,7 +1231,7 @@ app.get('/api/news-reason', async (req, res) => {
             });
             const summaryMap = await _summarizeReasonsBatch(items);
             const upsertRows = [];
-            const SHORT_EMPTY_TTL = 2 * 60 * 1000; // 빈 응답은 2분만 캐시 (재시도 가능)
+            const SHORT_EMPTY_TTL = 30 * 60 * 1000; // 빈 응답은 30분 캐시 (v530 2분→30분, 무뉴스 종목 재시도 차단)
             missAll.forEach(s => {
                 const t = summaryMap.get(s) || '';
                 if (t) {
@@ -2726,166 +2724,9 @@ function normalizeChartAnalysis(raw, ctx = null) {
     };
 }
 
-/**
- * AI 추천 종목 (Gemini 퀀트 스크리닝, 24h 캐시)
- * GET /api/ai-recommend → [{ticker, name, reason, signal}] 60~80개
- */
-app.get('/api/ai-recommend', _rlAiRecommend, async (req, res) => {
-    try {
-        if (_aiRecCache.data && Date.now() - _aiRecCache.ts < AI_REC_TTL) {
-            return res.json(_aiRecCache.data);
-        }
-
-        const genAI = getGenAI();
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-        const prompt = `You are a quant-based stock screener AI analyst.
-Return a JSON array of 60-80 US stocks (NYSE/NASDAQ) meeting these criteria:
-- Market cap >= $500M
-- High average daily trading volume (top tier)
-- RSI <= 30 OR 5-day MA crossed above 20-day MA recently
-- Diverse sectors: Tech, Healthcare, Finance, Energy, Consumer, Industrials
-- No duplicate tickers
-
-Output ONLY a valid JSON array. No explanation, no markdown fences, no extra text.
-Each item must have exactly these fields:
-- ticker (string): stock ticker symbol
-- name (string): company name in English
-- reason (string): 1-2 line recommendation reason in Korean
-- signal (string): one of "buy", "watch", "avoid"
-
-Start your response with [ and end with ]`;
-
-        const result = await model.generateContent(prompt);
-        const raw = result.response.text().trim();
-        const jsonStr = raw.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
-        const picks = JSON.parse(jsonStr);
-
-        _aiRecCache = { data: picks, ts: Date.now() };
-        res.json(picks);
-    } catch (e) {
-        console.error('[ai-recommend]', e.message);
-        if (_aiRecCache.data) return res.json(_aiRecCache.data);
-        res.status(500).json({ error: e.message });
-    }
-});
-
-/**
- * 오늘의 핫 종목 (Gemini, 24h 캐시)
- * GET /api/hot-stocks → {institution:[...], value:[...], momentum:[...]}
- */
-let _hotStocksCache = { data: null, ts: 0 };
-const HOT_TTL = 24 * 60 * 60 * 1000; // 24시간 — 무료 쿼터 절약
-const HOT_FALLBACK_TTL = 30 * 60 * 1000; // Yahoo 폴백은 30분 주기 갱신
-
-// Yahoo Finance 스크리너 기반 폴백: Gemini 실패/쿼터 소진 시 실제 시장 데이터로 채움
-async function _hotStocksFromYahoo() {
-    const fetchScr = async (id) => {
-        const url = `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&lang=en-US&region=US&scrIds=${id}&count=25`;
-        const d = await yfRequest(url);
-        return d?.finance?.result?.[0]?.quotes || [];
-    };
-    const pick = (arr, n) => arr.slice(0, n).map(q => ({
-        ticker: q.symbol,
-        name: q.shortName || q.longName || q.symbol,
-        price: q.regularMarketPrice,
-        change: q.regularMarketChangePercent,
-    }));
-
-    const [actives, gainers, losers] = await Promise.all([
-        fetchScr('most_actives').catch(() => []),
-        fetchScr('day_gainers').catch(() => []),
-        fetchScr('day_losers').catch(() => []),
-    ]);
-
-    // 중복 티커 제거: actives → gainers → losers 우선순위
-    const used = new Set();
-    const dedupe = (arr) => arr.filter(s => {
-        if (used.has(s.ticker)) return false;
-        used.add(s.ticker);
-        return true;
-    });
-
-    // institution: 거래량 상위 대형주 (기관 자금 유입 proxy)
-    const institution = dedupe(pick(actives, 8)).slice(0, 5).map(s => ({
-        ticker: s.ticker,
-        name: s.name,
-        reason: `거래량 상위 · ${s.change >= 0 ? '+' : ''}${(s.change ?? 0).toFixed(1)}% 기관 관심`,
-        signal: s.change > 0 ? 'buy' : 'watch',
-    }));
-
-    // value: 단기 조정 받은 종목 (저평가 매수 기회 proxy)
-    const value = dedupe(pick(losers, 8)).slice(0, 5).map(s => ({
-        ticker: s.ticker,
-        name: s.name,
-        reason: `단기 조정 ${(s.change ?? 0).toFixed(1)}% · 가치 매수 관점`,
-        signal: 'watch',
-    }));
-
-    // momentum: 당일 상승률 상위
-    const momentum = dedupe(pick(gainers, 8)).slice(0, 5).map(s => ({
-        ticker: s.ticker,
-        name: s.name,
-        reason: `당일 +${(s.change ?? 0).toFixed(1)}% 모멘텀 강세`,
-        signal: 'buy',
-    }));
-
-    if (!institution.length && !value.length && !momentum.length) {
-        throw new Error('Yahoo screener returned no data');
-    }
-    return { institution, value, momentum, _source: 'yahoo-fallback' };
-}
-
-app.get('/api/hot-stocks', _rlHotStocks, async (req, res) => {
-    // 1) 캐시 히트 (24h)
-    if (_hotStocksCache.data && Date.now() - _hotStocksCache.ts < HOT_TTL) {
-        return res.json(_hotStocksCache.data);
-    }
-
-    // 2) Gemini 시도
-    try {
-        const genAI = getGenAI();
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-        const prompt = `You are a quantitative stock analyst for US equities.
-Return a JSON object with exactly 3 keys: institution, value, momentum.
-Each key maps to an array of exactly 5 stock objects.
-
-Criteria:
-- institution: stocks with new significant 13F institutional buying (hedge funds, mutual funds, pension)
-- value: stocks with low P/E (<15), low P/B (<1.5), dividend yield >2%, market cap >$10B
-- momentum: stocks with 5-day MA above 20-day MA, RSI between 50-70, high volume vs 20-day avg
-
-Each stock object must have:
-- ticker (string): NYSE/NASDAQ ticker
-- name (string): company name in English
-- reason (string): 1-line reason in Korean (why this stock fits the category)
-- signal (string): "buy" or "watch"
-
-No duplicate tickers across categories.
-Output ONLY valid JSON starting with { and ending with }.`;
-
-        const result = await model.generateContent(prompt);
-        const raw = result.response.text().trim();
-        const jsonStr = raw.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
-        const data = JSON.parse(jsonStr);
-        _hotStocksCache = { data, ts: Date.now() };
-        return res.json(data);
-    } catch (e) {
-        console.warn('[hot-stocks] Gemini 실패 → Yahoo 스크리너 폴백:', e.message);
-    }
-
-    // 3) Yahoo 폴백
-    try {
-        const data = await _hotStocksFromYahoo();
-        // 폴백 결과는 짧은 TTL로만 저장 (다음 요청 때 Gemini 재시도 가능하도록)
-        _hotStocksCache = { data, ts: Date.now() - (HOT_TTL - HOT_FALLBACK_TTL) };
-        return res.json(data);
-    } catch (e2) {
-        console.error('[hot-stocks] Yahoo 폴백도 실패:', e2.message);
-        // 4) 최후: 이전 캐시 있으면 stale이라도 서빙
-        if (_hotStocksCache.data) return res.json(_hotStocksCache.data);
-        res.status(500).json({ error: e2.message });
-    }
-});
+// /api/ai-recommend, /api/hot-stocks — v530에서 제거됨
+// 사유: frontend 호출이 모두 비활성/삭제되었고, 매 홈 진입마다 Gemini 호출하던 죽은 코드.
+// 관련 캐시(_aiRecCache / _hotStocksCache)와 rate limiter(_rlAiRecommend / _rlHotStocks)도 동시에 정리.
 
 /**
  * AI 분석 결과 저장/로드 (크로스 기기 동기화)

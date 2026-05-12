@@ -203,26 +203,7 @@
             </div>
         </section>
 
-        <!-- [DISABLED] 🤖 AI 추천 종목 — Gemini 쿼터 절약을 위해 임시 비활성화
-        <section id="aiRecommendSection" class="home-section">
-            <div class="section-header">
-                <span class="section-title">🤖 오늘의 AI 추천 종목</span>
-                <button class="ai-rec-more-btn" id="aiRecMoreBtn" onclick="openAIRecModal()" style="display:none;">전체 보기 ›</button>
-            </div>
-            <div id="aiRecommendList" class="ai-rec-list">
-                <div class="swing-empty">데이터 로딩 중...</div>
-            </div>
-        </section>
-
-        <div class="ai-rec-modal-overlay" id="aiRecModalOverlay" onclick="closeAIRecModal()"></div>
-        <div class="ai-rec-modal" id="aiRecModal" style="display:none;">
-            <div class="ai-rec-modal-header">
-                <span class="ai-rec-modal-title">🤖 매수 추천 전체 종목</span>
-                <button class="ai-rec-modal-close" onclick="closeAIRecModal()">✕</button>
-            </div>
-            <div class="ai-rec-modal-list" id="aiRecModalList"></div>
-        </div>
-        -->
+        <!-- AI 추천 종목 섹션 — v530에서 완전 제거 -->
 
         <!-- 섹션 3: 내 즐겨찾기 요약 -->
         <section id="favSummarySection" class="home-section" style="display:none;">
@@ -2344,9 +2325,9 @@
 
     // 상승/하락 이유(뉴스 헤드라인 요약) 배치 로드 + 주입
     // 캐시: 메모리 Map + localStorage (새로고침/세션 간 유지, TTL 15분)
-    const _REASON_LS_KEY = 'stockai_top100_reasons_v4'; // v1=22자잘림, v2=raw뉴스헤드라인, v3=Gemini요약, v4=빈응답캐시초기화
-    const _REASON_CLIENT_TTL = 15 * 60 * 1000;
-    const _REASON_LS_MAX = 300; // 엔트리 상한 (오래된 것 삭제)
+    const _REASON_LS_KEY = 'stockai_top100_reasons_v5'; // v5: TTL 24h (Gemini 호출 감소), 기존 v4 캐시 자동 폐기
+    const _REASON_CLIENT_TTL = 24 * 60 * 60 * 1000; // 24시간 (v530, 15분→24h)
+    const _REASON_LS_MAX = 500; // 엔트리 상한 (오래된 것 삭제, v530 300→500)
     const _reasonClientCache = (() => {
         const m = new Map();
         try {
@@ -2454,7 +2435,8 @@
                     });
             });
             // 빈 응답은 짧은 TTL로 캐시 (1분) — 다음 페이지 로드 시 재시도
-            const SHORT_TTL_TS = Date.now() - (_REASON_CLIENT_TTL - 60_000);
+            // 빈 응답은 30분만 캐시 (v530 1분→30분, 무뉴스 종목 재시도 폭주 차단)
+            const SHORT_TTL_TS = Date.now() - (_REASON_CLIENT_TTL - 30 * 60_000);
             needFetch.filter(s => !map[s]).forEach(s => {
                 _reasonClientCache.set(s, { text:'', ts: SHORT_TTL_TS });
             });
@@ -2848,112 +2830,11 @@
         if (typeof updateMktCtx === 'function') updateMktCtx();
     }
 
-    // ========================================
-    // 섹션1: 오늘의 AI 추천 종목
-    // ========================================
-    function renderAIRecommend(items) {
-        const el  = document.getElementById('aiRecommendList');
-        if (!el) return;
-        const picks = (items || []).map(q => {
-            const p = q.regularMarketPrice, h = q.fiftyTwoWeekHigh;
-            if (!p || !h || h <= p) return null;
-            const rr = (h - p) / (p * 0.05);
-            return rr >= 2.0 ? {...q, _rr: rr} : null;
-        }).filter(Boolean).sort((a,b) => b._rr - a._rr).slice(0, 3);
-
-        if (!picks.length) {
-            el.innerHTML = '<div class="swing-empty">오늘은 R/R 2.0 이상 종목이 없어요. 관망을 권장합니다.</div>';
-            return;
-        }
-        el.innerHTML = picks.map(q => {
-            const sym  = (q.symbol || '').replace(/'/g, "\\'");
-            const chg  = q.regularMarketChangePercent || 0;
-            const chgCls = chg > 0 ? 'up' : chg < 0 ? 'down' : 'flat';
-            const chgStr = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
-            const price  = q.regularMarketPrice ? '$' + q.regularMarketPrice.toFixed(2) : '-';
-            return `<div class="ai-rec-card" onclick="quickSearch('${sym}','US')">
-                <div class="ai-rec-top">
-                    <span class="ai-rec-sym">${escHtml(q.symbol||'')}</span>
-                    <span class="ai-badge buy">매수 적기</span>
-                </div>
-                <div class="ai-rec-name">${escHtml(q.shortName || q.symbol || '')}</div>
-                <div class="ai-rec-price">${price}</div>
-                <div class="ai-rec-chg ${chgCls}">${chgStr}</div>
-                <div class="rr-badge good" style="margin-top:6px;">R/R ${q._rr.toFixed(1)}</div>
-            </div>`;
-        }).join('');
-    }
-
-    // ========================================
-    // 핫 종목 섹션
-    // ========================================
-    // loadHotStocks / switchHotTab / renderHotStocks / HOT_STOCKS_DUMMY — 제거됨
-    // (홈 #hotStocksSection 영구 숨김이라 호출 자체가 죽은 Gemini 낭비였음)
-
-    async function loadAIRecommend() {
-        const el = document.getElementById('aiRecommendList');
-        if (!el) return;
-        el.innerHTML = '<div class="swing-empty">AI 스크리닝 중...</div>';
-        try {
-            const res = await fetch('/api/ai-recommend');
-            if (!res.ok) throw new Error('fetch failed');
-            const picks = await res.json();
-            renderAIRecommendCards(picks);
-        } catch (e) {
-            el.innerHTML = '<div class="swing-empty">데이터를 불러올 수 없습니다.</div>';
-        }
-    }
-
-    let _aiRecBuyList = [];
-
-    function renderAIRecommendCards(picks) {
-        const el = document.getElementById('aiRecommendList');
-        _aiRecBuyList = (picks || []).filter(p => p.signal === 'buy');
-        if (!el || !_aiRecBuyList.length) {
-            if (el) el.innerHTML = '<div class="swing-empty">매수 추천 종목 없음</div>';
-            return;
-        }
-        el.innerHTML = _aiRecBuyList.map(p => {
-            const sym = (p.ticker || '').replace(/'/g, "\\'");
-            return `<div class="ai-rec-card" onclick="quickSearch('${sym}','US')">
-                <div class="ai-rec-top">
-                    <span class="ai-rec-sym">${escHtml(p.ticker)}</span>
-                    <span class="indicator-signal signal-buy">매수</span>
-                </div>
-                <div class="ai-rec-name">${escHtml(p.name)}</div>
-                <div class="ai-rec-reason">${escHtml(p.reason)}</div>
-            </div>`;
-        }).join('');
-        const moreBtn = document.getElementById('aiRecMoreBtn');
-        if (moreBtn) moreBtn.style.display = 'block';
-    }
-
-    function openAIRecModal() {
-        const overlay = document.getElementById('aiRecModalOverlay');
-        const modal   = document.getElementById('aiRecModal');
-        const list    = document.getElementById('aiRecModalList');
-        if (!modal || !list) return;
-        list.innerHTML = _aiRecBuyList.map(p => {
-            const sym = (p.ticker || '').replace(/'/g, "\\'");
-            return `<div class="ai-rec-modal-item" onclick="closeAIRecModal();quickSearch('${sym}','US')">
-                <span class="ai-rec-modal-sym">${escHtml(p.ticker)}</span>
-                <div class="ai-rec-modal-info">
-                    <div class="ai-rec-modal-name">${escHtml(p.name)}</div>
-                    <div class="ai-rec-modal-reason">${escHtml(p.reason)}</div>
-                </div>
-                <span class="indicator-signal signal-buy" style="flex-shrink:0;">매수</span>
-            </div>`;
-        }).join('');
-        overlay.classList.add('show');
-        modal.style.display = 'flex';
-    }
-
-    function closeAIRecModal() {
-        const overlay = document.getElementById('aiRecModalOverlay');
-        const modal   = document.getElementById('aiRecModal');
-        if (overlay) overlay.classList.remove('show');
-        if (modal)   modal.style.display = 'none';
-    }
+    // renderAIRecommend / loadAIRecommend / renderAIRecommendCards / openAIRecModal /
+    // closeAIRecModal / _aiRecBuyList — v530 에서 제거됨.
+    // 사유: 홈 AI 추천 섹션이 [DISABLED] 주석 처리되어 영구 비활성,
+    //       서버 /api/ai-recommend, /api/hot-stocks 도 함께 제거.
+    //       (loadHotStocks 류는 이전 커밋 v529 에서 정리)
 
     // ========================================
     // 섹션3: 내 즐겨찾기 요약
@@ -3082,8 +2963,7 @@
     loadRadarDashboard();   // 과매도/저평가 레이더
     loadVolAlert();
     loadMarketThermometer();
-    // loadAIRecommend(); // [DISABLED] 쿼터 절약
-    // loadHotStocks() — 제거됨 (hotStocksSection 영구 숨김, Gemini 낭비)
+    // loadAIRecommend / loadHotStocks — v530에서 완전 제거됨
     loadFavSummary();
     loadGuruHome();
     loadEarnHome();
@@ -3174,8 +3054,7 @@
         loadSwingRadar();
         loadSocialHot();
         loadMarketThermometer();
-        // loadAIRecommend(); // [DISABLED] 쿼터 절약
-        // loadHotStocks() — 제거됨 (hotStocksSection 영구 숨김, Gemini 낭비)
+        // (loadAIRecommend / loadHotStocks — v530 완전 제거)
         loadFavSummary();
         loadGuruHome();
         loadEarnHome();
@@ -17581,7 +17460,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         _renderStreakInRadar, _renderSniperStreakItem,
         _renderBouncePage, _renderBounceCard, _calcBounceScore, _isBigTech, _onBounceToggle,
         _renderMultiFactorCard,
-        loadMarketThermometer, renderAIRecommend, loadAIRecommend, renderAIRecommendCards, openAIRecModal, closeAIRecModal, loadFavSummary,
+        loadMarketThermometer, loadFavSummary,
         showMoreTop100,
         saveRecentStock, loadRecentStocks,
         loadVolAlert,
