@@ -387,6 +387,7 @@
                 <button class="lev-chip" data-value="index" onclick="_levSetFilter('kind','index',this)">지수</button>
                 <button class="lev-chip" data-value="sector" onclick="_levSetFilter('kind','sector',this)">섹터</button>
                 <button class="lev-chip" data-value="single" onclick="_levSetFilter('kind','single',this)">개별 종목</button>
+                <button class="lev-chip" data-value="commodity" onclick="_levSetFilter('kind','commodity',this)">선물·원자재</button>
             </div>
         </div>
 
@@ -6148,6 +6149,50 @@
         // ── 신규 IPO / 모멘텀 ─────────────────────────────────
         { symbol: 'RDDX', name: 'Tradr 2x Long RDDT',              leverage: 2, direction: 'bull', kind: 'single', underlying: 'Reddit' },
         { symbol: 'SMRX', name: 'Tradr 2x Long SMR',               leverage: 2, direction: 'bull', kind: 'single', underlying: 'NuScale Power' },
+        // ── 선물·원자재 (Commodities/Futures) ───────────────────
+        // 금 (Gold futures)
+        { symbol: 'UGL',  name: 'ProShares Ultra Gold',              leverage: 2, direction: 'bull', kind: 'commodity', underlying: '금' },
+        { symbol: 'DGP',  name: 'DB Gold Double Long ETN',           leverage: 2, direction: 'bull', kind: 'commodity', underlying: '금' },
+        { symbol: 'GLL',  name: 'ProShares UltraShort Gold',         leverage: 2, direction: 'bear', kind: 'commodity', underlying: '금' },
+        // 은 (Silver futures)
+        { symbol: 'AGQ',  name: 'ProShares Ultra Silver',            leverage: 2, direction: 'bull', kind: 'commodity', underlying: '은' },
+        { symbol: 'ZSL',  name: 'ProShares UltraShort Silver',       leverage: 2, direction: 'bear', kind: 'commodity', underlying: '은' },
+        // 원유 (Crude Oil futures)
+        { symbol: 'UCO',  name: 'ProShares Ultra Bloomberg Crude Oil', leverage: 2, direction: 'bull', kind: 'commodity', underlying: '원유' },
+        { symbol: 'SCO',  name: 'ProShares UltraShort Crude Oil',    leverage: 2, direction: 'bear', kind: 'commodity', underlying: '원유' },
+        { symbol: 'OILU', name: 'MicroSectors Oil & Gas 3x Leveraged', leverage: 3, direction: 'bull', kind: 'commodity', underlying: '원유·가스' },
+        { symbol: 'OILD', name: 'MicroSectors Oil & Gas 3x Inverse', leverage: 3, direction: 'bear', kind: 'commodity', underlying: '원유·가스' },
+        // 천연가스 (Natural Gas futures)
+        { symbol: 'BOIL', name: 'ProShares Ultra Bloomberg Natural Gas', leverage: 2, direction: 'bull', kind: 'commodity', underlying: '천연가스' },
+        { symbol: 'KOLD', name: 'ProShares UltraShort Natural Gas',  leverage: 2, direction: 'bear', kind: 'commodity', underlying: '천연가스' },
+        // VIX 변동성 선물 (Volatility futures)
+        { symbol: 'UVXY', name: 'ProShares Ultra VIX Short-Term Futures', leverage: 1.5, direction: 'bull', kind: 'commodity', underlying: 'VIX 변동성' },
+        { symbol: 'SVXY', name: 'ProShares Short VIX Short-Term Futures', leverage: 0.5, direction: 'bear', kind: 'commodity', underlying: 'VIX 변동성' },
+        { symbol: 'VIXY', name: 'ProShares VIX Short-Term Futures',  leverage: 1, direction: 'bull', kind: 'commodity', underlying: 'VIX 변동성' },
+        // 미국채 선물 (Treasury futures)
+        { symbol: 'TBT',  name: 'ProShares UltraShort 20+ Year Treasury', leverage: 2, direction: 'bear', kind: 'commodity', underlying: '20년+ 국채' },
+        { symbol: 'UBT',  name: 'ProShares Ultra 20+ Year Treasury', leverage: 2, direction: 'bull', kind: 'commodity', underlying: '20년+ 국채' },
+        { symbol: 'TBF',  name: 'ProShares Short 20+ Year Treasury', leverage: 1, direction: 'bear', kind: 'commodity', underlying: '20년+ 국채' },
+        { symbol: 'TYO',  name: 'Direxion Daily 7-10Y Treasury Bear 3x', leverage: 3, direction: 'bear', kind: 'commodity', underlying: '7-10년 국채' },
+        { symbol: 'TYD',  name: 'Direxion Daily 7-10Y Treasury Bull 3x', leverage: 3, direction: 'bull', kind: 'commodity', underlying: '7-10년 국채' },
+        // 비트코인·이더리움 선물 (Crypto futures)
+        { symbol: 'BITX', name: 'Volatility Shares 2x Bitcoin Strategy', leverage: 2, direction: 'bull', kind: 'commodity', underlying: '비트코인' },
+        { symbol: 'BITU', name: 'ProShares Ultra Bitcoin Strategy',  leverage: 2, direction: 'bull', kind: 'commodity', underlying: '비트코인' },
+        { symbol: 'BITI', name: 'ProShares Short Bitcoin Strategy',  leverage: 1, direction: 'bear', kind: 'commodity', underlying: '비트코인' },
+        { symbol: 'ETHU', name: '2x Ether ETF',                      leverage: 2, direction: 'bull', kind: 'commodity', underlying: '이더리움' },
+        { symbol: 'ETHT', name: 'T-Rex 2x Long Ether Daily',         leverage: 2, direction: 'bull', kind: 'commodity', underlying: '이더리움' },
+        { symbol: 'ETHD', name: 'T-Rex 2x Inverse Ether Daily',      leverage: 2, direction: 'bear', kind: 'commodity', underlying: '이더리움' },
+        // 통화 (FX futures)
+        { symbol: 'EUO',  name: 'ProShares UltraShort Euro',         leverage: 2, direction: 'bear', kind: 'commodity', underlying: '유로' },
+        { symbol: 'ULE',  name: 'ProShares Ultra Euro',              leverage: 2, direction: 'bull', kind: 'commodity', underlying: '유로' },
+        { symbol: 'YCS',  name: 'ProShares UltraShort Yen',          leverage: 2, direction: 'bear', kind: 'commodity', underlying: '엔화' },
+        // 농산물 (Agricultural futures)
+        { symbol: 'CORN', name: 'Teucrium Corn Fund',                leverage: 1, direction: 'bull', kind: 'commodity', underlying: '옥수수' },
+        { symbol: 'WEAT', name: 'Teucrium Wheat Fund',               leverage: 1, direction: 'bull', kind: 'commodity', underlying: '밀' },
+        { symbol: 'SOYB', name: 'Teucrium Soybean Fund',             leverage: 1, direction: 'bull', kind: 'commodity', underlying: '대두' },
+        // 광물 (Industrial metals)
+        { symbol: 'CPER', name: 'United States Copper Index Fund',   leverage: 1, direction: 'bull', kind: 'commodity', underlying: '구리' },
+        { symbol: 'JJC',  name: 'iPath Bloomberg Copper Subindex',   leverage: 1, direction: 'bull', kind: 'commodity', underlying: '구리' },
     ];
     let _levFilters = { leverage: 'all', direction: 'bull', kind: 'all' };
     let _levSearchQuery = '';
