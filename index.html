@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=589">
+    <link rel="stylesheet" href="/styles.css?v=590">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -767,6 +767,11 @@
                                 <button class="tm-btn active" data-mode="swing" onclick="setTradeMode('swing')">스윙</button>
                                 <button class="tm-btn"        data-mode="day"   onclick="setTradeMode('day')">단타</button>
                             </div>
+                            <button class="chart-tb-btn" id="chartDrawToggleBtn"
+                                onclick="toggleDrawToolbar()" title="그리기 도구 (추세선·각도자 등)"
+                                style="border-color:var(--border);">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px;"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>그리기
+                            </button>
                             <button class="chart-tb-btn" id="chartSigLinesBtn"
                                 onclick="toggleChartSigLines()" title="자동 진입·손절·익절 라인 켜기/끄기"
                                 style="border-color:var(--border);">📍 라인</button>
@@ -11199,6 +11204,23 @@
     let drawState = null;        // { phase, startX, startY, startPrice, startTime }
     let drawPreview = null;      // 미리보기 좌표
 
+    function toggleDrawToolbar() {
+        const bar = document.getElementById('drawToolbar');
+        const btn = document.getElementById('chartDrawToggleBtn');
+        if (!bar) return;
+        const isOpen = bar.style.display !== 'none' && bar.style.display !== '';
+        if (isOpen) {
+            // 닫기 — 드로잉 모드 해제
+            bar.style.display = 'none';
+            if (btn) { btn.classList.remove('active'); btn.style.background = ''; btn.style.color = ''; }
+            setDrawTool('none');
+        } else {
+            // 열기 — 기본은 선택 모드(none), 사용자가 도구 선택
+            bar.style.display = 'flex';
+            if (btn) { btn.classList.add('active'); btn.style.background = 'var(--bg3)'; btn.style.color = 'var(--text)'; }
+        }
+    }
+
     function setDrawTool(tool) {
         drawTool = tool;
         drawState = null;
@@ -19929,7 +19951,7 @@
         setMarket, searchStock, setChartInterval, setPeriod, _toggleIntervalDropdown,
         quickSearch, toggleFavorite, switchTab, toggleChartFullscreen,
         favSearch, removeFavorite, setTop100Filter, goTop100,
-setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
+setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawToolbar,
         toggleTheme, showLoading, hideLoading, showToast, showSnackbar,
         openChangelog, closeChangelog,
         loadOptionsDate, setOptionsFilter,
