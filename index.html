@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=593">
+    <link rel="stylesheet" href="/styles.css?v=594">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -11218,7 +11218,7 @@
         }
     }
 
-    // 자동 추세각도: 최근 40봉 선형회귀 → angle 객체로 추가
+    // 자동 추세각도: 현재 보이는 범위의 봉 선형회귀 → angle 객체로 추가
     function addAutoTrendAngle() {
         if (typeof stockData === 'undefined' || !stockData) {
             if (typeof showToast === 'function') showToast('종목을 먼저 검색하세요');
@@ -11226,36 +11226,52 @@
         }
         const q = stockData.indicators?.quote?.[0];
         const ts = stockData.timestamp;
-        if (!q?.close || !ts) {
+        if (!q?.close || !ts || typeof lwChart === 'undefined' || !lwChart) {
             if (typeof showToast === 'function') showToast('차트 데이터가 없습니다');
             return;
         }
-        // 최근 40개 유효 캔들 추출
+        // 화면에 보이는 시간 범위 확인 (chartToCanvas 가 null 안 반환하는 영역)
+        let visFrom = null, visTo = null;
+        try {
+            const vr = lwChart.timeScale().getVisibleRange();
+            if (vr) { visFrom = vr.from; visTo = vr.to; }
+        } catch (_) {}
+        // 가시 범위 내 유효 캔들 수집
         const pairs = [];
-        for (let i = ts.length - 1; i >= 0 && pairs.length < 40; i--) {
-            const c = q.close[i];
-            if (c != null && ts[i] != null) pairs.unshift({ t: ts[i], p: c });
+        for (let i = 0; i < ts.length; i++) {
+            const t = ts[i], c = q.close[i];
+            if (c == null || t == null) continue;
+            if (visFrom != null && t < visFrom) continue;
+            if (visTo   != null && t > visTo)   continue;
+            pairs.push({ t, p: c });
         }
+        // 가시 범위가 너무 좁으면 폴백: 최근 40봉
+        if (pairs.length < 10) {
+            pairs.length = 0;
+            for (let i = ts.length - 1; i >= 0 && pairs.length < 40; i--) {
+                if (q.close[i] != null && ts[i] != null) pairs.unshift({ t: ts[i], p: q.close[i] });
+            }
+        }
+        // 가시 범위가 너무 많으면 우측 40봉만 사용 (선 굵기·라벨 가독성)
+        if (pairs.length > 40) pairs.splice(0, pairs.length - 40);
         if (pairs.length < 10) {
             if (typeof showToast === 'function') showToast('데이터 부족 — 10봉 이상 필요');
             return;
         }
-        // 선형회귀 y = a + b*x (x = 인덱스)
+        // 선형회귀 y = a + b*x
         const n = pairs.length;
         let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-        pairs.forEach((p, i) => {
-            sumX += i; sumY += p.p; sumXY += i * p.p; sumXX += i * i;
-        });
+        pairs.forEach((p, i) => { sumX += i; sumY += p.p; sumXY += i * p.p; sumXX += i * i; });
         const denom = n * sumXX - sumX * sumX;
         if (denom === 0) { if (typeof showToast === 'function') showToast('회귀 계산 실패'); return; }
         const slope = (n * sumXY - sumX * sumY) / denom;
         const intercept = (sumY - slope * sumX) / n;
         const startPrice = intercept;
         const endPrice   = intercept + slope * (n - 1);
-        // 그리기 toolbar 가 닫혀 있으면 펼치기 (각도 라인이 보이도록)
+        // 그리기 toolbar 가 닫혀 있으면 펼치기
         const bar = document.getElementById('drawToolbar');
         if (bar && bar.style.display === 'none') toggleDrawToolbar();
-        // drawObjects 에 angle 추가 — 기존 렌더 로직 그대로 사용
+        // drawObjects 에 angle 추가
         drawObjects.push({
             type: 'angle',
             points: [
@@ -11267,7 +11283,7 @@
         });
         try { redrawCanvas(); } catch(e) {}
         try { updateDrawBadge(); } catch(e) {}
-        const slopePctPerBar = (slope / (intercept || 1)) * 100;
+        const slopePctPerBar = intercept ? (slope / intercept) * 100 : 0;
         if (typeof showToast === 'function') {
             const dir = slope > 0 ? '상승' : slope < 0 ? '하락' : '횡보';
             showToast(`📐 최근 ${n}봉 ${dir} 추세각도 표시 · 봉당 ${slopePctPerBar >= 0 ? '+' : ''}${slopePctPerBar.toFixed(2)}%`);
