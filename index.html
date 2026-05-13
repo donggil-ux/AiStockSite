@@ -13935,126 +13935,208 @@
         const fmtP = p => p == null ? '-' : (isKR ? Math.round(p).toLocaleString() + '원' : '$' + p.toFixed(2));
         const score = _minerviniSEPAScore(trend, vcp, rs, vol, lastClose);
 
-        // 트렌드 템플릿 verdict
+        // ─── 종합 점수 등급 ───
+        let scoreBadge = '🔴 SEPA 미충족 — 관망';
+        let scoreBadgeColor = '#ef4444';
+        let scoreShort = '미충족';
+        if (score >= 85)      { scoreBadge = '🟢 SEPA 최적 — 진입 검토'; scoreBadgeColor = '#22c55e'; scoreShort = '최적'; }
+        else if (score >= 70) { scoreBadge = '🟡 SEPA 양호 — 피벗 대기'; scoreBadgeColor = '#eab308'; scoreShort = '양호'; }
+
+        // ─── ① 트렌드 템플릿 ───
         let trendBadge = '⬜ 데이터 부족';
         let trendBadgeColor = '#94a3b8';
         if (trend) {
-            if (trend.passed === 8)      { trendBadge = '🟢 완벽한 Stage 2 — 진입 검토'; trendBadgeColor = '#22c55e'; }
-            else if (trend.passed >= 6)  { trendBadge = '🟡 Stage 2 진입 중 — 주의 관찰'; trendBadgeColor = '#eab308'; }
-            else                          { trendBadge = '🔴 Stage 2 미충족 — 관망'; trendBadgeColor = '#ef4444'; }
+            if (trend.passed === 8)      { trendBadge = '완벽한 Stage 2 — 진입 검토';    trendBadgeColor = '#22c55e'; }
+            else if (trend.passed >= 6)  { trendBadge = 'Stage 2 진입 중 — 주의 관찰';   trendBadgeColor = '#eab308'; }
+            else                          { trendBadge = 'Stage 2 미충족 — 관망';        trendBadgeColor = '#ef4444'; }
         }
-        const conditionsHtml = trend ? trend.conditions.map(c => `
-            <div style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12.5px;">
-                <span style="font-size:14px;">${c.pass ? '✅' : '❌'}</span>
-                <span style="color:${c.pass ? 'var(--text)' : 'var(--text2)'};font-weight:${c.pass ? '600' : '500'};">${c.label}</span>
-            </div>`).join('') : '<div style="font-size:12px;color:var(--text2);">데이터 부족</div>';
+        const conditionPillHtml = trend ? trend.conditions.map(c => {
+            const bg = c.pass ? 'rgba(34,197,94,.12)' : 'rgba(148,163,184,.08)';
+            const border = c.pass ? 'rgba(34,197,94,.4)' : 'var(--border)';
+            const color = c.pass ? '#22c55e' : 'var(--text2)';
+            const icon = c.pass ? '✓' : '✗';
+            return `<div style="display:flex;align-items:center;gap:7px;padding:7px 9px;background:${bg};border:1px solid ${border};border-radius:8px;">
+                <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:${color}26;color:${color};font-size:11px;font-weight:900;flex-shrink:0;">${icon}</span>
+                <span style="font-size:11.5px;font-weight:${c.pass?'700':'500'};color:${c.pass?'var(--text)':'var(--text2)'};line-height:1.3;">${c.label}</span>
+            </div>`;
+        }).join('') : '<div style="font-size:12px;color:var(--text2);grid-column:1/-1;">데이터 부족</div>';
 
-        // VCP verdict
-        let vcpBadge = '⬜ VCP 미형성';
+        // ─── ② VCP 패턴 ───
+        let vcpBadge = 'VCP 미형성';
         let vcpBadgeColor = '#94a3b8';
-        let vcpDetail = '';
+        let vcpDetail = '수축 패턴 없음 — 베이스 형성 대기';
         if (vcp.found) {
             const distPct = lastClose > 0 ? (vcp.pivot - lastClose) / lastClose * 100 : 100;
-            if (distPct <= 1) { vcpBadge = '🟢 피벗 근접 — 진입 준비'; vcpBadgeColor = '#22c55e'; }
-            else              { vcpBadge = `🟡 VCP ${vcp.contractionCount}차 수축 — 피벗 대기`; vcpBadgeColor = '#eab308'; }
+            if (distPct <= 1) { vcpBadge = '피벗 근접 — 진입 준비'; vcpBadgeColor = '#22c55e'; }
+            else              { vcpBadge = `VCP ${vcp.contractionCount}차 수축 — 피벗 대기`; vcpBadgeColor = '#eab308'; }
             vcpDetail = `최종 변동폭 ${vcp.finalRangePct.toFixed(1)}% · 베이스 저점 ${fmtP(vcp.baseLow)} · 피벗 ${fmtP(vcp.pivot)}`;
-        } else {
-            vcpDetail = '수축 패턴 없음 — 베이스 형성 대기';
         }
 
-        // RS verdict
-        let rsBadge = '⏳ RS 계산 중...';
+        // ─── ③ RS ───
+        let rsBadge = 'RS 계산 중...';
         let rsBadgeColor = '#94a3b8';
-        let rsDetail = '';
+        let rsValue = '⏳';
+        let rsDetail = 'S&P 500 대비 상대강도 측정 중';
         if (rs) {
-            if (rs.rs >= 90)      { rsBadge = `🟢 RS ${rs.rs} — 최상위 (Minervini 선호)`; rsBadgeColor = '#22c55e'; }
-            else if (rs.rs >= 70) { rsBadge = `🟡 RS ${rs.rs} — 양호`; rsBadgeColor = '#eab308'; }
-            else                  { rsBadge = `🔴 RS ${rs.rs} — 부족 (70+ 권장)`; rsBadgeColor = '#ef4444'; }
+            rsValue = String(rs.rs);
+            if (rs.rs >= 90)      { rsBadge = '최상위 (Minervini 선호)'; rsBadgeColor = '#22c55e'; }
+            else if (rs.rs >= 70) { rsBadge = '양호';                     rsBadgeColor = '#eab308'; }
+            else                  { rsBadge = '부족 (70+ 권장)';          rsBadgeColor = '#ef4444'; }
             rsDetail = `3개월 초과수익 ${rs.excess63 >= 0 ? '+' : ''}${rs.excess63.toFixed(1)}% · 6개월 ${rs.excess126 >= 0 ? '+' : ''}${rs.excess126.toFixed(1)}%`;
         }
 
-        // Volume verdict
-        let volBadge = '⬜ 데이터 부족';
+        // ─── ④ 거래량 ───
+        let volBadge = '데이터 부족';
         let volBadgeColor = '#94a3b8';
         let volDetail = '';
         if (vol) {
-            if (vol.breakoutVolume) { volBadge = '✅ 돌파 거래량 확인 (+40% 이상)'; volBadgeColor = '#22c55e'; }
-            else if (vol.baseFormingLowVol) { volBadge = '🟡 베이스 거래량 감소 (정상)'; volBadgeColor = '#eab308'; }
-            else { volBadge = '❌ 거래량 미흡 — 돌파 시 주의'; volBadgeColor = '#ef4444'; }
-            volDetail = `최근 5일 평균 / 50일 평균 = ${vol.volRatio.toFixed(2)}x · 오늘 ${vol.todayVolMult.toFixed(2)}x`;
+            if (vol.breakoutVolume) { volBadge = '돌파 거래량 확인 (+40% 이상)'; volBadgeColor = '#22c55e'; }
+            else if (vol.baseFormingLowVol) { volBadge = '베이스 거래량 감소 (정상)'; volBadgeColor = '#eab308'; }
+            else { volBadge = '거래량 미흡 — 돌파 시 주의'; volBadgeColor = '#ef4444'; }
+            volDetail = `최근 5일/50일 평균 = ${vol.volRatio.toFixed(2)}x · 오늘 ${vol.todayVolMult.toFixed(2)}x`;
         }
 
-        // 피벗·매매 라인
+        // ─── 피벗·매매 라인 ───
         let entryLinesHtml = '';
         if (vcp.found && vcp.pivot > 0) {
             const pivot = vcp.pivot;
-            const stop = Math.min(pivot * 0.90, vcp.baseLow * 0.99);
+            const stopP = Math.min(pivot * 0.90, vcp.baseLow * 0.99);
             const tp1 = pivot * 1.20;
             const tp2 = pivot * 1.50;
             const chaseLimit = pivot * 1.05;
             const beyondChase = lastClose > chaseLimit;
+            const isMobile = window.innerWidth <= 640;
+            const cols = isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)';
             entryLinesHtml = `
-                <div style="margin-top:12px;background:var(--bg3);padding:10px;border-radius:10px;">
-                    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;">
-                        <div style="text-align:center;"><div style="font-size:10.5px;color:var(--text2);font-weight:700;">피벗 진입</div><div style="font-size:13.5px;font-weight:800;color:#f97316;">${fmtP(pivot)}</div></div>
-                        <div style="text-align:center;"><div style="font-size:10.5px;color:var(--text2);font-weight:700;">손절 (-10%)</div><div style="font-size:13.5px;font-weight:800;color:#ef4444;">${fmtP(stop)}</div></div>
-                        <div style="text-align:center;"><div style="font-size:10.5px;color:var(--text2);font-weight:700;">익절1 (+20%)</div><div style="font-size:13.5px;font-weight:800;color:#eab308;">${fmtP(tp1)}</div></div>
-                        <div style="text-align:center;"><div style="font-size:10.5px;color:var(--text2);font-weight:700;">익절2 (+50%)</div><div style="font-size:13.5px;font-weight:800;color:#22c55e;">${fmtP(tp2)}</div></div>
-                    </div>
-                    <div style="margin-top:8px;font-size:11.5px;color:${beyondChase ? '#ef4444' : 'var(--text2)'};text-align:center;">
-                        추격 한계선 +5% = ${fmtP(chaseLimit)} ${beyondChase ? '— ❌ 추격 금지 구간' : ''}
-                    </div>
+                <div style="display:grid;grid-template-columns:${cols};gap:8px;background:var(--bg3);padding:12px;border-radius:10px;margin-top:6px;">
+                    <div style="text-align:center;"><div style="font-size:10.5px;color:var(--text2);font-weight:700;">피벗 진입</div><div style="font-size:14px;font-weight:800;color:#f97316;margin-top:3px;font-variant-numeric:tabular-nums;">${fmtP(pivot)}</div></div>
+                    <div style="text-align:center;"><div style="font-size:10.5px;color:var(--text2);font-weight:700;">손절 (-10%)</div><div style="font-size:14px;font-weight:800;color:#ef4444;margin-top:3px;font-variant-numeric:tabular-nums;">${fmtP(stopP)}</div></div>
+                    <div style="text-align:center;"><div style="font-size:10.5px;color:var(--text2);font-weight:700;">익절1 (+20%)</div><div style="font-size:14px;font-weight:800;color:#eab308;margin-top:3px;font-variant-numeric:tabular-nums;">${fmtP(tp1)}</div></div>
+                    <div style="text-align:center;"><div style="font-size:10.5px;color:var(--text2);font-weight:700;">익절2 (+50%)</div><div style="font-size:14px;font-weight:800;color:#22c55e;margin-top:3px;font-variant-numeric:tabular-nums;">${fmtP(tp2)}</div></div>
+                </div>
+                <div style="margin-top:8px;font-size:11.5px;color:${beyondChase ? '#ef4444' : 'var(--text2)'};text-align:center;">
+                    추격 한계선 +5% = <strong style="color:${beyondChase ? '#ef4444' : 'var(--text)'}">${fmtP(chaseLimit)}</strong> ${beyondChase ? '— ❌ 추격 금지 구간' : ''}
                 </div>`;
         }
 
-        // 종합 점수 verdict
-        let scoreBadge = '🔴 SEPA 미충족 — 관망';
-        let scoreBadgeColor = '#ef4444';
-        if (score >= 85)      { scoreBadge = '🟢 SEPA 최적 — 진입 검토'; scoreBadgeColor = '#22c55e'; }
-        else if (score >= 70) { scoreBadge = '🟡 SEPA 양호 — 피벗 대기'; scoreBadgeColor = '#eab308'; }
+        // ─── 섹션 블록 헬퍼 ───
+        const blockSt = (color) => `border-left:3px solid ${color};padding:10px 0 10px 12px;margin-top:14px;`;
+        const blockLabelSt = `font-size:10.5px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:flex;align-items:center;gap:8px;`;
+        const blockVerdictSt = (c) => `font-size:13px;font-weight:800;color:${c};letter-spacing:-.2px;`;
+        const blockDetailSt = `font-size:11.5px;color:var(--text2);margin-top:3px;line-height:1.4;`;
+
+        // ─── SEPA 점수 등급 기준표 ───
+        const scoreRefRows = [
+            { range: '85~100점', label: 'SEPA 최적',   color: '#22c55e', strat: '진입 검토 — 4박자 충족' },
+            { range: '70~84점',  label: 'SEPA 양호',   color: '#eab308', strat: '피벗 돌파·거래량 확인 시 진입' },
+            { range: '0~69점',   label: 'SEPA 미충족', color: '#ef4444', strat: '관망 — 베이스 형성 대기' },
+        ];
+        const scoreRefHtml = scoreRefRows.map(r => {
+            const isCurrent = (r.range.startsWith('85') && score >= 85)
+                            || (r.range.startsWith('70') && score >= 70 && score < 85)
+                            || (r.range.startsWith('0') && score < 70);
+            const bg = isCurrent ? `${r.color}14` : 'transparent';
+            const border = isCurrent ? `${r.color}55` : 'var(--border)';
+            return `<div style="display:grid;grid-template-columns:auto auto 1fr;gap:10px;padding:8px 10px;background:${bg};border:1px solid ${border};border-radius:8px;align-items:center;">
+                <span style="font-size:11px;font-weight:800;color:var(--text);min-width:62px;">${r.range}</span>
+                <span style="font-size:11.5px;font-weight:800;color:${r.color};min-width:80px;">${r.label}</span>
+                <span style="font-size:11px;color:var(--text2);">${r.strat}</span>
+            </div>`;
+        }).join('');
+
+        // ─── 가중치 표 ───
+        const weightRows = [
+            { name: '트렌드 템플릿 (8조건)', weight: '30%', color: '#22c55e' },
+            { name: 'VCP 패턴',              weight: '25%', color: '#a78bfa' },
+            { name: '상대강도 RS',           weight: '20%', color: '#eab308' },
+            { name: '거래량',                weight: '15%', color: '#3b82f6' },
+            { name: '피벗 근접도',           weight: '10%', color: '#f97316' },
+        ];
+        const weightHtml = weightRows.map(w => `
+            <div style="display:flex;align-items:center;gap:8px;padding:4px 0;">
+                <span style="width:8px;height:8px;border-radius:50%;background:${w.color};flex-shrink:0;"></span>
+                <span style="font-size:11.5px;font-weight:600;color:var(--text);flex:1;">${w.name}</span>
+                <span style="font-size:11.5px;font-weight:800;color:var(--text);">${w.weight}</span>
+            </div>
+        `).join('');
 
         return `
             <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:12px 0;">
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
-                    <div style="font-size:16px;font-weight:800;letter-spacing:-.3px;display:flex;align-items:center;gap:8px;">
-                        🎯 Minervini SEPA 분석
-                        <span style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:8px;background:${scoreBadgeColor}1a;color:${scoreBadgeColor};border:1px solid ${scoreBadgeColor}55;">${score}점</span>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                    <div style="font-size:16px;font-weight:800;letter-spacing:-.3px;">🎯 Minervini SEPA 분석</div>
+                </div>
+
+                <!-- 큰 점수 배너 -->
+                <div style="display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center;background:linear-gradient(135deg, ${scoreBadgeColor}1f 0%, ${scoreBadgeColor}0a 100%);border:1px solid ${scoreBadgeColor}55;border-radius:10px;padding:16px 18px;">
+                    <div style="text-align:center;min-width:84px;">
+                        <div style="font-size:9.5px;font-weight:800;color:${scoreBadgeColor};text-transform:uppercase;letter-spacing:.6px;opacity:.85;">SEPA SCORE</div>
+                        <div style="font-size:38px;font-weight:900;line-height:1;color:${scoreBadgeColor};letter-spacing:-1.2px;font-variant-numeric:tabular-nums;">${score}</div>
+                        <div style="font-size:9.5px;color:${scoreBadgeColor};font-weight:700;margin-top:2px;opacity:.85;">/ 100</div>
+                    </div>
+                    <div>
+                        <div style="font-size:15px;font-weight:800;color:${scoreBadgeColor};letter-spacing:-.2px;">${scoreShort}</div>
+                        <div style="font-size:12px;color:var(--text2);margin-top:3px;line-height:1.45;">${scoreBadge.replace(/^🟢 |^🟡 |^🔴 /, '')}</div>
                     </div>
                 </div>
-                <div style="font-size:12.5px;color:${scoreBadgeColor};font-weight:700;margin-bottom:10px;">${scoreBadge}</div>
 
-                <div style="margin-top:12px;">
-                    <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">① 트렌드 템플릿 <span style="color:${trendBadgeColor};">${trend ? trend.passed : 0}/8</span></div>
-                    <div style="font-size:12.5px;color:${trendBadgeColor};font-weight:700;margin-bottom:8px;">${trendBadge}</div>
-                    <div style="background:var(--bg3);padding:8px 10px;border-radius:8px;display:grid;grid-template-columns:1fr 1fr;gap:0 12px;">${conditionsHtml}</div>
+                <!-- ① 트렌드 템플릿 -->
+                <div style="${blockSt(trendBadgeColor)}">
+                    <div style="${blockLabelSt}">
+                        <span>① 트렌드 템플릿</span>
+                        <span style="font-size:11px;font-weight:900;padding:2px 8px;border-radius:6px;background:${trendBadgeColor}26;color:${trendBadgeColor};">${trend ? trend.passed : 0}/8</span>
+                    </div>
+                    <div style="${blockVerdictSt(trendBadgeColor)}">${trendBadge}</div>
+                    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:8px;">${conditionPillHtml}</div>
                 </div>
 
-                <div style="margin-top:14px;">
-                    <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">② VCP 패턴</div>
-                    <div style="font-size:12.5px;color:${vcpBadgeColor};font-weight:700;">${vcpBadge}</div>
-                    <div style="font-size:11.5px;color:var(--text2);margin-top:3px;">${vcpDetail}</div>
+                <!-- ② VCP 패턴 -->
+                <div style="${blockSt(vcpBadgeColor)}">
+                    <div style="${blockLabelSt}"><span>② VCP 패턴</span></div>
+                    <div style="${blockVerdictSt(vcpBadgeColor)}">${vcpBadge}</div>
+                    <div style="${blockDetailSt}">${vcpDetail}</div>
                 </div>
 
-                <div style="margin-top:14px;">
-                    <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">③ 상대강도 (RS) vs S&amp;P 500</div>
-                    <div style="font-size:12.5px;color:${rsBadgeColor};font-weight:700;">${rsBadge}</div>
-                    ${rsDetail ? `<div style="font-size:11.5px;color:var(--text2);margin-top:3px;">${rsDetail}</div>` : ''}
+                <!-- ③ RS — 큰 숫자 강조 -->
+                <div style="${blockSt(rsBadgeColor)}">
+                    <div style="${blockLabelSt}"><span>③ 상대강도 (RS) vs S&amp;P 500</span></div>
+                    <div style="display:flex;align-items:baseline;gap:10px;margin-top:2px;flex-wrap:wrap;">
+                        <span style="font-size:26px;font-weight:900;color:${rsBadgeColor};line-height:1;font-variant-numeric:tabular-nums;">${rsValue}</span>
+                        <span style="${blockVerdictSt(rsBadgeColor)}">${rsBadge}</span>
+                    </div>
+                    <div style="${blockDetailSt}">${rsDetail}</div>
                 </div>
 
-                <div style="margin-top:14px;">
-                    <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">④ 거래량</div>
-                    <div style="font-size:12.5px;color:${volBadgeColor};font-weight:700;">${volBadge}</div>
-                    <div style="font-size:11.5px;color:var(--text2);margin-top:3px;">${volDetail}</div>
+                <!-- ④ 거래량 -->
+                <div style="${blockSt(volBadgeColor)}">
+                    <div style="${blockLabelSt}"><span>④ 거래량</span></div>
+                    <div style="${blockVerdictSt(volBadgeColor)}">${volBadge}</div>
+                    <div style="${blockDetailSt}">${volDetail}</div>
                 </div>
 
-                ${vcp.found ? `<div style="margin-top:14px;">
-                    <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">⑤ 피벗 진입 라인</div>
+                <!-- ⑤ 피벗 진입 라인 -->
+                ${vcp.found ? `<div style="margin-top:16px;">
+                    <div style="${blockLabelSt}"><span>⑤ 피벗 진입 라인</span></div>
                     ${entryLinesHtml}
                 </div>` : ''}
 
-                <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border);font-size:11.5px;color:var(--text2);line-height:1.5;">
-                    ※ Mark Minervini의 SEPA: Stage 2 + VCP + RS 70+ + 거래량 확인 4박자 충족 종목만 매매.<br>
-                    ※ 추격 한계선 +5% 초과 시 진입 금지 (Minervini 원칙).
+                <!-- 점수 가중치 안내 -->
+                <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);">
+                    <div style="font-size:10.5px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">⚖️ SEPA 점수 가중치</div>
+                    <div style="background:var(--bg3);padding:10px 12px;border-radius:8px;">${weightHtml}</div>
+                </div>
+
+                <!-- SEPA 등급 기준 안내 -->
+                <div style="margin-top:14px;">
+                    <div style="font-size:10.5px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">📚 SEPA 등급 기준</div>
+                    <div style="display:flex;flex-direction:column;gap:6px;">${scoreRefHtml}</div>
+                </div>
+
+                <!-- Minervini 원칙 -->
+                <div style="margin-top:14px;padding:10px 12px;background:var(--bg3);border-radius:8px;font-size:11.5px;color:var(--text2);line-height:1.55;">
+                    💡 <strong style="color:var(--text);">Minervini SEPA 원칙</strong><br>
+                    · Stage 2 + VCP + RS 70+ + 거래량 4박자 동시 충족 시에만 매매<br>
+                    · 진입은 피벗 돌파 + 거래량 +40% 이상 확인 후<br>
+                    · 추격 한계선 +5% 초과 시 진입 금지
                 </div>
             </div>
         `;
