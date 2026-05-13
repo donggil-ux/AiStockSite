@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=594">
+    <link rel="stylesheet" href="/styles.css?v=595">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -10962,6 +10962,8 @@
         lwBbUpper = null;
         lwBbLower = null;
         lwBbMiddle = null;
+        // 자동 추세각도 시리즈 정리
+        try { _autoTrendLineSeries = []; } catch(_) {}
     }
 
     function renderPriceChart() {
@@ -11218,7 +11220,15 @@
         }
     }
 
-    // 자동 추세각도: 현재 보이는 범위의 봉 선형회귀 → angle 객체로 추가
+    // 자동 추세각도 시리즈 추적 (재클릭 시 이전 라인 제거)
+    let _autoTrendLineSeries = [];
+
+    function clearAutoTrendAngles() {
+        _autoTrendLineSeries.forEach(s => { try { lwChart?.removeSeries(s); } catch(e) {} });
+        _autoTrendLineSeries = [];
+    }
+
+    // 자동 추세각도: 차트 네이티브 LineSeries 로 그리기 (EMA 라인과 동일 메커니즘 — 안정적)
     function addAutoTrendAngle() {
         if (typeof stockData === 'undefined' || !stockData) {
             if (typeof showToast === 'function') showToast('종목을 먼저 검색하세요');
@@ -11230,30 +11240,14 @@
             if (typeof showToast === 'function') showToast('차트 데이터가 없습니다');
             return;
         }
-        // 화면에 보이는 시간 범위 확인 (chartToCanvas 가 null 안 반환하는 영역)
-        let visFrom = null, visTo = null;
-        try {
-            const vr = lwChart.timeScale().getVisibleRange();
-            if (vr) { visFrom = vr.from; visTo = vr.to; }
-        } catch (_) {}
-        // 가시 범위 내 유효 캔들 수집
+        // 이전 자동 각도선 제거 (중복 방지)
+        clearAutoTrendAngles();
+        // 최근 40개 유효 캔들 (시간 정렬 보장)
         const pairs = [];
-        for (let i = 0; i < ts.length; i++) {
-            const t = ts[i], c = q.close[i];
-            if (c == null || t == null) continue;
-            if (visFrom != null && t < visFrom) continue;
-            if (visTo   != null && t > visTo)   continue;
-            pairs.push({ t, p: c });
+        for (let i = ts.length - 1; i >= 0 && pairs.length < 40; i--) {
+            const c = q.close[i];
+            if (c != null && ts[i] != null) pairs.unshift({ t: ts[i], p: c });
         }
-        // 가시 범위가 너무 좁으면 폴백: 최근 40봉
-        if (pairs.length < 10) {
-            pairs.length = 0;
-            for (let i = ts.length - 1; i >= 0 && pairs.length < 40; i--) {
-                if (q.close[i] != null && ts[i] != null) pairs.unshift({ t: ts[i], p: q.close[i] });
-            }
-        }
-        // 가시 범위가 너무 많으면 우측 40봉만 사용 (선 굵기·라벨 가독성)
-        if (pairs.length > 40) pairs.splice(0, pairs.length - 40);
         if (pairs.length < 10) {
             if (typeof showToast === 'function') showToast('데이터 부족 — 10봉 이상 필요');
             return;
@@ -11266,27 +11260,44 @@
         if (denom === 0) { if (typeof showToast === 'function') showToast('회귀 계산 실패'); return; }
         const slope = (n * sumXY - sumX * sumY) / denom;
         const intercept = (sumY - slope * sumX) / n;
-        const startPrice = intercept;
-        const endPrice   = intercept + slope * (n - 1);
-        // 그리기 toolbar 가 닫혀 있으면 펼치기
-        const bar = document.getElementById('drawToolbar');
-        if (bar && bar.style.display === 'none') toggleDrawToolbar();
-        // drawObjects 에 angle 추가
-        drawObjects.push({
-            type: 'angle',
-            points: [
-                { time: pairs[0].t, price: startPrice },
-                { time: pairs[n-1].t, price: endPrice },
-            ],
-            color: '#a78bfa',
-            width: 2,
-        });
-        try { redrawCanvas(); } catch(e) {}
-        try { updateDrawBadge(); } catch(e) {}
+        // 봉당 변동률 + 시각 각도(픽셀 기반, 가능 시)
         const slopePctPerBar = intercept ? (slope / intercept) * 100 : 0;
+        let pixelAngleDeg = null;
+        try {
+            const x1 = lwChart.timeScale().timeToCoordinate(pairs[0].t);
+            const x2 = lwChart.timeScale().timeToCoordinate(pairs[n-1].t);
+            const y1 = lwCandleSeries?.priceToCoordinate(intercept);
+            const y2 = lwCandleSeries?.priceToCoordinate(intercept + slope * (n-1));
+            if (x1 != null && x2 != null && y1 != null && y2 != null) {
+                pixelAngleDeg = Math.atan2(-(y2 - y1), x2 - x1) * 180 / Math.PI;
+            }
+        } catch (_) {}
+        const dir = slope > 0 ? '상승' : slope < 0 ? '하락' : '횡보';
+        const dirEmoji = slope > 0 ? '📈' : slope < 0 ? '📉' : '➖';
+        const titleAngle = pixelAngleDeg != null ? `${pixelAngleDeg >= 0 ? '+' : ''}${pixelAngleDeg.toFixed(1)}°` : `${slopePctPerBar.toFixed(2)}%/봉`;
+
+        // 회귀 라인 데이터
+        const lineData = pairs.map((pair, i) => ({
+            time: pair.t,
+            value: intercept + slope * i,
+        }));
+
+        // 네이티브 LineSeries 추가 — EMA 와 동일 메커니즘 (확실히 그려짐)
+        const series = lwChart.addLineSeries({
+            color: '#a78bfa',
+            lineWidth: 3,
+            lineStyle: 2, // dashed
+            priceLineVisible: false,
+            lastValueVisible: true,
+            title: `추세 ${titleAngle}`,
+            crosshairMarkerVisible: false,
+        });
+        series.setData(lineData);
+        _autoTrendLineSeries.push(series);
+
         if (typeof showToast === 'function') {
-            const dir = slope > 0 ? '상승' : slope < 0 ? '하락' : '횡보';
-            showToast(`📐 최근 ${n}봉 ${dir} 추세각도 표시 · 봉당 ${slopePctPerBar >= 0 ? '+' : ''}${slopePctPerBar.toFixed(2)}%`);
+            const angStr = pixelAngleDeg != null ? ` · 각도 ${pixelAngleDeg.toFixed(1)}°` : '';
+            showToast(`${dirEmoji} ${n}봉 ${dir} 추세 · 봉당 ${slopePctPerBar >= 0 ? '+' : ''}${slopePctPerBar.toFixed(2)}%${angStr}`);
         }
     }
 
