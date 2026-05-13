@@ -1219,7 +1219,7 @@
     let lwChart = null;
     let lwCandleSeries = null;
     let lwVolumeSeries = null;
-    let lwMaSeries = {};       // { ma5, ma20, ma60, ma120 }
+    let lwMaSeries = {};       // { ma5, ma20, ma70 }
     let lwBbUpper = null;
     let lwBbLower = null;
     let lwAiPriceLines = [];        // AI 지지/저항선 (createPriceLine refs)
@@ -10569,13 +10569,12 @@
         // 이동평균선 추가
         const closes = q.close;
         const maConfigs = [
-            { period: 5, color: '#eab308', key: 'ma5' },
-            { period: 20, color: '#a78bfa', key: 'ma20' },
-            { period: 60, color: '#3b82f6', key: 'ma60' },
-            { period: 120, color: '#ef4444', key: 'ma120' },
+            { period: 5,  color: '#eab308', key: 'ma5',  label: 'MA5'  },
+            { period: 20, color: '#a78bfa', key: 'ma20', label: 'MA20' },
+            { period: 70, color: '#ec4899', key: 'ma70', label: 'MA70' },
         ];
 
-        maConfigs.forEach(({ period, color, key }) => {
+        maConfigs.forEach(({ period, color, key, label }) => {
             const sma = calcSMA(closes, period);
             const maData = [];
             for (let i = 0; i < ts.length; i++) {
@@ -10585,9 +10584,10 @@
             if (maData.length > 0) {
                 const series = lwChart.addLineSeries({
                     color,
-                    lineWidth: 1,
+                    lineWidth: 2,
                     priceLineVisible: false,
-                    lastValueVisible: false,
+                    lastValueVisible: true,
+                    title: label,
                     crosshairMarkerVisible: false,
                 });
                 series.setData(maData);
