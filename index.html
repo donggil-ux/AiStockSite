@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=586">
+    <link rel="stylesheet" href="/styles.css?v=589">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -812,6 +812,9 @@
                         </button>
                         <button class="draw-tb-btn" id="drawBtnFib" onclick="setDrawTool('fib')" title="피보나치 되돌림">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="2" y1="4" x2="22" y2="4" stroke-dasharray="2 2"/><line x1="2" y1="9" x2="22" y2="9"/><line x1="2" y1="14" x2="22" y2="14" stroke-dasharray="4 2"/><line x1="2" y1="20" x2="22" y2="20"/><text x="1" y="3" fill="currentColor" font-size="5" font-weight="700">F</text></svg>
+                        </button>
+                        <button class="draw-tb-btn" id="drawBtnAngle" onclick="setDrawTool('angle')" title="각도자 (빗각도)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="20" x2="21" y2="20"/><line x1="3" y1="20" x2="19" y2="6"/><path d="M10 20 A7 7 0 0 0 8 15.5" stroke-width="1.4"/><text x="11" y="18" fill="currentColor" font-size="5.5" font-weight="700" stroke="none">°</text></svg>
                         </button>
                         <div class="draw-tb-divider"></div>
                         <!-- 색상 -->
@@ -11189,7 +11192,7 @@
     // ========================================
     // Chart Drawing Tools (차트 드로잉 도구)
     // ========================================
-    let drawTool = 'none';       // none | line | hline | ray | rect | fib
+    let drawTool = 'none';       // none | line | hline | ray | rect | fib | angle
     let drawColor = '#ef4444';
     let drawWidth = 1;
     let drawObjects = [];        // { type, points, color, width }
@@ -11793,6 +11796,82 @@
                 ctx.fillStyle = obj.color + '08';
                 ctx.fillRect(0, yTop, canvas.width, yBot - yTop);
             }
+        } else if (obj.type === 'angle') {
+            const p1 = chartToCanvas(obj.points[0].time, obj.points[0].price);
+            const p2 = chartToCanvas(obj.points[1].time, obj.points[1].price);
+            if (!p1 || !p2) return;
+
+            // 1) 메인 선 (point1 → point2)
+            ctx.strokeStyle = obj.color;
+            ctx.lineWidth = obj.width;
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+
+            // 2) 수평 기준선 (점선, p1에서 p2 방향으로 연장)
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const refDir = dx >= 0 ? 1 : -1;
+            const refLen = Math.max(80, Math.abs(dx) + 30);
+            ctx.strokeStyle = obj.color + '88';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p1.x + refLen * refDir, p1.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 3) 각도 계산 (화면 픽셀 기준, 화면 y축은 반전이므로 -dy)
+            const angleRad = Math.atan2(-dy, dx * refDir);  // 기준선이 좌측이면 부호 보정
+            const angleDeg = Math.abs(angleRad * 180 / Math.PI);
+            const isUp = -dy >= 0;  // 위쪽으로 향함 (상승 추세)
+
+            // 4) 호(arc) — p1 중심, 반경 동적 (선 길이 1/3, max 50)
+            const lineLen = Math.sqrt(dx * dx + dy * dy);
+            const arcR = Math.min(50, Math.max(28, lineLen / 3));
+            ctx.strokeStyle = obj.color;
+            ctx.lineWidth = 1.6;
+            ctx.beginPath();
+            // canvas arc 의 각도: 0 = 우측 양의 x, +각도 = 시계방향
+            // refDir 가 1이면 시작 0, 종료 -angleRad (CCW 그리기로 위로); -1이면 시작 PI, 종료 PI+angleRad
+            if (refDir > 0) {
+                ctx.arc(p1.x, p1.y, arcR, 0, isUp ? -angleRad : -angleRad, !isUp);
+            } else {
+                ctx.arc(p1.x, p1.y, arcR, Math.PI, isUp ? Math.PI + angleRad : Math.PI + angleRad, isUp);
+            }
+            ctx.stroke();
+
+            // 5) 각도 라벨 ("32.5°") — 호의 중간 각도 위치 + 약간 바깥쪽
+            const midAng = refDir > 0
+                ? (isUp ? -angleRad / 2 : -angleRad / 2)
+                : (isUp ? Math.PI + angleRad / 2 : Math.PI + angleRad / 2);
+            const labelDist = arcR + 22;
+            const labelX = p1.x + Math.cos(midAng) * labelDist;
+            const labelY = p1.y + Math.sin(midAng) * labelDist;
+            const text = `${angleDeg.toFixed(1)}°`;
+            ctx.font = 'bold 12px Pretendard, ui-sans-serif, system-ui, sans-serif';
+            const tw = ctx.measureText(text).width;
+            const padX = 6, padY = 4;
+            const boxW = tw + padX * 2;
+            const boxH = 12 + padY * 2;
+            // 배경 박스
+            ctx.fillStyle = isLight ? 'rgba(255,255,255,0.95)' : 'rgba(17,22,32,0.95)';
+            ctx.strokeStyle = obj.color;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.rect(labelX - boxW / 2, labelY - boxH / 2, boxW, boxH);
+            ctx.fill();
+            ctx.stroke();
+            // 텍스트
+            ctx.fillStyle = obj.color;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, labelX, labelY);
+            ctx.textAlign = 'start';
+            ctx.textBaseline = 'alphabetic';
         }
     }
 
@@ -11803,7 +11882,7 @@
         ctx.lineWidth = drawWidth;
         ctx.setLineDash([4, 4]);
 
-        if (s.tool === 'line' || s.tool === 'ray') {
+        if (s.tool === 'line' || s.tool === 'ray' || s.tool === 'angle') {
             ctx.beginPath();
             ctx.moveTo(s.startX, s.startY);
             if (s.tool === 'ray') {
@@ -11814,6 +11893,16 @@
                 ctx.lineTo(p.x, p.y);
             }
             ctx.stroke();
+            // angle 프리뷰 — 현재 각도 미리 표시
+            if (s.tool === 'angle') {
+                const dx = p.x - s.startX, dy = p.y - s.startY;
+                const angDeg = Math.abs(Math.atan2(-dy, Math.abs(dx)) * 180 / Math.PI);
+                ctx.setLineDash([]);
+                ctx.fillStyle = drawColor;
+                ctx.font = 'bold 11px Pretendard, sans-serif';
+                ctx.fillText(`${angDeg.toFixed(1)}°`, p.x + 8, p.y - 8);
+                ctx.setLineDash([4, 4]);
+            }
         } else if (s.tool === 'hline') {
             ctx.beginPath();
             ctx.moveTo(0, p.y);
