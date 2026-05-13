@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=602">
+    <link rel="stylesheet" href="/styles.css?v=603">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -17034,6 +17034,11 @@
             'background:rgba(191,90,242,.18);color:var(--purple)',
         ];
         const sellLabels = ['ATR × 1.0', 'ATR × 2.0', 'ATR × 3.0', 'ATR × 5.0', 'ATR × 8.0'];
+
+        // ATR 값 — sellDefaults 계산보다 먼저 선언
+        const atrVal  = sc?.atr || 0;
+        const atrFmt  = atrVal ? (isKR ? Math.round(atrVal).toLocaleString() : parseFloat(atrVal.toFixed(4)).toString()) : '';
+
         // 진입가 + ATR×N 으로 기본값 자동 계산 (sc 있으면)
         const baseEntry = sc?.prices?.[0] || 0;
         const sellDefaults = [1.0, 2.0, 3.0, 5.0, 8.0].map(m => baseEntry > 0 && atrVal > 0 ? baseEntry + atrVal * m : 0);
@@ -17045,9 +17050,6 @@
                 <input type="text" inputmode="decimal" class="fab-price-input" id="fabS${i}" value="${val}" placeholder="${ph}" oninput="_fabCommaFmt(this)" onfocus="delete this.dataset.userEdited" onblur="if(this.value)this.dataset.userEdited='1'">
             </div>`;
         }).join('');
-
-        const atrVal  = sc?.atr || 0;
-        const atrFmt  = atrVal ? (isKR ? Math.round(atrVal).toLocaleString() : parseFloat(atrVal.toFixed(4)).toString()) : '';
         const autoTag = sc
             ? `<span style="font-size:10px;color:var(--cyan);font-weight:500;">ATR 자동 입력됨</span>`
             : `<span style="font-size:10px;color:var(--text3);">직접 입력하세요</span>`;
