@@ -4920,7 +4920,7 @@
     const _ALPHA_DESC = {
         surge:    '거래량이 평소보다 폭발적으로 늘면서 강한 모멘텀이 나오는 종목 — 단기 급등 가능성이 높습니다.',
         bounce:   'RSI 극저 + 장기 이동평균선 -15% 이상 이격된 종목 — 과매도 후 반등 가능성이 높습니다.',
-        daytrade: 'ATR 변동성이 충분하고 거래량이 평균 대비 활발한 종목 — 당일 매매(데이 트레이드)에 적합합니다.',
+        daytrade: '5분봉 돌파 단타 분석 — 돌파패턴(35%) + 양봉시가(25%) + 거래량(20%) + 정배열(10%) + 위험패턴(10%) 종합점수 60+ 종목.',
         swing:    '52주 고점까지 충분한 상승 여력(R/R ≥ 1.5)이 있고 추세가 살아있는 종목 — 며칠~몇 주 단위 스윙에 적합합니다.',
         rayner:   'Rayner Teo의 EMA 20/50/200 + Weinstein Stage 분석 — Stage 2(상승추세) + 풀백·돌파·반전 진입 시그널 종목.',
         sepa:     'Mark Minervini SEPA — 트렌드 템플릿 8조건 + VCP + RS + 거래량 4박자 종합점수 70+ 종목 발굴.',
@@ -5020,7 +5020,9 @@
                     .map(({ item, signals }) => ({ ...item, _alphaKind: 'bounce', _bounceSignals: signals }));
                 if (_alphaTab !== 'bounce') return;
                 _alphaRender(scored, tab);
-            } else if (tab === 'daytrade' || tab === 'swing') {
+            } else if (tab === 'daytrade') {
+                await _alphaRenderBreakoutScanner(el);
+            } else if (tab === 'swing') {
                 let items = (top100Cache?.['day_gainers']?.items) || [];
                 if (!items.length) {
                     try {
@@ -5037,23 +5039,7 @@
                     el.innerHTML = _alphaTimingGuide(tab) + '<div class="sniper-empty">데이터를 불러올 수 없습니다 — 잠시 후 다시 시도하세요</div>';
                     return;
                 }
-                if (tab === 'daytrade') {
-                    const candidates = items.filter(q => {
-                        const vol = q.regularMarketVolume || 0;
-                        const avgVol = q.averageDailyVolume3Month || 0;
-                        if (!vol || !avgVol) return false;
-                        if (vol / avgVol < 1.5) return false;
-                        const price = q.regularMarketPrice || 0;
-                        if (price < 1) return false;
-                        return true;
-                    }).slice(0, 30).map(q => ({ ...q, _alphaKind: 'daytrade', volMult: (q.regularMarketVolume / q.averageDailyVolume3Month) }));
-                    const final = candidates.length ? candidates : items.slice(0, 30).map(q => {
-                        const vol = q.regularMarketVolume || 0;
-                        const avgVol = q.averageDailyVolume3Month || 1;
-                        return { ...q, _alphaKind: 'daytrade', volMult: vol / avgVol };
-                    });
-                    _alphaRender(final, tab);
-                } else {
+                {
                     const qualified = items.map(q => {
                         const p = q.regularMarketPrice, h = q.fiftyTwoWeekHigh;
                         if (!p || !h || h <= p) return null;
@@ -5191,6 +5177,73 @@
     // ── 단테 스캐너 (Phase 3) ────────────────────────────────────────
     // day_gainers + most_actives 의 시세 메타 필드로 단테 시그널 근사 → 점수화
     // (60일 OHLCV 미가공 → 가벼운 휴리스틱: 매집·눌림·거래량·52주 위치)
+    // ── 5분봉 돌파 단타 스캐너 ──────────────────────────────────────────
+    // /api/breakout-scan: 돌파+양봉시가+거래량+정배열+위험패턴 5단계 점수 60+ 종목
+    async function _alphaRenderBreakoutScanner(el) {
+        el.innerHTML = _alphaTimingGuide('daytrade') + '<div class="sniper-loading">' + Array(6).fill('<div class="sniper-skel"></div>').join('') + '</div>';
+        try {
+            const r = await fetch('/api/breakout-scan');
+            if (!r.ok) throw new Error('http ' + r.status);
+            const d = await r.json();
+            if (_alphaTab !== 'daytrade') return;
+            const results = Array.isArray(d.results) ? d.results : [];
+            if (!results.length) {
+                el.innerHTML = _alphaTimingGuide('daytrade') + '<div class="sniper-empty">현재 5분봉 돌파 60+ 종목이 없습니다 — 장중 다시 시도</div>';
+                return;
+            }
+            const cards = results.map((r, idx) => {
+                const scoreColor = r.score >= 75 ? '#22c55e' : r.score >= 60 ? '#eab308' : '#ef4444';
+                const scoreLabel = r.score >= 75 ? '강력 진입' : r.score >= 60 ? '진입 가능' : '관망';
+                // 돌파 태그
+                let breakTag, breakColor;
+                if (r.breakAboveYH)        { breakTag = '🟢 전일고점 돌파'; breakColor = '#22c55e'; }
+                else if (r.breakAboveOpen && r.maAligned) { breakTag = '🟡 시가+정배열 돌파'; breakColor = '#eab308'; }
+                else if (r.breakAboveOpen) { breakTag = '🟡 시가 위'; breakColor = '#eab308'; }
+                else                       { breakTag = '⚪ 돌파 미확인'; breakColor = '#94a3b8'; }
+                // 거래량 태그
+                const volTag = r.rvol >= 2.0 ? `🔥 RVOL ${r.rvol.toFixed(1)}x 폭발`
+                              : r.rvol >= 1.5 ? `📈 RVOL ${r.rvol.toFixed(1)}x`
+                              : r.rvol >= 1.0 ? `📊 RVOL ${r.rvol.toFixed(1)}x`
+                              : `📉 RVOL ${r.rvol.toFixed(1)}x 부족`;
+                // 정배열 태그
+                const maTag = r.maAligned ? '✅ MA 정배열' : '⚪ MA 미배열';
+                // 위험 태그
+                const dangerTag = r.dangerPattern ? '⚠️ 위험 패턴' : null;
+                // 변동률
+                const chgColor = r.changePct > 0 ? '#ef4444' : r.changePct < 0 ? '#3b82f6' : 'var(--text2)';
+                const chgStr = r.changePct != null ? `${r.changePct >= 0 ? '+' : ''}${r.changePct.toFixed(2)}%` : '-';
+                return `<div onclick="quickSearch('${r.symbol}','US')" style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid ${scoreColor};border-radius:10px;padding:14px 16px;margin:8px 0;cursor:pointer;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                        <div style="flex:1;min-width:0;">
+                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                <span style="font-size:16px;font-weight:800;letter-spacing:-.3px;">#${idx+1} ${r.symbol}</span>
+                                <span style="font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;background:${scoreColor}1f;color:${scoreColor};border:1px solid ${scoreColor}55;">돌파 ${r.score} · ${scoreLabel}</span>
+                                <span style="font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;background:${breakColor}1f;color:${breakColor};border:1px solid ${breakColor}55;">${breakTag}</span>
+                                ${dangerTag ? `<span style="font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.4);">${dangerTag}</span>` : ''}
+                            </div>
+                            <div style="font-size:12.5px;color:var(--text);opacity:.75;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(r.name)}</div>
+                            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:var(--text2);">
+                                <span>${volTag}</span>
+                                <span>${maTag}</span>
+                                ${r.prevHigh != null ? `<span>전일고 $${r.prevHigh.toFixed(2)}</span>` : ''}
+                            </div>
+                        </div>
+                        <div style="text-align:right;flex-shrink:0;">
+                            <div style="font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;">$${r.price.toFixed(2)}</div>
+                            <div style="font-size:11px;font-weight:700;color:${chgColor};margin-top:2px;">${chgStr}</div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+            const scannedAgo = d.scannedAt ? ` · ${Math.round((Date.now() - new Date(d.scannedAt).getTime()) / 60000)}분 전 스캔` : '';
+            el.innerHTML = _alphaTimingGuide('daytrade')
+                + `<div style="font-size:12px;color:var(--text2);margin:6px 0 8px;">⚡ ${results.length}개 종목 발굴 (전체 ${d.totalScanned}개 스캔${scannedAgo})</div>`
+                + cards;
+        } catch (e) {
+            if (_alphaTab === 'daytrade') el.innerHTML = _alphaTimingGuide('daytrade') + '<div class="sniper-empty">데이터 로드 실패 — 잠시 후 다시 시도하세요</div>';
+        }
+    }
+
     async function _alphaRenderDanteScanner(el) {
         el.innerHTML = '<div class="sniper-loading">' + Array(6).fill('<div class="sniper-skel"></div>').join('') + '</div>';
         let pool = [];

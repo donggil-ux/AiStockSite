@@ -960,6 +960,162 @@ app.get('/api/sepa-scan', async (req, res) => {
     }
 });
 
+// ───────────────────────────────────────────────────────────────────────
+// 5분봉 돌파 단타 기반 스캐너
+//   - universe: most_actives + day_gainers 상위 ~80
+//   - 각 종목: 6mo daily chart + 오늘 시가/현재가/거래량
+//   - 5단계 점수: 돌파(35) + 양봉시가(25) + 거래량(20) + 정배열(10) + 위험패턴(10)
+//   - score >= 60 ("진입 가능"+) 필터
+//   - 30분 메모리 캐시 (장중 갱신 필요)
+// ───────────────────────────────────────────────────────────────────────
+const BREAKOUT_SCAN_TTL = 30 * 60 * 1000;
+let _breakoutScanCache = { ts: 0, data: null };
+
+function _breakoutAnalyzeServer(closes, highs, lows, opens, volumes, currentQuote) {
+    if (!closes || closes.length < 30) return null;
+    const N = closes.length;
+    const price = currentQuote.regularMarketPrice ?? closes[N - 1];
+    const todayOpen = currentQuote.regularMarketOpen;
+    const todayVol = currentQuote.regularMarketVolume || 0;
+    if (price == null || price <= 0) return null;
+
+    // MA5, MA20
+    const ma = (period) => {
+        if (closes.length < period) return null;
+        const slice = closes.slice(-period).filter(v => v != null);
+        return slice.length === period ? slice.reduce((s, v) => s + v, 0) / period : null;
+    };
+    const lma5  = ma(5);
+    const lma20 = ma(20);
+
+    // 전일 고점·종가
+    const prevHigh = highs[N - 2];
+    const prevClose = closes[N - 2];
+
+    // 평균 거래량 (50일)
+    const recentVols = volumes.slice(-50).filter(v => v != null);
+    const avgVol = recentVols.length ? recentVols.reduce((s, v) => s + v, 0) / recentVols.length : 0;
+    const rvol = avgVol > 0 ? todayVol / avgVol : 0;
+
+    // ─── M1: 돌파 패턴 (35%) ───
+    let s1 = 20;
+    const ma5Above = lma5 != null && lma20 != null && price > lma5 && lma5 > lma20;
+    if (prevHigh != null && price > prevHigh) s1 = 90;
+    else if (todayOpen != null && price > todayOpen && ma5Above) s1 = 70;
+    else if (todayOpen != null && price > todayOpen) s1 = 50;
+
+    // ─── M2: 양봉 시가 지지 (25%) ───
+    let s2 = 30;
+    if (todayOpen != null && prevClose != null) {
+        const isBull = todayOpen > prevClose; // gap up
+        if (isBull && price >= todayOpen) s2 = 85;
+        else if (price >= todayOpen) s2 = 60;
+        else s2 = 20;
+    }
+
+    // ─── M3: 거래량 (20%) ───
+    let s3 = 20;
+    if (rvol >= 2.0) s3 = 95;
+    else if (rvol >= 1.5) s3 = 78;
+    else if (rvol >= 1.0) s3 = 50;
+
+    // ─── M4: 이평선 정배열 (10%) ───
+    let s4 = 20;
+    if (lma5 != null && lma20 != null) {
+        if (lma5 > lma20 && price > lma5) s4 = 90;
+        else if (price > lma5) s4 = 55;
+    }
+
+    // ─── M5: 위험 패턴 (10%) ───
+    let s5 = 100;
+    // 장대양봉 시가 복귀 감지 (최근 5봉)
+    for (let i = N - 5; i < N - 1; i++) {
+        if (i < 0) continue;
+        const o = opens[i], c = closes[i];
+        if (o == null || c == null || o === 0) continue;
+        const bodyPct = (c - o) / o * 100;
+        if (bodyPct >= 3.0) {
+            const returnPct = (price - o) / o * 100;
+            if (returnPct <= 0.3 && returnPct >= -1.5) { s5 = 0; break; }
+        }
+    }
+
+    // ─── 종합 ───
+    const score = Math.round(s1 * 0.35 + s2 * 0.25 + s3 * 0.20 + s4 * 0.10 + s5 * 0.10);
+    return {
+        score,
+        s1, s2, s3, s4, s5,
+        price: +price.toFixed(2),
+        prevHigh: prevHigh != null ? +prevHigh.toFixed(2) : null,
+        todayOpen: todayOpen != null ? +todayOpen.toFixed(2) : null,
+        rvol: +rvol.toFixed(2),
+        ma5: lma5 != null ? +lma5.toFixed(2) : null,
+        ma20: lma20 != null ? +lma20.toFixed(2) : null,
+        breakAboveYH: prevHigh != null && price > prevHigh,
+        breakAboveOpen: todayOpen != null && price > todayOpen,
+        maAligned: lma5 != null && lma20 != null && lma5 > lma20,
+        dangerPattern: s5 < 50,
+    };
+}
+
+app.get('/api/breakout-scan', async (req, res) => {
+    const now = Date.now();
+    if (_breakoutScanCache.data && now - _breakoutScanCache.ts < BREAKOUT_SCAN_TTL) {
+        return res.json(_breakoutScanCache.data);
+    }
+    try {
+        const [active, gainers] = await Promise.all([
+            _fetchScreenerSymbols('most_actives', 50),
+            _fetchScreenerSymbols('day_gainers', 50),
+        ]);
+        const symbols = [...new Set([...active.symbols, ...gainers.symbols])].slice(0, 80);
+
+        // 시세 배치 조회 (현재가·시가·거래량 한 번에)
+        const quotes = await _fetchYahooQuoteBatch(symbols).catch(() => []);
+        const quoteMap = new Map(quotes.map(q => [q.symbol, q]));
+
+        const CHUNK = 10;
+        const all = [];
+        for (let i = 0; i < symbols.length; i += CHUNK) {
+            const chunk = symbols.slice(i, i + CHUNK);
+            const chunkResults = await Promise.all(chunk.map(async (sym) => {
+                try {
+                    const quote = quoteMap.get(sym);
+                    if (!quote || !quote.regularMarketPrice) return null;
+                    // 6mo 일봉 (MA20·전일고점·위험패턴 산정)
+                    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=6mo&interval=1d`;
+                    const data = await yfRequest(url);
+                    const r = data?.chart?.result?.[0];
+                    if (!r) return null;
+                    const q = r.indicators?.quote?.[0];
+                    if (!q?.close) return null;
+                    const meta = r.meta;
+                    const a = _breakoutAnalyzeServer(q.close, q.high, q.low, q.open, q.volume, quote);
+                    if (!a) return null;
+                    return {
+                        symbol: sym,
+                        name: meta?.shortName || meta?.longName || sym,
+                        changePct: quote.regularMarketChangePercent != null ? +quote.regularMarketChangePercent.toFixed(2) : null,
+                        ...a,
+                    };
+                } catch (e) { return null; }
+            }));
+            all.push(...chunkResults.filter(Boolean));
+        }
+
+        // score >= 60 ("진입 가능") 필터
+        const filtered = all.filter(r => r.score >= 60);
+        filtered.sort((a, b) => b.score - a.score);
+        const top = filtered.slice(0, 50);
+
+        _breakoutScanCache = { ts: now, data: { results: top, totalScanned: all.length, scannedAt: new Date().toISOString() } };
+        res.json(_breakoutScanCache.data);
+    } catch (err) {
+        console.error('[breakout-scan]', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ── 종목 검색 (Yahoo Finance search API 프록시) ─────────────────────────
 app.get('/api/search', async (req, res) => {
     // 길이 제한 + 위험 문자 제거 (Yahoo API 남용 방지)
