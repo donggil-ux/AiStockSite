@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=592">
+    <link rel="stylesheet" href="/styles.css?v=593">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -812,8 +812,11 @@
                         <button class="draw-tb-btn" id="drawBtnFib" onclick="setDrawTool('fib')" title="피보나치 되돌림">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="2" y1="4" x2="22" y2="4" stroke-dasharray="2 2"/><line x1="2" y1="9" x2="22" y2="9"/><line x1="2" y1="14" x2="22" y2="14" stroke-dasharray="4 2"/><line x1="2" y1="20" x2="22" y2="20"/><text x="1" y="3" fill="currentColor" font-size="5" font-weight="700">F</text></svg>
                         </button>
-                        <button class="draw-tb-btn" id="drawBtnAngle" onclick="setDrawTool('angle')" title="각도자 (빗각도)">
+                        <button class="draw-tb-btn" id="drawBtnAngle" onclick="setDrawTool('angle')" title="각도자 (수동: 두 점 드래그)">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="20" x2="21" y2="20"/><line x1="3" y1="20" x2="19" y2="6"/><path d="M10 20 A7 7 0 0 0 8 15.5" stroke-width="1.4"/><text x="11" y="18" fill="currentColor" font-size="5.5" font-weight="700" stroke="none">°</text></svg>
+                        </button>
+                        <button class="draw-tb-btn" id="drawBtnAutoAngle" onclick="addAutoTrendAngle()" title="자동 추세각도 — 최근 40봉 선형회귀로 각도 자동 표시">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="3"/></svg>
                         </button>
                         <div class="draw-tb-divider"></div>
                         <!-- 색상 -->
@@ -11215,6 +11218,62 @@
         }
     }
 
+    // 자동 추세각도: 최근 40봉 선형회귀 → angle 객체로 추가
+    function addAutoTrendAngle() {
+        if (typeof stockData === 'undefined' || !stockData) {
+            if (typeof showToast === 'function') showToast('종목을 먼저 검색하세요');
+            return;
+        }
+        const q = stockData.indicators?.quote?.[0];
+        const ts = stockData.timestamp;
+        if (!q?.close || !ts) {
+            if (typeof showToast === 'function') showToast('차트 데이터가 없습니다');
+            return;
+        }
+        // 최근 40개 유효 캔들 추출
+        const pairs = [];
+        for (let i = ts.length - 1; i >= 0 && pairs.length < 40; i--) {
+            const c = q.close[i];
+            if (c != null && ts[i] != null) pairs.unshift({ t: ts[i], p: c });
+        }
+        if (pairs.length < 10) {
+            if (typeof showToast === 'function') showToast('데이터 부족 — 10봉 이상 필요');
+            return;
+        }
+        // 선형회귀 y = a + b*x (x = 인덱스)
+        const n = pairs.length;
+        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+        pairs.forEach((p, i) => {
+            sumX += i; sumY += p.p; sumXY += i * p.p; sumXX += i * i;
+        });
+        const denom = n * sumXX - sumX * sumX;
+        if (denom === 0) { if (typeof showToast === 'function') showToast('회귀 계산 실패'); return; }
+        const slope = (n * sumXY - sumX * sumY) / denom;
+        const intercept = (sumY - slope * sumX) / n;
+        const startPrice = intercept;
+        const endPrice   = intercept + slope * (n - 1);
+        // 그리기 toolbar 가 닫혀 있으면 펼치기 (각도 라인이 보이도록)
+        const bar = document.getElementById('drawToolbar');
+        if (bar && bar.style.display === 'none') toggleDrawToolbar();
+        // drawObjects 에 angle 추가 — 기존 렌더 로직 그대로 사용
+        drawObjects.push({
+            type: 'angle',
+            points: [
+                { time: pairs[0].t, price: startPrice },
+                { time: pairs[n-1].t, price: endPrice },
+            ],
+            color: '#a78bfa',
+            width: 2,
+        });
+        try { redrawCanvas(); } catch(e) {}
+        try { updateDrawBadge(); } catch(e) {}
+        const slopePctPerBar = (slope / (intercept || 1)) * 100;
+        if (typeof showToast === 'function') {
+            const dir = slope > 0 ? '상승' : slope < 0 ? '하락' : '횡보';
+            showToast(`📐 최근 ${n}봉 ${dir} 추세각도 표시 · 봉당 ${slopePctPerBar >= 0 ? '+' : ''}${slopePctPerBar.toFixed(2)}%`);
+        }
+    }
+
     function setDrawTool(tool) {
         drawTool = tool;
         drawState = null;
@@ -19945,7 +20004,7 @@
         setMarket, searchStock, setChartInterval, setPeriod, _toggleIntervalDropdown,
         quickSearch, toggleFavorite, switchTab, toggleChartFullscreen,
         favSearch, removeFavorite, setTop100Filter, goTop100,
-setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawToolbar,
+setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawToolbar, addAutoTrendAngle,
         toggleTheme, showLoading, hideLoading, showToast, showSnackbar,
         openChangelog, closeChangelog,
         loadOptionsDate, setOptionsFilter,
