@@ -85,16 +85,18 @@
             <span class="pwa-install-icon">&#8681;</span>
             <span>앱 설치하기</span>
         </button>
-        <button class="changelog-btn" id="changelogBtn" onclick="openChangelog();closeSideNav();">
-            <span class="changelog-icon"><i class="ri-megaphone-fill"></i></span>
-            <span>기능 업데이트 내용</span>
-            <span class="changelog-badge" id="changelogBadge" style="display:none;">NEW</span>
-        </button>
-        <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()">
-            <span class="theme-icon" id="themeIcon">&#9790;</span>
-            <span id="themeLabel">다크 모드</span>
-            <span class="theme-switch dark" id="themeSwitch"></span>
-        </button>
+        <div class="side-nav-footer-row">
+            <button class="changelog-btn" id="changelogBtn" onclick="openChangelog();closeSideNav();">
+                <span class="changelog-icon"><i class="ri-megaphone-fill"></i></span>
+                <span class="changelog-label">기능 업데이트</span>
+                <span class="changelog-badge" id="changelogBadge" style="display:none;">N</span>
+            </button>
+            <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()">
+                <span class="theme-icon" id="themeIcon">&#9790;</span>
+                <span id="themeLabel">다크 모드</span>
+                <span class="theme-switch dark" id="themeSwitch"></span>
+            </button>
+        </div>
     </div>
 </nav>
 <div class="side-nav-backdrop" id="sideNavBackdrop" onclick="closeSideNav()"></div>
