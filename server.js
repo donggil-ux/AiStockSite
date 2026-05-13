@@ -947,12 +947,25 @@ app.get('/api/sepa-scan', async (req, res) => {
             all.push(...chunkResults.filter(Boolean));
         }
 
-        // SEPA 70+ 종목만 필터
-        const filtered = all.filter(r => r.score >= 70);
-        filtered.sort((a, b) => b.score - a.score);
-        const top = filtered.slice(0, 50);
+        // 점수 내림차순 정렬
+        all.sort((a, b) => b.score - a.score);
+        // 1차: 70+ 종목 (Minervini 기준)
+        // 2차: 70+ 부재 시 50+ 상위 30개 (시장 약세 폴백)
+        // 3차: 둘 다 부재 시 상위 20개 (참고용)
+        const tier1 = all.filter(r => r.score >= 70);
+        const tier2 = all.filter(r => r.score >= 50);
+        let top, tierUsed;
+        if (tier1.length >= 5)       { top = tier1.slice(0, 50); tierUsed = 'strict'; }
+        else if (tier2.length >= 3)  { top = tier2.slice(0, 30); tierUsed = 'relaxed'; }
+        else                         { top = all.slice(0, 20);   tierUsed = 'fallback'; }
 
-        _sepaScanCache = { ts: now, data: { results: top, totalScanned: all.length, scannedAt: new Date().toISOString() } };
+        _sepaScanCache = { ts: now, data: {
+            results: top,
+            totalScanned: all.length,
+            scannedAt: new Date().toISOString(),
+            tierUsed,
+            counts: { tier1: tier1.length, tier2: tier2.length, total: all.length },
+        } };
         res.json(_sepaScanCache.data);
     } catch (err) {
         console.error('[sepa-scan]', err.message);

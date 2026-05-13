@@ -5129,9 +5129,18 @@
             if (_alphaTab !== 'sepa') return;
             const results = Array.isArray(d.results) ? d.results : [];
             if (!results.length) {
-                el.innerHTML = _alphaTimingGuide('sepa') + '<div class="sniper-empty">현재 SEPA 70+ 종목이 없습니다 — 4시간 후 재시도</div>';
+                el.innerHTML = _alphaTimingGuide('sepa') + '<div class="sniper-empty">스캔 결과 없음 — 잠시 후 다시 시도</div>';
                 return;
             }
+            // 임계값 등급 안내
+            const tierBanner = (() => {
+                if (d.tierUsed === 'strict') return '';
+                const counts = d.counts || {};
+                if (d.tierUsed === 'relaxed') {
+                    return `<div style="margin:6px 0 8px;padding:8px 12px;border-radius:8px;background:rgba(234,179,8,.10);border:1px solid rgba(234,179,8,.4);font-size:12px;color:#eab308;font-weight:600;">⚠️ SEPA 70+ 종목이 ${counts.tier1 || 0}개로 적어 50+ 상위 ${results.length}개를 보여줍니다 (시장 약세).</div>`;
+                }
+                return `<div style="margin:6px 0 8px;padding:8px 12px;border-radius:8px;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.4);font-size:12px;color:#ef4444;font-weight:600;">⚠️ SEPA 50+ 종목이 부족해 상위 ${results.length}개를 참고용으로 보여줍니다 (전반적 약세 시장).</div>`;
+            })();
             const cards = results.map((r, idx) => {
                 const scoreColor = r.score >= 85 ? '#22c55e' : r.score >= 70 ? '#eab308' : '#ef4444';
                 const scoreLabel = r.score >= 85 ? '최적' : r.score >= 70 ? '양호' : '미충족';
@@ -5167,6 +5176,7 @@
             }).join('');
             const scannedAgo = d.scannedAt ? ` · ${Math.round((Date.now() - new Date(d.scannedAt).getTime()) / 60000)}분 전 스캔` : '';
             el.innerHTML = _alphaTimingGuide('sepa')
+                + tierBanner
                 + `<div style="font-size:12px;color:var(--text2);margin:6px 0 8px;">🎯 ${results.length}개 종목 발굴 (전체 ${d.totalScanned}개 스캔${scannedAgo})</div>`
                 + cards;
         } catch (e) {
