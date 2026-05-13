@@ -184,7 +184,7 @@
         .side-nav-collapse-btn{display:none;}
 
         /* ===== HEADER - 토스증권 스타일 ===== */
-        .header{position:sticky;top:0;z-index:1100;background:color-mix(in srgb, var(--bg) 92%, transparent);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);padding:16px 16px 12px;padding-top:calc(16px + env(safe-area-inset-top));}
+        .header{position:sticky;top:0;z-index:1100;background:color-mix(in srgb, var(--bg) 92%, transparent);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);padding:16px 16px 6px;padding-top:calc(16px + env(safe-area-inset-top));}
         .header-top{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
         /* 헤더 검색 아이콘 버튼 */
         .header-search-icon-btn{
@@ -1958,7 +1958,7 @@
         /* ===== MOBILE (≤640px) ===== */
         @media(max-width:640px){
             /* ----- Header ----- */
-            .header{padding:10px 16px 10px;padding-top:calc(10px + env(safe-area-inset-top));}
+            .header{padding:10px 16px 4px;padding-top:calc(10px + env(safe-area-inset-top));}
             .header-top{flex-wrap:nowrap;gap:4px;margin-bottom:6px;}
             /* 로고 좌측, 아이콘은 우측 (margin-left:auto로 push) */
             .logo{font-size:22px;flex:0 0 auto;text-align:left;}
