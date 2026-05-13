@@ -452,8 +452,8 @@
             border-radius:14px;overflow:hidden;
             transition:border-color .15s;
         }
-        .alpha-card.alpha-tier1{border-color:rgba(12,245,176,0.25);}
-        .alpha-card.alpha-tier2{border-color:rgba(255,214,10,0.18);}
+        .alpha-card.alpha-tier1,
+        .alpha-card.alpha-tier2,
         .alpha-card.alpha-tier3{border-color:var(--border);}
         .alpha-card:hover{border-color:var(--text3);}
 
