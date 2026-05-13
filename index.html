@@ -894,9 +894,6 @@
             <!-- 손익비 (R/R) 분석 — 일시 숨김 (v531) -->
             <div id="rrAnalysis" style="display:none"></div>
 
-            <!-- 🔬 퀀트 분석 카드: 모멘텀 / 위험 / 시장 대비 / 평균회귀 + 종합 점수 -->
-            <div id="quantAnalysis"></div>
-
             <!-- 🎯 Minervini SEPA 분석 카드: 트렌드 템플릿 + VCP + RS + 거래량 + 종합점수 -->
             <div id="sepaAnalysis"></div>
 
@@ -9280,7 +9277,6 @@
             renderRRAnalysis();
             try { renderRaynerAnalysis(); } catch (e) { console.warn('[rayner] render fail', e); }
             try { _renderMultiFactorCard(); } catch (e) { console.warn('[mf] render fail', e); }
-            try { renderQuantAnalysis(); } catch (e) { console.warn('[quant] render fail', e); }
             try { renderMinerviniSEPA(); } catch (e) { console.warn('[sepa] render fail', e); }
             try { if (typeof renderGuruHolders === 'function' && typeof currentSymbol !== 'undefined') renderGuruHolders(currentSymbol); } catch {}
             rrWidgetAutoFill();
@@ -9872,7 +9868,6 @@
             renderRRAnalysis();
             try { renderRaynerAnalysis(); } catch (e) { console.warn('[rayner] render fail', e); }
             try { _renderMultiFactorCard(); } catch (e) { console.warn('[mf] render fail', e); }
-            try { renderQuantAnalysis(); } catch (e) { console.warn('[quant] render fail', e); }
             try { renderMinerviniSEPA(); } catch (e) { console.warn('[sepa] render fail', e); }
             try { if (typeof renderGuruHolders === 'function' && typeof currentSymbol !== 'undefined') renderGuruHolders(currentSymbol); } catch {}
             rrWidgetAutoFill();
