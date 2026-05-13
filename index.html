@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=605">
+    <link rel="stylesheet" href="/styles.css?v=606">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -11603,17 +11603,15 @@
         resistances.forEach(r => addLine(r.price, 'rgba(239,68,68,0.55)', `저항 $${r.price.toFixed(2)}`));
         supports.forEach(s => addLine(s.price, 'rgba(59,130,246,0.55)', `지지 $${s.price.toFixed(2)}`));
 
-        // 5) 매매 전략 라인 — ATR(14) 기반 5단계 분할매수 + 손절 + 익절
+        // 5) 매매 전략 라인 — ATR(14) 기반 3단계 분할매수 + 익절
         const atrArr = calcATR(highs, lows, closes, 14);
         const atr = lastVal(atrArr);
         if (atr != null && atr > 0 && lastClose != null && lastClose > 0) {
             const isKR = currentMarket === 'KR';
             const fmtP = p => isKR ? Math.round(p).toLocaleString() + '원' : '$' + p.toFixed(2);
             const e1 = lastClose;
-            const e2 = lastClose - atr * 0.3;
-            const e3 = lastClose - atr * 0.6;
-            const e4 = lastClose - atr * 1.0;
-            const e5 = lastClose - atr * 1.5;
+            const e2 = lastClose - atr * 0.5;
+            const e3 = lastClose - atr * 1.0;
             const tp1 = lastClose + atr * 2.0;
             const tp2 = lastClose + atr * 3.5;
 
@@ -11627,12 +11625,10 @@
                 } catch(e) {}
             };
             // 0=Solid, 1=Dotted, 2=Dashed (LWC LineStyle)
-            // 분할매수 5단계 — 1차는 굵은 실선(즉시 진입), 2~5차는 점선 (단계별 색상 진행)
+            // 분할매수 3단계 — 1차는 굵은 실선(즉시 진입), 2~3차는 점선
             addStratLine(e1, '#22c55e', 0, 3, `1차 매수 ${fmtP(e1)}`);
-            addStratLine(e2, '#84cc16', 2, 2, `2차 매수 ${fmtP(e2)}`);
-            addStratLine(e3, '#a3e635', 2, 2, `3차 매수 ${fmtP(e3)}`);
-            addStratLine(e4, '#eab308', 2, 2, `4차 매수 ${fmtP(e4)}`);
-            addStratLine(e5, '#f97316', 2, 2, `5차 매수 ${fmtP(e5)}`);
+            addStratLine(e2, '#a3e635', 2, 2, `2차 매수 ${fmtP(e2)}`);
+            addStratLine(e3, '#eab308', 2, 2, `3차 매수 ${fmtP(e3)}`);
             // 익절
             addStratLine(tp1, '#22d3ee', 2, 2, `익절1 ${fmtP(tp1)}`);
             addStratLine(tp2, '#3b82f6', 2, 2, `익절2 ${fmtP(tp2)}`);
@@ -13645,9 +13641,9 @@
             if (card) card.style.borderColor = 'var(--red)';
         }
 
-        // 분할 매수 계산기 데이터 전달
-        const e1 = price, e2 = price - atr*0.3, e3 = price - atr*0.6, e4 = price - atr*1.0, e5 = price - atr*1.5;
-        window._sc = { prices: [e1, e2, e3, e4, e5], tp1, tp2, sl, isKR, atr };
+        // 분할 매수 계산기 데이터 전달 (3단계)
+        const e1 = price, e2 = price - atr*0.5, e3 = price - atr*1.0;
+        window._sc = { prices: [e1, e2, e3], tp1, tp2, sl, isKR, atr };
         renderSplitCalc();
     }
 
@@ -16980,16 +16976,16 @@
             if (isKR) return Math.round(v).toLocaleString('en-US');
             return parseFloat(v.toFixed(v >= 10 ? 2 : v >= 1 ? 3 : 4)).toString();
         };
-        // 매수 2~5차 — 하락할수록 더 큰 ATR 배수 (분할 매수)
-        const buyMults = [0.3, 0.6, 1.0, 1.5];
+        // 매수 2~3차 — 하락할수록 더 큰 ATR 배수 (분할 매수 3단계)
+        const buyMults = [0.5, 1.0];
         buyMults.forEach((m, i) => {
             const el = document.getElementById('fabP' + (i + 1));
             if (el && !el.dataset.userEdited) {
                 el.value = toComma(Math.max(0, p0 - atr * m));
             }
         });
-        // 매도 1~5차 — 상승할수록 더 큰 ATR 배수 (분할 매도)
-        const sellMults = [1.0, 2.0, 3.0, 5.0, 8.0];
+        // 매도 1~3차 — 상승할수록 더 큰 ATR 배수 (분할 매도 3단계)
+        const sellMults = [1.5, 3.0, 5.0];
         sellMults.forEach((m, i) => {
             const el = document.getElementById('fabS' + i);
             if (el && !el.dataset.userEdited) {
@@ -17012,12 +17008,10 @@
 
         const badgeStyles = [
             'background:rgba(12,245,176,.22);color:var(--green)',
-            'background:rgba(12,245,176,.14);color:var(--green)',
             'background:rgba(234,179,8,.18);color:var(--yellow)',
-            'background:rgba(234,179,8,.12);color:var(--yellow)',
             'background:rgba(255,69,58,.18);color:var(--red)'
         ];
-        const priceLabels = ['즉시 진입', 'ATR × 0.3', 'ATR × 0.6', 'ATR × 1.0', 'ATR × 1.5'];
+        const priceLabels = ['즉시 진입', 'ATR × 0.5', 'ATR × 1.0'];
 
         const toComma = v => v === '' || v == null ? '' : Number(v).toLocaleString('en-US', {maximumFractionDigits: isKR ? 0 : 2});
         const priceRows = priceLabels.map((lbl, i) => {
@@ -17033,12 +17027,10 @@
         // ── 분할매도 (5단계) ──
         const sellBadgeStyles = [
             'background:rgba(0,128,251,.18);color:var(--blue)',
-            'background:rgba(0,128,251,.14);color:var(--blue)',
             'background:rgba(34,211,238,.18);color:var(--cyan)',
-            'background:rgba(34,211,238,.14);color:var(--cyan)',
             'background:rgba(191,90,242,.18);color:var(--purple)',
         ];
-        const sellLabels = ['ATR × 1.0', 'ATR × 2.0', 'ATR × 3.0', 'ATR × 5.0', 'ATR × 8.0'];
+        const sellLabels = ['ATR × 1.5', 'ATR × 3.0', 'ATR × 5.0'];
 
         // ATR 값
         const atrVal  = (sc && typeof sc.atr === 'number' && !isNaN(sc.atr)) ? sc.atr : 0;
@@ -17046,7 +17038,7 @@
 
         // 진입가 + ATR×N 으로 기본값 자동 계산
         const baseEntry = (sc?.prices?.[0] != null && !isNaN(sc.prices[0])) ? sc.prices[0] : 0;
-        const sellDefaults = [1.0, 2.0, 3.0, 5.0, 8.0].map(m => baseEntry > 0 && atrVal > 0 ? baseEntry + atrVal * m : 0);
+        const sellDefaults = [1.5, 3.0, 5.0].map(m => baseEntry > 0 && atrVal > 0 ? baseEntry + atrVal * m : 0);
         const sellRows = sellLabels.map((lbl, i) => {
             const val = sellDefaults[i] > 0 ? toComma(fmtV(sellDefaults[i])) : '';
             return `<div class="fab-price-row">
@@ -17080,9 +17072,9 @@
             <div class="sc-input-group" style="margin-bottom:14px;">
                 <label>비중 방식</label>
                 <select id="fabMode" onchange="_calcSplitFab()">
-                    <option value="equal">균등 배분 (20% × 5)</option>
-                    <option value="pyramid">역피라미드 — 하락할수록 더 많이 (10·15·20·25·30%)</option>
-                    <option value="front">전방 집중 — 지금 더 많이 (30·25·20·15·10%)</option>
+                    <option value="equal">균등 배분 (33% × 3)</option>
+                    <option value="pyramid">역피라미드 — 하락할수록 더 많이 (20·30·50%)</option>
+                    <option value="front">전방 집중 — 지금 더 많이 (50·30·20%)</option>
                 </select>
             </div>
 
@@ -17108,9 +17100,9 @@
                 <div class="sc-input-group" style="margin-bottom:14px;">
                     <label>매도 비중 방식</label>
                     <select id="fabSellMode" onchange="_calcSplitFab()">
-                        <option value="equal">균등 분할 (20% × 5)</option>
-                        <option value="pyramid">피라미드 — 상승할수록 더 많이 (10·15·20·25·30%)</option>
-                        <option value="front" selected>전방 집중 — 초반 익절 (30·25·20·15·10%)</option>
+                        <option value="equal">균등 분할 (33% × 3)</option>
+                        <option value="pyramid">피라미드 — 상승할수록 더 많이 (20·30·50%)</option>
+                        <option value="front" selected>전방 집중 — 초반 익절 (50·30·20%)</option>
                     </select>
                 </div>
                 <div style="overflow-x:auto;">
@@ -17152,7 +17144,7 @@
         const budget   = parseFloat(stripC(document.getElementById('fabBudget')?.value)) || 0;
         const firstAmt = parseFloat(stripC(document.getElementById('fabFirst')?.value))  || 0;
         const mode     = document.getElementById('fabMode')?.value || 'equal';
-        const prices   = [0,1,2,3,4].map(i => parseFloat(stripC(document.getElementById('fabP'+i)?.value)) || 0);
+        const prices   = [0,1,2].map(i => parseFloat(stripC(document.getElementById('fabP'+i)?.value)) || 0);
         const tp1      = sc?.tp1  || null;
         const slPrice  = sc?.sl   || null;
 
@@ -17166,8 +17158,8 @@
         const fmtA  = v => isKR ? Math.round(v).toLocaleString()+'원' : '$'+(v<1000?v.toFixed(2):Math.round(v).toLocaleString());
         const fmtSh = v => isKR ? Math.round(v).toLocaleString()+'주' : (v>=1?v.toFixed(2):v.toFixed(4))+'주';
 
-        const allW = { equal:[20,20,20,20,20], pyramid:[10,15,20,25,30], front:[30,25,20,15,10] };
-        const remW = { equal:[25,25,25,25],    pyramid:[15,20,30,35],   front:[35,30,20,15]   };
+        const allW = { equal:[33,33,34], pyramid:[20,30,50], front:[50,30,20] };
+        const remW = { equal:[50,50],    pyramid:[30,70],     front:[70,30]   };
 
         let amounts;
         if (firstAmt > 0) {
@@ -17189,9 +17181,7 @@
 
         const badges = [
             'background:rgba(12,245,176,.22);color:var(--green)',
-            'background:rgba(12,245,176,.14);color:var(--green)',
             'background:rgba(234,179,8,.18);color:var(--yellow)',
-            'background:rgba(234,179,8,.12);color:var(--yellow)',
             'background:rgba(255,69,58,.18);color:var(--red)'
         ];
 
@@ -17257,22 +17247,20 @@
         const isKR = sc ? sc.isKR : (typeof currentMarket !== 'undefined' && currentMarket === 'KR');
         const stripC = v => (v||'').replace(/,/g,'');
         const sellMode = document.getElementById('fabSellMode')?.value || 'front';
-        const sellPrices = [0,1,2,3,4].map(i => parseFloat(stripC(document.getElementById('fabS'+i)?.value)) || 0);
+        const sellPrices = [0,1,2].map(i => parseFloat(stripC(document.getElementById('fabS'+i)?.value)) || 0);
 
         const fmtP  = v => isKR ? Math.round(v).toLocaleString()+'원' : '$'+v.toFixed(2);
         const fmtA  = v => isKR ? Math.round(v).toLocaleString()+'원' : '$'+(v<1000?v.toFixed(2):Math.round(v).toLocaleString());
         const fmtSh = v => isKR ? Math.round(v).toLocaleString()+'주' : (v>=1?v.toFixed(2):v.toFixed(4))+'주';
 
-        // 매도 비중 분배 (각 차수에 매도할 주식 비율)
-        const weights = sellMode === 'equal' ? [20,20,20,20,20]
-                      : sellMode === 'pyramid' ? [10,15,20,25,30]
-                      : [30,25,20,15,10]; // front (default)
+        // 매도 비중 분배 (각 차수에 매도할 주식 비율 — 3단계)
+        const weights = sellMode === 'equal' ? [33,33,34]
+                      : sellMode === 'pyramid' ? [20,30,50]
+                      : [50,30,20]; // front (default)
 
         const sellBadges = [
             'background:rgba(0,128,251,.18);color:var(--blue)',
-            'background:rgba(0,128,251,.14);color:var(--blue)',
             'background:rgba(34,211,238,.18);color:var(--cyan)',
-            'background:rgba(34,211,238,.14);color:var(--cyan)',
             'background:rgba(191,90,242,.18);color:var(--purple)',
         ];
 
