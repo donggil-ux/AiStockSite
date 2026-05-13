@@ -47,7 +47,7 @@
     },
     {
       "src": "/styles.css",
-      "headers": { "Content-Type": "text/css; charset=utf-8", "Cache-Control": "public, max-age=3600, must-revalidate" },
+      "headers": { "Content-Type": "text/css; charset=utf-8", "Cache-Control": "public, max-age=0, must-revalidate" },
       "dest": "/styles.css"
     },
     {
