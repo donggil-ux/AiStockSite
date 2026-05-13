@@ -1734,6 +1734,23 @@
         economic: () => goEconomic(),
     };
 
+    const _VIEW_TITLES = {
+        home:       'StockAI — 주식 종목 분석',
+        smartmoney: '기관 포트폴리오 — StockAI',
+        scanner:    '알파 스캐너 — StockAI',
+        earnings:   '실적발표 일정 — StockAI',
+        leverage:   '레버리지 ETF — StockAI',
+        vision:     'AI 차트 판독기 — StockAI',
+        economic:   '경제지표 — StockAI',
+    };
+
+    function _setDocTitle(view) {
+        try {
+            const t = _VIEW_TITLES[view];
+            if (t) document.title = t;
+        } catch (_) {}
+    }
+
     function _pushRoute(view, extra = {}) {
         if (_historySkip) return;
         const cur = history.state || {};
@@ -1744,6 +1761,7 @@
         else if (view === 'stock' && extra.symbol) url = `?s=${encodeURIComponent(extra.symbol)}`;
         else url = `?view=${encodeURIComponent(view)}`;
         try { history.pushState({ view, ...extra }, '', url); } catch (_) {}
+        if (view !== 'stock') _setDocTitle(view);
     }
 
     function _restoreFromUrl() {
@@ -9479,6 +9497,11 @@
                 const _pc = _m.chartPreviousClose ?? (_cls.length>1?_cls[_cls.length-2]:_p);
                 const _chgPct = _pc ? (_p-_pc)/_pc*100 : 0;
                 saveRecentStock(currentSymbol, _m.longName||_m.shortName||currentSymbol, _p, _chgPct, currentMarket);
+                // 브라우저 탭 제목에 종목명 표시
+                try {
+                    const stockName = _m.longName || _m.shortName || currentSymbol;
+                    document.title = `${stockName} (${currentSymbol}) — StockAI`;
+                } catch(_) {}
             } catch(e) {}
 
             // Show stock UI, hide all screens
