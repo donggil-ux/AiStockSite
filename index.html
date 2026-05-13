@@ -314,8 +314,7 @@
         <div class="sm-screen-sub">목적별로 AI가 추천하는 종목, 탭을 선택하면 분석 결과를 보여드립니다</div>
         <!-- 4-카테고리 세그먼트 탭 -->
         <div class="alpha-tabs" id="alphaTabs">
-            <button class="alpha-tab active" data-tab="surge"    onclick="_alphaSwitchTab('surge')">급등 예상</button>
-            <button class="alpha-tab"        data-tab="bounce"   onclick="_alphaSwitchTab('bounce')">과매도 반등</button>
+            <button class="alpha-tab active" data-tab="bounce"   onclick="_alphaSwitchTab('bounce')">과매도 반등</button>
             <button class="alpha-tab"        data-tab="daytrade" onclick="_alphaSwitchTab('daytrade')">단타 진입</button>
             <button class="alpha-tab"        data-tab="swing"    onclick="_alphaSwitchTab('swing')">스윙 진입</button>
             <button class="alpha-tab"        data-tab="dante"    onclick="_alphaSwitchTab('dante')">단테 스캐너</button>
@@ -4843,7 +4842,7 @@
         updateBnActive('scanner');
         window.scrollTo({ top: 0, behavior: 'smooth' });
         // 새 알파 스캐너 — 현재 활성 탭의 데이터 로드
-        _alphaSwitchTab(_alphaTab || 'surge');
+        _alphaSwitchTab(_alphaTab && _alphaTab !== 'surge' ? _alphaTab : 'bounce');
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -4853,7 +4852,7 @@
     //   - daytrade: 단타 진입 (ATR·거래량·당일 변동성 강한 종목)
     //   - swing   : 스윙 진입 (R/R ≥ 1.5, 52주 고점까지 여유)
     // ═══════════════════════════════════════════════════════════
-    let _alphaTab = 'surge';
+    let _alphaTab = 'bounce';
 
     // ── 급등 예상 적중률 추적 ────────────────────────────────────
     // localStorage 에 추천 시점 가격을 저장 → 3일 뒤 현재가와 비교
@@ -5037,21 +5036,7 @@
         if (!el) return;
         el.innerHTML = _alphaTimingGuide(tab) + '<div class="sniper-loading">' + Array(6).fill('<div class="sniper-skel"></div>').join('') + '</div>';
         try {
-            if (tab === 'surge') {
-                const r = await fetch('/api/discover?preset=vol_surge');
-                if (!r.ok) throw new Error('http ' + r.status);
-                const d = await r.json();
-                const items = (Array.isArray(d.items) ? d.items : []).slice(0, 30);
-                if (_alphaTab !== 'surge') return;
-                // 추천 종목 추적 + 기존 추천 평가 (병렬)
-                _recordAlphaSurgePicks(items);
-                _evaluateAlphaSurgePicks().then(() => {
-                    if (_alphaTab !== 'surge') return;
-                    const statsEl = document.getElementById('alphaSurgeStats');
-                    if (statsEl) statsEl.outerHTML = _alphaSurgeStatsHTML(_loadAlphaSurgePicks());
-                });
-                _alphaRender(items.map(q => ({ ...q, _alphaKind: 'surge' })), tab);
-            } else if (tab === 'bounce') {
+            if (tab === 'bounce') {
                 const r = await fetch('/api/oversold-radar?tab=oversold');
                 if (!r.ok) throw new Error('http ' + r.status);
                 const d = await r.json();
