@@ -971,12 +971,13 @@ app.get('/api/sepa-scan', async (req, res) => {
 const BREAKOUT_SCAN_TTL = 30 * 60 * 1000;
 let _breakoutScanCache = { ts: 0, data: null };
 
-function _breakoutAnalyzeServer(closes, highs, lows, opens, volumes, currentQuote) {
+function _breakoutAnalyzeServer(closes, highs, lows, opens, volumes, meta) {
     if (!closes || closes.length < 30) return null;
     const N = closes.length;
-    const price = currentQuote.regularMarketPrice ?? closes[N - 1];
-    const todayOpen = currentQuote.regularMarketOpen;
-    const todayVol = currentQuote.regularMarketVolume || 0;
+    // 마지막 봉 = 오늘 (장중이면 진행중인 봉)
+    const price = meta?.regularMarketPrice ?? closes[N - 1];
+    const todayOpen = opens[N - 1] ?? meta?.regularMarketOpen;
+    const todayVol = volumes[N - 1] ?? meta?.regularMarketVolume ?? 0;
     if (price == null || price <= 0) return null;
 
     // MA5, MA20
@@ -1070,32 +1071,29 @@ app.get('/api/breakout-scan', async (req, res) => {
         ]);
         const symbols = [...new Set([...active.symbols, ...gainers.symbols])].slice(0, 80);
 
-        // 시세 배치 조회 (현재가·시가·거래량 한 번에)
-        const quotes = await _fetchYahooQuoteBatch(symbols).catch(() => []);
-        const quoteMap = new Map(quotes.map(q => [q.symbol, q]));
-
         const CHUNK = 10;
         const all = [];
         for (let i = 0; i < symbols.length; i += CHUNK) {
             const chunk = symbols.slice(i, i + CHUNK);
             const chunkResults = await Promise.all(chunk.map(async (sym) => {
                 try {
-                    const quote = quoteMap.get(sym);
-                    if (!quote || !quote.regularMarketPrice) return null;
-                    // 6mo 일봉 (MA20·전일고점·위험패턴 산정)
                     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=6mo&interval=1d`;
                     const data = await yfRequest(url);
                     const r = data?.chart?.result?.[0];
                     if (!r) return null;
                     const q = r.indicators?.quote?.[0];
                     if (!q?.close) return null;
-                    const meta = r.meta;
-                    const a = _breakoutAnalyzeServer(q.close, q.high, q.low, q.open, q.volume, quote);
+                    const meta = r.meta || {};
+                    const a = _breakoutAnalyzeServer(q.close, q.high, q.low, q.open, q.volume, meta);
                     if (!a) return null;
+                    // 변동률 계산: 현재가 vs 전일 종가
+                    const N = q.close.length;
+                    const prevC = q.close[N - 2];
+                    const changePct = (prevC && a.price) ? +((a.price - prevC) / prevC * 100).toFixed(2) : null;
                     return {
                         symbol: sym,
                         name: meta?.shortName || meta?.longName || sym,
-                        changePct: quote.regularMarketChangePercent != null ? +quote.regularMarketChangePercent.toFixed(2) : null,
+                        changePct,
                         ...a,
                     };
                 } catch (e) { return null; }
