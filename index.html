@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=599">
+    <link rel="stylesheet" href="/styles.css?v=600">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -11102,7 +11102,7 @@
             }
         });
 
-        // 볼린저 밴드 (BB20, 2σ) — 주황 실선 + 밴드 내부 옅은 채움
+        // 볼린저 밴드 (BB20, 2σ) — 주황 실선 (채움 제거 — 지지/저항선 가독성)
         const bb = calcBollingerBands(closes, 20, 2);
         if (bb.upper.some(v => v != null)) {
             const upperData = [], lowerData = [];
@@ -11111,21 +11111,13 @@
                 if (bb.lower[i] != null) lowerData.push({ time: ts[i], value: bb.lower[i] });
             }
             const bbColor = '#f59e0b';   // amber-500
-            // 상단: Area 시리즈로 → 위쪽은 투명, 아래쪽으로 옅은 주황 채움
-            lwBbUpper = lwChart.addAreaSeries({
-                lineColor: bbColor,
-                lineWidth: 1,
-                topColor:    'rgba(245,158,11,0.10)',
-                bottomColor: 'rgba(245,158,11,0.05)',
+            lwBbUpper = lwChart.addLineSeries({
+                color: bbColor, lineWidth: 1, lineStyle: 0,
                 priceLineVisible: false, lastValueVisible: true, title: 'BB+',
                 crosshairMarkerVisible: false,
             });
-            // 하단: Area 시리즈로 → 아래쪽은 캔들 배경과 동일하게 덮어서 상단~하단 사이에만 색이 보이도록
-            lwBbLower = lwChart.addAreaSeries({
-                lineColor: bbColor,
-                lineWidth: 1,
-                topColor:    isLight ? '#ffffff' : '#111620',
-                bottomColor: isLight ? '#ffffff' : '#111620',
+            lwBbLower = lwChart.addLineSeries({
+                color: bbColor, lineWidth: 1, lineStyle: 0,
                 priceLineVisible: false, lastValueVisible: true, title: 'BB-',
                 crosshairMarkerVisible: false,
             });
@@ -16983,15 +16975,24 @@
         const p0  = strip(document.getElementById('fabP0')?.value);
         const atr = strip(document.getElementById('fabAtr')?.value);
         if (!p0 || !atr) return;
-        const mults = [0.3, 0.6, 1.0, 1.5];
         const toComma = v => {
             if (isKR) return Math.round(v).toLocaleString('en-US');
             return parseFloat(v.toFixed(v >= 10 ? 2 : v >= 1 ? 3 : 4)).toString();
         };
-        mults.forEach((m, i) => {
+        // 매수 2~5차 — 하락할수록 더 큰 ATR 배수 (분할 매수)
+        const buyMults = [0.3, 0.6, 1.0, 1.5];
+        buyMults.forEach((m, i) => {
             const el = document.getElementById('fabP' + (i + 1));
             if (el && !el.dataset.userEdited) {
                 el.value = toComma(Math.max(0, p0 - atr * m));
+            }
+        });
+        // 매도 1~5차 — 상승할수록 더 큰 ATR 배수 (분할 매도)
+        const sellMults = [1.0, 2.0, 3.0, 5.0, 8.0];
+        sellMults.forEach((m, i) => {
+            const el = document.getElementById('fabS' + i);
+            if (el && !el.dataset.userEdited) {
+                el.value = toComma(p0 + atr * m);
             }
         });
     }
@@ -17020,6 +17021,27 @@
                 <span style="display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:700;${badgeStyles[i]};flex-shrink:0;">${i+1}차</span>
                 <span class="fab-price-lbl">${lbl}</span>
                 <input type="text" inputmode="decimal" class="fab-price-input" id="fabP${i}" value="${val}" placeholder="${ph}" oninput="_fabCommaFmt(this)" ${i > 0 ? 'onfocus="delete this.dataset.userEdited" onblur="if(this.value)this.dataset.userEdited=\'1\'"' : ''}>
+            </div>`;
+        }).join('');
+
+        // ── 분할매도 (5단계) ──
+        const sellBadgeStyles = [
+            'background:rgba(0,128,251,.18);color:var(--blue)',
+            'background:rgba(0,128,251,.14);color:var(--blue)',
+            'background:rgba(34,211,238,.18);color:var(--cyan)',
+            'background:rgba(34,211,238,.14);color:var(--cyan)',
+            'background:rgba(191,90,242,.18);color:var(--purple)',
+        ];
+        const sellLabels = ['ATR × 1.0', 'ATR × 2.0', 'ATR × 3.0', 'ATR × 5.0', 'ATR × 8.0'];
+        // 진입가 + ATR×N 으로 기본값 자동 계산 (sc 있으면)
+        const baseEntry = sc?.prices?.[0] || 0;
+        const sellDefaults = [1.0, 2.0, 3.0, 5.0, 8.0].map(m => baseEntry > 0 && atrVal > 0 ? baseEntry + atrVal * m : 0);
+        const sellRows = sellLabels.map((lbl, i) => {
+            const val = sellDefaults[i] > 0 ? toComma(fmtV(sellDefaults[i])) : '';
+            return `<div class="fab-price-row">
+                <span style="display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:700;${sellBadgeStyles[i]};flex-shrink:0;">${i+1}차</span>
+                <span class="fab-price-lbl">${lbl}</span>
+                <input type="text" inputmode="decimal" class="fab-price-input" id="fabS${i}" value="${val}" placeholder="${ph}" oninput="_fabCommaFmt(this)" onfocus="delete this.dataset.userEdited" onblur="if(this.value)this.dataset.userEdited='1'">
             </div>`;
         }).join('');
 
@@ -17067,7 +17089,36 @@
                 </table>
             </div>
             <div id="fabSummary"></div>
-            ${sc && (sc.tp1 || sc.sl) ? `<div style="font-size:11px;color:var(--text3);text-align:center;margin-top:10px;padding:8px;background:var(--bg3);border-radius:var(--r2);">
+
+            <!-- ===== 분할 매도 (5단계) ===== -->
+            <div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--border);">
+                <div class="fab-sec-title" style="display:flex;align-items:center;gap:8px;">
+                    <span>📤 분할 매도 (5단계)</span>
+                    <span style="font-size:10px;color:var(--text3);font-weight:400;">진입가 + ATR×N 자동 입력</span>
+                </div>
+                <div style="background:var(--bg3);border-radius:var(--r2);padding:4px 12px;margin-bottom:12px;">${sellRows}</div>
+                <div class="sc-input-group" style="margin-bottom:14px;">
+                    <label>매도 비중 방식</label>
+                    <select id="fabSellMode" onchange="_calcSplitFab()">
+                        <option value="equal">균등 분할 (20% × 5)</option>
+                        <option value="pyramid">피라미드 — 상승할수록 더 많이 (10·15·20·25·30%)</option>
+                        <option value="front" selected>전방 집중 — 초반 익절 (30·25·20·15·10%)</option>
+                    </select>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table class="sc-tbl">
+                        <thead><tr>
+                            <th>차수</th><th>매도가</th><th>수량</th><th>매도액</th><th>실현 수익</th><th>누적 수익</th>
+                        </tr></thead>
+                        <tbody id="fabSellTableBody">
+                            <tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;font-size:13px;">💡 매수 입력 후 매도 계산이 표시됩니다</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="fabSellSummary"></div>
+            </div>
+
+            ${sc && (sc.tp1 || sc.sl) ? `<div style="font-size:11px;color:var(--text3);text-align:center;margin-top:14px;padding:8px;background:var(--bg3);border-radius:var(--r2);">
                 손절가: <b>${sc.sl ? (isKR ? Math.round(sc.sl).toLocaleString()+'원' : '$'+sc.sl.toFixed(2)) : 'N/A'}</b>
                 &nbsp;·&nbsp;
                 TP1: <b>${sc.tp1 ? (isKR ? Math.round(sc.tp1).toLocaleString()+'원' : '$'+sc.tp1.toFixed(2)) : 'N/A'}</b>
@@ -17169,11 +17220,87 @@
             </div>`;
         }
         document.getElementById('fabSummary').innerHTML = html;
+
+        // ── 분할 매도 계산 ──
+        _calcSplitSellFab(finalAvg, totalSh);
     }
 
-    // ========================================
-    // 옵션 인기 종목
-    // ========================================
+    function _calcSplitSellFab(avgEntry, totalShares) {
+        const sellTbody = document.getElementById('fabSellTableBody');
+        const sellSummary = document.getElementById('fabSellSummary');
+        if (!sellTbody) return;
+        if (!totalShares || totalShares <= 0 || !avgEntry || avgEntry <= 0) {
+            sellTbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px;font-size:13px;">💡 매수 입력 후 매도 계산이 표시됩니다</td></tr>';
+            if (sellSummary) sellSummary.innerHTML = '';
+            return;
+        }
+        const sc = window._sc;
+        const isKR = sc ? sc.isKR : (typeof currentMarket !== 'undefined' && currentMarket === 'KR');
+        const stripC = v => (v||'').replace(/,/g,'');
+        const sellMode = document.getElementById('fabSellMode')?.value || 'front';
+        const sellPrices = [0,1,2,3,4].map(i => parseFloat(stripC(document.getElementById('fabS'+i)?.value)) || 0);
+
+        const fmtP  = v => isKR ? Math.round(v).toLocaleString()+'원' : '$'+v.toFixed(2);
+        const fmtA  = v => isKR ? Math.round(v).toLocaleString()+'원' : '$'+(v<1000?v.toFixed(2):Math.round(v).toLocaleString());
+        const fmtSh = v => isKR ? Math.round(v).toLocaleString()+'주' : (v>=1?v.toFixed(2):v.toFixed(4))+'주';
+
+        // 매도 비중 분배 (각 차수에 매도할 주식 비율)
+        const weights = sellMode === 'equal' ? [20,20,20,20,20]
+                      : sellMode === 'pyramid' ? [10,15,20,25,30]
+                      : [30,25,20,15,10]; // front (default)
+
+        const sellBadges = [
+            'background:rgba(0,128,251,.18);color:var(--blue)',
+            'background:rgba(0,128,251,.14);color:var(--blue)',
+            'background:rgba(34,211,238,.18);color:var(--cyan)',
+            'background:rgba(34,211,238,.14);color:var(--cyan)',
+            'background:rgba(191,90,242,.18);color:var(--purple)',
+        ];
+
+        let cumProfit = 0, cumSold = 0;
+        const rows = sellPrices.map((sellP, i) => {
+            const shares = totalShares * weights[i] / 100;
+            const sellAmt = sellP * shares;
+            const cost = avgEntry * shares;
+            const profit = sellAmt - cost;
+            cumSold += shares;
+            cumProfit += profit;
+            const pct = avgEntry ? (sellP - avgEntry) / avgEntry * 100 : 0;
+            return { sellP, shares, sellAmt, profit, cumProfit, pct };
+        });
+
+        sellTbody.innerHTML = rows.map((r, i) =>
+            r.sellP > 0 ? `<tr>
+                <td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;${sellBadges[i]}">${i+1}차</span></td>
+                <td>${fmtP(r.sellP)} <small style="color:var(--text3);font-size:11px;">(${r.pct >= 0 ? '+' : ''}${r.pct.toFixed(1)}%)</small></td>
+                <td style="color:var(--text2)">${fmtSh(r.shares)}</td>
+                <td style="font-weight:600">${fmtA(r.sellAmt)}</td>
+                <td style="color:${r.profit >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:700;">${r.profit >= 0 ? '+' : ''}${fmtA(r.profit)}</td>
+                <td style="font-weight:800;color:${r.cumProfit >= 0 ? 'var(--green)' : 'var(--red)'};">${r.cumProfit >= 0 ? '+' : ''}${fmtA(r.cumProfit)}</td>
+            </tr>` : ''
+        ).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px;font-size:13px;">매도가를 입력해 주세요</td></tr>';
+
+        // 매도 요약: 5단계 모두 도달 시 총 수익
+        const validSells = rows.filter(r => r.sellP > 0);
+        if (validSells.length && sellSummary) {
+            const totalProfit = validSells[validSells.length-1].cumProfit;
+            const totalCost = avgEntry * cumSold;
+            const totalPct = totalCost > 0 ? (totalProfit / totalCost) * 100 : 0;
+            const avgSell = cumSold > 0 ? validSells.reduce((s, r) => s + r.sellP * r.shares, 0) / cumSold : 0;
+            sellSummary.innerHTML = `<div class="sc-summary" style="margin-top:10px;">
+                <div class="sc-sum-item" style="border:1px solid rgba(12,245,176,.25);background:rgba(12,245,176,.05);">
+                    <div class="sc-sum-label">전량 매도 시 평균매도가</div>
+                    <div class="sc-sum-val" style="color:var(--cyan)">${fmtP(avgSell)}</div>
+                </div>
+                <div class="sc-sum-item" style="border:1px solid rgba(12,245,176,.25);background:rgba(12,245,176,.05);">
+                    <div class="sc-sum-label">5단계 전량 도달 시 수익</div>
+                    <div class="sc-sum-val" style="color:var(--green)">+${fmtA(totalProfit)} <small style="font-size:11px">(+${totalPct.toFixed(1)}%)</small></div>
+                </div>
+            </div>`;
+        } else if (sellSummary) {
+            sellSummary.innerHTML = '';
+        }
+    }
     let _optPopData = null;
     let _optPopTab = 'call';
 
