@@ -319,6 +319,7 @@
             <button class="alpha-tab"        data-tab="daytrade" onclick="_alphaSwitchTab('daytrade')">단타 진입</button>
             <button class="alpha-tab"        data-tab="swing"    onclick="_alphaSwitchTab('swing')">스윙 진입</button>
             <button class="alpha-tab"        data-tab="dante"    onclick="_alphaSwitchTab('dante')">단테 스캐너</button>
+            <button class="alpha-tab"        data-tab="rayner"   onclick="_alphaSwitchTab('rayner')">🎯 Rayner</button>
         </div>
         <!-- 탭별 설명 -->
         <div class="alpha-desc" id="alphaDesc"></div>
@@ -4952,6 +4953,7 @@
         daytrade: 'ATR 변동성이 충분하고 거래량이 평균 대비 활발한 종목 — 당일 매매(데이 트레이드)에 적합합니다.',
         swing:    '52주 고점까지 충분한 상승 여력(R/R ≥ 1.5)이 있고 추세가 살아있는 종목 — 며칠~몇 주 단위 스윙에 적합합니다.',
         dante:    '주식단테 17년 기법(밥그릇·공구리·하이힐·매집봉·눌림목)을 시세 메타로 근사 적용한 종목 — 정밀 확인은 종목 상세의 단테 분석기에서.',
+        rayner:   'Rayner Teo의 EMA 20/50/200 + Weinstein Stage 분석 — Stage 2(상승추세) + 풀백·돌파·반전 진입 시그널 종목.',
     };
 
     // ─── 알파 카드 헬퍼 ──────────────────────────────────────
@@ -5106,10 +5108,67 @@
                 }
             } else if (tab === 'dante') {
                 await _alphaRenderDanteScanner(el);
+            } else if (tab === 'rayner') {
+                await _alphaRenderRaynerScanner(el);
             }
         } catch (e) {
             console.error('[alphaSwitchTab]', e);
             if (_alphaTab === tab) el.innerHTML = _alphaTimingGuide(tab) + '<div class="sniper-empty">데이터 로드 실패 — 잠시 후 다시 시도하세요</div>';
+        }
+    }
+
+    // ── Rayner Teo 스캐너 ──────────────────────────────────────────
+    // 서버 /api/rayner-scan: Stage 2 + 진입 시그널 종목, 점수순
+    async function _alphaRenderRaynerScanner(el) {
+        el.innerHTML = _alphaTimingGuide('rayner') + '<div class="sniper-loading">' + Array(6).fill('<div class="sniper-skel"></div>').join('') + '</div>';
+        try {
+            const r = await fetch('/api/rayner-scan');
+            if (!r.ok) throw new Error('http ' + r.status);
+            const d = await r.json();
+            if (_alphaTab !== 'rayner') return;
+            const results = Array.isArray(d.results) ? d.results : [];
+            if (!results.length) {
+                el.innerHTML = _alphaTimingGuide('rayner') + '<div class="sniper-empty">현재 Stage 2 + 진입 시그널 종목이 없습니다 — 4시간 후 재시도</div>';
+                return;
+            }
+            const sigColor = { pullback: '#22c55e', breakout: '#eab308', reversal: '#3b82f6' };
+            const stageColor = { 1: '#94a3b8', 2: '#22c55e', 3: '#f97316', 4: '#ef4444' };
+            const cards = results.map((r, idx) => {
+                const sc = sigColor[r.entrySignal?.type] || '#94a3b8';
+                const stc = stageColor[r.stage] || '#94a3b8';
+                const sigLabel = r.entrySignal?.label || '-';
+                const barsAgo = r.entrySignal?.barsAgo;
+                const sigDetail = barsAgo === 0 ? '오늘' : barsAgo === 1 ? '1봉전' : `${barsAgo}봉전`;
+                const pat = r.pattern ? `<span style="font-size:11.5px;color:var(--text2);margin-left:6px;">· ${r.pattern}</span>` : '';
+                return `<div class="rayner-scan-card" style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid ${stc};border-radius:10px;padding:14px 16px;margin:8px 0;cursor:pointer;" onclick="quickSearch('${r.symbol}','US')">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                        <div style="flex:1;min-width:0;">
+                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                <span style="font-size:16px;font-weight:800;letter-spacing:-.3px;">#${idx+1} ${r.symbol}</span>
+                                <span style="font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;background:${stc}1f;color:${stc};border:1px solid ${stc}55;">Stage ${r.stage}</span>
+                                <span style="font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;background:${sc}1f;color:${sc};border:1px solid ${sc}55;">${sigLabel}</span>
+                                <span style="font-size:10.5px;color:var(--text2);">${sigDetail}${pat}</span>
+                            </div>
+                            <div style="font-size:12.5px;color:var(--text);opacity:.75;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(r.name)}</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;">$${r.price.toFixed(2)}</div>
+                            <div style="font-size:11px;color:var(--text2);font-weight:700;">점수 ${r.score}</div>
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;background:var(--bg3);padding:8px;border-radius:8px;">
+                        <div style="text-align:center;"><div style="font-size:10px;color:var(--text2);font-weight:700;">EMA20</div><div style="font-size:12.5px;font-weight:700;color:#7dd3fc;">$${r.ema20.toFixed(2)}</div></div>
+                        <div style="text-align:center;"><div style="font-size:10px;color:var(--text2);font-weight:700;">EMA50</div><div style="font-size:12.5px;font-weight:700;color:#eab308;">$${r.ema50.toFixed(2)}</div></div>
+                        <div style="text-align:center;"><div style="font-size:10px;color:var(--text2);font-weight:700;">EMA200</div><div style="font-size:12.5px;font-weight:700;color:var(--text);">$${r.ema200.toFixed(2)}</div></div>
+                    </div>
+                </div>`;
+            }).join('');
+            const scannedAgo = d.scannedAt ? ` · ${Math.round((Date.now() - new Date(d.scannedAt).getTime()) / 60000)}분 전 스캔` : '';
+            el.innerHTML = _alphaTimingGuide('rayner')
+                + `<div style="font-size:12px;color:var(--text2);margin:6px 0 8px;">📊 ${results.length}개 종목 발굴 (전체 ${d.totalScanned}개 스캔${scannedAgo})</div>`
+                + cards;
+        } catch (e) {
+            if (_alphaTab === 'rayner') el.innerHTML = _alphaTimingGuide('rayner') + '<div class="sniper-empty">데이터 로드 실패 — 잠시 후 다시 시도하세요</div>';
         }
     }
 
@@ -13475,15 +13534,24 @@
         const isKR = currentMarket === 'KR';
         const fmtP = p => isKR ? Math.round(p).toLocaleString() + '원' : '$' + p.toFixed(2);
         const isDay = (typeof currentTestaMode !== 'undefined' && currentTestaMode === 'day');
-        // 손절: 스윙=최근 20봉 저점, 단타=20 EMA 아래
-        const swingLow = Math.min(...lows.slice(-20).filter(v => v != null));
-        const stop = isDay && last20 != null
-            ? last20 * 0.995
-            : (swingLow > 0 ? swingLow * 0.995 : lastClose * 0.97);
-        const risk = lastClose - stop;
-        const target2 = lastClose + risk * 2;   // 1:2
-        const target3 = lastClose + risk * 3;   // 1:3
-        const rrRatio = risk > 0 ? (risk > 0 ? 2 : 0) : 0; // 기본 1:2 표기
+        // 손절 계산: 스윙=최근 20봉 저점, 단타=20 EMA 아래
+        // 진입가(현재가)보다 반드시 낮아야 함 — 그렇지 않으면 위험·목표 계산이 뒤집힘
+        const validLows = lows.slice(-20).filter(v => v != null && v > 0);
+        const swingLow = validLows.length ? Math.min(...validLows) : 0;
+        let stop;
+        if (isDay && last20 != null && last20 < lastClose) {
+            stop = last20 * 0.995;
+        } else if (swingLow > 0 && swingLow < lastClose) {
+            stop = swingLow * 0.995;
+        } else {
+            // 폴백: 현재가 -5% (롱 포지션 안전 기본값)
+            stop = lastClose * 0.95;
+        }
+        // 최종 가드: stop 이 entry 보다 ≥면 강제 -5%
+        if (stop >= lastClose) stop = lastClose * 0.95;
+        const risk = lastClose - stop;                // 항상 > 0 보장됨
+        const target2 = lastClose + risk * 2;         // 1:2
+        const target3 = lastClose + risk * 3;         // 1:3
 
         // 추천 전략
         const strategyMap = {

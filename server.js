@@ -577,6 +577,182 @@ app.get('/api/screener/:filter', async (req, res) => {
     }
 });
 
+// ───────────────────────────────────────────────────────────────────────
+// Rayner Teo 기반 스캐너
+//   - universe: most_actives + day_gainers 상위 ~80
+//   - 각 종목 1년 일봉 → EMA20/50/200, Stage(1~4), 진입 시그널(풀백/돌파/반전)
+//   - Stage 2 + 진입 시그널, 또는 Stage 1 돌파 → 통과
+//   - 점수순 정렬 → 상위 50개 반환
+//   - 4시간 메모리 캐시
+// ───────────────────────────────────────────────────────────────────────
+const RAYNER_SCAN_TTL = 4 * 60 * 60 * 1000;
+let _raynerScanCache = { ts: 0, data: null };
+
+function _calcEMAServer(data, period) {
+    if (!data || !data.length) return [];
+    const k = 2 / (period + 1);
+    const ema = new Array(data.length).fill(null);
+    let firstIdx = data.findIndex(v => v != null);
+    if (firstIdx < 0) return ema;
+    ema[firstIdx] = data[firstIdx];
+    for (let i = firstIdx + 1; i < data.length; i++) {
+        if (data[i] == null) { ema[i] = ema[i-1]; continue; }
+        ema[i] = data[i] * k + ema[i-1] * (1 - k);
+    }
+    return ema;
+}
+
+function _raynerAnalyze(closes, highs, lows, opens, volumes) {
+    if (!closes || closes.length < 50) return null;
+    const ema20 = _calcEMAServer(closes, 20);
+    const ema50 = _calcEMAServer(closes, 50);
+    const ema200 = _calcEMAServer(closes, 200);
+    const N = closes.length;
+    const lastIdx = N - 1;
+    const lastClose = closes[lastIdx];
+    const last200 = ema200[lastIdx];
+    const last50  = ema50[lastIdx];
+    const last20  = ema20[lastIdx];
+    if (lastClose == null || last200 == null || last50 == null || last20 == null) return null;
+
+    const back200 = Math.max(0, lastIdx - 20);
+    const back50  = Math.max(0, lastIdx - 10);
+    const slope200 = (last200 - ema200[back200]) / Math.abs(ema200[back200]) * 100;
+    const slope50  = (last50  - ema50[back50])   / Math.abs(ema50[back50])   * 100;
+    const pctAbove200 = (lastClose - last200) / last200 * 100;
+
+    let stage = 1, stageLabel = '횡보 (관망)';
+    const recentSlice = closes.slice(Math.max(0, lastIdx - 60)).filter(v => v != null);
+    const recentHigh = recentSlice.length ? Math.max(...recentSlice) : lastClose;
+    const drawdownPct = (recentHigh - lastClose) / recentHigh * 100;
+    if (pctAbove200 > 2 && slope50 > 0.3) { stage = 2; stageLabel = '상승 추세'; }
+    else if (pctAbove200 < -2 && slope50 < -0.3) { stage = 4; stageLabel = '하락 추세'; }
+    else if (pctAbove200 > 0 && Math.abs(slope200) < 0.5 && drawdownPct > 5) { stage = 3; stageLabel = '분배 (주의)'; }
+
+    let entrySignal = null;
+    for (let i = Math.max(20, lastIdx - 4); i <= lastIdx; i++) {
+        const c = closes[i];
+        if (c == null) continue;
+        if (stage === 2 && ema20[i] != null && ema50[i] != null) {
+            const d20 = Math.abs(c - ema20[i]) / c * 100;
+            const d50 = Math.abs(c - ema50[i]) / c * 100;
+            if (d20 < 1.5 || d50 < 2.0) entrySignal = { type: 'pullback', label: '풀백', barsAgo: lastIdx - i };
+        }
+        if (i >= 20) {
+            const lookback = closes.slice(i - 20, i).filter(v => v != null);
+            if (lookback.length === 20) {
+                const prevHigh = Math.max(...lookback);
+                const vol = volumes[i] || 0;
+                const avgVol = volumes.slice(i - 20, i).reduce((s, v) => s + (v||0), 0) / 20;
+                if (c > prevHigh * 1.005 && avgVol > 0 && vol > avgVol * 1.5) {
+                    entrySignal = { type: 'breakout', label: '브레이크아웃', barsAgo: lastIdx - i };
+                }
+            }
+        }
+        if (stage === 4 && i >= 1 && closes[i-1] != null && ema200[i-1] != null && ema200[i] != null) {
+            if (closes[i-1] < ema200[i-1] && c > ema200[i]) {
+                entrySignal = { type: 'reversal', label: '반전', barsAgo: lastIdx - i };
+            }
+        }
+    }
+
+    let pattern = null;
+    if (opens[lastIdx] != null && highs[lastIdx] != null && lows[lastIdx] != null) {
+        const open = opens[lastIdx], close = closes[lastIdx], high = highs[lastIdx], low = lows[lastIdx];
+        const range = high - low;
+        if (range > 0) {
+            const body = Math.abs(close - open);
+            const upper = high - Math.max(open, close);
+            const lower = Math.min(open, close) - low;
+            const bodyR = body / range;
+            if (bodyR < 0.1) pattern = '도지';
+            else if (lower >= 2 * body && upper <= body * 0.6 && bodyR > 0.12) pattern = '해머';
+            else if (upper >= 2 * body && lower <= body * 0.6 && bodyR > 0.12) pattern = '슈팅스타';
+            else if (opens[lastIdx-1] != null && closes[lastIdx-1] != null) {
+                const po = opens[lastIdx-1], pc = closes[lastIdx-1];
+                if (pc < po && close > open && open <= pc && close >= po) pattern = '강세 인게이징';
+                else if (pc > po && close < open && open >= pc && close <= po) pattern = '약세 인게이징';
+            }
+        }
+    }
+
+    let score = 0;
+    if (stage === 2) score += 50;
+    else if (stage === 1) score += 15;
+    else if (stage === 3) score -= 10;
+    else if (stage === 4) score -= 30;
+    if (entrySignal) {
+        if (entrySignal.type === 'pullback') score += 30;
+        else if (entrySignal.type === 'breakout') score += 25;
+        else if (entrySignal.type === 'reversal') score += 10;
+        score -= entrySignal.barsAgo * 3;
+    }
+    if (pattern === '강세 인게이징' || pattern === '해머') score += 15;
+    else if (pattern === '약세 인게이징' || pattern === '슈팅스타') score -= 15;
+
+    return {
+        stage, stageLabel,
+        ema20: +last20.toFixed(2), ema50: +last50.toFixed(2), ema200: +last200.toFixed(2),
+        price: +lastClose.toFixed(2),
+        pctAbove200: +pctAbove200.toFixed(2),
+        slope50: +slope50.toFixed(2),
+        entrySignal, pattern, score: Math.round(score),
+    };
+}
+
+app.get('/api/rayner-scan', async (req, res) => {
+    const now = Date.now();
+    if (_raynerScanCache.data && now - _raynerScanCache.ts < RAYNER_SCAN_TTL) {
+        return res.json(_raynerScanCache.data);
+    }
+    try {
+        const [active, gainers] = await Promise.all([
+            _fetchScreenerSymbols('most_actives', 50),
+            _fetchScreenerSymbols('day_gainers', 50),
+        ]);
+        const symbols = [...new Set([...active.symbols, ...gainers.symbols])].slice(0, 80);
+
+        const CHUNK = 10;
+        const all = [];
+        for (let i = 0; i < symbols.length; i += CHUNK) {
+            const chunk = symbols.slice(i, i + CHUNK);
+            const chunkResults = await Promise.all(chunk.map(async (sym) => {
+                try {
+                    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=1y&interval=1d`;
+                    const data = await yfRequest(url);
+                    const r = data?.chart?.result?.[0];
+                    if (!r) return null;
+                    const q = r.indicators?.quote?.[0];
+                    if (!q?.close) return null;
+                    const meta = r.meta;
+                    const a = _raynerAnalyze(q.close, q.high, q.low, q.open, q.volume);
+                    if (!a) return null;
+                    return {
+                        symbol: sym,
+                        name: meta?.shortName || meta?.longName || sym,
+                        ...a,
+                    };
+                } catch (e) { return null; }
+            }));
+            all.push(...chunkResults.filter(Boolean));
+        }
+
+        const filtered = all.filter(r => {
+            if (r.stage === 2 && r.entrySignal) return true;
+            if (r.stage === 1 && r.entrySignal?.type === 'breakout') return true;
+            return false;
+        });
+        filtered.sort((a, b) => b.score - a.score);
+        const top = filtered.slice(0, 50);
+
+        _raynerScanCache = { ts: now, data: { results: top, totalScanned: all.length, scannedAt: new Date().toISOString() } };
+        res.json(_raynerScanCache.data);
+    } catch (err) {
+        console.error('[rayner-scan]', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ── 종목 검색 (Yahoo Finance search API 프록시) ─────────────────────────
 app.get('/api/search', async (req, res) => {
     // 길이 제한 + 위험 문자 제거 (Yahoo API 남용 방지)
