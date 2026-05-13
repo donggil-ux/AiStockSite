@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=595">
+    <link rel="stylesheet" href="/styles.css?v=596">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -14087,20 +14087,43 @@
         // 진입가(현재가)보다 반드시 낮아야 함 — 그렇지 않으면 위험·목표 계산이 뒤집힘
         const validLows = lows.slice(-20).filter(v => v != null && v > 0);
         const swingLow = validLows.length ? Math.min(...validLows) : 0;
+        // ── 진입가 — 시그널 타입별 의미있는 가격 계산 ──
+        let entryPrice = lastClose;
+        let entryLabel = '현재가 (즉시 진입)';
+        const recentHighs = highs.slice(-20).filter(v => v != null);
+        const recentHigh = recentHighs.length ? Math.max(...recentHighs) : null;
+        if (latestEntry?.type === 'pullback' && last20 != null && last20 < lastClose) {
+            // 풀백 진입: EMA20 또는 EMA50 지지선까지 대기 (현재가보다 낮은 limit)
+            entryPrice = last20;
+            entryLabel = 'EMA20 풀백 (지정가)';
+        } else if (latestEntry?.type === 'breakout' && recentHigh != null) {
+            // 돌파 진입: 최근 고점 + 0.3% (stop 주문)
+            entryPrice = recentHigh * 1.003;
+            entryLabel = '저항 돌파 (역지정가)';
+        } else if (latestEntry?.type === 'reversal' && last200 != null) {
+            // 반전 진입: 200 EMA 상향 돌파 가격
+            entryPrice = last200 * 1.003;
+            entryLabel = '200 EMA 돌파';
+        } else if (stage?.stage === 2 && last20 != null && last20 < lastClose * 0.98) {
+            // Stage 2 + 시그널 없음: EMA20 풀백 대기 (현재가보다 충분히 낮을 때)
+            entryPrice = last20;
+            entryLabel = 'EMA20 풀백 대기';
+        } else if (stage?.stage === 4) {
+            entryLabel = '⚠️ Stage 4 — 매수 금지';
+        }
+        // ── 손절가 ──
         let stop;
-        if (isDay && last20 != null && last20 < lastClose) {
+        if (isDay && last20 != null && last20 < entryPrice) {
             stop = last20 * 0.995;
-        } else if (swingLow > 0 && swingLow < lastClose) {
+        } else if (swingLow > 0 && swingLow < entryPrice) {
             stop = swingLow * 0.995;
         } else {
-            // 폴백: 현재가 -5% (롱 포지션 안전 기본값)
-            stop = lastClose * 0.95;
+            stop = entryPrice * 0.95;
         }
-        // 최종 가드: stop 이 entry 보다 ≥면 강제 -5%
-        if (stop >= lastClose) stop = lastClose * 0.95;
-        const risk = lastClose - stop;                // 항상 > 0 보장됨
-        const target2 = lastClose + risk * 2;         // 1:2
-        const target3 = lastClose + risk * 3;         // 1:3
+        if (stop >= entryPrice) stop = entryPrice * 0.95;
+        const risk = entryPrice - stop;
+        const target2 = entryPrice + risk * 2;         // 1:2
+        const target3 = entryPrice + risk * 3;         // 1:3
 
         // 추천 전략
         const strategyMap = {
@@ -14241,22 +14264,26 @@
                     <div class="rayner-rr-grid" style="${gs4};margin-top:0;">
                         <div class="rayner-rr-cell" style="${cellStyle}">
                             <div style="${cellLabelSt}">진입가</div>
-                            <div style="${cellValSt}">${fmtP(lastClose)}</div>
+                            <div style="${cellValSt}">${fmtP(entryPrice)}</div>
+                            <div style="font-size:10px;color:var(--text2);font-weight:600;margin-top:2px;">${entryLabel}</div>
                         </div>
                         <div class="rayner-rr-cell" style="${cellStyle}">
                             <div style="${cellLabelSt}">손절</div>
                             <div style="${cellValSt};color:#ef4444;">${fmtP(stop)}</div>
+                            <div style="font-size:10px;color:var(--text2);font-weight:600;margin-top:2px;">${((stop - entryPrice)/entryPrice*100).toFixed(1)}%</div>
                         </div>
                         <div class="rayner-rr-cell" style="${cellStyle}">
                             <div style="${cellLabelSt}">목표 (1:2)</div>
                             <div style="${cellValSt};color:#eab308;">${fmtP(target2)}</div>
+                            <div style="font-size:10px;color:var(--text2);font-weight:600;margin-top:2px;">+${((target2 - entryPrice)/entryPrice*100).toFixed(1)}%</div>
                         </div>
                         <div class="rayner-rr-cell" style="${cellStyle}">
                             <div style="${cellLabelSt}">목표 (1:3)</div>
                             <div style="${cellValSt};color:#f97316;">${fmtP(target3)}</div>
+                            <div style="font-size:10px;color:var(--text2);font-weight:600;margin-top:2px;">+${((target3 - entryPrice)/entryPrice*100).toFixed(1)}%</div>
                         </div>
                     </div>
-                    <div class="rayner-rr-summary" style="${summarySt}">R:R 최소 <strong style="color:var(--text)">1:2</strong> · Rayner 기준 — 1:3 이상 권장</div>
+                    <div class="rayner-rr-summary" style="${summarySt}">현재가 <strong style="color:var(--text)">${fmtP(lastClose)}</strong> · R:R 최소 <strong style="color:var(--text)">1:2</strong> · Rayner 기준 — 1:3 이상 권장</div>
                 </div>
 
                 <!-- Stage 기준 안내 (하단) -->
