@@ -1204,6 +1204,8 @@
     let currentFullSymbol = '';  // Yahoo Finance용 풀 심볼 (예: NVDA, 005930.KS)
     let liveUpdateTimer      = null;  // 실시간 가격 업데이트 타이머 (30초)
     let analysisRefreshTimer = null;  // 분석 자동 갱신 타이머 (5분)
+    let chartSigPollTimer    = null;  // 차트 시그널 폴링 타이머 (60초)
+    let _lastSigKey          = null;  // 마지막 시그널 식별자 (symbol:time:pos:text)
     let rsiChart = null;
     let macdChart = null;
     let adxChart = null;
@@ -3110,6 +3112,7 @@
         stockData = null;
         stopLiveUpdate();
         stopAnalysisRefresh();
+        stopChartSigPoll();
         // top100은 메뉴에서만 로드 (홈에서 제거)
         loadRecentStocks();
         loadSwingRadar();
@@ -9167,6 +9170,8 @@
             startLiveUpdate();
             // 분석 자동 갱신 시작 (5분 간격)
             startAnalysisRefresh();
+            // 차트 시그널 폴링 시작 (60초 간격, RSI/MACD 신규 시그널 토스트)
+            startChartSigPoll();
 
         } catch(err) {
             showToast(err.message || '데이터를 불러오는데 실패했습니다.');
@@ -9764,6 +9769,49 @@
     // ========================================
     function stopLiveUpdate() {
         if (liveUpdateTimer) { clearInterval(liveUpdateTimer); liveUpdateTimer = null; }
+    }
+
+    // ========================================
+    // Chart Signal Poll (60초 차트 시그널 폴링)
+    // ========================================
+    function stopChartSigPoll() {
+        if (chartSigPollTimer) { clearInterval(chartSigPollTimer); chartSigPollTimer = null; }
+        _lastSigKey = null;
+    }
+
+    async function pollChartSignals() {
+        if (!currentFullSymbol || !lwCandleSeries) return;
+        // 탭이 백그라운드면 스킵 (네트워크/배터리 절약)
+        if (document.hidden) return;
+        try {
+            const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${currentFullSymbol}` +
+                `?range=${currentPeriod}&interval=${currentInterval}&includePrePost=true`;
+            const data = await fetchWithProxy(chartUrl);
+            if (!data?.chart?.result?.[0]) return;
+            stockData = data.chart.result[0];
+            const ts = stockData.timestamp || [];
+            const q  = stockData.indicators?.quote?.[0];
+            if (!q || !ts.length) return;
+
+            const candleData = [];
+            for (let i = 0; i < ts.length; i++) {
+                const o = q.open[i], h = q.high[i], l = q.low[i], c = q.close[i];
+                if (o == null || h == null || l == null || c == null) continue;
+                candleData.push({ time: ts[i], open: o, high: h, low: l, close: c });
+            }
+            if (!candleData.length) return;
+
+            // 마지막 캔들만 업데이트 → 줌·팬 유지
+            try { lwCandleSeries.update(candleData[candleData.length - 1]); } catch(e) {}
+
+            const bb = calcBollingerBands(q.close, 20, 2);
+            renderChartLiveSignals(candleData, ts, q, bb);
+        } catch(e) { /* 폴링 실패는 조용히 무시 */ }
+    }
+
+    function startChartSigPoll() {
+        stopChartSigPoll();
+        chartSigPollTimer = window.setInterval(pollChartSignals, 60 * 1000); // 60초
     }
 
     function startLiveUpdate() {
@@ -10813,6 +10861,19 @@
             .sort((a,b) => a.time - b.time)
             .filter(m => { const k = m.time + ':' + m.position; if (seen.has(k)) return false; seen.add(k); return true; });
         try { lwCandleSeries.setMarkers(uniqMarkers.slice(-50)); } catch(e) {}
+
+        // 3.5) 새 시그널 감지 → 토스트 (폴링으로 신규 마커 도착 시)
+        const latest = uniqMarkers[uniqMarkers.length - 1];
+        if (latest && currentSymbol) {
+            const newKey = `${currentSymbol}:${latest.time}:${latest.position}:${latest.text}`;
+            const prevSameSymbol = _lastSigKey && _lastSigKey.startsWith(currentSymbol + ':');
+            if (prevSameSymbol && _lastSigKey !== newKey) {
+                const dir   = latest.position === 'belowBar' ? '매수' : '매도';
+                const emoji = latest.position === 'belowBar' ? '🔴' : '🔵';
+                try { showToast(`${emoji} ${latest.text} ${dir} 시그널`); } catch(e) {}
+            }
+            _lastSigKey = newKey;
+        }
 
         // 4) 자동 지지·저항선 — 최근 90봉 스윙 고점·저점
         const recentN = Math.min(90, candleData.length);
