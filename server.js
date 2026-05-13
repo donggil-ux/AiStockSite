@@ -730,9 +730,14 @@ app.get('/api/rayner-scan', async (req, res) => {
                     const meta = r.meta;
                     const a = _raynerAnalyze(q.close, q.high, q.low, q.open, q.volume);
                     if (!a) return null;
+                    // 전일 종가 대비 변동률
+                    const N = q.close.length;
+                    const prevC = q.close[N - 2];
+                    const changePct = (prevC && a.price) ? +((a.price - prevC) / prevC * 100).toFixed(2) : null;
                     return {
                         symbol: sym,
                         name: meta?.shortName || meta?.longName || sym,
+                        changePct,
                         ...a,
                     };
                 } catch (e) { return null; }
@@ -944,7 +949,11 @@ app.get('/api/sepa-scan', async (req, res) => {
                     const meta = r.meta;
                     const a = _minerviniAnalyzeServer(q.close, q.high, q.low, q.volume, spxCloses);
                     if (!a) return null;
-                    return { symbol: sym, name: meta?.shortName || meta?.longName || sym, ...a };
+                    // 전일 종가 대비 변동률
+                    const N = q.close.length;
+                    const prevC = q.close[N - 2];
+                    const changePct = (prevC && a.price) ? +((a.price - prevC) / prevC * 100).toFixed(2) : null;
+                    return { symbol: sym, name: meta?.shortName || meta?.longName || sym, changePct, ...a };
                 } catch (e) { return null; }
             }));
             all.push(...chunkResults.filter(Boolean));
