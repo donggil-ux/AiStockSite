@@ -10753,35 +10753,35 @@
             }
         });
 
-        // 볼린저 밴드 (BB20, 2σ)
+        // 볼린저 밴드 (BB20, 2σ) — 주황 실선 + 밴드 내부 옅은 채움
         const bb = calcBollingerBands(closes, 20, 2);
         if (bb.upper.some(v => v != null)) {
-            const upperData = [], lowerData = [], middleData = [];
+            const upperData = [], lowerData = [];
             for (let i = 0; i < ts.length; i++) {
-                if (bb.upper[i]  != null) upperData.push({ time: ts[i], value: bb.upper[i] });
-                if (bb.lower[i]  != null) lowerData.push({ time: ts[i], value: bb.lower[i] });
-                if (bb.middle[i] != null) middleData.push({ time: ts[i], value: bb.middle[i] });
+                if (bb.upper[i] != null) upperData.push({ time: ts[i], value: bb.upper[i] });
+                if (bb.lower[i] != null) lowerData.push({ time: ts[i], value: bb.lower[i] });
             }
-            const bbColor = 'rgba(56,189,248,0.85)';        // 진한 하늘색 (상·하단)
-            const bbMidColor = 'rgba(148,163,184,0.6)';     // 중간선 회색 점선
-            lwBbUpper = lwChart.addLineSeries({
-                color: bbColor, lineWidth: 1, lineStyle: 0,
+            const bbColor = '#f59e0b';   // amber-500
+            // 상단: Area 시리즈로 → 위쪽은 투명, 아래쪽으로 옅은 주황 채움
+            lwBbUpper = lwChart.addAreaSeries({
+                lineColor: bbColor,
+                lineWidth: 1,
+                topColor:    'rgba(245,158,11,0.10)',
+                bottomColor: 'rgba(245,158,11,0.05)',
                 priceLineVisible: false, lastValueVisible: true, title: 'BB+',
                 crosshairMarkerVisible: false,
             });
-            lwBbLower = lwChart.addLineSeries({
-                color: bbColor, lineWidth: 1, lineStyle: 0,
+            // 하단: Area 시리즈로 → 아래쪽은 캔들 배경과 동일하게 덮어서 상단~하단 사이에만 색이 보이도록
+            lwBbLower = lwChart.addAreaSeries({
+                lineColor: bbColor,
+                lineWidth: 1,
+                topColor:    isLight ? '#ffffff' : '#111620',
+                bottomColor: isLight ? '#ffffff' : '#111620',
                 priceLineVisible: false, lastValueVisible: true, title: 'BB-',
-                crosshairMarkerVisible: false,
-            });
-            lwBbMiddle = lwChart.addLineSeries({
-                color: bbMidColor, lineWidth: 1, lineStyle: 1,    // dotted
-                priceLineVisible: false, lastValueVisible: false,
                 crosshairMarkerVisible: false,
             });
             lwBbUpper.setData(upperData);
             lwBbLower.setData(lowerData);
-            if (middleData.length) lwBbMiddle.setData(middleData);
         }
 
         // 실시간 지표 시그널 — 배지·마커·지지/저항선 자동 추가
