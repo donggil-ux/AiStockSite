@@ -967,22 +967,15 @@
 
             <!-- 단테 단타 분석기 — 제거됨 (v574) -->
 
-            <!-- ===== 단타 분석 (통합) ===== -->
+            <!-- ===== 5분봉 돌파 단타 분석 (v575 UX 개편) ===== -->
             <div id="tsPanelDay" style="padding:0;">
-                <div class="card">
+                <div class="card" id="dayBreakoutCard">
                     <div class="card-title"><span class="dot" style="background:var(--yellow)"></span>5분봉 돌파 단타 <span class="trade-badge day-badge">DAY</span></div>
-                    <div class="ai-score-container">
-                        <div class="ai-score-circle" id="dayScoreCircle">
-                            <div class="ai-score-number" id="dayScoreNumber">-</div>
-                            <div class="ai-score-label">돌파 점수</div>
-                        </div>
-                        <div>
-                            <div class="ai-recommendation" id="dayRecommendation">-</div>
-                            <div class="ai-summary" id="daySummary">-</div>
-                        </div>
-                    </div>
-                    <div id="dayUnifiedChecklist"></div>
-                    <div class="entry-strategy" id="dayEntryStrategy"></div>
+                    <!-- 동적 본문 (점수 배너 + 5단계 체크 + 매매 라인 + 기준 안내) -->
+                    <div id="dayMainBody"></div>
+                    <!-- 호환용 hidden refs (기존 코드 참조) -->
+                    <div id="dayUnifiedChecklist" style="display:none"></div>
+                    <div id="dayEntryStrategy" style="display:none"></div>
                 </div>
                 <div class="card" style="display:none">
                     <div class="card-title"><span class="dot" style="background:var(--green)"></span>단타 기술적 지표</div>
@@ -5102,27 +5095,31 @@
                 const sigLabel = r.entrySignal?.label || '-';
                 const barsAgo = r.entrySignal?.barsAgo;
                 const sigDetail = barsAgo === 0 ? '오늘' : barsAgo === 1 ? '1봉전' : `${barsAgo}봉전`;
-                const pat = r.pattern ? `<span style="font-size:11.5px;color:var(--text2);margin-left:6px;">· ${r.pattern}</span>` : '';
-                return `<div class="rayner-scan-card" style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid ${stc};border-radius:10px;padding:14px 16px;margin:8px 0;cursor:pointer;" onclick="quickSearch('${r.symbol}','US')">
+                // EMA 정·역배열 빠른 판정
+                const emaAligned = r.ema20 > r.ema50 && r.ema50 > r.ema200;
+                const emaTag = emaAligned ? '🟢 EMA 정배열' : (r.ema20 < r.ema50 && r.ema50 < r.ema200) ? '🔴 EMA 역배열' : '⚪ EMA 혼조';
+                // 진입 시그널 태그
+                const sigTag = `${sc === '#22c55e' ? '🟢' : sc === '#eab308' ? '🟡' : '🔵'} ${sigLabel} · ${sigDetail}`;
+                const patTag = r.pattern ? `📈 ${r.pattern}` : null;
+                return `<div onclick="quickSearch('${r.symbol}','US')" style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid ${stc};border-radius:10px;padding:14px 16px;margin:8px 0;cursor:pointer;">
                     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
                         <div style="flex:1;min-width:0;">
                             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                                 <span style="font-size:16px;font-weight:800;letter-spacing:-.3px;">#${idx+1} ${r.symbol}</span>
-                                <span style="font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;background:${stc}1f;color:${stc};border:1px solid ${stc}55;">Stage ${r.stage}</span>
+                                <span style="font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;background:${stc}1f;color:${stc};border:1px solid ${stc}55;">Stage ${r.stage} · 점수 ${r.score}</span>
                                 <span style="font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;background:${sc}1f;color:${sc};border:1px solid ${sc}55;">${sigLabel}</span>
-                                <span style="font-size:10.5px;color:var(--text2);">${sigDetail}${pat}</span>
                             </div>
                             <div style="font-size:12.5px;color:var(--text);opacity:.75;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(r.name)}</div>
+                            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:var(--text2);">
+                                <span>${sigTag}</span>
+                                <span>${emaTag}</span>
+                                ${patTag ? `<span>${patTag}</span>` : ''}
+                            </div>
                         </div>
-                        <div style="text-align:right;">
+                        <div style="text-align:right;flex-shrink:0;">
                             <div style="font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;">$${r.price.toFixed(2)}</div>
-                            <div style="font-size:11px;color:var(--text2);font-weight:700;">점수 ${r.score}</div>
+                            <div style="font-size:10.5px;color:var(--text2);font-weight:700;margin-top:2px;">EMA200 $${r.ema200.toFixed(0)}</div>
                         </div>
-                    </div>
-                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;background:var(--bg3);padding:8px;border-radius:8px;">
-                        <div style="text-align:center;"><div style="font-size:10px;color:var(--text2);font-weight:700;">EMA20</div><div style="font-size:12.5px;font-weight:700;color:#7dd3fc;">$${r.ema20.toFixed(2)}</div></div>
-                        <div style="text-align:center;"><div style="font-size:10px;color:var(--text2);font-weight:700;">EMA50</div><div style="font-size:12.5px;font-weight:700;color:#eab308;">$${r.ema50.toFixed(2)}</div></div>
-                        <div style="text-align:center;"><div style="font-size:10px;color:var(--text2);font-weight:700;">EMA200</div><div style="font-size:12.5px;font-weight:700;color:var(--text);">$${r.ema200.toFixed(2)}</div></div>
                     </div>
                 </div>`;
             }).join('');
@@ -13018,43 +13015,140 @@
                        : totalScore >= 30 ? '돌파 실패 또는 위험 패턴 감지. 진입 금지.'
                        : '위험 패턴 활성. 보유 중이면 즉시 청산 검토.';
 
-        const circle = document.getElementById('dayScoreCircle');
-        if (circle) { circle.style.setProperty('--score', totalScore); circle.style.setProperty('--score-color', recColor); }
-        const numEl = document.getElementById('dayScoreNumber');    if (numEl) { numEl.textContent = totalScore; numEl.style.color = recColor; }
-        const recEl = document.getElementById('dayRecommendation'); if (recEl) { recEl.textContent = recText;   recEl.style.color = recColor; }
-        const sumEl = document.getElementById('daySummary');        if (sumEl)  sumEl.textContent = recDesc;
-
-        // 5분봉 아닌 인터벌 안내 배너
-        const elU = document.getElementById('dayUnifiedChecklist');
-        if (!elU) return;
-        const nonFiveBanner = (currentInterval !== '5m')
-            ? `<div style="margin-bottom:10px;padding:7px 10px;border-radius:8px;background:rgba(251,191,36,.1);border:1px solid var(--yellow);font-size:12px;color:var(--yellow)">⚡ 5분봉 차트에서 가장 정확합니다. 현재: ${currentInterval || '?'} 인터벌</div>`
-            : '';
-
-        elU.innerHTML = nonFiveBanner + metrics.map(m => `
-            <div class="day-unified-item">
-                <div class="day-unified-header">
-                    <div class="day-unified-icon ${m.status}">${iconOf(m.status)}</div>
-                    <div class="day-unified-title" style="color:${m.color}">${m.title}</div>
-                    <div class="day-unified-score">${m.score}점</div>
-                </div>
-                <div class="day-unified-desc">${m.desc}</div>
-                <div class="day-unified-bar"><div class="day-unified-bar-fill" style="width:${m.score}%;background:${m.color}"></div></div>
-            </div>`).join('');
-
-        // ── 전략 박스 ──
+        // ── 손절·목표 계산 ──
         const sl  = slPrice != null ? slPrice : price - atr * DAYTRADING_SL_MULTIPLIER;
         const tp1 = price * 1.025;
         const tp2 = price * 1.08;
-        const slLabel = lastBullIdx >= 0 ? `양봉 시가 기준` : `ATR×${DAYTRADING_SL_MULTIPLIER}`;
-        const stratEl = document.getElementById('dayEntryStrategy');
-        if (stratEl) stratEl.innerHTML = `
-            <div class="entry-strategy-title" style="color:var(--cyan)">5분봉 돌파매매 전략 (당일 청산 원칙)</div>
-            <div class="entry-strategy-row"><span class="entry-strategy-label">진입가 (현재가)</span><span class="entry-strategy-value" style="color:var(--text1)">${fmtP(price)}</span></div>
-            <div class="entry-strategy-row"><span class="entry-strategy-label">손절가 (${slLabel})</span><span class="entry-strategy-value" style="color:var(--red)">${fmtP(sl)} <small style="color:var(--text2)">${fmtPct(sl,price)}</small></span></div>
-            <div class="entry-strategy-row"><span class="entry-strategy-label">1차 목표 (+2~3%)</span><span class="entry-strategy-value" style="color:var(--green)">${fmtP(tp1)} <small style="color:var(--text2)">+2.5%</small></span></div>
-            <div class="entry-strategy-row"><span class="entry-strategy-label">2차 목표 (+5~10%)</span><span class="entry-strategy-value" style="color:var(--green)">${fmtP(tp2)} <small style="color:var(--text2)">+8.0%</small></span></div>
-            `;
+        const slLabel = lastBullIdx >= 0 ? `양봉 시가` : `ATR × ${DAYTRADING_SL_MULTIPLIER}`;
+        const risk = price - sl;
+        const rrRatio = risk > 0 ? ((tp1 - price) / risk).toFixed(2) : '-';
+        const rrRatio2 = risk > 0 ? ((tp2 - price) / risk).toFixed(2) : '-';
+
+        // ── 본문 출력 (v575 새 UX) ──
+        const body = document.getElementById('dayMainBody');
+        if (!body) return;
+        // 색상·헬퍼
+        const isMobile = window.innerWidth <= 640;
+        const scoreColor = recColor;
+        const cellSt    = 'text-align:center;';
+        const cellLblSt = 'font-size:10.5px;color:var(--text2);font-weight:700;letter-spacing:.3px;';
+        const cellValSt = 'font-size:14px;font-weight:800;color:var(--text);margin-top:3px;font-variant-numeric:tabular-nums;';
+        const blockSt = (c) => `border-left:3px solid ${c};padding:10px 0 10px 12px;margin-top:14px;`;
+        const blockLblSt = `font-size:10.5px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;`;
+
+        // 5분봉 아닌 인터벌 안내
+        const nonFiveBanner = (currentInterval !== '5m')
+            ? `<div style="margin-top:10px;padding:8px 12px;border-radius:8px;background:rgba(251,191,36,.10);border:1px solid var(--yellow);font-size:12px;color:var(--yellow);font-weight:600;">⚡ 5분봉 차트에서 가장 정확합니다 — 현재: <strong>${currentInterval || '?'}</strong> 인터벌</div>`
+            : '';
+
+        // 5단계 체크 카드 (가중치 시각화 포함)
+        const metricsHtml = metrics.map((m, i) => {
+            const statusBg = m.status === 'pass' ? 'rgba(34,197,94,.14)'
+                           : m.status === 'warn' ? 'rgba(234,179,8,.14)'
+                           : 'rgba(239,68,68,.14)';
+            const statusFg = m.status === 'pass' ? '#22c55e'
+                           : m.status === 'warn' ? '#eab308'
+                           : '#ef4444';
+            const icon = m.status === 'pass' ? '✓' : m.status === 'warn' ? '!' : '✗';
+            const weightPct = Math.round(m.w * 100);
+            return `<div style="background:var(--bg3);border-radius:10px;padding:12px 14px;margin-top:8px;">
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                    <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:${statusBg};color:${statusFg};font-size:13px;font-weight:900;flex-shrink:0;">${icon}</span>
+                    <span style="font-size:13.5px;font-weight:800;color:var(--text);flex:1;min-width:0;">${m.title}</span>
+                    <span style="font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;background:rgba(148,163,184,.18);color:var(--text2);">가중치 ${weightPct}%</span>
+                    <span style="font-size:13px;font-weight:900;color:${m.color};font-variant-numeric:tabular-nums;min-width:42px;text-align:right;">${m.score}점</span>
+                </div>
+                <div style="margin-top:6px;height:5px;background:var(--bg2);border-radius:3px;overflow:hidden;"><div style="height:100%;width:${m.score}%;background:${m.color};border-radius:3px;"></div></div>
+                <div style="font-size:11.5px;color:var(--text2);margin-top:6px;line-height:1.5;">${m.desc}</div>
+            </div>`;
+        }).join('');
+
+        // 기준 안내 (점수 등급)
+        const gradeRows = [
+            { range: '75~100점', label: '강력 진입', color: '#22c55e', strat: '돌파 조건 충족 — 거래량 동반 시 즉시 진입' },
+            { range: '60~74점',  label: '진입 가능', color: '#22c55e', strat: '돌파 신호 출현 — 양봉 시가 지지 확인 후 분할 진입' },
+            { range: '45~59점',  label: '관망',     color: '#eab308', strat: '돌파 조건 미충족 — 저항 돌파 + 거래량 대기' },
+            { range: '30~44점',  label: '위험',     color: '#f97316', strat: '돌파 실패 / 위험 패턴 — 진입 금지' },
+            { range: '0~29점',   label: '매수 금지', color: '#ef4444', strat: '위험 패턴 활성 — 보유 시 즉시 청산 검토' },
+        ];
+        const gradeHtml = gradeRows.map(r => {
+            const isCurrent = (r.range.startsWith('75') && totalScore >= 75)
+                            || (r.range.startsWith('60') && totalScore >= 60 && totalScore < 75)
+                            || (r.range.startsWith('45') && totalScore >= 45 && totalScore < 60)
+                            || (r.range.startsWith('30') && totalScore >= 30 && totalScore < 45)
+                            || (r.range.startsWith('0') && totalScore < 30);
+            const bg = isCurrent ? `${r.color}14` : 'transparent';
+            const border = isCurrent ? `${r.color}55` : 'var(--border)';
+            return `<div style="display:grid;grid-template-columns:auto auto 1fr;gap:10px;padding:7px 10px;background:${bg};border:1px solid ${border};border-radius:8px;align-items:center;">
+                <span style="font-size:10.5px;font-weight:800;color:var(--text);min-width:62px;">${r.range}</span>
+                <span style="font-size:11.5px;font-weight:800;color:${r.color};min-width:64px;">${r.label}</span>
+                <span style="font-size:10.5px;color:var(--text2);">${r.strat}</span>
+            </div>`;
+        }).join('');
+
+        body.innerHTML = `
+            <!-- 큰 점수 배너 -->
+            <div style="display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center;background:linear-gradient(135deg, ${scoreColor}1f 0%, ${scoreColor}0a 100%);border:1px solid ${scoreColor}55;border-radius:10px;padding:16px 18px;margin-top:10px;">
+                <div style="text-align:center;min-width:84px;">
+                    <div style="font-size:9.5px;font-weight:800;color:${scoreColor};text-transform:uppercase;letter-spacing:.6px;opacity:.85;">돌파 점수</div>
+                    <div style="font-size:38px;font-weight:900;line-height:1;color:${scoreColor};letter-spacing:-1.2px;font-variant-numeric:tabular-nums;">${totalScore}</div>
+                    <div style="font-size:9.5px;color:${scoreColor};font-weight:700;margin-top:2px;opacity:.85;">/ 100</div>
+                </div>
+                <div>
+                    <div style="font-size:16px;font-weight:900;color:${scoreColor};letter-spacing:-.3px;">${recText}</div>
+                    <div style="font-size:12px;color:var(--text2);margin-top:3px;line-height:1.45;">${recDesc}</div>
+                </div>
+            </div>
+
+            ${nonFiveBanner}
+
+            <!-- 매매 라인 (진입/손절/목표/R:R) — 위로 끌어올림 (즉시 의사결정 정보) -->
+            <div style="margin-top:14px;">
+                <div style="${blockLblSt}">💰 매매 라인 (당일 청산 원칙)</div>
+                <div style="display:grid;grid-template-columns:${isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)'};gap:8px;background:var(--bg3);padding:12px;border-radius:10px;">
+                    <div style="${cellSt}">
+                        <div style="${cellLblSt}">진입가</div>
+                        <div style="${cellValSt}">${fmtP(price)}</div>
+                    </div>
+                    <div style="${cellSt}">
+                        <div style="${cellLblSt}">손절 (${slLabel})</div>
+                        <div style="${cellValSt};color:#ef4444;">${fmtP(sl)}</div>
+                        <div style="font-size:10px;color:var(--text2);font-weight:600;">${fmtPct(sl,price)}</div>
+                    </div>
+                    <div style="${cellSt}">
+                        <div style="${cellLblSt}">1차 목표 (1:${rrRatio})</div>
+                        <div style="${cellValSt};color:#22c55e;">${fmtP(tp1)}</div>
+                        <div style="font-size:10px;color:var(--text2);font-weight:600;">+2.5%</div>
+                    </div>
+                    <div style="${cellSt}">
+                        <div style="${cellLblSt}">2차 목표 (1:${rrRatio2})</div>
+                        <div style="${cellValSt};color:#22c55e;">${fmtP(tp2)}</div>
+                        <div style="font-size:10px;color:var(--text2);font-weight:600;">+8.0%</div>
+                    </div>
+                </div>
+                <div style="font-size:11px;color:var(--text2);margin-top:6px;text-align:right;">R:R 1차 <strong style="color:var(--text)">1:${rrRatio}</strong> · 2차 <strong style="color:var(--text)">1:${rrRatio2}</strong></div>
+            </div>
+
+            <!-- 5단계 체크 -->
+            <div style="margin-top:16px;">
+                <div style="${blockLblSt}">🔍 5단계 돌파 체크 (가중치 합산 = 종합점수)</div>
+                ${metricsHtml}
+            </div>
+
+            <!-- 점수 등급 기준 -->
+            <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);">
+                <div style="${blockLblSt}">📚 점수 등급 기준</div>
+                <div style="display:flex;flex-direction:column;gap:5px;">${gradeHtml}</div>
+            </div>
+
+            <!-- 원칙 -->
+            <div style="margin-top:14px;padding:10px 12px;background:var(--bg3);border-radius:8px;font-size:11.5px;color:var(--text2);line-height:1.55;">
+                💡 <strong style="color:var(--text);">5분봉 돌파 단타 원칙</strong><br>
+                · 진입은 양봉 돌파 후 거래량(RVOL 1.5x+) 동반 시에만<br>
+                · 손절은 양봉 시가 또는 ATR×${DAYTRADING_SL_MULTIPLIER} 아래에서 즉시 청산<br>
+                · 당일 청산 원칙 — 다음날까지 보유 금지
+            </div>
+        `;
 
         // R/R 게이트 적용
         _applyRRGate();
