@@ -10903,6 +10903,38 @@
         };
         resistances.forEach(r => addLine(r.price, 'rgba(239,68,68,0.55)', `저항 $${r.price.toFixed(2)}`));
         supports.forEach(s => addLine(s.price, 'rgba(59,130,246,0.55)', `지지 $${s.price.toFixed(2)}`));
+
+        // 5) 매매 전략 라인 — ATR(14) 기반 진입·분할·손절·익절
+        const atrArr = calcATR(highs, lows, closes, 14);
+        const atr = lastVal(atrArr);
+        if (atr != null && atr > 0 && lastClose != null && lastClose > 0) {
+            const isKR = currentMarket === 'KR';
+            const fmtP = p => isKR ? Math.round(p).toLocaleString() + '원' : '$' + p.toFixed(2);
+            const entry = lastClose;
+            let stop   = entry - atr * 1.5;
+            // 손절이 가장 가까운 지지선보다 낮으면 지지선 위로 끌어올림 (보수적)
+            const nearestSupport = supports[0]?.price;
+            if (nearestSupport != null && stop < nearestSupport) stop = nearestSupport;
+            const entry2 = entry - atr * 0.5;
+            const tp1    = entry + atr * 2.0;
+            const tp2    = entry + atr * 3.5;
+
+            const addStratLine = (price, color, style, width, label) => {
+                try {
+                    const pl = lwCandleSeries.createPriceLine({
+                        price, color, lineWidth: width, lineStyle: style,
+                        axisLabelVisible: true, title: label,
+                    });
+                    _chartLiveLines.push(pl);
+                } catch(e) {}
+            };
+            // 0=Solid, 1=Dotted, 2=Dashed (LWC LineStyle)
+            addStratLine(entry,  '#22c55e', 0, 2, `진입 ${fmtP(entry)}`);
+            addStratLine(entry2, '#22c55e', 2, 1, `분할매수 ${fmtP(entry2)}`);
+            addStratLine(stop,   '#ef4444', 0, 2, `손절 ${fmtP(stop)}`);
+            addStratLine(tp1,    '#eab308', 2, 1, `익절1 ${fmtP(tp1)}`);
+            addStratLine(tp2,    '#f97316', 2, 1, `익절2 ${fmtP(tp2)}`);
+        }
     }
 
     function clearAllDrawings() {
