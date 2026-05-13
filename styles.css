@@ -2522,7 +2522,7 @@
         #calcFab:hover{transform:scale(1.05);box-shadow:0 6px 28px rgba(234,179,8,.65);}
         @media(max-width:640px){#calcFab{bottom:calc(72px + env(safe-area-inset-bottom));right:14px;}}
         /* 모달 오버레이 */
-        #calcFabOverlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:901;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;opacity:0;pointer-events:none;transition:opacity .18s ease;}
+        #calcFabOverlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:5000;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;opacity:0;pointer-events:none;transition:opacity .18s ease;}
         #calcFabOverlay.open{opacity:1;pointer-events:auto;}
         /* 모달 박스 — GoFundMe 스타일 */
         #calcFabModal{background:#ffffff;border-radius:20px;width:100%;max-width:540px;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.18);overflow:hidden;position:relative;}
