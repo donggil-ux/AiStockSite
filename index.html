@@ -897,6 +897,9 @@
             <!-- 🔬 퀀트 분석 카드: 모멘텀 / 위험 / 시장 대비 / 평균회귀 + 종합 점수 -->
             <div id="quantAnalysis"></div>
 
+            <!-- 🎯 Minervini SEPA 분석 카드: 트렌드 템플릿 + VCP + RS + 거래량 + 종합점수 -->
+            <div id="sepaAnalysis"></div>
+
             <!-- 💎 보유 Guru (SEC EDGAR 13F 실데이터) -->
             <div id="guruHolders" style="display:none"></div>
 
@@ -9278,6 +9281,7 @@
             try { renderRaynerAnalysis(); } catch (e) { console.warn('[rayner] render fail', e); }
             try { _renderMultiFactorCard(); } catch (e) { console.warn('[mf] render fail', e); }
             try { renderQuantAnalysis(); } catch (e) { console.warn('[quant] render fail', e); }
+            try { renderMinerviniSEPA(); } catch (e) { console.warn('[sepa] render fail', e); }
             try { if (typeof renderGuruHolders === 'function' && typeof currentSymbol !== 'undefined') renderGuruHolders(currentSymbol); } catch {}
             rrWidgetAutoFill();
             renderRSIMomentum();
@@ -9869,6 +9873,7 @@
             try { renderRaynerAnalysis(); } catch (e) { console.warn('[rayner] render fail', e); }
             try { _renderMultiFactorCard(); } catch (e) { console.warn('[mf] render fail', e); }
             try { renderQuantAnalysis(); } catch (e) { console.warn('[quant] render fail', e); }
+            try { renderMinerviniSEPA(); } catch (e) { console.warn('[sepa] render fail', e); }
             try { if (typeof renderGuruHolders === 'function' && typeof currentSymbol !== 'undefined') renderGuruHolders(currentSymbol); } catch {}
             rrWidgetAutoFill();
             renderRSIMomentum();
@@ -13647,6 +13652,329 @@
             </div>
         `;
     }
+    // ========================================
+    // Mark Minervini SEPA 분석 (Specific Entry Point Analysis)
+    // 1) Trend Template (8 conditions)
+    // 2) VCP (Volatility Contraction Pattern)
+    // 3) RS Score (vs S&P 500)
+    // 4) Volume Confirmation
+    // 5) Pivot Point & Entry Strategy
+    // 6) Composite SEPA Score (0~100)
+    // ========================================
+    let _spxClosesCache = null;
+    let _spxClosesCacheTs = 0;
+    async function _getSPXCloses() {
+        const now = Date.now();
+        if (_spxClosesCache && now - _spxClosesCacheTs < 60 * 60_000) return _spxClosesCache;
+        try {
+            const r = await fetch('/api/chart/%5EGSPC?range=1y&interval=1d');
+            if (!r.ok) return null;
+            const d = await r.json();
+            const closes = d?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
+            if (closes && closes.length) {
+                _spxClosesCache = closes.filter(v => v != null);
+                _spxClosesCacheTs = now;
+                return _spxClosesCache;
+            }
+        } catch (e) {}
+        return null;
+    }
+
+    function _minerviniTrendTemplate(closes) {
+        if (!closes || closes.length < 200) return null;
+        const last = closes[closes.length - 1];
+        if (last == null) return null;
+        const ma50  = calcSMA(closes, 50);
+        const ma150 = calcSMA(closes, 150);
+        const ma200 = calcSMA(closes, 200);
+        const last50  = ma50[ma50.length - 1];
+        const last150 = ma150[ma150.length - 1];
+        const last200 = ma200[ma200.length - 1];
+        const ma200_22ago = ma200[Math.max(0, ma200.length - 23)];
+        const recent252 = closes.slice(-252).filter(v => v != null);
+        const high52 = recent252.length ? Math.max(...recent252) : last;
+        const low52  = recent252.length ? Math.min(...recent252) : last;
+        const conditions = [
+            { id: 1, label: '현재가 > 150일 MA',            pass: last50 != null && last150 != null && last > last150 },
+            { id: 2, label: '현재가 > 200일 MA',            pass: last200 != null && last > last200 },
+            { id: 3, label: '150 MA > 200 MA',              pass: last150 != null && last200 != null && last150 > last200 },
+            { id: 4, label: '200 MA 1개월 우상향',          pass: last200 != null && ma200_22ago != null && last200 > ma200_22ago },
+            { id: 5, label: '50 > 150 > 200 MA 정배열',     pass: last50 != null && last150 != null && last200 != null && last50 > last150 && last150 > last200 },
+            { id: 6, label: '현재가 > 50일 MA',             pass: last50 != null && last > last50 },
+            { id: 7, label: '52주 저점 대비 +25% 이상',     pass: low52 > 0 && (last - low52) / low52 >= 0.25 },
+            { id: 8, label: '52주 고점 대비 -25% 이내',     pass: high52 > 0 && (high52 - last) / high52 <= 0.25 },
+        ];
+        const passed = conditions.filter(c => c.pass).length;
+        return { conditions, passed, total: 8, high52, low52 };
+    }
+
+    function _detectVCP(highs, lows, volumes, closes) {
+        if (!highs || highs.length < 60) return { found: false, contractions: [] };
+        const N = highs.length;
+        const segLen = 12; // ~12일 = 2.5주, 60일 안에 5개 세그먼트
+        const contractions = [];
+        for (let start = N - 60; start <= N - segLen; start += segLen) {
+            const sH = highs.slice(start, start + segLen).filter(v => v != null);
+            const sL = lows.slice(start, start + segLen).filter(v => v != null);
+            const sV = (volumes || []).slice(start, start + segLen).filter(v => v != null);
+            if (sH.length < 5 || sL.length < 5) continue;
+            const high = Math.max(...sH);
+            const low  = Math.min(...sL);
+            const range = low > 0 ? (high - low) / low * 100 : 0;
+            const avgVol = sV.length ? sV.reduce((s, v) => s + v, 0) / sV.length : 0;
+            contractions.push({ start, high, low, range, avgVol });
+        }
+        if (contractions.length < 2) return { found: false, contractions };
+        // 변동폭 점진 축소 여부 — 각 단계가 직전 90% 이하
+        let isContracting = true;
+        let volContracting = true;
+        for (let i = 1; i < contractions.length; i++) {
+            if (contractions[i].range >= contractions[i-1].range * 0.9) isContracting = false;
+            if (contractions[i].avgVol >= contractions[i-1].avgVol * 1.05) volContracting = false;
+        }
+        const first = contractions[0];
+        const last  = contractions[contractions.length - 1];
+        const finalToFirstRatio = first.range > 0 ? last.range / first.range : 1;
+        const idealPivot = finalToFirstRatio < 0.5;
+        const pivot = last.high * 1.003;
+        const baseLow = Math.min(...contractions.map(c => c.low));
+        return {
+            found: isContracting,
+            contractionCount: contractions.length,
+            contractions,
+            pivot,
+            baseLow,
+            volConfirmed: volContracting,
+            idealPivot,
+            finalRangePct: last.range,
+        };
+    }
+
+    function _calcRSScore(stockCloses, spxCloses) {
+        if (!stockCloses || !spxCloses) return null;
+        const s = stockCloses.filter(v => v != null);
+        const x = spxCloses.filter(v => v != null);
+        if (s.length < 130 || x.length < 130) return null;
+        const sLast = s[s.length - 1], xLast = x[x.length - 1];
+        const s63   = s[s.length - 64], x63   = x[x.length - 64];
+        const s126  = s[s.length - 127], x126 = x[x.length - 127];
+        if (!s63 || !x63 || !s126 || !x126) return null;
+        const ret63s   = (sLast / s63 - 1) * 100;
+        const ret63x   = (xLast / x63 - 1) * 100;
+        const ret126s  = (sLast / s126 - 1) * 100;
+        const ret126x  = (xLast / x126 - 1) * 100;
+        const excess63  = ret63s - ret63x;
+        const excess126 = ret126s - ret126x;
+        const composite = excess63 * 0.4 + excess126 * 0.6;
+        // 매핑: -50%→0, 0%→50, +50%→100 (clamp)
+        const rs = Math.max(0, Math.min(100, Math.round(50 + composite * 1.0)));
+        return { rs, excess63, excess126, ret63s, ret126s, ret63x, ret126x };
+    }
+
+    function _analyzeMinerviniVolume(volumes, closes) {
+        if (!volumes || volumes.length < 50) return null;
+        const N = volumes.length;
+        const recentVols = volumes.slice(-5).filter(v => v != null);
+        const baseVols   = volumes.slice(-50, -5).filter(v => v != null);
+        if (!recentVols.length || !baseVols.length) return null;
+        const recent5Avg = recentVols.reduce((s, v) => s + v, 0) / recentVols.length;
+        const avg50      = baseVols.reduce((s, v) => s + v, 0) / baseVols.length;
+        const volRatio = avg50 > 0 ? recent5Avg / avg50 : 0;
+        const todayVol = volumes[N - 1] || 0;
+        const todayChange = (closes[N-1] != null && closes[N-2] != null) ? (closes[N-1] / closes[N-2] - 1) : 0;
+        const breakoutVolume = avg50 > 0 && todayVol > avg50 * 1.4 && todayChange > 0;
+        return {
+            recent5Avg, avg50, volRatio, todayVolMult: avg50 > 0 ? todayVol / avg50 : 0,
+            breakoutVolume,
+            baseFormingLowVol: volRatio < 1.0,
+        };
+    }
+
+    function _minerviniSEPAScore(trend, vcp, rsObj, vol, lastClose) {
+        let score = 0;
+        if (trend) score += (trend.passed / 8) * 30;
+        if (vcp.found) score += vcp.idealPivot ? 25 : 15;
+        if (rsObj) {
+            if (rsObj.rs >= 90) score += 20;
+            else if (rsObj.rs >= 70) score += 15;
+            else if (rsObj.rs >= 50) score += 8;
+        }
+        if (vol) {
+            if (vol.breakoutVolume) score += 15;
+            else if (vol.baseFormingLowVol) score += 8;
+        }
+        if (vcp.found && vcp.pivot > 0 && lastClose > 0) {
+            const distPct = (vcp.pivot - lastClose) / lastClose * 100;
+            if (distPct <= 0) score += 10;
+            else if (distPct <= 3) score += 8;
+            else if (distPct <= 7) score += 5;
+        }
+        return Math.round(score);
+    }
+
+    function renderMinerviniSEPA() {
+        const el = document.getElementById('sepaAnalysis');
+        if (!el) return;
+        if (!stockData) { el.innerHTML = ''; return; }
+        const q = stockData.indicators?.quote?.[0];
+        if (!q?.close) { el.innerHTML = ''; return; }
+        const closes = q.close;
+        const validCloses = closes.filter(v => v != null);
+        if (validCloses.length < 200) {
+            el.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:12px 0;font-size:13px;color:var(--text2);">🎯 Minervini SEPA — 200일 이상 데이터 필요 (현재 ${validCloses.length}일)</div>`;
+            return;
+        }
+        // 1차 렌더 (RS 제외) + 비동기 RS 후속 갱신
+        const initial = _buildSEPAHtml({ trend: _minerviniTrendTemplate(validCloses),
+                                          vcp: _detectVCP(q.high, q.low, q.volume, validCloses),
+                                          vol: _analyzeMinerviniVolume(q.volume, q.close),
+                                          rs: null,
+                                          lastClose: validCloses[validCloses.length - 1] });
+        el.innerHTML = initial;
+        _getSPXCloses().then(spx => {
+            if (!spx) return;
+            // 같은 timestamp 정렬은 단순화 — 길이만 맞추기 (영업일 기준 거의 일치)
+            const rs = _calcRSScore(validCloses, spx);
+            const final = _buildSEPAHtml({ trend: _minerviniTrendTemplate(validCloses),
+                                            vcp: _detectVCP(q.high, q.low, q.volume, validCloses),
+                                            vol: _analyzeMinerviniVolume(q.volume, q.close),
+                                            rs,
+                                            lastClose: validCloses[validCloses.length - 1] });
+            const elNow = document.getElementById('sepaAnalysis');
+            if (elNow) elNow.innerHTML = final;
+        });
+    }
+
+    function _buildSEPAHtml({ trend, vcp, vol, rs, lastClose }) {
+        const isKR = currentMarket === 'KR';
+        const fmtP = p => p == null ? '-' : (isKR ? Math.round(p).toLocaleString() + '원' : '$' + p.toFixed(2));
+        const score = _minerviniSEPAScore(trend, vcp, rs, vol, lastClose);
+
+        // 트렌드 템플릿 verdict
+        let trendBadge = '⬜ 데이터 부족';
+        let trendBadgeColor = '#94a3b8';
+        if (trend) {
+            if (trend.passed === 8)      { trendBadge = '🟢 완벽한 Stage 2 — 진입 검토'; trendBadgeColor = '#22c55e'; }
+            else if (trend.passed >= 6)  { trendBadge = '🟡 Stage 2 진입 중 — 주의 관찰'; trendBadgeColor = '#eab308'; }
+            else                          { trendBadge = '🔴 Stage 2 미충족 — 관망'; trendBadgeColor = '#ef4444'; }
+        }
+        const conditionsHtml = trend ? trend.conditions.map(c => `
+            <div style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12.5px;">
+                <span style="font-size:14px;">${c.pass ? '✅' : '❌'}</span>
+                <span style="color:${c.pass ? 'var(--text)' : 'var(--text2)'};font-weight:${c.pass ? '600' : '500'};">${c.label}</span>
+            </div>`).join('') : '<div style="font-size:12px;color:var(--text2);">데이터 부족</div>';
+
+        // VCP verdict
+        let vcpBadge = '⬜ VCP 미형성';
+        let vcpBadgeColor = '#94a3b8';
+        let vcpDetail = '';
+        if (vcp.found) {
+            const distPct = lastClose > 0 ? (vcp.pivot - lastClose) / lastClose * 100 : 100;
+            if (distPct <= 1) { vcpBadge = '🟢 피벗 근접 — 진입 준비'; vcpBadgeColor = '#22c55e'; }
+            else              { vcpBadge = `🟡 VCP ${vcp.contractionCount}차 수축 — 피벗 대기`; vcpBadgeColor = '#eab308'; }
+            vcpDetail = `최종 변동폭 ${vcp.finalRangePct.toFixed(1)}% · 베이스 저점 ${fmtP(vcp.baseLow)} · 피벗 ${fmtP(vcp.pivot)}`;
+        } else {
+            vcpDetail = '수축 패턴 없음 — 베이스 형성 대기';
+        }
+
+        // RS verdict
+        let rsBadge = '⏳ RS 계산 중...';
+        let rsBadgeColor = '#94a3b8';
+        let rsDetail = '';
+        if (rs) {
+            if (rs.rs >= 90)      { rsBadge = `🟢 RS ${rs.rs} — 최상위 (Minervini 선호)`; rsBadgeColor = '#22c55e'; }
+            else if (rs.rs >= 70) { rsBadge = `🟡 RS ${rs.rs} — 양호`; rsBadgeColor = '#eab308'; }
+            else                  { rsBadge = `🔴 RS ${rs.rs} — 부족 (70+ 권장)`; rsBadgeColor = '#ef4444'; }
+            rsDetail = `3개월 초과수익 ${rs.excess63 >= 0 ? '+' : ''}${rs.excess63.toFixed(1)}% · 6개월 ${rs.excess126 >= 0 ? '+' : ''}${rs.excess126.toFixed(1)}%`;
+        }
+
+        // Volume verdict
+        let volBadge = '⬜ 데이터 부족';
+        let volBadgeColor = '#94a3b8';
+        let volDetail = '';
+        if (vol) {
+            if (vol.breakoutVolume) { volBadge = '✅ 돌파 거래량 확인 (+40% 이상)'; volBadgeColor = '#22c55e'; }
+            else if (vol.baseFormingLowVol) { volBadge = '🟡 베이스 거래량 감소 (정상)'; volBadgeColor = '#eab308'; }
+            else { volBadge = '❌ 거래량 미흡 — 돌파 시 주의'; volBadgeColor = '#ef4444'; }
+            volDetail = `최근 5일 평균 / 50일 평균 = ${vol.volRatio.toFixed(2)}x · 오늘 ${vol.todayVolMult.toFixed(2)}x`;
+        }
+
+        // 피벗·매매 라인
+        let entryLinesHtml = '';
+        if (vcp.found && vcp.pivot > 0) {
+            const pivot = vcp.pivot;
+            const stop = Math.min(pivot * 0.90, vcp.baseLow * 0.99);
+            const tp1 = pivot * 1.20;
+            const tp2 = pivot * 1.50;
+            const chaseLimit = pivot * 1.05;
+            const beyondChase = lastClose > chaseLimit;
+            entryLinesHtml = `
+                <div style="margin-top:12px;background:var(--bg3);padding:10px;border-radius:10px;">
+                    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;">
+                        <div style="text-align:center;"><div style="font-size:10.5px;color:var(--text2);font-weight:700;">피벗 진입</div><div style="font-size:13.5px;font-weight:800;color:#f97316;">${fmtP(pivot)}</div></div>
+                        <div style="text-align:center;"><div style="font-size:10.5px;color:var(--text2);font-weight:700;">손절 (-10%)</div><div style="font-size:13.5px;font-weight:800;color:#ef4444;">${fmtP(stop)}</div></div>
+                        <div style="text-align:center;"><div style="font-size:10.5px;color:var(--text2);font-weight:700;">익절1 (+20%)</div><div style="font-size:13.5px;font-weight:800;color:#eab308;">${fmtP(tp1)}</div></div>
+                        <div style="text-align:center;"><div style="font-size:10.5px;color:var(--text2);font-weight:700;">익절2 (+50%)</div><div style="font-size:13.5px;font-weight:800;color:#22c55e;">${fmtP(tp2)}</div></div>
+                    </div>
+                    <div style="margin-top:8px;font-size:11.5px;color:${beyondChase ? '#ef4444' : 'var(--text2)'};text-align:center;">
+                        추격 한계선 +5% = ${fmtP(chaseLimit)} ${beyondChase ? '— ❌ 추격 금지 구간' : ''}
+                    </div>
+                </div>`;
+        }
+
+        // 종합 점수 verdict
+        let scoreBadge = '🔴 SEPA 미충족 — 관망';
+        let scoreBadgeColor = '#ef4444';
+        if (score >= 85)      { scoreBadge = '🟢 SEPA 최적 — 진입 검토'; scoreBadgeColor = '#22c55e'; }
+        else if (score >= 70) { scoreBadge = '🟡 SEPA 양호 — 피벗 대기'; scoreBadgeColor = '#eab308'; }
+
+        return `
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:12px 0;">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+                    <div style="font-size:16px;font-weight:800;letter-spacing:-.3px;display:flex;align-items:center;gap:8px;">
+                        🎯 Minervini SEPA 분석
+                        <span style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:8px;background:${scoreBadgeColor}1a;color:${scoreBadgeColor};border:1px solid ${scoreBadgeColor}55;">${score}점</span>
+                    </div>
+                </div>
+                <div style="font-size:12.5px;color:${scoreBadgeColor};font-weight:700;margin-bottom:10px;">${scoreBadge}</div>
+
+                <div style="margin-top:12px;">
+                    <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">① 트렌드 템플릿 <span style="color:${trendBadgeColor};">${trend ? trend.passed : 0}/8</span></div>
+                    <div style="font-size:12.5px;color:${trendBadgeColor};font-weight:700;margin-bottom:8px;">${trendBadge}</div>
+                    <div style="background:var(--bg3);padding:8px 10px;border-radius:8px;display:grid;grid-template-columns:1fr 1fr;gap:0 12px;">${conditionsHtml}</div>
+                </div>
+
+                <div style="margin-top:14px;">
+                    <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">② VCP 패턴</div>
+                    <div style="font-size:12.5px;color:${vcpBadgeColor};font-weight:700;">${vcpBadge}</div>
+                    <div style="font-size:11.5px;color:var(--text2);margin-top:3px;">${vcpDetail}</div>
+                </div>
+
+                <div style="margin-top:14px;">
+                    <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">③ 상대강도 (RS) vs S&amp;P 500</div>
+                    <div style="font-size:12.5px;color:${rsBadgeColor};font-weight:700;">${rsBadge}</div>
+                    ${rsDetail ? `<div style="font-size:11.5px;color:var(--text2);margin-top:3px;">${rsDetail}</div>` : ''}
+                </div>
+
+                <div style="margin-top:14px;">
+                    <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">④ 거래량</div>
+                    <div style="font-size:12.5px;color:${volBadgeColor};font-weight:700;">${volBadge}</div>
+                    <div style="font-size:11.5px;color:var(--text2);margin-top:3px;">${volDetail}</div>
+                </div>
+
+                ${vcp.found ? `<div style="margin-top:14px;">
+                    <div style="font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">⑤ 피벗 진입 라인</div>
+                    ${entryLinesHtml}
+                </div>` : ''}
+
+                <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border);font-size:11.5px;color:var(--text2);line-height:1.5;">
+                    ※ Mark Minervini의 SEPA: Stage 2 + VCP + RS 70+ + 거래량 확인 4박자 충족 종목만 매매.<br>
+                    ※ 추격 한계선 +5% 초과 시 진입 금지 (Minervini 원칙).
+                </div>
+            </div>
+        `;
+    }
+
     // ========================================
     // 손익비(R/R) 분석 카드
     // ========================================
@@ -18786,7 +19114,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         toggleChartSigLines,
         handleSearchKeydown, openSearchDropdown, closeSearchDropdown, searchSuggest, levenshtein,
         renderDayUnified, renderDanteAnalysis, runDanteBacktest,
-        renderRRAnalysis, renderRaynerAnalysis, renderRSIMomentum, analyzeRSIDynamic,
+        renderRRAnalysis, renderRaynerAnalysis, renderMinerviniSEPA, renderRSIMomentum, analyzeRSIDynamic,
         renderMACDSignal, analyzeMACDRayner, _applyRRGate, _isFallingKnife,
         toggleChecklist,
         calcRRWidget, rrWidgetAutoFill, rrCalcEntryChanged,
