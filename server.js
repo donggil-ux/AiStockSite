@@ -91,7 +91,9 @@ const upload = multer({
 // [Fix-F] 시작 시 필수 env var 누락 경고
 if (!process.env.GEMINI_API_KEY)  console.warn('⚠️  GEMINI_API_KEY 환경변수가 없습니다.');
 if (!process.env.SUPABASE_URL)    console.warn('⚠️  SUPABASE_URL 환경변수가 없습니다.');
-if (!process.env.SUPABASE_ANON_KEY) console.warn('⚠️  SUPABASE_ANON_KEY 환경변수가 없습니다.');
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY && !process.env.SUPABASE_ANON_KEY) {
+    console.warn('⚠️  SUPABASE_SERVICE_ROLE_KEY 또는 SUPABASE_ANON_KEY 환경변수가 필요합니다.');
+}
 if (!process.env.FRED_API_KEY)    console.warn('⚠️  FRED_API_KEY 환경변수가 없습니다. 경제지표 기능이 비활성화됩니다.');
 if (!process.env.FINNHUB_API_KEY) console.warn('⚠️  FINNHUB_API_KEY 환경변수가 없습니다. 종목별 뉴스/실적 서프라이즈 기능이 비활성화됩니다.');
 
@@ -112,12 +114,15 @@ function getAnthropic() {
 // _aiRecCache / AI_REC_TTL — /api/ai-recommend 와 함께 제거됨 (v530)
 
 // [Fix-F] _supabase = null(미설정) or createClient 인스턴스 — 최초 1회만 생성
+// 보안: SERVICE_ROLE_KEY 우선 (RLS 우회·서버 전용) → 없으면 ANON_KEY 로 폴백
 let _supabase;
 function getSupabase() {
     if (_supabase !== undefined) return _supabase;
     const url = process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_ANON_KEY;
-    _supabase = (url && key) ? createClient(url, key) : null;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+    _supabase = (url && key) ? createClient(url, key, {
+        auth: { autoRefreshToken: false, persistSession: false },
+    }) : null;
     return _supabase;
 }
 
