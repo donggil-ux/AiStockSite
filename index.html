@@ -11106,11 +11106,11 @@
         const slicedHi = highs.slice(startIdx), slicedLo = lows.slice(startIdx), slicedTs = ts.slice(startIdx);
         const { peaks, troughs } = _detectSwingPoints(slicedHi, slicedLo, slicedTs, 5, 8);
         const curPrice = lastClose || 0;
-        // 가장 가까운 저항선 (현재가 위) 2개
+        // 가장 가까운 저항선 (현재가 위) 1개
         const resistances = peaks
             .filter(p => p.price > curPrice)
             .sort((a,b) => a.price - b.price)
-            .slice(0, 2);
+            .slice(0, 1);
         // 가장 가까운 지지선 (현재가 아래) 2개
         const supports = troughs
             .filter(p => p.price < curPrice)
