@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=596">
+    <link rel="stylesheet" href="/styles.css?v=597">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -14087,29 +14087,51 @@
         // 진입가(현재가)보다 반드시 낮아야 함 — 그렇지 않으면 위험·목표 계산이 뒤집힘
         const validLows = lows.slice(-20).filter(v => v != null && v > 0);
         const swingLow = validLows.length ? Math.min(...validLows) : 0;
-        // ── 진입가 — 시그널 타입별 의미있는 가격 계산 ──
-        let entryPrice = lastClose;
-        let entryLabel = '현재가 (즉시 진입)';
+        // ── 진입가 — 시그널·Stage 기반 전략 가격 계산 (항상 의미있는 값) ──
+        let entryPrice, entryLabel;
         const recentHighs = highs.slice(-20).filter(v => v != null);
         const recentHigh = recentHighs.length ? Math.max(...recentHighs) : null;
-        if (latestEntry?.type === 'pullback' && last20 != null && last20 < lastClose) {
-            // 풀백 진입: EMA20 또는 EMA50 지지선까지 대기 (현재가보다 낮은 limit)
-            entryPrice = last20;
-            entryLabel = 'EMA20 풀백 (지정가)';
-        } else if (latestEntry?.type === 'breakout' && recentHigh != null) {
-            // 돌파 진입: 최근 고점 + 0.3% (stop 주문)
+
+        // 우선순위 1: 진입 시그널이 있으면 그 시그널 기반 진입가
+        if (latestEntry?.type === 'breakout' && recentHigh != null) {
             entryPrice = recentHigh * 1.003;
             entryLabel = '저항 돌파 (역지정가)';
         } else if (latestEntry?.type === 'reversal' && last200 != null) {
-            // 반전 진입: 200 EMA 상향 돌파 가격
             entryPrice = last200 * 1.003;
             entryLabel = '200 EMA 돌파';
-        } else if (stage?.stage === 2 && last20 != null && last20 < lastClose * 0.98) {
-            // Stage 2 + 시그널 없음: EMA20 풀백 대기 (현재가보다 충분히 낮을 때)
+        } else if (latestEntry?.type === 'pullback' && last20 != null) {
             entryPrice = last20;
-            entryLabel = 'EMA20 풀백 대기';
+            entryLabel = 'EMA20 풀백 (지정가)';
+        }
+        // 우선순위 2: Stage 기반 기본 진입 전략 (시그널 부재 시)
+        else if (stage?.stage === 2) {
+            // 상승 추세: EMA20 풀백 대기 (현재가가 EMA20 위)
+            if (last20 != null && last20 < lastClose) {
+                entryPrice = last20;
+                entryLabel = 'EMA20 풀백 대기';
+            } else if (last50 != null && last50 < lastClose) {
+                entryPrice = last50;
+                entryLabel = 'EMA50 분할매수';
+            } else {
+                entryPrice = lastClose;
+                entryLabel = '현재가 (EMA 근접)';
+            }
+        } else if (stage?.stage === 1) {
+            // 횡보: EMA50 지지 대기
+            entryPrice = (last50 != null && last50 < lastClose) ? last50 : lastClose;
+            entryLabel = 'EMA50 지지 (관망 권장)';
+        } else if (stage?.stage === 3) {
+            // 분배 주의: EMA50 깊은 풀백 (-2%) 대기
+            entryPrice = last50 != null ? last50 * 0.98 : lastClose * 0.95;
+            entryLabel = 'EMA50 -2% (분배 주의)';
         } else if (stage?.stage === 4) {
-            entryLabel = '⚠️ Stage 4 — 매수 금지';
+            // 하락 추세: 200 EMA 돌파 시에만 신중 진입
+            entryPrice = last200 != null ? last200 * 1.003 : lastClose;
+            entryLabel = '⚠️ 200 EMA 돌파 시만 (매수 금지)';
+        } else {
+            // 데이터 부족
+            entryPrice = lastClose;
+            entryLabel = '현재가';
         }
         // ── 손절가 ──
         let stop;
