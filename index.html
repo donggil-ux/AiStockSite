@@ -750,6 +750,9 @@
                                 <button class="tm-btn active" data-mode="swing" onclick="setTradeMode('swing')">스윙</button>
                                 <button class="tm-btn"        data-mode="day"   onclick="setTradeMode('day')">단타</button>
                             </div>
+                            <button class="chart-tb-btn" id="chartSigLinesBtn"
+                                onclick="toggleChartSigLines()" title="자동 진입·손절·익절 라인 켜기/끄기"
+                                style="border-color:var(--border);">📍 라인</button>
                             <button class="chart-tb-btn" id="chartAiClearBtn"
                                 onclick="clearAiChartLines()" title="AI 라인 지우기"
                                 style="display:none;border-color:var(--border);color:var(--text3);">🗑 AI 라인</button>
@@ -10740,6 +10743,36 @@
     // 차트 실시간 지표 시그널 — 배지·마커·지지/저항선
     // ========================================
     let _chartLiveLines = []; // 자동 S/R priceLine refs (재렌더 시 정리)
+    let _chartLinesEnabled = localStorage.getItem('stockai_chart_sig_lines') !== '0'; // 기본 ON
+    let _lastSigArgs = null;  // 토글 시 즉시 재렌더용 캐시
+
+    function _updateChartLinesBtnUi() {
+        const btn = document.getElementById('chartSigLinesBtn');
+        if (!btn) return;
+        if (_chartLinesEnabled) {
+            btn.style.color = 'var(--text1)';
+            btn.style.background = 'var(--bg2)';
+            btn.title = '자동 라인 끄기';
+        } else {
+            btn.style.color = 'var(--text3)';
+            btn.style.background = 'transparent';
+            btn.title = '자동 라인 켜기';
+        }
+    }
+
+    function toggleChartSigLines() {
+        _chartLinesEnabled = !_chartLinesEnabled;
+        localStorage.setItem('stockai_chart_sig_lines', _chartLinesEnabled ? '1' : '0');
+        _updateChartLinesBtnUi();
+        if (_lastSigArgs) {
+            renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb);
+        } else {
+            // 캐시 없으면 라인만 제거
+            _chartLiveLines.forEach(pl => { try { lwCandleSeries?.removePriceLine(pl); } catch(e) {} });
+            _chartLiveLines = [];
+        }
+    }
+
     function _clearChartLiveSignals() {
         _chartLiveLines.forEach(pl => { try { lwCandleSeries?.removePriceLine(pl); } catch(e) {} });
         _chartLiveLines = [];
@@ -10791,6 +10824,8 @@
         _clearChartLiveSignals();
         const bar = document.getElementById('chartSigBar');
         if (!bar || !lwCandleSeries || !candleData?.length) return;
+        _lastSigArgs = { candleData, ts, q, bb }; // 토글 시 즉시 재렌더용
+        _updateChartLinesBtnUi();
 
         const closes = q.close, highs = q.high, lows = q.low;
         const lastVal = arr => { for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != null) return arr[i]; return null; };
@@ -10874,6 +10909,9 @@
             }
             _lastSigKey = newKey;
         }
+
+        // 라인 토글 OFF → 배지·마커만 유지, 가격 라인은 그리지 않음
+        if (!_chartLinesEnabled) return;
 
         // 4) 자동 지지·저항선 — 최근 90봉 스윙 고점·저점
         const recentN = Math.min(90, candleData.length);
@@ -18333,6 +18371,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         loadOptionsDate, setOptionsFilter,
         setOptionsStrikeRange, toggleOptionsVolFilter, sortOptionsBy,
         manualAnalysisRefresh, pwaInstall,
+        toggleChartSigLines,
         handleSearchKeydown, openSearchDropdown, closeSearchDropdown, searchSuggest, levenshtein,
         renderDayUnified, renderDanteAnalysis, runDanteBacktest,
         renderRRAnalysis, renderRSIMomentum, analyzeRSIDynamic,
