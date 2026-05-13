@@ -5073,46 +5073,26 @@
                 el.innerHTML = _alphaTimingGuide('rayner') + '<div class="sniper-empty">현재 Stage 2 + 진입 시그널 종목이 없습니다 — 4시간 후 재시도</div>';
                 return;
             }
-            const sigColor = { pullback: '#22c55e', breakout: '#eab308', reversal: '#3b82f6' };
-            const stageColor = { 1: '#94a3b8', 2: '#22c55e', 3: '#f97316', 4: '#ef4444' };
-            const cards = results.map((r, idx) => {
-                const sc = sigColor[r.entrySignal?.type] || '#94a3b8';
-                const stc = stageColor[r.stage] || '#94a3b8';
-                const sigLabel = r.entrySignal?.label || '-';
-                const barsAgo = r.entrySignal?.barsAgo;
-                const sigDetail = barsAgo === 0 ? '오늘' : barsAgo === 1 ? '1봉전' : `${barsAgo}봉전`;
-                // EMA 정·역배열 빠른 판정
-                const emaAligned = r.ema20 > r.ema50 && r.ema50 > r.ema200;
-                const emaTag = emaAligned ? '🟢 EMA 정배열' : (r.ema20 < r.ema50 && r.ema50 < r.ema200) ? '🔴 EMA 역배열' : '⚪ EMA 혼조';
-                // 진입 시그널 태그
-                const sigTag = `${sc === '#22c55e' ? '🟢' : sc === '#eab308' ? '🟡' : '🔵'} ${sigLabel} · ${sigDetail}`;
-                const patTag = r.pattern ? `📈 ${r.pattern}` : null;
-                return `<div onclick="quickSearch('${r.symbol}','US')" style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid ${stc};border-radius:10px;padding:14px 16px;margin:8px 0;cursor:pointer;">
-                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-                        <div style="flex:1;min-width:0;">
-                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                                <span style="font-size:16px;font-weight:800;letter-spacing:-.3px;">#${idx+1} ${r.symbol}</span>
-                                <span style="font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;background:${stc}1f;color:${stc};border:1px solid ${stc}55;">Stage ${r.stage} · 점수 ${r.score}</span>
-                                <span style="font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;background:${sc}1f;color:${sc};border:1px solid ${sc}55;">${sigLabel}</span>
-                            </div>
-                            <div style="font-size:12.5px;color:var(--text);opacity:.75;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(r.name)}</div>
-                            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:var(--text2);">
-                                <span>${sigTag}</span>
-                                <span>${emaTag}</span>
-                                ${patTag ? `<span>${patTag}</span>` : ''}
-                            </div>
-                        </div>
-                        <div style="text-align:right;flex-shrink:0;">
-                            <div style="font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;">$${r.price.toFixed(2)}</div>
-                            <div style="font-size:10.5px;color:var(--text2);font-weight:700;margin-top:2px;">EMA200 $${r.ema200.toFixed(0)}</div>
-                        </div>
-                    </div>
-                </div>`;
-            }).join('');
-            const scannedAgo = d.scannedAt ? ` · ${Math.round((Date.now() - new Date(d.scannedAt).getTime()) / 60000)}분 전 스캔` : '';
-            el.innerHTML = _alphaTimingGuide('rayner')
-                + `<div style="font-size:12px;color:var(--text2);margin:6px 0 8px;">📊 ${results.length}개 종목 발굴 (전체 ${d.totalScanned}개 스캔${scannedAgo})</div>`
-                + cards;
+            // _alphaRender(통합 카드 UI)에 맞게 데이터 변환
+            const items = results.map(r => ({
+                symbol: r.symbol,
+                name: r.name,
+                regularMarketPrice: r.price,
+                price: r.price,
+                regularMarketChangePercent: r.changePct ?? null,
+                _alphaKind: 'rayner',
+                _raynerStage: r.stage,
+                _raynerStageLabel: r.stageLabel,
+                _raynerEma20: r.ema20,
+                _raynerEma50: r.ema50,
+                _raynerEma200: r.ema200,
+                _raynerPctAbove200: r.pctAbove200,
+                _raynerSlope50: r.slope50,
+                _raynerEntry: r.entrySignal,
+                _raynerPattern: r.pattern,
+                _raynerScore: r.score,
+            }));
+            _alphaRender(items, 'rayner');
         } catch (e) {
             if (_alphaTab === 'rayner') el.innerHTML = _alphaTimingGuide('rayner') + '<div class="sniper-empty">데이터 로드 실패 — 잠시 후 다시 시도하세요</div>';
         }
@@ -5423,6 +5403,56 @@
             reason = `단테 기법 ${sigs.length}개 시그널 발동 — ${sigs.map(s=>s.label).join(' · ')}.`;
             timingBadge = q._danteScore >= 7 ? {label:'⚡ 즉시 단타', cls:'emerald'} : {label:'📅 분할 진입', cls:'amber'};
             expectedMove = Math.round(3 + sigs.length * 1.5);
+        } else if (kind === 'rayner') {
+            // Stage 배지
+            const stageClsMap = { 1:'amber', 2:'emerald', 3:'orange', 4:'red' };
+            const stageColorMap = { 1:'#94a3b8', 2:'#22c55e', 3:'#f97316', 4:'#ef4444' };
+            const stg = q._raynerStage || q.stage;
+            const stgLabel = q._raynerStageLabel || q.stageLabel || '';
+            if (stg) signals.push({ label: `Stage ${stg} · ${stgLabel}`, cls: stageClsMap[stg] || 'blue' });
+            // 진입 시그널
+            const entry = q._raynerEntry || q.entrySignal;
+            if (entry) {
+                const sigClsMap = { pullback:'emerald', breakout:'amber', reversal:'blue' };
+                const barsAgo = entry.barsAgo;
+                const detail = barsAgo === 0 ? '오늘' : barsAgo === 1 ? '1봉전' : `${barsAgo}봉전`;
+                signals.push({ label: `${entry.label} · ${detail}`, cls: sigClsMap[entry.type] || 'cyan' });
+            }
+            // 캔들 패턴
+            const pat = q._raynerPattern || q.pattern;
+            if (pat) {
+                const isBear = /슈팅스타|약세/.test(pat);
+                signals.push({ label: `📈 ${pat}`, cls: isBear ? 'red' : 'emerald' });
+            }
+            // EMA 정·역배열
+            const ema20v = q._raynerEma20 ?? q.ema20;
+            const ema50v = q._raynerEma50 ?? q.ema50;
+            const ema200v = q._raynerEma200 ?? q.ema200;
+            if (ema20v && ema50v && ema200v) {
+                if (ema20v > ema50v && ema50v > ema200v) signals.push({ label: 'EMA 정배열', cls: 'emerald' });
+                else if (ema20v < ema50v && ema50v < ema200v) signals.push({ label: 'EMA 역배열', cls: 'red' });
+            }
+            // 200 EMA 대비 위치
+            const pctAbove = q._raynerPctAbove200 ?? q.pctAbove200;
+            if (pctAbove != null && pctAbove > 5) signals.push({ label: `200EMA +${pctAbove.toFixed(1)}%`, cls: 'cyan' });
+            // 점수: 0-100 → 0-6 매핑
+            const rayScore = q._raynerScore ?? q.score ?? 0;
+            score = rayScore >= 80 ? 6 : rayScore >= 65 ? 5 : rayScore >= 50 ? 4 : rayScore >= 35 ? 3 : rayScore >= 20 ? 2 : 1;
+            // 사유
+            const parts = [];
+            if (stg) parts.push(`Stage ${stg} ${stgLabel}`);
+            if (entry) parts.push(`${entry.label} 시그널`);
+            if (pat) parts.push(`${pat} 패턴`);
+            reason = parts.length ? `Rayner Teo 분석: ${parts.join(' + ')}` : 'Rayner Teo 분석 조건 충족';
+            // 타이밍·예상 수익
+            const isStg2 = stg === 2;
+            const isPullback = entry?.type === 'pullback';
+            const isBreakout = entry?.type === 'breakout';
+            timingBadge = isStg2 && isPullback ? { label:'⚡ 풀백 진입', cls:'emerald' }
+                       : isBreakout                ? { label:'⚡ 돌파 추격', cls:'amber' }
+                       : isStg2                    ? { label:'📅 추세 보유', cls:'cyan' }
+                                                   : { label:'📅 신중 진입', cls:'amber' };
+            expectedMove = isStg2 ? 10 : isBreakout ? 8 : 5;
         }
 
         // Tier 결정
@@ -5447,6 +5477,11 @@
         } else if (kind === 'dante') {
             stopLoss = price * 0.97;
             target = price * (1 + (expectedMove || 5) / 100);
+        } else if (kind === 'rayner') {
+            // Rayner: 손절 = 50 EMA 아래 또는 -5%, 목표 = +10~15%
+            const ema50v = q._raynerEma50 ?? q.ema50;
+            stopLoss = (ema50v && ema50v < price) ? ema50v * 0.99 : price * 0.95;
+            target = price * (1 + (expectedMove || 10) / 100);
         }
         const rrRatio = ((target - entry) / Math.max(entry - stopLoss, 0.01)).toFixed(1);
 
