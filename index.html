@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=597">
+    <link rel="stylesheet" href="/styles.css?v=598">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -14087,51 +14087,62 @@
         // 진입가(현재가)보다 반드시 낮아야 함 — 그렇지 않으면 위험·목표 계산이 뒤집힘
         const validLows = lows.slice(-20).filter(v => v != null && v > 0);
         const swingLow = validLows.length ? Math.min(...validLows) : 0;
-        // ── 진입가 — 시그널·Stage 기반 전략 가격 계산 (항상 의미있는 값) ──
+        // ── 진입가 — 시그널·Stage 기반 전략 가격 계산 (항상 현재가와 다른 의미있는 값) ──
         let entryPrice, entryLabel;
         const recentHighs = highs.slice(-20).filter(v => v != null);
         const recentHigh = recentHighs.length ? Math.max(...recentHighs) : null;
 
+        // 헬퍼: 현재가보다 ≥0.3% 낮은 EMA 후보 중 최고가 선택 (가장 가까운 지지선)
+        const _nearestBelow = (...emas) => {
+            const cands = emas.filter(v => v != null && v < lastClose * 0.997);
+            return cands.length ? Math.max(...cands) : null;
+        };
+        // 헬퍼: 현재가보다 ≥0.3% 높은 EMA 후보 중 최저가 선택 (가장 가까운 저항선)
+        const _nearestAbove = (...emas) => {
+            const cands = emas.filter(v => v != null && v > lastClose * 1.003);
+            return cands.length ? Math.min(...cands) : null;
+        };
+
         // 우선순위 1: 진입 시그널이 있으면 그 시그널 기반 진입가
         if (latestEntry?.type === 'breakout' && recentHigh != null) {
-            entryPrice = recentHigh * 1.003;
+            entryPrice = Math.max(recentHigh * 1.003, lastClose * 1.005);
             entryLabel = '저항 돌파 (역지정가)';
         } else if (latestEntry?.type === 'reversal' && last200 != null) {
             entryPrice = last200 * 1.003;
             entryLabel = '200 EMA 돌파';
-        } else if (latestEntry?.type === 'pullback' && last20 != null) {
-            entryPrice = last20;
-            entryLabel = 'EMA20 풀백 (지정가)';
+        } else if (latestEntry?.type === 'pullback') {
+            const pullback = _nearestBelow(last20, last50);
+            entryPrice = pullback != null ? pullback : lastClose * 0.97;
+            entryLabel = pullback === last20 ? 'EMA20 풀백 (지정가)' : pullback === last50 ? 'EMA50 풀백 (지정가)' : '현재가 -3% (풀백 대기)';
         }
         // 우선순위 2: Stage 기반 기본 진입 전략 (시그널 부재 시)
         else if (stage?.stage === 2) {
-            // 상승 추세: EMA20 풀백 대기 (현재가가 EMA20 위)
-            if (last20 != null && last20 < lastClose) {
-                entryPrice = last20;
-                entryLabel = 'EMA20 풀백 대기';
-            } else if (last50 != null && last50 < lastClose) {
-                entryPrice = last50;
-                entryLabel = 'EMA50 분할매수';
-            } else {
-                entryPrice = lastClose;
-                entryLabel = '현재가 (EMA 근접)';
+            const support = _nearestBelow(last20, last50);
+            if (support === last20)      { entryPrice = last20; entryLabel = 'EMA20 풀백 대기'; }
+            else if (support === last50) { entryPrice = last50; entryLabel = 'EMA50 분할매수'; }
+            else {
+                // EMA가 모두 현재가 근처 — 스윙 저점 또는 -3% 풀백
+                entryPrice = swingLow > 0 && swingLow < lastClose * 0.997 ? swingLow * 1.005 : lastClose * 0.97;
+                entryLabel = '스윙 저점 풀백 (-3%)';
             }
         } else if (stage?.stage === 1) {
-            // 횡보: EMA50 지지 대기
-            entryPrice = (last50 != null && last50 < lastClose) ? last50 : lastClose;
-            entryLabel = 'EMA50 지지 (관망 권장)';
+            const support = _nearestBelow(last50, last20);
+            entryPrice = support != null ? support : (swingLow > 0 ? swingLow * 1.005 : lastClose * 0.95);
+            entryLabel = support === last50 ? 'EMA50 지지 (관망)' : support === last20 ? 'EMA20 지지 (관망)' : '스윙 저점 (관망)';
         } else if (stage?.stage === 3) {
-            // 분배 주의: EMA50 깊은 풀백 (-2%) 대기
-            entryPrice = last50 != null ? last50 * 0.98 : lastClose * 0.95;
-            entryLabel = 'EMA50 -2% (분배 주의)';
+            // 분배 주의: EMA50 깊은 풀백 또는 현재가 -5%
+            const base = last50 != null && last50 < lastClose ? last50 : lastClose;
+            entryPrice = base * 0.97;
+            entryLabel = 'EMA50 -3% (분배 주의)';
         } else if (stage?.stage === 4) {
-            // 하락 추세: 200 EMA 돌파 시에만 신중 진입
-            entryPrice = last200 != null ? last200 * 1.003 : lastClose;
-            entryLabel = '⚠️ 200 EMA 돌파 시만 (매수 금지)';
+            // 하락 추세: 200 EMA 또는 50 EMA 돌파 시에만 (현재가 위)
+            const resist = _nearestAbove(last200, last50);
+            entryPrice = resist != null ? resist * 1.003 : lastClose * 1.05;
+            entryLabel = resist === last200 ? '⚠️ 200 EMA 돌파 시만' : resist === last50 ? '⚠️ 50 EMA 돌파 시만' : '⚠️ 매수 금지';
         } else {
-            // 데이터 부족
-            entryPrice = lastClose;
-            entryLabel = '현재가';
+            // Stage 미판정 — 보수적 -3% 풀백
+            entryPrice = lastClose * 0.97;
+            entryLabel = '현재가 -3% (보수적 진입)';
         }
         // ── 손절가 ──
         let stop;
