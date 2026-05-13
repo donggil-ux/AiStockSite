@@ -4073,6 +4073,27 @@ function _buildEarningsResponse(qsMap, fromTs, toTs, finnhubItems = [], enrichMa
             yhKeys.add(key);
         }
     });
+    // 심볼 중복 제거: 같은 심볼이 여러 날짜로 잡혔으면 1건만 유지
+    // 우선순위: (1) Yahoo 데이터(epsEst/revEst 있음) > Finnhub  (2) 오늘에 가장 가까운 날짜
+    const nowSec = Math.floor(Date.now() / 1000);
+    const bySymbol = new Map();
+    items.forEach(it => {
+        const prev = bySymbol.get(it.symbol);
+        if (!prev) { bySymbol.set(it.symbol, it); return; }
+        // 우선순위 비교
+        const itQuality = (it.epsEst != null ? 2 : 0) + (it.revEst != null ? 1 : 0);
+        const prevQuality = (prev.epsEst != null ? 2 : 0) + (prev.revEst != null ? 1 : 0);
+        if (itQuality !== prevQuality) {
+            if (itQuality > prevQuality) bySymbol.set(it.symbol, it);
+            return;
+        }
+        // quality 동일하면 오늘 가까운 쪽
+        const itDist = Math.abs(it.ts - nowSec);
+        const prevDist = Math.abs(prev.ts - nowSec);
+        if (itDist < prevDist) bySymbol.set(it.symbol, it);
+    });
+    items.length = 0;
+    items.push(...bySymbol.values());
     // 거래량·시총 필터 — 비주식·비유동성 제거
     // 로직:
     // 1) 한국·warrants/units → 무조건 제외
@@ -4082,6 +4103,9 @@ function _buildEarningsResponse(qsMap, fromTs, toTs, finnhubItems = [], enrichMa
     const filtered = items.filter(it => {
         if (_isKoreanSymbol(it.symbol)) return false;
         if (_NON_STOCK_SUFFIX.test(it.symbol)) return false;
+        // 가이던스(EPS/매출 추정치) 없는 종목 제외 — 애널리스트 커버리지 없음
+        // 단, 이미 발표 완료된 항목(epsAct 가 있음)은 추정치 없어도 표시 (실적 자체가 정보)
+        if (it.epsAct == null && it.epsEst == null && it.revEst == null) return false;
         // marketCap 또는 enrich 의 marketCap 확정 검사
         const enMC = enrichMap.get(it.symbol)?.marketCap;
         const enAV = enrichMap.get(it.symbol)?.avgVolume;
