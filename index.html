@@ -5112,7 +5112,7 @@
                 el.innerHTML = _alphaTimingGuide('sepa') + '<div class="sniper-empty">스캔 결과 없음 — 잠시 후 다시 시도</div>';
                 return;
             }
-            // 임계값 등급 안내
+            // 시장 약세 폴백 배너 (strict / relaxed / fallback)
             const tierBanner = (() => {
                 if (d.tierUsed === 'strict') return '';
                 const counts = d.counts || {};
@@ -5121,44 +5121,38 @@
                 }
                 return `<div style="margin:6px 0 8px;padding:8px 12px;border-radius:8px;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.4);font-size:12px;color:#ef4444;font-weight:600;">⚠️ SEPA 50+ 종목이 부족해 상위 ${results.length}개를 참고용으로 보여줍니다 (전반적 약세 시장).</div>`;
             })();
-            const cards = results.map((r, idx) => {
-                const scoreColor = r.score >= 85 ? '#22c55e' : r.score >= 70 ? '#eab308' : '#ef4444';
-                const scoreLabel = r.score >= 85 ? '최적' : r.score >= 70 ? '양호' : '미충족';
-                const rsColor = r.rs == null ? '#94a3b8' : r.rs >= 90 ? '#22c55e' : r.rs >= 70 ? '#eab308' : '#ef4444';
-                const distPivot = r.pivot > 0 ? (r.pivot - r.price) / r.price * 100 : 100;
-                const pivotNear = distPivot <= 1;
-                const pivotTag = r.vcpFound
-                    ? (pivotNear ? '🟢 피벗 근접' : `🟡 피벗 +${distPivot.toFixed(1)}%`)
-                    : '⬜ VCP 미형성';
-                const volTag = r.breakoutVol ? '✅ 돌파거래량' : r.baseLowVol ? '🟡 베이스감소' : '❌ 거래량부족';
-                return `<div onclick="quickSearch('${r.symbol}','US')" style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid ${scoreColor};border-radius:10px;padding:14px 16px;margin:8px 0;cursor:pointer;">
-                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-                        <div style="flex:1;min-width:0;">
-                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                                <span style="font-size:16px;font-weight:800;letter-spacing:-.3px;">#${idx+1} ${r.symbol}</span>
-                                <span style="font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;background:${scoreColor}1f;color:${scoreColor};border:1px solid ${scoreColor}55;">SEPA ${r.score} · ${scoreLabel}</span>
-                                <span style="font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;background:rgba(148,163,184,.15);color:var(--text);">T ${r.trendPassed}/8</span>
-                                ${r.rs != null ? `<span style="font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;background:${rsColor}1f;color:${rsColor};border:1px solid ${rsColor}55;">RS ${r.rs}</span>` : ''}
-                            </div>
-                            <div style="font-size:12.5px;color:var(--text);opacity:.75;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(r.name)}</div>
-                            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:var(--text2);">
-                                <span>${pivotTag}</span>
-                                <span>${volTag}</span>
-                                ${r.pivot > 0 ? `<span>피벗 $${r.pivot.toFixed(2)}</span>` : ''}
-                            </div>
-                        </div>
-                        <div style="text-align:right;flex-shrink:0;">
-                            <div style="font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;">$${r.price.toFixed(2)}</div>
-                            <div style="font-size:10.5px;color:var(--text2);font-weight:700;margin-top:2px;">52w ${r.low52.toFixed(0)}~${r.high52.toFixed(0)}</div>
-                        </div>
-                    </div>
-                </div>`;
-            }).join('');
-            const scannedAgo = d.scannedAt ? ` · ${Math.round((Date.now() - new Date(d.scannedAt).getTime()) / 60000)}분 전 스캔` : '';
-            el.innerHTML = _alphaTimingGuide('sepa')
-                + tierBanner
-                + `<div style="font-size:12px;color:var(--text2);margin:6px 0 8px;">🎯 ${results.length}개 종목 발굴 (전체 ${d.totalScanned}개 스캔${scannedAgo})</div>`
-                + cards;
+            // _alphaRender(통합 카드 UI)에 맞게 데이터 변환
+            const items = results.map(r => ({
+                symbol: r.symbol,
+                name: r.name,
+                regularMarketPrice: r.price,
+                price: r.price,
+                regularMarketChangePercent: r.changePct ?? null,
+                _alphaKind: 'sepa',
+                _sepaScore: r.score,
+                _sepaTrend: r.trendPassed,
+                _sepaVcpFound: r.vcpFound,
+                _sepaVcpIdeal: r.vcpIdeal,
+                _sepaRs: r.rs,
+                _sepaBreakoutVol: r.breakoutVol,
+                _sepaBaseLowVol: r.baseLowVol,
+                _sepaTodayVolMult: r.todayVolMult,
+                _sepaPivot: r.pivot,
+                _sepaHigh52: r.high52,
+                _sepaLow52: r.low52,
+                fiftyTwoWeekHigh: r.high52,
+                fiftyTwoWeekLow: r.low52,
+            }));
+            // _alphaRender 호출 후 폴백 배너를 결과 위에 삽입
+            _alphaRender(items, 'sepa');
+            if (tierBanner) {
+                const cur = document.getElementById('alphaResults');
+                if (cur) {
+                    // timing 가이드 뒤에 배너 삽입
+                    const timingHtml = _alphaTimingGuide('sepa');
+                    cur.innerHTML = cur.innerHTML.replace(timingHtml, timingHtml + tierBanner);
+                }
+            }
         } catch (e) {
             if (_alphaTab === 'sepa') el.innerHTML = _alphaTimingGuide('sepa') + '<div class="sniper-empty">데이터 로드 실패 — 잠시 후 다시 시도하세요</div>';
         }
@@ -5403,6 +5397,60 @@
             reason = `단테 기법 ${sigs.length}개 시그널 발동 — ${sigs.map(s=>s.label).join(' · ')}.`;
             timingBadge = q._danteScore >= 7 ? {label:'⚡ 즉시 단타', cls:'emerald'} : {label:'📅 분할 진입', cls:'amber'};
             expectedMove = Math.round(3 + sigs.length * 1.5);
+        } else if (kind === 'sepa') {
+            // Minervini SEPA — 트렌드템플릿 + VCP + RS + 거래량
+            const sepaScore = q._sepaScore ?? q.score ?? 0;
+            const trendPassed = q._sepaTrend ?? q.trendPassed ?? 0;
+            const vcpFound = q._sepaVcpFound ?? q.vcpFound;
+            const vcpIdeal = q._sepaVcpIdeal ?? q.vcpIdeal;
+            const rsVal = q._sepaRs ?? q.rs;
+            const breakoutVol = q._sepaBreakoutVol ?? q.breakoutVol;
+            const baseLowVol = q._sepaBaseLowVol ?? q.baseLowVol;
+            const todayVolMult = q._sepaTodayVolMult ?? q.todayVolMult;
+            const pivot = q._sepaPivot ?? q.pivot;
+            const high52 = q._sepaHigh52 ?? q.high52;
+            const low52 = q._sepaLow52 ?? q.low52;
+
+            // ① 트렌드 템플릿
+            if (trendPassed === 8)      signals.push({ label: `T ${trendPassed}/8 · 완벽 Stage 2`, cls: 'emerald' });
+            else if (trendPassed >= 6)  signals.push({ label: `T ${trendPassed}/8 · 진입 중`,     cls: 'amber'   });
+            else                         signals.push({ label: `T ${trendPassed}/8 · 미충족`,     cls: 'red'     });
+            // ② VCP
+            if (vcpFound && vcpIdeal) signals.push({ label: 'VCP 이상적 (50% 이내)', cls: 'emerald' });
+            else if (vcpFound)        signals.push({ label: 'VCP 형성 중',           cls: 'cyan'    });
+            // ③ RS
+            if (rsVal != null) {
+                if (rsVal >= 90)      signals.push({ label: `RS ${rsVal} · 최상위`, cls: 'emerald' });
+                else if (rsVal >= 70) signals.push({ label: `RS ${rsVal} · 양호`,   cls: 'cyan'    });
+                else                  signals.push({ label: `RS ${rsVal} · 부족`,   cls: 'red'     });
+            }
+            // ④ 거래량
+            if (breakoutVol)       signals.push({ label: `🔥 돌파거래량 ×${(todayVolMult||0).toFixed(1)}`, cls: 'orange' });
+            else if (baseLowVol)   signals.push({ label: '베이스 감소 (정상)',                              cls: 'blue'   });
+            // ⑤ 피벗 근접도
+            if (vcpFound && pivot > 0 && price > 0) {
+                const distPct = (pivot - price) / price * 100;
+                if (distPct <= 0)      signals.push({ label: `🟢 피벗 돌파 (+${(-distPct).toFixed(1)}%)`, cls: 'emerald' });
+                else if (distPct <= 1) signals.push({ label: '🟢 피벗 근접',                              cls: 'emerald' });
+                else if (distPct <= 5) signals.push({ label: `피벗 +${distPct.toFixed(1)}%`,              cls: 'amber'   });
+            }
+            // 점수: 0-100 → 0-6
+            score = sepaScore >= 85 ? 6 : sepaScore >= 70 ? 5 : sepaScore >= 55 ? 4 : sepaScore >= 40 ? 3 : sepaScore >= 25 ? 2 : 1;
+            // 사유
+            const parts = [];
+            parts.push(`트렌드 ${trendPassed}/8`);
+            if (vcpFound) parts.push(vcpIdeal ? 'VCP 이상적' : 'VCP 형성');
+            if (rsVal != null) parts.push(`RS ${rsVal}`);
+            if (breakoutVol) parts.push('돌파거래량');
+            reason = `Minervini SEPA: ${parts.join(' · ')}. ${sepaScore >= 85 ? '4박자 충족 — 진입 검토.' : sepaScore >= 70 ? '피벗 돌파 대기.' : '추가 조건 형성 대기.'}`;
+            // 타이밍
+            const pivotNear = vcpFound && pivot > 0 && (pivot - price) / price * 100 <= 1;
+            timingBadge = sepaScore >= 85 && pivotNear ? { label:'⚡ 진입 검토', cls:'emerald' }
+                       : sepaScore >= 70                 ? { label:'⚡ 피벗 대기', cls:'amber'   }
+                       : vcpFound                        ? { label:'📅 베이스 관찰', cls:'cyan' }
+                                                         : { label:'📅 추세 형성 대기', cls:'amber' };
+            // 예상 수익 — Minervini 1차 목표 +20%
+            expectedMove = sepaScore >= 85 ? 20 : sepaScore >= 70 ? 15 : 10;
         } else if (kind === 'rayner') {
             // Stage 배지
             const stageClsMap = { 1:'amber', 2:'emerald', 3:'orange', 4:'red' };
@@ -5482,6 +5530,12 @@
             const ema50v = q._raynerEma50 ?? q.ema50;
             stopLoss = (ema50v && ema50v < price) ? ema50v * 0.99 : price * 0.95;
             target = price * (1 + (expectedMove || 10) / 100);
+        } else if (kind === 'sepa') {
+            // Minervini SEPA: 피벗 진입, 손절 -10%, 목표 +20% (1차)
+            const piv = q._sepaPivot ?? q.pivot;
+            entry = (piv && piv > 0) ? piv : price;
+            stopLoss = entry * 0.90;     // -10% Minervini 원칙
+            target = entry * 1.20;        // +20% 1차 목표
         }
         const rrRatio = ((target - entry) / Math.max(entry - stopLoss, 0.01)).toFixed(1);
 
