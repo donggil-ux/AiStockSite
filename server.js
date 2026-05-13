@@ -753,6 +753,213 @@ app.get('/api/rayner-scan', async (req, res) => {
     }
 });
 
+// ───────────────────────────────────────────────────────────────────────
+// Minervini SEPA 기반 스캐너
+//   - universe: most_actives + day_gainers 상위 ~80
+//   - 각 종목 1년 일봉 → 트렌드템플릿(8조건) + VCP + RS + 거래량 → 종합점수
+//   - SEPA 70+ 종목만 필터, 점수 내림차순
+//   - 4시간 메모리 캐시
+// ───────────────────────────────────────────────────────────────────────
+const SEPA_SCAN_TTL = 4 * 60 * 60 * 1000;
+let _sepaScanCache = { ts: 0, data: null };
+let _spxClosesServerCache = null;
+let _spxClosesServerCacheTs = 0;
+
+async function _getSPXClosesServer() {
+    const now = Date.now();
+    if (_spxClosesServerCache && now - _spxClosesServerCacheTs < 60 * 60_000) return _spxClosesServerCache;
+    try {
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?range=1y&interval=1d`;
+        const data = await yfRequest(url);
+        const closes = data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
+        if (closes && closes.length) {
+            _spxClosesServerCache = closes.filter(v => v != null);
+            _spxClosesServerCacheTs = now;
+            return _spxClosesServerCache;
+        }
+    } catch (e) {}
+    return null;
+}
+
+function _smaServer(data, period) {
+    if (!data || data.length < period) return new Array(data.length).fill(null);
+    const out = new Array(data.length).fill(null);
+    let sum = 0, count = 0;
+    for (let i = 0; i < data.length; i++) {
+        if (data[i] != null) { sum += data[i]; count++; }
+        if (i >= period && data[i - period] != null) { sum -= data[i - period]; count--; }
+        if (count === period) out[i] = sum / period;
+    }
+    return out;
+}
+
+function _minerviniAnalyzeServer(closes, highs, lows, volumes, spxCloses) {
+    if (!closes || closes.length < 200) return null;
+    const valid = closes.filter(v => v != null);
+    if (valid.length < 200) return null;
+    const last = valid[valid.length - 1];
+    if (last == null || last <= 0) return null;
+
+    // Trend Template
+    const ma50  = _smaServer(closes, 50);
+    const ma150 = _smaServer(closes, 150);
+    const ma200 = _smaServer(closes, 200);
+    const last50  = ma50[ma50.length - 1];
+    const last150 = ma150[ma150.length - 1];
+    const last200 = ma200[ma200.length - 1];
+    const ma200_22ago = ma200[Math.max(0, ma200.length - 23)];
+    const recent252 = closes.slice(-252).filter(v => v != null);
+    const high52 = recent252.length ? Math.max(...recent252) : last;
+    const low52  = recent252.length ? Math.min(...recent252) : last;
+    const conds = [
+        last50 != null && last150 != null && last > last150,
+        last200 != null && last > last200,
+        last150 != null && last200 != null && last150 > last200,
+        last200 != null && ma200_22ago != null && last200 > ma200_22ago,
+        last50 != null && last150 != null && last200 != null && last50 > last150 && last150 > last200,
+        last50 != null && last > last50,
+        low52 > 0 && (last - low52) / low52 >= 0.25,
+        high52 > 0 && (high52 - last) / high52 <= 0.25,
+    ];
+    const trendPassed = conds.filter(Boolean).length;
+
+    // VCP (simplified)
+    const N = highs.length;
+    const segLen = 12;
+    const contractions = [];
+    for (let start = Math.max(0, N - 60); start <= N - segLen; start += segLen) {
+        const sH = highs.slice(start, start + segLen).filter(v => v != null);
+        const sL = lows.slice(start, start + segLen).filter(v => v != null);
+        if (sH.length < 5 || sL.length < 5) continue;
+        const h = Math.max(...sH), l = Math.min(...sL);
+        const range = l > 0 ? (h - l) / l * 100 : 0;
+        contractions.push({ high: h, low: l, range });
+    }
+    let vcpFound = false, vcpIdeal = false, pivot = 0;
+    if (contractions.length >= 2) {
+        let contracting = true;
+        for (let i = 1; i < contractions.length; i++) {
+            if (contractions[i].range >= contractions[i-1].range * 0.9) contracting = false;
+        }
+        vcpFound = contracting;
+        const ratio = contractions[0].range > 0 ? contractions[contractions.length-1].range / contractions[0].range : 1;
+        vcpIdeal = vcpFound && ratio < 0.5;
+        pivot = contractions[contractions.length - 1].high * 1.003;
+    }
+
+    // RS
+    let rs = null;
+    if (spxCloses && spxCloses.length >= 130) {
+        const s = closes.filter(v => v != null);
+        const x = spxCloses;
+        if (s.length >= 130) {
+            const sLast = s[s.length - 1], xLast = x[x.length - 1];
+            const s63  = s[s.length - 64], x63  = x[x.length - 64];
+            const s126 = s[s.length - 127], x126 = x[x.length - 127];
+            if (s63 && x63 && s126 && x126) {
+                const ex63  = (sLast / s63 - 1) * 100 - (xLast / x63 - 1) * 100;
+                const ex126 = (sLast / s126 - 1) * 100 - (xLast / x126 - 1) * 100;
+                const composite = ex63 * 0.4 + ex126 * 0.6;
+                rs = Math.max(0, Math.min(100, Math.round(50 + composite)));
+            }
+        }
+    }
+
+    // Volume
+    let breakoutVol = false, baseLowVol = false, todayVolMult = 0;
+    if (volumes && volumes.length >= 50) {
+        const recentV = volumes.slice(-5).filter(v => v != null);
+        const baseV   = volumes.slice(-50, -5).filter(v => v != null);
+        if (recentV.length && baseV.length) {
+            const recAvg = recentV.reduce((s,v)=>s+v,0) / recentV.length;
+            const avg50  = baseV.reduce((s,v)=>s+v,0) / baseV.length;
+            const todayV = volumes[volumes.length - 1] || 0;
+            const dayChg = (closes[closes.length-1] != null && closes[closes.length-2] != null) ? (closes[closes.length-1] / closes[closes.length-2] - 1) : 0;
+            breakoutVol = avg50 > 0 && todayV > avg50 * 1.4 && dayChg > 0;
+            baseLowVol  = avg50 > 0 && (recAvg / avg50) < 1.0;
+            todayVolMult = avg50 > 0 ? todayV / avg50 : 0;
+        }
+    }
+
+    // Score
+    let score = 0;
+    score += (trendPassed / 8) * 30;
+    if (vcpFound) score += vcpIdeal ? 25 : 15;
+    if (rs != null) {
+        if (rs >= 90) score += 20;
+        else if (rs >= 70) score += 15;
+        else if (rs >= 50) score += 8;
+    }
+    if (breakoutVol) score += 15;
+    else if (baseLowVol) score += 8;
+    if (vcpFound && pivot > 0) {
+        const distPct = (pivot - last) / last * 100;
+        if (distPct <= 0) score += 10;
+        else if (distPct <= 3) score += 8;
+        else if (distPct <= 7) score += 5;
+    }
+    score = Math.round(score);
+
+    return {
+        score,
+        trendPassed,
+        vcpFound, vcpIdeal,
+        rs,
+        breakoutVol, baseLowVol, todayVolMult: +todayVolMult.toFixed(2),
+        pivot: +pivot.toFixed(2),
+        price: +last.toFixed(2),
+        high52: +high52.toFixed(2),
+        low52: +low52.toFixed(2),
+    };
+}
+
+app.get('/api/sepa-scan', async (req, res) => {
+    const now = Date.now();
+    if (_sepaScanCache.data && now - _sepaScanCache.ts < SEPA_SCAN_TTL) {
+        return res.json(_sepaScanCache.data);
+    }
+    try {
+        const [active, gainers, spxCloses] = await Promise.all([
+            _fetchScreenerSymbols('most_actives', 50),
+            _fetchScreenerSymbols('day_gainers', 50),
+            _getSPXClosesServer(),
+        ]);
+        const symbols = [...new Set([...active.symbols, ...gainers.symbols])].slice(0, 80);
+
+        const CHUNK = 10;
+        const all = [];
+        for (let i = 0; i < symbols.length; i += CHUNK) {
+            const chunk = symbols.slice(i, i + CHUNK);
+            const chunkResults = await Promise.all(chunk.map(async (sym) => {
+                try {
+                    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=1y&interval=1d`;
+                    const data = await yfRequest(url);
+                    const r = data?.chart?.result?.[0];
+                    if (!r) return null;
+                    const q = r.indicators?.quote?.[0];
+                    if (!q?.close) return null;
+                    const meta = r.meta;
+                    const a = _minerviniAnalyzeServer(q.close, q.high, q.low, q.volume, spxCloses);
+                    if (!a) return null;
+                    return { symbol: sym, name: meta?.shortName || meta?.longName || sym, ...a };
+                } catch (e) { return null; }
+            }));
+            all.push(...chunkResults.filter(Boolean));
+        }
+
+        // SEPA 70+ 종목만 필터
+        const filtered = all.filter(r => r.score >= 70);
+        filtered.sort((a, b) => b.score - a.score);
+        const top = filtered.slice(0, 50);
+
+        _sepaScanCache = { ts: now, data: { results: top, totalScanned: all.length, scannedAt: new Date().toISOString() } };
+        res.json(_sepaScanCache.data);
+    } catch (err) {
+        console.error('[sepa-scan]', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ── 종목 검색 (Yahoo Finance search API 프록시) ─────────────────────────
 app.get('/api/search', async (req, res) => {
     // 길이 제한 + 위험 문자 제거 (Yahoo API 남용 방지)

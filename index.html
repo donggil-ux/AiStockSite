@@ -317,8 +317,8 @@
             <button class="alpha-tab active" data-tab="bounce"   onclick="_alphaSwitchTab('bounce')">과매도 반등</button>
             <button class="alpha-tab"        data-tab="daytrade" onclick="_alphaSwitchTab('daytrade')">단타 진입</button>
             <button class="alpha-tab"        data-tab="swing"    onclick="_alphaSwitchTab('swing')">스윙 진입</button>
-            <button class="alpha-tab"        data-tab="dante"    onclick="_alphaSwitchTab('dante')">단테 스캐너</button>
             <button class="alpha-tab"        data-tab="rayner"   onclick="_alphaSwitchTab('rayner')">Rayner</button>
+            <button class="alpha-tab"        data-tab="sepa"     onclick="_alphaSwitchTab('sepa')">Minervini SEPA</button>
         </div>
         <!-- 탭별 설명 -->
         <div class="alpha-desc" id="alphaDesc"></div>
@@ -965,29 +965,7 @@
                 </div>
             </div>
 
-            <!-- ===== 단테 단타 분석기 (Dante Trader) ===== -->
-            <div id="dantePanel" style="padding:0;">
-                <div class="card dante-card">
-                    <div class="card-title">단테 단타 분석기 <span class="trade-badge day-badge">DAY</span></div>
-                    <div class="dante-score-row">
-                        <div class="dante-score-circle" id="danteScoreCircle">
-                            <div class="dante-score-num" id="danteScoreNum">-</div>
-                            <div class="dante-score-label">시그널</div>
-                        </div>
-                        <div class="dante-score-text">
-                            <div class="dante-verdict" id="danteVerdict">데이터 로딩 중...</div>
-                            <div class="dante-verdict-sub" id="danteVerdictSub">-</div>
-                        </div>
-                    </div>
-                    <div class="dante-signals" id="danteSignals"></div>
-                    <div class="dante-strategy" id="danteStrategy"></div>
-                    <div class="dante-backtest-bar">
-                        <button class="dante-bt-btn" onclick="runDanteBacktest()" id="danteBtBtn">📈 과거 6개월 백테스트 실행</button>
-                        <div class="dante-bt-result" id="danteBtResult" style="display:none"></div>
-                    </div>
-                    <div class="dante-footer">⚠️ 한국 단타 기법을 미국장에 이식한 근사치입니다 — 백테스트는 참고용 지표일 뿐 미래 수익 보장 X.</div>
-                </div>
-            </div>
+            <!-- 단테 단타 분석기 — 제거됨 (v574) -->
 
             <!-- ===== 단타 분석 (통합) ===== -->
             <div id="tsPanelDay" style="padding:0;">
@@ -4951,8 +4929,8 @@
         bounce:   'RSI 극저 + 장기 이동평균선 -15% 이상 이격된 종목 — 과매도 후 반등 가능성이 높습니다.',
         daytrade: 'ATR 변동성이 충분하고 거래량이 평균 대비 활발한 종목 — 당일 매매(데이 트레이드)에 적합합니다.',
         swing:    '52주 고점까지 충분한 상승 여력(R/R ≥ 1.5)이 있고 추세가 살아있는 종목 — 며칠~몇 주 단위 스윙에 적합합니다.',
-        dante:    '주식단테 17년 기법(밥그릇·공구리·하이힐·매집봉·눌림목)을 시세 메타로 근사 적용한 종목 — 정밀 확인은 종목 상세의 단테 분석기에서.',
         rayner:   'Rayner Teo의 EMA 20/50/200 + Weinstein Stage 분석 — Stage 2(상승추세) + 풀백·돌파·반전 진입 시그널 종목.',
+        sepa:     'Mark Minervini SEPA — 트렌드 템플릿 8조건 + VCP + RS + 거래량 4박자 종합점수 70+ 종목 발굴.',
     };
 
     // ─── 알파 카드 헬퍼 ──────────────────────────────────────
@@ -5091,10 +5069,10 @@
                     }).filter(Boolean).sort((a, b) => b._rr - a._rr).slice(0, 30);
                     _alphaRender(qualified, tab);
                 }
-            } else if (tab === 'dante') {
-                await _alphaRenderDanteScanner(el);
             } else if (tab === 'rayner') {
                 await _alphaRenderRaynerScanner(el);
+            } else if (tab === 'sepa') {
+                await _alphaRenderSEPAScanner(el);
             }
         } catch (e) {
             console.error('[alphaSwitchTab]', e);
@@ -5154,6 +5132,62 @@
                 + cards;
         } catch (e) {
             if (_alphaTab === 'rayner') el.innerHTML = _alphaTimingGuide('rayner') + '<div class="sniper-empty">데이터 로드 실패 — 잠시 후 다시 시도하세요</div>';
+        }
+    }
+
+    // ── Minervini SEPA 스캐너 ─────────────────────────────────────────
+    // /api/sepa-scan: 트렌드템플릿+VCP+RS+거래량 4박자 점수 70+ 종목
+    async function _alphaRenderSEPAScanner(el) {
+        el.innerHTML = _alphaTimingGuide('sepa') + '<div class="sniper-loading">' + Array(6).fill('<div class="sniper-skel"></div>').join('') + '</div>';
+        try {
+            const r = await fetch('/api/sepa-scan');
+            if (!r.ok) throw new Error('http ' + r.status);
+            const d = await r.json();
+            if (_alphaTab !== 'sepa') return;
+            const results = Array.isArray(d.results) ? d.results : [];
+            if (!results.length) {
+                el.innerHTML = _alphaTimingGuide('sepa') + '<div class="sniper-empty">현재 SEPA 70+ 종목이 없습니다 — 4시간 후 재시도</div>';
+                return;
+            }
+            const cards = results.map((r, idx) => {
+                const scoreColor = r.score >= 85 ? '#22c55e' : r.score >= 70 ? '#eab308' : '#ef4444';
+                const scoreLabel = r.score >= 85 ? '최적' : r.score >= 70 ? '양호' : '미충족';
+                const rsColor = r.rs == null ? '#94a3b8' : r.rs >= 90 ? '#22c55e' : r.rs >= 70 ? '#eab308' : '#ef4444';
+                const distPivot = r.pivot > 0 ? (r.pivot - r.price) / r.price * 100 : 100;
+                const pivotNear = distPivot <= 1;
+                const pivotTag = r.vcpFound
+                    ? (pivotNear ? '🟢 피벗 근접' : `🟡 피벗 +${distPivot.toFixed(1)}%`)
+                    : '⬜ VCP 미형성';
+                const volTag = r.breakoutVol ? '✅ 돌파거래량' : r.baseLowVol ? '🟡 베이스감소' : '❌ 거래량부족';
+                return `<div onclick="quickSearch('${r.symbol}','US')" style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid ${scoreColor};border-radius:10px;padding:14px 16px;margin:8px 0;cursor:pointer;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                        <div style="flex:1;min-width:0;">
+                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                <span style="font-size:16px;font-weight:800;letter-spacing:-.3px;">#${idx+1} ${r.symbol}</span>
+                                <span style="font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;background:${scoreColor}1f;color:${scoreColor};border:1px solid ${scoreColor}55;">SEPA ${r.score} · ${scoreLabel}</span>
+                                <span style="font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;background:rgba(148,163,184,.15);color:var(--text);">T ${r.trendPassed}/8</span>
+                                ${r.rs != null ? `<span style="font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;background:${rsColor}1f;color:${rsColor};border:1px solid ${rsColor}55;">RS ${r.rs}</span>` : ''}
+                            </div>
+                            <div style="font-size:12.5px;color:var(--text);opacity:.75;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(r.name)}</div>
+                            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:var(--text2);">
+                                <span>${pivotTag}</span>
+                                <span>${volTag}</span>
+                                ${r.pivot > 0 ? `<span>피벗 $${r.pivot.toFixed(2)}</span>` : ''}
+                            </div>
+                        </div>
+                        <div style="text-align:right;flex-shrink:0;">
+                            <div style="font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;">$${r.price.toFixed(2)}</div>
+                            <div style="font-size:10.5px;color:var(--text2);font-weight:700;margin-top:2px;">52w ${r.low52.toFixed(0)}~${r.high52.toFixed(0)}</div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+            const scannedAgo = d.scannedAt ? ` · ${Math.round((Date.now() - new Date(d.scannedAt).getTime()) / 60000)}분 전 스캔` : '';
+            el.innerHTML = _alphaTimingGuide('sepa')
+                + `<div style="font-size:12px;color:var(--text2);margin:6px 0 8px;">🎯 ${results.length}개 종목 발굴 (전체 ${d.totalScanned}개 스캔${scannedAgo})</div>`
+                + cards;
+        } catch (e) {
+            if (_alphaTab === 'sepa') el.innerHTML = _alphaTimingGuide('sepa') + '<div class="sniper-empty">데이터 로드 실패 — 잠시 후 다시 시도하세요</div>';
         }
     }
 
@@ -9257,7 +9291,6 @@
             renderADXChart();
             renderOBVChart();
             renderEntryTiming();
-            try { renderDanteAnalysis(); } catch (e) { console.warn('[dante] render fail', e); }
             renderAIAnalysis();
             renderRRAnalysis();
             try { renderRaynerAnalysis(); } catch (e) { console.warn('[rayner] render fail', e); }
@@ -9848,7 +9881,6 @@
             renderADXChart();
             renderOBVChart();
             renderEntryTiming();
-            try { renderDanteAnalysis(); } catch (e) { console.warn('[dante] render fail', e); }
             renderAIAnalysis();
             renderRRAnalysis();
             try { renderRaynerAnalysis(); } catch (e) { console.warn('[rayner] render fail', e); }
