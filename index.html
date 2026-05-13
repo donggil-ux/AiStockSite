@@ -7704,13 +7704,35 @@
                 }
             });
         });
-        // 중복 제거 — 동일 ticker 최초 1건
-        const seen = new Set();
-        return results.filter(r => {
-            if (!r.ticker || seen.has(r.ticker)) return false;
-            seen.add(r.ticker);
-            return true;
+        // 동일 ticker 가 여러 기관에 걸리면 시그널 수로 집계 → TIER 등급
+        const byTicker = new Map();
+        results.forEach(r => {
+            if (!r.ticker) return;
+            const key = r.ticker;
+            const cur = byTicker.get(key) || {
+                ticker: r.ticker, name: r.name || r.ticker,
+                institutions: [], actions: [], maxWt: 0, signals: 0,
+            };
+            cur.institutions.push(r.instName);
+            cur.actions.push((r.action || '').toLowerCase());
+            cur.maxWt = Math.max(cur.maxWt, r.wt || 0);
+            cur.signals = cur.institutions.length;
+            byTicker.set(key, cur);
         });
+        // 대표 액션: new > add > hold > reduce 우선순위
+        const actionRank = { new: 4, add: 3, hold: 2, reduce: 1 };
+        const aggregated = Array.from(byTicker.values()).map(r => {
+            const topAction = r.actions.slice().sort((a,b) => (actionRank[b]||0) - (actionRank[a]||0))[0] || '';
+            // TIER: 1 = 4+ 시그널 / 2 = 2~3 / 3 = 1
+            const tier = r.signals >= 4 ? 1 : r.signals >= 2 ? 2 : 3;
+            // 점수: 시그널 수 + new/add 가중치 → 동일 tier 내 정렬용
+            const actionBoost = r.actions.reduce((s, a) => s + (a === 'new' ? 1.5 : a === 'add' ? 1.0 : a === 'hold' ? 0.2 : -0.5), 0);
+            const sortScore = r.signals * 10 + actionBoost + (r.maxWt || 0) * 0.01;
+            return { ...r, topAction, tier, sortScore };
+        });
+        // TIER 1 → 2 → 3 순, 같은 tier 내에서는 sortScore 내림차순
+        aggregated.sort((a, b) => a.tier - b.tier || b.sortScore - a.sortScore);
+        return aggregated;
     }
 
     function renderScannerResults() {
@@ -7727,22 +7749,44 @@
             el.innerHTML = '<div class="scanner-empty">조건에 맞는 종목이 없습니다.<br>필터를 조정해 보세요.</div>';
             return;
         }
+        // TIER 별 카운트
+        const tierCount = { 1: 0, 2: 0, 3: 0 };
+        scannerResults.forEach(r => { tierCount[r.tier] = (tierCount[r.tier] || 0) + 1; });
         if (countEl) {
-            countEl.textContent = `${scannerResults.length}개 종목 발견`;
+            countEl.innerHTML = `${scannerResults.length}개 종목 — ` +
+                `<span class="sc-tier-pill sc-tier1">T1 ${tierCount[1]}</span> ` +
+                `<span class="sc-tier-pill sc-tier2">T2 ${tierCount[2]}</span> ` +
+                `<span class="sc-tier-pill sc-tier3">T3 ${tierCount[3]}</span>`;
             countEl.style.display = '';
         }
+        // TIER 별 그룹화 렌더
+        let lastTier = null;
         el.innerHTML = scannerResults.map(r => {
-            const actionClass = r.action?.toLowerCase() === 'new' ? 's-action-new' : r.action?.toLowerCase() === 'add' ? 's-action-add' : '';
-            const actionLabel = r.action?.toLowerCase() === 'new' ? '🟢 신규 편입' : r.action?.toLowerCase() === 'add' ? '🔵 비중 확대' : (r.action || '');
-            const wtStr = r.wt != null ? `비중 ${r.wt}%` : '';
-            return `<div class="scanner-result-item" onclick="quickSearch('${r.ticker}','US')">
+            const a = r.topAction || '';
+            const actionClass = a === 'new' ? 's-action-new' : a === 'add' ? 's-action-add' : a === 'hold' ? 's-action-hold' : a === 'reduce' ? 's-action-reduce' : '';
+            const actionLabel = a === 'new' ? '🟢 신규 편입' : a === 'add' ? '🔵 비중 확대' : a === 'hold' ? '⚪ 유지' : a === 'reduce' ? '🟡 비중 축소' : '';
+            const instStr = r.institutions.length > 1
+                ? `${r.signals}개 기관 · ${r.institutions.slice(0,2).join(', ')}${r.institutions.length > 2 ? ` 외 ${r.institutions.length - 2}` : ''}`
+                : r.institutions[0] || '';
+            const wtStr = r.maxWt ? `최대 비중 ${r.maxWt}%` : '';
+            const tierBadge = `<span class="sc-tier-badge sc-tier${r.tier}">TIER ${r.tier}</span>`;
+            // 그룹 헤더
+            let header = '';
+            if (r.tier !== lastTier) {
+                const tierTitle = r.tier === 1 ? '🥇 TIER 1 — 강력 매수 (4+ 시그널)'
+                                : r.tier === 2 ? '🥈 TIER 2 — 매수 검토 (2~3 시그널)'
+                                                : '🥉 TIER 3 — 관망 (1 시그널)';
+                header = `<div class="sc-tier-header sc-tier${r.tier}">${tierTitle}</div>`;
+                lastTier = r.tier;
+            }
+            return header + `<div class="scanner-result-item sc-tier${r.tier}" onclick="quickSearch('${r.ticker}','US')">
               <div style="flex:1;min-width:0;">
-                <div class="scanner-ticker">${r.ticker}</div>
-                <div class="scanner-inst">${r.name ? r.name + ' · ' : ''}${r.instName}</div>
+                <div class="scanner-ticker">${r.ticker} ${tierBadge}</div>
+                <div class="scanner-inst">${r.name ? r.name + ' · ' : ''}${instStr}</div>
               </div>
               <div style="text-align:right;margin-left:8px;">
                 <div class="${actionClass}">${actionLabel}</div>
-                ${wtStr ? `<div style="font-size:11px;color:var(--text2);">${wtStr}</div>` : ''}
+                ${wtStr ? `<div class="scanner-wt">${wtStr}</div>` : ''}
               </div>
             </div>`;
         }).join('');
