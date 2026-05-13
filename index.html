@@ -13792,36 +13792,65 @@
         return Math.round(score);
     }
 
-    function renderMinerviniSEPA() {
+    // SEPA 전용 일봉 캐시 (인트라데이 차트와 무관하게 항상 일봉 분석)
+    let _sepaDailyCache = {};   // { symbol: { ts, closes, highs, lows, volume } }
+    const _SEPA_DAILY_TTL = 30 * 60_000; // 30분
+    async function _fetchSEPADaily(symbol) {
+        if (!symbol) return null;
+        const cached = _sepaDailyCache[symbol];
+        if (cached && Date.now() - cached.ts < _SEPA_DAILY_TTL) return cached;
+        try {
+            const r = await fetch(`/api/chart/${encodeURIComponent(symbol)}?range=1y&interval=1d`);
+            if (!r.ok) return null;
+            const d = await r.json();
+            const result = d?.chart?.result?.[0];
+            if (!result) return null;
+            const q = result.indicators?.quote?.[0];
+            if (!q?.close) return null;
+            _sepaDailyCache[symbol] = {
+                ts: Date.now(),
+                closes: q.close, highs: q.high, lows: q.low, volume: q.volume,
+            };
+            return _sepaDailyCache[symbol];
+        } catch (e) { return null; }
+    }
+
+    async function renderMinerviniSEPA() {
         const el = document.getElementById('sepaAnalysis');
         if (!el) return;
-        if (!stockData) { el.innerHTML = ''; return; }
-        const q = stockData.indicators?.quote?.[0];
-        if (!q?.close) { el.innerHTML = ''; return; }
-        const closes = q.close;
-        const validCloses = closes.filter(v => v != null);
-        if (validCloses.length < 200) {
-            el.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:12px 0;font-size:13px;color:var(--text2);">🎯 Minervini SEPA — 200일 이상 데이터 필요 (현재 ${validCloses.length}일)</div>`;
+        if (!currentFullSymbol) { el.innerHTML = ''; return; }
+
+        // 로딩 표시
+        el.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:12px 0;font-size:13px;color:var(--text2);">🎯 Minervini SEPA — 일봉 데이터 로드 중...</div>`;
+
+        const symbol = currentFullSymbol;
+        const data = await _fetchSEPADaily(symbol);
+        // 종목이 바뀐 경우 무효화
+        if (currentFullSymbol !== symbol) return;
+        if (!data) {
+            el.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:12px 0;font-size:13px;color:var(--text2);">🎯 Minervini SEPA — 일봉 데이터를 불러올 수 없습니다</div>`;
             return;
         }
+        const validCloses = (data.closes || []).filter(v => v != null);
+        if (validCloses.length < 200) {
+            el.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:12px 0;font-size:13px;color:var(--text2);">🎯 Minervini SEPA — 200일 이상 일봉 데이터 필요 (현재 ${validCloses.length}일) · 상장 1년 미만 종목</div>`;
+            return;
+        }
+
+        const baseArgs = {
+            trend: _minerviniTrendTemplate(validCloses),
+            vcp: _detectVCP(data.highs, data.lows, data.volume, validCloses),
+            vol: _analyzeMinerviniVolume(data.volume, data.closes),
+            lastClose: validCloses[validCloses.length - 1],
+        };
+
         // 1차 렌더 (RS 제외) + 비동기 RS 후속 갱신
-        const initial = _buildSEPAHtml({ trend: _minerviniTrendTemplate(validCloses),
-                                          vcp: _detectVCP(q.high, q.low, q.volume, validCloses),
-                                          vol: _analyzeMinerviniVolume(q.volume, q.close),
-                                          rs: null,
-                                          lastClose: validCloses[validCloses.length - 1] });
-        el.innerHTML = initial;
+        el.innerHTML = _buildSEPAHtml({ ...baseArgs, rs: null });
         _getSPXCloses().then(spx => {
-            if (!spx) return;
-            // 같은 timestamp 정렬은 단순화 — 길이만 맞추기 (영업일 기준 거의 일치)
+            if (!spx || currentFullSymbol !== symbol) return;
             const rs = _calcRSScore(validCloses, spx);
-            const final = _buildSEPAHtml({ trend: _minerviniTrendTemplate(validCloses),
-                                            vcp: _detectVCP(q.high, q.low, q.volume, validCloses),
-                                            vol: _analyzeMinerviniVolume(q.volume, q.close),
-                                            rs,
-                                            lastClose: validCloses[validCloses.length - 1] });
             const elNow = document.getElementById('sepaAnalysis');
-            if (elNow) elNow.innerHTML = final;
+            if (elNow) elNow.innerHTML = _buildSEPAHtml({ ...baseArgs, rs });
         });
     }
 
