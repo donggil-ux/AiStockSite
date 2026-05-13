@@ -10720,8 +10720,7 @@
 
         // 이동평균선 추가
         const closes = q.close;
-        // Rayner Teo 표준: EMA 20 / 50 / 200
-        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+        // Rayner Teo 표준: EMA 20 / 50 / 200 (isLight 는 위에서 이미 선언됨)
         const ema200Color = isLight ? '#1f2937' : '#ffffff';
         const maConfigs = [
             { period: 20,  color: '#7dd3fc',   key: 'ema20',  label: 'EMA20'  },
@@ -13454,7 +13453,7 @@
         // R:R 계산
         const isKR = currentMarket === 'KR';
         const fmtP = p => isKR ? Math.round(p).toLocaleString() + '원' : '$' + p.toFixed(2);
-        const isDay = currentTradeStyle === 'day';
+        const isDay = (typeof currentTestaMode !== 'undefined' && currentTestaMode === 'day');
         // 손절: 스윙=최근 20봉 저점, 단타=20 EMA 아래
         const swingLow = Math.min(...lows.slice(-20).filter(v => v != null));
         const stop = isDay && last20 != null
