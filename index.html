@@ -2004,6 +2004,37 @@
     let scannerResults = [];
     let scannerLoading = false;
     let _scannerDebounceTimer = null;
+    // 상장폐지 필터용 캐시: { ticker → { valid: bool, ts: number } }
+    const _scannerTickerValid = {};
+    const _TICKER_VALID_TTL = 60 * 60 * 1000; // 1시간
+
+    // 공용 상장폐지 필터 — valid ticker Set 반환
+    async function _filterValidTickers(tickers) {
+        const now = Date.now();
+        const toFetch = tickers.filter(t => {
+            const c = _scannerTickerValid[t];
+            return !c || (now - c.ts) > _TICKER_VALID_TTL;
+        });
+        if (toFetch.length > 0) {
+            const chunks = [];
+            for (let i = 0; i < toFetch.length; i += 50) chunks.push(toFetch.slice(i, i + 50));
+            await Promise.all(chunks.map(async chunk => {
+                try {
+                    const res = await fetch(`/api/quote?symbols=${chunk.join(',')}`);
+                    const data = await res.json();
+                    const quotes = data?.quoteResponse?.result || [];
+                    const found = new Set(quotes
+                        .filter(q => (q.regularMarketPrice ?? 0) > 0 &&
+                                     (q.quoteType === 'EQUITY' || q.quoteType === 'ETF'))
+                        .map(q => q.symbol));
+                    chunk.forEach(t => { _scannerTickerValid[t] = { valid: found.has(t), ts: now }; });
+                } catch(e) {
+                    chunk.forEach(t => { _scannerTickerValid[t] = { valid: true, ts: now }; });
+                }
+            }));
+        }
+        return new Set(tickers.filter(t => _scannerTickerValid[t]?.valid !== false));
+    }
 
     // ========================================
     // US Top 100 Stocks (optimized)
@@ -7632,14 +7663,14 @@
         _scannerDebounceTimer = setTimeout(runScannerFetch, 500);
     }
 
-    function runScannerFetch() {
+    async function runScannerFetch() {
         scannerLoading = true;
         renderScannerResults();
-        setTimeout(() => {
-            scannerResults = filterScannerResults();
-            scannerLoading = false;
-            renderScannerResults();
-        }, 300);
+        const candidates = filterScannerResults();
+        const validSet = await _filterValidTickers(candidates.map(r => r.ticker));
+        scannerResults = candidates.filter(r => validSet.has(r.ticker));
+        scannerLoading = false;
+        renderScannerResults();
     }
 
     function filterScannerResults() {
@@ -7914,7 +7945,7 @@
         }).join('');
     }
 
-    function smDeepDive(id) {
+    async function smDeepDive(id) {
         // id format: 'hot_xxx' or 'kingdom_xxx'
         const [mode, instId] = id.split('_');
         smDeepMode = mode;
@@ -7924,7 +7955,12 @@
         smCurrentFilter = 'all';
         document.querySelectorAll('.sm-panel').forEach(p => p.classList.remove('active'));
         document.getElementById('smDeep').style.display = '';
-        document.getElementById('smDeep').innerHTML = mode === 'hot' ? _renderDeepHot(inst) : _renderDeepKingdom(inst);
+        document.getElementById('smDeep').innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-secondary)">불러오는 중...</div>`;
+        // 상장폐지 종목 필터
+        const tickers = (inst.holdings || []).map(h => h.ticker).filter(Boolean);
+        const validSet = await _filterValidTickers(tickers);
+        const filteredInst = { ...inst, holdings: (inst.holdings || []).filter(h => validSet.has(h.ticker)) };
+        document.getElementById('smDeep').innerHTML = mode === 'hot' ? _renderDeepHot(filteredInst) : _renderDeepKingdom(filteredInst);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -8266,7 +8302,11 @@
             if (!posR.ok)  throw new Error('positions HTTP ' + posR.status);
             const meta = await metaR.json();
             const pos = await posR.json();
-            _renderGuruDeep(meta, pos);
+            // 상장폐지 종목 필터
+            const posTickers = (pos.positions || []).filter(p => p.ticker).map(p => p.ticker);
+            await _filterValidTickers(posTickers);
+            const filteredPos = { ...pos, positions: (pos.positions || []).filter(p => !p.ticker || _scannerTickerValid[p.ticker]?.valid !== false) };
+            _renderGuruDeep(meta, filteredPos);
         } catch (e) {
             deep.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-secondary)">
                 ⚠️ ${escHtml(e.message)}
@@ -8517,14 +8557,18 @@
         document.getElementById('smPanelGuru').classList.remove('active');
     }
 
-    function filterSmHoldings(id, filter) {
+    async function filterSmHoldings(id, filter) {
         smCurrentFilter = filter;
         // id format: 'hot_xxx' or 'kingdom_xxx'
         const [mode, instId] = id.split('_');
         const dataset = mode === 'hot' ? SM_HOT : SM_KINGDOM;
         const inst = dataset.find(i => i.id === instId);
         if (!inst) return;
-        document.getElementById('smDeep').innerHTML = mode === 'hot' ? _renderDeepHot(inst) : _renderDeepKingdom(inst);
+        // 캐시에서 상장폐지 재필터 (첫 딥다이브에서 이미 채워짐)
+        const tickers = (inst.holdings || []).map(h => h.ticker).filter(Boolean);
+        const validSet = await _filterValidTickers(tickers);
+        const filteredInst = { ...inst, holdings: (inst.holdings || []).filter(h => validSet.has(h.ticker)) };
+        document.getElementById('smDeep').innerHTML = mode === 'hot' ? _renderDeepHot(filteredInst) : _renderDeepKingdom(filteredInst);
     }
 
     function smChartLink(ticker, avgPrice, fundName) {
