@@ -2491,25 +2491,30 @@
             }
         });
         if (!needFetch.length) return;
+        // 서버가 한 번에 최대 40 심볼만 처리 → 30개 단위로 배치 호출
+        const BATCH = 30;
+        const batches = [];
+        for (let i = 0; i < needFetch.length; i += BATCH) batches.push(needFetch.slice(i, i + BATCH));
         try {
-            const url = `/api/news-reason?symbols=${encodeURIComponent(needFetch.join(','))}`;
-            const res = await fetch(url);
-            if (!res.ok) return;
-            const map = await res.json();
-            Object.keys(map).forEach(s => {
-                _reasonClientCache.set(s, { text: map[s], ts: Date.now() });
-                document.querySelectorAll(`.top100-reason[data-reason-for="${s}"]`)
-                    .forEach(el => {
-                        if (map[s]) { el.textContent = map[s]; el.title = map[s]; }
-                        else { el.textContent = el.dataset.fallback || ''; }
-                    });
-            });
-            // 빈 응답은 짧은 TTL로 캐시 (1분) — 다음 페이지 로드 시 재시도
-            // 빈 응답은 30분만 캐시 (v530 1분→30분, 무뉴스 종목 재시도 폭주 차단)
-            const SHORT_TTL_TS = Date.now() - (_REASON_CLIENT_TTL - 30 * 60_000);
-            needFetch.filter(s => !map[s]).forEach(s => {
-                _reasonClientCache.set(s, { text:'', ts: SHORT_TTL_TS });
-            });
+            await Promise.all(batches.map(async (bat) => {
+                const url = `/api/news-reason?symbols=${encodeURIComponent(bat.join(','))}`;
+                const res = await fetch(url);
+                if (!res.ok) return;
+                const map = await res.json();
+                Object.keys(map).forEach(s => {
+                    _reasonClientCache.set(s, { text: map[s], ts: Date.now() });
+                    document.querySelectorAll(`.top100-reason[data-reason-for="${s}"]`)
+                        .forEach(el => {
+                            if (map[s]) { el.textContent = map[s]; el.title = map[s]; }
+                            else { el.textContent = el.dataset.fallback || ''; }
+                        });
+                });
+                // 빈 응답은 30분 캐시 → 무뉴스 종목 재시도 폭주 차단
+                const SHORT_TTL_TS = Date.now() - (_REASON_CLIENT_TTL - 30 * 60_000);
+                bat.filter(s => !map[s]).forEach(s => {
+                    _reasonClientCache.set(s, { text:'', ts: SHORT_TTL_TS });
+                });
+            }));
             _persistReasonCache();
         } catch (e) {}
     }
@@ -2548,6 +2553,12 @@
         }
 
         grid.innerHTML = html;
+
+        // AI 1줄 뉴스 요약 주입 (Finnhub 무료 뉴스 + Gemini 요약 — 24h 캐시 공유)
+        try {
+            const visibleSyms = visible.map(q => _top100SafeTicker(q.symbol || '')).filter(Boolean);
+            if (visibleSyms.length) _populateTop100Reasons(visibleSyms);
+        } catch(e) {}
     }
 
     function showMoreTop100() {
@@ -2562,6 +2573,12 @@
         });
 
         btn.outerHTML = extra;
+
+        // 나머지 종목도 AI 뉴스 요약 주입
+        try {
+            const restSyms = extraItems.map(q => _top100SafeTicker(q.symbol || '')).filter(Boolean);
+            if (restSyms.length) _populateTop100Reasons(restSyms);
+        } catch(e) {}
     }
 
     // ========================================
