@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=584">
+    <link rel="stylesheet" href="/styles.css?v=585">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -1721,11 +1721,63 @@
         }
     }
 
+    // ========================================
+    // SPA 라우팅 — URL 동기화 (새로고침 시 현재 페이지 복원)
+    // ========================================
+    const _ROUTE_VIEWS = {
+        home: () => goHome(),
+        smartmoney: () => goSmartMoney(),
+        scanner: () => goScanner(),
+        earnings: () => goEarnings(),
+        leverage: () => goLeverage(),
+        vision: () => goVisionScanner(),
+        economic: () => goEconomic(),
+    };
+
+    function _pushRoute(view, extra = {}) {
+        if (_historySkip) return;
+        const cur = history.state || {};
+        // 동일 view + 동일 symbol 이면 push 하지 않음 (중복 방지)
+        if (cur.view === view && cur.symbol === extra.symbol) return;
+        let url;
+        if (view === 'home') url = '/';
+        else if (view === 'stock' && extra.symbol) url = `?s=${encodeURIComponent(extra.symbol)}`;
+        else url = `?view=${encodeURIComponent(view)}`;
+        try { history.pushState({ view, ...extra }, '', url); } catch (_) {}
+    }
+
+    function _restoreFromUrl() {
+        const params = new URLSearchParams(location.search);
+        const sym = params.get('s');
+        const view = params.get('view');
+        if (sym && /^[A-Za-z0-9.\-^=]{1,15}$/.test(sym)) {
+            _historySkip = true;
+            try {
+                const isKr = /^\d{6}(?:\.KS|\.KQ)?$/.test(sym);
+                if (typeof setMarket === 'function') setMarket(isKr ? 'KR' : 'US');
+                const inp = document.getElementById('searchInput');
+                if (inp) inp.value = sym;
+                // searchStock 은 async — 동기 finally 사용
+                if (typeof searchStock === 'function') {
+                    searchStock().finally(() => { _historySkip = false; });
+                } else {
+                    _historySkip = false;
+                }
+            } catch (_) { _historySkip = false; }
+        } else if (view && _ROUTE_VIEWS[view]) {
+            _historySkip = true;
+            try { _ROUTE_VIEWS[view](); } catch (_) {}
+            setTimeout(() => { _historySkip = false; }, 100);
+        }
+    }
+
     // 이벤트 바인딩 (DOM 준비 후 실행)
     window.addEventListener('DOMContentLoaded', () => {
 
         // 초기 홈 상태를 history에 기록 (뒤로가기 기준점)
         history.replaceState({ view: 'home' }, '', location.href);
+        // URL 의 ?s= 또는 ?view= 가 있으면 해당 화면으로 복원
+        setTimeout(() => { try { _restoreFromUrl(); } catch(_) {} }, 0);
 
         const inp = document.getElementById('searchInput');
         if (!inp) return;
@@ -4784,6 +4836,7 @@
     }
 
     function goSmartMoney() {
+        _pushRoute('smartmoney');
         window._lastScreen = 'smartMoney';
         _restoreHeaderChrome();
         document.getElementById('welcomeScreen').style.display = 'none';
@@ -4812,6 +4865,7 @@
     // Alpha Scanner
     // ========================================
     function goScanner() {
+        _pushRoute('scanner');
         window._lastScreen = 'scanner';
         _restoreHeaderChrome();
         document.getElementById('welcomeScreen').style.display = 'none';
@@ -6151,6 +6205,7 @@
     }
 
     function goEarnings() {
+        _pushRoute('earnings');
         window._lastScreen = 'earnings';
         document.getElementById('welcomeScreen').style.display = 'none';
         document.getElementById('smartMoneyScreen').style.display = 'none';
@@ -6507,6 +6562,7 @@
     let _levQuoteTs = 0;        // 마지막 페치 시각 (30초 캐시)
 
     function goLeverage() {
+        _pushRoute('leverage');
         window._lastScreen = 'leverage';
         document.getElementById('welcomeScreen').style.display = 'none';
         document.getElementById('smartMoneyScreen').style.display = 'none';
@@ -15454,20 +15510,22 @@
         }, 1000);
     }
 
-    // 브라우저 뒤로가기 (홈 ↔ 종목) 지원
+    // 브라우저 뒤로가기·앞으로가기 — 모든 view 복원
     window.addEventListener('popstate', e => {
-        const state = e.state;
-        if (!state || state.view === 'home') {
-            // 뒤로가기 → 홈으로
-            _historySkip = true;
-            goHome();
-            _historySkip = false;
-        } else if (state.view === 'stock' && state.symbol) {
-            // 앞으로가기 → 종목 복원
-            _historySkip = true;
-            setMarket(state.market);
-            document.getElementById('searchInput').value = state.symbol;
-            searchStock().finally(() => { _historySkip = false; });
+        const state = e.state || {};
+        _historySkip = true;
+        try {
+            if (state.view === 'stock' && state.symbol) {
+                if (state.market) setMarket(state.market);
+                const inp = document.getElementById('searchInput');
+                if (inp) inp.value = state.symbol;
+                searchStock().finally(() => { _historySkip = false; });
+                return;
+            }
+            const fn = _ROUTE_VIEWS[state.view] || _ROUTE_VIEWS.home;
+            fn();
+        } finally {
+            setTimeout(() => { _historySkip = false; }, 100);
         }
     });
 
@@ -18116,6 +18174,7 @@
 
     // ── 화면 전환 ────────────────────────────────────────────────
     function goVisionScanner() {
+        _pushRoute('vision');
         window._lastScreen = 'visionScanner';
         _restoreHeaderChrome();
         document.getElementById('welcomeScreen').style.display       = 'none';
@@ -18159,6 +18218,7 @@
     ];
 
     function goEconomic() {
+        _pushRoute('economic');
         window._lastScreen = 'economic';
         _restoreHeaderChrome();
         document.getElementById('welcomeScreen').style.display       = 'none';
