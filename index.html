@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=598">
+    <link rel="stylesheet" href="/styles.css?v=599">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -771,6 +771,11 @@
                                 onclick="toggleChartSigLines()" title="보조지표 (자동 진입·손절·익절 라인) 켜기/끄기"
                                 style="border-color:var(--border);">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>보조지표
+                            </button>
+                            <button class="chart-tb-btn" id="chartLabelsBtn"
+                                onclick="toggleChartLabels()" title="우측 가격 라벨(EMA20·EMA50·EMA200·BB+ 등) 숨기기/표시"
+                                style="border-color:var(--border);">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px;"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>라벨
                             </button>
                             <button class="chart-tb-btn" id="chartAiClearBtn"
                                 onclick="clearAiChartLines()" title="AI 라인 지우기"
@@ -11134,6 +11139,9 @@
         // 차트 전체 보이게
         lwChart.timeScale().fitContent();
 
+        // 저장된 라벨 표시 설정 적용
+        try { _applyChartLabelsVisibility(); } catch(_) {}
+
         // 스마트 머니 지지선 (홀딩 클릭 시 설정)
         if (pendingSmartMoneyLine && lwCandleSeries) {
             lwCandleSeries.createPriceLine({
@@ -11374,6 +11382,36 @@
             _chartLiveLines.forEach(pl => { try { lwCandleSeries?.removePriceLine(pl); } catch(e) {} });
             _chartLiveLines = [];
         }
+    }
+
+    // 우측 가격 라벨 (EMA20·EMA50·EMA200·BB+ 등) 토글
+    let _chartLabelsVisible = localStorage.getItem('stockai_chart_labels') !== '0'; // 기본 표시
+    function _applyChartLabelsVisibility() {
+        const v = _chartLabelsVisible;
+        // 모든 EMA·BB·자동추세 시리즈에 적용
+        try {
+            Object.values(lwMaSeries || {}).forEach(s => {
+                if (s && typeof s.applyOptions === 'function') s.applyOptions({ lastValueVisible: v });
+            });
+        } catch (_) {}
+        try { lwBbUpper?.applyOptions({ lastValueVisible: v }); } catch (_) {}
+        try { lwBbLower?.applyOptions({ lastValueVisible: v }); } catch (_) {}
+        try { lwBbMiddle?.applyOptions({ lastValueVisible: v }); } catch (_) {}
+        try {
+            (_autoTrendLineSeries || []).forEach(s => {
+                if (s && typeof s.applyOptions === 'function') s.applyOptions({ lastValueVisible: v });
+            });
+        } catch (_) {}
+        const btn = document.getElementById('chartLabelsBtn');
+        if (btn) {
+            btn.style.color = v ? 'var(--text)' : 'var(--text3)';
+            btn.style.background = v ? 'var(--bg3)' : 'transparent';
+        }
+    }
+    function toggleChartLabels() {
+        _chartLabelsVisible = !_chartLabelsVisible;
+        localStorage.setItem('stockai_chart_labels', _chartLabelsVisible ? '1' : '0');
+        _applyChartLabelsVisibility();
     }
 
     function _clearChartLiveSignals() {
@@ -13453,14 +13491,30 @@
                        : totalScore >= 30 ? '돌파 실패 또는 위험 패턴 감지. 진입 금지.'
                        : '위험 패턴 활성. 보유 중이면 즉시 청산 검토.';
 
-        // ── 손절·목표 계산 ──
-        const sl  = slPrice != null ? slPrice : price - atr * DAYTRADING_SL_MULTIPLIER;
-        const tp1 = price * 1.025;
-        const tp2 = price * 1.08;
+        // ── 진입가 — 돌파 단타는 저항 위에서 매수 (역지정가) ──
+        let entryPrice = price, entryLabel = '현재가';
+        if (bCtx?.yesterdayHigh != null && bCtx.yesterdayHigh > price * 1.003) {
+            entryPrice = bCtx.yesterdayHigh * 1.003;
+            entryLabel = '전일 고점 +0.3%';
+        } else if (bCtx?.todayBoxHigh != null && bCtx.todayBoxHigh > price * 1.003) {
+            entryPrice = bCtx.todayBoxHigh * 1.003;
+            entryLabel = '박스 상단 +0.3%';
+        } else if (bCtx?.todayOpen != null && bCtx.todayOpen > price * 1.003) {
+            entryPrice = bCtx.todayOpen * 1.003;
+            entryLabel = '시가 +0.3%';
+        } else {
+            // 이미 모든 저항을 돌파했거나 5분봉 컨텍스트 없음 — 0.5% 추격
+            entryPrice = price * 1.005;
+            entryLabel = '돌파 추격 +0.5%';
+        }
+        // ── 손절·목표 계산 (entryPrice 기준) ──
+        const sl  = slPrice != null ? slPrice : entryPrice - atr * DAYTRADING_SL_MULTIPLIER;
+        const tp1 = entryPrice * 1.025;
+        const tp2 = entryPrice * 1.08;
         const slLabel = lastBullIdx >= 0 ? `양봉 시가` : `ATR × ${DAYTRADING_SL_MULTIPLIER}`;
-        const risk = price - sl;
-        const rrRatio = risk > 0 ? ((tp1 - price) / risk).toFixed(2) : '-';
-        const rrRatio2 = risk > 0 ? ((tp2 - price) / risk).toFixed(2) : '-';
+        const risk = entryPrice - sl;
+        const rrRatio = risk > 0 ? ((tp1 - entryPrice) / risk).toFixed(2) : '-';
+        const rrRatio2 = risk > 0 ? ((tp2 - entryPrice) / risk).toFixed(2) : '-';
 
         // ── 본문 출력 (v575 새 UX) ──
         const body = document.getElementById('dayMainBody');
@@ -13546,12 +13600,13 @@
                 <div style="display:grid;grid-template-columns:${isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)'};gap:8px;background:var(--bg3);padding:12px;border-radius:10px;">
                     <div style="${cellSt}">
                         <div style="${cellLblSt}">진입가</div>
-                        <div style="${cellValSt}">${fmtP(price)}</div>
+                        <div style="${cellValSt}">${fmtP(entryPrice)}</div>
+                        <div style="font-size:10px;color:var(--text2);font-weight:600;margin-top:2px;">${entryLabel}</div>
                     </div>
                     <div style="${cellSt}">
                         <div style="${cellLblSt}">손절 (${slLabel})</div>
                         <div style="${cellValSt};color:#ef4444;">${fmtP(sl)}</div>
-                        <div style="font-size:10px;color:var(--text2);font-weight:600;">${fmtPct(sl,price)}</div>
+                        <div style="font-size:10px;color:var(--text2);font-weight:600;">${fmtPct(sl,entryPrice)}</div>
                     </div>
                     <div style="${cellSt}">
                         <div style="${cellLblSt}">1차 목표 (1:${rrRatio})</div>
@@ -20091,7 +20146,7 @@
         setMarket, searchStock, setChartInterval, setPeriod, _toggleIntervalDropdown,
         quickSearch, toggleFavorite, switchTab, toggleChartFullscreen,
         favSearch, removeFavorite, setTop100Filter, goTop100,
-setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawToolbar, addAutoTrendAngle,
+setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawToolbar, addAutoTrendAngle, toggleChartLabels,
         toggleTheme, showLoading, hideLoading, showToast, showSnackbar,
         openChangelog, closeChangelog,
         loadOptionsDate, setOptionsFilter,
