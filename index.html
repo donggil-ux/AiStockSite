@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=603">
+    <link rel="stylesheet" href="/styles.css?v=604">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -16999,12 +16999,16 @@
     }
 
     function renderCalcFabContent() {
+        try {
         const sc   = window._sc;
         const isKR = sc ? sc.isKR : (typeof currentMarket !== 'undefined' && currentMarket === 'KR');
         const unit = isKR ? '원' : 'USD';
         const ph   = isKR ? '예: 1000000' : 'e.g. 10000';
         const step = isKR ? '1' : '0.01';
-        const fmtV = v => isKR ? Math.round(v) : parseFloat(v.toFixed(2));
+        const fmtV = v => {
+            if (v == null || isNaN(v)) return 0;
+            return isKR ? Math.round(v) : parseFloat(Number(v).toFixed(2));
+        };
 
         const badgeStyles = [
             'background:rgba(12,245,176,.22);color:var(--green)',
@@ -17015,9 +17019,10 @@
         ];
         const priceLabels = ['즉시 진입', 'ATR × 0.3', 'ATR × 0.6', 'ATR × 1.0', 'ATR × 1.5'];
 
-        const toComma = v => v === '' ? '' : Number(v).toLocaleString('en-US', {maximumFractionDigits: isKR ? 0 : 2});
+        const toComma = v => v === '' || v == null ? '' : Number(v).toLocaleString('en-US', {maximumFractionDigits: isKR ? 0 : 2});
         const priceRows = priceLabels.map((lbl, i) => {
-            const val = sc ? toComma(fmtV(sc.prices[i])) : '';
+            const p = sc?.prices?.[i];
+            const val = (p != null && !isNaN(p)) ? toComma(fmtV(p)) : '';
             return `<div class="fab-price-row">
                 <span style="display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:700;${badgeStyles[i]};flex-shrink:0;">${i+1}차</span>
                 <span class="fab-price-lbl">${lbl}</span>
@@ -17035,12 +17040,12 @@
         ];
         const sellLabels = ['ATR × 1.0', 'ATR × 2.0', 'ATR × 3.0', 'ATR × 5.0', 'ATR × 8.0'];
 
-        // ATR 값 — sellDefaults 계산보다 먼저 선언
-        const atrVal  = sc?.atr || 0;
+        // ATR 값
+        const atrVal  = (sc && typeof sc.atr === 'number' && !isNaN(sc.atr)) ? sc.atr : 0;
         const atrFmt  = atrVal ? (isKR ? Math.round(atrVal).toLocaleString() : parseFloat(atrVal.toFixed(4)).toString()) : '';
 
-        // 진입가 + ATR×N 으로 기본값 자동 계산 (sc 있으면)
-        const baseEntry = sc?.prices?.[0] || 0;
+        // 진입가 + ATR×N 으로 기본값 자동 계산
+        const baseEntry = (sc?.prices?.[0] != null && !isNaN(sc.prices[0])) ? sc.prices[0] : 0;
         const sellDefaults = [1.0, 2.0, 3.0, 5.0, 8.0].map(m => baseEntry > 0 && atrVal > 0 ? baseEntry + atrVal * m : 0);
         const sellRows = sellLabels.map((lbl, i) => {
             const val = sellDefaults[i] > 0 ? toComma(fmtV(sellDefaults[i])) : '';
@@ -17127,6 +17132,17 @@
                 TP1: <b>${sc.tp1 ? (isKR ? Math.round(sc.tp1).toLocaleString()+'원' : '$'+sc.tp1.toFixed(2)) : 'N/A'}</b>
             </div>` : ''}
         `;
+        } catch (err) {
+            console.error('[renderCalcFabContent]', err);
+            const body = document.getElementById('calcFabBody');
+            if (body) {
+                body.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text2);font-size:13px;line-height:1.7;">
+                    ⚠️ 계산기 렌더 오류<br>
+                    <small style="color:var(--text3);">${(err.message || err).toString().slice(0,200)}</small><br><br>
+                    종목 검색 후 분석이 완료되면 정상 작동합니다.
+                </div>`;
+            }
+        }
     }
 
     function _calcSplitFab() {
