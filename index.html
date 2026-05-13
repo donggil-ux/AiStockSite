@@ -85,6 +85,11 @@
             <span class="pwa-install-icon">&#8681;</span>
             <span>앱 설치하기</span>
         </button>
+        <button class="changelog-btn" id="changelogBtn" onclick="openChangelog();closeSideNav();">
+            <span class="changelog-icon"><i class="ri-megaphone-fill"></i></span>
+            <span>기능 업데이트 내용</span>
+            <span class="changelog-badge" id="changelogBadge" style="display:none;">NEW</span>
+        </button>
         <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()">
             <span class="theme-icon" id="themeIcon">&#9790;</span>
             <span id="themeLabel">다크 모드</span>
@@ -93,6 +98,16 @@
     </div>
 </nav>
 <div class="side-nav-backdrop" id="sideNavBackdrop" onclick="closeSideNav()"></div>
+
+<!-- ===== 기능 업데이트 모달 ===== -->
+<div class="changelog-backdrop" id="changelogBackdrop" onclick="closeChangelog()"></div>
+<div class="changelog-modal" id="changelogModal" role="dialog" aria-labelledby="changelogTitle" aria-hidden="true">
+    <div class="changelog-modal-header">
+        <div class="changelog-modal-title" id="changelogTitle"><i class="ri-megaphone-fill"></i> 기능 업데이트 내용</div>
+        <button class="changelog-modal-close" onclick="closeChangelog()" aria-label="닫기">&times;</button>
+    </div>
+    <div class="changelog-modal-body" id="changelogBody"></div>
+</div>
 
 <div class="app-wrapper">
 <div class="app">
@@ -15523,6 +15538,196 @@
         applyTheme(next);
     }
 
+    // ========================================
+    // 기능 업데이트 (Changelog) 모달
+    // ========================================
+    const CHANGELOG_LS_KEY = 'stockai_changelog_seen';
+    const CHANGELOG = [
+        {
+            v: 'v581', date: '2026-05-13', tag: '🔐 인프라',
+            title: 'Supabase Auth 백엔드 (Phase 1)',
+            items: [
+                '사용자 인증 미들웨어 + 즐겨찾기·설정 동기화 API 추가',
+                'user_favorites · user_prefs 테이블 신설 (RLS 보호)',
+                '비로그인 사용자는 그대로 사용 가능 — 로그인 UI는 다음 단계',
+            ],
+        },
+        {
+            v: 'v580', date: '2026-05-13', tag: '🎨 UI',
+            title: 'Minervini SEPA 스캐너 카드 통합',
+            items: [
+                'SEPA 스캐너 카드를 과매도·스윙과 동일한 통합 UI로 변경',
+                '트렌드 템플릿 8조건, VCP, RS, 거래량을 시그널 pill 로 매핑',
+                '진입가/손절(-10%)/목표(+20%) Minervini 원칙 적용',
+            ],
+        },
+        {
+            v: 'v579', date: '2026-05-13', tag: '🎨 UI',
+            title: 'Rayner 스캐너 카드 통합',
+            items: [
+                'Rayner 스캐너 카드를 과매도·스윙과 동일한 UI로 통일',
+                'Stage·진입 시그널·캔들 패턴·EMA 정배열을 시그널 pill 로 표시',
+            ],
+        },
+        {
+            v: 'v578', date: '2026-05-13', tag: '🐛 버그',
+            title: 'SEPA 스캐너 — 시장 약세 폴백',
+            items: [
+                'SEPA 70+ 종목 없을 때 50+ 또는 상위 20개 표시',
+                '시장 약세 안내 배너 추가',
+            ],
+        },
+        {
+            v: 'v577', date: '2026-05-13', tag: '🐛 버그',
+            title: '단타 진입 스캐너 — 데이터 로드 실패 수정',
+            items: [
+                '_fetchYahooQuoteBatch 잘못된 사용 제거',
+                '차트 endpoint 한 번으로 OHLCV + 시세 통합',
+            ],
+        },
+        {
+            v: 'v576', date: '2026-05-13', tag: '✨ 신규',
+            title: '단타 진입 스캐너 — 5분봉 돌파 분석 기반',
+            items: [
+                '/api/breakout-scan: 80종목 5단계 점수 (돌파·양봉시가·거래량·정배열·위험패턴)',
+                '60+ 점수 종목 필터, 30분 캐시',
+            ],
+        },
+        {
+            v: 'v575', date: '2026-05-13', tag: '🎨 UI',
+            title: '5분봉 돌파 단타 분석 카드 개편',
+            items: [
+                '큰 점수 배너 + 매매 라인 4열 그리드 (R:R 표시)',
+                '5단계 체크 카드에 가중치 배지 + 진행바',
+                '점수 등급 기준표 + 원칙 안내 추가',
+            ],
+        },
+        {
+            v: 'v574', date: '2026-05-13', tag: '✨ 신규',
+            title: 'Minervini SEPA 스캐너 + 단테 제거',
+            items: [
+                '/api/sepa-scan 엔드포인트 신설',
+                '차트·스캐너에서 단테 단타 분석기 제거',
+            ],
+        },
+        {
+            v: 'v573', date: '2026-05-13', tag: '🎨 UI',
+            title: 'Minervini SEPA 분석 카드 UX 개편',
+            items: [
+                '큰 SEPA 점수 배너 + 섹션 색띠',
+                '⚖️ 가중치 표 + 📚 등급 기준 + 💡 Minervini 원칙',
+            ],
+        },
+        {
+            v: 'v572', date: '2026-05-13', tag: '🎨 UI',
+            title: 'Rayner Teo 분석 — Stage 배너 강조',
+            items: [
+                '상단에 큰 Stage 숫자 배너',
+                '하단에 Stage 1~4 기준 안내 (Weinstein 4단계)',
+            ],
+        },
+        {
+            v: 'v571', date: '2026-05-13', tag: '🐛 버그',
+            title: 'SEPA — 일봉 데이터 별도 조회',
+            items: [
+                '인트라데이 차트와 무관하게 항상 1년 일봉 사용',
+                '종목별 30분 캐시',
+            ],
+        },
+        {
+            v: 'v568', date: '2026-05-13', tag: '🗑️ 정리',
+            title: '퀀트 분석 카드 제거',
+            items: [ 'Minervini SEPA 카드로 대체' ],
+        },
+        {
+            v: 'v567', date: '2026-05-13', tag: '✨ 신규',
+            title: 'Minervini SEPA 분석 카드',
+            items: [
+                '트렌드 템플릿 8조건 체크리스트',
+                'VCP 패턴 자동 감지',
+                '상대강도 RS vs S&P 500',
+                '피벗 진입가/손절/익절 자동 계산',
+            ],
+        },
+        {
+            v: 'v557', date: '2026-05-13', tag: '✨ 신규',
+            title: 'Rayner Teo 분석',
+            items: [
+                'EMA 20/50/200 차트 오버레이',
+                'Stage 1~4 자동 감지 (Weinstein 4단계)',
+                '캔들 패턴 5종 (해머·슈팅스타·인게이징·도지) 자동 마커',
+                '진입 전략 3종 (풀백·브레이크아웃·반전) 차트 마커',
+            ],
+        },
+        {
+            v: 'v550', date: '2026-05-13', tag: '⚡ 실시간',
+            title: '차트 시그널 60초 자동 폴링',
+            items: [
+                'RSI 반전·MACD 교차 시 토스트 알림',
+                '백그라운드 탭에서는 자동 정지',
+            ],
+        },
+    ];
+
+    function _renderChangelog() {
+        const body = document.getElementById('changelogBody');
+        if (!body) return;
+        const html = CHANGELOG.map(entry => `
+            <div class="changelog-entry">
+                <div class="changelog-entry-head">
+                    <span class="changelog-entry-ver">${entry.v}</span>
+                    <span class="changelog-entry-tag">${entry.tag}</span>
+                    <span class="changelog-entry-date">${entry.date}</span>
+                </div>
+                <div class="changelog-entry-title">${entry.title}</div>
+                <ul class="changelog-entry-list">
+                    ${entry.items.map(it => `<li>${it}</li>`).join('')}
+                </ul>
+            </div>
+        `).join('');
+        body.innerHTML = html;
+    }
+
+    function _updateChangelogBadge() {
+        const badge = document.getElementById('changelogBadge');
+        if (!badge) return;
+        const lastSeen = localStorage.getItem(CHANGELOG_LS_KEY) || '';
+        const latest = CHANGELOG[0]?.v || '';
+        badge.style.display = (latest && latest !== lastSeen) ? '' : 'none';
+    }
+
+    function openChangelog() {
+        _renderChangelog();
+        const m = document.getElementById('changelogModal');
+        const b = document.getElementById('changelogBackdrop');
+        if (m) { m.classList.add('show'); m.setAttribute('aria-hidden', 'false'); }
+        if (b) b.classList.add('show');
+        // 본 것으로 기록
+        const latest = CHANGELOG[0]?.v;
+        if (latest) localStorage.setItem(CHANGELOG_LS_KEY, latest);
+        _updateChangelogBadge();
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeChangelog() {
+        const m = document.getElementById('changelogModal');
+        const b = document.getElementById('changelogBackdrop');
+        if (m) { m.classList.remove('show'); m.setAttribute('aria-hidden', 'true'); }
+        if (b) b.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+
+    // ESC 키로 닫기
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const m = document.getElementById('changelogModal');
+            if (m && m.classList.contains('show')) closeChangelog();
+        }
+    });
+
+    // 페이지 로드 시 NEW 배지 갱신
+    try { _updateChangelogBadge(); } catch(_) {}
+
     // 페이지 로드 시 저장된 테마 적용
     (function initTheme() {
         const saved = localStorage.getItem(THEME_LS) || 'dark';
@@ -19553,6 +19758,7 @@
         favSearch, removeFavorite, setTop100Filter, goTop100,
 setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         toggleTheme, showLoading, hideLoading, showToast, showSnackbar,
+        openChangelog, closeChangelog,
         loadOptionsDate, setOptionsFilter,
         setOptionsStrikeRange, toggleOptionsVolFilter, sortOptionsBy,
         manualAnalysisRefresh, pwaInstall,

@@ -2217,6 +2217,106 @@
         .theme-toggle-btn .theme-switch.dark::after{left:3px;}
         .theme-toggle-btn .theme-switch.light::after{left:21px;}
 
+        /* ===== 기능 업데이트 모달 (Changelog) ===== */
+        .changelog-btn{
+            display:flex;align-items:center;gap:12px;width:100%;
+            padding:12px 14px;border:none;background:var(--bg3);color:var(--text2);
+            border-radius:var(--r3);cursor:pointer;
+            font-size:14px;font-weight:600;font-family:inherit;
+            transition:all .15s;margin-bottom:10px;
+        }
+        .changelog-btn:hover{background:var(--bg4);color:var(--text);}
+        .changelog-btn .changelog-icon{width:20px;text-align:center;font-size:16px;flex-shrink:0;color:var(--blue);}
+        .changelog-btn .changelog-badge{
+            margin-left:auto;font-size:10px;font-weight:800;
+            padding:2px 7px;border-radius:6px;
+            background:var(--red);color:#fff;letter-spacing:.3px;
+        }
+        .changelog-backdrop{
+            position:fixed;inset:0;background:rgba(0,0,0,.55);
+            z-index:5000;opacity:0;pointer-events:none;
+            transition:opacity .2s;
+            backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+        }
+        .changelog-backdrop.show{opacity:1;pointer-events:auto;}
+        .changelog-modal{
+            position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.96);
+            width:min(640px, calc(100vw - 24px));
+            max-height:min(720px, calc(100vh - 48px));
+            background:var(--bg2);border:1px solid var(--border);
+            border-radius:16px;
+            z-index:5001;opacity:0;pointer-events:none;
+            transition:all .22s cubic-bezier(.2,.9,.3,1.05);
+            display:flex;flex-direction:column;overflow:hidden;
+            box-shadow:0 24px 64px rgba(0,0,0,.45);
+        }
+        .changelog-modal.show{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1);}
+        .changelog-modal-header{
+            display:flex;align-items:center;gap:10px;
+            padding:16px 18px;border-bottom:1px solid var(--border);
+            flex-shrink:0;
+        }
+        .changelog-modal-title{
+            flex:1;font-size:16px;font-weight:800;color:var(--text);
+            display:flex;align-items:center;gap:8px;letter-spacing:-.3px;
+        }
+        .changelog-modal-title i{color:var(--blue);font-size:18px;}
+        .changelog-modal-close{
+            width:32px;height:32px;border-radius:8px;border:none;background:var(--bg3);
+            color:var(--text2);font-size:22px;line-height:1;cursor:pointer;
+            display:flex;align-items:center;justify-content:center;
+            transition:all .15s;
+        }
+        .changelog-modal-close:hover{background:var(--bg4);color:var(--text);}
+        .changelog-modal-body{
+            flex:1;overflow-y:auto;padding:14px 18px 20px;
+            scrollbar-width:thin;
+        }
+        .changelog-entry{
+            padding:14px 0;border-bottom:1px solid var(--border);
+        }
+        .changelog-entry:last-child{border-bottom:none;}
+        .changelog-entry-head{
+            display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;
+        }
+        .changelog-entry-ver{
+            font-size:13px;font-weight:800;color:var(--blue);
+            font-variant-numeric:tabular-nums;letter-spacing:-.2px;
+        }
+        .changelog-entry-tag{
+            font-size:10.5px;font-weight:700;padding:2px 7px;
+            border-radius:6px;background:var(--bg3);color:var(--text2);
+        }
+        .changelog-entry-date{
+            font-size:11px;color:var(--text3);margin-left:auto;font-variant-numeric:tabular-nums;
+        }
+        .changelog-entry-title{
+            font-size:14px;font-weight:700;color:var(--text);
+            margin-bottom:6px;letter-spacing:-.2px;
+        }
+        .changelog-entry-list{
+            list-style:none;padding:0;margin:0;
+            display:flex;flex-direction:column;gap:4px;
+        }
+        .changelog-entry-list li{
+            font-size:12.5px;color:var(--text2);line-height:1.55;
+            padding-left:14px;position:relative;
+        }
+        .changelog-entry-list li::before{
+            content:'•';position:absolute;left:2px;top:0;color:var(--blue);font-weight:800;
+        }
+        @media(max-width:640px){
+            .changelog-modal{
+                width:calc(100vw - 16px);max-height:calc(100vh - 32px);
+                border-radius:14px;
+            }
+            .changelog-modal-header{padding:14px 16px;}
+            .changelog-modal-title{font-size:15px;}
+            .changelog-modal-body{padding:12px 16px 18px;}
+            .changelog-entry-title{font-size:13.5px;}
+            .changelog-entry-list li{font-size:12px;}
+        }
+
         /* icon dot for card titles */
         .card-title .icon{width:8px;height:8px;border-radius:50%;display:inline-block;}
 
