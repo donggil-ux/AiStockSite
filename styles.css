@@ -2889,6 +2889,8 @@
             box-sizing:border-box;
         }
         .bottom-nav.hidden{transform:translateY(110%);}
+        /* 종목 상세 진입 시(헤더에 .stock-loaded) 바텀 내비 숨김 */
+        body:has(#mainHeader.stock-loaded) .bottom-nav{display:none !important;}
 
         /* 필 컨테이너 */
         .bn-pill{
