@@ -886,6 +886,9 @@
             <!-- 멀티팩터 스코어 카드: 4개 팩터 → TIER A/B/C/D -->
             <div id="mfScoreCard"></div>
 
+            <!-- Rayner Teo 분석 카드: Stage + 캔들 패턴 + 진입 전략 + R:R -->
+            <div id="raynerAnalysis"></div>
+
             <!-- R/R Analysis Card: 단타/스윙 공통, 항상 노출 -->
             <!-- 손익비 (R/R) 분석 — 일시 숨김 (v531) -->
             <div id="rrAnalysis" style="display:none"></div>
@@ -9195,6 +9198,7 @@
             try { renderDanteAnalysis(); } catch (e) { console.warn('[dante] render fail', e); }
             renderAIAnalysis();
             renderRRAnalysis();
+            try { renderRaynerAnalysis(); } catch (e) { console.warn('[rayner] render fail', e); }
             try { _renderMultiFactorCard(); } catch (e) { console.warn('[mf] render fail', e); }
             try { renderQuantAnalysis(); } catch (e) { console.warn('[quant] render fail', e); }
             try { if (typeof renderGuruHolders === 'function' && typeof currentSymbol !== 'undefined') renderGuruHolders(currentSymbol); } catch {}
@@ -9785,6 +9789,7 @@
             try { renderDanteAnalysis(); } catch (e) { console.warn('[dante] render fail', e); }
             renderAIAnalysis();
             renderRRAnalysis();
+            try { renderRaynerAnalysis(); } catch (e) { console.warn('[rayner] render fail', e); }
             try { _renderMultiFactorCard(); } catch (e) { console.warn('[mf] render fail', e); }
             try { renderQuantAnalysis(); } catch (e) { console.warn('[quant] render fail', e); }
             try { if (typeof renderGuruHolders === 'function' && typeof currentSymbol !== 'undefined') renderGuruHolders(currentSymbol); } catch {}
@@ -10391,6 +10396,109 @@
     }
 
     // ========================================
+    // Rayner Teo — Stage Analysis / 캔들 패턴 / 진입 전략
+    // ========================================
+    function _detectMarketStage(closes, ema200, ema50) {
+        const N = closes.length;
+        if (N < 20) return null;
+        const lastIdx = (() => { for (let i = N-1; i >= 0; i--) if (closes[i]!=null && ema200[i]!=null && ema50[i]!=null) return i; return -1; })();
+        if (lastIdx < 0) return null;
+        const lastClose = closes[lastIdx], last200 = ema200[lastIdx], last50 = ema50[lastIdx];
+        const back200 = Math.max(0, lastIdx - 20), back50 = Math.max(0, lastIdx - 10);
+        const prev200 = ema200[back200] ?? last200;
+        const prev50  = ema50[back50] ?? last50;
+        const slope200 = (last200 - prev200) / Math.abs(prev200) * 100;
+        const slope50  = (last50 - prev50) / Math.abs(prev50) * 100;
+        const pctAbove200 = (lastClose - last200) / last200 * 100;
+        const recentSlice = closes.slice(Math.max(0, lastIdx - 60), lastIdx + 1).filter(v => v != null);
+        const recentHigh = recentSlice.length ? Math.max(...recentSlice) : lastClose;
+        const drawdownPct = (recentHigh - lastClose) / recentHigh * 100;
+        if (pctAbove200 > 2 && slope50 > 0.3)
+            return { stage: 2, label: '상승 추세', desc: '가격이 200 EMA 위 + 50 EMA 우상향. 풀백 매수 구간.', color: '#22c55e', slope200, slope50, pctAbove200 };
+        if (pctAbove200 < -2 && slope50 < -0.3)
+            return { stage: 4, label: '하락 추세', desc: '가격이 200 EMA 아래 + 50 EMA 우하향. 매수 금지.', color: '#ef4444', slope200, slope50, pctAbove200 };
+        if (pctAbove200 > 0 && Math.abs(slope200) < 0.5 && drawdownPct > 5)
+            return { stage: 3, label: '분배 (주의)', desc: '고점 대비 하락 + 200 EMA 횡보. 분배 가능성.', color: '#f97316', slope200, slope50, pctAbove200, drawdownPct };
+        return { stage: 1, label: '횡보 (관망)', desc: '200 EMA 횡보 + 가격 근접. 추세 형성 대기.', color: '#94a3b8', slope200, slope50, pctAbove200 };
+    }
+
+    // 캔들 패턴 — 최근 N봉 스캔 (해머·슈팅스타·인게이징·도지)
+    function _detectCandlePatterns(o, h, l, c, lookback = 5) {
+        const N = c.length;
+        if (N < 2) return [];
+        const out = [];
+        for (let i = Math.max(1, N - lookback); i < N; i++) {
+            if (o[i]==null || h[i]==null || l[i]==null || c[i]==null) continue;
+            const open = o[i], close = c[i], high = h[i], low = l[i];
+            const range = high - low; if (range <= 0) continue;
+            const body = Math.abs(close - open);
+            const upperShadow = high - Math.max(open, close);
+            const lowerShadow = Math.min(open, close) - low;
+            const bodyRatio = body / range;
+            if (bodyRatio < 0.1) { out.push({ idx: i, type: 'doji', label: '도지', dir: 'neutral', desc: '추세 전환 경고' }); continue; }
+            if (lowerShadow >= 2 * body && upperShadow <= body * 0.6 && bodyRatio > 0.12) {
+                out.push({ idx: i, type: 'hammer', label: '해머', dir: 'bull', desc: '지지 근처 반전 신호' }); continue;
+            }
+            if (upperShadow >= 2 * body && lowerShadow <= body * 0.6 && bodyRatio > 0.12) {
+                out.push({ idx: i, type: 'shooting_star', label: '슈팅스타', dir: 'bear', desc: '저항 근처 하락 신호' }); continue;
+            }
+            if (i >= 1 && o[i-1]!=null && c[i-1]!=null) {
+                const po = o[i-1], pc = c[i-1];
+                const prevBull = pc > po, curBull = close > open;
+                if (!prevBull && curBull && open <= pc && close >= po) {
+                    out.push({ idx: i, type: 'bull_engulf', label: '강세 인게이징', dir: 'bull', desc: '매수 신호' }); continue;
+                }
+                if (prevBull && !curBull && open >= pc && close <= po) {
+                    out.push({ idx: i, type: 'bear_engulf', label: '약세 인게이징', dir: 'bear', desc: '매도 신호' }); continue;
+                }
+            }
+        }
+        return out;
+    }
+
+    // 진입 전략 — 풀백 / 브레이크아웃 / 반전
+    function _detectRaynerEntries(stageInfo, closes, volumes, ema20, ema50, ema200, ts) {
+        if (!stageInfo) return [];
+        const out = [];
+        const N = closes.length;
+        if (N < 25) return out;
+        const startI = Math.max(20, N - 30);
+        for (let i = startI; i < N; i++) {
+            const c = closes[i];
+            if (c == null || ema20[i]==null || ema50[i]==null || ema200[i]==null) continue;
+            // 1) 풀백 — Stage 2 + 20·50 EMA 근접
+            if (stageInfo.stage === 2) {
+                const d20 = Math.abs(c - ema20[i]) / c * 100;
+                const d50 = Math.abs(c - ema50[i]) / c * 100;
+                if (d20 < 1.0 || d50 < 1.5) out.push({ time: ts[i], idx: i, type: 'pullback', label: '풀백 진입', color: '#22c55e' });
+            }
+            // 2) 브레이크아웃 — 20봉 고점 돌파 + 거래량 1.5배
+            if (i >= 20) {
+                const lookback = closes.slice(i - 20, i).filter(v => v != null);
+                if (lookback.length === 20) {
+                    const prevHigh = Math.max(...lookback);
+                    const vol = volumes[i] || 0;
+                    const avgVol = volumes.slice(i - 20, i).reduce((s, v) => s + (v||0), 0) / 20;
+                    if (c > prevHigh * 1.005 && avgVol > 0 && vol > avgVol * 1.5) {
+                        out.push({ time: ts[i], idx: i, type: 'breakout', label: '브레이크아웃', color: '#eab308' });
+                    }
+                }
+            }
+            // 3) 반전 — Stage 4 + 200 EMA 상향 돌파
+            if (stageInfo.stage === 4 && i >= 1 && closes[i-1]!=null && ema200[i-1]!=null) {
+                if (closes[i-1] < ema200[i-1] && c > ema200[i]) {
+                    out.push({ time: ts[i], idx: i, type: 'reversal', label: '반전 가능', color: '#3b82f6' });
+                }
+            }
+        }
+        // 동일 봉에 여러 시그널 있으면 우선순위 (pullback > breakout > reversal)
+        const seen = new Set();
+        const priority = { pullback: 1, breakout: 2, reversal: 3 };
+        return out.sort((a, b) => priority[a.type] - priority[b.type])
+                  .filter(e => { const k = e.time + ':' + e.type; if (seen.has(k)) return false; seen.add(k); return true; });
+    }
+
+    // ========================================
     // Volume Profile & Resistance Detection
     // ========================================
     function calcVolumeProfile(closes, volumes, period, buckets = 20) {
@@ -10612,23 +10720,26 @@
 
         // 이동평균선 추가
         const closes = q.close;
+        // Rayner Teo 표준: EMA 20 / 50 / 200
+        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+        const ema200Color = isLight ? '#1f2937' : '#ffffff';
         const maConfigs = [
-            { period: 5,  color: '#eab308', key: 'ma5',  label: 'MA5'  },
-            { period: 20, color: '#a78bfa', key: 'ma20', label: 'MA20' },
-            { period: 70, color: '#ec4899', key: 'ma70', label: 'MA70' },
+            { period: 20,  color: '#7dd3fc',   key: 'ema20',  label: 'EMA20'  },
+            { period: 50,  color: '#eab308',   key: 'ema50',  label: 'EMA50'  },
+            { period: 200, color: ema200Color, key: 'ema200', label: 'EMA200' },
         ];
 
         maConfigs.forEach(({ period, color, key, label }) => {
-            const sma = calcSMA(closes, period);
+            const ema = calcEMA(closes, period);
             const maData = [];
             for (let i = 0; i < ts.length; i++) {
-                if (sma[i] == null) continue;
-                maData.push({ time: ts[i], value: sma[i] });
+                if (ema[i] == null) continue;
+                maData.push({ time: ts[i], value: ema[i] });
             }
             if (maData.length > 0) {
                 const series = lwChart.addLineSeries({
                     color,
-                    lineWidth: 2,
+                    lineWidth: key === 'ema200' ? 2 : 2,
                     priceLineVisible: false,
                     lastValueVisible: true,
                     title: label,
@@ -10636,6 +10747,8 @@
                 });
                 series.setData(maData);
                 lwMaSeries[key] = series;
+                // 다른 함수(renderChartLiveSignals 등)에서 재사용 가능하도록 데이터 저장
+                lwMaSeries[key + '_data'] = ema;
             }
         });
 
@@ -10913,6 +11026,17 @@
             if (lastClose >= lastBBU * 0.998) badges.push({ label: 'BB 상단', cls: 'sig-red' });
             else if (lastClose <= lastBBL * 1.002) badges.push({ label: 'BB 하단', cls: 'sig-blue' });
         }
+        // Rayner Stage 배지 (가장 앞에)
+        const ema20Data  = lwMaSeries.ema20_data  || calcEMA(closes, 20);
+        const ema50Data  = lwMaSeries.ema50_data  || calcEMA(closes, 50);
+        const ema200Data = lwMaSeries.ema200_data || calcEMA(closes, 200);
+        const stageInfo = _detectMarketStage(closes, ema200Data, ema50Data);
+        if (stageInfo) {
+            const cls = stageInfo.stage === 2 ? 'sig-red'
+                       : stageInfo.stage === 4 ? 'sig-blue'
+                       : stageInfo.stage === 3 ? 'sig-neutral' : 'sig-neutral';
+            badges.unshift({ label: `Stage ${stageInfo.stage} · ${stageInfo.label}`, cls });
+        }
         bar.innerHTML = badges.map(b => `<span class="chart-sig-pill ${b.cls}">${escHtml(b.label)}</span>`).join('');
 
         // 3) 매수·매도 마커 — RSI 반전 + MACD 교차
@@ -10934,6 +11058,26 @@
             if (prev <= 0 && cur > 0) markers.push({ time: ts[i], position: 'belowBar', color: '#ef4444', shape: 'arrowUp', text: 'MACD' });
             else if (prev >= 0 && cur < 0) markers.push({ time: ts[i], position: 'aboveBar', color: '#3b82f6', shape: 'arrowDown', text: 'MACD' });
         }
+        // Rayner 진입 마커 (풀백/브레이크아웃/반전)
+        const raynerEntries = _detectRaynerEntries(stageInfo, closes, q.volume || [], ema20Data, ema50Data, ema200Data, ts);
+        raynerEntries.forEach(e => {
+            markers.push({ time: e.time, position: 'belowBar', color: e.color, shape: 'arrowUp', text: e.label });
+        });
+        // 캔들 패턴 마커 (최근 5봉)
+        const candlePatterns = _detectCandlePatterns(q.open, highs, lows, closes, 5);
+        candlePatterns.forEach(p => {
+            const t = ts[p.idx];
+            if (t == null) return;
+            const isBull = p.dir === 'bull';
+            const isBear = p.dir === 'bear';
+            markers.push({
+                time: t,
+                position: isBull ? 'belowBar' : isBear ? 'aboveBar' : 'inBar',
+                color: isBull ? '#ef4444' : isBear ? '#3b82f6' : '#94a3b8',
+                shape: isBull ? 'arrowUp' : isBear ? 'arrowDown' : 'circle',
+                text: p.label,
+            });
+        });
         // 동일 봉 중복 마커는 첫 것만 유지
         const seen = new Set();
         const uniqMarkers = markers
@@ -13278,6 +13422,122 @@
     // ========================================
     function renderEntryTiming() {
         renderDayUnified();
+    }
+
+    // ========================================
+    // Rayner Teo 분석 카드
+    // ========================================
+    function renderRaynerAnalysis() {
+        const el = document.getElementById('raynerAnalysis');
+        if (!el || !stockData) { if (el) el.innerHTML = ''; return; }
+        const q = stockData.indicators?.quote?.[0];
+        const ts = stockData.timestamp || [];
+        if (!q || !ts.length) { el.innerHTML = ''; return; }
+        const closes = q.close, highs = q.high, lows = q.low, opens = q.open, vols = q.volume || [];
+        if (!closes || closes.length < 30) { el.innerHTML = ''; return; }
+
+        const ema20  = calcEMA(closes, 20);
+        const ema50  = calcEMA(closes, 50);
+        const ema200 = calcEMA(closes, 200);
+        const lastVal = arr => { for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != null) return arr[i]; return null; };
+        const lastClose = lastVal(closes);
+        const last20    = lastVal(ema20);
+        const last50    = lastVal(ema50);
+        const last200   = lastVal(ema200);
+        if (lastClose == null) { el.innerHTML = ''; return; }
+
+        const stage = _detectMarketStage(closes, ema200, ema50);
+        const patterns = _detectCandlePatterns(opens, highs, lows, closes, 5);
+        const entries = _detectRaynerEntries(stage, closes, vols, ema20, ema50, ema200, ts);
+        const latestEntry = entries[entries.length - 1];
+
+        // R:R 계산
+        const isKR = currentMarket === 'KR';
+        const fmtP = p => isKR ? Math.round(p).toLocaleString() + '원' : '$' + p.toFixed(2);
+        const isDay = currentTradeStyle === 'day';
+        // 손절: 스윙=최근 20봉 저점, 단타=20 EMA 아래
+        const swingLow = Math.min(...lows.slice(-20).filter(v => v != null));
+        const stop = isDay && last20 != null
+            ? last20 * 0.995
+            : (swingLow > 0 ? swingLow * 0.995 : lastClose * 0.97);
+        const risk = lastClose - stop;
+        const target2 = lastClose + risk * 2;   // 1:2
+        const target3 = lastClose + risk * 3;   // 1:3
+        const rrRatio = risk > 0 ? (risk > 0 ? 2 : 0) : 0; // 기본 1:2 표기
+
+        // 추천 전략
+        const strategyMap = {
+            pullback:   { title: '풀백 진입',     desc: '20·50 EMA 지지 → 분할매수' },
+            breakout:   { title: '브레이크아웃', desc: '저항 돌파 + 거래량 → 추격 매수' },
+            reversal:   { title: '추세 반전',     desc: '200 EMA 상향 돌파 → 신중 매수' },
+        };
+        const recommended = latestEntry ? strategyMap[latestEntry.type] : null;
+
+        const stageBadge = stage ? `<span class="rayner-stage-badge" style="background:${stage.color}1a;color:${stage.color};border:1px solid ${stage.color}55">Stage ${stage.stage}</span>` : '';
+        const emaState = (() => {
+            if (lastClose == null || last200 == null) return '데이터 부족';
+            const above200 = lastClose > last200;
+            const aligned = last20 > last50 && last50 > last200;
+            const inverted = last20 < last50 && last50 < last200;
+            if (aligned && above200) return '정배열 (20>50>200) — 강한 상승 구조';
+            if (inverted && !above200) return '역배열 (20<50<200) — 하락 구조';
+            if (above200) return '가격 > 200 EMA — 장기 상승';
+            return '가격 < 200 EMA — 장기 하락';
+        })();
+
+        const patternsHtml = patterns.length
+            ? patterns.slice(-3).map(p => {
+                const color = p.dir === 'bull' ? '#ef4444' : p.dir === 'bear' ? '#3b82f6' : '#94a3b8';
+                return `<span class="rayner-pattern-pill" style="color:${color};border-color:${color}55;background:${color}14">${p.label} · ${p.desc}</span>`;
+            }).join('')
+            : '<span class="rayner-empty">감지된 패턴 없음</span>';
+
+        el.innerHTML = `
+            <div class="rayner-card">
+                <div class="rayner-head">
+                    <div class="rayner-title">📊 Rayner Teo 분석 ${stageBadge}</div>
+                    <div class="rayner-sub">${stage ? stage.desc : ''}</div>
+                </div>
+                <div class="rayner-section">
+                    <div class="rayner-section-label">EMA 상태</div>
+                    <div class="rayner-section-value">${emaState}</div>
+                </div>
+                <div class="rayner-grid">
+                    <div class="rayner-cell"><div class="rayner-cell-label">EMA20</div><div class="rayner-cell-val">${last20 != null ? fmtP(last20) : '-'}</div></div>
+                    <div class="rayner-cell"><div class="rayner-cell-label">EMA50</div><div class="rayner-cell-val">${last50 != null ? fmtP(last50) : '-'}</div></div>
+                    <div class="rayner-cell"><div class="rayner-cell-label">EMA200</div><div class="rayner-cell-val">${last200 != null ? fmtP(last200) : '-'}</div></div>
+                </div>
+                <div class="rayner-section">
+                    <div class="rayner-section-label">최근 캔들 패턴</div>
+                    <div class="rayner-pattern-list">${patternsHtml}</div>
+                </div>
+                <div class="rayner-section">
+                    <div class="rayner-section-label">추천 진입 전략</div>
+                    ${recommended
+                        ? `<div class="rayner-strategy"><span class="rayner-strategy-pill" style="background:${latestEntry.color}1f;color:${latestEntry.color};border:1px solid ${latestEntry.color}55">${recommended.title}</span><span class="rayner-strategy-desc">${recommended.desc}</span></div>`
+                        : `<div class="rayner-empty">현재 진입 시그널 없음 — Stage ${stage?.stage || '?'} 대기 구간</div>`}
+                </div>
+                <div class="rayner-rr-grid">
+                    <div class="rayner-rr-cell">
+                        <div class="rayner-rr-label">진입가</div>
+                        <div class="rayner-rr-val">${fmtP(lastClose)}</div>
+                    </div>
+                    <div class="rayner-rr-cell">
+                        <div class="rayner-rr-label">손절</div>
+                        <div class="rayner-rr-val" style="color:#ef4444">${fmtP(stop)}</div>
+                    </div>
+                    <div class="rayner-rr-cell">
+                        <div class="rayner-rr-label">목표 (1:2)</div>
+                        <div class="rayner-rr-val" style="color:#eab308">${fmtP(target2)}</div>
+                    </div>
+                    <div class="rayner-rr-cell">
+                        <div class="rayner-rr-label">목표 (1:3)</div>
+                        <div class="rayner-rr-val" style="color:#f97316">${fmtP(target3)}</div>
+                    </div>
+                </div>
+                <div class="rayner-rr-summary">R:R 최소 <strong>1:2</strong> · Rayner 기준 — 1:3 이상 권장</div>
+            </div>
+        `;
     }
     // ========================================
     // 손익비(R/R) 분석 카드
@@ -18418,7 +18678,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings,
         toggleChartSigLines,
         handleSearchKeydown, openSearchDropdown, closeSearchDropdown, searchSuggest, levenshtein,
         renderDayUnified, renderDanteAnalysis, runDanteBacktest,
-        renderRRAnalysis, renderRSIMomentum, analyzeRSIDynamic,
+        renderRRAnalysis, renderRaynerAnalysis, renderRSIMomentum, analyzeRSIDynamic,
         renderMACDSignal, analyzeMACDRayner, _applyRRGate, _isFallingKnife,
         toggleChecklist,
         calcRRWidget, rrWidgetAutoFill, rrCalcEntryChanged,

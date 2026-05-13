@@ -2914,6 +2914,38 @@
             .scanner-filter-label{font-size:11.5px;}
         }
 
+        /* ===== Rayner Teo 분석 카드 ===== */
+        .rayner-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:16px 18px;margin:12px 0;}
+        .rayner-head{margin-bottom:12px;}
+        .rayner-title{font-size:16px;font-weight:800;color:var(--text);letter-spacing:-.3px;display:flex;align-items:center;gap:8px;}
+        .rayner-stage-badge{font-size:11px;font-weight:800;padding:3px 9px;border-radius:8px;letter-spacing:.3px;}
+        .rayner-sub{font-size:12.5px;color:var(--text2);margin-top:4px;line-height:1.45;}
+        .rayner-section{margin-top:12px;}
+        .rayner-section-label{font-size:11px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
+        .rayner-section-value{font-size:13.5px;font-weight:600;color:var(--text);}
+        .rayner-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;background:var(--bg3);padding:10px;border-radius:var(--r3);}
+        .rayner-cell{text-align:center;}
+        .rayner-cell-label{font-size:10.5px;color:var(--text2);font-weight:700;letter-spacing:.3px;}
+        .rayner-cell-val{font-size:14px;font-weight:800;color:var(--text);margin-top:3px;font-variant-numeric:tabular-nums;}
+        .rayner-pattern-list{display:flex;flex-wrap:wrap;gap:6px;}
+        .rayner-pattern-pill{font-size:11.5px;font-weight:700;padding:5px 10px;border-radius:8px;border:1px solid var(--border);}
+        .rayner-strategy{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+        .rayner-strategy-pill{font-size:12.5px;font-weight:800;padding:5px 12px;border-radius:8px;letter-spacing:.2px;}
+        .rayner-strategy-desc{font-size:12.5px;color:var(--text);}
+        .rayner-empty{font-size:12px;color:var(--text2);font-style:italic;}
+        .rayner-rr-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px;background:var(--bg3);padding:12px;border-radius:var(--r3);}
+        .rayner-rr-cell{text-align:center;}
+        .rayner-rr-label{font-size:10.5px;color:var(--text2);font-weight:700;letter-spacing:.3px;}
+        .rayner-rr-val{font-size:14px;font-weight:800;margin-top:3px;font-variant-numeric:tabular-nums;}
+        .rayner-rr-summary{font-size:12px;color:var(--text2);margin-top:10px;text-align:right;}
+        .rayner-rr-summary strong{color:var(--text);}
+        @media(max-width:640px){
+            .rayner-card{padding:14px 14px;}
+            .rayner-title{font-size:15px;}
+            .rayner-cell-val,.rayner-rr-val{font-size:13px;}
+            .rayner-rr-grid{grid-template-columns:repeat(2,1fr);}
+        }
+
         /* ===== VISION SCANNER ===== */
         .vs-screen{padding:20px 16px 40px;max-width:900px;margin:0 auto;}
         .vs-screen-title{font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px;}
