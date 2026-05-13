@@ -728,6 +728,12 @@ app.get('/api/rayner-scan', async (req, res) => {
                     const q = r.indicators?.quote?.[0];
                     if (!q?.close) return null;
                     const meta = r.meta;
+                    // 상장폐지 필터: 최근 7일 내 거래 + 마지막 종가 유효
+                    const nowSec = Math.floor(Date.now() / 1000);
+                    const lastTs = meta?.regularMarketTime || 0;
+                    if (nowSec - lastTs > 7 * 24 * 3600) return null;
+                    const lastClose = q.close[q.close.length - 1];
+                    if (!lastClose || lastClose <= 0) return null;
                     const a = _raynerAnalyze(q.close, q.high, q.low, q.open, q.volume);
                     if (!a) return null;
                     // 전일 종가 대비 변동률
@@ -947,6 +953,12 @@ app.get('/api/sepa-scan', async (req, res) => {
                     const q = r.indicators?.quote?.[0];
                     if (!q?.close) return null;
                     const meta = r.meta;
+                    // 상장폐지 필터: 최근 7일 내 거래 + 마지막 종가 유효
+                    const nowSec = Math.floor(Date.now() / 1000);
+                    const lastTs = meta?.regularMarketTime || 0;
+                    if (nowSec - lastTs > 7 * 24 * 3600) return null;
+                    const lastClose = q.close[q.close.length - 1];
+                    if (!lastClose || lastClose <= 0) return null;
                     const a = _minerviniAnalyzeServer(q.close, q.high, q.low, q.volume, spxCloses);
                     if (!a) return null;
                     // 전일 종가 대비 변동률
@@ -1109,6 +1121,12 @@ app.get('/api/breakout-scan', async (req, res) => {
                     const q = r.indicators?.quote?.[0];
                     if (!q?.close) return null;
                     const meta = r.meta || {};
+                    // 상장폐지 필터: 최근 7일 내 거래 + 마지막 종가 유효
+                    const nowSec = Math.floor(Date.now() / 1000);
+                    const lastTs = meta?.regularMarketTime || 0;
+                    if (nowSec - lastTs > 7 * 24 * 3600) return null;
+                    const lastClose = q.close[q.close.length - 1];
+                    if (!lastClose || lastClose <= 0) return null;
                     const a = _breakoutAnalyzeServer(q.close, q.high, q.low, q.open, q.volume, meta);
                     if (!a) return null;
                     // 변동률 계산: 현재가 vs 전일 종가
