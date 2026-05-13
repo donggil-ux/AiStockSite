@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=601">
+    <link rel="stylesheet" href="/styles.css?v=602">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -11603,20 +11603,19 @@
         resistances.forEach(r => addLine(r.price, 'rgba(239,68,68,0.55)', `저항 $${r.price.toFixed(2)}`));
         supports.forEach(s => addLine(s.price, 'rgba(59,130,246,0.55)', `지지 $${s.price.toFixed(2)}`));
 
-        // 5) 매매 전략 라인 — ATR(14) 기반 진입·분할·손절·익절
+        // 5) 매매 전략 라인 — ATR(14) 기반 5단계 분할매수 + 손절 + 익절
         const atrArr = calcATR(highs, lows, closes, 14);
         const atr = lastVal(atrArr);
         if (atr != null && atr > 0 && lastClose != null && lastClose > 0) {
             const isKR = currentMarket === 'KR';
             const fmtP = p => isKR ? Math.round(p).toLocaleString() + '원' : '$' + p.toFixed(2);
-            const entry = lastClose;
-            let stop   = entry - atr * 1.5;
-            // 손절이 가장 가까운 지지선보다 낮으면 지지선 위로 끌어올림 (보수적)
-            const nearestSupport = supports[0]?.price;
-            if (nearestSupport != null && stop < nearestSupport) stop = nearestSupport;
-            const entry2 = entry - atr * 0.5;
-            const tp1    = entry + atr * 2.0;
-            const tp2    = entry + atr * 3.5;
+            const e1 = lastClose;
+            const e2 = lastClose - atr * 0.3;
+            const e3 = lastClose - atr * 0.6;
+            const e4 = lastClose - atr * 1.0;
+            const e5 = lastClose - atr * 1.5;
+            const tp1 = lastClose + atr * 2.0;
+            const tp2 = lastClose + atr * 3.5;
 
             const addStratLine = (price, color, style, width, label) => {
                 try {
@@ -11628,10 +11627,15 @@
                 } catch(e) {}
             };
             // 0=Solid, 1=Dotted, 2=Dashed (LWC LineStyle)
-            addStratLine(entry,  '#a3e635', 0, 3, `진입 ${fmtP(entry)}`);
-            addStratLine(entry2, '#a3e635', 2, 2, `분할매수 ${fmtP(entry2)}`);
-            addStratLine(tp1,    '#eab308', 2, 2, `익절1 ${fmtP(tp1)}`);
-            addStratLine(tp2,    '#f97316', 2, 2, `익절2 ${fmtP(tp2)}`);
+            // 분할매수 5단계 — 1차는 굵은 실선(즉시 진입), 2~5차는 점선 (단계별 색상 진행)
+            addStratLine(e1, '#22c55e', 0, 3, `1차 매수 ${fmtP(e1)}`);
+            addStratLine(e2, '#84cc16', 2, 2, `2차 매수 ${fmtP(e2)}`);
+            addStratLine(e3, '#a3e635', 2, 2, `3차 매수 ${fmtP(e3)}`);
+            addStratLine(e4, '#eab308', 2, 2, `4차 매수 ${fmtP(e4)}`);
+            addStratLine(e5, '#f97316', 2, 2, `5차 매수 ${fmtP(e5)}`);
+            // 익절
+            addStratLine(tp1, '#22d3ee', 2, 2, `익절1 ${fmtP(tp1)}`);
+            addStratLine(tp2, '#3b82f6', 2, 2, `익절2 ${fmtP(tp2)}`);
         }
     }
 
