@@ -9497,10 +9497,9 @@
                 const _pc = _m.chartPreviousClose ?? (_cls.length>1?_cls[_cls.length-2]:_p);
                 const _chgPct = _pc ? (_p-_pc)/_pc*100 : 0;
                 saveRecentStock(currentSymbol, _m.longName||_m.shortName||currentSymbol, _p, _chgPct, currentMarket);
-                // 브라우저 탭 제목에 종목명 표시
+                // 브라우저 탭 제목에 티커 표시
                 try {
-                    const stockName = _m.longName || _m.shortName || currentSymbol;
-                    document.title = `${stockName} (${currentSymbol}) — StockAI`;
+                    document.title = `${currentSymbol} — StockAI`;
                 } catch(_) {}
             } catch(e) {}
 
