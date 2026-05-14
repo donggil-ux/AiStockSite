@@ -1803,14 +1803,14 @@ function _alpacaHeaders() {
 }
 // 배치 snapshots — 종목별 latestTrade/latestQuote/dailyBar/prevDailyBar 한 번에
 async function _alpacaSnapshots(symbols) {
-    if (!_alpacaEnabled() || !symbols.length) return {};
+    if (!_alpacaEnabled() || !symbols.length) return { _err: 'env_missing' };
     try {
         const url = `https://data.alpaca.markets/v2/stocks/snapshots?symbols=${encodeURIComponent(symbols.join(','))}`;
         const r = await axios.get(url, { headers: _alpacaHeaders(), timeout: 8000, httpAgent, httpsAgent });
         return r.data || {};
     } catch (e) {
-        console.warn('[alpaca-snapshots]', e.message);
-        return {};
+        console.warn('[alpaca-snapshots]', e.message, e.response?.status, e.response?.data);
+        return { _err: `${e.response?.status || ''} ${e.message}`.slice(0, 200) };
     }
 }
 // 배치 일봉 — 20일 평균 거래량·ATR(14) 계산용
@@ -2181,6 +2181,13 @@ app.get('/api/catalyst/hunter', async (req, res) => {
             scannedAt: new Date().toISOString(),
             dataSource: alpacaActive ? (realtimeCount === finalResults.length ? 'alpaca_realtime' : 'mixed') : 'yfinance_delayed',
             realtimeCount,
+            _debug: {
+                alpacaEnabled: _alpacaEnabled(),
+                alpacaKeyPrefix: process.env.ALPACA_KEY_ID ? process.env.ALPACA_KEY_ID.slice(0, 4) + '...' : 'missing',
+                snapshotsErr: snapshotsObj._err || null,
+                snapshotKeys: Object.keys(snapMap).slice(0, 5),
+                barsKeys: Object.keys(barsObj).slice(0, 5),
+            },
         };
         // 빈 결과는 캐시하지 않음 (다음 요청에서 즉시 재시도)
         if (results.length > 0) _catalystCache = { ts: now, data: payload };
