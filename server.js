@@ -1299,8 +1299,14 @@ app.get('/api/scanner/surge', async (req, res) => {
             // Float: floatShares 가 정확하지만 quote 응답에 없으므로 sharesOutstanding 으로 근사
             const floatShares = q.floatShares || q.sharesOutstanding || 0;
             if (!prevC || !price || !open) return null;
+            // 시총 0 (데이터 이상) 제외
+            if (!marketCap || marketCap <= 0) return null;
             // Float 캡 — 1000만주 이하만
             if (floatShares > 0 && floatShares > FLOAT_CAP) return null;
+            // 실제 급등 중인 종목만 — 일중 +3% 이상 OR 갭 +3% 이상 (v637)
+            const changePct = q.regularMarketChangePercent != null ? q.regularMarketChangePercent : 0;
+            const gapApprox = (open - prevC) / prevC * 100;
+            if (changePct < 3 && gapApprox < 3) return null;
 
             const vol_ratio = avgVol > 0 ? vol / avgVol : 0;
             const gap_pct   = (open - prevC) / prevC * 100;
