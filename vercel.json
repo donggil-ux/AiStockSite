@@ -4,6 +4,9 @@
     { "path": "/api/cron/check-alerts",       "schedule": "0 14 * * 1-5" },
     { "path": "/api/cron/earnings-reminder",  "schedule": "0 0 * * 1-5" }
   ],
+  "functions": {
+    "server.js": { "maxDuration": 30 }
+  },
   "builds": [
     {
       "src": "server.js",

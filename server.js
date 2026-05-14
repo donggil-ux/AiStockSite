@@ -1403,7 +1403,7 @@ app.get('/api/scanner/surge', async (req, res) => {
 // ──────────────────────────────────────────────────────────────────────
 const PUMP_SCAN_TTL = 5 * 60 * 1000;
 let _pumpScanCache = { ts: 0, data: null };
-const PUMP_FETCH_CONCURRENCY = 6;
+const PUMP_FETCH_CONCURRENCY = 10;
 
 async function _fetchTickerHistory(symbol, range = '1mo') {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d`;
@@ -1621,14 +1621,14 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
             return true;
         });
 
-        // 변동률·거래량 상위 80개로 1차 필터링 (가중 점수)
+        // 변동률·거래량 상위 35개로 1차 필터링 (Vercel 10s timeout 대응, v642.1)
         universe = universe
             .map(q => ({
                 ...q,
                 _initScore: Math.abs(q.regularMarketChangePercent || 0) + (q.averageDailyVolume3Month > 0 ? Math.log10(q.regularMarketVolume / q.averageDailyVolume3Month + 1) * 10 : 0),
             }))
             .sort((a, b) => (b._initScore || 0) - (a._initScore || 0))
-            .slice(0, 80);
+            .slice(0, 35);
 
         // 2) 각 종목 20일 일봉 fetch + 단계 감지
         const results = await _runWithConcurrency(universe, PUMP_FETCH_CONCURRENCY, async (q) => {
