@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=614">
+    <link rel="stylesheet" href="/styles.css?v=615">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -734,7 +734,9 @@
                                     <span id="intervalDdLabel">5분</span>
                                     <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:2px;"><polyline points="2 4 6 8 10 4"/></svg>
                                 </button>
+                                <div class="interval-dd-backdrop" id="intervalDdBackdrop" onclick="_toggleIntervalDropdown(event)"></div>
                                 <div class="interval-dd-menu" id="intervalDdMenu" style="display:none;">
+                                    <div class="interval-dd-sheet-header">분봉 선택</div>
                                     <button class="interval-dd-item" data-interval="1m"   onclick="setChartInterval('1m')">1분</button>
                                     <button class="interval-dd-item" data-interval="3m"   onclick="setChartInterval('3m')">3분</button>
                                     <button class="interval-dd-item active" data-interval="5m"   onclick="setChartInterval('5m')">5분</button>
@@ -1908,26 +1910,50 @@
         if (currentSymbol) searchStock();
     }
 
-    // 드롭다운 토글 (position:fixed — 버튼 기준 좌표 동적 계산)
+    // 드롭다운 토글 — 모바일: 바텀시트 / 데스크탑: 버튼 아래 드롭다운
     function _toggleIntervalDropdown(ev) {
         if (ev) ev.stopPropagation();
         const btn = document.getElementById('intervalDdBtn');
         const menu = document.getElementById('intervalDdMenu');
+        const backdrop = document.getElementById('intervalDdBackdrop');
         if (!menu || !btn) return;
         const isOpen = menu.style.display !== 'none' && menu.style.display !== '';
+        const isMobile = window.innerWidth <= 640;
         if (isOpen) {
-            menu.style.display = 'none';
+            // 닫기
+            if (isMobile) {
+                menu.classList.remove('show');
+                if (backdrop) backdrop.classList.remove('show');
+                setTimeout(() => { menu.style.display = 'none'; }, 250);
+            } else {
+                menu.style.display = 'none';
+            }
+            document.body.style.overflow = '';
             return;
         }
-        // 버튼 위치 기준 좌표 계산 (position:fixed 라서 viewport 기준)
-        const r = btn.getBoundingClientRect();
-        menu.style.display = 'block';
-        menu.style.top = (r.bottom + 4) + 'px';
-        // 좌측 정렬 — 화면 우측 밖으로 나가면 우측 정렬로 폴백
-        const menuW = menu.offsetWidth || 100;
-        let left = r.left;
-        if (left + menuW > window.innerWidth - 8) left = window.innerWidth - menuW - 8;
-        menu.style.left = Math.max(8, left) + 'px';
+        // 열기
+        if (isMobile) {
+            // 바텀시트 — 인라인 위치 스타일 초기화 (CSS 가 처리)
+            menu.style.top = '';
+            menu.style.left = '';
+            menu.style.display = 'block';
+            if (backdrop) backdrop.style.display = 'block';
+            // 다음 프레임에 show 클래스 추가 → 부드러운 트랜지션
+            requestAnimationFrame(() => {
+                menu.classList.add('show');
+                if (backdrop) backdrop.classList.add('show');
+            });
+            document.body.style.overflow = 'hidden';
+        } else {
+            // 데스크탑 — 버튼 아래 드롭다운 (position:fixed 좌표 계산)
+            const r = btn.getBoundingClientRect();
+            menu.style.display = 'block';
+            menu.style.top = (r.bottom + 4) + 'px';
+            const menuW = menu.offsetWidth || 100;
+            let left = r.left;
+            if (left + menuW > window.innerWidth - 8) left = window.innerWidth - menuW - 8;
+            menu.style.left = Math.max(8, left) + 'px';
+        }
     }
     // 외부 클릭 시 드롭다운 닫기
     document.addEventListener('click', (e) => {
@@ -1970,6 +1996,17 @@
         const prevInterval = currentInterval;
         currentInterval = interval;
         try { localStorage.setItem('stockai_chart_interval', interval); } catch(e) {}
+        // 드롭다운/바텀시트 자동 닫기
+        try {
+            const _menu = document.getElementById('intervalDdMenu');
+            const _backdrop = document.getElementById('intervalDdBackdrop');
+            if (_menu && _menu.style.display !== 'none') {
+                _menu.classList.remove('show');
+                if (_backdrop) _backdrop.classList.remove('show');
+                setTimeout(() => { _menu.style.display = 'none'; if (_backdrop) _backdrop.style.display = 'none'; }, 250);
+                document.body.style.overflow = '';
+            }
+        } catch(_) {}
         // 사각 버튼(일/주/월/년)과 드롭다운 항목 활성 상태 동기화
         document.querySelectorAll('.interval-btn').forEach(b => b.classList.toggle('active', b.dataset.interval === interval));
         document.querySelectorAll('.interval-dd-item').forEach(b => b.classList.toggle('active', b.dataset.interval === interval));
