@@ -2542,6 +2542,8 @@
         .stock-loaded ~ * #calcFab, body:has(#mainHeader.stock-loaded) #calcFab{display:flex;}
         #calcFab:hover{transform:scale(1.05);box-shadow:0 6px 28px rgba(234,179,8,.65);}
         @media(max-width:640px){#calcFab{bottom:calc(72px + env(safe-area-inset-bottom));right:14px;}}
+        /* 종목 상세 진입 시 바텀내비가 숨겨지므로 FAB 위치도 화면 하단 가깝게 */
+        body:has(#mainHeader.stock-loaded) #calcFab{bottom:calc(16px + env(safe-area-inset-bottom))!important;}
         /* 모달 오버레이 */
         #calcFabOverlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:5000;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;opacity:0;pointer-events:none;transition:opacity .18s ease;}
         #calcFabOverlay.open{opacity:1;pointer-events:auto;}
