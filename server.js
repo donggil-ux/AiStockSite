@@ -1574,7 +1574,7 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
         return res.json(_pumpScanCache.data);
     }
     try {
-        // 1) 유니버스 — 페니/스몰캡 + 거래량 가용 종목
+        // 1) 유니버스 — 페니/스몰캡 (surge 와 같은 쿼리, limits만 완화, v644.2)
         const screenerBody = {
             offset: 0, size: 250,
             sortField: 'percentchange', sortType: 'desc',
@@ -1586,7 +1586,6 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
                     { operator: 'lte', operands: ['intradayprice', 10] },
                     { operator: 'lt',  operands: ['intradaymarketcap', 200_000_000] },
                     { operator: 'gte', operands: ['averagedailyvol3month', 10_000] },
-                    { operator: 'lte', operands: ['averagedailyvol3month', 1_000_000] },
                     { operator: 'gt',  operands: ['dayvolume', 10_000] },
                     {
                         operator: 'or',
@@ -1601,10 +1600,12 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
                 ],
             },
         };
-        const r = await _postYfScreener(screenerBody);
-        let universe = r?.data?.finance?.result?.[0]?.quotes || [];
+        const rResp = await _postYfScreener(screenerBody);
+        let universe = rResp?.data?.finance?.result?.[0]?.quotes || [];
+        // 디버그: 스크리너 raw 카운트 캡처
+        const _rawScreenerCount = universe.length;
         if (!universe.length) {
-            return res.status(503).json({ error: '페니/스몰캡 유니버스 조회 실패 — 잠시 후 재시도' });
+            return res.json({ results: [], totalScanned: 0, scannedAt: new Date().toISOString(), _debug: { rawScreener: 0, reason: 'screener returned 0' } });
         }
 
         // 상폐·정지·고스트 종목 필터 (v640.1)
@@ -1631,7 +1632,7 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
             .slice(0, 25);
 
         // 2) 각 종목 20일 일봉 fetch + 단계 감지
-        const _debug = { uni: universe.length, histFail: 0, histShort: 0, flat: 0, lastErr: null };
+        const _debug = { rawScreener: _rawScreenerCount, uni: universe.length, histFail: 0, histShort: 0, flat: 0, lastErr: null };
         const results = await _runWithConcurrency(universe, PUMP_FETCH_CONCURRENCY, async (q) => {
             const sym = q.symbol;
             let hist;
