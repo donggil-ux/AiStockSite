@@ -2150,15 +2150,16 @@ app.get('/api/catalyst/hunter', async (req, res) => {
             // 가격 무관 옵션이 필요하면 frontend 에서 결정. 서버는 최소 안정성만 강제:
             if (!price || price < 0.1) return null;
             if (marketCap && marketCap > 50e9) return null; // 대형주 제외 (촉매 영향 미미)
-            // OTC/Pink 시트 종목 제외 — OTC 거래소 코드 블랙리스트 + fullName 검사 (v661.1)
-            const OTC_EXCHANGES = new Set(['PNK','OTC','OEM','OQB','OQX','OTCBB']);
+            // OTC/Pink 시트 종목 제외 — 거래소 명시 블랙리스트만 (v661.2)
+            const OTC_EXCHANGES = new Set(['PNK','OTC','OEM','OQB','OQX','OTCBB','OTCM']);
             const exShort = String(q.exchange || '').toUpperCase();
             const exFull  = String(q.fullExchangeName || '').toUpperCase();
             if (OTC_EXCHANGES.has(exShort)) return null;
-            if (/PINK|OTC/.test(exFull)) return null;
-            // 6-K (외국 발행인) 인데 메이저 거래소 정보 누락 + Alpaca 미커버 → OTC 가능성 ↑
-            const isForeignFiling = (c.formType || '').includes('6-K');
-            if (isForeignFiling && !hasAlpaca && !exShort) return null;
+            if (/PINK|OTC\b/.test(exFull)) return null;
+            // 티커 후미 'F'(외국 ADR pink sheet) + 5자 + Alpaca 미커버 → OTC ADR
+            if (/^[A-Z]{4}F$/.test(c.ticker) && !hasAlpaca) return null;
+            // 티커 후미 'Y'(ADR Yankee, 대부분 OTC) + 5자 + Alpaca 미커버 → OTC
+            if (/^[A-Z]{4}Y$/.test(c.ticker) && !hasAlpaca) return null;
             // 이미 당일 오른 종목 제외 — 카탈리스트는 "사전 진입" 용도 (v657)
             const todayChg = (hasAlpaca && ap.changePct != null) ? ap.changePct : (q.regularMarketChangePercent || 0);
             if (todayChg >= 5) return null;             // 일중 +5% 이상 = 이미 반응
