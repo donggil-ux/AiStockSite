@@ -171,40 +171,6 @@
         <!-- ════════════════════════════════════════
              OVERSOLD & DEEP VALUE RADAR DASHBOARD
              ════════════════════════════════════════ -->
-        <section id="radarSection" class="radar-section">
-
-            <!-- ② 레이더 탭 (데스크탑) -->
-            <div class="radar-tab-bar">
-                <button class="radar-tab active" data-tab="oversold" onclick="switchRadarTab('oversold')">과매도 레이더</button>
-                <button class="radar-tab" data-tab="swing" onclick="switchRadarTab('swing')">스윙 R/R</button>
-                <button class="radar-tab" data-tab="surge" onclick="switchRadarTab('surge')">급등 스캐너</button>
-                <button class="radar-tab" data-tab="bounce" onclick="switchRadarTab('bounce')">반등 스캐너</button>
-            </div>
-            <!-- ②-mobile 레이더 드롭다운 -->
-            <select class="radar-tab-select" id="radarTabSelect" onchange="switchRadarTab(this.value)">
-                <option value="oversold" selected>과매도 레이더</option>
-                <option value="swing">스윙 R/R</option>
-                <option value="surge">급등 스캐너</option>
-                <option value="bounce">반등 스캐너</option>
-            </select>
-
-            <!-- ④ 스나이퍼 리스트 본문 -->
-            <div id="sniperList" class="sniper-list">
-                <div class="sniper-loading">
-                    <div class="sniper-skel" style="--d:0s"></div>
-                    <div class="sniper-skel" style="--d:.07s"></div>
-                    <div class="sniper-skel" style="--d:.14s"></div>
-                    <div class="sniper-skel" style="--d:.21s"></div>
-                    <div class="sniper-skel" style="--d:.28s"></div>
-                    <div class="sniper-skel" style="--d:.35s"></div>
-                </div>
-            </div>
-
-            <!-- ⑤ 더 보기 -->
-            <div class="radar-footer">
-                <button class="radar-more-btn" id="radarMoreBtn" onclick="radarLoadMore()" style="display:none">더 보기</button>
-            </div>
-        </section>
 
         <!-- 오늘의 실적발표 + AI 어닝콜 요약 (레이더 바로 아래) -->
         <section id="earnHomeSection" class="home-section" style="display:none">
@@ -2194,6 +2160,7 @@
     let scannerResults = [];
     let scannerLoading = false;
     let _scannerDebounceTimer = null;
+    let _alphaHomeTab = 'bounce'; // ← 상단 선언 (loadAlphaHomePreview TDZ 방지)
     // 상장폐지 필터용 캐시: { ticker → { valid: bool, ts: number } }
     const _scannerTickerValid = {};
     const _TICKER_VALID_TTL = 60 * 60 * 1000; // 1시간
@@ -3226,7 +3193,6 @@
     loadSwingRadar();
     loadRecentStocks();
     loadSocialHot();
-    loadRadarDashboard();   // 과매도/저평가 레이더
     loadVolAlert();
     loadMarketThermometer();
     // loadAIRecommend / loadHotStocks — v530에서 완전 제거됨
@@ -5524,7 +5490,7 @@
     // ═══════════════════════════════════════════════════════════
     // 알파 스캐너 홈 프리뷰 — 탭별 상위 10개 + 더보기 (v624)
     // ═══════════════════════════════════════════════════════════
-    let _alphaHomeTab = 'bounce';
+    // ※ _alphaHomeTab 은 상단(loadAlphaHomePreview 호출 전)에 선언됨 — TDZ 방지
     // 탭별 결과 캐시 (5분) — 홈 ↔ 스캐너 탭 전환 시 재호출 줄임
     const _alphaHomeCache = {};
     const _ALPHA_HOME_TTL = 5 * 60 * 1000;
@@ -5635,7 +5601,10 @@
             const cards = top10.map((q, idx) => _alphaRenderCard(q, idx)).join('');
             el.innerHTML = cards;
         } catch (e) {
-            if (_alphaHomeTab === tab) el.innerHTML = '<div class="sniper-empty">데이터 로드 실패 — 잠시 후 다시 시도하세요</div>';
+            if (_alphaHomeTab !== tab) return;
+            // 실패 시 5초 후 1회 자동 재시도
+            el.innerHTML = '<div class="sniper-empty" style="opacity:.5">데이터 로드 중...</div>';
+            setTimeout(() => { if (_alphaHomeTab === tab) _alphaHomeSwitch(tab); }, 5000);
         }
     }
 
