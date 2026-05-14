@@ -1607,12 +1607,21 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
             return res.status(503).json({ error: '페니/스몰캡 유니버스 조회 실패 — 잠시 후 재시도' });
         }
 
-        // 7일 상폐 필터
+        // 상폐·정지·고스트 종목 필터 강화 (v640)
         const nowSec = Math.floor(Date.now() / 1000);
         universe = universe.filter(q => {
             const lastTs = q.regularMarketTime || 0;
-            if (lastTs && nowSec - lastTs > 7 * 24 * 3600) return false;
+            // 1) 마지막 거래일이 2일(48h) 이상 지난 종목 제외 — 정지·상폐 의심
+            if (lastTs && nowSec - lastTs > 2 * 24 * 3600) return false;
+            // 2) 가격·시총 데이터 누락 제외
             if (!q.regularMarketPrice || !q.marketCap || q.marketCap <= 0) return false;
+            // 3) 당일 거래량 0 (실거래 없음) 제외
+            if ((q.regularMarketVolume || 0) === 0) return false;
+            // 4) Yahoo 거래 가능 플래그 (false 명시 시 제외)
+            if (q.tradeable === false) return false;
+            // 5) 가격 변동·전일 종가 모두 0 → 고스트 quote
+            if ((q.regularMarketChange || 0) === 0 && (q.regularMarketChangePercent || 0) === 0
+                && (q.regularMarketDayHigh || 0) === (q.regularMarketDayLow || 0)) return false;
             return true;
         });
 
@@ -1630,6 +1639,19 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
             const sym = q.symbol;
             const hist = await _fetchTickerHistory(sym, '1mo');
             if (!hist || !hist.closes || hist.closes.length < 10) return null;
+            // 히스토리 기반 추가 검증 (정지·고스트 데이터 차단, v640)
+            const validCloses = hist.closes.filter(v => v != null);
+            if (validCloses.length < 10) return null;
+            // 최근 5일 모두 같은 가격 → 거래 정지 의심
+            const last5 = validCloses.slice(-5);
+            if (last5.length === 5 && last5.every(v => v === last5[0])) return null;
+            // 최근 5일 거래량 모두 0 → 거래 없음
+            const last5Vol = hist.vols.slice(-5).filter(v => v != null);
+            if (last5Vol.length === 5 && last5Vol.every(v => v === 0)) return null;
+            // 20일 가격 변동폭이 0.5% 미만이면 거의 정지 상태
+            const minC = Math.min(...validCloses);
+            const maxC = Math.max(...validCloses);
+            if (minC > 0 && (maxC - minC) / minC < 0.005) return null;
             const stageInfo = _detectSykesStage(hist);
             if (!stageInfo) return null;
             const strategy = _calcSykesStrategy(stageInfo, hist);
