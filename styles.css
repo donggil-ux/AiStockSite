@@ -6332,6 +6332,14 @@
 [data-theme="dark"] .alpha-home-tab{color:rgba(235,235,245,0.6);}
 [data-theme="dark"] .alpha-home-tab.active{background:rgba(118,118,128,0.36);color:#fff;}
 
+/* 급등 후보 단계 필터 바 (v638 — Tim Sykes) */
+.surge-filter-bar{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 12px;padding:6px;border-radius:12px;background:var(--bg2);border:1px solid var(--border);}
+.surge-filter{padding:6px 12px;border:none;background:transparent;border-radius:8px;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent;white-space:nowrap;}
+.surge-filter:hover{background:var(--bg3);}
+.surge-filter.active{background:var(--accent,#6366f1);color:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.12);}
+[data-theme="dark"] .surge-filter.active{background:rgba(99,102,241,0.5);}
+@media(max-width:480px){.surge-filter{padding:5px 8px;font-size:11px;}}
+
 /* ═══════════════════════════════════════════════════════
    김직선 분석 카드 (v628) — 일봉 전용
    ═══════════════════════════════════════════════════════ */

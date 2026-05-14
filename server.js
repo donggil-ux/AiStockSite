@@ -1395,6 +1395,311 @@ app.get('/api/scanner/surge', async (req, res) => {
     }
 });
 
+// ──────────────────────────────────────────────────────────────────────
+// 급등 후보 v2 — Tim Sykes 7단계 프레임워크 (/api/scanner/pumpdump)
+//   유니버스: 주가 $0.3~$10, 시총 ≤$200M, 평균거래량 ≥10K, ≤1M
+//   각 종목 20일 일봉 fetch → 7단계 분류 → 진입/손절/익절 자동 계산
+//   캐시 5분
+// ──────────────────────────────────────────────────────────────────────
+const PUMP_SCAN_TTL = 5 * 60 * 1000;
+let _pumpScanCache = { ts: 0, data: null };
+const PUMP_FETCH_CONCURRENCY = 6;
+
+async function _fetchTickerHistory(symbol, range = '1mo') {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d`;
+    try {
+        const data = await yfRequest(url);
+        const result = data?.chart?.result?.[0];
+        if (!result) return null;
+        const ts = result.timestamp || [];
+        const q = result.indicators?.quote?.[0] || {};
+        const closes = (q.close || []).map(v => v == null ? null : +v);
+        const opens  = (q.open  || []).map(v => v == null ? null : +v);
+        const highs  = (q.high  || []).map(v => v == null ? null : +v);
+        const lows   = (q.low   || []).map(v => v == null ? null : +v);
+        const vols   = (q.volume|| []).map(v => v == null ? null : +v);
+        return { ts, opens, highs, lows, closes, vols, meta: result.meta || {} };
+    } catch (e) { return null; }
+}
+
+function _calcATRServer(highs, lows, closes, period = 14) {
+    const tr = [];
+    for (let i = 0; i < closes.length; i++) {
+        if (i === 0) { tr.push(highs[i] != null && lows[i] != null ? highs[i] - lows[i] : null); continue; }
+        if (highs[i]==null || lows[i]==null || closes[i-1]==null) { tr.push(null); continue; }
+        const a = highs[i] - lows[i];
+        const b = Math.abs(highs[i] - closes[i-1]);
+        const c = Math.abs(lows[i] - closes[i-1]);
+        tr.push(Math.max(a, b, c));
+    }
+    // 단순 평균 ATR (Wilder 대신 SMA — 분포 무관)
+    let last = null;
+    if (tr.length >= period) {
+        const slice = tr.slice(tr.length - period).filter(v => v != null);
+        if (slice.length) last = slice.reduce((s, v) => s + v, 0) / slice.length;
+    }
+    return last;
+}
+
+// Tim Sykes 7단계 감지
+//   1: 횡보/매집 | 2: 첫 급등 | 3: 수퍼노바 | 4: 급락 시작 | 5: 데드캣 반등 | 6: 2차 하락 | 7: 소멸
+function _detectSykesStage(hist) {
+    const { closes, opens, highs, lows, vols } = hist;
+    const N = closes.length;
+    if (N < 10) return null;
+    const last = N - 1;
+    const c = closes[last];
+    const o = opens[last];
+    if (c == null) return null;
+
+    // 평균거래량 20일
+    const volRecent = vols.slice(Math.max(0, N - 20)).filter(v => v != null);
+    const avgVol20 = volRecent.length ? volRecent.reduce((s,v)=>s+v,0) / volRecent.length : 0;
+    const todayVol = vols[last] || 0;
+
+    // 연속 상승일
+    let consecUp = 0;
+    for (let i = last; i > 0; i--) {
+        if (closes[i] != null && closes[i-1] != null && closes[i] > closes[i-1]) consecUp++;
+        else break;
+    }
+    // 최근 10일 고점
+    const recent10 = closes.slice(Math.max(0, N - 10)).filter(v => v != null);
+    const recentHigh = recent10.length ? Math.max(...recent10) : c;
+    const drawdownPct = ((c - recentHigh) / recentHigh) * 100;
+    // 20일 저점 대비 상승률
+    const recent20 = closes.slice(Math.max(0, N - 20)).filter(v => v != null);
+    const recent20Low = recent20.length ? Math.min(...recent20) : c;
+    const totalGainPct = ((c - recent20Low) / recent20Low) * 100;
+    // 거래량 비율
+    const volRatio = avgVol20 > 0 ? todayVol / avgVol20 : 0;
+    // 거래량 추세 (3봉 전 대비)
+    const vol3 = vols[last - 3];
+    const volTrend = (vol3 && vol3 > 0) ? todayVol / vol3 : 0;
+    // 단일일 일중 변동률
+    const prev = closes[last - 1];
+    const dayChangePct = (prev && prev > 0) ? ((c - prev) / prev) * 100 : 0;
+    // 최근 5일 변동폭 (high-low)
+    const last5Hi = Math.max(...highs.slice(Math.max(0, N - 5)).filter(v => v != null));
+    const last5Lo = Math.min(...lows.slice(Math.max(0, N - 5)).filter(v => v != null));
+    const range5Pct = last5Lo > 0 ? ((last5Hi - last5Lo) / last5Lo) * 100 : 0;
+    // 최근 1~3일 내 단일일 +20% 이상 + 거래량 3배
+    let recentBigUpDay = false;
+    for (let i = Math.max(1, last - 2); i <= last; i++) {
+        if (closes[i] == null || closes[i-1] == null) continue;
+        const dch = ((closes[i] - closes[i-1]) / closes[i-1]) * 100;
+        const vr  = avgVol20 > 0 ? (vols[i] || 0) / avgVol20 : 0;
+        if (dch >= 20 && vr >= 3) { recentBigUpDay = true; break; }
+    }
+
+    // 단계 판별 (우선순위: 7 > 6 > 5 > 4 > 3 > 2 > 1)
+    let stage = 1, label = '횡보 매집', signal = '⬜ 관망', dir = 'none';
+
+    if (volRatio < 0.5 && Math.abs(dayChangePct) < 5 && range5Pct < 10) {
+        stage = 7; label = '소멸'; signal = '⬜ 관망'; dir = 'none';
+    } else if (drawdownPct <= -30 && volRatio < 1.0 && consecUp === 0) {
+        stage = 6; label = '2차 하락'; signal = '🔴 숏 추가 — 2차 하락'; dir = 'short';
+    } else if (drawdownPct <= -20 && consecUp >= 1 && volTrend < 1) {
+        stage = 5; label = '데드캣 반등'; signal = '🟡 데드캣 — 숏 재진입 대기'; dir = 'short_wait';
+    } else if (drawdownPct <= -15 && consecUp === 0 && closes[last] < closes[last-1]) {
+        stage = 4; label = '급락 시작'; signal = '🔴 숏 진입 — 급락 시작'; dir = 'short';
+    } else if (consecUp >= 3 && totalGainPct >= 100 && volRatio >= 3) {
+        stage = 3; label = '수퍼노바';
+        if (volTrend > 1) { signal = '🟢 롱 진입 — 수퍼노바 진행 중'; dir = 'long'; }
+        else              { signal = '🟡 매도 준비 — 수퍼노바 정점 근접'; dir = 'long_exit'; }
+    } else if (recentBigUpDay && consecUp >= 1) {
+        stage = 2; label = '첫 급등'; signal = '🟢 롱 관심 — 첫 급등 포착'; dir = 'long';
+    } else {
+        stage = 1; label = '횡보 매집'; signal = '⬜ 관망'; dir = 'none';
+    }
+
+    return {
+        stage, label, signal, dir,
+        consecUp, drawdownPct: +drawdownPct.toFixed(2),
+        totalGainPct: +totalGainPct.toFixed(2),
+        volRatio: +volRatio.toFixed(2), volTrend: +volTrend.toFixed(2),
+        avgVol20: Math.round(avgVol20),
+        dayChangePct: +dayChangePct.toFixed(2),
+        recentHigh,
+    };
+}
+
+function _calcSykesStrategy(stageInfo, hist) {
+    const { closes, highs, lows } = hist;
+    const last = closes.length - 1;
+    const c = closes[last];
+    const atr = _calcATRServer(highs, lows, closes, 14);
+    if (!atr || !c) return null;
+
+    const dir = stageInfo.dir;
+    const stage = stageInfo.stage;
+
+    if (stage === 2 || (stage === 3 && dir === 'long')) {
+        // 롱 진입
+        const prevLow = lows[last - 1] || (c - atr * 0.5);
+        const entry = c;
+        const stop = Math.min(prevLow, c - atr * 0.5);
+        const tp1 = c + atr * 2.0;
+        const tp2 = c + atr * 4.0;
+        // 최대 추격한계 — 전날 고점 +5%
+        const prevHigh = highs[last - 1];
+        const maxChase = prevHigh ? prevHigh * 1.05 : null;
+        return { dir: 'long', entry: +entry.toFixed(4), stop: +stop.toFixed(4), tp1: +tp1.toFixed(4), tp2: +tp2.toFixed(4), maxChase, atr: +atr.toFixed(4) };
+    } else if (stage === 4 || stage === 6) {
+        // 숏 진입
+        const recent5Hi = Math.max(...highs.slice(Math.max(0, last - 4)).filter(v => v != null));
+        const entry = c;
+        const stop = recent5Hi + atr * 0.3;
+        const tp1 = c - atr * 2.0;
+        const tp2 = c - atr * 4.0;
+        return { dir: 'short', entry: +entry.toFixed(4), stop: +stop.toFixed(4), tp1: +tp1.toFixed(4), tp2: +tp2.toFixed(4), atr: +atr.toFixed(4) };
+    }
+    return { dir, atr: +atr.toFixed(4) };
+}
+
+// 동시 실행 제한 헬퍼 — N개씩 청크 단위로 Promise.all
+async function _runWithConcurrency(items, limit, worker) {
+    const out = [];
+    for (let i = 0; i < items.length; i += limit) {
+        const chunk = items.slice(i, i + limit);
+        const res = await Promise.all(chunk.map(worker));
+        out.push(...res);
+    }
+    return out;
+}
+
+app.get('/api/scanner/pumpdump', async (req, res) => {
+    const now = Date.now();
+    if (_pumpScanCache.data && now - _pumpScanCache.ts < PUMP_SCAN_TTL) {
+        return res.json(_pumpScanCache.data);
+    }
+    try {
+        // 1) 유니버스 — 페니/스몰캡 + 거래량 가용 종목
+        const screenerBody = {
+            offset: 0, size: 250,
+            sortField: 'percentchange', sortType: 'desc',
+            quoteType: 'EQUITY',
+            query: {
+                operator: 'and',
+                operands: [
+                    { operator: 'gte', operands: ['intradayprice', 0.3] },
+                    { operator: 'lte', operands: ['intradayprice', 10] },
+                    { operator: 'lt',  operands: ['intradaymarketcap', 200_000_000] },
+                    { operator: 'gte', operands: ['averagedailyvol3month', 10_000] },
+                    { operator: 'lte', operands: ['averagedailyvol3month', 1_000_000] },
+                    { operator: 'gt',  operands: ['dayvolume', 10_000] },
+                    {
+                        operator: 'or',
+                        operands: [
+                            { operator: 'eq', operands: ['exchange', 'NMS'] },
+                            { operator: 'eq', operands: ['exchange', 'NGM'] },
+                            { operator: 'eq', operands: ['exchange', 'NGA'] },
+                            { operator: 'eq', operands: ['exchange', 'NYQ'] },
+                            { operator: 'eq', operands: ['exchange', 'ASE'] },
+                        ],
+                    },
+                ],
+            },
+        };
+        const r = await _postYfScreener(screenerBody);
+        let universe = r?.data?.finance?.result?.[0]?.quotes || [];
+        if (!universe.length) {
+            return res.status(503).json({ error: '페니/스몰캡 유니버스 조회 실패 — 잠시 후 재시도' });
+        }
+
+        // 7일 상폐 필터
+        const nowSec = Math.floor(Date.now() / 1000);
+        universe = universe.filter(q => {
+            const lastTs = q.regularMarketTime || 0;
+            if (lastTs && nowSec - lastTs > 7 * 24 * 3600) return false;
+            if (!q.regularMarketPrice || !q.marketCap || q.marketCap <= 0) return false;
+            return true;
+        });
+
+        // 변동률·거래량 상위 80개로 1차 필터링 (가중 점수)
+        universe = universe
+            .map(q => ({
+                ...q,
+                _initScore: Math.abs(q.regularMarketChangePercent || 0) + (q.averageDailyVolume3Month > 0 ? Math.log10(q.regularMarketVolume / q.averageDailyVolume3Month + 1) * 10 : 0),
+            }))
+            .sort((a, b) => (b._initScore || 0) - (a._initScore || 0))
+            .slice(0, 80);
+
+        // 2) 각 종목 20일 일봉 fetch + 단계 감지
+        const results = await _runWithConcurrency(universe, PUMP_FETCH_CONCURRENCY, async (q) => {
+            const sym = q.symbol;
+            const hist = await _fetchTickerHistory(sym, '1mo');
+            if (!hist || !hist.closes || hist.closes.length < 10) return null;
+            const stageInfo = _detectSykesStage(hist);
+            if (!stageInfo) return null;
+            const strategy = _calcSykesStrategy(stageInfo, hist);
+
+            // Float (5M 이하 = Low Float 배지)
+            const floatShares = q.floatShares || q.sharesOutstanding || 0;
+            const isLowFloat = floatShares > 0 && floatShares <= 5_000_000;
+
+            return {
+                symbol: sym,
+                name: q.shortName || q.longName || sym,
+                price: +(q.regularMarketPrice || 0).toFixed(2),
+                marketCap: q.marketCap || 0,
+                changePct: q.regularMarketChangePercent != null ? +q.regularMarketChangePercent.toFixed(2) : null,
+                floatShares,
+                isLowFloat,
+                stage: stageInfo.stage,
+                stageLabel: stageInfo.label,
+                signal: stageInfo.signal,
+                dir: stageInfo.dir,
+                consecUp: stageInfo.consecUp,
+                drawdownPct: stageInfo.drawdownPct,
+                totalGainPct: stageInfo.totalGainPct,
+                volRatio: stageInfo.volRatio,
+                volTrend: stageInfo.volTrend,
+                avgVol20: stageInfo.avgVol20,
+                dayChangePct: stageInfo.dayChangePct,
+                strategy: strategy || null,
+                superNovaWarn: stageInfo.consecUp >= 4,
+            };
+        });
+
+        // 3) 단계 우선순위 정렬 — 롱 후보(2~3) 먼저, 그 다음 숏 후보(4~6)
+        const filtered = results.filter(Boolean);
+        const stageWeight = (s) => {
+            // 2,3 (롱) 우선 > 4 (숏 진입) > 6 > 5 > 1 > 7
+            const map = { 2: 100, 3: 90, 4: 80, 6: 70, 5: 60, 1: 20, 7: 10 };
+            return map[s] || 0;
+        };
+        filtered.sort((a, b) => {
+            const w = stageWeight(b.stage) - stageWeight(a.stage);
+            if (w !== 0) return w;
+            return (b.volRatio || 0) - (a.volRatio || 0);
+        });
+
+        // 4) Finnhub 뉴스 (촉매) — 상위 20개만 (rate-limit 절약)
+        const top = filtered.slice(0, 40);
+        await _runWithConcurrency(top.slice(0, 20), 5, async (item) => {
+            try {
+                const news = await _hasRecent24hNews(item.symbol);
+                item.hasNews = !!news.has;
+                item.newsCount = news.count;
+                item.newsTitle = news.title;
+            } catch (e) { item.hasNews = false; item.newsCount = 0; }
+        });
+
+        const payload = {
+            results: top,
+            totalScanned: filtered.length,
+            scannedAt: new Date().toISOString(),
+            method: 'Tim Sykes 7-Stage',
+        };
+        _pumpScanCache = { ts: now, data: payload };
+        res.json(payload);
+    } catch (err) {
+        console.error('[pumpdump]', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // 백테스트 엔드포인트 (Phase 2 — 가중치 자동 산출은 추후)
 app.get('/api/scanner/backtest', (req, res) => {
     res.json({
