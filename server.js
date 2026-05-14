@@ -1608,17 +1608,10 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
             return res.json({ results: [], totalScanned: 0, scannedAt: new Date().toISOString(), _debug: { rawScreener: 0, reason: 'screener returned 0' } });
         }
 
-        // 상폐·정지 필터는 history 단계에서만 (quote 단계는 너무 짧게)
-        // 일단 가격만 있으면 통과 — history 검증으로 거름 (v644.3)
-        const nowSec = Math.floor(Date.now() / 1000);
-        universe = universe.filter(q => {
-            if (!q.regularMarketPrice) return false;
-            if (q.tradeable === false) return false;
-            // 마지막 거래 7일 이상 → 명백한 상폐
-            const lastTs = q.regularMarketTime || 0;
-            if (lastTs && nowSec - lastTs > 7 * 24 * 3600) return false;
-            return true;
-        });
+        // 임시 진단: 필터 OFF, 그대로 통과 (v644.4)
+        const _sampleQuote = universe[0] ? JSON.stringify(universe[0]).slice(0, 800) : null;
+        // 일단 가격 없는 것만 제거 (가장 약한 필터)
+        universe = universe.filter(q => q.regularMarketPrice != null);
 
         // 변동률·거래량 상위 25개로 1차 필터링 (Vercel 10s timeout 대응, v644)
         universe = universe
@@ -1630,7 +1623,7 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
             .slice(0, 25);
 
         // 2) 각 종목 20일 일봉 fetch + 단계 감지
-        const _debug = { rawScreener: _rawScreenerCount, uni: universe.length, histFail: 0, histShort: 0, flat: 0, lastErr: null };
+        const _debug = { rawScreener: _rawScreenerCount, uni: universe.length, histFail: 0, histShort: 0, flat: 0, lastErr: null, sampleQuote: _sampleQuote };
         const results = await _runWithConcurrency(universe, PUMP_FETCH_CONCURRENCY, async (q) => {
             const sym = q.symbol;
             let hist;
