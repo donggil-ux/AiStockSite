@@ -2124,6 +2124,7 @@ app.get('/api/catalyst/hunter', async (req, res) => {
         const alpacaActive = _alpacaEnabled() && Object.keys(snapMap).length > 0;
 
         // 4) 종목별 점수 합산 — Alpaca 실시간 우선, yfinance 보조 (v658)
+        const _funnel = { input: candidates.length, noPrice: 0, oversize: 0, otc: 0, alreadyUp: 0, preGap: 0, lowScore: 0 };
         const results = candidates.map(c => {
             const q = qMap[c.ticker] || {};
             const ap = _alpacaToQuoteShape(c.ticker, snapMap[c.ticker], barsObj[c.ticker]);
@@ -2146,24 +2147,18 @@ app.get('/api/catalyst/hunter', async (req, res) => {
             const shortRatio = q.shortRatio || 0;
             const dataSource = hasAlpaca ? 'alpaca_realtime' : 'yfinance_delayed';
 
-            // 사전 필터 — 페니/스몰캡 (선택적 가격 범위)
-            // 가격 무관 옵션이 필요하면 frontend 에서 결정. 서버는 최소 안정성만 강제:
-            if (!price || price < 0.1) return null;
-            if (marketCap && marketCap > 50e9) return null; // 대형주 제외 (촉매 영향 미미)
-            // OTC/Pink 시트 종목 제외 — 거래소 명시 블랙리스트만 (v661.2)
+            if (!price || price < 0.1) { _funnel.noPrice++; return null; }
+            if (marketCap && marketCap > 50e9) { _funnel.oversize++; return null; }
             const OTC_EXCHANGES = new Set(['PNK','OTC','OEM','OQB','OQX','OTCBB','OTCM']);
             const exShort = String(q.exchange || '').toUpperCase();
             const exFull  = String(q.fullExchangeName || '').toUpperCase();
-            if (OTC_EXCHANGES.has(exShort)) return null;
-            if (/PINK|OTC\b/.test(exFull)) return null;
-            // 티커 후미 'F'(외국 ADR pink sheet) + 5자 + Alpaca 미커버 → OTC ADR
-            if (/^[A-Z]{4}F$/.test(c.ticker) && !hasAlpaca) return null;
-            // 티커 후미 'Y'(ADR Yankee, 대부분 OTC) + 5자 + Alpaca 미커버 → OTC
-            if (/^[A-Z]{4}Y$/.test(c.ticker) && !hasAlpaca) return null;
-            // 이미 당일 오른 종목 제외 — 카탈리스트는 "사전 진입" 용도 (v657)
+            if (OTC_EXCHANGES.has(exShort)) { _funnel.otc++; return null; }
+            if (/PINK|OTC\b/.test(exFull))  { _funnel.otc++; return null; }
+            if (/^[A-Z]{4}F$/.test(c.ticker) && !hasAlpaca) { _funnel.otc++; return null; }
+            if (/^[A-Z]{4}Y$/.test(c.ticker) && !hasAlpaca) { _funnel.otc++; return null; }
             const todayChg = (hasAlpaca && ap.changePct != null) ? ap.changePct : (q.regularMarketChangePercent || 0);
-            if (todayChg >= 5) return null;             // 일중 +5% 이상 = 이미 반응
-            if (preGapPct != null && preGapPct >= 10) return null; // 프리장 +10% 이상 = 이미 갭업
+            if (todayChg >= 5) { _funnel.alreadyUp++; return null; }
+            if (preGapPct != null && preGapPct >= 10) { _funnel.preGap++; return null; }
 
             // 점수 계산
             let score = 0;
@@ -2186,7 +2181,7 @@ app.get('/api/catalyst/hunter', async (req, res) => {
             }
 
             const grade = score >= 75 ? '🚨 긴급 포착' : score >= 55 ? '🔴 강한 신호' : score >= 35 ? '🟠 관심 후보' : null;
-            if (!grade) return null;
+            if (!grade) { _funnel.lowScore++; return null; }
             const gradeColor = score >= 75 ? '#ef4444' : score >= 55 ? '#dc2626' : '#f97316';
 
             // ATR — Alpaca 일봉 기반 정확 계산 우선, 없으면 일중 변동폭 휴리스틱
@@ -2248,6 +2243,7 @@ app.get('/api/catalyst/hunter', async (req, res) => {
                 : realtimeCount === finalResults.length && finalResults.length > 0 ? 'alpaca_realtime'
                 : realtimeCount > 0 ? 'mixed' : 'yfinance_delayed',
             realtimeCount,
+            _funnel,
         };
         // 빈 결과는 캐시하지 않음 (다음 요청에서 즉시 재시도)
         if (results.length > 0) _catalystCache = { ts: now, data: payload };
