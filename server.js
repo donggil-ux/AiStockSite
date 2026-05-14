@@ -573,6 +573,23 @@ app.get('/api/screener/:filter', async (req, res) => {
     try {
         const url  = `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&lang=en-US&region=US&scrIds=${filter}&count=${count}`;
         const data = await yfRequest(url);
+        // 상장폐지 종목 제외 — 마지막 거래일이 7일 이상 지난 종목 필터
+        try {
+            const nowSec = Math.floor(Date.now() / 1000);
+            const STALE_SEC = 7 * 24 * 3600;
+            const quotes = data?.finance?.result?.[0]?.quotes;
+            if (Array.isArray(quotes)) {
+                data.finance.result[0].quotes = quotes.filter(q => {
+                    const lastTs = q?.regularMarketTime || 0;
+                    if (lastTs && nowSec - lastTs > STALE_SEC) return false;
+                    // 추가 안전장치: 거래량 0 + 가격 변화 0이 N일 이상 → 상폐 의심
+                    if (q?.regularMarketVolume === 0 && q?.regularMarketChange === 0) return false;
+                    return true;
+                });
+            }
+        } catch (e) {
+            console.warn('[screener] stale filter fail:', e.message);
+        }
         res.json(data);
     } catch (err) {
         console.error(`[screener] ${filter}:`, err.message);
@@ -1644,7 +1661,17 @@ app.get('/api/penny-stocks', async (req, res) => {
             userId: '', userIdType: 'guid',
         };
         const r = await _postYfScreener(body);
-        const quotes = r.data?.finance?.result?.[0]?.quotes || [];
+        const rawQuotes = r.data?.finance?.result?.[0]?.quotes || [];
+        // 상장폐지 종목 필터 — 마지막 거래일 7일 이상 경과 OR 거래량 0 + 변동 0
+        const nowSec = Math.floor(Date.now() / 1000);
+        const STALE_SEC = 7 * 24 * 3600;
+        const quotes = rawQuotes.filter(q => {
+            const lastTs = q?.regularMarketTime || 0;
+            if (lastTs && nowSec - lastTs > STALE_SEC) return false;
+            if ((q?.regularMarketVolume || 0) === 0) return false; // 거래량 0 = 거래 정지/상폐 의심
+            if (!q?.regularMarketPrice) return false;
+            return true;
+        });
         const payload = { quotes };
         _pennyCache = { ts: Date.now(), data: payload };
         res.json(payload);
