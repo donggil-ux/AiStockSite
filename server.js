@@ -1618,8 +1618,6 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
             if (!q.regularMarketPrice || !q.marketCap || q.marketCap <= 0) return false;
             // 3) tradeable===false 명시
             if (q.tradeable === false) return false;
-            // 4) 직전 종가 미존재 (데이터 불완전)
-            if (!q.regularMarketPreviousClose) return false;
             return true;
         });
 
