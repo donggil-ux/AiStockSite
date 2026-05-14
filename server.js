@@ -1980,6 +1980,10 @@ app.get('/api/catalyst/hunter', async (req, res) => {
             // 가격 무관 옵션이 필요하면 frontend 에서 결정. 서버는 최소 안정성만 강제:
             if (!price || price < 0.1) return null;
             if (marketCap && marketCap > 50e9) return null; // 대형주 제외 (촉매 영향 미미)
+            // 이미 당일 오른 종목 제외 — 카탈리스트는 "사전 진입" 용도 (v657)
+            const todayChg = q.regularMarketChangePercent || 0;
+            if (todayChg >= 5) return null;             // 일중 +5% 이상 = 이미 반응
+            if (preGapPct != null && preGapPct >= 10) return null; // 프리장 +10% 이상 = 이미 갭업
 
             // 점수 계산
             let score = 0;
