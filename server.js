@@ -1168,14 +1168,15 @@ app.get('/api/breakout-scan', async (req, res) => {
 const SURGE_SCAN_TTL = 5 * 60 * 1000;
 let _surgeScanCache = { ts: 0, data: null };
 
-// 기본 가중치 — 합계 1.0
+// 기본 가중치 — 합계 1.0 (나노캡 특화)
 const SURGE_DEFAULT_WEIGHTS = {
-    vol_ratio:   0.30,
-    gap_pct:     0.25,
-    price_score: 0.15,  // 가격대 낮을수록 ↑ (마이크로캡 특화)
+    vol_ratio:   0.30,  // 핵심 — 평소 적은 거래량이 폭발하는 신호 (min 0.25 보장)
+    gap_pct:     0.20,
+    price_score: 0.12,
+    float_score: 0.13,  // 신규 — Float 적을수록 ↑
     ah_pct:      0.10,
-    short_float: 0.12,
-    short_ratio: 0.08,
+    short_float: 0.15,
+    short_ratio: 0.10,
 };
 
 function _surgeNormalize(v, max) {
@@ -1185,18 +1186,19 @@ function _surgeNormalize(v, max) {
 function _surgeCalcScore(f, weights) {
     const w = weights || SURGE_DEFAULT_WEIGHTS;
     let s = 0;
-    s += _surgeNormalize(f.vol_ratio,   5)  * w.vol_ratio   * 100;
-    s += _surgeNormalize(f.gap_pct,     20) * w.gap_pct     * 100;
+    s += _surgeNormalize(f.vol_ratio,   10) * w.vol_ratio   * 100; // 0~10x (나노캡은 큰 배수)
+    s += _surgeNormalize(f.gap_pct,     30) * w.gap_pct     * 100; // 0~30% 갭
     s += _surgeNormalize(f.price_score, 1)  * w.price_score * 100;
-    s += _surgeNormalize(f.ah_pct,      10) * w.ah_pct      * 100;
+    s += _surgeNormalize(f.float_score, 1)  * w.float_score * 100;
+    s += _surgeNormalize(f.ah_pct,      15) * w.ah_pct      * 100;
     s += _surgeNormalize(f.short_float, 50) * w.short_float * 100;
     s += _surgeNormalize(f.short_ratio, 10) * w.short_ratio * 100;
     return +s.toFixed(1);
 }
 
-// Finnhub 24h 뉴스 존재 여부 (가벼운 fetch — 헤드라인만 확인)
+// Finnhub 24h 뉴스 개수 + 최신 헤드라인 (촉매 점수)
 async function _hasRecent24hNews(symbol) {
-    if (!process.env.FINNHUB_API_KEY) return { has: false, title: '' };
+    if (!process.env.FINNHUB_API_KEY) return { count: 0, title: '', url: '', bonus: 0 };
     try {
         const to = new Date();
         const from = new Date(to.getTime() - 24 * 3600 * 1000);
@@ -1204,10 +1206,19 @@ async function _hasRecent24hNews(symbol) {
         const url = `https://finnhub.io/api/v1/company-news?symbol=${encodeURIComponent(symbol)}&from=${fmt(from)}&to=${fmt(to)}&token=${process.env.FINNHUB_API_KEY}`;
         const r = await axios.get(url, { timeout: 6000, httpAgent, httpsAgent });
         const arr = Array.isArray(r.data) ? r.data : [];
-        if (!arr.length) return { has: false, title: '' };
+        if (!arr.length) return { count: 0, title: '', url: '', bonus: 0 };
         arr.sort((a, b) => (b.datetime || 0) - (a.datetime || 0));
-        return { has: true, title: String(arr[0].headline || '').slice(0, 200), url: arr[0].url || '' };
-    } catch { return { has: false, title: '' }; }
+        const count = arr.length;
+        const bonus = count >= 3 ? 20 : 10; // 1건 +10, 3건+ +20 (촉매 강도)
+        const titles = arr.slice(0, 3).map(x => String(x.headline || '').slice(0, 160)).filter(Boolean);
+        return {
+            count, bonus,
+            title: titles[0] || '',
+            titles,
+            url: arr[0].url || '',
+            has: true,
+        };
+    } catch { return { count: 0, title: '', url: '', bonus: 0 }; }
 }
 
 app.get('/api/scanner/surge', async (req, res) => {
@@ -1216,20 +1227,20 @@ app.get('/api/scanner/surge', async (req, res) => {
         return res.json(_surgeScanCache.data);
     }
     try {
-        // 1) 유니버스: 마이크로캡 (주가 $1~$20, 시총 ≤$300M, 평균거래량 50K~2M)
+        // 1) 유니버스: 나노캡 (주가 $0.3~$5, 시총 ≤$50M, 평균거래량 10K~500K)
         const screenerBody = {
-            offset: 0, size: 200,
+            offset: 0, size: 250,
             sortField: 'percentchange', sortType: 'desc',
             quoteType: 'EQUITY',
             query: {
                 operator: 'and',
                 operands: [
-                    { operator: 'gte', operands: ['intradayprice', 1] },
-                    { operator: 'lte', operands: ['intradayprice', 20] },
-                    { operator: 'lt',  operands: ['intradaymarketcap', 300_000_000] },
-                    { operator: 'gte', operands: ['averagedailyvol3month', 50_000] },
-                    { operator: 'lte', operands: ['averagedailyvol3month', 2_000_000] },
-                    { operator: 'gt',  operands: ['dayvolume', 50_000] },
+                    { operator: 'gte', operands: ['intradayprice', 0.3] },
+                    { operator: 'lte', operands: ['intradayprice', 5] },
+                    { operator: 'lt',  operands: ['intradaymarketcap', 50_000_000] },
+                    { operator: 'gte', operands: ['averagedailyvol3month', 10_000] },
+                    { operator: 'lte', operands: ['averagedailyvol3month', 500_000] },
+                    { operator: 'gt',  operands: ['dayvolume', 10_000] },
                     {
                         operator: 'or',
                         operands: [
@@ -1255,7 +1266,8 @@ app.get('/api/scanner/surge', async (req, res) => {
             return res.status(503).json({ error: '마이크로캡 유니버스 조회 실패 — 잠시 후 재시도' });
         }
 
-        // 2) 팩터 계산
+        // 2) 팩터 계산 (Float ≤10M 필터 포함)
+        const FLOAT_CAP = 10_000_000;
         const results = universe.map(q => {
             const nowSec = Math.floor(Date.now() / 1000);
             const lastTs = q.regularMarketTime || 0;
@@ -1267,31 +1279,40 @@ app.get('/api/scanner/surge', async (req, res) => {
             const avgVol = q.averageDailyVolume3Month || q.averageDailyVolume10Day || 0;
             const postPrice = q.postMarketPrice;
             const marketCap = q.marketCap || 0;
+            // Float: floatShares 가 정확하지만 quote 응답에 없으므로 sharesOutstanding 으로 근사
+            const floatShares = q.floatShares || q.sharesOutstanding || 0;
             if (!prevC || !price || !open) return null;
+            // Float 캡 — 1000만주 이하만
+            if (floatShares > 0 && floatShares > FLOAT_CAP) return null;
 
             const vol_ratio = avgVol > 0 ? vol / avgVol : 0;
             const gap_pct   = (open - prevC) / prevC * 100;
             const ah_pct    = postPrice ? (postPrice - price) / price * 100 : 0;
-            const price_score = Math.max(0, (20 - price) / 20); // 0(=$20)~1(=$0)
-            const short_float = 0; // Yahoo 기본 응답에 없음
+            const price_score = Math.max(0, (5 - price) / 5);  // $0=1, $5=0
+            const float_score = floatShares > 0 ? Math.max(0, (FLOAT_CAP - floatShares) / FLOAT_CAP) : 0.5; // 미상 시 중립 0.5
+            const short_float = 0;
             const short_ratio = 0;
 
-            const baseScore = _surgeCalcScore({ vol_ratio, gap_pct, ah_pct, price_score, short_float, short_ratio });
+            const baseScore = _surgeCalcScore({ vol_ratio, gap_pct, ah_pct, price_score, float_score, short_float, short_ratio });
             return {
                 symbol: q.symbol,
                 name: q.shortName || q.longName || q.symbol,
                 price: +price.toFixed(2),
                 marketCap,
+                floatShares,
                 changePct: q.regularMarketChangePercent != null ? +q.regularMarketChangePercent.toFixed(2) : null,
                 vol_ratio: +vol_ratio.toFixed(2),
                 gap_pct: +gap_pct.toFixed(2),
                 ah_pct: +ah_pct.toFixed(2),
                 price_score: +price_score.toFixed(3),
+                float_score: +float_score.toFixed(3),
                 short_float, short_ratio,
                 baseScore,
-                score: baseScore, // 뉴스 보너스 후 갱신
+                score: baseScore,
                 hasNews: false,
+                newsCount: 0,
                 newsTitle: '',
+                newsTitles: [],
                 newsUrl: '',
             };
         }).filter(Boolean);
@@ -1303,17 +1324,19 @@ app.get('/api/scanner/surge', async (req, res) => {
         // 3) 상위 30개 후보에 대해서만 뉴스 fetch (Finnhub 60req/min 한계 보호)
         results.sort((a, b) => b.baseScore - a.baseScore);
         const top30 = results.slice(0, 30);
-        // 10개씩 병렬 — 60 req/min 안전
         const NEWS_CHUNK = 10;
         for (let i = 0; i < top30.length; i += NEWS_CHUNK) {
             const chunk = top30.slice(i, i + NEWS_CHUNK);
-            const newsResults = await Promise.all(chunk.map(r => _hasRecent24hNews(r.symbol).catch(() => ({ has: false, title: '' }))));
+            const newsResults = await Promise.all(chunk.map(r => _hasRecent24hNews(r.symbol).catch(() => ({ count: 0, bonus: 0 }))));
             chunk.forEach((r, j) => {
-                if (newsResults[j].has) {
+                const n = newsResults[j];
+                if (n && n.count > 0) {
                     r.hasNews = true;
-                    r.newsTitle = newsResults[j].title;
-                    r.newsUrl = newsResults[j].url || '';
-                    r.score = +(r.baseScore + 10).toFixed(1); // +10 보너스
+                    r.newsCount = n.count;
+                    r.newsTitle = n.title || '';
+                    r.newsTitles = n.titles || [];
+                    r.newsUrl = n.url || '';
+                    r.score = +(r.baseScore + (n.bonus || 0)).toFixed(1);
                 }
             });
         }
@@ -1340,7 +1363,7 @@ app.get('/api/scanner/surge', async (req, res) => {
             scannedAt: new Date().toISOString(),
             cutoffs: { p90: +p90.toFixed(1), p75: +p75.toFixed(1), p50: +p50.toFixed(1) },
             weights: SURGE_DEFAULT_WEIGHTS,
-            note: '마이크로캡 (≤$300M) · 저거래량 (≤2M)',
+            note: '나노캡 (시총 ≤$50M, Float ≤10M) · 저가 ($0.3~$5) · 저거래량 (10K~500K)',
         }};
         res.json(_surgeScanCache.data);
     } catch (err) {

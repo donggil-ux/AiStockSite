@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=620">
+    <link rel="stylesheet" href="/styles.css?v=621">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -5092,7 +5092,7 @@
         </div>`;
     }
     const _ALPHA_DESC = {
-        surge:    '급등 후보 (마이크로캡) — 주가 $1~$20, 시총 ≤$300M, 평균거래량 50K~2M. 거래량비·갭·가격대·AH·뉴스 종합 점수 + 백분위 등급.',
+        surge:    '급등 후보 (나노캡) — 주가 $0.3~$5, 시총 ≤$50M, Float ≤10M, 평균거래량 10K~500K. 거래량비·갭·Float·뉴스 종합 점수.',
         bounce:   'RSI 극저 + 장기 이동평균선 -15% 이상 이격된 종목 — 과매도 후 반등 가능성이 높습니다.',
         daytrade: '5분봉 돌파 단타 분석 — 돌파패턴(35%) + 양봉시가(25%) + 거래량(20%) + 정배열(10%) + 위험패턴(10%) 종합점수 60+ 종목.',
         swing:    '52주 고점까지 충분한 상승 여력(R/R ≥ 1.5)이 있고 추세가 살아있는 종목 — 며칠~몇 주 단위 스윙에 적합합니다.',
@@ -5304,12 +5304,16 @@
                 _surgeVolRatio: r.vol_ratio,
                 _surgeAh: r.ah_pct,
                 _surgePriceScore: r.price_score,
+                _surgeFloatScore: r.float_score,
+                _surgeFloatShares: r.floatShares,
                 _surgeShortFloat: r.short_float,
                 _surgeShortRatio: r.short_ratio,
                 _surgeGrade: r.grade,
                 _surgeGradeColor: r.gradeColor,
                 _surgeHasNews: r.hasNews,
+                _surgeNewsCount: r.newsCount,
                 _surgeNewsTitle: r.newsTitle,
+                _surgeNewsTitles: r.newsTitles,
                 _surgeNewsUrl: r.newsUrl,
                 _surgeMarketCap: r.marketCap,
             }));
@@ -5527,48 +5531,57 @@
         const kind = q._alphaKind;
 
         if (kind === 'surge') {
-            // 급등 후보 (마이크로캡) — server surge-scan 응답 매핑
+            // 급등 후보 (나노캡) — server surge-scan 응답 매핑
             const surgeScore = q._surgeScore ?? q.score ?? 0;
             const gapPct  = q._surgeGap ?? q.gap_pct ?? 0;
             const volRat  = q._surgeVolRatio ?? q.vol_ratio ?? 0;
             const ahPct   = q._surgeAh ?? q.ah_pct ?? 0;
             const hasNews = q._surgeHasNews ?? q.hasNews ?? false;
+            const newsCount = q._surgeNewsCount ?? q.newsCount ?? 0;
             const mcap    = q._surgeMarketCap ?? q.marketCap ?? 0;
+            const float   = q._surgeFloatShares ?? q.floatShares ?? 0;
             const gradeLabel = q._surgeGrade ?? q.grade ?? '';
             const gradeColor = q._surgeGradeColor ?? q.gradeColor ?? '#94a3b8';
+
+            const _fmtCount = v => v >= 1e9 ? `$${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `$${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(0)}K` : `$${v}`;
+            const _fmtShares = v => v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : `${v}`;
+
             // 등급
             if (gradeLabel) signals.push({label:`${gradeLabel} · ${surgeScore}점`, cls: gradeColor === '#ef4444' ? 'red' : gradeColor === '#f97316' ? 'orange' : 'amber'});
-            // 시총 (마이크로캡 강조)
-            if (mcap > 0) {
-                const mcapStr = mcap >= 1e8 ? `시총 $${(mcap/1e8).toFixed(0)}백만` : `시총 $${(mcap/1e6).toFixed(0)}M`;
-                signals.push({label: mcapStr, cls:'purple'});
-            }
+            // 시총 (나노캡 강조)
+            if (mcap > 0) signals.push({label: `시총 ${_fmtCount(mcap)}`, cls:'purple'});
+            // Float (소량 강조)
+            if (float > 0) signals.push({label: `Float ${_fmtShares(float)}`, cls:'cyan'});
             // 갭%
-            if (gapPct >= 10)      signals.push({label:`🚀 갭업 +${gapPct.toFixed(1)}%`, cls:'orange'});
+            if (gapPct >= 20)      signals.push({label:`🚀 갭업 +${gapPct.toFixed(1)}%`, cls:'red'});
+            else if (gapPct >= 10) signals.push({label:`🚀 갭업 +${gapPct.toFixed(1)}%`, cls:'orange'});
             else if (gapPct >= 5)  signals.push({label:`갭업 +${gapPct.toFixed(1)}%`,   cls:'amber'});
             else if (gapPct >= 1)  signals.push({label:`갭업 +${gapPct.toFixed(1)}%`,   cls:'cyan'});
             else if (gapPct <= -2) signals.push({label:`갭다운 ${gapPct.toFixed(1)}%`,  cls:'red'});
             // 거래량
-            if (volRat >= 3)      signals.push({label:`🔥 거래량 ×${volRat.toFixed(1)}`, cls:'orange'});
-            else if (volRat >= 1.5) signals.push({label:`📈 거래량 ×${volRat.toFixed(1)}`, cls:'blue'});
+            if (volRat >= 10)     signals.push({label:`💥 거래량 ×${volRat.toFixed(1)}`, cls:'red'});
+            else if (volRat >= 5) signals.push({label:`🔥 거래량 ×${volRat.toFixed(1)}`, cls:'orange'});
+            else if (volRat >= 2) signals.push({label:`📈 거래량 ×${volRat.toFixed(1)}`, cls:'amber'});
+            else if (volRat >= 1.2) signals.push({label:`거래량 ×${volRat.toFixed(1)}`, cls:'blue'});
             // AH%
             if (Math.abs(ahPct) >= 2) {
                 signals.push({label:`AH ${ahPct >= 0 ? '+' : ''}${ahPct.toFixed(1)}%`, cls: ahPct >= 0 ? 'emerald' : 'red'});
             }
-            // 뉴스 (+10점 보너스)
-            if (hasNews) signals.push({label:`📰 24h 뉴스 +10`, cls:'emerald'});
-            // 점수 100 → 6 매핑 (뉴스 보너스로 100+ 가능)
+            // 뉴스 (count 기반 보너스)
+            if (newsCount >= 3)      signals.push({label:`📰 24h 뉴스 ${newsCount}건 +20`, cls:'emerald'});
+            else if (newsCount >= 1) signals.push({label:`📰 24h 뉴스 ${newsCount}건 +10`, cls:'cyan'});
+            // 점수 0~100+ → 0~6 매핑
             score = surgeScore >= 85 ? 6 : surgeScore >= 70 ? 5 : surgeScore >= 55 ? 4 : surgeScore >= 40 ? 3 : surgeScore >= 25 ? 2 : 1;
             const parts = [];
             parts.push(`갭 ${gapPct >= 0 ? '+' : ''}${gapPct.toFixed(1)}%`);
             parts.push(`거래량 ×${volRat.toFixed(1)}`);
             if (Math.abs(ahPct) >= 1) parts.push(`AH ${ahPct >= 0 ? '+' : ''}${ahPct.toFixed(1)}%`);
-            if (hasNews) parts.push('뉴스 ✓');
-            reason = `마이크로캡 급등 후보 ${surgeScore}점 · ${gradeLabel}. ${parts.join(' · ')}.`;
+            if (newsCount > 0) parts.push(`뉴스 ${newsCount}건`);
+            reason = `나노캡 급등 후보 ${surgeScore}점 · ${gradeLabel}. ${parts.join(' · ')}.`;
             timingBadge = surgeScore >= 85 ? {label:'⚡ 폭등 임박', cls:'red'}
                        : surgeScore >= 70 ? {label:'⚡ 단기 추격', cls:'amber'}
                                             : {label:'📅 관찰', cls:'cyan'};
-            expectedMove = Math.round(Math.min(40, Math.max(5, gapPct + volRat * 3)));  // 마이크로캡은 변동성 ↑
+            expectedMove = Math.round(Math.min(80, Math.max(10, gapPct * 1.5 + volRat * 4)));  // 나노캡 변동성 ↑↑
         } else if (kind === 'bounce') {
             const bs = q._bounceSignals || [];
             bs.forEach(s => signals.push({label:`${s.label}${s.detail ? ' ' + s.detail : ''}`, cls:'blue'}));
