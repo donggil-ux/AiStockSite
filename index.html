@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=630">
+    <link rel="stylesheet" href="/styles.css?v=631">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -12001,9 +12001,11 @@
         supports.forEach(s => addLine(s.price, 'rgba(59,130,246,0.55)', `지지 $${s.price.toFixed(2)}`));
 
         // 5) 매매 전략 라인 — ATR(14) 기반 3단계 분할매수 + 3단계 분할익절
+        //    일봉 + 김기법 활성 시에는 김기법 라인이 더 정교하므로 기존 매수/익절 라인 숨김 (v631)
+        const _kimWillRender = (currentInterval === '1d' && _chartKimEnabled);
         const atrArr = calcATR(highs, lows, closes, 14);
         const atr = lastVal(atrArr);
-        if (atr != null && atr > 0 && lastClose != null && lastClose > 0) {
+        if (!_kimWillRender && atr != null && atr > 0 && lastClose != null && lastClose > 0) {
             const isKR = currentMarket === 'KR';
             const fmtP = p => isKR ? Math.round(p).toLocaleString() + '원' : '$' + p.toFixed(2);
             const e1 = lastClose;
@@ -12065,9 +12067,10 @@
         _chartKimEnabled = !_chartKimEnabled;
         localStorage.setItem('stockai_chart_kim_lines', _chartKimEnabled ? '1' : '0');
         _updateKimBtnUi();
-        // 즉시 재렌더
+        // 김기법 ↔ 기존 1·2·3차 매수 라인 상호 배제 → 전체 시그널 재렌더
         if (_lastSigArgs) {
-            try { _renderKimMethodLayer(_lastSigArgs.q, _lastSigArgs.ts, _lastSigArgs.bb); } catch(e) {}
+            try { renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
+            catch(e) { try { _renderKimMethodLayer(_lastSigArgs.q, _lastSigArgs.ts, _lastSigArgs.bb); } catch(_) {} }
         }
     }
 
