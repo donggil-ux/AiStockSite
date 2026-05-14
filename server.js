@@ -1855,27 +1855,31 @@ app.get('/api/catalyst/hunter', async (req, res) => {
         ]);
         const allFilings = [...feed8k, ...feed6k];
 
-        // 2) 키워드 필터 + 티커 매핑
+        // 2) 티커 매핑 + 키워드 점수 (v655.3)
         const seenTickers = new Set();
         const candidates = [];
+        const _dbg = { excluded: 0, noTicker: 0, noCikMatch: 0, dup: 0, cikMapSize: Object.keys(cikMap || {}).length };
         for (const f of allFilings) {
             const kw = _catalystKeywordScore(f.title);
-            if (kw.score < 10) continue;
-            // 티커 추출: title 의 (TICKER) 패턴 우선 → CIK 매핑 fallback
+            if (kw.tier === 'excluded') { _dbg.excluded++; continue; }
             let ticker = (f.title.match(/\(([A-Z]{1,5})\)/) || [])[1];
-            if (!ticker && f.cik) ticker = cikMap[f.cik];
-            if (!ticker) continue;
-            if (seenTickers.has(ticker)) continue;
+            if (!ticker && f.cik) {
+                ticker = cikMap[f.cik];
+                if (!ticker) _dbg.noCikMatch++;
+            }
+            if (!ticker) { _dbg.noTicker++; continue; }
+            if (seenTickers.has(ticker)) { _dbg.dup++; continue; }
             seenTickers.add(ticker);
+            const effectiveScore = kw.score > 0 ? kw.score : 10;
+            const effectiveTier  = kw.score > 0 ? kw.tier : 'baseline';
             candidates.push({
                 ticker, title: f.title, link: f.link, updated: f.updated,
                 formType: f.formType || (feed8k.includes(f) ? '8-K' : '6-K'),
-                keywordScore: kw.score, keywordTier: kw.tier, keywordTags: kw.tags,
+                keywordScore: effectiveScore, keywordTier: effectiveTier, keywordTags: kw.tags,
             });
-            if (candidates.length >= 35) break; // Vercel timeout 여유
+            if (candidates.length >= 40) break;
         }
         if (!candidates.length) {
-            // 빈 결과는 캐시하지 않음 — 다음 요청에서 즉시 재시도
             return res.json({
                 results: [],
                 totalScanned: 0,
@@ -1883,7 +1887,7 @@ app.get('/api/catalyst/hunter', async (req, res) => {
                 feed8kCount: feed8k.length,
                 feed6kCount: feed6k.length,
                 scannedAt: new Date().toISOString(),
-                _debug: 'No candidates passed keyword filter or ticker extraction',
+                _debug: _dbg,
             });
         }
 
