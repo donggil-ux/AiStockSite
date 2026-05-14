@@ -4927,7 +4927,7 @@
    차트 인터벌 — 분봉 드롭다운 + 일/주/월/년 버튼
    ================================================================== */
 .interval-dropdown{
-    position:relative; display:inline-block;
+    position:relative; display:inline-block; z-index:1500;
 }
 .interval-dd-btn{
     display:inline-flex; align-items:center; gap:4px;
@@ -4944,7 +4944,7 @@
     border:1px solid var(--border);
     border-radius:10px;
     box-shadow:0 8px 24px rgba(0,0,0,.28);
-    z-index:100;
+    z-index:1500;
     min-width:90px;
     padding:4px;
     display:flex; flex-direction:column; gap:2px;
