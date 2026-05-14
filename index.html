@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=623">
+    <link rel="stylesheet" href="/styles.css?v=624">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -1978,14 +1978,9 @@
         }
     }
     // 외부 클릭 시 드롭다운 닫기 (메뉴가 body로 이동된 상태도 대응)
-    document.addEventListener('click', (e) => {
-        const btn = document.getElementById('intervalDdBtn');
+    function _closeIntervalDropdown() {
         const menu = document.getElementById('intervalDdMenu');
         if (!menu || menu.style.display === 'none' || menu.style.display === '') return;
-        // 토글 버튼·메뉴 내부 클릭은 무시
-        if (menu.contains(e.target)) return;
-        if (btn && btn.contains(e.target)) return;
-        // 그 외 외부 클릭 → 닫기 (애니메이션 포함)
         const backdrop = document.getElementById('intervalDdBackdrop');
         menu.classList.remove('show');
         if (backdrop) backdrop.classList.remove('show');
@@ -1994,7 +1989,19 @@
             if (backdrop) backdrop.style.display = 'none';
         }, 250);
         document.body.style.overflow = '';
+    }
+    document.addEventListener('click', (e) => {
+        const btn = document.getElementById('intervalDdBtn');
+        const menu = document.getElementById('intervalDdMenu');
+        if (!menu || menu.style.display === 'none' || menu.style.display === '') return;
+        if (menu.contains(e.target)) return;
+        if (btn && btn.contains(e.target)) return;
+        _closeIntervalDropdown();
     });
+    // 스크롤·리사이즈 시 자동 닫기 — position:fixed 라서 따라 움직이지 않지만,
+    // 버튼 위치는 변하므로 시각적 어긋남 방지
+    window.addEventListener('scroll', () => _closeIntervalDropdown(), { passive: true, capture: true });
+    window.addEventListener('resize', () => _closeIntervalDropdown(), { passive: true });
 
     // OHLCV 봉 집계 함수 — N개 봉을 1개로 합침 (timestamp는 첫 봉 것 사용)
     function _aggregateBars(quote, timestamps, factor) {
@@ -16094,6 +16101,14 @@
     // ========================================
     const CHANGELOG_LS_KEY = 'stockai_changelog_seen';
     const CHANGELOG = [
+        {
+            v: 'v624', date: '2026-05-14', tag: '🐛 버그픽스',
+            title: '분봉 드롭다운 — 스크롤·리사이즈 시 자동 닫기',
+            items: [
+                '드롭다운이 열린 상태에서 스크롤하면 따라 움직이던 현상 해결',
+                '스크롤/리사이즈 이벤트 발생 시 메뉴 자동 닫기 처리',
+            ],
+        },
         {
             v: 'v581', date: '2026-05-13', tag: '🔐 인프라',
             title: 'Supabase Auth 백엔드 (Phase 1)',
