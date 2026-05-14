@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=615">
+    <link rel="stylesheet" href="/styles.css?v=616">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -1911,8 +1911,17 @@
     }
 
     // 드롭다운 토글 — 모바일: 바텀시트 / 데스크탑: 버튼 아래 드롭다운
+    // 메뉴를 body 로 옮겨서 부모 stacking context·overflow·transform 영향 차단
+    function _ensureIntervalMenuInBody() {
+        const menu = document.getElementById('intervalDdMenu');
+        const backdrop = document.getElementById('intervalDdBackdrop');
+        if (menu && menu.parentElement !== document.body) document.body.appendChild(menu);
+        if (backdrop && backdrop.parentElement !== document.body) document.body.appendChild(backdrop);
+    }
+
     function _toggleIntervalDropdown(ev) {
         if (ev) ev.stopPropagation();
+        _ensureIntervalMenuInBody();
         const btn = document.getElementById('intervalDdBtn');
         const menu = document.getElementById('intervalDdMenu');
         const backdrop = document.getElementById('intervalDdBackdrop');
@@ -1921,13 +1930,12 @@
         const isMobile = window.innerWidth <= 640;
         if (isOpen) {
             // 닫기
-            if (isMobile) {
-                menu.classList.remove('show');
-                if (backdrop) backdrop.classList.remove('show');
-                setTimeout(() => { menu.style.display = 'none'; }, 250);
-            } else {
+            menu.classList.remove('show');
+            if (backdrop) backdrop.classList.remove('show');
+            setTimeout(() => {
                 menu.style.display = 'none';
-            }
+                if (backdrop) backdrop.style.display = 'none';
+            }, 250);
             document.body.style.overflow = '';
             return;
         }
@@ -1936,9 +1944,10 @@
             // 바텀시트 — 인라인 위치 스타일 초기화 (CSS 가 처리)
             menu.style.top = '';
             menu.style.left = '';
+            menu.style.right = '';
+            menu.style.bottom = '';
             menu.style.display = 'block';
             if (backdrop) backdrop.style.display = 'block';
-            // 다음 프레임에 show 클래스 추가 → 부드러운 트랜지션
             requestAnimationFrame(() => {
                 menu.classList.add('show');
                 if (backdrop) backdrop.classList.add('show');
@@ -1948,6 +1957,8 @@
             // 데스크탑 — 버튼 아래 드롭다운 (position:fixed 좌표 계산)
             const r = btn.getBoundingClientRect();
             menu.style.display = 'block';
+            menu.style.bottom = '';
+            menu.style.right = '';
             menu.style.top = (r.bottom + 4) + 'px';
             const menuW = menu.offsetWidth || 100;
             let left = r.left;
@@ -1955,11 +1966,23 @@
             menu.style.left = Math.max(8, left) + 'px';
         }
     }
-    // 외부 클릭 시 드롭다운 닫기
+    // 외부 클릭 시 드롭다운 닫기 (메뉴가 body로 이동된 상태도 대응)
     document.addEventListener('click', (e) => {
-        const dd = document.getElementById('intervalDropdown');
+        const btn = document.getElementById('intervalDdBtn');
         const menu = document.getElementById('intervalDdMenu');
-        if (dd && menu && !dd.contains(e.target)) menu.style.display = 'none';
+        if (!menu || menu.style.display === 'none' || menu.style.display === '') return;
+        // 토글 버튼·메뉴 내부 클릭은 무시
+        if (menu.contains(e.target)) return;
+        if (btn && btn.contains(e.target)) return;
+        // 그 외 외부 클릭 → 닫기 (애니메이션 포함)
+        const backdrop = document.getElementById('intervalDdBackdrop');
+        menu.classList.remove('show');
+        if (backdrop) backdrop.classList.remove('show');
+        setTimeout(() => {
+            menu.style.display = 'none';
+            if (backdrop) backdrop.style.display = 'none';
+        }, 250);
+        document.body.style.overflow = '';
     });
 
     // OHLCV 봉 집계 함수 — N개 봉을 1개로 합침 (timestamp는 첫 봉 것 사용)
