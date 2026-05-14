@@ -2150,13 +2150,15 @@ app.get('/api/catalyst/hunter', async (req, res) => {
             // 가격 무관 옵션이 필요하면 frontend 에서 결정. 서버는 최소 안정성만 강제:
             if (!price || price < 0.1) return null;
             if (marketCap && marketCap > 50e9) return null; // 대형주 제외 (촉매 영향 미미)
-            // OTC/Pink 시트 종목 제외 — 메이저 거래소만 허용 (v661)
-            //   NMS·NGM·NGA = NASDAQ, NYQ = NYSE, ASE = NYSE American, PCX = NYSE Arca, BTS = BATS
-            const MAJOR_EXCHANGES = new Set(['NMS','NGM','NGA','NYQ','ASE','PCX','BTS','NCM']);
-            if (q.exchange && !MAJOR_EXCHANGES.has(q.exchange)) return null;
-            // Alpaca 응답에 데이터가 있으면 메이저 거래소 보장 (Alpaca 는 OTC 미지원)
-            // → q.exchange 누락 시 Alpaca 데이터 유무로 판별
-            if (!q.exchange && !hasAlpaca) return null;
+            // OTC/Pink 시트 종목 제외 — OTC 거래소 코드 블랙리스트 + fullName 검사 (v661.1)
+            const OTC_EXCHANGES = new Set(['PNK','OTC','OEM','OQB','OQX','OTCBB']);
+            const exShort = String(q.exchange || '').toUpperCase();
+            const exFull  = String(q.fullExchangeName || '').toUpperCase();
+            if (OTC_EXCHANGES.has(exShort)) return null;
+            if (/PINK|OTC/.test(exFull)) return null;
+            // 6-K (외국 발행인) 인데 메이저 거래소 정보 누락 + Alpaca 미커버 → OTC 가능성 ↑
+            const isForeignFiling = (c.formType || '').includes('6-K');
+            if (isForeignFiling && !hasAlpaca && !exShort) return null;
             // 이미 당일 오른 종목 제외 — 카탈리스트는 "사전 진입" 용도 (v657)
             const todayChg = (hasAlpaca && ap.changePct != null) ? ap.changePct : (q.regularMarketChangePercent || 0);
             if (todayChg >= 5) return null;             // 일중 +5% 이상 = 이미 반응
