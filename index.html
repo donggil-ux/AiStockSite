@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=632">
+    <link rel="stylesheet" href="/styles.css?v=633">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -765,9 +765,9 @@
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>보조지표
                             </button>
                             <button class="chart-tb-btn" id="chartKimLinesBtn"
-                                onclick="toggleChartKimLines()" title="김기법 — 시가+MA20+BB 진입·손절·익절 라인 (일봉)"
+                                onclick="toggleChartKimLines()" title="김직선 — 시가+MA20+BB 진입·손절·익절 라인 (일봉)"
                                 style="border-color:var(--border);">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px;"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-7"/></svg>김기법
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px;"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-7"/></svg>김직선
                             </button>
                             <button class="chart-tb-btn" id="chartLabelsBtn"
                                 onclick="toggleChartLabels()" title="우측 가격 라벨(EMA20·EMA50·EMA200·BB+ 등) 숨기기/표시"
@@ -12001,7 +12001,7 @@
         supports.forEach(s => addLine(s.price, 'rgba(59,130,246,0.55)', `지지 $${s.price.toFixed(2)}`));
 
         // 5) 매매 전략 라인 — ATR(14) 기반 3단계 분할매수 + 3단계 분할익절
-        //    일·주봉 + 김기법 활성 시에는 김기법 라인이 더 정교하므로 기존 매수/익절 라인 숨김 (v632)
+        //    일·주봉 + 김직선 활성 시에는 김직선 라인이 더 정교하므로 기존 매수/익절 라인 숨김 (v632)
         const _kimWillRender = ((currentInterval === '1d' || currentInterval === '1wk') && _chartKimEnabled);
         const atrArr = calcATR(highs, lows, closes, 14);
         const atr = lastVal(atrArr);
@@ -12035,12 +12035,12 @@
             addStratLine(t3, '#a855f7', 2, 2, `3차 익절 ${fmtP(t3)}`);
         }
 
-        // 6) 김기법 레이어 — 일봉 전용, 시가+MA20+BB 진입·손절·익절
+        // 6) 김직선 레이어 — 일봉 전용, 시가+MA20+BB 진입·손절·익절
         try { _renderKimMethodLayer(q, ts, bb); } catch (e) { console.warn('[kim] render fail', e); }
     }
 
     // ═══════════════════════════════════════════════════════════
-    // 김기법 (나스닥 트레이더) 분석 레이어 — v628
+    // 김직선 (나스닥 트레이더) 분석 레이어 — v628
     // 일봉 한정. 시가 = 시장 메이커 기준선 + MA20 + BB 상단 돌파.
     // ═══════════════════════════════════════════════════════════
     let _chartKimLines = [];
@@ -12055,11 +12055,11 @@
         if (_chartKimEnabled) {
             btn.style.color = 'var(--text1)';
             btn.style.background = 'var(--bg2)';
-            btn.title = '김기법 라인 끄기';
+            btn.title = '김직선 라인 끄기';
         } else {
             btn.style.color = 'var(--text3)';
             btn.style.background = 'transparent';
-            btn.title = '김기법 라인 켜기 (일봉)';
+            btn.title = '김직선 라인 켜기 (일봉)';
         }
     }
 
@@ -12067,7 +12067,7 @@
         _chartKimEnabled = !_chartKimEnabled;
         localStorage.setItem('stockai_chart_kim_lines', _chartKimEnabled ? '1' : '0');
         _updateKimBtnUi();
-        // 김기법 ↔ 기존 1·2·3차 매수 라인 상호 배제 → 전체 시그널 재렌더
+        // 김직선 ↔ 기존 1·2·3차 매수 라인 상호 배제 → 전체 시그널 재렌더
         if (_lastSigArgs) {
             try { renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
             catch(e) { try { _renderKimMethodLayer(_lastSigArgs.q, _lastSigArgs.ts, _lastSigArgs.bb); } catch(_) {} }
@@ -12264,7 +12264,7 @@
         const bar = document.getElementById('chartSigBar');
         if (bar) {
             const persCls = persColor === '#ef4444' ? 'sig-red' : persColor === '#3b82f6' ? 'sig-blue' : 'sig-neutral';
-            const kBadges = [`<span class="chart-sig-pill ${persCls}">김기법: ${escHtml(perspective)}</span>`];
+            const kBadges = [`<span class="chart-sig-pill ${persCls}">김직선: ${escHtml(perspective)}</span>`];
             if (openSignal) kBadges.push(`<span class="chart-sig-pill ${openSignal.color === '#ef4444' ? 'sig-blue' : 'sig-red'}">${escHtml(openSignal.text)}</span>`);
             if (repeatSupport) kBadges.push(`<span class="chart-sig-pill sig-red">🔁 시가 반복 지지</span>`);
             if (bbBreakout) kBadges.push(`<span class="chart-sig-pill" style="background:rgba(249,115,22,.15);color:#f97316;border-color:rgba(249,115,22,.4)">🔥 BB 상단 돌파</span>`);
@@ -12382,7 +12382,7 @@
             <div class="card kim-card">
                 <div class="card-title">
                     <span class="dot" style="background:${a.persColor}"></span>
-                    김기법 분석 <span class="trade-badge" style="background:${a.persColor};color:#fff">${escHtml(a.perspective)}</span>
+                    김직선 분석 <span class="trade-badge" style="background:${a.persColor};color:#fff">${escHtml(a.perspective)}</span>
                 </div>
                 <div class="kim-perspective-desc">${escHtml(a.persDesc)}</div>
                 <div class="kim-flags">${bbBadge}${dbbBadge}${openBadge}${repBadge}</div>
@@ -12394,7 +12394,7 @@
                 </div>
                 ${linesHTML}
                 <div class="kim-ai">
-                    <div class="kim-ai-title">💡 김기법 분석</div>
+                    <div class="kim-ai-title">💡 김직선 분석</div>
                     <div class="kim-ai-body">${escHtml(aiText)}</div>
                 </div>
             </div>
@@ -16689,12 +16689,12 @@
     const CHANGELOG = [
         {
             v: 'v628', date: '2026-05-14', tag: '✨ 신기능',
-            title: '김기법 분석 — 시가+MA20+BB 일봉 매매 전략',
+            title: '김직선 분석 — 시가+MA20+BB 일봉 매매 전략',
             items: [
                 '일봉 차트에서 당일 시가·20일MA·BB 조합으로 매수/매도/혼조 관점 판단',
                 'BB 상단 돌파 시 추세 추종 + 5분봉 더블바텀 단기 진입 타점 자동 감지',
                 '차트에 시가선·진입(1~3차)·손절(일반/이평/BB)·익절(1~3차) 라인 표시',
-                'R:R 요약 + AI 분석 텍스트 + 차트 상단 김기법 토글 버튼 추가',
+                'R:R 요약 + AI 분석 텍스트 + 차트 상단 김직선 토글 버튼 추가',
             ],
         },
         {

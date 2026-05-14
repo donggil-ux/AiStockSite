@@ -6333,7 +6333,7 @@
 [data-theme="dark"] .alpha-home-tab.active{background:rgba(118,118,128,0.36);color:#fff;}
 
 /* ═══════════════════════════════════════════════════════
-   김기법 분석 카드 (v628) — 일봉 전용
+   김직선 분석 카드 (v628) — 일봉 전용
    ═══════════════════════════════════════════════════════ */
 .kim-card{margin:12px 0;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--bg2);}
 .kim-perspective-desc{font-size:13px;color:var(--text2);margin:6px 0 12px;line-height:1.5;}
