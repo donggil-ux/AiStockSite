@@ -1199,17 +1199,34 @@ app.get('/api/scanner/surge', async (req, res) => {
         return res.json(_surgeScanCache.data);
     }
     try {
-        // 유니버스: most_actives + day_gainers + premarket movers (≈80)
+        // 유니버스: most_actives + day_gainers (≈100)
         const [active, gainers] = await Promise.all([
-            _fetchScreenerSymbols('most_actives', 50),
-            _fetchScreenerSymbols('day_gainers', 50),
+            _fetchScreenerSymbols('most_actives', 50).catch(() => ({symbols:[]})),
+            _fetchScreenerSymbols('day_gainers', 50).catch(() => ({symbols:[]})),
         ]);
-        const symbols = [...new Set([...active.symbols, ...gainers.symbols])].slice(0, 100);
+        const symbols = [...new Set([...(active.symbols||[]), ...(gainers.symbols||[])])].slice(0, 100);
+        if (!symbols.length) {
+            return res.status(503).json({ error: 'Yahoo 스크리너 응답 없음 — 잠시 후 재시도' });
+        }
 
-        // 시세 배치 (현재가·시가·전일종가·거래량·평균거래량·after-hours)
-        const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols.join(','))}`;
-        const quoteData = await yfRequest(quoteUrl);
-        const quotes = quoteData?.quoteResponse?.result || [];
+        // 시세 배치 — 50개씩 분할 (URL 길이 안전)
+        const CHUNK = 50;
+        const allQuotes = [];
+        for (let i = 0; i < symbols.length; i += CHUNK) {
+            const chunk = symbols.slice(i, i + CHUNK);
+            try {
+                const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(chunk.join(','))}`;
+                const quoteData = await yfRequest(quoteUrl);
+                const qs = quoteData?.quoteResponse?.result || [];
+                allQuotes.push(...qs);
+            } catch (e) {
+                console.warn('[surge-scan] quote chunk fail:', e.message);
+            }
+        }
+        const quotes = allQuotes;
+        if (!quotes.length) {
+            return res.status(503).json({ error: 'Yahoo 시세 응답 없음 — 잠시 후 재시도' });
+        }
 
         const results = quotes.map(q => {
             const nowSec = Math.floor(Date.now() / 1000);

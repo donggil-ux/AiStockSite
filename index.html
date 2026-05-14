@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=618">
+    <link rel="stylesheet" href="/styles.css?v=619">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -332,8 +332,9 @@
         <!-- 4-카테고리 세그먼트 탭 -->
         <div class="alpha-tabs" id="alphaTabs">
             <button class="alpha-tab active" data-tab="bounce"   onclick="_alphaSwitchTab('bounce')">과매도 반등</button>
-            <button class="alpha-tab"        data-tab="surge"    onclick="_alphaSwitchTab('surge')">🔥 급등 후보</button>
-            <button class="alpha-tab"        data-tab="daytrade" onclick="_alphaSwitchTab('daytrade')">단타 진입</button>
+            <button class="alpha-tab"        data-tab="surge"    onclick="_alphaSwitchTab('surge')">급등 후보</button>
+            <!-- 단타 진입 탭 — 임시 숨김 (v619) -->
+            <button class="alpha-tab"        data-tab="daytrade" onclick="_alphaSwitchTab('daytrade')" style="display:none;">단타 진입</button>
             <button class="alpha-tab"        data-tab="swing"    onclick="_alphaSwitchTab('swing')">스윙 진입</button>
             <button class="alpha-tab"        data-tab="rayner"   onclick="_alphaSwitchTab('rayner')">Rayner</button>
             <button class="alpha-tab"        data-tab="sepa"     onclick="_alphaSwitchTab('sepa')">Minervini SEPA</button>
