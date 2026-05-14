@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=626">
+    <link rel="stylesheet" href="/styles.css?v=627">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -148,6 +148,26 @@
     <!-- Welcome Screen -->
     <div class="welcome-screen" id="welcomeScreen">
 
+        <!-- 알파 스캐너 홈 프리뷰 (최상단 — S&P/나스닥 표시 바로 아래) -->
+        <section class="home-section" id="alphaHomeSection" style="margin-top:8px;">
+            <div class="home-section-header">
+                <div class="home-section-title">알파 스캐너
+                    <span class="hs-badge purple">탭별 TOP 10</span>
+                </div>
+                <button class="home-section-more" onclick="goAlphaFromHome()">전체 보기</button>
+            </div>
+            <div class="alpha-home-tabs" id="alphaHomeTabs">
+                <button class="alpha-home-tab active" data-tab="bounce" onclick="_alphaHomeSwitch('bounce')">과매도 반등</button>
+                <button class="alpha-home-tab"        data-tab="surge"  onclick="_alphaHomeSwitch('surge')">급등 후보</button>
+                <button class="alpha-home-tab"        data-tab="swing"  onclick="_alphaHomeSwitch('swing')">스윙 진입</button>
+                <button class="alpha-home-tab"        data-tab="rayner" onclick="_alphaHomeSwitch('rayner')">Rayner</button>
+                <button class="alpha-home-tab"        data-tab="sepa"   onclick="_alphaHomeSwitch('sepa')">SEPA</button>
+            </div>
+            <div id="alphaHomeList" class="alpha-card-list">
+                <div class="top100-loading">데이터를 불러오는 중...</div>
+            </div>
+        </section>
+
         <!-- ════════════════════════════════════════
              OVERSOLD & DEEP VALUE RADAR DASHBOARD
              ════════════════════════════════════════ -->
@@ -199,26 +219,6 @@
         </section>
 
         <!-- 핫 종목 섹션 — 제거됨 (홈에 미노출 + /api/hot-stocks Gemini 낭비 차단) -->
-
-        <!-- 알파 스캐너 홈 프리뷰 (탭별 상위 10개 + 더보기) -->
-        <section class="home-section" id="alphaHomeSection">
-            <div class="home-section-header">
-                <div class="home-section-title">알파 스캐너
-                    <span class="hs-badge purple">탭별 TOP 10</span>
-                </div>
-                <button class="home-section-more" onclick="goAlphaFromHome()">전체 보기</button>
-            </div>
-            <div class="alpha-home-tabs" id="alphaHomeTabs">
-                <button class="alpha-home-tab active" data-tab="bounce" onclick="_alphaHomeSwitch('bounce')">과매도 반등</button>
-                <button class="alpha-home-tab"        data-tab="surge"  onclick="_alphaHomeSwitch('surge')">급등 후보</button>
-                <button class="alpha-home-tab"        data-tab="swing"  onclick="_alphaHomeSwitch('swing')">스윙 진입</button>
-                <button class="alpha-home-tab"        data-tab="rayner" onclick="_alphaHomeSwitch('rayner')">Rayner</button>
-                <button class="alpha-home-tab"        data-tab="sepa"   onclick="_alphaHomeSwitch('sepa')">SEPA</button>
-            </div>
-            <div id="alphaHomeList" class="alpha-card-list">
-                <div class="top100-loading">데이터를 불러오는 중...</div>
-            </div>
-        </section>
 
         <!-- 최근 본 종목 (최상단) -->
         <section id="recentSection" class="home-section" style="display:none;margin-top:16px">
