@@ -6279,6 +6279,44 @@
 .mob-recent-chip .mrc-del:active{transform:scale(0.85);}
 
 /* ═══════════════════════════════════════════════════════
+   알파 스캐너 홈 프리뷰 (v624)
+   ═══════════════════════════════════════════════════════ */
+#alphaHomeSection{padding-top:8px;}
+.alpha-home-tabs{
+    display:flex;gap:8px;
+    margin:0 0 12px;
+    padding:4px;
+    background:rgba(118,118,128,0.12);
+    border-radius:100px;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+    width:fit-content;
+    max-width:100%;
+}
+.alpha-home-tabs::-webkit-scrollbar{display:none;}
+.alpha-home-tab{
+    padding:6px 14px;height:28px;
+    border:none;background:transparent;
+    border-radius:20px;
+    font-family:-apple-system,'SF Pro Text',inherit;
+    font-size:13px;font-weight:510;
+    letter-spacing:-0.08px;
+    color:rgba(60,60,67,0.66);
+    cursor:pointer;
+    transition:all .15s;
+    -webkit-tap-highlight-color:transparent;
+    white-space:nowrap;
+    flex-shrink:0;
+}
+.alpha-home-tab.active{
+    background:#fff;color:#000;font-weight:700;
+    box-shadow:0 3px 8px rgba(0,0,0,0.12), 0 3px 1px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.04);
+}
+[data-theme="dark"] .alpha-home-tab{color:rgba(235,235,245,0.6);}
+[data-theme="dark"] .alpha-home-tab.active{background:rgba(118,118,128,0.36);color:#fff;}
+
+/* ═══════════════════════════════════════════════════════
    옵션 인기 종목 섹션
    ═══════════════════════════════════════════════════════ */
 #optionsPopularSection{padding-top:24px;}

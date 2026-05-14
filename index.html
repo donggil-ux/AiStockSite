@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=624">
+    <link rel="stylesheet" href="/styles.css?v=625">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -199,6 +199,26 @@
         </section>
 
         <!-- 핫 종목 섹션 — 제거됨 (홈에 미노출 + /api/hot-stocks Gemini 낭비 차단) -->
+
+        <!-- 알파 스캐너 홈 프리뷰 (탭별 상위 10개 + 더보기) -->
+        <section class="home-section" id="alphaHomeSection">
+            <div class="home-section-header">
+                <div class="home-section-title">알파 스캐너
+                    <span class="hs-badge purple">탭별 TOP 10</span>
+                </div>
+                <button class="home-section-more" onclick="goAlphaFromHome()">전체 보기</button>
+            </div>
+            <div class="alpha-home-tabs" id="alphaHomeTabs">
+                <button class="alpha-home-tab active" data-tab="bounce" onclick="_alphaHomeSwitch('bounce')">과매도 반등</button>
+                <button class="alpha-home-tab"        data-tab="surge"  onclick="_alphaHomeSwitch('surge')">급등 후보</button>
+                <button class="alpha-home-tab"        data-tab="swing"  onclick="_alphaHomeSwitch('swing')">스윙 진입</button>
+                <button class="alpha-home-tab"        data-tab="rayner" onclick="_alphaHomeSwitch('rayner')">Rayner</button>
+                <button class="alpha-home-tab"        data-tab="sepa"   onclick="_alphaHomeSwitch('sepa')">SEPA</button>
+            </div>
+            <div id="alphaHomeList" class="alpha-card-list">
+                <div class="top100-loading">데이터를 불러오는 중...</div>
+            </div>
+        </section>
 
         <!-- 최근 본 종목 (최상단) -->
         <section id="recentSection" class="home-section" style="display:none;margin-top:16px">
@@ -3215,6 +3235,7 @@
     loadEarnHome();
     loadOptionsPopular();
     loadPolymarketHome();
+    loadAlphaHomePreview();
 
     // ────────────────────────────────────────────────────────────
     // 화면 이력 — 종목 상세 → 뒤로가기 시 직전 화면(실적·골라보기·기관 등) 복귀용
@@ -5003,7 +5024,7 @@
         updateBnActive('scanner');
         window.scrollTo({ top: 0, behavior: 'smooth' });
         // 새 알파 스캐너 — 현재 활성 탭의 데이터 로드
-        _alphaSwitchTab(_alphaTab && _alphaTab !== 'surge' ? _alphaTab : 'bounce');
+        _alphaSwitchTab(_alphaTab || 'bounce');
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -5498,6 +5519,134 @@
         }
         // 다른 스캐너 탭과 동일한 _alphaRender 사용 → UI 일관성 확보
         _alphaRender(scored, 'dante');
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 알파 스캐너 홈 프리뷰 — 탭별 상위 10개 + 더보기 (v624)
+    // ═══════════════════════════════════════════════════════════
+    let _alphaHomeTab = 'bounce';
+    // 탭별 결과 캐시 (5분) — 홈 ↔ 스캐너 탭 전환 시 재호출 줄임
+    const _alphaHomeCache = {};
+    const _ALPHA_HOME_TTL = 5 * 60 * 1000;
+
+    async function _alphaHomeFetchItems(tab) {
+        const cached = _alphaHomeCache[tab];
+        if (cached && (Date.now() - cached.ts) < _ALPHA_HOME_TTL) return cached.items;
+
+        let items = [];
+        if (tab === 'bounce') {
+            const r = await fetch('/api/oversold-radar?tab=oversold');
+            if (!r.ok) throw new Error('http ' + r.status);
+            const d = await r.json();
+            const raw = (d.items || []);
+            items = raw
+                .map(item => ({ item, signals: (typeof _calcBounceScore === 'function') ? _calcBounceScore(item) : [] }))
+                .filter(({ signals }) => signals.length >= 2)
+                .sort((a, b) => b.signals.length - a.signals.length)
+                .map(({ item, signals }) => ({ ...item, _alphaKind: 'bounce', _bounceSignals: signals }));
+        } else if (tab === 'surge') {
+            const r = await fetch('/api/scanner/surge');
+            if (!r.ok) throw new Error('http ' + r.status);
+            const d = await r.json();
+            const results = Array.isArray(d.results) ? d.results : [];
+            items = results.map(r => ({
+                symbol: r.symbol, name: r.name,
+                regularMarketPrice: r.price, price: r.price,
+                marketCap: r.marketCap,
+                regularMarketChangePercent: r.changePct ?? null,
+                _alphaKind: 'surge',
+                _surgeScore: r.score, _surgeGap: r.gap_pct, _surgeVolRatio: r.vol_ratio,
+                _surgeAh: r.ah_pct, _surgePriceScore: r.price_score, _surgeFloatScore: r.float_score,
+                _surgeFloatShares: r.floatShares, _surgeShortFloat: r.short_float, _surgeShortRatio: r.short_ratio,
+                _surgeGrade: r.grade, _surgeGradeColor: r.gradeColor,
+                _surgeHasNews: r.hasNews, _surgeNewsCount: r.newsCount, _surgeNewsTitle: r.newsTitle,
+                _surgeNewsTitles: r.newsTitles, _surgeNewsUrl: r.newsUrl, _surgeMarketCap: r.marketCap,
+            }));
+        } else if (tab === 'swing') {
+            let raw = (top100Cache?.['day_gainers']?.items) || [];
+            if (!raw.length) {
+                const r = await fetch('/api/screener/day_gainers?count=100');
+                if (r.ok) {
+                    const d = await r.json();
+                    raw = d?.finance?.result?.[0]?.quotes || [];
+                    if (raw.length) top100Cache['day_gainers'] = { items: raw, ts: Date.now() };
+                }
+            }
+            items = raw.map(q => {
+                const p = q.regularMarketPrice, h = q.fiftyTwoWeekHigh;
+                if (!p || !h || h <= p) return null;
+                const rr = (h - p) / (p * 0.05);
+                return rr >= 1.5 ? { ...q, _rr: rr, _alphaKind: 'swing' } : null;
+            }).filter(Boolean).sort((a, b) => b._rr - a._rr);
+        } else if (tab === 'rayner') {
+            const r = await fetch('/api/rayner-scan');
+            if (!r.ok) throw new Error('http ' + r.status);
+            const d = await r.json();
+            const results = Array.isArray(d.results) ? d.results : [];
+            items = results.map(r => ({
+                symbol: r.symbol, name: r.name,
+                regularMarketPrice: r.price, price: r.price,
+                regularMarketChangePercent: r.changePct ?? null,
+                _alphaKind: 'rayner',
+                _raynerStage: r.stage, _raynerStageLabel: r.stageLabel,
+                _raynerEma20: r.ema20, _raynerEma50: r.ema50, _raynerEma200: r.ema200,
+                _raynerPctAbove200: r.pctAbove200, _raynerSlope50: r.slope50,
+                _raynerEntry: r.entrySignal, _raynerPattern: r.pattern, _raynerScore: r.score,
+            }));
+        } else if (tab === 'sepa') {
+            const r = await fetch('/api/sepa-scan');
+            if (!r.ok) throw new Error('http ' + r.status);
+            const d = await r.json();
+            const results = Array.isArray(d.results) ? d.results : [];
+            items = results.map(r => ({
+                symbol: r.symbol, name: r.name,
+                regularMarketPrice: r.price, price: r.price,
+                regularMarketChangePercent: r.changePct ?? null,
+                _alphaKind: 'sepa',
+                _sepaScore: r.score, _sepaTrend: r.trendPassed,
+                _sepaVcpFound: r.vcpFound, _sepaVcpIdeal: r.vcpIdeal,
+                _sepaRs: r.rs, _sepaBreakoutVol: r.breakoutVol,
+                _sepaBaseLowVol: r.baseLowVol, _sepaTodayVolMult: r.todayVolMult,
+                _sepaPivot: r.pivot, _sepaHigh52: r.high52, _sepaLow52: r.low52,
+                fiftyTwoWeekHigh: r.high52, fiftyTwoWeekLow: r.low52,
+            }));
+        }
+
+        _alphaHomeCache[tab] = { items, ts: Date.now() };
+        return items;
+    }
+
+    async function _alphaHomeSwitch(tab) {
+        _alphaHomeTab = tab;
+        document.querySelectorAll('#alphaHomeTabs .alpha-home-tab').forEach(b => {
+            b.classList.toggle('active', b.dataset.tab === tab);
+        });
+        const el = document.getElementById('alphaHomeList');
+        if (!el) return;
+        el.innerHTML = '<div class="sniper-loading">' + Array(4).fill('<div class="sniper-skel"></div>').join('') + '</div>';
+        try {
+            const items = await _alphaHomeFetchItems(tab);
+            if (_alphaHomeTab !== tab) return; // 도중 다른 탭 선택 시 무시
+            if (!items.length) {
+                el.innerHTML = '<div class="sniper-empty">현재 조건에 맞는 종목이 없습니다</div>';
+                return;
+            }
+            const top10 = items.slice(0, 10);
+            const cards = top10.map((q, idx) => _alphaRenderCard(q, idx)).join('');
+            el.innerHTML = cards;
+        } catch (e) {
+            if (_alphaHomeTab === tab) el.innerHTML = '<div class="sniper-empty">데이터 로드 실패 — 잠시 후 다시 시도하세요</div>';
+        }
+    }
+
+    function loadAlphaHomePreview() {
+        _alphaHomeSwitch(_alphaHomeTab || 'bounce');
+    }
+
+    // 홈에서 "전체 보기" → 현재 홈 탭을 알파 스캐너에 반영하고 이동
+    function goAlphaFromHome() {
+        _alphaTab = _alphaHomeTab || 'bounce';
+        if (typeof goScanner === 'function') goScanner();
     }
 
     function _alphaRender(items, tab) {
@@ -16102,6 +16251,15 @@
     const CHANGELOG_LS_KEY = 'stockai_changelog_seen';
     const CHANGELOG = [
         {
+            v: 'v625', date: '2026-05-14', tag: '✨ 신기능',
+            title: '홈에 알파 스캐너 프리뷰 추가',
+            items: [
+                '홈 화면에서 과매도 반등·급등 후보·스윙·Rayner·SEPA 탭별 TOP 10 표시',
+                '"전체 보기" 클릭 시 알파 스캐너의 동일 탭으로 바로 이동',
+                '결과는 5분간 캐시 — 홈 ↔ 스캐너 왕복 시 재호출 최소화',
+            ],
+        },
+        {
             v: 'v624', date: '2026-05-14', tag: '🐛 버그픽스',
             title: '분봉 드롭다운 — 스크롤·리사이즈 시 자동 닫기',
             items: [
@@ -20509,6 +20667,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         toggleScannerChip, setScannerPreset, syncScannerChipUI,
         debounceScannerFetch, runScannerFetch, filterScannerResults, renderScannerResults,
         _alphaSwitchTab, _alphaRender, _alphaRenderCard, _alphaToggleCard, _alphaTheme, _alphaRisk, _alphaTimingGuide,
+        _alphaHomeSwitch, loadAlphaHomePreview, goAlphaFromHome,
         captureChartAndAnalyze, clearAiChartLines, drawAiChartLines, toggleAiReport, setTradeMode,
         renderAnalysisReport, buildChartContextJson,
         deleteSelectedAiTrendline,
