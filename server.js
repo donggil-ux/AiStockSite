@@ -1875,9 +1875,16 @@ app.get('/api/catalyst/hunter', async (req, res) => {
             if (candidates.length >= 35) break; // Vercel timeout 여유
         }
         if (!candidates.length) {
-            const payload = { results: [], totalScanned: 0, scannedAt: new Date().toISOString() };
-            _catalystCache = { ts: now, data: payload };
-            return res.json(payload);
+            // 빈 결과는 캐시하지 않음 — 다음 요청에서 즉시 재시도
+            return res.json({
+                results: [],
+                totalScanned: 0,
+                totalFilings: allFilings.length,
+                feed8kCount: feed8k.length,
+                feed6kCount: feed6k.length,
+                scannedAt: new Date().toISOString(),
+                _debug: 'No candidates passed keyword filter or ticker extraction',
+            });
         }
 
         // 3) yfinance quote 병렬 조회
@@ -1987,9 +1994,12 @@ app.get('/api/catalyst/hunter', async (req, res) => {
             results: results.slice(0, 50),
             totalScanned: candidates.length,
             totalFilings: allFilings.length,
+            feed8kCount: feed8k.length,
+            feed6kCount: feed6k.length,
             scannedAt: new Date().toISOString(),
         };
-        _catalystCache = { ts: now, data: payload };
+        // 빈 결과는 캐시하지 않음 (다음 요청에서 즉시 재시도)
+        if (results.length > 0) _catalystCache = { ts: now, data: payload };
         res.json(payload);
     } catch (err) {
         console.error('[catalyst-hunter]', err.message);
