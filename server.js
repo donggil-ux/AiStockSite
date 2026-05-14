@@ -1157,6 +1157,138 @@ app.get('/api/breakout-scan', async (req, res) => {
     }
 });
 
+// ───────────────────────────────────────────────────────────────────────
+// 🔥 급등 후보 스캐너 (/api/scanner/surge)
+//   - 팩터: 갭% / 거래량비율 / AH% / 숏Float / Short Ratio
+//   - 정적 가중치 (백테스트 미실행 — Phase 1)
+//   - 점수 = Σ(normalized × weight × 100), 0~100
+//   - 상위 30개 (p50 이상), 백분위 등급 (p90 / p75 / p50)
+//   - 5분 메모리 캐시
+// ───────────────────────────────────────────────────────────────────────
+const SURGE_SCAN_TTL = 5 * 60 * 1000;
+let _surgeScanCache = { ts: 0, data: null };
+
+// 기본 가중치 (백테스트 미실행 시 — 데이터 기반 권장값)
+const SURGE_DEFAULT_WEIGHTS = {
+    gap_pct:     0.30,
+    vol_ratio:   0.30,
+    ah_pct:      0.20,
+    short_float: 0.12,
+    short_ratio: 0.08,
+};
+
+// 정규화 — 팩터별 0~1 매핑 (max 이상은 1.0)
+function _surgeNormalize(v, max) {
+    if (!Number.isFinite(v) || max <= 0) return 0;
+    return Math.max(0, Math.min(v / max, 1));
+}
+function _surgeCalcScore(f, weights) {
+    const w = weights || SURGE_DEFAULT_WEIGHTS;
+    let s = 0;
+    s += _surgeNormalize(f.gap_pct,     20) * w.gap_pct     * 100; // 0~20% 갭
+    s += _surgeNormalize(f.vol_ratio,   5)  * w.vol_ratio   * 100; // 0~5x
+    s += _surgeNormalize(f.ah_pct,      10) * w.ah_pct      * 100; // 0~10% AH
+    s += _surgeNormalize(f.short_float, 50) * w.short_float * 100; // 0~50%
+    s += _surgeNormalize(f.short_ratio, 10) * w.short_ratio * 100; // 0~10일
+    return +s.toFixed(1);
+}
+
+app.get('/api/scanner/surge', async (req, res) => {
+    const now = Date.now();
+    if (_surgeScanCache.data && now - _surgeScanCache.ts < SURGE_SCAN_TTL) {
+        return res.json(_surgeScanCache.data);
+    }
+    try {
+        // 유니버스: most_actives + day_gainers + premarket movers (≈80)
+        const [active, gainers] = await Promise.all([
+            _fetchScreenerSymbols('most_actives', 50),
+            _fetchScreenerSymbols('day_gainers', 50),
+        ]);
+        const symbols = [...new Set([...active.symbols, ...gainers.symbols])].slice(0, 100);
+
+        // 시세 배치 (현재가·시가·전일종가·거래량·평균거래량·after-hours)
+        const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols.join(','))}`;
+        const quoteData = await yfRequest(quoteUrl);
+        const quotes = quoteData?.quoteResponse?.result || [];
+
+        const results = quotes.map(q => {
+            const nowSec = Math.floor(Date.now() / 1000);
+            const lastTs = q.regularMarketTime || 0;
+            if (nowSec - lastTs > 7 * 24 * 3600) return null; // 상장폐지 필터
+            const prevC = q.regularMarketPreviousClose || q.previousClose;
+            const open = q.regularMarketOpen;
+            const price = q.regularMarketPrice;
+            const vol = q.regularMarketVolume || 0;
+            const avgVol = q.averageDailyVolume3Month || q.averageDailyVolume10Day || 0;
+            const postPrice = q.postMarketPrice;
+            if (!prevC || !price || !open) return null;
+
+            const gap_pct   = (open - prevC) / prevC * 100;
+            const vol_ratio = avgVol > 0 ? vol / avgVol : 0;
+            const ah_pct    = postPrice ? (postPrice - price) / price * 100 : 0;
+            // 숏 데이터 — Yahoo 기본 quote 응답에 없음. 추가 fetch 비용 vs 정확도 → 일단 0으로 (기본 가중치 20% 손실)
+            const short_float = 0;
+            const short_ratio = 0;
+
+            const score = _surgeCalcScore({ gap_pct, vol_ratio, ah_pct, short_float, short_ratio });
+            return {
+                symbol: q.symbol,
+                name: q.shortName || q.longName || q.symbol,
+                price: +price.toFixed(2),
+                changePct: q.regularMarketChangePercent != null ? +q.regularMarketChangePercent.toFixed(2) : null,
+                gap_pct: +gap_pct.toFixed(2),
+                vol_ratio: +vol_ratio.toFixed(2),
+                ah_pct: +ah_pct.toFixed(2),
+                short_float, short_ratio,
+                score,
+            };
+        }).filter(Boolean);
+
+        if (!results.length) {
+            return res.json({ results: [], totalScanned: 0, scannedAt: new Date().toISOString() });
+        }
+
+        // 백분위 등급 (동적 계산)
+        const sorted = results.map(r => r.score).sort((a, b) => a - b);
+        const p = (q) => sorted[Math.floor(sorted.length * q)] || 0;
+        const p90 = p(0.90), p75 = p(0.75), p50 = p(0.50);
+
+        const labeled = results.map(r => {
+            let grade, gradeColor;
+            if (r.score >= p90)      { grade = '🚨 폭등 후보'; gradeColor = '#ef4444'; }
+            else if (r.score >= p75) { grade = '🔴 급등 후보'; gradeColor = '#f97316'; }
+            else if (r.score >= p50) { grade = '🟠 주목';     gradeColor = '#eab308'; }
+            else                      { grade = '🟡 관심';     gradeColor = '#94a3b8'; }
+            return { ...r, grade, gradeColor };
+        }).sort((a, b) => b.score - a.score);
+
+        // p50 이상만 상위 30개
+        const top = labeled.filter(r => r.score >= p50).slice(0, 30);
+
+        _surgeScanCache = { ts: now, data: {
+            results: top,
+            totalScanned: results.length,
+            scannedAt: new Date().toISOString(),
+            cutoffs: { p90: +p90.toFixed(1), p75: +p75.toFixed(1), p50: +p50.toFixed(1) },
+            weights: SURGE_DEFAULT_WEIGHTS,
+        }};
+        res.json(_surgeScanCache.data);
+    } catch (err) {
+        console.error('[surge-scan]', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 백테스트 엔드포인트 (Phase 2 — 향후 가중치 자동 산출)
+// 현재는 정적 가중치 사용 중. 사용자 요청 시 구현.
+app.get('/api/scanner/backtest', (req, res) => {
+    res.json({
+        weights: SURGE_DEFAULT_WEIGHTS,
+        message: '정적 가중치 사용 중. 백테스트 자동화는 Phase 2 (yfinance 등 추가 데이터 소스 필요).',
+        updated_at: new Date().toISOString(),
+    });
+});
+
 // ── 종목 검색 (Yahoo Finance search API 프록시) ─────────────────────────
 app.get('/api/search', async (req, res) => {
     // 길이 제한 + 위험 문자 제거 (Yahoo API 남용 방지)
