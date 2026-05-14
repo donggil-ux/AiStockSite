@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=652">
+    <link rel="stylesheet" href="/styles.css?v=653">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -157,7 +157,7 @@
                 <button class="home-section-more" onclick="goAlphaFromHome()">전체 보기</button>
             </div>
             <div class="alpha-home-tabs" id="alphaHomeTabs">
-                <button class="alpha-home-tab active" data-tab="bounce" onclick="_alphaHomeSwitch('bounce')">과매도 반등</button>
+                <button class="alpha-home-tab active" data-tab="bounce" onclick="_alphaHomeSwitch('bounce')">과매도</button>
                 <button class="alpha-home-tab"        data-tab="surge"  onclick="_alphaHomeSwitch('surge')">급등 후보</button>
                 <button class="alpha-home-tab"        data-tab="swing"  onclick="_alphaHomeSwitch('swing')">스윙 진입</button>
                 <button class="alpha-home-tab"        data-tab="rayner" onclick="_alphaHomeSwitch('rayner')">Rayner</button>
@@ -317,7 +317,7 @@
         <div class="sm-screen-sub">목적별로 AI가 추천하는 종목, 탭을 선택하면 분석 결과를 보여드립니다</div>
         <!-- 4-카테고리 세그먼트 탭 -->
         <div class="alpha-tabs" id="alphaTabs">
-            <button class="alpha-tab active" data-tab="bounce"   onclick="_alphaSwitchTab('bounce')">과매도 반등</button>
+            <button class="alpha-tab active" data-tab="bounce"   onclick="_alphaSwitchTab('bounce')">과매도</button>
             <button class="alpha-tab"        data-tab="surge"    onclick="_alphaSwitchTab('surge')">급등 후보</button>
             <!-- 단타 진입 탭 — 임시 숨김 (v619) -->
             <button class="alpha-tab"        data-tab="daytrade" onclick="_alphaSwitchTab('daytrade')" style="display:none;">단타 진입</button>
@@ -5101,7 +5101,7 @@
     // ═══════════════════════════════════════════════════════════
     // 알파 스캐너 v2 — 4가지 분석 카테고리
     //   - surge   : 급등 예상 (거래량 급증 + 모멘텀)
-    //   - bounce  : 과매도 반등 (RSI 극저 + 200일선 이격)
+    //   - bounce  : 과매도 (RSI 극저 + 200일선 이격)
     //   - daytrade: 단타 진입 (ATR·거래량·당일 변동성 강한 종목)
     //   - swing   : 스윙 진입 (R/R ≥ 1.5, 52주 고점까지 여유)
     // ═══════════════════════════════════════════════════════════
@@ -5201,7 +5201,7 @@
     }
     const _ALPHA_DESC = {
         surge:    '급등 후보 (나노캡) — 주가 $0.3~$5, 시총 ≤$50M, Float ≤10M, 평균거래량 10K~500K. 거래량비·갭·Float·뉴스 종합 점수.',
-        bounce:   'RSI 극저 + 장기 이동평균선 -15% 이상 이격된 종목 — 과매도 후 반등 가능성이 높습니다.',
+        bounce:   '교과서적 과매도 종목 — RSI ≤ 30, MA200 -15%↓ 이격, 52주 고점 -30%↓ 폭락 중 하나 이상 충족.',
         daytrade: '5분봉 돌파 단타 분석 — 돌파패턴(35%) + 양봉시가(25%) + 거래량(20%) + 정배열(10%) + 위험패턴(10%) 종합점수 60+ 종목.',
         swing:    '52주 고점까지 충분한 상승 여력(R/R ≥ 1.5)이 있고 추세가 살아있는 종목 — 며칠~몇 주 단위 스윙에 적합합니다.',
         rayner:   'Rayner Teo의 EMA 20/50/200 + Weinstein Stage 분석 — Stage 2(상승추세) + 풀백·돌파·반전 진입 시그널 종목.',
@@ -5250,7 +5250,7 @@
             </div>`;
         } else if (tab === 'bounce') {
             return `<div class="alpha-timing-card">
-                <div class="alpha-timing-title alpha-timing-title--blue">⏰ 과매도 반등 스캐너 최적 시간 (한국 기준)</div>
+                <div class="alpha-timing-title alpha-timing-title--blue">⏰ 과매도 스캐너 최적 시간 (한국 기준)</div>
                 <div class="alpha-timing-row alpha-time-best"><span class="alpha-time-bullet">●</span><span class="alpha-time-when">06:00~08:00</span><span class="alpha-time-desc">미국장 마감 직후 → 오늘 하락 종목 확정, 반등 후보 가장 신선</span></div>
                 <div class="alpha-timing-row alpha-time-good"><span class="alpha-time-bullet">●</span><span class="alpha-time-when">02:00~05:00</span><span class="alpha-time-desc">장 중 → 실시간 급락 종목 포착, 당일 반등 노릴 때</span></div>
                 <div class="alpha-timing-row alpha-time-skip"><span class="alpha-time-bullet">○</span><span class="alpha-time-when">23:30 이전</span><span class="alpha-time-desc">장 시작 전 → 전날 데이터 기준, 참고용으로만</span></div>
@@ -5295,8 +5295,8 @@
                 const d = await r.json();
                 const items = (d.items || []);
                 const scored = items
-                    .map(item => ({ item, signals: (typeof _calcBounceScore === 'function') ? _calcBounceScore(item) : [] }))
-                    .filter(({ signals }) => signals.length >= 2)
+                    .filter(item => _isClearlyOversold(item))
+                    .map(item => ({ item, signals: _calcBounceScore(item) }))
                     .sort((a, b) => b.signals.length - a.signals.length)
                     .slice(0, 30)
                     .map(({ item, signals }) => ({ ...item, _alphaKind: 'bounce', _bounceSignals: signals }));
@@ -5640,8 +5640,8 @@
             const d = await r.json();
             const raw = (d.items || []);
             items = raw
-                .map(item => ({ item, signals: (typeof _calcBounceScore === 'function') ? _calcBounceScore(item) : [] }))
-                .filter(({ signals }) => signals.length >= 2)
+                .filter(item => _isClearlyOversold(item))
+                .map(item => ({ item, signals: _calcBounceScore(item) }))
                 .sort((a, b) => b.signals.length - a.signals.length)
                 .map(({ item, signals }) => ({ ...item, _alphaKind: 'bounce', _bounceSignals: signals }));
         } else if (tab === 'surge') {
@@ -5920,7 +5920,7 @@
             if (q.ma200 && q.price && q.price < q.ma200 * 0.85) signals.push({label:'200일선 -15%↓ 이격', cls:'purple'});
             if (chg <= -7) signals.push({label:`당일 ${chg.toFixed(1)}% 급락`, cls:'red'});
             score = Math.min(6, bs.length + (rsi != null && rsi <= 25 ? 1 : 0));
-            reason = `${bs.length}/6 반등 시그널 충족 — 과매도 후 단기 반등 가능성.`;
+            reason = `${bs.length}개 과매도 신호 충족 — 누가 봐도 과매도 구간.`;
             timingBadge = bs.length >= 4 ? {label:'⚡ 내일 반등', cls:'emerald'} : {label:'📅 내일모레', cls:'amber'};
             expectedMove = Math.round(5 + bs.length * 2);
         } else if (kind === 'daytrade') {
@@ -7612,29 +7612,42 @@
     // ── 반등 스캐너 ─────────────────────────────────────────────────────
 
     // 6개 신호 중 몇 개인지 계산
+    // 누가 봐도 과매도 — 교과서적 과매도 신호 (v653)
+    //   기존 "2개 이상 시그널 충족"의 다중 검증 모델 → "주요 과매도 조건 1개만 만족하면 노출"로 단순화
     function _calcBounceScore(item) {
         const signals = [];
-        const { rsi, price, ma200, ma50, volMult, changePct, pbr } = item;
-        // 1. RSI 과매도
-        if (rsi != null && rsi <= 32) signals.push({ label: 'RSI 과매도', detail: `RSI ${rsi.toFixed(0)}` });
-        // 2. MA200 이격 과대
-        if (price && ma200 && ma200 > 0 && price < ma200 * 0.85) signals.push({ label: 'MA200 이격', detail: `-${(((ma200 - price) / ma200) * 100).toFixed(0)}%` });
-        // 3. 거래량 급증
-        if (volMult != null && volMult >= 1.5) signals.push({ label: '거래량 급증', detail: `×${volMult.toFixed(1)}` });
-        // 4. 당일 급락
+        const { rsi, price, ma200, ma50, volMult, changePct, pbr, high52, low52 } = item;
+        // 1. RSI ≤ 30 (교과서적 과매도 임계점)
+        if (rsi != null && rsi <= 30) signals.push({ label: 'RSI 과매도', detail: `RSI ${rsi.toFixed(0)}` });
+        // 2. 200일 이동평균 대비 -15% 이상 이격 (장기 추세선 대비 깊은 하락)
+        if (price && ma200 && ma200 > 0 && price < ma200 * 0.85) {
+            signals.push({ label: 'MA200 이격', detail: `-${(((ma200 - price) / ma200) * 100).toFixed(0)}%` });
+        }
+        // 3. 52주 고점 대비 -30% 이상 폭락
+        if (price && high52 && high52 > 0 && price < high52 * 0.70) {
+            signals.push({ label: '52주 -30%↓', detail: `-${(((high52 - price) / high52) * 100).toFixed(0)}%` });
+        }
+        // 보조 시그널 (정렬·신뢰도 가산용 — 단독으로는 노출 자격 X)
         if (changePct != null && changePct <= -5) signals.push({ label: '당일 급락', detail: `${changePct.toFixed(1)}%` });
-        // 5. PBR 저평가
+        if (volMult != null && volMult >= 1.5) signals.push({ label: '거래량 급증', detail: `×${volMult.toFixed(1)}` });
         if (pbr != null && pbr > 0 && pbr < 2.0) signals.push({ label: 'PBR 저평가', detail: `PBR ${pbr.toFixed(2)}` });
-        // 6. MA50 근접
-        if (price && ma50 && ma50 > 0 && price > ma50 * 0.90) signals.push({ label: 'MA50 근접', detail: `MA50 근접` });
         return signals;
+    }
+
+    // 핵심 과매도 시그널(1·2·3번) 충족 여부 — 노출 자격 판정
+    function _isClearlyOversold(item) {
+        const { rsi, price, ma200, high52 } = item;
+        if (rsi != null && rsi <= 30) return true;
+        if (price && ma200 && ma200 > 0 && price < ma200 * 0.85) return true;
+        if (price && high52 && high52 > 0 && price < high52 * 0.70) return true;
+        return false;
     }
 
     function _renderBounceCard(item, showBigTech) {
         if (!showBigTech && _isBigTech(item.symbol, item.marketCap)) return '';
+        if (!_isClearlyOversold(item)) return '';
         const signals = _calcBounceScore(item);
         const count = signals.length;
-        if (count < 2) return '';
 
         let tier, tierClass;
         if (count >= 4)      { tier = 'TIER 1'; tierClass = 'bounce-tier1'; }
@@ -17346,7 +17359,7 @@
             v: 'v625', date: '2026-05-14', tag: '✨ 신기능',
             title: '홈에 알파 스캐너 프리뷰 추가',
             items: [
-                '홈 화면에서 과매도 반등·급등 후보·스윙·Rayner·SEPA 탭별 TOP 10 표시',
+                '홈 화면에서 과매도·급등 후보·스윙·Rayner·SEPA 탭별 TOP 10 표시',
                 '"전체 보기" 클릭 시 알파 스캐너의 동일 탭으로 바로 이동',
                 '결과는 5분간 캐시 — 홈 ↔ 스캐너 왕복 시 재호출 최소화',
             ],
