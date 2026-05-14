@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=631">
+    <link rel="stylesheet" href="/styles.css?v=632">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -12001,8 +12001,8 @@
         supports.forEach(s => addLine(s.price, 'rgba(59,130,246,0.55)', `지지 $${s.price.toFixed(2)}`));
 
         // 5) 매매 전략 라인 — ATR(14) 기반 3단계 분할매수 + 3단계 분할익절
-        //    일봉 + 김기법 활성 시에는 김기법 라인이 더 정교하므로 기존 매수/익절 라인 숨김 (v631)
-        const _kimWillRender = (currentInterval === '1d' && _chartKimEnabled);
+        //    일·주봉 + 김기법 활성 시에는 김기법 라인이 더 정교하므로 기존 매수/익절 라인 숨김 (v632)
+        const _kimWillRender = ((currentInterval === '1d' || currentInterval === '1wk') && _chartKimEnabled);
         const atrArr = calcATR(highs, lows, closes, 14);
         const atr = lastVal(atrArr);
         if (!_kimWillRender && atr != null && atr > 0 && lastClose != null && lastClose > 0) {
@@ -12130,8 +12130,10 @@
 
     function _renderKimMethodLayer(q, ts, bb) {
         const card = document.getElementById('kimMethodAnalysis');
-        // 일봉이 아니면 숨기고 정리
-        if (currentInterval !== '1d') {
+        // 일·주봉만 활성 (v632)
+        const isDaily = currentInterval === '1d';
+        const isWeekly = currentInterval === '1wk';
+        if (!isDaily && !isWeekly) {
             _clearKimLines();
             if (card) { card.innerHTML = ''; card.style.display = 'none'; }
             return;
@@ -12203,7 +12205,6 @@
 
         const e1 = open + atr * 0.1;          // 1차 진입 — 시가 돌파
         const e2 = open - atr * 0.3;          // 2차 진입 — 시가 복귀
-        const e3 = lastMA20 + atr * 0.1;      // 3차 진입 — 이평 지지
 
         const stopOpen = open - atr * 0.5;    // 일반 손절
         const stopMA   = lastMA20 - atr * 1.0; // 이평 손절
@@ -12237,10 +12238,9 @@
             addKim(open, openColor, 0, 2, `시가 ${fmtP(open)}`);
 
             if (perspective === '매수 관점' || bbBreakout) {
-                // 진입 라인
+                // 진입 라인 (1차·2차)
                 addKim(e1, '#22c55e', 0, 2, `1차 진입 ${fmtP(e1)} (${pctOf(e1, close)}%)`);
                 addKim(e2, '#22c55e', 1, 1, `2차 진입 ${fmtP(e2)} (${pctOf(e2, close)}%)`);
-                addKim(e3, '#22c55e', 1, 1, `3차 진입 ${fmtP(e3)} (${pctOf(e3, close)}%)`);
                 // 손절
                 addKim(stopOpen, '#ef4444', 0, 2, `손절 ${fmtP(stopOpen)} (${pctOf(stopOpen, close)}%)`);
                 addKim(stopMA,   '#ef4444', 1, 1, `이평손절 ${fmtP(stopMA)} (${pctOf(stopMA, close)}%)`);
@@ -12275,12 +12275,13 @@
         const analysis = {
             symbol: currentSymbol, open, close, low, high, atr, ma20: lastMA20, bbUpper,
             aboveMA, aboveOpen, perspective, persColor, persDesc, openSignal, repeatSupport, bbBreakout,
-            e1, e2, e3, stopOpen, stopMA, stopBB, tp1, tp2, tp3, fmtP, pctOf, openDiffPct,
+            e1, e2, stopOpen, stopMA, stopBB, tp1, tp2, tp3, fmtP, pctOf, openDiffPct,
+            intervalLabel: isWeekly ? '이번 주' : '당일',
         };
         _renderKimCard(analysis, null); // 카드 즉시 표시
 
-        // 10) BB 돌파 활성 시 5분봉 더블바텀 fetch (비동기)
-        if (bbBreakout && currentSymbol) {
+        // 10) BB 돌파 활성 시 5분봉 더블바텀 fetch — 일봉 전용 (주봉에선 의미 없음)
+        if (isDaily && bbBreakout && currentSymbol) {
             (async () => {
                 const dbb = await _fetchKim5mAsync(currentSymbol);
                 if (currentInterval !== '1d') return;
@@ -12328,7 +12329,9 @@
             : (persSimple === '매수 관점' && rr1 >= 2 ? '정상 매수 — 시가/이평 모두 위, R:R 충족.'
             : persSimple === '매도 관점' ? '매도 관점 — 신규 진입 비권장, 손절만 관리.'
             : '혼조 구간 — 시가 회복/이평 회복 여부 추가 확인 후 진입.');
-        const aiText = `${a.symbol || ''}의 당일 시가는 ${a.fmtP(a.open)}. 현재가는 시가 ${a.aboveOpen ? '위' : '아래'}, 20일 MA ${a.aboveMA ? '위' : '아래'} → ${persSimple}. ${bbText}${dbbText ? ' ' + dbbText : ''} 1차 진입 ${a.fmtP(a.e1)} / 손절 ${a.fmtP(a.stopOpen)} / 익절1 ${a.fmtP(a.tp1)} (R:R 1:${rr1.toFixed(1)}). ${summaryLine}`;
+        const lbl = a.intervalLabel || '당일';
+        const maLbl = lbl === '이번 주' ? '20주 MA' : '20일 MA';
+        const aiText = `${a.symbol || ''}의 ${lbl} 시가는 ${a.fmtP(a.open)}. 현재가는 시가 ${a.aboveOpen ? '위' : '아래'}, ${maLbl} ${a.aboveMA ? '위' : '아래'} → ${persSimple}. ${bbText}${dbbText ? ' ' + dbbText : ''} 1차 진입 ${a.fmtP(a.e1)} / 손절 ${a.fmtP(a.stopOpen)} / 익절1 ${a.fmtP(a.tp1)} (R:R 1:${rr1.toFixed(1)}). ${summaryLine}`;
 
         const lineRow = (label, price, pct, cls) => `
             <div class="kim-line">
@@ -12343,7 +12346,6 @@
                 <div class="kim-lines-title">📥 진입가</div>
                 ${lineRow('1차 (시가 돌파)', a.e1, +a.pctOf(a.e1, a.close), 'entry')}
                 ${lineRow('2차 (시가 복귀)', a.e2, +a.pctOf(a.e2, a.close), 'entry')}
-                ${lineRow('3차 (이평 지지)', a.e3, +a.pctOf(a.e3, a.close), 'entry')}
             </div>
             <div class="kim-lines-group">
                 <div class="kim-lines-title">🛡️ 손절가</div>
@@ -12385,9 +12387,9 @@
                 <div class="kim-perspective-desc">${escHtml(a.persDesc)}</div>
                 <div class="kim-flags">${bbBadge}${dbbBadge}${openBadge}${repBadge}</div>
                 <div class="kim-key">
-                    <div class="kim-key-item"><span class="kim-key-label">시가</span><strong>${a.fmtP(a.open)}</strong></div>
+                    <div class="kim-key-item"><span class="kim-key-label">${escHtml(lbl)} 시가</span><strong>${a.fmtP(a.open)}</strong></div>
                     <div class="kim-key-item"><span class="kim-key-label">현재가</span><strong>${a.fmtP(a.close)}</strong></div>
-                    <div class="kim-key-item"><span class="kim-key-label">MA20</span><strong>${a.fmtP(a.ma20)}</strong></div>
+                    <div class="kim-key-item"><span class="kim-key-label">${escHtml(maLbl)}</span><strong>${a.fmtP(a.ma20)}</strong></div>
                     <div class="kim-key-item"><span class="kim-key-label">ATR(14)</span><strong>${a.fmtP(a.atr)}</strong></div>
                 </div>
                 ${linesHTML}
