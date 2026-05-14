@@ -1602,16 +1602,19 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
         };
         const rResp = await _postYfScreener(screenerBody);
         let universe = rResp?.data?.finance?.result?.[0]?.quotes || [];
-        // 디버그: 스크리너 raw 카운트 캡처
-        const _rawScreenerCount = universe.length;
         if (!universe.length) {
-            return res.json({ results: [], totalScanned: 0, scannedAt: new Date().toISOString(), _debug: { rawScreener: 0, reason: 'screener returned 0' } });
+            return res.json({ results: [], totalScanned: 0, scannedAt: new Date().toISOString() });
         }
 
-        // 임시 진단: 필터 OFF, 그대로 통과 (v644.4)
-        const _sampleQuote = universe[0] ? JSON.stringify(universe[0]).slice(0, 800) : null;
-        // 일단 가격 없는 것만 제거 (가장 약한 필터)
-        universe = universe.filter(q => q.regularMarketPrice != null);
+        // 상폐·정지 quote 단계 필터 (v645)
+        const nowSec = Math.floor(Date.now() / 1000);
+        universe = universe.filter(q => {
+            if (!q.regularMarketPrice) return false;
+            if (q.tradeable === false) return false;
+            const lastTs = q.regularMarketTime || 0;
+            if (lastTs && nowSec - lastTs > 7 * 24 * 3600) return false; // 7일 이상 무거래
+            return true;
+        });
 
         // 변동률·거래량 상위 25개로 1차 필터링 (Vercel 10s timeout 대응, v644)
         universe = universe
@@ -1623,27 +1626,20 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
             .slice(0, 25);
 
         // 2) 각 종목 20일 일봉 fetch + 단계 감지
-        const _debug = { rawScreener: _rawScreenerCount, uni: universe.length, histFail: 0, histShort: 0, flat: 0, lastErr: null, sampleQuote: _sampleQuote };
         const results = await _runWithConcurrency(universe, PUMP_FETCH_CONCURRENCY, async (q) => {
             const sym = q.symbol;
-            let hist;
-            try { hist = await _fetchTickerHistory(sym, '1mo'); }
-            catch (e) { _debug.lastErr = sym + ':' + (e.message || 'err').slice(0,100); _debug.histFail++; return null; }
-            if (!hist) { _debug.histFail++; return null; }
-            if (!hist.closes || hist.closes.length < 10) { _debug.histShort++; return null; }
-            // 히스토리 기반 추가 검증 (정지·고스트 데이터 차단, v640)
+            const hist = await _fetchTickerHistory(sym, '1mo').catch(() => null);
+            if (!hist || !hist.closes || hist.closes.length < 10) return null;
+            // 히스토리 기반 추가 검증 (정지·고스트 데이터 차단)
             const validCloses = hist.closes.filter(v => v != null);
-            if (validCloses.length < 10) { _debug.histShort++; return null; }
-            // 최근 5일 모두 같은 가격 → 거래 정지 의심
+            if (validCloses.length < 10) return null;
             const last5 = validCloses.slice(-5);
-            if (last5.length === 5 && last5.every(v => v === last5[0])) { _debug.flat++; return null; }
-            // 최근 5일 거래량 모두 0 → 거래 없음
+            if (last5.length === 5 && last5.every(v => v === last5[0])) return null;
             const last5Vol = hist.vols.slice(-5).filter(v => v != null);
-            if (last5Vol.length === 5 && last5Vol.every(v => v === 0)) { _debug.flat++; return null; }
-            // 20일 가격 변동폭이 0.5% 미만이면 거의 정지 상태
+            if (last5Vol.length === 5 && last5Vol.every(v => v === 0)) return null;
             const minC = Math.min(...validCloses);
             const maxC = Math.max(...validCloses);
-            if (minC > 0 && (maxC - minC) / minC < 0.005) { _debug.flat++; return null; }
+            if (minC > 0 && (maxC - minC) / minC < 0.005) return null;
             const stageInfo = _detectSykesStage(hist);
             if (!stageInfo) return null;
             const strategy = _calcSykesStrategy(stageInfo, hist);
@@ -1705,7 +1701,6 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
             totalScanned: filtered.length,
             scannedAt: new Date().toISOString(),
             method: 'Tim Sykes 7-Stage',
-            _debug,
         };
         _pumpScanCache = { ts: now, data: payload };
         res.json(payload);
