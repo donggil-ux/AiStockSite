@@ -1607,21 +1607,19 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
             return res.status(503).json({ error: '페니/스몰캡 유니버스 조회 실패 — 잠시 후 재시도' });
         }
 
-        // 상폐·정지·고스트 종목 필터 강화 (v640)
+        // 상폐·정지·고스트 종목 필터 (v640.1)
+        // 한국 사용 시간(저녁=미국 프리마켓 이전)을 고려해 너무 빡빡하지 않게
         const nowSec = Math.floor(Date.now() / 1000);
         universe = universe.filter(q => {
             const lastTs = q.regularMarketTime || 0;
-            // 1) 마지막 거래일이 2일(48h) 이상 지난 종목 제외 — 정지·상폐 의심
-            if (lastTs && nowSec - lastTs > 2 * 24 * 3600) return false;
-            // 2) 가격·시총 데이터 누락 제외
+            // 1) 마지막 거래일 4일(주말 포함 여유) 이상 → 정지·상폐 의심
+            if (lastTs && nowSec - lastTs > 4 * 24 * 3600) return false;
+            // 2) 가격·시총 누락
             if (!q.regularMarketPrice || !q.marketCap || q.marketCap <= 0) return false;
-            // 3) 당일 거래량 0 (실거래 없음) 제외
-            if ((q.regularMarketVolume || 0) === 0) return false;
-            // 4) Yahoo 거래 가능 플래그 (false 명시 시 제외)
+            // 3) tradeable===false 명시
             if (q.tradeable === false) return false;
-            // 5) 가격 변동·전일 종가 모두 0 → 고스트 quote
-            if ((q.regularMarketChange || 0) === 0 && (q.regularMarketChangePercent || 0) === 0
-                && (q.regularMarketDayHigh || 0) === (q.regularMarketDayLow || 0)) return false;
+            // 4) 직전 종가 미존재 (데이터 불완전)
+            if (!q.regularMarketPreviousClose) return false;
             return true;
         });
 
