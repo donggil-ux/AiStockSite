@@ -1802,27 +1802,37 @@ function _alpacaHeaders() {
     };
 }
 // 배치 snapshots — 종목별 latestTrade/latestQuote/dailyBar/prevDailyBar 한 번에
+// 유효한 보통주 티커만 필터 (Alpaca는 SPAC unit·warrant·OTC 거부할 수 있음)
+function _alpacaSafeSymbols(symbols) {
+    return symbols.filter(s => /^[A-Z]{1,5}$/.test(s)); // 점·하이픈·숫자·5자 초과 제외
+}
 async function _alpacaSnapshots(symbols) {
     if (!_alpacaEnabled() || !symbols.length) return { _err: 'env_missing' };
+    const safe = _alpacaSafeSymbols(symbols);
+    if (!safe.length) return { _err: 'no_valid_symbols' };
     try {
-        const url = `https://data.alpaca.markets/v2/stocks/snapshots?symbols=${encodeURIComponent(symbols.join(','))}`;
+        // symbols 는 콤마 구분 plain 그대로 (encodeURIComponent 시 %2C 가 Alpaca 파서 거부)
+        const url = `https://data.alpaca.markets/v2/stocks/snapshots?symbols=${safe.join(',')}`;
         const r = await axios.get(url, { headers: _alpacaHeaders(), timeout: 8000, httpAgent, httpsAgent });
         return r.data || {};
     } catch (e) {
-        console.warn('[alpaca-snapshots]', e.message, e.response?.status, e.response?.data);
-        return { _err: `${e.response?.status || ''} ${e.message}`.slice(0, 200) };
+        const errInfo = `${e.response?.status || ''} ${e.message} ${JSON.stringify(e.response?.data || '').slice(0, 200)}`;
+        console.warn('[alpaca-snapshots]', errInfo);
+        return { _err: errInfo.slice(0, 300) };
     }
 }
 // 배치 일봉 — 20일 평균 거래량·ATR(14) 계산용
 async function _alpacaDailyBars(symbols) {
     if (!_alpacaEnabled() || !symbols.length) return {};
+    const safe = _alpacaSafeSymbols(symbols);
+    if (!safe.length) return {};
     try {
         const start = new Date(Date.now() - 35 * 24 * 3600 * 1000).toISOString().slice(0, 10);
-        const url = `https://data.alpaca.markets/v2/stocks/bars?symbols=${encodeURIComponent(symbols.join(','))}&timeframe=1Day&start=${start}&limit=1000&adjustment=raw`;
+        const url = `https://data.alpaca.markets/v2/stocks/bars?symbols=${safe.join(',')}&timeframe=1Day&start=${start}&limit=1000&adjustment=raw`;
         const r = await axios.get(url, { headers: _alpacaHeaders(), timeout: 10000, httpAgent, httpsAgent });
         return r.data?.bars || {};
     } catch (e) {
-        console.warn('[alpaca-bars]', e.message);
+        console.warn('[alpaca-bars]', e.message, e.response?.status);
         return {};
     }
 }
