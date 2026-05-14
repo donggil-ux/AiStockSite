@@ -4685,13 +4685,18 @@ app.get('/api/oversold-radar', async (req, res) => {
             return res.json({ tab, items: _radarCache[tab] || [], ts: _radarCache.ts });
         }
 
-        // ── Universe 빌드: day_losers + undervalued_growth_stocks (실패시 curated fallback) ──
-        const [lRes, uRes] = await Promise.allSettled([
-            yfRequest(`https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&scrIds=day_losers&count=40`),
-            yfRequest(`https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&scrIds=undervalued_growth_stocks&count=40`),
+        // ── Universe 빌드: day_losers + undervalued_growth_stocks + aggressive_small_caps + growth_technology_stocks
+        //   금액 상관없이 다양한 가격대 커버 (v654)
+        const [lRes, uRes, sRes, gRes] = await Promise.allSettled([
+            yfRequest(`https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&scrIds=day_losers&count=80`),
+            yfRequest(`https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&scrIds=undervalued_growth_stocks&count=80`),
+            yfRequest(`https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&scrIds=aggressive_small_caps&count=80`),
+            yfRequest(`https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&scrIds=growth_technology_stocks&count=80`),
         ]);
-        const losersQ  = lRes.status  === 'fulfilled' ? (lRes.value?.finance?.result?.[0]?.quotes  || []) : [];
-        const undervalQ = uRes.status === 'fulfilled' ? (uRes.value?.finance?.result?.[0]?.quotes || []) : [];
+        const losersQ    = lRes.status === 'fulfilled' ? (lRes.value?.finance?.result?.[0]?.quotes || []) : [];
+        const undervalQ  = uRes.status === 'fulfilled' ? (uRes.value?.finance?.result?.[0]?.quotes || []) : [];
+        const smallCapQ  = sRes.status === 'fulfilled' ? (sRes.value?.finance?.result?.[0]?.quotes || []) : [];
+        const growthQ    = gRes.status === 'fulfilled' ? (gRes.value?.finance?.result?.[0]?.quotes || []) : [];
 
         // 스크리너 실패 → fallback universe로 quote 직접 조회
         let fallbackQ = [];
@@ -4704,9 +4709,11 @@ app.get('/api/oversold-radar', async (req, res) => {
             } catch (e2) { console.warn('[radar] fallback quote fail:', e2.message); }
         }
 
-        const allQuotes = losersQ.length || undervalQ.length ? [...losersQ, ...undervalQ] : fallbackQ;
+        const screenerQuotes = [...losersQ, ...undervalQ, ...smallCapQ, ...growthQ];
+        const allQuotes = screenerQuotes.length ? screenerQuotes : fallbackQ;
+        // 가격대 무관하게 다양한 종목 포함 — 캡 60 → 150 (v654)
         const allSyms = [...new Set(allQuotes.map(q => q.symbol))]
-            .filter(s => /^[A-Z]{1,5}$/.test(s)).slice(0, 60);
+            .filter(s => /^[A-Z]{1,5}$/.test(s)).slice(0, 150);
 
         // ── Spark batch (3개월 종가/거래량) — v7 spark (crumb 불필요) ──
         const sparkMap = {};
@@ -4748,10 +4755,13 @@ app.get('/api/oversold-radar', async (req, res) => {
         const qMap = {};
         allQuotes.forEach(q => { if (!qMap[q.symbol]) qMap[q.symbol] = q; });
 
-        // ── Oversold 목록 ──
-        const oversoldSrc = losersQ.length ? losersQ : allQuotes;
+        // ── Oversold 목록 — 가격 무관 모든 후보 (v654)
+        //   전체 스크리너 합집합에서 RSI 계산 → 낮은 순으로 100개까지 반환
+        const oversoldSrc = allQuotes;
+        const oversoldSeen = new Set();
         const oversoldItems = oversoldSrc
             .filter(q => q.symbol && q.regularMarketPrice != null)
+            .filter(q => { if (oversoldSeen.has(q.symbol)) return false; oversoldSeen.add(q.symbol); return true; })
             .map(q => {
                 const sp = sparkMap[q.symbol] || {};
                 const closes = sp.close || [];
@@ -4769,6 +4779,8 @@ app.get('/api/oversold-radar', async (req, res) => {
                     spark:     closes.slice(-30),
                     ma50:      q.fiftyDayAverage || null,
                     ma200:     q.twoHundredDayAverage || null,
+                    high52:    q.fiftyTwoWeekHigh || null,
+                    low52:     q.fiftyTwoWeekLow || null,
                     rsi,
                     volMult,
                     per:       q.trailingPE ?? q.forwardPE ?? null,
@@ -4776,7 +4788,7 @@ app.get('/api/oversold-radar', async (req, res) => {
                 };
             })
             .sort((a, b) => (a.rsi ?? 50) - (b.rsi ?? 50))
-            .slice(0, 20);
+            .slice(0, 100);
 
         // ── Value 목록 ──
         const valueSrc = undervalQ.length ? undervalQ : allQuotes;
