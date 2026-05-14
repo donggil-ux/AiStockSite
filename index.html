@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=635">
+    <link rel="stylesheet" href="/styles.css?v=636">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -769,6 +769,11 @@
                                 style="border-color:var(--border);">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px;"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-7"/></svg>김직선
                             </button>
+                            <button class="chart-tb-btn" id="chartSmbBtn"
+                                onclick="toggleChartSmbLayer()" title="SMB — VWAP·ORB·프리마켓 H/L 셋업 (5분봉)"
+                                style="border-color:var(--border);">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px;"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/><path d="M3 12h18"/><path d="M12 3v18"/></svg>SMB
+                            </button>
                             <button class="chart-tb-btn" id="chartLabelsBtn"
                                 onclick="toggleChartLabels()" title="우측 가격 라벨(EMA20·EMA50·EMA200·BB+ 등) 숨기기/표시"
                                 style="border-color:var(--border);">
@@ -915,6 +920,9 @@
 
             <!-- Kim 기법(시가+MA20+BB) 분석 카드 — 일봉 전용 (v628) -->
             <div id="kimMethodAnalysis"></div>
+
+            <!-- SMB Capital 분석 카드 — 5분봉 전용 (v636) -->
+            <div id="smbAnalysis"></div>
 
             <!-- R/R Analysis Card: 단타/스윙 공통, 항상 노출 -->
             <!-- 손익비 (R/R) 분석 — 일시 숨김 (v531) -->
@@ -1224,6 +1232,13 @@
     let lwBbUpper = null;
     let lwBbLower = null;
     let lwBbMiddle = null;
+    // SMB (v636) — 5분봉 전용 VWAP·밴드 라인 시리즈
+    let lwVwap = null;
+    let lwVwapUpper = null;
+    let lwVwapLower = null;
+    let _chartSmbLines = []; // ORB·프리마켓 H/L priceLine refs
+    let _chartSmbEnabled = localStorage.getItem('stockai_chart_smb') !== '0';
+    let _smbLastAnalysis = null;
     let lwAiPriceLines = [];        // AI 지지/저항선 (createPriceLine refs)
     let lwAiTrendSeries = [];       // AI 추세선 legacy (사용 안함, 하위호환)
     let lwAiCanvasTrendlines = [];  // AI 추세선 (canvas Ray 방식, 1000×1000 좌표)
@@ -11120,6 +11135,71 @@
         return vwap;
     }
 
+    // VWAP — 세션(ET 날짜) 기준 리셋 + ±1σ 밴드 (v636 SMB)
+    // 반환: { vwap, upper, lower, sessionIdx }
+    // sessionIdx[i] = i 번째 봉이 속한 세션의 시작 인덱스 (같은 세션이면 동일 값)
+    function calcVWAPSession(highs, lows, closes, volumes, timestamps) {
+        const N = closes.length;
+        const vwap = new Array(N).fill(null);
+        const upper = new Array(N).fill(null);
+        const lower = new Array(N).fill(null);
+        const sessionIdx = new Array(N).fill(0);
+        if (!timestamps || timestamps.length !== N) return { vwap, upper, lower, sessionIdx };
+
+        const etDateOf = ts => {
+            try { return new Date(ts * 1000).toLocaleDateString('en-US', { timeZone: 'America/New_York' }); }
+            catch (e) { return new Date(ts * 1000).toISOString().slice(0, 10); }
+        };
+
+        let cumVol = 0, cumTPV = 0, cumTP2V = 0;
+        let sessionStart = 0;
+        let prevDate = null;
+        for (let i = 0; i < N; i++) {
+            const h = highs[i], l = lows[i], c = closes[i], v = volumes[i], ts = timestamps[i];
+            if (h == null || l == null || c == null || v == null || ts == null) {
+                sessionIdx[i] = sessionStart;
+                continue;
+            }
+            const curDate = etDateOf(ts);
+            if (prevDate !== null && curDate !== prevDate) {
+                // 새 세션 시작 → 누적값 리셋
+                cumVol = 0; cumTPV = 0; cumTP2V = 0;
+                sessionStart = i;
+            }
+            const tp = (h + l + c) / 3;
+            cumTPV += tp * v;
+            cumTP2V += tp * tp * v;
+            cumVol += v;
+            if (cumVol > 0) {
+                const vw = cumTPV / cumVol;
+                vwap[i] = vw;
+                const variance = Math.max(0, (cumTP2V / cumVol) - (vw * vw));
+                const std = Math.sqrt(variance);
+                upper[i] = vw + std;
+                lower[i] = vw - std;
+            }
+            sessionIdx[i] = sessionStart;
+            prevDate = curDate;
+        }
+        return { vwap, upper, lower, sessionIdx };
+    }
+
+    // ET 시간대 헬퍼 (HH:MM 반환) — SMB ORB·프리마켓 시간 판단용
+    function _etTimeHHMM(ts) {
+        try {
+            const s = new Date(ts * 1000).toLocaleTimeString('en-US', {
+                timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit',
+            });
+            return s.replace(/^24/, '00');
+        } catch (e) { return ''; }
+    }
+    function _etMinutesOfDay(ts) {
+        const t = _etTimeHHMM(ts);
+        const m = t.match(/^(\d{2}):(\d{2})/);
+        if (!m) return -1;
+        return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+    }
+
     // ATR (Average True Range) — Wilder smoothing with tracked prev (O(N), not O(N²))
     function calcATR(highs, lows, closes, period = 14) {
         const tr = [], atr = [];
@@ -11364,6 +11444,10 @@
         lwBbUpper = null;
         lwBbLower = null;
         lwBbMiddle = null;
+        lwVwap = null;
+        lwVwapUpper = null;
+        lwVwapLower = null;
+        _chartSmbLines = [];
         // 자동 추세각도 시리즈 정리
         try { _autoTrendLineSeries = []; } catch(_) {}
     }
@@ -11520,6 +11604,39 @@
             });
             lwBbUpper.setData(upperData);
             lwBbLower.setData(lowerData);
+        }
+
+        // SMB Capital VWAP 레이어 — 5분봉 전용 + 토글 ON (v636)
+        if (currentInterval === '5m' && _chartSmbEnabled) {
+            try {
+                const vwapRes = calcVWAPSession(q.high, q.low, q.close, q.volume || [], ts);
+                const vwapData = [], upData = [], dnData = [];
+                for (let i = 0; i < ts.length; i++) {
+                    if (vwapRes.vwap[i]  != null) vwapData.push({ time: ts[i], value: vwapRes.vwap[i] });
+                    if (vwapRes.upper[i] != null) upData.push({ time: ts[i], value: vwapRes.upper[i] });
+                    if (vwapRes.lower[i] != null) dnData.push({ time: ts[i], value: vwapRes.lower[i] });
+                }
+                if (vwapData.length) {
+                    lwVwap = lwChart.addLineSeries({
+                        color: '#2563eb', lineWidth: 2, lineStyle: 0,
+                        priceLineVisible: false, lastValueVisible: true, title: 'VWAP',
+                        crosshairMarkerVisible: false,
+                    });
+                    lwVwapUpper = lwChart.addLineSeries({
+                        color: 'rgba(37,99,235,0.55)', lineWidth: 1, lineStyle: 1,
+                        priceLineVisible: false, lastValueVisible: true, title: 'VWAP+1σ',
+                        crosshairMarkerVisible: false,
+                    });
+                    lwVwapLower = lwChart.addLineSeries({
+                        color: 'rgba(37,99,235,0.55)', lineWidth: 1, lineStyle: 1,
+                        priceLineVisible: false, lastValueVisible: true, title: 'VWAP-1σ',
+                        crosshairMarkerVisible: false,
+                    });
+                    lwVwap.setData(vwapData);
+                    lwVwapUpper.setData(upData);
+                    lwVwapLower.setData(dnData);
+                }
+            } catch (e) { console.warn('[smb-vwap] fail', e); }
         }
 
         // 실시간 지표 시그널 — 배지·마커·지지/저항선 자동 추가
@@ -12037,6 +12154,9 @@
 
         // 6) 김직선 레이어 — 일봉 전용, 시가+MA20+BB 진입·손절·익절
         try { _renderKimMethodLayer(q, ts, bb); } catch (e) { console.warn('[kim] render fail', e); }
+
+        // 7) SMB Capital 레이어 — 5분봉 전용, VWAP·ORB·프리마켓 H/L (v636)
+        try { _renderSmbLayer(q, ts); } catch (e) { console.warn('[smb] render fail', e); }
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -12400,6 +12520,348 @@
             </div>
         `;
         _updateKimBtnUi();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // SMB Capital 레이어 — 5분봉 전용 (v636)
+    //   VWAP + ±1σ + ORB(09:30-10:00 ET) + 프리마켓 H/L
+    //   셋업 자동 감지: ORB / VWAP Flip / VWAP First Bounce
+    // ═══════════════════════════════════════════════════════════
+    function _updateSmbBtnUi() {
+        const btn = document.getElementById('chartSmbBtn');
+        if (!btn) return;
+        if (_chartSmbEnabled) {
+            btn.style.color = 'var(--text1)';
+            btn.style.background = 'var(--bg2)';
+            btn.title = 'SMB 레이어 끄기';
+        } else {
+            btn.style.color = 'var(--text3)';
+            btn.style.background = 'transparent';
+            btn.title = 'SMB 레이어 켜기 (5분봉)';
+        }
+    }
+
+    function toggleChartSmbLayer() {
+        _chartSmbEnabled = !_chartSmbEnabled;
+        localStorage.setItem('stockai_chart_smb', _chartSmbEnabled ? '1' : '0');
+        _updateSmbBtnUi();
+        // VWAP 라인은 차트 생성 시점에 결정되므로 전체 차트 재그림 필요
+        if (typeof renderPriceChart === 'function' && stockData) {
+            try { renderPriceChart(); } catch(e) {
+                // fallback: 시그널만 재렌더
+                if (_lastSigArgs) {
+                    try { renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); } catch(_) {}
+                }
+            }
+        }
+    }
+
+    function _clearSmbLines() {
+        _chartSmbLines.forEach(pl => { try { lwCandleSeries?.removePriceLine(pl); } catch(e) {} });
+        _chartSmbLines = [];
+    }
+
+    function _renderSmbLayer(q, ts) {
+        const card = document.getElementById('smbAnalysis');
+        if (currentInterval !== '5m' || !_chartSmbEnabled) {
+            _clearSmbLines();
+            _smbLastAnalysis = null;
+            if (card) { card.innerHTML = ''; card.style.display = 'none'; }
+            _updateSmbBtnUi();
+            return;
+        }
+        if (!q || !q.close || !q.close.length || !lwCandleSeries || !ts || !ts.length) return;
+        _clearSmbLines();
+
+        const opens = q.open || [], highs = q.high, lows = q.low, closes = q.close, vols = q.volume || [];
+        const N = closes.length;
+        const lastIdx = (() => { for (let i = N - 1; i >= 0; i--) if (closes[i] != null) return i; return -1; })();
+        if (lastIdx < 0) return;
+
+        // 마지막 봉 기준 ET 날짜
+        const etDateOf = t => { try { return new Date(t * 1000).toLocaleDateString('en-US', { timeZone: 'America/New_York' }); } catch (e) { return new Date(t * 1000).toISOString().slice(0,10); } };
+        const todayET = etDateOf(ts[lastIdx]);
+
+        // 오늘 세션 봉 인덱스 추출 (프리마켓 04:00 ~ 정규장 16:00 ET = 분 240 ~ 960)
+        const todayIdx = [];
+        for (let i = 0; i <= lastIdx; i++) {
+            if (ts[i] != null && etDateOf(ts[i]) === todayET) todayIdx.push(i);
+        }
+        if (!todayIdx.length) return;
+
+        // ── 프리마켓 H/L (04:00 ~ 09:30 ET) ──────────────────────────
+        let preHigh = null, preLow = null;
+        for (const i of todayIdx) {
+            const mod = _etMinutesOfDay(ts[i]);
+            if (mod < 4*60 || mod >= 9*60+30) continue;
+            if (highs[i] != null) preHigh = preHigh == null ? highs[i] : Math.max(preHigh, highs[i]);
+            if (lows[i]  != null) preLow  = preLow  == null ? lows[i]  : Math.min(preLow,  lows[i]);
+        }
+
+        // ── ORB (09:30 ~ 10:00 ET) ──────────────────────────────────
+        let orbHigh = null, orbLow = null, orbFirstIdx = null, orbLastIdx = null, regularOpen = null;
+        for (const i of todayIdx) {
+            const mod = _etMinutesOfDay(ts[i]);
+            if (mod < 9*60+30) continue;
+            if (regularOpen == null && opens[i] != null) regularOpen = opens[i];
+            if (mod >= 10*60) break;
+            if (orbFirstIdx == null) orbFirstIdx = i;
+            orbLastIdx = i;
+            if (highs[i] != null) orbHigh = orbHigh == null ? highs[i] : Math.max(orbHigh, highs[i]);
+            if (lows[i]  != null) orbLow  = orbLow  == null ? lows[i]  : Math.min(orbLow,  lows[i]);
+        }
+
+        // 현재 마지막 봉 ET 시간 (분)
+        const lastMOD = _etMinutesOfDay(ts[lastIdx]);
+        const orbWindowActive = lastMOD >= 9*60+30 && lastMOD <= 11*60; // 09:30~11:00 ET 까지만 ORB 라인 표시
+
+        // ── VWAP 마지막값 (calcVWAPSession 재계산 — 차트 그릴 때와 동일 로직) ──
+        const vwapRes = calcVWAPSession(highs, lows, closes, vols, ts);
+        const lastVWAP = vwapRes.vwap[lastIdx];
+        const lastVWAPUpper = vwapRes.upper[lastIdx];
+        const lastVWAPLower = vwapRes.lower[lastIdx];
+
+        // ── RVOL (최근 20봉) ─────────────────────────────────────────
+        const rvol = (() => {
+            if (lastIdx < 20) return 0;
+            const recent = vols.slice(Math.max(0, lastIdx - 19), lastIdx + 1).filter(v => v != null);
+            const avg = recent.length ? recent.reduce((s,v)=>s+v,0) / recent.length : 0;
+            return avg > 0 ? (vols[lastIdx] / avg) : 0;
+        })();
+
+        const close = closes[lastIdx];
+        const isKR = currentMarket === 'KR';
+        const fmtP = p => isKR ? Math.round(p).toLocaleString() + '원' : '$' + p.toFixed(2);
+        const pctOf = (p, base) => (((p - base) / base) * 100).toFixed(2);
+
+        // ── 차트 priceLine 추가 (ORB·프리마켓 H/L) ──────────────────
+        const addSmb = (price, color, style, width, label) => {
+            if (price == null || !isFinite(price)) return;
+            try {
+                const pl = lwCandleSeries.createPriceLine({
+                    price, color, lineWidth: width, lineStyle: style,
+                    axisLabelVisible: true, title: label,
+                });
+                _chartSmbLines.push(pl);
+            } catch(e) {}
+        };
+        // 프리마켓 H/L — 회색 점선
+        if (preHigh != null) addSmb(preHigh, 'rgba(148,163,184,0.85)', 1, 1, `프리마켓 고점 ${fmtP(preHigh)}`);
+        if (preLow  != null) addSmb(preLow,  'rgba(148,163,184,0.85)', 1, 1, `프리마켓 저점 ${fmtP(preLow)}`);
+        // ORB 라인 — 11:00 ET 이전까지만 표시
+        if (orbWindowActive && orbHigh != null) addSmb(orbHigh, '#22c55e', 0, 2, `ORB 고점 ${fmtP(orbHigh)}`);
+        if (orbWindowActive && orbLow  != null) addSmb(orbLow,  '#ef4444', 0, 2, `ORB 저점 ${fmtP(orbLow)}`);
+
+        // ── 셋업 감지 ───────────────────────────────────────────────
+        const activeSetups = [];
+        // VWAP Flip 마커 (전체 세션 대상 — 최근 10봉만 마커)
+        const flipMarkers = [];
+        if (vwapRes.vwap && lastVWAP != null) {
+            const start = Math.max(1, lastIdx - 10);
+            for (let i = start; i <= lastIdx; i++) {
+                const prev = vwapRes.vwap[i-1];
+                const cur  = vwapRes.vwap[i];
+                if (prev == null || cur == null || closes[i] == null || closes[i-1] == null || opens[i] == null) continue;
+                // 매수 플립: 직전 종가 < VWAP, 현재 종가 > VWAP + 양봉
+                if (closes[i-1] < prev && closes[i] > cur && closes[i] > opens[i]) {
+                    flipMarkers.push({ time: ts[i], position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: 'VWAP↑' });
+                }
+                // 매도 플립: 직전 종가 > VWAP, 현재 종가 < VWAP + 음봉
+                else if (closes[i-1] > prev && closes[i] < cur && closes[i] < opens[i]) {
+                    flipMarkers.push({ time: ts[i], position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: 'VWAP↓' });
+                }
+            }
+        }
+        // 가장 최근 봉이 플립 봉인지
+        const lastFlip = flipMarkers.length ? flipMarkers[flipMarkers.length - 1] : null;
+        const isLastFlip = lastFlip && lastFlip.time === ts[lastIdx];
+
+        // ORB 돌파 매수 마커: 5분 종가 > ORB 고점 + RVOL ≥ 1.5 + 현재가 > VWAP
+        const orbMarkers = [];
+        if (orbHigh != null && orbLastIdx != null && rvol >= 1.5 && lastVWAP != null && close > lastVWAP) {
+            for (let i = orbLastIdx + 1; i <= lastIdx; i++) {
+                if (closes[i] != null && closes[i] > orbHigh) {
+                    orbMarkers.push({ time: ts[i], position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: 'ORB↑' });
+                    break;
+                }
+            }
+        }
+        if (orbLow != null && orbLastIdx != null && rvol >= 1.5 && lastVWAP != null && close < lastVWAP) {
+            for (let i = orbLastIdx + 1; i <= lastIdx; i++) {
+                if (closes[i] != null && closes[i] < orbLow) {
+                    orbMarkers.push({ time: ts[i], position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', text: 'ORB↓' });
+                    break;
+                }
+            }
+        }
+
+        // 기존 마커에 SMB 마커 병합 (lwCandleSeries.setMarkers 는 위에서 setMarkers 끝나서 합쳐서 다시 set)
+        try {
+            const cur = (typeof _lastSetMarkers === 'function') ? [] : null;
+            // 단순화: 누적 마커는 renderChartLiveSignals 마지막에 한 번에 set 되므로,
+            // SMB 마커는 별도 시리즈 호출
+            const allMarkers = (lwCandleSeries.markers && lwCandleSeries.markers()) || [];
+            const merged = [...allMarkers, ...flipMarkers, ...orbMarkers]
+                .sort((a,b) => a.time - b.time)
+                .slice(-60);
+            lwCandleSeries.setMarkers(merged);
+        } catch(e) {}
+
+        // ── 활성 셋업 결정 (우선순위: ORB → VWAP First Bounce → VWAP Flip) ──
+        let activeSetup = null;
+        const orbHit = orbMarkers.length > 0;
+        if (orbHit && orbWindowActive) activeSetup = { key: 'ORB', label: 'ORB 돌파', dir: orbMarkers[orbMarkers.length-1].text === 'ORB↑' ? 'long' : 'short' };
+        else if (isLastFlip) activeSetup = { key: 'VWAP_FLIP', label: 'VWAP 플립', dir: lastFlip.text === 'VWAP↑' ? 'long' : 'short' };
+        if (orbHit) activeSetups.push('ORB');
+        if (isLastFlip) activeSetups.push('VWAP_FLIP');
+
+        // ── 매매 라인 (활성 셋업 기준) ─────────────────────────────
+        // ATR 기반 1차 손절·익절1 계산 (분봉이라 _q 의 ATR 재사용)
+        const atrArr = calcATR(highs, lows, closes, 14);
+        const atr = (() => { for (let i = atrArr.length - 1; i >= 0; i--) if (atrArr[i] != null) return atrArr[i]; return null; })();
+        let entry = null, stop = null, tp1 = null;
+        if (activeSetup) {
+            if (activeSetup.key === 'ORB' && activeSetup.dir === 'long' && orbHigh != null) {
+                entry = orbHigh + (atr ? atr * 0.05 : 0.05);
+                stop  = lastVWAP != null ? Math.min(lastVWAP, orbLow != null ? orbLow : close) : (orbLow ?? close - (atr || 1)*0.5);
+                tp1   = entry + (entry - stop);
+            } else if (activeSetup.key === 'ORB' && activeSetup.dir === 'short' && orbLow != null) {
+                entry = orbLow - (atr ? atr * 0.05 : 0.05);
+                stop  = lastVWAP != null ? Math.max(lastVWAP, orbHigh != null ? orbHigh : close) : (orbHigh ?? close + (atr || 1)*0.5);
+                tp1   = entry - (stop - entry);
+            } else if (activeSetup.key === 'VWAP_FLIP' && activeSetup.dir === 'long' && lastVWAP != null) {
+                entry = close;
+                // 최근 5봉 스윙 저점
+                let swingLow = close;
+                for (let i = Math.max(0, lastIdx - 5); i <= lastIdx; i++) {
+                    if (lows[i] != null) swingLow = Math.min(swingLow, lows[i]);
+                }
+                stop = swingLow;
+                tp1 = entry + (entry - stop);
+            } else if (activeSetup.key === 'VWAP_FLIP' && activeSetup.dir === 'short' && lastVWAP != null) {
+                entry = close;
+                let swingHigh = close;
+                for (let i = Math.max(0, lastIdx - 5); i <= lastIdx; i++) {
+                    if (highs[i] != null) swingHigh = Math.max(swingHigh, highs[i]);
+                }
+                stop = swingHigh;
+                tp1 = entry - (stop - entry);
+            }
+
+            if (entry != null && stop != null) {
+                const isLong = activeSetup.dir === 'long';
+                addSmb(entry, '#22c55e', 0, 2, `${activeSetup.label} 진입 ${fmtP(entry)}`);
+                addSmb(stop,  '#ef4444', 0, 2, `${activeSetup.label} 손절 ${fmtP(stop)} (${pctOf(stop, close)}%)`);
+                if (tp1 != null) addSmb(tp1, '#eab308', 1, 1, `${activeSetup.label} 익절1 ${fmtP(tp1)} (${isLong ? '+' : ''}${pctOf(tp1, close)}%)`);
+            }
+        }
+
+        // ── 차트 상단 배지 추가 ──────────────────────────────────────
+        const bar = document.getElementById('chartSigBar');
+        if (bar) {
+            const sBadges = [];
+            if (lastVWAP != null) {
+                const cls = close > lastVWAP ? 'sig-red' : 'sig-blue';
+                sBadges.push(`<span class="chart-sig-pill ${cls}">SMB: VWAP ${close > lastVWAP ? '위' : '아래'}</span>`);
+            }
+            if (orbWindowActive && orbHit) sBadges.push(`<span class="chart-sig-pill sig-red">⚡ ORB 활성</span>`);
+            if (isLastFlip) sBadges.push(`<span class="chart-sig-pill ${lastFlip.text === 'VWAP↑' ? 'sig-red' : 'sig-blue'}">🔄 ${escHtml(lastFlip.text)} 플립</span>`);
+            if (rvol >= 1.5) sBadges.push(`<span class="chart-sig-pill sig-red">RVOL ${rvol.toFixed(1)}x</span>`);
+            if (sBadges.length) bar.insertAdjacentHTML('beforeend', sBadges.join(''));
+        }
+
+        // ── 카드 데이터 + 렌더 ──────────────────────────────────────
+        const analysis = {
+            symbol: currentSymbol, close, vwap: lastVWAP, vwapUpper: lastVWAPUpper, vwapLower: lastVWAPLower,
+            preHigh, preLow, orbHigh, orbLow, orbWindowActive, rvol, atr,
+            activeSetup, entry, stop, tp1, fmtP, pctOf, etMin: lastMOD,
+        };
+        _smbLastAnalysis = analysis;
+        _renderSmbCard(analysis);
+        _updateSmbBtnUi();
+    }
+
+    function _renderSmbCard(a) {
+        const el = document.getElementById('smbAnalysis');
+        if (!el) return;
+        el.style.display = '';
+
+        const setupLabel = a.activeSetup ? a.activeSetup.label : '셋업 미형성';
+        const setupColor = a.activeSetup ? (a.activeSetup.dir === 'long' ? '#22c55e' : '#ef4444') : '#94a3b8';
+        const dirText = a.activeSetup ? (a.activeSetup.dir === 'long' ? '매수' : '매도') : '관망';
+
+        const rr = (a.entry != null && a.stop != null && a.tp1 != null)
+            ? Math.abs((a.tp1 - a.entry) / (a.entry - a.stop)) : 0;
+        const rrCls = rr >= 2 ? 'rr-good' : 'rr-bad';
+        const rrWarn = (rr > 0 && rr < 2) ? '<span class="kim-warn">⚠️ R:R 부족 — SMB 기준 미충족 (1:2 미만)</span>' : '';
+
+        const vwapPos = a.vwap != null ? (a.close > a.vwap ? '위' : '아래') : '?';
+        const aiText = `SMB Capital 분석: 활성 셋업 ${setupLabel} (${dirText}). VWAP ${a.vwap != null ? a.fmtP(a.vwap) : '-'} 대비 ${vwapPos}, RVOL ${a.rvol.toFixed(1)}x.${a.entry != null ? ` 진입 ${a.fmtP(a.entry)} / 손절 ${a.fmtP(a.stop)} / 익절1 ${a.fmtP(a.tp1)} (R:R 1:${rr.toFixed(1)}).` : ' 진입 시그널 대기 중.'}`;
+
+        const keyRow = (label, val, pct) => `
+            <div class="kim-key-item">
+                <span class="kim-key-label">${label}</span>
+                <strong>${val}</strong>
+                ${pct != null ? `<span class="kim-line-pct ${pct >= 0 ? 'up' : 'down'}" style="font-size:11px;">${pct >= 0 ? '+' : ''}${pct}%</span>` : ''}
+            </div>`;
+
+        const linesHTML = a.entry != null && a.stop != null ? `
+            <div class="kim-lines-group">
+                <div class="kim-lines-title">📥 진입가</div>
+                <div class="kim-line">
+                    <span class="kim-line-label entry">${setupLabel} 진입</span>
+                    <span class="kim-line-price">${a.fmtP(a.entry)}</span>
+                    <span class="kim-line-pct ${a.entry >= a.close ? 'up' : 'down'}">${a.entry >= a.close ? '+' : ''}${a.pctOf(a.entry, a.close)}%</span>
+                </div>
+            </div>
+            <div class="kim-lines-group">
+                <div class="kim-lines-title">🛡️ 손절가</div>
+                <div class="kim-line">
+                    <span class="kim-line-label stop">${setupLabel} 손절</span>
+                    <span class="kim-line-price">${a.fmtP(a.stop)}</span>
+                    <span class="kim-line-pct ${a.stop >= a.close ? 'up' : 'down'}">${a.stop >= a.close ? '+' : ''}${a.pctOf(a.stop, a.close)}%</span>
+                </div>
+            </div>
+            ${a.tp1 != null ? `
+            <div class="kim-lines-group">
+                <div class="kim-lines-title">🎯 익절가</div>
+                <div class="kim-line">
+                    <span class="kim-line-label tp">${setupLabel} 익절1 (R:R 1:${rr.toFixed(1)})</span>
+                    <span class="kim-line-price">${a.fmtP(a.tp1)}</span>
+                    <span class="kim-line-pct ${a.tp1 >= a.close ? 'up' : 'down'}">${a.tp1 >= a.close ? '+' : ''}${a.pctOf(a.tp1, a.close)}%</span>
+                </div>
+            </div>
+            <div class="kim-rr-card">
+                <div class="kim-rr-row"><span>1차 R:R</span><strong class="${rrCls}">1 : ${rr.toFixed(1)}</strong></div>
+                ${rrWarn}
+            </div>` : ''}
+        ` : '<div class="kim-perspective-desc">진입 시그널 대기 — ORB 돌파 또는 VWAP 플립을 기다리세요.</div>';
+
+        const orbBadge = a.orbWindowActive ? '<span class="kim-flag kim-flag--bb">⚡ ORB 활성 (09:30~11:00 ET)</span>' : '';
+        const flipBadge = (a.activeSetup && a.activeSetup.key === 'VWAP_FLIP') ? `<span class="kim-flag kim-flag--recover">🔄 VWAP 플립 ${a.activeSetup.dir === 'long' ? '매수' : '매도'}</span>` : '';
+        const rvolBadge = a.rvol >= 1.5 ? `<span class="kim-flag kim-flag--rep">🔥 RVOL ${a.rvol.toFixed(1)}x</span>` : '';
+
+        el.innerHTML = `
+            <div class="card kim-card">
+                <div class="card-title">
+                    <span class="dot" style="background:${setupColor}"></span>
+                    SMB Capital 분석 <span class="trade-badge" style="background:${setupColor};color:#fff">${escHtml(setupLabel)}</span>
+                </div>
+                <div class="kim-perspective-desc">SMB Capital — 5분봉 VWAP·ORB 기반 단타 셋업 (촉매 있는 종목 + VWAP 기준선 + 플레이북)</div>
+                <div class="kim-flags">${orbBadge}${flipBadge}${rvolBadge}</div>
+                <div class="kim-key">
+                    ${keyRow('VWAP', a.vwap != null ? a.fmtP(a.vwap) : '-', a.vwap != null ? +a.pctOf(a.vwap, a.close) : null)}
+                    ${keyRow('현재가', a.fmtP(a.close), null)}
+                    ${keyRow('ORB 고점', a.orbHigh != null ? a.fmtP(a.orbHigh) : '-', a.orbHigh != null ? +a.pctOf(a.orbHigh, a.close) : null)}
+                    ${keyRow('프리마켓 고점', a.preHigh != null ? a.fmtP(a.preHigh) : '-', a.preHigh != null ? +a.pctOf(a.preHigh, a.close) : null)}
+                </div>
+                ${linesHTML}
+                <div class="kim-ai">
+                    <div class="kim-ai-title">💡 SMB 분석</div>
+                    <div class="kim-ai-body">${escHtml(aiText)}</div>
+                </div>
+            </div>
+        `;
     }
 
     function clearAllDrawings() {
@@ -16687,6 +17149,18 @@
     // ========================================
     const CHANGELOG_LS_KEY = 'stockai_changelog_seen';
     const CHANGELOG = [
+        {
+            v: 'v636', date: '2026-05-14', tag: '✨ 신기능',
+            title: 'SMB Capital 5분봉 분석 (Phase 1+2)',
+            items: [
+                'VWAP + ±1σ 밴드 — 당일 09:30 ET 세션 기준 리셋',
+                'ORB 라인 — 09:30~10:00 ET 박스 + 11:00 ET 자동 숨김',
+                '프리마켓 H/L 점선 (04:00~09:30 ET)',
+                'VWAP Flip / ORB 돌파 매수·매도 마커 자동 감지',
+                '활성 셋업별 진입·손절·익절1 라인 + R:R 카드',
+                'SMB 토글 버튼 — 5분봉에서만 활성',
+            ],
+        },
         {
             v: 'v628', date: '2026-05-14', tag: '✨ 신기능',
             title: '김직선 분석 — 시가+MA20+BB 일봉 매매 전략',
@@ -21080,7 +21554,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         loadOptionsDate, setOptionsFilter,
         setOptionsStrikeRange, toggleOptionsVolFilter, sortOptionsBy,
         manualAnalysisRefresh, pwaInstall,
-        toggleChartSigLines, toggleChartKimLines,
+        toggleChartSigLines, toggleChartKimLines, toggleChartSmbLayer,
         handleSearchKeydown, openSearchDropdown, closeSearchDropdown, searchSuggest, levenshtein,
         renderDayUnified, renderDanteAnalysis, runDanteBacktest,
         renderRRAnalysis, renderRaynerAnalysis, renderMinerviniSEPA, renderRSIMomentum, analyzeRSIDynamic,
