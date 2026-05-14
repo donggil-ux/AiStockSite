@@ -1856,19 +1856,17 @@ app.get('/api/catalyst/hunter', async (req, res) => {
         const allFilings = [...feed8k, ...feed6k];
 
         // 2) 티커 매핑 + 키워드 점수 (v655.3)
+        //    EDGAR RSS 제목은 "[Form] - [Company] (CIK)" 형식이라 본문 키워드가 거의 없음.
+        //    8-K/6-K 자체가 material event 신호이므로 제외 키워드만 거르고 통과 + 키워드 매치 시 가점.
         const seenTickers = new Set();
         const candidates = [];
-        const _dbg = { excluded: 0, noTicker: 0, noCikMatch: 0, dup: 0, cikMapSize: Object.keys(cikMap || {}).length };
         for (const f of allFilings) {
             const kw = _catalystKeywordScore(f.title);
-            if (kw.tier === 'excluded') { _dbg.excluded++; continue; }
+            if (kw.tier === 'excluded') continue;
             let ticker = (f.title.match(/\(([A-Z]{1,5})\)/) || [])[1];
-            if (!ticker && f.cik) {
-                ticker = cikMap[f.cik];
-                if (!ticker) _dbg.noCikMatch++;
-            }
-            if (!ticker) { _dbg.noTicker++; continue; }
-            if (seenTickers.has(ticker)) { _dbg.dup++; continue; }
+            if (!ticker && f.cik) ticker = cikMap[f.cik];
+            if (!ticker) continue;
+            if (seenTickers.has(ticker)) continue;
             seenTickers.add(ticker);
             const effectiveScore = kw.score > 0 ? kw.score : 10;
             const effectiveTier  = kw.score > 0 ? kw.tier : 'baseline';
@@ -1884,10 +1882,7 @@ app.get('/api/catalyst/hunter', async (req, res) => {
                 results: [],
                 totalScanned: 0,
                 totalFilings: allFilings.length,
-                feed8kCount: feed8k.length,
-                feed6kCount: feed6k.length,
                 scannedAt: new Date().toISOString(),
-                _debug: _dbg,
             });
         }
 
@@ -1998,8 +1993,6 @@ app.get('/api/catalyst/hunter', async (req, res) => {
             results: results.slice(0, 50),
             totalScanned: candidates.length,
             totalFilings: allFilings.length,
-            feed8kCount: feed8k.length,
-            feed6kCount: feed6k.length,
             scannedAt: new Date().toISOString(),
         };
         // 빈 결과는 캐시하지 않음 (다음 요청에서 즉시 재시도)
