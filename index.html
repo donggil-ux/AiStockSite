@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=627">
+    <link rel="stylesheet" href="/styles.css?v=628">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -764,6 +764,11 @@
                                 style="border-color:var(--border);">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>보조지표
                             </button>
+                            <button class="chart-tb-btn" id="chartKimLinesBtn"
+                                onclick="toggleChartKimLines()" title="김기법 — 시가+MA20+BB 진입·손절·익절 라인 (일봉)"
+                                style="border-color:var(--border);">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px;"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-7"/></svg>김기법
+                            </button>
                             <button class="chart-tb-btn" id="chartLabelsBtn"
                                 onclick="toggleChartLabels()" title="우측 가격 라벨(EMA20·EMA50·EMA200·BB+ 등) 숨기기/표시"
                                 style="border-color:var(--border);">
@@ -907,6 +912,9 @@
 
             <!-- Rayner Teo 분석 카드: Stage + 캔들 패턴 + 진입 전략 + R:R -->
             <div id="raynerAnalysis"></div>
+
+            <!-- Kim 기법(시가+MA20+BB) 분석 카드 — 일봉 전용 (v628) -->
+            <div id="kimMethodAnalysis"></div>
 
             <!-- R/R Analysis Card: 단타/스윙 공통, 항상 노출 -->
             <!-- 손익비 (R/R) 분석 — 일시 숨김 (v531) -->
@@ -2586,6 +2594,41 @@
         }, 400);
     }
 
+    // "급등했다." → "급등" : 문장 끝 서술어 어미 제거
+    function _trimReasonEnding(text) {
+        if (!text) return text;
+        return text.replace(/(?:했|됐|었|겠|ㄴ|는|이)다\.$/, '').trim();
+    }
+
+    // 이유 문장 → 핵심 키워드 + 방향 클래스 추출
+    function _extractReasonTag(text) {
+        if (!text) return { tag: '', dir: 'flat' };
+        const UP   = ['급반등','급등','폭등','강세','상승','반등','호조','회복','랠리'];
+        const DOWN = ['급락','폭락','급하락','약세','하락','조정','부진','저조'];
+        const FLAT = ['보합','횡보','혼조'];
+        const MOD  = ['소폭','강한','약한','큰'];
+        // 수식어 + 방향 조합 우선 탐색
+        for (const m of MOD) {
+            for (const k of UP)   { if (text.includes(m) && text.includes(k)) return { tag: m+' '+k, dir:'up'   }; }
+            for (const k of DOWN) { if (text.includes(m) && text.includes(k)) return { tag: m+' '+k, dir:'down' }; }
+        }
+        for (const k of UP)   { if (text.includes(k)) return { tag: k, dir:'up'   }; }
+        for (const k of DOWN) { if (text.includes(k)) return { tag: k, dir:'down' }; }
+        for (const k of FLAT) { if (text.includes(k)) return { tag: k, dir:'flat' }; }
+        return { tag: '', dir: 'flat' };
+    }
+    function _applyReasonTag(el, fullText) {
+        el.title = fullText;
+        const { tag, dir } = _extractReasonTag(fullText);
+        if (tag) {
+            el.textContent = tag;
+            el.classList.add('reason-tag', 'reason-' + dir);
+        } else {
+            el.textContent = fullText;
+            el.classList.remove('reason-tag','reason-up','reason-down','reason-flat');
+        }
+    }
+
     // 종목 상세 Hero 의 AI 요약 — Top100 과 동일한 /api/news-reason + 공유 캐시 사용
     function _hideStockHeroReason() {
         const box = document.getElementById('stockReason');
@@ -2629,7 +2672,7 @@
             if (c && now - c.ts < _REASON_CLIENT_TTL) {
                 document.querySelectorAll(`.top100-reason[data-reason-for="${s}"]`)
                     .forEach(el => {
-                        if (c.text) { el.textContent = c.text; el.title = c.text; }
+                        if (c.text) { el.textContent = _trimReasonEnding(c.text); el.title = c.text; }
                         else { el.textContent = el.dataset.fallback || ''; }
                     });
             } else {
@@ -2651,7 +2694,7 @@
                     _reasonClientCache.set(s, { text: map[s], ts: Date.now() });
                     document.querySelectorAll(`.top100-reason[data-reason-for="${s}"]`)
                         .forEach(el => {
-                            if (map[s]) { el.textContent = map[s]; el.title = map[s]; }
+                            if (map[s]) { el.textContent = _trimReasonEnding(map[s]); el.title = map[s]; }
                             else { el.textContent = el.dataset.fallback || ''; }
                         });
                 });
@@ -5598,7 +5641,7 @@
                 return;
             }
             const top10 = items.slice(0, 10);
-            const cards = top10.map((q, idx) => _alphaRenderCard(q, idx)).join('');
+            const cards = top10.map((q, idx) => _alphaHomeRow(q, idx)).join('');
             el.innerHTML = cards;
         } catch (e) {
             if (_alphaHomeTab !== tab) return;
@@ -5610,6 +5653,63 @@
 
     function loadAlphaHomePreview() {
         _alphaHomeSwitch(_alphaHomeTab || 'bounce');
+    }
+
+    // ── 홈 알파스캐너 compact row 렌더러 ─────────────────────────────
+    function _alphaHomeRow(q, idx) {
+        const sym   = q.symbol || q.ticker || '';
+        const name  = (q.name || q.shortName || sym).slice(0, 22);
+        const price = q.regularMarketPrice || q.price || 0;
+        const chg   = q.regularMarketChangePercent ?? q.changePct ?? 0;
+        const chgCls = chg > 0 ? 'up' : chg < 0 ? 'down' : 'flat';
+        const chgTxt = (chg > 0 ? '+' : '') + chg.toFixed(2) + '%';
+        const priceTxt = price >= 100 ? '$' + price.toFixed(0) : price >= 10 ? '$' + price.toFixed(2) : '$' + price.toFixed(3);
+        const kind = q._alphaKind;
+
+        // TIER 배지
+        const signals = q._bounceSignals || [];
+        const sigCount = signals.length;
+        const tierCls = sigCount >= 4 ? 'alpha-tier1' : sigCount >= 2 ? 'alpha-tier2' : 'alpha-tier3';
+        const tierLbl = sigCount >= 4 ? 'T1' : sigCount >= 2 ? 'T2' : 'T3';
+
+        // 핵심 정보 (탭별)
+        let badge1 = '', badge2 = '';
+        if (kind === 'bounce') {
+            if (q.rsi != null) badge1 = `<span class="ahr-pill ahr-blue">RSI ${q.rsi}</span>`;
+            const expMove = sigCount >= 4 ? '+13%' : sigCount >= 2 ? '+9%' : '+5%';
+            badge2 = `<span class="ahr-pill ahr-green">예상 ${expMove}</span>`;
+        } else if (kind === 'surge') {
+            if (q._surgeGap)     badge1 = `<span class="ahr-pill ahr-blue">갭 +${q._surgeGap.toFixed(1)}%</span>`;
+            if (q._surgeVolRatio) badge2 = `<span class="ahr-pill ahr-purple">거래량 ${q._surgeVolRatio.toFixed(0)}x</span>`;
+        } else if (kind === 'swing') {
+            if (q._rr) badge1 = `<span class="ahr-pill ahr-blue">R/R ${q._rr.toFixed(1)}</span>`;
+        } else if (kind === 'rayner') {
+            if (q._raynerStageLabel) badge1 = `<span class="ahr-pill ahr-blue">${q._raynerStageLabel}</span>`;
+        } else if (kind === 'sepa') {
+            if (q._sepaScore) badge1 = `<span class="ahr-pill ahr-blue">SEPA ${q._sepaScore}</span>`;
+        }
+
+        const logoUrl = `https://assets.parqet.com/logos/symbol/${encodeURIComponent(sym)}?format=png`;
+        const fb = sym.slice(0, 2);
+        return `<div class="ahr-row" onclick="quickSearch('${sym}','US')">
+            <span class="ahr-rank">${idx + 1}</span>
+            <div class="tlogo-wrap ahr-logo">
+                <img class="tlogo" src="${logoUrl}" alt="${sym}" loading="lazy" onerror="this.outerHTML='<span class=\\'tlogo tlogo-fb\\'>${fb}</span>'">
+                <span class="tlogo-flag">🇺🇸</span>
+            </div>
+            <div class="ahr-info">
+                <div class="ahr-sym-row">
+                    <span class="ahr-sym">${sym}</span>
+                    <span class="ahr-tier ${tierCls}">${tierLbl}</span>
+                </div>
+                <div class="ahr-name">${name}</div>
+            </div>
+            <div class="ahr-badges">${badge1}${badge2}</div>
+            <div class="ahr-price">
+                <div class="ahr-px">${priceTxt}</div>
+                <div class="ahr-chg ${chgCls}">${chgTxt}</div>
+            </div>
+        </div>`;
     }
 
     // 홈에서 "전체 보기" → 현재 홈 탭을 알파 스캐너에 반영하고 이동
@@ -11932,6 +12032,369 @@
             addStratLine(t2, '#3b82f6', 2, 2, `2차 익절 ${fmtP(t2)}`);
             addStratLine(t3, '#a855f7', 2, 2, `3차 익절 ${fmtP(t3)}`);
         }
+
+        // 6) 김기법 레이어 — 일봉 전용, 시가+MA20+BB 진입·손절·익절
+        try { _renderKimMethodLayer(q, ts, bb); } catch (e) { console.warn('[kim] render fail', e); }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 김기법 (나스닥 트레이더) 분석 레이어 — v628
+    // 일봉 한정. 시가 = 시장 메이커 기준선 + MA20 + BB 상단 돌파.
+    // ═══════════════════════════════════════════════════════════
+    let _chartKimLines = [];
+    let _kimMarkers = [];
+    let _chartKimEnabled = localStorage.getItem('stockai_chart_kim_lines') !== '0';
+    let _kim5mCache = { sym: null, ts: 0, dbb: null }; // 5분봉 더블바텀 캐시
+    const _KIM5M_TTL = 60 * 1000;
+
+    function _updateKimBtnUi() {
+        const btn = document.getElementById('chartKimLinesBtn');
+        if (!btn) return;
+        if (_chartKimEnabled) {
+            btn.style.color = 'var(--text1)';
+            btn.style.background = 'var(--bg2)';
+            btn.title = '김기법 라인 끄기';
+        } else {
+            btn.style.color = 'var(--text3)';
+            btn.style.background = 'transparent';
+            btn.title = '김기법 라인 켜기 (일봉)';
+        }
+    }
+
+    function toggleChartKimLines() {
+        _chartKimEnabled = !_chartKimEnabled;
+        localStorage.setItem('stockai_chart_kim_lines', _chartKimEnabled ? '1' : '0');
+        _updateKimBtnUi();
+        // 즉시 재렌더
+        if (_lastSigArgs) {
+            try { _renderKimMethodLayer(_lastSigArgs.q, _lastSigArgs.ts, _lastSigArgs.bb); } catch(e) {}
+        }
+    }
+
+    function _clearKimLines() {
+        _chartKimLines.forEach(pl => { try { lwCandleSeries?.removePriceLine(pl); } catch(e) {} });
+        _chartKimLines = [];
+    }
+
+    // 5분봉 더블바텀 감지 — 최근 30봉 안에서 두 저점이 ±0.3% 이내
+    function _detectFiveMinDoubleBottom(lows5, closes5) {
+        if (!lows5 || lows5.length < 10) return null;
+        const N = Math.min(30, lows5.length);
+        const start = lows5.length - N;
+        // 좌우 2봉보다 낮은 저점 추출
+        const pivots = [];
+        for (let i = start + 2; i < lows5.length - 2; i++) {
+            const l = lows5[i];
+            if (l == null) continue;
+            if (lows5[i-1] != null && lows5[i-2] != null && lows5[i+1] != null && lows5[i+2] != null
+                && l < lows5[i-1] && l < lows5[i-2] && l <= lows5[i+1] && l <= lows5[i+2]) {
+                pivots.push({ i, price: l });
+            }
+        }
+        if (pivots.length < 2) return null;
+        // 두 저점 페어 중 ±0.3% 이내 + 두 번째가 더 높거나 같음 + 두 번째 이후 반등 양봉
+        for (let a = 0; a < pivots.length - 1; a++) {
+            for (let b = a + 1; b < pivots.length; b++) {
+                const p1 = pivots[a], p2 = pivots[b];
+                if (Math.abs(p2.price - p1.price) / p1.price > 0.003) continue;
+                if (p2.price < p1.price * 0.998) continue; // 두 번째가 더 낮으면 X
+                // p2 이후 반등 양봉 확인
+                const after = closes5[p2.i + 1];
+                if (after == null || after <= closes5[p2.i]) continue;
+                return { p1, p2, low: Math.min(p1.price, p2.price) };
+            }
+        }
+        return null;
+    }
+
+    async function _fetchKim5mAsync(symbol) {
+        if (!symbol) return null;
+        const cached = _kim5mCache;
+        if (cached.sym === symbol && (Date.now() - cached.ts) < _KIM5M_TTL) return cached.dbb;
+        try {
+            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=5m`;
+            const data = await fetchWithProxy(url);
+            const result = data?.chart?.result?.[0];
+            if (!result) return null;
+            const q5 = result.indicators?.quote?.[0] || {};
+            const dbb = _detectFiveMinDoubleBottom(q5.low || [], q5.close || []);
+            _kim5mCache = { sym: symbol, ts: Date.now(), dbb };
+            return dbb;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function _renderKimMethodLayer(q, ts, bb) {
+        const card = document.getElementById('kimMethodAnalysis');
+        // 일봉이 아니면 숨기고 정리
+        if (currentInterval !== '1d') {
+            _clearKimLines();
+            if (card) { card.innerHTML = ''; card.style.display = 'none'; }
+            return;
+        }
+        if (!q || !q.close || !q.close.length || !lwCandleSeries) return;
+        _clearKimLines();
+
+        const closes = q.close, opens = q.open || [], highs = q.high, lows = q.low, vols = q.volume || [];
+        const lastVal = arr => { for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != null) return arr[i]; return null; };
+        const N = closes.length;
+        const lastIdx = (() => { for (let i = N - 1; i >= 0; i--) if (closes[i] != null) return i; return -1; })();
+        if (lastIdx < 20) return;
+
+        const close = closes[lastIdx];
+        const open  = opens[lastIdx];
+        const low   = lows[lastIdx];
+        const high  = highs[lastIdx];
+        if (open == null || close == null) return;
+
+        // 1) MA20 + ATR + BB
+        const ma20Arr = calcSMA(closes, 20);
+        const lastMA20 = lastVal(ma20Arr);
+        const atrArr = calcATR(highs, lows, closes, 14);
+        const atr = lastVal(atrArr);
+        if (lastMA20 == null || atr == null || atr <= 0) return;
+        const bbUpper = bb?.upper ? lastVal(bb.upper) : null;
+        const ma20Slope = (ma20Arr[lastIdx] != null && ma20Arr[lastIdx - 5] != null)
+            ? (ma20Arr[lastIdx] - ma20Arr[lastIdx - 5]) : 0;
+
+        // 2) 관점 판단 (A: 종가 vs MA20, B: 현재가 vs 시가)
+        const aboveMA = close > lastMA20;
+        const aboveOpen = close > open;
+        let perspective, persColor, persDesc;
+        if (aboveMA && aboveOpen)        { perspective = '매수 관점';         persColor = '#ef4444'; persDesc = '이평 위 + 시가 위 — 정상적인 매수 구조'; }
+        else if (!aboveMA && !aboveOpen) { perspective = '매도 관점';         persColor = '#3b82f6'; persDesc = '이평 아래 + 시가 아래 — 정상적인 매도 구조'; }
+        else if (aboveMA && !aboveOpen)  { perspective = '혼조 — 시가 이탈'; persColor = '#eab308'; persDesc = '이평 위지만 시가 아래 — 세력 의도 하방 주의'; }
+        else                             { perspective = '혼조 — 이평 저항'; persColor = '#eab308'; persDesc = '시가 위지만 이평 아래 — 이평 저항 주의'; }
+
+        // 3) 시가 돌파/이탈 / 시가 반복 지지 감지
+        const openDiffPct = ((close - open) / open) * 100;
+        let openSignal = null;
+        if (openDiffPct >= 1) openSignal = { type: 'breakout', text: '시가 돌파', color: '#22c55e', shape: 'arrowUp' };
+        else if (openDiffPct <= -1) openSignal = { type: 'breakdown', text: '시가 이탈', color: '#ef4444', shape: 'arrowDown' };
+        else if (low < open && close > open) openSignal = { type: 'recover', text: '시가 복귀', color: '#3b82f6', shape: 'circle' };
+
+        // 직전 5봉에서 시가 이탈+복귀 반복 여부 (장중 데이터가 없으니 일봉 기반 근사: low<open 인데 close>open 인 봉 카운트)
+        let recoverCount = 0;
+        for (let i = Math.max(0, lastIdx - 4); i <= lastIdx; i++) {
+            if (opens[i] != null && lows[i] != null && closes[i] != null
+                && lows[i] < opens[i] && closes[i] > opens[i]) recoverCount++;
+        }
+        const repeatSupport = recoverCount >= 3;
+
+        // 4) BB 상단 돌파 추세 판단
+        let bbBreakout = false;
+        if (bb?.upper && bbUpper != null) {
+            const up = bb.upper;
+            let aboveCount = 0;
+            for (let i = Math.max(0, lastIdx - 2); i <= lastIdx; i++) {
+                if (closes[i] != null && up[i] != null && closes[i] > up[i]) aboveCount++;
+            }
+            bbBreakout = (close > bbUpper) && (aboveCount >= 2) && (ma20Slope > 0);
+        }
+
+        // 5) 진입/손절/익절 계산
+        const isKR = currentMarket === 'KR';
+        const fmtP = p => isKR ? Math.round(p).toLocaleString() + '원' : '$' + p.toFixed(2);
+        const pctOf = (p, base) => (((p - base) / base) * 100).toFixed(2);
+
+        const e1 = open + atr * 0.1;          // 1차 진입 — 시가 돌파
+        const e2 = open - atr * 0.3;          // 2차 진입 — 시가 복귀
+        const e3 = lastMA20 + atr * 0.1;      // 3차 진입 — 이평 지지
+
+        const stopOpen = open - atr * 0.5;    // 일반 손절
+        const stopMA   = lastMA20 - atr * 1.0; // 이평 손절
+        let stopBB     = null;                 // BB 타이트 손절 (5분봉 더블바텀 저점 기준)
+
+        const tp1 = e1 + atr * 2.0;
+        const tp2 = e1 + atr * 3.5;
+        let tp3 = null;
+        if (bbBreakout) {
+            // 52주 고점 vs e1 + ATR*6
+            const high52 = q.fiftyTwoWeekHigh || (typeof stockData?.chart?.result?.[0]?.meta?.fiftyTwoWeekHigh === 'number' ? stockData.chart.result[0].meta.fiftyTwoWeekHigh : null);
+            const trendTp = e1 + atr * 6.0;
+            tp3 = (high52 && high52 > e1) ? Math.min(high52, trendTp) : trendTp;
+        }
+
+        // 6) 차트 라인 — 토글이 켜져있을 때만
+        if (_chartKimEnabled) {
+            const addKim = (price, color, style, width, label) => {
+                if (price == null || !isFinite(price)) return;
+                try {
+                    const pl = lwCandleSeries.createPriceLine({
+                        price, color, lineWidth: width, lineStyle: style,
+                        axisLabelVisible: true, title: label,
+                    });
+                    _chartKimLines.push(pl);
+                } catch(e) {}
+            };
+            // 시가 수평선 — 다크/라이트 모드 대응
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const openColor = isDark ? 'rgba(255,255,255,0.85)' : 'rgba(20,20,20,0.85)';
+            addKim(open, openColor, 0, 2, `시가 ${fmtP(open)}`);
+
+            if (perspective === '매수 관점' || bbBreakout) {
+                // 진입 라인
+                addKim(e1, '#22c55e', 0, 2, `1차 진입 ${fmtP(e1)} (${pctOf(e1, close)}%)`);
+                addKim(e2, '#22c55e', 1, 1, `2차 진입 ${fmtP(e2)} (${pctOf(e2, close)}%)`);
+                addKim(e3, '#22c55e', 1, 1, `3차 진입 ${fmtP(e3)} (${pctOf(e3, close)}%)`);
+                // 손절
+                addKim(stopOpen, '#ef4444', 0, 2, `손절 ${fmtP(stopOpen)} (${pctOf(stopOpen, close)}%)`);
+                addKim(stopMA,   '#ef4444', 1, 1, `이평손절 ${fmtP(stopMA)} (${pctOf(stopMA, close)}%)`);
+                // 익절
+                addKim(tp1, '#eab308', 1, 1, `익절1 ${fmtP(tp1)} (+${pctOf(tp1, close)}%)`);
+                addKim(tp2, '#f97316', 1, 1, `익절2 ${fmtP(tp2)} (+${pctOf(tp2, close)}%)`);
+                if (tp3 != null) {
+                    const trendCol = isDark ? 'rgba(255,255,255,0.7)' : 'rgba(80,80,80,0.7)';
+                    addKim(tp3, trendCol, 1, 1, `익절3 ${fmtP(tp3)} 추세전체 (+${pctOf(tp3, close)}%)`);
+                }
+            } else if (perspective === '매도 관점') {
+                // 손절선만 표시 (보유 리스크 관리)
+                addKim(stopOpen, '#ef4444', 0, 2, `손절 ${fmtP(stopOpen)} (${pctOf(stopOpen, close)}%)`);
+                addKim(stopMA,   '#ef4444', 1, 1, `이평손절 ${fmtP(stopMA)} (${pctOf(stopMA, close)}%)`);
+            }
+        }
+
+        // 7) 시가 돌파/이탈 마커 — 기존 markers에 추가하지 않고 별도 setMarkers는 위에서 끝났으므로 시각화는 카드 배지로 대체
+
+        // 8) 배지 추가 (#chartSigBar 끝에)
+        const bar = document.getElementById('chartSigBar');
+        if (bar) {
+            const persCls = persColor === '#ef4444' ? 'sig-red' : persColor === '#3b82f6' ? 'sig-blue' : 'sig-neutral';
+            const kBadges = [`<span class="chart-sig-pill ${persCls}">김기법: ${escHtml(perspective)}</span>`];
+            if (openSignal) kBadges.push(`<span class="chart-sig-pill ${openSignal.color === '#ef4444' ? 'sig-blue' : 'sig-red'}">${escHtml(openSignal.text)}</span>`);
+            if (repeatSupport) kBadges.push(`<span class="chart-sig-pill sig-red">🔁 시가 반복 지지</span>`);
+            if (bbBreakout) kBadges.push(`<span class="chart-sig-pill" style="background:rgba(249,115,22,.15);color:#f97316;border-color:rgba(249,115,22,.4)">🔥 BB 상단 돌파</span>`);
+            bar.insertAdjacentHTML('beforeend', kBadges.join(''));
+        }
+
+        // 9) 카드 렌더 (5분봉 더블바텀은 비동기로 갱신)
+        const analysis = {
+            symbol: currentSymbol, open, close, low, high, atr, ma20: lastMA20, bbUpper,
+            aboveMA, aboveOpen, perspective, persColor, persDesc, openSignal, repeatSupport, bbBreakout,
+            e1, e2, e3, stopOpen, stopMA, stopBB, tp1, tp2, tp3, fmtP, pctOf, openDiffPct,
+        };
+        _renderKimCard(analysis, null); // 카드 즉시 표시
+
+        // 10) BB 돌파 활성 시 5분봉 더블바텀 fetch (비동기)
+        if (bbBreakout && currentSymbol) {
+            (async () => {
+                const dbb = await _fetchKim5mAsync(currentSymbol);
+                if (currentInterval !== '1d') return;
+                if (dbb && _chartKimEnabled) {
+                    // BB 타이트 손절 갱신
+                    let bbStop = dbb.low - atr * 0.2;
+                    if (bbStop < open) bbStop = open - atr * 0.3; // 시가 아래 내려가면 시가 기준
+                    analysis.stopBB = bbStop;
+                    try {
+                        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                        const pl = lwCandleSeries.createPriceLine({
+                            price: bbStop, color: '#ef4444', lineWidth: 1, lineStyle: 1,
+                            axisLabelVisible: true, title: `BB 손절 ${fmtP(bbStop)} (${pctOf(bbStop, close)}%)`,
+                        });
+                        _chartKimLines.push(pl);
+                    } catch(e) {}
+                }
+                _renderKimCard(analysis, dbb);
+            })();
+        }
+    }
+
+    function _renderKimCard(a, dbb) {
+        const el = document.getElementById('kimMethodAnalysis');
+        if (!el) return;
+        el.style.display = '';
+
+        // R:R 계산 (1차 진입 기준, 손절은 일반손절(stopOpen))
+        const risk = a.e1 - a.stopOpen;
+        const rr1 = risk > 0 ? ((a.tp1 - a.e1) / risk) : 0;
+        const rr2 = risk > 0 ? ((a.tp2 - a.e1) / risk) : 0;
+        const rr3 = (risk > 0 && a.tp3 != null) ? ((a.tp3 - a.e1) / risk) : null;
+        const rrWarn = rr1 < 2 ? '<span class="kim-warn">⚠️ R:R 부족 — 진입 비권장</span>' : '';
+
+        // AI 분석 텍스트 (룰베이스 템플릿)
+        const persSimple = a.perspective.replace(/ — .*$/, '');
+        const bbText = a.bbBreakout
+            ? 'BB 상단 돌파 → 강한 매수 추세 활성 (일봉 한 캔들 전체 추종 전략).'
+            : 'BB 상단 돌파 미감지 (정상 진입 시나리오).';
+        const dbbText = a.bbBreakout
+            ? (dbb ? '📍 5분봉 더블바텀 감지 — 단기 진입 타점.' : (dbb === null ? '5분봉 더블바텀 미감지.' : ''))
+            : '';
+        const summaryLine = (a.bbBreakout && rr1 >= 2)
+            ? '강한 추세 매수 — BB 상단 돌파 + R:R 충족, 적극 진입 가능.'
+            : (persSimple === '매수 관점' && rr1 >= 2 ? '정상 매수 — 시가/이평 모두 위, R:R 충족.'
+            : persSimple === '매도 관점' ? '매도 관점 — 신규 진입 비권장, 손절만 관리.'
+            : '혼조 구간 — 시가 회복/이평 회복 여부 추가 확인 후 진입.');
+        const aiText = `${a.symbol || ''}의 당일 시가는 ${a.fmtP(a.open)}. 현재가는 시가 ${a.aboveOpen ? '위' : '아래'}, 20일 MA ${a.aboveMA ? '위' : '아래'} → ${persSimple}. ${bbText}${dbbText ? ' ' + dbbText : ''} 1차 진입 ${a.fmtP(a.e1)} / 손절 ${a.fmtP(a.stopOpen)} / 익절1 ${a.fmtP(a.tp1)} (R:R 1:${rr1.toFixed(1)}). ${summaryLine}`;
+
+        const lineRow = (label, price, pct, cls) => `
+            <div class="kim-line">
+                <span class="kim-line-label ${cls}">${label}</span>
+                <span class="kim-line-price">${a.fmtP(price)}</span>
+                <span class="kim-line-pct ${pct >= 0 ? 'up' : 'down'}">${pct >= 0 ? '+' : ''}${pct}%</span>
+            </div>`;
+
+        const showLong = (a.perspective === '매수 관점' || a.bbBreakout);
+        const linesHTML = showLong ? `
+            <div class="kim-lines-group">
+                <div class="kim-lines-title">📥 진입가</div>
+                ${lineRow('1차 (시가 돌파)', a.e1, +a.pctOf(a.e1, a.close), 'entry')}
+                ${lineRow('2차 (시가 복귀)', a.e2, +a.pctOf(a.e2, a.close), 'entry')}
+                ${lineRow('3차 (이평 지지)', a.e3, +a.pctOf(a.e3, a.close), 'entry')}
+            </div>
+            <div class="kim-lines-group">
+                <div class="kim-lines-title">🛡️ 손절가</div>
+                ${lineRow('일반 손절', a.stopOpen, +a.pctOf(a.stopOpen, a.close), 'stop')}
+                ${a.stopBB != null ? lineRow('BB 타이트 손절', a.stopBB, +a.pctOf(a.stopBB, a.close), 'stop') : ''}
+                ${lineRow('이평 손절', a.stopMA, +a.pctOf(a.stopMA, a.close), 'stop')}
+            </div>
+            <div class="kim-lines-group">
+                <div class="kim-lines-title">🎯 익절가</div>
+                ${lineRow('익절1 (TP1)', a.tp1, +a.pctOf(a.tp1, a.close), 'tp')}
+                ${lineRow('익절2 (TP2)', a.tp2, +a.pctOf(a.tp2, a.close), 'tp')}
+                ${a.tp3 != null ? lineRow('익절3 추세 전체', a.tp3, +a.pctOf(a.tp3, a.close), 'tp') : ''}
+            </div>
+            <div class="kim-rr-card">
+                <div class="kim-rr-row"><span>1차 R:R</span><strong class="${rr1 >= 2 ? 'rr-good' : 'rr-bad'}">1 : ${rr1.toFixed(1)}</strong></div>
+                <div class="kim-rr-row"><span>2차 R:R</span><strong>1 : ${rr2.toFixed(1)}</strong></div>
+                ${rr3 != null ? `<div class="kim-rr-row"><span>3차 R:R</span><strong>1 : ${rr3.toFixed(1)}</strong></div>` : ''}
+                ${rrWarn}
+            </div>
+        ` : `
+            <div class="kim-lines-group">
+                <div class="kim-lines-title">🛡️ 손절가만 표시 (매도 관점)</div>
+                ${lineRow('일반 손절', a.stopOpen, +a.pctOf(a.stopOpen, a.close), 'stop')}
+                ${lineRow('이평 손절', a.stopMA, +a.pctOf(a.stopMA, a.close), 'stop')}
+            </div>
+        `;
+
+        const dbbBadge = dbb ? '<span class="kim-flag kim-flag--dbb">📍 5분봉 더블바텀</span>' : '';
+        const bbBadge = a.bbBreakout ? '<span class="kim-flag kim-flag--bb">🔥 BB 상단 돌파 — 강한 매수 추세</span>' : '';
+        const openBadge = a.openSignal ? `<span class="kim-flag kim-flag--${a.openSignal.type}">${escHtml(a.openSignal.text)}</span>` : '';
+        const repBadge = a.repeatSupport ? '<span class="kim-flag kim-flag--rep">🔁 시가 반복 지지</span>' : '';
+
+        el.innerHTML = `
+            <div class="card kim-card">
+                <div class="card-title">
+                    <span class="dot" style="background:${a.persColor}"></span>
+                    김기법 분석 <span class="trade-badge" style="background:${a.persColor};color:#fff">${escHtml(a.perspective)}</span>
+                </div>
+                <div class="kim-perspective-desc">${escHtml(a.persDesc)}</div>
+                <div class="kim-flags">${bbBadge}${dbbBadge}${openBadge}${repBadge}</div>
+                <div class="kim-key">
+                    <div class="kim-key-item"><span class="kim-key-label">시가</span><strong>${a.fmtP(a.open)}</strong></div>
+                    <div class="kim-key-item"><span class="kim-key-label">현재가</span><strong>${a.fmtP(a.close)}</strong></div>
+                    <div class="kim-key-item"><span class="kim-key-label">MA20</span><strong>${a.fmtP(a.ma20)}</strong></div>
+                    <div class="kim-key-item"><span class="kim-key-label">ATR(14)</span><strong>${a.fmtP(a.atr)}</strong></div>
+                </div>
+                ${linesHTML}
+                <div class="kim-ai">
+                    <div class="kim-ai-title">💡 김기법 분석</div>
+                    <div class="kim-ai-body">${escHtml(aiText)}</div>
+                </div>
+            </div>
+        `;
+        _updateKimBtnUi();
     }
 
     function clearAllDrawings() {
@@ -16219,6 +16682,16 @@
     // ========================================
     const CHANGELOG_LS_KEY = 'stockai_changelog_seen';
     const CHANGELOG = [
+        {
+            v: 'v628', date: '2026-05-14', tag: '✨ 신기능',
+            title: '김기법 분석 — 시가+MA20+BB 일봉 매매 전략',
+            items: [
+                '일봉 차트에서 당일 시가·20일MA·BB 조합으로 매수/매도/혼조 관점 판단',
+                'BB 상단 돌파 시 추세 추종 + 5분봉 더블바텀 단기 진입 타점 자동 감지',
+                '차트에 시가선·진입(1~3차)·손절(일반/이평/BB)·익절(1~3차) 라인 표시',
+                'R:R 요약 + AI 분석 텍스트 + 차트 상단 김기법 토글 버튼 추가',
+            ],
+        },
         {
             v: 'v625', date: '2026-05-14', tag: '✨ 신기능',
             title: '홈에 알파 스캐너 프리뷰 추가',
@@ -20602,7 +21075,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         loadOptionsDate, setOptionsFilter,
         setOptionsStrikeRange, toggleOptionsVolFilter, sortOptionsBy,
         manualAnalysisRefresh, pwaInstall,
-        toggleChartSigLines,
+        toggleChartSigLines, toggleChartKimLines,
         handleSearchKeydown, openSearchDropdown, closeSearchDropdown, searchSuggest, levenshtein,
         renderDayUnified, renderDanteAnalysis, runDanteBacktest,
         renderRRAnalysis, renderRaynerAnalysis, renderMinerviniSEPA, renderRSIMomentum, analyzeRSIDynamic,
