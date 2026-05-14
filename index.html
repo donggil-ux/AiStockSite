@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=633">
+    <link rel="stylesheet" href="/styles.css?v=634">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -10601,7 +10601,7 @@
             // 마지막 캔들만 업데이트 → 줌·팬 유지
             try { lwCandleSeries.update(candleData[candleData.length - 1]); } catch(e) {}
 
-            const bb = calcBollingerBands(q.close, 20, 2);
+            const bb = calcBollingerBands(q.close, 4, 2);
             renderChartLiveSignals(candleData, ts, q, bb);
         } catch(e) { /* 폴링 실패는 조용히 무시 */ }
     }
@@ -10979,7 +10979,7 @@
         };
     }
 
-    function calcBollingerBands(closes, period = 20, mult = 2) {
+    function calcBollingerBands(closes, period = 4, mult = 2) {
         const sma = calcSMA(closes, period);
         const upper = [], lower = [];
         for (let i = 0; i < closes.length; i++) {
@@ -11499,8 +11499,8 @@
             }
         });
 
-        // 볼린저 밴드 (BB20, 2σ) — 주황 실선 (채움 제거 — 지지/저항선 가독성)
-        const bb = calcBollingerBands(closes, 20, 2);
+        // 볼린저 밴드 (BB4, 2σ) — 주황 실선 (채움 제거 — 지지/저항선 가독성)
+        const bb = calcBollingerBands(closes, 4, 2);
         if (bb.upper.some(v => v != null)) {
             const upperData = [], lowerData = [];
             for (let i = 0; i < ts.length; i++) {
@@ -16119,7 +16119,7 @@
         const mean60    = recent60.reduce((a,b)=>a+b, 0) / recent60.length;
         const std60     = _qStdDev(recent60);
         const z         = std60 > 0 ? (price - mean60) / std60 : 0;
-        const bb        = calcBollingerBands(closes, 20, 2);
+        const bb        = calcBollingerBands(closes, 4, 2);
         const upper     = (bb.upper || []).filter(v => v != null).pop();
         const lower     = (bb.lower || []).filter(v => v != null).pop();
         const pctB      = (upper && lower && upper > lower) ? (price - lower) / (upper - lower) : 0.5;
