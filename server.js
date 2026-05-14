@@ -1608,17 +1608,15 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
             return res.json({ results: [], totalScanned: 0, scannedAt: new Date().toISOString(), _debug: { rawScreener: 0, reason: 'screener returned 0' } });
         }
 
-        // 상폐·정지·고스트 종목 필터 (v640.1)
-        // 한국 사용 시간(저녁=미국 프리마켓 이전)을 고려해 너무 빡빡하지 않게
+        // 상폐·정지 필터는 history 단계에서만 (quote 단계는 너무 짧게)
+        // 일단 가격만 있으면 통과 — history 검증으로 거름 (v644.3)
         const nowSec = Math.floor(Date.now() / 1000);
         universe = universe.filter(q => {
-            const lastTs = q.regularMarketTime || 0;
-            // 1) 마지막 거래일 4일(주말 포함 여유) 이상 → 정지·상폐 의심
-            if (lastTs && nowSec - lastTs > 4 * 24 * 3600) return false;
-            // 2) 가격·시총 누락
-            if (!q.regularMarketPrice || !q.marketCap || q.marketCap <= 0) return false;
-            // 3) tradeable===false 명시
+            if (!q.regularMarketPrice) return false;
             if (q.tradeable === false) return false;
+            // 마지막 거래 7일 이상 → 명백한 상폐
+            const lastTs = q.regularMarketTime || 0;
+            if (lastTs && nowSec - lastTs > 7 * 24 * 3600) return false;
             return true;
         });
 
