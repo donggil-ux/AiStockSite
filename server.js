@@ -1403,7 +1403,7 @@ app.get('/api/scanner/surge', async (req, res) => {
 // ──────────────────────────────────────────────────────────────────────
 const PUMP_SCAN_TTL = 5 * 60 * 1000;
 let _pumpScanCache = { ts: 0, data: null };
-const PUMP_FETCH_CONCURRENCY = 10;
+const PUMP_FETCH_CONCURRENCY = 25;  // 전부 한 번에 (Vercel 10s timeout 대응)
 
 async function _fetchTickerHistory(symbol, range = '1mo') {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d`;
@@ -1621,14 +1621,14 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
             return true;
         });
 
-        // 변동률·거래량 상위 35개로 1차 필터링 (Vercel 10s timeout 대응, v642.1)
+        // 변동률·거래량 상위 25개로 1차 필터링 (Vercel 10s timeout 대응, v644)
         universe = universe
             .map(q => ({
                 ...q,
                 _initScore: Math.abs(q.regularMarketChangePercent || 0) + (q.averageDailyVolume3Month > 0 ? Math.log10(q.regularMarketVolume / q.averageDailyVolume3Month + 1) * 10 : 0),
             }))
             .sort((a, b) => (b._initScore || 0) - (a._initScore || 0))
-            .slice(0, 35);
+            .slice(0, 25);
 
         // 2) 각 종목 20일 일봉 fetch + 단계 감지
         const results = await _runWithConcurrency(universe, PUMP_FETCH_CONCURRENCY, async (q) => {
@@ -1693,16 +1693,16 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
             return (b.volRatio || 0) - (a.volRatio || 0);
         });
 
-        // 4) Finnhub 뉴스 (촉매) — 상위 20개만 (rate-limit 절약)
+        // 4) Finnhub 뉴스 (촉매) — 상위 8개만 + 병렬 (Vercel 10s timeout 여유)
         const top = filtered.slice(0, 40);
-        await _runWithConcurrency(top.slice(0, 20), 5, async (item) => {
+        await Promise.all(top.slice(0, 8).map(async (item) => {
             try {
                 const news = await _hasRecent24hNews(item.symbol);
                 item.hasNews = !!news.has;
                 item.newsCount = news.count;
                 item.newsTitle = news.title;
             } catch (e) { item.hasNews = false; item.newsCount = 0; }
-        });
+        }));
 
         const payload = {
             results: top,
