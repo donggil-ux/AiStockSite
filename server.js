@@ -1602,22 +1602,18 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
         };
         const rResp = await _postYfScreener(screenerBody);
         let universe = rResp?.data?.finance?.result?.[0]?.quotes || [];
-        const _raw = universe.length;
         if (!universe.length) {
-            return res.json({ results: [], totalScanned: 0, scannedAt: new Date().toISOString(), _debug: { raw: 0 } });
+            return res.json({ results: [], totalScanned: 0, scannedAt: new Date().toISOString() });
         }
 
-        // 상폐·정지 quote 단계 필터 (v646)
+        // 상폐 quote 필터 (v647) — tradeable 플래그는 프리마켓 시간에 false 가 많아 제외
         const nowSec = Math.floor(Date.now() / 1000);
-        const _f = { noPrice: 0, untradeable: 0, stale: 0 };
         universe = universe.filter(q => {
-            if (!q.regularMarketPrice) { _f.noPrice++; return false; }
-            if (q.tradeable === false) { _f.untradeable++; return false; }
+            if (!q.regularMarketPrice) return false;
             const lastTs = q.regularMarketTime || 0;
-            if (lastTs && nowSec - lastTs > 7 * 24 * 3600) { _f.stale++; return false; }
+            if (lastTs && nowSec - lastTs > 7 * 24 * 3600) return false; // 7일 무거래
             return true;
         });
-        const _afterQuoteFilter = universe.length;
 
         // 변동률·거래량 상위 25개로 1차 필터링 (Vercel 10s timeout 대응, v644)
         universe = universe
@@ -1704,7 +1700,6 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
             totalScanned: filtered.length,
             scannedAt: new Date().toISOString(),
             method: 'Tim Sykes 7-Stage',
-            _debug: { raw: _raw, afterQuoteFilter: _afterQuoteFilter, filtered: _f, sliced: universe.length },
         };
         // 빈 결과는 캐시하지 않음 — 다음 요청에서 즉시 재시도 (v646)
         if (top.length > 0) _pumpScanCache = { ts: now, data: payload };
