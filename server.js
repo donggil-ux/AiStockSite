@@ -1710,6 +1710,293 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
     }
 });
 
+// ──────────────────────────────────────────────────────────────────────
+// 카탈리스트 헌터 (/api/catalyst/hunter) — SEC EDGAR 6-K/8-K + yfinance
+//   1) EDGAR Atom RSS 에서 최근 8-K·6-K 공시 수집 (5분 캐시)
+//   2) 제목 키워드 점수 계산 (인수·파트너십·FDA·AI 등)
+//   3) 티커 추출 → yfinance quote 조회
+//   4) 거래량·숏Float·갭업·신선도 가중 합산 → 35점 미만 제외
+// ──────────────────────────────────────────────────────────────────────
+const CATALYST_TTL = 5 * 60 * 1000;
+let _catalystCache = { ts: 0, data: null };
+let _cikTickerCache = { ts: 0, map: null }; // CIK → ticker 매핑 (SEC company_tickers.json, 24h)
+const _CIK_TTL = 24 * 60 * 60 * 1000;
+
+const EDGAR_UA = 'StockAI stockai-site contact@example.com';
+
+const CATALYST_KEYWORDS_HIGH = [
+    'acquires', 'acquisition', 'merger', 'merge with',
+    'partnership', 'collaboration', 'strategic agreement',
+    'fda approval', 'fda clearance', ' nda ', ' ind ',
+    'ai platform', 'artificial intelligence',
+    'exclusive license', 'exclusive agreement',
+];
+const CATALYST_KEYWORDS_MID = [
+    'new product', 'product launch', 'commercial launch',
+    'awarded', 'selected by', 'wins contract',
+    'joint venture', 'strategic',
+    'milestone payment', 'milestone achieved',
+];
+const CATALYST_KEYWORDS_LOW = [
+    'expansion', 'expands operations',
+    'innovation', 'data center', 'nuclear', 'clean energy',
+];
+const CATALYST_EXCLUDE = [
+    'annual report', 'quarterly report',
+    'proxy statement', 'fiscal year',
+    'routine', 'amendment to', '10-q', '10-k', 'def 14a',
+];
+
+function _catalystKeywordScore(text) {
+    const t = String(text || '').toLowerCase();
+    // 제외 키워드 — 1개라도 매치되면 즉시 -1
+    for (const kw of CATALYST_EXCLUDE) if (t.includes(kw)) return { score: -1, tags: [], tier: 'excluded' };
+    const tags = [];
+    let score = 0, tier = 'low';
+    for (const kw of CATALYST_KEYWORDS_HIGH) {
+        if (t.includes(kw)) { tags.push(kw); score = Math.max(score, 30); tier = 'high'; }
+    }
+    if (tier !== 'high') {
+        for (const kw of CATALYST_KEYWORDS_MID) {
+            if (t.includes(kw)) { tags.push(kw); score = Math.max(score, 20); tier = 'mid'; }
+        }
+    }
+    if (tier === 'low') {
+        for (const kw of CATALYST_KEYWORDS_LOW) {
+            if (t.includes(kw)) { tags.push(kw); score = Math.max(score, 10); }
+        }
+    }
+    return { score, tags: tags.slice(0, 4), tier };
+}
+
+// CIK → 티커 매핑 (SEC 공식, 24h 캐시)
+async function _getCikToTicker() {
+    const now = Date.now();
+    if (_cikTickerCache.map && now - _cikTickerCache.ts < _CIK_TTL) return _cikTickerCache.map;
+    try {
+        const r = await axios.get('https://www.sec.gov/files/company_tickers.json', {
+            headers: { 'User-Agent': EDGAR_UA, 'Accept': 'application/json' },
+            timeout: 10000, httpAgent, httpsAgent,
+        });
+        const map = {};
+        // 응답 형태: { "0": { cik_str, ticker, title }, "1": {...}, ... }
+        for (const k of Object.keys(r.data || {})) {
+            const e = r.data[k];
+            if (e?.cik_str && e?.ticker) map[String(e.cik_str).padStart(10, '0')] = e.ticker;
+        }
+        _cikTickerCache = { ts: now, map };
+        return map;
+    } catch (e) {
+        console.warn('[catalyst] CIK map fetch fail:', e.message);
+        return _cikTickerCache.map || {};
+    }
+}
+
+// EDGAR Atom RSS 파싱 — <entry> 블록에서 title/link/updated/CIK 추출
+function _parseEdgarAtom(xml) {
+    const entries = [];
+    const reEntry = /<entry[^>]*>([\s\S]*?)<\/entry>/g;
+    const reTitle = /<title[^>]*>([\s\S]*?)<\/title>/;
+    const reLink  = /<link[^>]*href="([^"]+)"/;
+    const reUpdated = /<updated[^>]*>([\s\S]*?)<\/updated>/;
+    const reCategory = /<category[^>]*term="([^"]+)"/; // 보통 form type
+    const reCikInLink = /CIK=(\d+)/i;
+    const reCikInUrl  = /\/data\/(\d+)\//;
+    let m;
+    while ((m = reEntry.exec(xml))) {
+        const block = m[1];
+        const title = (block.match(reTitle)?.[1] || '').replace(/&amp;/g,'&').replace(/&#39;/g,"'").replace(/&quot;/g,'"').trim();
+        const link  = block.match(reLink)?.[1] || '';
+        const updated = block.match(reUpdated)?.[1] || '';
+        const cik = (link.match(reCikInLink)?.[1] || link.match(reCikInUrl)?.[1] || '').padStart(10, '0');
+        const formType = block.match(reCategory)?.[1] || '';
+        if (!title) continue;
+        entries.push({ title, link, updated, cik, formType });
+    }
+    return entries;
+}
+
+async function _fetchEdgarFeed(formType) {
+    const url = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=${formType}&dateb=&owner=include&count=80&output=atom`;
+    try {
+        const r = await axios.get(url, {
+            headers: { 'User-Agent': EDGAR_UA, 'Accept': 'application/atom+xml,application/xml,text/xml' },
+            timeout: 12000, httpAgent, httpsAgent,
+        });
+        return _parseEdgarAtom(r.data || '');
+    } catch (e) {
+        console.warn(`[catalyst] EDGAR ${formType} fetch fail:`, e.message);
+        return [];
+    }
+}
+
+function _catalystFreshnessScore(updatedIso) {
+    if (!updatedIso) return 0;
+    const ageMs = Date.now() - new Date(updatedIso).getTime();
+    const ageHr = ageMs / (3600 * 1000);
+    if (ageHr < 1)  return 20;
+    if (ageHr < 3)  return 15;
+    if (ageHr < 6)  return 10;
+    if (ageHr < 24) return 5;
+    return 0;
+}
+
+app.get('/api/catalyst/hunter', async (req, res) => {
+    const now = Date.now();
+    if (_catalystCache.data && now - _catalystCache.ts < CATALYST_TTL) {
+        return res.json(_catalystCache.data);
+    }
+    try {
+        // 1) EDGAR 피드 병렬 fetch (8-K 미국·6-K 외국 ADR)
+        const [feed8k, feed6k, cikMap] = await Promise.all([
+            _fetchEdgarFeed('8-K'),
+            _fetchEdgarFeed('6-K'),
+            _getCikToTicker(),
+        ]);
+        const allFilings = [...feed8k, ...feed6k];
+
+        // 2) 키워드 필터 + 티커 매핑
+        const seenTickers = new Set();
+        const candidates = [];
+        for (const f of allFilings) {
+            const kw = _catalystKeywordScore(f.title);
+            if (kw.score < 10) continue;
+            // 티커 추출: title 의 (TICKER) 패턴 우선 → CIK 매핑 fallback
+            let ticker = (f.title.match(/\(([A-Z]{1,5})\)/) || [])[1];
+            if (!ticker && f.cik) ticker = cikMap[f.cik];
+            if (!ticker) continue;
+            if (seenTickers.has(ticker)) continue;
+            seenTickers.add(ticker);
+            candidates.push({
+                ticker, title: f.title, link: f.link, updated: f.updated,
+                formType: f.formType || (feed8k.includes(f) ? '8-K' : '6-K'),
+                keywordScore: kw.score, keywordTier: kw.tier, keywordTags: kw.tags,
+            });
+            if (candidates.length >= 35) break; // Vercel timeout 여유
+        }
+        if (!candidates.length) {
+            const payload = { results: [], totalScanned: 0, scannedAt: new Date().toISOString() };
+            _catalystCache = { ts: now, data: payload };
+            return res.json(payload);
+        }
+
+        // 3) yfinance quote 병렬 조회
+        const symbolList = candidates.map(c => c.ticker).join(',');
+        let quotes = [];
+        try {
+            const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbolList)}`;
+            const data = await yfRequest(quoteUrl);
+            quotes = data?.quoteResponse?.result || [];
+        } catch (e) { console.warn('[catalyst] quote batch fail:', e.message); }
+        const qMap = {};
+        for (const q of quotes) if (q.symbol) qMap[q.symbol] = q;
+
+        // 4) 종목별 점수 합산
+        const results = candidates.map(c => {
+            const q = qMap[c.ticker];
+            if (!q || !q.regularMarketPrice) return null;
+            const price = q.regularMarketPrice;
+            const marketCap = q.marketCap || 0;
+            const avgVol = q.averageDailyVolume3Month || q.averageDailyVolume10Day || 0;
+            const vol = q.regularMarketVolume || 0;
+            const volRatio = avgVol > 0 ? vol / avgVol : 0;
+            const prevC = q.regularMarketPreviousClose || q.previousClose || price;
+            const prePrice = q.preMarketPrice;
+            const preGapPct = prePrice && prevC > 0 ? ((prePrice - prevC) / prevC) * 100 : null;
+            const sharesShort = q.sharesShort || 0;
+            const floatShares = q.floatShares || q.sharesOutstanding || 0;
+            const shortFloatPct = floatShares > 0 ? (sharesShort / floatShares) * 100 : 0;
+            const shortRatio = q.shortRatio || 0;
+
+            // 사전 필터 — 페니/스몰캡 (선택적 가격 범위)
+            // 가격 무관 옵션이 필요하면 frontend 에서 결정. 서버는 최소 안정성만 강제:
+            if (!price || price < 0.1) return null;
+            if (marketCap && marketCap > 50e9) return null; // 대형주 제외 (촉매 영향 미미)
+
+            // 점수 계산
+            let score = 0;
+            score += c.keywordScore;                                        // 10/20/30
+            score += _catalystFreshnessScore(c.updated);                    // 0~20
+            if (volRatio >= 10)     score += 25;
+            else if (volRatio >= 5) score += 20;
+            else if (volRatio >= 3) score += 15;
+            else if (volRatio >= 2) score += 10;
+            else if (volRatio >= 1) score += 5;
+            if (shortFloatPct >= 30)      score += 15;
+            else if (shortFloatPct >= 20) score += 12;
+            else if (shortFloatPct >= 10) score += 8;
+            else                          score += 3;
+            if (preGapPct != null) {
+                if (preGapPct >= 30)      score += 10;
+                else if (preGapPct >= 20) score += 8;
+                else if (preGapPct >= 10) score += 5;
+                else if (preGapPct >= 5)  score += 3;
+            }
+
+            const grade = score >= 75 ? '🚨 긴급 포착' : score >= 55 ? '🔴 강한 신호' : score >= 35 ? '🟠 관심 후보' : null;
+            if (!grade) return null;
+            const gradeColor = score >= 75 ? '#ef4444' : score >= 55 ? '#dc2626' : '#f97316';
+
+            // ATR 휴리스틱 (정확한 ATR 은 일봉 fetch 필요 → 간략화: 일중 변동폭 기반)
+            const dayHigh = q.regularMarketDayHigh || price;
+            const dayLow  = q.regularMarketDayLow || price;
+            const atr = Math.max(price * 0.04, (dayHigh - dayLow));
+            const entry = price;
+            const stop  = price - atr * 1.0;
+            const tp1   = price + atr * 2.0;
+            const tp2   = price + atr * 4.0;
+
+            return {
+                ticker: c.ticker,
+                name: q.shortName || q.longName || c.ticker,
+                price: +price.toFixed(2),
+                marketCap,
+                volume: vol,
+                avgVolume: avgVol,
+                volRatio: +volRatio.toFixed(2),
+                shortFloatPct: +shortFloatPct.toFixed(2),
+                shortRatio: +shortRatio.toFixed(2),
+                preGapPct: preGapPct != null ? +preGapPct.toFixed(2) : null,
+                changePct: q.regularMarketChangePercent != null ? +q.regularMarketChangePercent.toFixed(2) : null,
+                fiftyTwoWeekHigh: q.fiftyTwoWeekHigh,
+                fiftyTwoWeekLow: q.fiftyTwoWeekLow,
+                filing: {
+                    title: c.title,
+                    link: c.link,
+                    updated: c.updated,
+                    formType: c.formType,
+                    keywordTier: c.keywordTier,
+                    keywordTags: c.keywordTags,
+                },
+                strategy: {
+                    entry: +entry.toFixed(2),
+                    stop:  +stop.toFixed(2),
+                    tp1:   +tp1.toFixed(2),
+                    tp2:   +tp2.toFixed(2),
+                    atr:   +atr.toFixed(2),
+                },
+                score: +score.toFixed(1),
+                grade, gradeColor,
+            };
+        }).filter(Boolean);
+
+        // 점수순 정렬
+        results.sort((a, b) => b.score - a.score);
+
+        const payload = {
+            results: results.slice(0, 50),
+            totalScanned: candidates.length,
+            totalFilings: allFilings.length,
+            scannedAt: new Date().toISOString(),
+        };
+        _catalystCache = { ts: now, data: payload };
+        res.json(payload);
+    } catch (err) {
+        console.error('[catalyst-hunter]', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // 백테스트 엔드포인트 (Phase 2 — 가중치 자동 산출은 추후)
 app.get('/api/scanner/backtest', (req, res) => {
     res.json({

@@ -2,7 +2,8 @@
   "version": 2,
   "crons": [
     { "path": "/api/cron/check-alerts",       "schedule": "0 14 * * 1-5" },
-    { "path": "/api/cron/earnings-reminder",  "schedule": "0 0 * * 1-5" }
+    { "path": "/api/cron/earnings-reminder",  "schedule": "0 0 * * 1-5" },
+    { "path": "/api/catalyst/hunter",         "schedule": "*/15 * * * *" }
   ],
   "builds": [
     {

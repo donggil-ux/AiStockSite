@@ -6357,6 +6357,58 @@
     .chart-pre-banner .cpb-divider{display:none;}
 }
 
+/* ═══════════════════════════════════════════════════════
+   카탈리스트 헌터 (v655) — SEC EDGAR 공시 기반
+   ═══════════════════════════════════════════════════════ */
+.catalyst-section{padding:16px;max-width:1200px;margin:0 auto;}
+.catalyst-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+.catalyst-title{font-size:24px;font-weight:800;color:var(--text1);letter-spacing:-0.02em;}
+.catalyst-sub{font-size:13px;color:var(--text2);margin-top:4px;}
+.catalyst-meta{display:flex;align-items:center;gap:10px;}
+.catalyst-updated{font-size:12px;color:var(--text3);}
+.catalyst-refresh{padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:14px;}
+.catalyst-refresh:hover{background:var(--bg3);}
+.catalyst-warn{padding:10px 14px;margin-bottom:14px;background:rgba(251,191,36,0.10);border:1px solid rgba(251,191,36,0.35);border-radius:10px;font-size:12px;color:#d97706;line-height:1.6;}
+[data-theme="dark"] .catalyst-warn{color:#fbbf24;}
+.catalyst-filter-bar{display:flex;gap:6px;flex-wrap:wrap;padding:6px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;width:fit-content;max-width:100%;overflow-x:auto;}
+.catalyst-filter{padding:6px 14px;border:none;background:transparent;border-radius:8px;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap;-webkit-tap-highlight-color:transparent;}
+.catalyst-filter:hover{background:var(--bg3);}
+.catalyst-filter.active{background:var(--accent,#6366f1);color:#fff;}
+[data-theme="dark"] .catalyst-filter.active{background:rgba(99,102,241,0.5);}
+.catalyst-loading,.catalyst-empty{padding:40px 16px;text-align:center;color:var(--text2);font-size:14px;}
+.catalyst-list{display:flex;flex-direction:column;gap:12px;}
+.catalyst-card{padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--bg2);cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .15s;}
+.catalyst-card:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(0,0,0,0.06);border-color:rgba(99,102,241,0.4);}
+.catalyst-card--fresh{border-color:rgba(239,68,68,0.5);background:linear-gradient(135deg, rgba(239,68,68,0.04), var(--bg2) 50%);}
+.catalyst-card-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.catalyst-rank{width:28px;height:28px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--text2);flex-shrink:0;}
+.catalyst-id{flex:1;min-width:0;}
+.catalyst-sym{font-size:16px;font-weight:800;color:var(--text1);letter-spacing:-0.01em;}
+.catalyst-form{font-size:10px;padding:2px 6px;background:var(--bg3);border-radius:4px;color:var(--text3);font-weight:600;margin-left:4px;vertical-align:1px;}
+.catalyst-name{font-size:12px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.catalyst-grade{padding:4px 10px;border-radius:100px;font-size:11px;font-weight:700;white-space:nowrap;}
+.catalyst-title{font-size:13px;color:var(--text1);margin-bottom:6px;line-height:1.4;font-weight:500;}
+.catalyst-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;}
+.catalyst-tag{font-size:10px;padding:2px 8px;border-radius:100px;background:rgba(99,102,241,0.10);color:#6366f1;border:1px solid rgba(99,102,241,0.25);font-weight:600;}
+[data-theme="dark"] .catalyst-tag{color:#a5b4fc;background:rgba(99,102,241,0.18);}
+.catalyst-meta-row{display:flex;flex-wrap:wrap;gap:6px 10px;font-size:11px;color:var(--text2);margin-bottom:8px;}
+.catalyst-meta-cell{white-space:nowrap;font-variant-numeric:tabular-nums;}
+.catalyst-meta-cell.up{color:#ef4444;}
+.catalyst-meta-cell.down{color:#3b82f6;}
+.catalyst-strategy{display:flex;gap:6px;flex-wrap:wrap;padding:8px;background:var(--bg3);border-radius:8px;font-size:11px;font-variant-numeric:tabular-nums;}
+.cs-cell{padding:3px 8px;border-radius:6px;font-weight:600;}
+.cs-cell.entry{color:#22c55e;background:rgba(34,197,94,0.10);}
+.cs-cell.stop{color:#ef4444;background:rgba(239,68,68,0.10);}
+.cs-cell.tp{color:#eab308;background:rgba(234,179,8,0.10);}
+.catalyst-source{display:inline-block;margin-top:8px;font-size:11px;color:#6366f1;text-decoration:none;}
+.catalyst-source:hover{text-decoration:underline;}
+@media(max-width:480px){
+    .catalyst-section{padding:12px;}
+    .catalyst-title{font-size:18px;}
+    .catalyst-card{padding:12px;}
+    .catalyst-grade{font-size:10px;padding:3px 8px;}
+}
+
 /* 급등 후보 단계 필터 바 (v638 — Tim Sykes) */
 .surge-filter-bar{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 12px;padding:6px;border-radius:12px;background:var(--bg2);border:1px solid var(--border);}
 .surge-filter{padding:6px 12px;border:none;background:transparent;border-radius:8px;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent;white-space:nowrap;}

@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=654">
+    <link rel="stylesheet" href="/styles.css?v=655">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -69,6 +69,11 @@
                     <span class="side-nav-item-icon"><i class="ri-fire-fill"></i></span>
                     <span class="side-nav-item-text">당일 인기 TOP 100</span>
                     <span class="side-nav-item-sub">실시간</span>
+                </button>
+                <button class="side-nav-item" id="sideNavCatalystBtn" onclick="goCatalyst();closeSideNav();">
+                    <span class="side-nav-item-icon"><i class="ri-rocket-2-fill"></i></span>
+                    <span class="side-nav-item-text">카탈리스트</span>
+                    <span class="side-nav-item-sub">SEC EDGAR</span>
                 </button>
             </div>
         </div>
@@ -432,6 +437,36 @@
             </div>
             <div class="top100-grid" id="top100Grid">
                 <div class="top100-loading">데이터를 불러오는 중...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Catalyst Hunter Screen (v655) — SEC EDGAR 공시 기반 -->
+    <div id="catalystScreen" style="display:none;">
+        <div class="catalyst-section">
+            <div class="catalyst-header">
+                <div>
+                    <div class="catalyst-title">🚀 카탈리스트 헌터</div>
+                    <div class="catalyst-sub">SEC EDGAR 6-K · 8-K 공시 기반 급등 전 조기 진입 후보</div>
+                </div>
+                <div class="catalyst-meta">
+                    <span class="catalyst-updated" id="catalystUpdated"></span>
+                    <button class="catalyst-refresh" onclick="loadCatalyst(true)" title="새로고침">🔄</button>
+                </div>
+            </div>
+            <div class="catalyst-warn">
+                ⚠️ 카탈리스트 헌터는 공시 감지 후 수분~15분 지연이 있습니다.
+                뉴스 발표 후 첫 1~2시간에 수익이 집중되므로 진입 타이밍 관리 필수.
+                늦은 진입은 고점 물량 받는 역할이 될 수 있습니다.
+            </div>
+            <div class="catalyst-filter-bar">
+                <button class="catalyst-filter active" data-filter="all"     onclick="_catalystSetFilter('all')">전체</button>
+                <button class="catalyst-filter"        data-filter="urgent"  onclick="_catalystSetFilter('urgent')">🚨 긴급</button>
+                <button class="catalyst-filter"        data-filter="strong"  onclick="_catalystSetFilter('strong')">🔴 강한</button>
+                <button class="catalyst-filter"        data-filter="watch"   onclick="_catalystSetFilter('watch')">🟠 관심</button>
+            </div>
+            <div class="catalyst-list" id="catalystList">
+                <div class="catalyst-loading">EDGAR 공시 스캔 중...</div>
             </div>
         </div>
     </div>
@@ -3324,6 +3359,7 @@
             scanner:       goScanner,
             fav:           goFav,
             top100:        goTop100,
+            catalyst:      goCatalyst,
             leverage:      goLeverage,
         };
         const fn = map[dest];
@@ -5057,6 +5093,7 @@
         document.getElementById('economicSection').style.display = 'none';
         const _ern1 = document.getElementById('earningsScreen'); if (_ern1) _ern1.style.display = 'none';
         const _lev1 = document.getElementById('leverageScreen'); if (_lev1) _lev1.style.display = 'none';
+        document.getElementById('catalystScreen')?.style && (document.getElementById('catalystScreen').style.display = 'none');
         document.getElementById('smartMoneyScreen').style.display = '';
         window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded'); const _fab=document.getElementById('calcFab'); if(_fab)_fab.style.display='none';
@@ -7131,6 +7168,7 @@
         document.getElementById('visionScannerScreen').style.display = 'none';
         const _ern = document.getElementById('earningsScreen'); if (_ern) _ern.style.display = 'none';
         const _lev = document.getElementById('leverageScreen'); if (_lev) _lev.style.display = 'none';
+        const _cat = document.getElementById('catalystScreen'); if (_cat) _cat.style.display = 'none';
         const ecoEl = document.getElementById('economicSection');
         if (ecoEl) ecoEl.style.display = 'none';
         const thermoEl = document.getElementById('marketThermometer');
@@ -7148,6 +7186,125 @@
         // 데이터 로드
         loadTop100();
         try { window.scrollTo(0, 0); } catch(e){}
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // 카탈리스트 헌터 — SEC EDGAR 공시 기반 (v655)
+    // ═══════════════════════════════════════════════════════════
+    let _catalystData = null;
+    let _catalystFilter = 'all';
+
+    function goCatalyst() {
+        window._lastScreen = 'catalyst';
+        _restoreHeaderChrome();
+        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','top100Screen','earningsScreen','leverageScreen','catalystScreen']
+            .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+        const ecoEl = document.getElementById('economicSection'); if (ecoEl) ecoEl.style.display = 'none';
+        const thermoEl = document.getElementById('marketThermometer'); if (thermoEl) thermoEl.style.display = 'none';
+        const qnavEl = document.getElementById('headerQNav'); if (qnavEl) qnavEl.style.display = 'none';
+        document.getElementById('catalystScreen').style.display = '';
+        window._vsActive = false;
+        document.getElementById('mainHeader')?.classList.remove('stock-loaded');
+        const _fab = document.getElementById('calcFab'); if (_fab) _fab.style.display = 'none';
+        document.getElementById('stockHero').classList.remove('show');
+        document.getElementById('tabNav').classList.remove('show');
+        updateBnActive('all');
+        loadCatalyst(false);
+        try { window.scrollTo(0, 0); } catch(e){}
+    }
+
+    function _catalystSetFilter(f) {
+        _catalystFilter = f;
+        document.querySelectorAll('.catalyst-filter').forEach(b => b.classList.toggle('active', b.dataset.filter === f));
+        _renderCatalyst(_catalystData);
+    }
+
+    async function loadCatalyst(forceRefresh) {
+        const listEl = document.getElementById('catalystList');
+        if (!listEl) return;
+        if (!_catalystData || forceRefresh) {
+            listEl.innerHTML = '<div class="catalyst-loading">EDGAR 공시 스캔 중... (최대 10초)</div>';
+        }
+        try {
+            const r = await fetch('/api/catalyst/hunter' + (forceRefresh ? '?t=' + Date.now() : ''));
+            if (!r.ok) throw new Error('http ' + r.status);
+            const d = await r.json();
+            _catalystData = d;
+            _renderCatalyst(d);
+            const upd = document.getElementById('catalystUpdated');
+            if (upd && d.scannedAt) {
+                const dt = new Date(d.scannedAt);
+                upd.textContent = `마지막 스캔 ${dt.getHours().toString().padStart(2,'0')}:${dt.getMinutes().toString().padStart(2,'0')} · 공시 ${d.totalFilings || 0}건 · 후보 ${d.results.length}건`;
+            }
+        } catch (e) {
+            console.warn('[catalyst]', e);
+            listEl.innerHTML = '<div class="catalyst-empty">EDGAR 공시 조회 실패 — 잠시 후 다시 시도하세요</div>';
+        }
+    }
+
+    function _renderCatalyst(d) {
+        const el = document.getElementById('catalystList');
+        if (!el) return;
+        if (!d || !Array.isArray(d.results) || !d.results.length) {
+            el.innerHTML = '<div class="catalyst-empty">현재 감지된 카탈리스트 종목 없음 — 다음 EDGAR 스캔 대기 (5분)</div>';
+            return;
+        }
+        let items = d.results;
+        if (_catalystFilter === 'urgent') items = items.filter(r => r.score >= 75);
+        else if (_catalystFilter === 'strong') items = items.filter(r => r.score >= 55 && r.score < 75);
+        else if (_catalystFilter === 'watch') items = items.filter(r => r.score >= 35 && r.score < 55);
+
+        if (!items.length) {
+            el.innerHTML = '<div class="catalyst-empty">선택한 필터에 해당하는 종목이 없습니다</div>';
+            return;
+        }
+
+        const _ago = iso => {
+            if (!iso) return '-';
+            const diff = (Date.now() - new Date(iso).getTime()) / 60000;
+            if (diff < 60) return `${Math.round(diff)}분 전`;
+            if (diff < 1440) return `${Math.round(diff / 60)}시간 전`;
+            return `${Math.round(diff / 1440)}일 전`;
+        };
+        const _fmtP = p => '$' + (p >= 10 ? p.toFixed(2) : p.toFixed(3));
+        const _fmtMc = v => v >= 1e9 ? `$${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `$${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(0)}K` : `$${v}`;
+
+        const html = items.map((r, idx) => {
+            const f = r.filing || {};
+            const s = r.strategy || {};
+            const fresh = f.updated && (Date.now() - new Date(f.updated).getTime()) < 3600 * 1000;
+            const tagsHtml = (f.keywordTags || []).slice(0,3).map(t => `<span class="catalyst-tag">${escHtml(t)}</span>`).join('');
+            return `
+            <div class="catalyst-card ${fresh ? 'catalyst-card--fresh' : ''}" onclick="quickSearch('${r.ticker}','US')">
+                <div class="catalyst-card-head">
+                    <div class="catalyst-rank">${idx + 1}</div>
+                    <div class="catalyst-id">
+                        <div class="catalyst-sym">${escHtml(r.ticker)} <span class="catalyst-form">${escHtml(f.formType || '')}</span></div>
+                        <div class="catalyst-name">${escHtml((r.name || '').slice(0, 30))}</div>
+                    </div>
+                    <div class="catalyst-grade" style="background:${r.gradeColor};color:#fff">${escHtml(r.grade)} · ${r.score}</div>
+                </div>
+                <div class="catalyst-title">${escHtml((f.title || '').slice(0, 100))}</div>
+                <div class="catalyst-tags">${tagsHtml}</div>
+                <div class="catalyst-meta-row">
+                    <span class="catalyst-meta-cell">⏰ ${_ago(f.updated)}</span>
+                    <span class="catalyst-meta-cell">💰 ${_fmtP(r.price)}</span>
+                    <span class="catalyst-meta-cell">🏢 ${_fmtMc(r.marketCap)}</span>
+                    <span class="catalyst-meta-cell">📊 거래량 ×${r.volRatio.toFixed(1)}</span>
+                    ${r.shortFloatPct ? `<span class="catalyst-meta-cell">🩳 숏Float ${r.shortFloatPct.toFixed(1)}%</span>` : ''}
+                    ${r.preGapPct != null ? `<span class="catalyst-meta-cell ${r.preGapPct >= 0 ? 'up':'down'}">🌅 프리 ${r.preGapPct >= 0 ? '+':''}${r.preGapPct.toFixed(1)}%</span>` : ''}
+                </div>
+                <div class="catalyst-strategy">
+                    <span class="cs-cell entry">진입 ${_fmtP(s.entry)}</span>
+                    <span class="cs-cell stop">손절 ${_fmtP(s.stop)}</span>
+                    <span class="cs-cell tp">익절1 ${_fmtP(s.tp1)}</span>
+                    <span class="cs-cell tp">익절2 ${_fmtP(s.tp2)}</span>
+                </div>
+                ${f.link ? `<a class="catalyst-source" href="${escHtml(f.link)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">📄 EDGAR 원문 →</a>` : ''}
+            </div>`;
+        }).join('');
+
+        el.innerHTML = html;
     }
 
 
@@ -21731,7 +21888,7 @@
         loadGuruHome, goSmartMoneyAndOpenReal, guruRefresh, _guruImgErr,
         setMarket, searchStock, setChartInterval, setPeriod, _toggleIntervalDropdown,
         quickSearch, toggleFavorite, switchTab, toggleChartFullscreen,
-        favSearch, removeFavorite, setTop100Filter, goTop100,
+        favSearch, removeFavorite, setTop100Filter, goTop100, goCatalyst, loadCatalyst, _catalystSetFilter,
 setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawToolbar, addAutoTrendAngle, toggleChartLabels,
         toggleTheme, showLoading, hideLoading, showToast, showSnackbar,
         openChangelog, closeChangelog,
