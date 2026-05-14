@@ -1687,10 +1687,31 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
             .sort((a, b) => (b._initScore || 0) - (a._initScore || 0))
             .slice(0, 25);
 
-        // 2) 각 종목 20일 일봉 fetch + 단계 감지
-        const results = await _runWithConcurrency(universe, PUMP_FETCH_CONCURRENCY, async (q) => {
+        // 2) 일봉 데이터 배치 fetch — Alpaca 배치 우선, 미커버 종목은 Yahoo 폴백 (v660)
+        const symbolList = universe.map(q => q.symbol);
+        const [alpacaBarsObj] = await Promise.all([
+            _alpacaDailyBars(symbolList),
+        ]);
+        const missing = symbolList.filter(s => !Array.isArray(alpacaBarsObj[s]) || alpacaBarsObj[s].length < 10);
+        // 미커버 종목만 Yahoo 폴백 (병렬, 최대 10개 — Vercel timeout 안전 마진)
+        const yfallback = {};
+        if (missing.length) {
+            const cap = missing.slice(0, 10);
+            await Promise.all(cap.map(async sym => {
+                const h = await _fetchTickerHistory(sym, '1mo').catch(() => null);
+                if (h) yfallback[sym] = h;
+            }));
+        }
+
+        const results = universe.map(q => {
             const sym = q.symbol;
-            const hist = await _fetchTickerHistory(sym, '1mo').catch(() => null);
+            let hist = null, dataSource = 'yfinance_delayed';
+            if (Array.isArray(alpacaBarsObj[sym]) && alpacaBarsObj[sym].length >= 10) {
+                hist = _alpacaBarsToHist(alpacaBarsObj[sym]);
+                dataSource = 'alpaca_realtime';
+            } else if (yfallback[sym]) {
+                hist = yfallback[sym];
+            }
             if (!hist || !hist.closes || hist.closes.length < 10) return null;
             // 히스토리 기반 추가 검증 (정지·고스트 데이터 차단)
             const validCloses = hist.closes.filter(v => v != null);
@@ -1733,6 +1754,7 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
                 dayChangePct: stageInfo.dayChangePct,
                 strategy: strategy || null,
                 superNovaWarn: stageInfo.consecUp >= 4,
+                dataSource,
             };
         });
 
@@ -1760,11 +1782,16 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
             } catch (e) { item.hasNews = false; item.newsCount = 0; }
         }));
 
+        const realtimeCount = top.filter(r => r.dataSource === 'alpaca_realtime').length;
         const payload = {
             results: top,
             totalScanned: filtered.length,
             scannedAt: new Date().toISOString(),
             method: 'Tim Sykes 7-Stage',
+            dataSource: !_alpacaEnabled() ? 'yfinance_delayed'
+                : realtimeCount === top.length && top.length > 0 ? 'alpaca_realtime'
+                : realtimeCount > 0 ? 'mixed' : 'yfinance_delayed',
+            realtimeCount,
         };
         // 빈 결과는 캐시하지 않음 — 다음 요청에서 즉시 재시도 (v646)
         if (top.length > 0) _pumpScanCache = { ts: now, data: payload };
@@ -1846,6 +1873,20 @@ function _isUSPreMarket() {
     } catch { return false; }
 }
 // Alpaca 스냅샷 + 일봉 → 카탈리스트 quote 모양으로 변환
+// Alpaca bars 배열 → _detectSykesStage / _calcSykesStrategy 가 기대하는 hist 모양 (v660)
+function _alpacaBarsToHist(bars) {
+    if (!Array.isArray(bars) || bars.length === 0) return null;
+    return {
+        ts:     bars.map(b => Math.floor(new Date(b.t).getTime() / 1000)),
+        opens:  bars.map(b => b.o),
+        highs:  bars.map(b => b.h),
+        lows:   bars.map(b => b.l),
+        closes: bars.map(b => b.c),
+        vols:   bars.map(b => b.v),
+        meta: {},
+    };
+}
+
 function _alpacaToQuoteShape(symbol, snap, bars) {
     if (!snap) return null;
     const latestTrade = snap.latestTrade || snap.latest_trade;
@@ -2031,14 +2072,20 @@ app.get('/api/catalyst/hunter', async (req, res) => {
         // 2) 티커 매핑 + 키워드 점수 (v655.3)
         //    EDGAR RSS 제목은 "[Form] - [Company] (CIK)" 형식이라 본문 키워드가 거의 없음.
         //    8-K/6-K 자체가 material event 신호이므로 제외 키워드만 거르고 통과 + 키워드 매치 시 가점.
+        //    SPAC 유닛(U)·워런트(W,WS,WW,WT)·라이트(R) 제외 — 일반 주식만 (v660)
+        const isSpacSuffix = sym => /^[A-Z]{1,4}(U|W|WW|WS|WT|R)$/.test(sym);
+        // 회사명에서도 SPAC 식별 (Acquisition Corp / Acquisition Corporation 등)
+        const isSpacByTitle = title => /\bacquisition\s+corp|acquisition\s+corporation|spac\b/i.test(title || '');
         const seenTickers = new Set();
         const candidates = [];
         for (const f of allFilings) {
             const kw = _catalystKeywordScore(f.title);
             if (kw.tier === 'excluded') continue;
+            if (isSpacByTitle(f.title)) continue;
             let ticker = (f.title.match(/\(([A-Z]{1,5})\)/) || [])[1];
             if (!ticker && f.cik) ticker = cikMap[f.cik];
             if (!ticker) continue;
+            if (isSpacSuffix(ticker)) continue;  // SPAC 유닛/워런트/라이트 제외
             if (seenTickers.has(ticker)) continue;
             seenTickers.add(ticker);
             const effectiveScore = kw.score > 0 ? kw.score : 10;
@@ -5248,24 +5295,37 @@ app.get('/api/oversold-radar', async (req, res) => {
 
         // ── Oversold 목록 — 가격 무관 모든 후보 (v654)
         //   전체 스크리너 합집합에서 RSI 계산 → 낮은 순으로 100개까지 반환
+        //   가격·변동률·당일 거래량은 Alpaca 실시간 보강 (v660)
         const oversoldSrc = allQuotes;
         const oversoldSeen = new Set();
-        const oversoldItems = oversoldSrc
+        const dedupedSrc = oversoldSrc
             .filter(q => q.symbol && q.regularMarketPrice != null)
-            .filter(q => { if (oversoldSeen.has(q.symbol)) return false; oversoldSeen.add(q.symbol); return true; })
+            .filter(q => { if (oversoldSeen.has(q.symbol)) return false; oversoldSeen.add(q.symbol); return true; });
+        // Alpaca snapshots — 상위 100종목만 보강 (Vercel timeout 안전)
+        const overSyms = dedupedSrc.slice(0, 100).map(q => q.symbol);
+        const overSnaps = await _alpacaSnapshots(overSyms);
+        const overSnapMap = overSnaps.snapshots || overSnaps || {};
+
+        const oversoldItems = dedupedSrc
             .map(q => {
                 const sp = sparkMap[q.symbol] || {};
                 const closes = sp.close || [];
                 const volumes = sp.volume || [];
                 const rsi = _radarCalcRSI14(closes);
                 const vol20 = volumes.length >= 10 ? volumes.slice(-20).reduce((a,b)=>a+b,0) / Math.min(volumes.length,20) : null;
-                const volMult = (vol20 && q.regularMarketVolume) ? q.regularMarketVolume / vol20 : null;
+                // Alpaca 실시간 우선 (있으면), 없으면 yfinance fallback
+                const ap = _alpacaToQuoteShape(q.symbol, overSnapMap[q.symbol], null);
+                const hasAlpaca = !!ap;
+                const price = (hasAlpaca && ap.price) || q.regularMarketPrice;
+                const changePct = (hasAlpaca && ap.changePct != null) ? ap.changePct : (q.regularMarketChangePercent ?? 0);
+                const volume = (hasAlpaca && ap.todayVol) || q.regularMarketVolume;
+                const volMult = (vol20 && volume) ? volume / vol20 : null;
                 return {
                     symbol:    q.symbol,
                     name:      q.shortName || q.displayName || q.symbol,
-                    price:     q.regularMarketPrice,
-                    changePct: q.regularMarketChangePercent ?? 0,
-                    volume:    q.regularMarketVolume,
+                    price,
+                    changePct,
+                    volume,
                     avgVolume: vol20 || q.averageDailyVolume10Day || null,
                     spark:     closes.slice(-30),
                     ma50:      q.fiftyDayAverage || null,
@@ -5276,6 +5336,7 @@ app.get('/api/oversold-radar', async (req, res) => {
                     volMult,
                     per:       q.trailingPE ?? q.forwardPE ?? null,
                     pbr:       q.priceToBook ?? null,
+                    dataSource: hasAlpaca ? 'alpaca_realtime' : 'yfinance_delayed',
                 };
             })
             .sort((a, b) => (a.rsi ?? 50) - (b.rsi ?? 50))

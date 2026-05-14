@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=659">
+    <link rel="stylesheet" href="/styles.css?v=660">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -5479,6 +5479,7 @@
                 _sykesNewsTitle: r.newsTitle,
                 _sykesPreSurge: r.preSurge,
                 _sykesPreSurgeReason: r.preSurgeReason,
+                _dataSource: r.dataSource,
             }));
             // 필터 바 HTML (v656 — 급등 임박 우선)
             const preCount = allResults.filter(r => r.preSurge === true || r.stage === 1.5).length;
@@ -5940,6 +5941,9 @@
                 signals.push({ label: `${stage}단계 · ${stageLabel}`, cls: stageColorCls });
             }
             signals.push({ label: sykesSignal, cls: preSurge ? 'purple' : (dir === 'long' ? 'emerald' : dir === 'short' ? 'red' : 'cyan') });
+            // 데이터 소스 (v660)
+            if (q._dataSource === 'alpaca_realtime') signals.push({ label: '🟢 실시간', cls: 'emerald' });
+            else if (q._dataSource === 'yfinance_delayed') signals.push({ label: '🟡 15분 지연', cls: 'amber' });
             if (superNova)  signals.push({ label: `🚨 ${consec}일 연속 상승 — 정점 경고`, cls: 'red' });
             else if (consec >= 1) signals.push({ label: `📈 ${consec}일 연속 상승`, cls: 'amber' });
             if (isLowFloat) signals.push({ label: `💎 Low Float ${_fmtShares(float)}`, cls: 'purple' });
