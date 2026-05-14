@@ -4965,24 +4965,29 @@
     position:fixed;
     background:var(--bg2);
     border:1px solid var(--border);
-    border-radius:10px;
-    box-shadow:0 8px 24px rgba(0,0,0,.28);
+    border-radius:12px;
+    box-shadow:0 12px 32px rgba(0,0,0,.32), 0 2px 8px rgba(0,0,0,.18);
     z-index:9000;
-    min-width:90px;
-    padding:4px;
-    display:flex; flex-direction:column; gap:2px;
+    min-width:120px;
+    padding:6px;
+    display:flex; flex-direction:column; gap:1px;
+}
+[data-theme="light"] .interval-dd-menu{
+    background:#ffffff;
+    box-shadow:0 12px 32px rgba(0,0,0,.16), 0 2px 8px rgba(0,0,0,.08);
 }
 .interval-dd-item{
     background:transparent; border:none;
-    padding:7px 12px; border-radius:6px;
-    color:var(--text2); font-size:12px; font-weight:600;
+    padding:10px 16px; border-radius:8px;
+    color:var(--text); font-size:14px; font-weight:600;
     text-align:left; cursor:pointer;
-    font-family:inherit; transition:background .12s;
+    font-family:inherit; transition:background .12s, color .12s;
     white-space:nowrap;
 }
 .interval-dd-item:hover{ background:var(--bg3); color:var(--text); }
-.interval-dd-item.active{ background:var(--bg3); color:var(--blue); font-weight:700; }
-[data-theme="light"] .interval-dd-item.active{ background:var(--bg3); color:var(--blue); }
+.interval-dd-item.active{ background:rgba(0,128,251,.12); color:var(--blue); font-weight:700; }
+[data-theme="light"] .interval-dd-item:hover{ background:#F2F2F7; }
+[data-theme="light"] .interval-dd-item.active{ background:rgba(0,128,251,.10); color:var(--blue); }
 
 /* 데스크탑에선 백드롭 숨김 */
 .interval-dd-backdrop{display:none;}
