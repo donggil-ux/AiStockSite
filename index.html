@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=655">
+    <link rel="stylesheet" href="/styles.css?v=656">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -5237,7 +5237,7 @@
         </div>`;
     }
     const _ALPHA_DESC = {
-        surge:    '급등 후보 (나노캡) — 주가 $0.3~$5, 시총 ≤$50M, Float ≤10M, 평균거래량 10K~500K. 거래량비·갭·Float·뉴스 종합 점수.',
+        surge:    '급등 후보 — Tim Sykes 7단계 + 🎯 급등 임박 감지 (2~5일 전 거래량 누적·압축 구간 자동 발굴). 이미 급등한 종목이 아닌 본격 급등 전 예비 단계 종목 우선 노출.',
         bounce:   '교과서적 과매도 종목 — RSI ≤ 30, MA200 -15%↓ 이격, 52주 고점 -30%↓ 폭락 중 하나 이상 충족.',
         daytrade: '5분봉 돌파 단타 분석 — 돌파패턴(35%) + 양봉시가(25%) + 거래량(20%) + 정배열(10%) + 위험패턴(10%) 종합점수 60+ 종목.',
         swing:    '52주 고점까지 충분한 상승 여력(R/R ≥ 1.5)이 있고 추세가 살아있는 종목 — 며칠~몇 주 단위 스윙에 적합합니다.',
@@ -5424,7 +5424,7 @@
     // ── 🔥 급등 후보 스캐너 ──────────────────────────────────────────
     // /api/scanner/surge: 갭% + 거래량비율 + AH% + 숏Float 가중 합산
     // 급등 후보 — Tim Sykes 7단계 (v638)
-    let _surgeStageFilter = 'all'; // all | long | short | warn
+    let _surgeStageFilter = 'pre'; // pre | all | long | short | warn (기본: 급등 임박, v656)
     function _setSurgeFilter(f) {
         _surgeStageFilter = f;
         if (_alphaTab === 'surge') _alphaRenderSurgeScanner(document.getElementById('alphaResults'));
@@ -5441,8 +5441,9 @@
                 el.innerHTML = _alphaTimingGuide('surge') + '<div class="sniper-empty">급등 후보 없음 — 잠시 후 다시 시도</div>';
                 return;
             }
-            // 필터 적용
+            // 필터 적용 (v656 — 'pre' = 급등 임박 신설)
             const results = allResults.filter(r => {
+                if (_surgeStageFilter === 'pre')   return r.preSurge === true || r.stage === 1.5;
                 if (_surgeStageFilter === 'long')  return r.stage === 2 || r.stage === 3;
                 if (_surgeStageFilter === 'short') return r.stage === 4 || r.stage === 5 || r.stage === 6;
                 if (_surgeStageFilter === 'warn')  return r.superNovaWarn;
@@ -5475,13 +5476,17 @@
                 _sykesHasNews: r.hasNews,
                 _sykesNewsCount: r.newsCount,
                 _sykesNewsTitle: r.newsTitle,
+                _sykesPreSurge: r.preSurge,
+                _sykesPreSurgeReason: r.preSurgeReason,
             }));
-            // 필터 바 HTML
+            // 필터 바 HTML (v656 — 급등 임박 우선)
+            const preCount = allResults.filter(r => r.preSurge === true || r.stage === 1.5).length;
             const filterBar = `
                 <div class="surge-filter-bar">
+                    <button class="surge-filter ${_surgeStageFilter==='pre'?'active':''}" onclick="_setSurgeFilter('pre')" title="2~5일 후 급등 가능성 — 거래량 누적 + 신고점 근접 + 압축">🎯 급등 임박 ${preCount}</button>
                     <button class="surge-filter ${_surgeStageFilter==='all'?'active':''}" onclick="_setSurgeFilter('all')">전체 ${allResults.length}</button>
-                    <button class="surge-filter ${_surgeStageFilter==='long'?'active':''}" onclick="_setSurgeFilter('long')">🟢 롱 (2~3단계) ${allResults.filter(r=>r.stage===2||r.stage===3).length}</button>
-                    <button class="surge-filter ${_surgeStageFilter==='short'?'active':''}" onclick="_setSurgeFilter('short')">🔴 숏 (4~6단계) ${allResults.filter(r=>r.stage===4||r.stage===5||r.stage===6).length}</button>
+                    <button class="surge-filter ${_surgeStageFilter==='long'?'active':''}" onclick="_setSurgeFilter('long')">🟢 롱 (이미 급등) ${allResults.filter(r=>r.stage===2||r.stage===3).length}</button>
+                    <button class="surge-filter ${_surgeStageFilter==='short'?'active':''}" onclick="_setSurgeFilter('short')">🔴 숏 (하락) ${allResults.filter(r=>r.stage===4||r.stage===5||r.stage===6).length}</button>
                     <button class="surge-filter ${_surgeStageFilter==='warn'?'active':''}" onclick="_setSurgeFilter('warn')">🚨 정점 경고 ${allResults.filter(r=>r.superNovaWarn).length}</button>
                 </div>`;
             _alphaRender(items, 'surge');
@@ -5917,14 +5922,23 @@
 
             const _fmtCount = v => v >= 1e9 ? `$${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `$${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(0)}K` : `$${v}`;
             const _fmtShares = v => v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `${(v/1e3).toFixed(0)}K` : `${v}`;
-            const stageColorCls = stage === 2 ? 'emerald'
+            const preSurge = q._sykesPreSurge === true || stage === 1.5;
+            const preSurgeReason = q._sykesPreSurgeReason || '';
+            const stageColorCls = preSurge ? 'purple'
+                                 : stage === 2 ? 'emerald'
                                  : stage === 3 ? 'red'
                                  : stage === 4 ? 'orange'
                                  : stage === 5 ? 'amber'
                                  : stage === 6 ? 'red'
                                  : 'cyan';
-            signals.push({ label: `${stage}단계 · ${stageLabel}`, cls: stageColorCls });
-            signals.push({ label: sykesSignal, cls: dir === 'long' ? 'emerald' : dir === 'short' ? 'red' : 'cyan' });
+            // 급등 임박 종목은 별도 표시
+            if (preSurge) {
+                signals.push({ label: `🎯 급등 임박`, cls: 'purple' });
+                if (preSurgeReason) signals.push({ label: preSurgeReason, cls: 'amber' });
+            } else {
+                signals.push({ label: `${stage}단계 · ${stageLabel}`, cls: stageColorCls });
+            }
+            signals.push({ label: sykesSignal, cls: preSurge ? 'purple' : (dir === 'long' ? 'emerald' : dir === 'short' ? 'red' : 'cyan') });
             if (superNova)  signals.push({ label: `🚨 ${consec}일 연속 상승 — 정점 경고`, cls: 'red' });
             else if (consec >= 1) signals.push({ label: `📈 ${consec}일 연속 상승`, cls: 'amber' });
             if (isLowFloat) signals.push({ label: `💎 Low Float ${_fmtShares(float)}`, cls: 'purple' });
@@ -5935,15 +5949,23 @@
             if (drawdown <= -20)  signals.push({ label: `📉 고점대비 ${drawdown.toFixed(0)}%`, cls: 'blue' });
             if (newsCount >= 1)   signals.push({ label: `📰 24h 뉴스 ${newsCount}건`, cls: 'emerald' });
 
-            // score 매핑 — 단계별 점수 (롱은 2/3 단계, 숏은 4/6 단계가 높은 점수)
-            score = (stage === 2 || stage === 3) ? 5
+            // score 매핑 — 급등 임박이 최고점 (사용자가 우선 보길 원함)
+            score = preSurge ? 6
+                  : (stage === 2 || stage === 3) ? 5
                   : (stage === 4 || stage === 6) ? 4
                   : (stage === 5) ? 3
                   : (stage === 1) ? 2 : 1;
 
-            const dirText = dir === 'long' ? '롱' : dir === 'short' ? '숏' : dir === 'short_wait' ? '숏 대기' : dir === 'long_exit' ? '매도 준비' : '관망';
-            reason = `Tim Sykes ${stage}단계(${stageLabel}) · 연속 상승 ${consec}일 · 거래량 ×${volRat.toFixed(1)} · 고점대비 ${drawdown.toFixed(0)}% → ${dirText} 신호.`;
-            timingBadge = (stage === 2 || (stage === 3 && dir === 'long')) ? { label: '🟢 롱 진입', cls: 'emerald' }
+            const dirText = preSurge ? '롱 (예비)'
+                          : dir === 'long' ? '롱'
+                          : dir === 'short' ? '숏'
+                          : dir === 'short_wait' ? '숏 대기'
+                          : dir === 'long_exit' ? '매도 준비' : '관망';
+            reason = preSurge
+                ? `🎯 급등 임박 — ${preSurgeReason || '거래량 누적 + 신고점 근접 압축 구간'}. 2~5일 내 본격 급등 가능. 분할 진입으로 풀백 시 매수.`
+                : `Tim Sykes ${stage}단계(${stageLabel}) · 연속 상승 ${consec}일 · 거래량 ×${volRat.toFixed(1)} · 고점대비 ${drawdown.toFixed(0)}% → ${dirText} 신호.`;
+            timingBadge = preSurge ? { label: '🎯 급등 임박', cls: 'purple' }
+                       : (stage === 2 || (stage === 3 && dir === 'long')) ? { label: '🟢 롱 진입', cls: 'emerald' }
                        : (stage === 3 && dir === 'long_exit') ? { label: '🟡 매도 준비', cls: 'amber' }
                        : (stage === 4 || stage === 6) ? { label: '🔴 숏 진입', cls: 'red' }
                        : (stage === 5) ? { label: '🟡 데드캣 대기', cls: 'amber' }

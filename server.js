@@ -1492,10 +1492,60 @@ function _detectSykesStage(hist) {
         if (dch >= 20 && vr >= 3) { recentBigUpDay = true; break; }
     }
 
-    // 단계 판별 (우선순위: 7 > 6 > 5 > 4 > 3 > 2 > 1)
+    // ── 급등 임박 (Pre-Surge) 감지 — 본격 급등 전 2~5일 예비 단계 (v656) ──
+    //   조건:
+    //   1) 거래량 5일 평균 > 15일 평균 × 1.2  (조용한 자금 유입)
+    //   2) 최근 5일 평균 일중 변동률 절댓값 < 5%  (아직 폭발 안 함)
+    //   3) 현재가 ≥ 20일 최고가 × 0.85  (저점 아닌 고점 부근)
+    //   4) 현재가 < 20일 최고가 × 1.02  (아직 신고점 미돌파)
+    //   5) 20일 변동폭 < 30%  (압축 구간)
+    //   6) 직전 5일 단일일 +20% 같은 큰 양봉 없음
+    let preSurge = false;
+    let preSurgeReason = '';
+    if (N >= 20) {
+        const last5Vol = vols.slice(Math.max(0, N - 5)).filter(v => v != null);
+        const prev15Vol = vols.slice(Math.max(0, N - 20), N - 5).filter(v => v != null);
+        const last5Avg = last5Vol.length ? last5Vol.reduce((s,v)=>s+v,0) / last5Vol.length : 0;
+        const prev15Avg = prev15Vol.length ? prev15Vol.reduce((s,v)=>s+v,0) / prev15Vol.length : 0;
+        const volBuild = prev15Avg > 0 ? last5Avg / prev15Avg : 0;
+
+        const last5Close = closes.slice(Math.max(0, N - 5)).filter(v => v != null);
+        let last5DayChgAvg = 0;
+        if (last5Close.length >= 2) {
+            const chgs = [];
+            for (let i = 1; i < last5Close.length; i++) {
+                chgs.push(Math.abs((last5Close[i] - last5Close[i-1]) / last5Close[i-1]) * 100);
+            }
+            last5DayChgAvg = chgs.length ? chgs.reduce((s,v)=>s+v,0) / chgs.length : 0;
+        }
+
+        const last20Close = closes.slice(Math.max(0, N - 20)).filter(v => v != null);
+        const high20 = last20Close.length ? Math.max(...last20Close) : c;
+        const low20  = last20Close.length ? Math.min(...last20Close) : c;
+        const range20Pct = low20 > 0 ? ((high20 - low20) / low20) * 100 : 0;
+        const nearHigh = c >= high20 * 0.85;
+        const notBrokenOut = c < high20 * 1.02;
+
+        let hadBigUpDay = false;
+        for (let i = Math.max(1, last - 4); i <= last; i++) {
+            if (closes[i] != null && closes[i-1] != null) {
+                const dch = ((closes[i] - closes[i-1]) / closes[i-1]) * 100;
+                if (dch >= 20) { hadBigUpDay = true; break; }
+            }
+        }
+
+        if (volBuild >= 1.2 && last5DayChgAvg < 5 && nearHigh && notBrokenOut && range20Pct < 30 && !hadBigUpDay) {
+            preSurge = true;
+            preSurgeReason = `거래량 ×${volBuild.toFixed(1)} 누적 + 신고점 ${((c/high20)*100).toFixed(0)}% 근접`;
+        }
+    }
+
+    // 단계 판별 (우선순위: preSurge > 7 > 6 > 5 > 4 > 3 > 2 > 1)
     let stage = 1, label = '횡보 매집', signal = '⬜ 관망', dir = 'none';
 
-    if (volRatio < 0.5 && Math.abs(dayChangePct) < 5 && range5Pct < 10) {
+    if (preSurge) {
+        stage = 1.5; label = '급등 임박'; signal = '🎯 롱 관심 — 급등 임박 (예비 단계)'; dir = 'long_pre';
+    } else if (volRatio < 0.5 && Math.abs(dayChangePct) < 5 && range5Pct < 10) {
         stage = 7; label = '소멸'; signal = '⬜ 관망'; dir = 'none';
     } else if (drawdownPct <= -30 && volRatio < 1.0 && consecUp === 0) {
         stage = 6; label = '2차 하락'; signal = '🔴 숏 추가 — 2차 하락'; dir = 'short';
@@ -1515,6 +1565,7 @@ function _detectSykesStage(hist) {
 
     return {
         stage, label, signal, dir,
+        preSurge, preSurgeReason,
         consecUp, drawdownPct: +drawdownPct.toFixed(2),
         totalGainPct: +totalGainPct.toFixed(2),
         volRatio: +volRatio.toFixed(2), volTrend: +volTrend.toFixed(2),
@@ -1534,7 +1585,16 @@ function _calcSykesStrategy(stageInfo, hist) {
     const dir = stageInfo.dir;
     const stage = stageInfo.stage;
 
-    if (stage === 2 || (stage === 3 && dir === 'long')) {
+    if (stage === 1.5 || dir === 'long_pre') {
+        // 급등 임박 — 풀백 진입 + 신고점 돌파 추격 안 함
+        const last20Lo = Math.min(...lows.slice(Math.max(0, last - 19)).filter(v => v != null));
+        const last20Hi = Math.max(...highs.slice(Math.max(0, last - 19)).filter(v => v != null));
+        const entry = c;
+        const stop = Math.max(last20Lo, c - atr * 1.0);
+        const tp1 = last20Hi + atr * 0.5;
+        const tp2 = c + atr * 4.0;
+        return { dir: 'long_pre', entry: +entry.toFixed(4), stop: +stop.toFixed(4), tp1: +tp1.toFixed(4), tp2: +tp2.toFixed(4), atr: +atr.toFixed(4) };
+    } else if (stage === 2 || (stage === 3 && dir === 'long')) {
         // 롱 진입
         const prevLow = lows[last - 1] || (c - atr * 0.5);
         const entry = c;
@@ -1659,6 +1719,8 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
                 stageLabel: stageInfo.label,
                 signal: stageInfo.signal,
                 dir: stageInfo.dir,
+                preSurge: stageInfo.preSurge || false,
+                preSurgeReason: stageInfo.preSurgeReason || '',
                 consecUp: stageInfo.consecUp,
                 drawdownPct: stageInfo.drawdownPct,
                 totalGainPct: stageInfo.totalGainPct,
@@ -1671,11 +1733,11 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
             };
         });
 
-        // 3) 단계 우선순위 정렬 — 롱 후보(2~3) 먼저, 그 다음 숏 후보(4~6)
+        // 3) 단계 우선순위 정렬 — 급등 임박(1.5) 우선 > 롱(2,3) > 숏(4,6) > 데드캣(5) > 횡보(1) > 소멸(7)
         const filtered = results.filter(Boolean);
         const stageWeight = (s) => {
-            // 2,3 (롱) 우선 > 4 (숏 진입) > 6 > 5 > 1 > 7
-            const map = { 2: 100, 3: 90, 4: 80, 6: 70, 5: 60, 1: 20, 7: 10 };
+            // 1.5 (급등 임박) 최우선 — 사용자가 2일 전 발견 원함 (v656)
+            const map = { 1.5: 120, 2: 100, 3: 90, 4: 80, 6: 70, 5: 60, 1: 20, 7: 10 };
             return map[s] || 0;
         };
         filtered.sort((a, b) => {
