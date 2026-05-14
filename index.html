@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=647">
+    <link rel="stylesheet" href="/styles.css?v=648">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -7097,6 +7097,8 @@
         const _fab = document.getElementById('calcFab'); if (_fab) _fab.style.display = 'none';
         document.getElementById('stockHero').classList.remove('show');
         document.getElementById('tabNav').classList.remove('show');
+        // 하단 네비게이션 — TOP100 은 메뉴 진입이므로 "전체" 활성화 (v648)
+        updateBnActive('all');
         // 데이터 로드
         loadTop100();
         try { window.scrollTo(0, 0); } catch(e){}
@@ -8366,8 +8368,8 @@
     }
 
     function updateBnActive(tab) {
-        const map = { home: 'bnHome', leverage: 'bnLeverage', scanner: 'bnScanner', smartmoney: 'bnSmartmoney', fav: 'bnFav', vision: 'bnVision' };
-        // 'all'(전체 메뉴)은 active 상태 없음
+        const map = { home: 'bnHome', leverage: 'bnLeverage', scanner: 'bnScanner', smartmoney: 'bnSmartmoney', fav: 'bnFav', vision: 'bnVision', all: 'bnAll' };
+        // 'all' = 전체 메뉴 버튼 (TOP 100 등 사이드 메뉴 진입 페이지에서 활성)
         // 모든 탭 비활성화 + 아이콘 line으로
         document.querySelectorAll('.bn-item').forEach(btn => {
             btn.classList.remove('active');
