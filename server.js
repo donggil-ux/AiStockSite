@@ -576,22 +576,14 @@ app.get('/api/screener/:filter', async (req, res) => {
     try {
         const url  = `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&lang=en-US&region=US&scrIds=${filter}&count=${count}`;
         const data = await yfRequest(url);
-        // 상장폐지 종목 제외 — 마지막 거래일이 7일 이상 지난 종목 필터
+        // SPAC + OTC + 상장폐지 통합 필터 (v662)
         try {
-            const nowSec = Math.floor(Date.now() / 1000);
-            const STALE_SEC = 7 * 24 * 3600;
             const quotes = data?.finance?.result?.[0]?.quotes;
             if (Array.isArray(quotes)) {
-                data.finance.result[0].quotes = quotes.filter(q => {
-                    const lastTs = q?.regularMarketTime || 0;
-                    if (lastTs && nowSec - lastTs > STALE_SEC) return false;
-                    // 추가 안전장치: 거래량 0 + 가격 변화 0이 N일 이상 → 상폐 의심
-                    if (q?.regularMarketVolume === 0 && q?.regularMarketChange === 0) return false;
-                    return true;
-                });
+                data.finance.result[0].quotes = quotes.filter(q => !_isExcludedStock(q));
             }
         } catch (e) {
-            console.warn('[screener] stale filter fail:', e.message);
+            console.warn('[screener] filter fail:', e.message);
         }
         res.json(data);
     } catch (err) {
@@ -1620,6 +1612,44 @@ function _calcSykesStrategy(stageInfo, hist) {
     return { dir, atr: +atr.toFixed(4) };
 }
 
+// ── 알파 스캐너 공통 필터 — SPAC + OTC + 상장폐지 (v662) ────────────────
+//   모든 스캐너에서 재사용. 입력은 Yahoo v7/quote 또는 screener quote shape.
+const _OTC_EXCHANGES = new Set(['PNK','OTC','OEM','OQB','OQX','OTCBB','OTCM']);
+function _isSpacTicker(sym) {
+    if (!sym || typeof sym !== 'string') return false;
+    return /^[A-Z]{1,4}(U|W|WW|WS|WT|R)$/.test(sym);
+}
+function _isSpacName(name) {
+    if (!name) return false;
+    return /\bacquisition\s+corp|acquisition\s+corporation|\bspac\b/i.test(name);
+}
+function _isOtcQuote(q) {
+    if (!q) return false;
+    const exShort = String(q.exchange || '').toUpperCase();
+    const exFull  = String(q.fullExchangeName || '').toUpperCase();
+    if (_OTC_EXCHANGES.has(exShort)) return true;
+    if (/PINK|OTC\b/.test(exFull)) return true;
+    return false;
+}
+function _isDelistedQuote(q, opts = {}) {
+    if (!q) return true;
+    const staleDays = opts.staleDays || 7;
+    const lastTs = q.regularMarketTime || 0;
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (lastTs && nowSec - lastTs > staleDays * 24 * 3600) return true;
+    if (!q.regularMarketPrice) return true;
+    return false;
+}
+// 통합 — quote 가 알파 스캐너에서 노출되면 안 되는 종목이면 true
+function _isExcludedStock(q, opts = {}) {
+    if (!q) return true;
+    if (_isSpacTicker(q.symbol)) return true;
+    if (_isSpacName(q.shortName || q.longName || q.displayName)) return true;
+    if (_isOtcQuote(q)) return true;
+    if (_isDelistedQuote(q, opts)) return true;
+    return false;
+}
+
 // 동시 실행 제한 헬퍼 — N개씩 청크 단위로 Promise.all
 async function _runWithConcurrency(items, limit, worker) {
     const out = [];
@@ -1669,14 +1699,8 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
             return res.json({ results: [], totalScanned: 0, scannedAt: new Date().toISOString() });
         }
 
-        // 상폐 quote 필터 (v647) — tradeable 플래그는 프리마켓 시간에 false 가 많아 제외
-        const nowSec = Math.floor(Date.now() / 1000);
-        universe = universe.filter(q => {
-            if (!q.regularMarketPrice) return false;
-            const lastTs = q.regularMarketTime || 0;
-            if (lastTs && nowSec - lastTs > 7 * 24 * 3600) return false; // 7일 무거래
-            return true;
-        });
+        // SPAC + OTC + 상장폐지 통합 필터 (v662)
+        universe = universe.filter(q => !_isExcludedStock(q));
 
         // 변동률·거래량 상위 25개로 1차 필터링 (Vercel 10s timeout 대응, v644)
         universe = universe
@@ -3195,7 +3219,10 @@ async function _fetchScreenerSymbols(filter, count = 100) {
     try {
         const url = `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&lang=en-US&region=US&scrIds=${filter}&count=${count}`;
         const data = await yfRequest(url);
-        const quotes = (data?.finance?.result?.[0]?.quotes || []).filter(q => validSymbol(q.symbol));
+        // SPAC + OTC + 상장폐지 통합 제외 (v662)
+        const quotes = (data?.finance?.result?.[0]?.quotes || [])
+            .filter(q => validSymbol(q.symbol))
+            .filter(q => !_isExcludedStock(q));
         const sectors = new Map();
         quotes.forEach(q => {
             const ko = _toSectorKo(q.sector);
@@ -5306,6 +5333,7 @@ app.get('/api/oversold-radar', async (req, res) => {
         const oversoldSeen = new Set();
         const dedupedSrc = oversoldSrc
             .filter(q => q.symbol && q.regularMarketPrice != null)
+            .filter(q => !_isExcludedStock(q)) // SPAC + OTC + 상장폐지 제외 (v662)
             .filter(q => { if (oversoldSeen.has(q.symbol)) return false; oversoldSeen.add(q.symbol); return true; });
         // Alpaca snapshots — 상위 100종목만 보강 (Vercel timeout 안전)
         const overSyms = dedupedSrc.slice(0, 100).map(q => q.symbol);
