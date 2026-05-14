@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=649">
+    <link rel="stylesheet" href="/styles.css?v=650">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -12212,15 +12212,15 @@
         const addLine = (price, color, label) => {
             try {
                 const pl = lwCandleSeries.createPriceLine({
-                    price, color, lineWidth: 1, lineStyle: 2,
+                    price, color, lineWidth: 2, lineStyle: 0,  // 굵은 솔리드 — 매매 라인 위에서 가시성 확보 (v650)
                     axisLabelVisible: true,
                     title: label,
                 });
                 _chartLiveLines.push(pl);
             } catch(e) {}
         };
-        resistances.forEach(r => addLine(r.price, 'rgba(239,68,68,0.55)', `저항 $${r.price.toFixed(2)}`));
-        supports.forEach(s => addLine(s.price, 'rgba(59,130,246,0.55)', `지지 $${s.price.toFixed(2)}`));
+        resistances.forEach(r => addLine(r.price, 'rgba(239,68,68,0.9)',  `📍 저항 $${r.price.toFixed(2)}`));
+        supports.forEach(s   => addLine(s.price, 'rgba(59,130,246,0.9)', `📍 지지 $${s.price.toFixed(2)}`));
 
         // 5) 매매 전략 라인 — ATR(14) 기반 3단계 분할매수 + 3단계 분할익절
         //    일·주봉 + 김직선 활성 시에는 김직선 라인이 더 정교하므로 기존 매수/익절 라인 숨김 (v632)
