@@ -1631,23 +1631,27 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
             .slice(0, 25);
 
         // 2) 각 종목 20일 일봉 fetch + 단계 감지
+        const _debug = { uni: universe.length, histFail: 0, histShort: 0, flat: 0, lastErr: null };
         const results = await _runWithConcurrency(universe, PUMP_FETCH_CONCURRENCY, async (q) => {
             const sym = q.symbol;
-            const hist = await _fetchTickerHistory(sym, '1mo');
-            if (!hist || !hist.closes || hist.closes.length < 10) return null;
+            let hist;
+            try { hist = await _fetchTickerHistory(sym, '1mo'); }
+            catch (e) { _debug.lastErr = sym + ':' + (e.message || 'err').slice(0,100); _debug.histFail++; return null; }
+            if (!hist) { _debug.histFail++; return null; }
+            if (!hist.closes || hist.closes.length < 10) { _debug.histShort++; return null; }
             // 히스토리 기반 추가 검증 (정지·고스트 데이터 차단, v640)
             const validCloses = hist.closes.filter(v => v != null);
-            if (validCloses.length < 10) return null;
+            if (validCloses.length < 10) { _debug.histShort++; return null; }
             // 최근 5일 모두 같은 가격 → 거래 정지 의심
             const last5 = validCloses.slice(-5);
-            if (last5.length === 5 && last5.every(v => v === last5[0])) return null;
+            if (last5.length === 5 && last5.every(v => v === last5[0])) { _debug.flat++; return null; }
             // 최근 5일 거래량 모두 0 → 거래 없음
             const last5Vol = hist.vols.slice(-5).filter(v => v != null);
-            if (last5Vol.length === 5 && last5Vol.every(v => v === 0)) return null;
+            if (last5Vol.length === 5 && last5Vol.every(v => v === 0)) { _debug.flat++; return null; }
             // 20일 가격 변동폭이 0.5% 미만이면 거의 정지 상태
             const minC = Math.min(...validCloses);
             const maxC = Math.max(...validCloses);
-            if (minC > 0 && (maxC - minC) / minC < 0.005) return null;
+            if (minC > 0 && (maxC - minC) / minC < 0.005) { _debug.flat++; return null; }
             const stageInfo = _detectSykesStage(hist);
             if (!stageInfo) return null;
             const strategy = _calcSykesStrategy(stageInfo, hist);
@@ -1709,6 +1713,7 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
             totalScanned: filtered.length,
             scannedAt: new Date().toISOString(),
             method: 'Tim Sykes 7-Stage',
+            _debug,
         };
         _pumpScanCache = { ts: now, data: payload };
         res.json(payload);
