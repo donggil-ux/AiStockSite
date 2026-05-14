@@ -6332,6 +6332,31 @@
 [data-theme="dark"] .alpha-home-tab{color:rgba(235,235,245,0.6);}
 [data-theme="dark"] .alpha-home-tab.active{background:rgba(118,118,128,0.36);color:#fff;}
 
+/* 일·주봉 분석 기준가 vs 프리/애프터 갭 배너 (v649) */
+.chart-pre-banner{
+    display:flex;align-items:center;gap:8px;
+    padding:8px 14px;margin:0 12px 8px;
+    background:linear-gradient(90deg, rgba(99,102,241,0.08), rgba(99,102,241,0.04));
+    border:1px solid rgba(99,102,241,0.25);
+    border-radius:10px;
+    font-size:12px;color:var(--text2);
+    flex-wrap:wrap;
+}
+.chart-pre-banner .cpb-left{display:flex;align-items:center;gap:6px;}
+.chart-pre-banner .cpb-icon{font-size:14px;}
+.chart-pre-banner .cpb-text strong{color:var(--text1);font-weight:700;font-variant-numeric:tabular-nums;}
+.chart-pre-banner .cpb-divider{color:var(--text3);}
+.chart-pre-banner .cpb-right{display:flex;align-items:center;gap:6px;font-weight:600;}
+.chart-pre-banner .cpb-live-label{color:var(--text3);font-weight:500;}
+.chart-pre-banner .cpb-right strong{font-variant-numeric:tabular-nums;}
+.chart-pre-banner .cpb-right.up    { color:#ef4444; }
+.chart-pre-banner .cpb-right.down  { color:#3b82f6; }
+.chart-pre-banner .cpb-right.flat  { color:var(--text2); }
+@media(max-width:480px){
+    .chart-pre-banner{font-size:11px;padding:6px 10px;gap:6px;}
+    .chart-pre-banner .cpb-divider{display:none;}
+}
+
 /* 급등 후보 단계 필터 바 (v638 — Tim Sykes) */
 .surge-filter-bar{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 12px;padding:6px;border-radius:12px;background:var(--bg2);border:1px solid var(--border);}
 .surge-filter{padding:6px 12px;border:none;background:transparent;border-radius:8px;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent;white-space:nowrap;}

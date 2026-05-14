@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=648">
+    <link rel="stylesheet" href="/styles.css?v=649">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -850,6 +850,8 @@
                         </button>
                         <span class="draw-count-badge" id="drawCountBadge">0</span>
                     </div>
+                    <!-- 일봉 분석 기준가 vs 프리마켓 갭 배너 (v649) -->
+                    <div class="chart-pre-banner" id="chartPreBanner" style="display:none;"></div>
                     <!-- 실시간 지표 시그널 배지 (차트 위 자동 표시) -->
                     <div class="chart-sig-bar" id="chartSigBar"></div>
                     <div class="tv-chart-wrap" id="tvChartWrap">
@@ -2047,6 +2049,8 @@
         const prevInterval = currentInterval;
         currentInterval = interval;
         try { localStorage.setItem('stockai_chart_interval', interval); } catch(e) {}
+        // 일·주봉 배너 자동 갱신 (캐시된 quote 재사용)
+        try { _updateChartPreBanner(); } catch(_) {}
         // 드롭다운/바텀시트 자동 닫기
         try {
             const _menu = document.getElementById('intervalDdMenu');
@@ -10414,6 +10418,59 @@
     // ========================================
     // Market Session (프리장 / 정규장 / 애프터장)
     // ========================================
+    // 일·주봉 차트 위 배너 — 분석 기준가가 정규장 종가임을 안내 + 프리/애프터 갭 표시 (v649)
+    let _lastQuoteForBanner = null;
+    function _updateChartPreBanner(q) {
+        if (q) _lastQuoteForBanner = q;
+        else q = _lastQuoteForBanner;
+        const banner = document.getElementById('chartPreBanner');
+        if (!banner) return;
+        // 일봉·주봉에서만 표시 (분봉은 라이브 가격 그대로 차트에 반영)
+        if (currentInterval !== '1d' && currentInterval !== '1wk') {
+            banner.style.display = 'none';
+            return;
+        }
+        if (!q) { banner.style.display = 'none'; return; }
+        const regPrice = q.regularMarketPrice;
+        const prePrice = q.preMarketPrice;
+        const postPrice = q.postMarketPrice;
+        const prePct = q.preMarketChangePercent;
+        const postPct = q.postMarketChangePercent;
+        const state = q.marketState;
+        const isKR = currentMarket === 'KR';
+        const fmtP = v => v == null ? '-' : (isKR ? Math.round(v).toLocaleString() + '원' : '$' + v.toFixed(2));
+
+        // 프리/애프터 가격이 정규장 대비 ±0.5% 이상 차이 날 때만 노출 (의미 있는 갭)
+        let livePrice = null, livePct = null, label = '', when = '';
+        if (prePrice != null && prePct != null && Math.abs(prePct) >= 0.5) {
+            livePrice = prePrice; livePct = prePct; label = '프리마켓'; when = '🌅';
+        } else if (postPrice != null && postPct != null && Math.abs(postPct) >= 0.5) {
+            livePrice = postPrice; livePct = postPct; label = '애프터마켓'; when = '🌙';
+        }
+
+        if (livePrice == null || regPrice == null) {
+            banner.style.display = 'none';
+            return;
+        }
+
+        const dirCls = livePct > 0 ? 'up' : livePct < 0 ? 'down' : 'flat';
+        const sign = livePct >= 0 ? '+' : '';
+        const intLbl = currentInterval === '1wk' ? '주봉' : '일봉';
+        banner.innerHTML = `
+            <div class="cpb-left">
+                <span class="cpb-icon">📊</span>
+                <span class="cpb-text">${intLbl} 분석 기준가 <strong>${fmtP(regPrice)}</strong> (정규장 종가)</span>
+            </div>
+            <div class="cpb-divider">·</div>
+            <div class="cpb-right ${dirCls}">
+                <span class="cpb-live-label">${when} ${label}</span>
+                <strong>${fmtP(livePrice)}</strong>
+                <span class="cpb-pct">${sign}${livePct.toFixed(2)}%</span>
+            </div>
+        `;
+        banner.style.display = '';
+    }
+
     async function fetchMarketSession(symbol) {
         const container = document.getElementById('marketSessionInfo');
         if (!container) return;
@@ -10553,6 +10610,9 @@
                 }
                 if (priceEl) priceEl.style.color = liveChg > 0 ? 'var(--red)' : liveChg < 0 ? 'var(--blue)' : 'var(--text)';
             }
+
+            // 일·주봉 차트 위 배너 — 분석 기준가(정규장 종가) vs 라이브(프리/애프터) 갭 안내 (v649)
+            try { _updateChartPreBanner(q); } catch(_) {}
         } catch(e) {
             // 실패해도 무시 - 메인 기능에 영향 없음
         }
