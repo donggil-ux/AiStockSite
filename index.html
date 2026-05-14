@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=657">
+    <link rel="stylesheet" href="/styles.css?v=658">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -455,7 +455,7 @@
                 </div>
             </div>
             <div class="catalyst-warn">
-                ⚠️ 카탈리스트 헌터는 공시 감지 후 수분~15분 지연이 있습니다.
+                ⚠️ EDGAR 공시는 감지 후 수분 지연이 있고, 가격 데이터는 🟢 Alpaca 실시간(IEX 피드) 또는 🟡 yfinance 15분 지연.
                 뉴스 발표 후 첫 1~2시간에 수익이 집중되므로 진입 타이밍 관리 필수.
                 <strong>이미 당일 +5% 이상 오른 종목·프리장 +10% 이상 갭업 종목은 자동 제외</strong>되어
                 사전 진입 가능한 종목만 표시됩니다.
@@ -7257,7 +7257,14 @@
             const upd = document.getElementById('catalystUpdated');
             if (upd && d.scannedAt) {
                 const dt = new Date(d.scannedAt);
-                upd.textContent = `마지막 스캔 ${dt.getHours().toString().padStart(2,'0')}:${dt.getMinutes().toString().padStart(2,'0')} · 공시 ${d.totalFilings || 0}건 · 후보 ${d.results.length}건`;
+                const hh = dt.getHours().toString().padStart(2,'0');
+                const mm = dt.getMinutes().toString().padStart(2,'0');
+                // 데이터 소스 배지 (v658)
+                let srcBadge = '';
+                if (d.dataSource === 'alpaca_realtime') srcBadge = `<span class="catalyst-src-badge realtime">🟢 실시간 (Alpaca)</span>`;
+                else if (d.dataSource === 'mixed')       srcBadge = `<span class="catalyst-src-badge mixed">🟢 일부 실시간 (${d.realtimeCount}/${d.results.length})</span>`;
+                else                                     srcBadge = `<span class="catalyst-src-badge delayed">🟡 15분 지연 (yfinance)</span>`;
+                upd.innerHTML = `마지막 스캔 ${hh}:${mm} ${srcBadge} · 공시 ${d.totalFilings || 0}건 · 후보 ${d.results.length}건`;
             }
         } catch (e) {
             console.warn('[catalyst]', e);
@@ -7302,7 +7309,7 @@
                 <div class="catalyst-card-head">
                     <div class="catalyst-rank">${idx + 1}</div>
                     <div class="catalyst-id">
-                        <div class="catalyst-sym">${escHtml(r.ticker)} <span class="catalyst-form">${escHtml(f.formType || '')}</span></div>
+                        <div class="catalyst-sym">${escHtml(r.ticker)} <span class="catalyst-form">${escHtml(f.formType || '')}</span> ${r.dataSource === 'alpaca_realtime' ? '<span class="catalyst-rt-dot" title="Alpaca 실시간">🟢</span>' : '<span class="catalyst-rt-dot delayed" title="yfinance 15분 지연">🟡</span>'}</div>
                         <div class="catalyst-name">${escHtml((r.name || '').slice(0, 30))}</div>
                     </div>
                     <div class="catalyst-grade" style="background:${r.gradeColor};color:#fff">${escHtml(r.grade)} · ${r.score}</div>

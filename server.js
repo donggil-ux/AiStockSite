@@ -99,6 +99,9 @@ if (!process.env.SUPABASE_ANON_KEY) {
 }
 if (!process.env.FRED_API_KEY)    console.warn('⚠️  FRED_API_KEY 환경변수가 없습니다. 경제지표 기능이 비활성화됩니다.');
 if (!process.env.FINNHUB_API_KEY) console.warn('⚠️  FINNHUB_API_KEY 환경변수가 없습니다. 종목별 뉴스/실적 서프라이즈 기능이 비활성화됩니다.');
+if (!process.env.ALPACA_KEY_ID || !process.env.ALPACA_SECRET_KEY) {
+    console.warn('ℹ️  ALPACA_KEY_ID/ALPACA_SECRET_KEY 미설정 — 카탈리스트 헌터가 yfinance 15분 지연 데이터로 동작 (실시간 데이터 비활성화).');
+}
 
 // [Fix-F] 싱글턴 캐싱 — 매 요청마다 인스턴스 재생성 방지
 let _genAI = null;
@@ -1786,6 +1789,106 @@ const _CIK_TTL = 24 * 60 * 60 * 1000;
 
 const EDGAR_UA = 'StockAI stockai-site contact@example.com';
 
+// ── Alpaca Markets 실시간 데이터 헬퍼 (v658) ────────────────────────
+// 무료 IEX 피드 기준. 카탈리스트 헌터 전용 (다른 엔드포인트는 yfinance 유지).
+function _alpacaEnabled() {
+    return !!(process.env.ALPACA_KEY_ID && process.env.ALPACA_SECRET_KEY);
+}
+function _alpacaHeaders() {
+    return {
+        'APCA-API-KEY-ID': process.env.ALPACA_KEY_ID,
+        'APCA-API-SECRET-KEY': process.env.ALPACA_SECRET_KEY,
+        'Accept': 'application/json',
+    };
+}
+// 배치 snapshots — 종목별 latestTrade/latestQuote/dailyBar/prevDailyBar 한 번에
+async function _alpacaSnapshots(symbols) {
+    if (!_alpacaEnabled() || !symbols.length) return {};
+    try {
+        const url = `https://data.alpaca.markets/v2/stocks/snapshots?symbols=${encodeURIComponent(symbols.join(','))}`;
+        const r = await axios.get(url, { headers: _alpacaHeaders(), timeout: 8000, httpAgent, httpsAgent });
+        return r.data || {};
+    } catch (e) {
+        console.warn('[alpaca-snapshots]', e.message);
+        return {};
+    }
+}
+// 배치 일봉 — 20일 평균 거래량·ATR(14) 계산용
+async function _alpacaDailyBars(symbols) {
+    if (!_alpacaEnabled() || !symbols.length) return {};
+    try {
+        const start = new Date(Date.now() - 35 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+        const url = `https://data.alpaca.markets/v2/stocks/bars?symbols=${encodeURIComponent(symbols.join(','))}&timeframe=1Day&start=${start}&limit=1000&adjustment=raw`;
+        const r = await axios.get(url, { headers: _alpacaHeaders(), timeout: 10000, httpAgent, httpsAgent });
+        return r.data?.bars || {};
+    } catch (e) {
+        console.warn('[alpaca-bars]', e.message);
+        return {};
+    }
+}
+// 미국 시장 시간 판정 (ET 기준)
+function _isUSPreMarket() {
+    try {
+        const et = new Date().toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false });
+        const m = et.match(/(\d{1,2}):(\d{2}):(\d{2})/);
+        if (!m) return false;
+        const hh = parseInt(m[1], 10), mm = parseInt(m[2], 10);
+        const min = hh * 60 + mm;
+        return min >= 4 * 60 && min < 9 * 60 + 30;
+    } catch { return false; }
+}
+// Alpaca 스냅샷 + 일봉 → 카탈리스트 quote 모양으로 변환
+function _alpacaToQuoteShape(symbol, snap, bars) {
+    if (!snap) return null;
+    const latestTrade = snap.latestTrade || snap.latest_trade;
+    const latestQuote = snap.latestQuote || snap.latest_quote;
+    const dailyBar    = snap.dailyBar    || snap.daily_bar;
+    const prevDaily   = snap.prevDailyBar|| snap.prev_daily_bar;
+    if (!latestTrade && !dailyBar) return null;
+
+    const price = latestTrade?.p ?? dailyBar?.c ?? prevDaily?.c;
+    const prevClose = prevDaily?.c ?? null;
+    const todayOpen = dailyBar?.o ?? null;
+    const todayHigh = dailyBar?.h ?? null;
+    const todayLow  = dailyBar?.l ?? null;
+    const todayVol  = dailyBar?.v ?? 0;
+    const changePct = prevClose && prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : null;
+
+    // 20일 평균 거래량 (오늘 제외)
+    let avgVol20 = 0;
+    if (Array.isArray(bars) && bars.length >= 2) {
+        const recent = bars.slice(-21, -1); // 가장 최근 일봉(오늘) 제외 직전 20봉
+        const vols = recent.map(b => b.v).filter(v => v != null);
+        if (vols.length) avgVol20 = vols.reduce((s, v) => s + v, 0) / vols.length;
+    }
+    // ATR(14) 계산 — Alpaca bars 사용
+    let atr = null;
+    if (Array.isArray(bars) && bars.length >= 15) {
+        const last15 = bars.slice(-15);
+        const trs = [];
+        for (let i = 1; i < last15.length; i++) {
+            const b = last15[i], pb = last15[i - 1];
+            if (b.h == null || b.l == null || pb.c == null) continue;
+            trs.push(Math.max(b.h - b.l, Math.abs(b.h - pb.c), Math.abs(b.l - pb.c)));
+        }
+        if (trs.length) atr = trs.reduce((s, v) => s + v, 0) / trs.length;
+    }
+
+    // 프리마켓 가격: 현재가 ET가 04:00-09:30 이고 latestQuote 가용하면 mid
+    let preMarketPrice = null;
+    if (_isUSPreMarket() && latestQuote && (latestQuote.ap || latestQuote.bp)) {
+        const ap = latestQuote.ap || 0, bp = latestQuote.bp || 0;
+        preMarketPrice = ap && bp ? (ap + bp) / 2 : (ap || bp);
+    }
+
+    return {
+        symbol,
+        _alpaca: true,
+        price, prevClose, todayOpen, todayHigh, todayLow, todayVol, avgVol20, atr,
+        changePct, preMarketPrice,
+    };
+}
+
 const CATALYST_KEYWORDS_HIGH = [
     'acquires', 'acquisition', 'merger', 'merge with',
     'partnership', 'collaboration', 'strategic agreement',
@@ -1948,40 +2051,52 @@ app.get('/api/catalyst/hunter', async (req, res) => {
             });
         }
 
-        // 3) yfinance quote 병렬 조회
-        const symbolList = candidates.map(c => c.ticker).join(',');
-        let quotes = [];
-        try {
-            const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbolList)}`;
-            const data = await yfRequest(quoteUrl);
-            quotes = data?.quoteResponse?.result || [];
-        } catch (e) { console.warn('[catalyst] quote batch fail:', e.message); }
+        // 3) Alpaca 실시간(snapshots+bars) + yfinance(fundamentals) 병렬 조회 (v658)
+        const symbolListArr = candidates.map(c => c.ticker);
+        const symbolList = symbolListArr.join(',');
+        const [snapshotsObj, barsObj, yfData] = await Promise.all([
+            _alpacaSnapshots(symbolListArr),
+            _alpacaDailyBars(symbolListArr),
+            yfRequest(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbolList)}`)
+                .catch(e => { console.warn('[catalyst] yf quote fail:', e.message); return null; }),
+        ]);
+        // snapshots 응답 keying — Alpaca 는 { snapshots: { SYM: {...} } } 또는 SYM 키 직접 반환
+        const snapMap = snapshotsObj.snapshots || snapshotsObj || {};
+        const quotes = yfData?.quoteResponse?.result || [];
         const qMap = {};
         for (const q of quotes) if (q.symbol) qMap[q.symbol] = q;
+        // Alpaca 활성 + 실제 데이터 통신 가능 여부
+        const alpacaActive = _alpacaEnabled() && Object.keys(snapMap).length > 0;
 
-        // 4) 종목별 점수 합산
+        // 4) 종목별 점수 합산 — Alpaca 실시간 우선, yfinance 보조 (v658)
         const results = candidates.map(c => {
-            const q = qMap[c.ticker];
-            if (!q || !q.regularMarketPrice) return null;
-            const price = q.regularMarketPrice;
+            const q = qMap[c.ticker] || {};
+            const ap = _alpacaToQuoteShape(c.ticker, snapMap[c.ticker], barsObj[c.ticker]);
+            const hasAlpaca = !!ap;
+
+            // 가격·거래량·갭은 Alpaca 우선
+            const price = (hasAlpaca && ap.price) || q.regularMarketPrice;
+            if (!price) return null;
             const marketCap = q.marketCap || 0;
-            const avgVol = q.averageDailyVolume3Month || q.averageDailyVolume10Day || 0;
-            const vol = q.regularMarketVolume || 0;
+            const avgVol = (hasAlpaca && ap.avgVol20) || q.averageDailyVolume3Month || q.averageDailyVolume10Day || 0;
+            const vol = (hasAlpaca && ap.todayVol) || q.regularMarketVolume || 0;
             const volRatio = avgVol > 0 ? vol / avgVol : 0;
-            const prevC = q.regularMarketPreviousClose || q.previousClose || price;
-            const prePrice = q.preMarketPrice;
+            const prevC = (hasAlpaca && ap.prevClose) || q.regularMarketPreviousClose || q.previousClose || price;
+            const prePrice = (hasAlpaca && ap.preMarketPrice) || q.preMarketPrice;
             const preGapPct = prePrice && prevC > 0 ? ((prePrice - prevC) / prevC) * 100 : null;
+            // Short interest 는 Alpaca 미제공 → yfinance 만 사용
             const sharesShort = q.sharesShort || 0;
             const floatShares = q.floatShares || q.sharesOutstanding || 0;
             const shortFloatPct = floatShares > 0 ? (sharesShort / floatShares) * 100 : 0;
             const shortRatio = q.shortRatio || 0;
+            const dataSource = hasAlpaca ? 'alpaca_realtime' : 'yfinance_delayed';
 
             // 사전 필터 — 페니/스몰캡 (선택적 가격 범위)
             // 가격 무관 옵션이 필요하면 frontend 에서 결정. 서버는 최소 안정성만 강제:
             if (!price || price < 0.1) return null;
             if (marketCap && marketCap > 50e9) return null; // 대형주 제외 (촉매 영향 미미)
             // 이미 당일 오른 종목 제외 — 카탈리스트는 "사전 진입" 용도 (v657)
-            const todayChg = q.regularMarketChangePercent || 0;
+            const todayChg = (hasAlpaca && ap.changePct != null) ? ap.changePct : (q.regularMarketChangePercent || 0);
             if (todayChg >= 5) return null;             // 일중 +5% 이상 = 이미 반응
             if (preGapPct != null && preGapPct >= 10) return null; // 프리장 +10% 이상 = 이미 갭업
 
@@ -2009,10 +2124,11 @@ app.get('/api/catalyst/hunter', async (req, res) => {
             if (!grade) return null;
             const gradeColor = score >= 75 ? '#ef4444' : score >= 55 ? '#dc2626' : '#f97316';
 
-            // ATR 휴리스틱 (정확한 ATR 은 일봉 fetch 필요 → 간략화: 일중 변동폭 기반)
-            const dayHigh = q.regularMarketDayHigh || price;
-            const dayLow  = q.regularMarketDayLow || price;
-            const atr = Math.max(price * 0.04, (dayHigh - dayLow));
+            // ATR — Alpaca 일봉 기반 정확 계산 우선, 없으면 일중 변동폭 휴리스틱
+            const dayHigh = (hasAlpaca && ap.todayHigh) || q.regularMarketDayHigh || price;
+            const dayLow  = (hasAlpaca && ap.todayLow)  || q.regularMarketDayLow  || price;
+            const atrCalc = (hasAlpaca && ap.atr) || Math.max(price * 0.04, (dayHigh - dayLow));
+            const atr = atrCalc;
             const entry = price;
             const stop  = price - atr * 1.0;
             const tp1   = price + atr * 2.0;
@@ -2029,9 +2145,10 @@ app.get('/api/catalyst/hunter', async (req, res) => {
                 shortFloatPct: +shortFloatPct.toFixed(2),
                 shortRatio: +shortRatio.toFixed(2),
                 preGapPct: preGapPct != null ? +preGapPct.toFixed(2) : null,
-                changePct: q.regularMarketChangePercent != null ? +q.regularMarketChangePercent.toFixed(2) : null,
+                changePct: todayChg != null ? +Number(todayChg).toFixed(2) : null,
                 fiftyTwoWeekHigh: q.fiftyTwoWeekHigh,
                 fiftyTwoWeekLow: q.fiftyTwoWeekLow,
+                dataSource,
                 filing: {
                     title: c.title,
                     link: c.link,
@@ -2055,11 +2172,15 @@ app.get('/api/catalyst/hunter', async (req, res) => {
         // 점수순 정렬
         results.sort((a, b) => b.score - a.score);
 
+        const finalResults = results.slice(0, 50);
+        const realtimeCount = finalResults.filter(r => r.dataSource === 'alpaca_realtime').length;
         const payload = {
-            results: results.slice(0, 50),
+            results: finalResults,
             totalScanned: candidates.length,
             totalFilings: allFilings.length,
             scannedAt: new Date().toISOString(),
+            dataSource: alpacaActive ? (realtimeCount === finalResults.length ? 'alpaca_realtime' : 'mixed') : 'yfinance_delayed',
+            realtimeCount,
         };
         // 빈 결과는 캐시하지 않음 (다음 요청에서 즉시 재시도)
         if (results.length > 0) _catalystCache = { ts: now, data: payload };
