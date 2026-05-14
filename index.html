@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=650">
+    <link rel="stylesheet" href="/styles.css?v=651">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -12222,17 +12222,29 @@
         resistances.forEach(r => addLine(r.price, 'rgba(239,68,68,0.9)',  `📍 저항 $${r.price.toFixed(2)}`));
         supports.forEach(s   => addLine(s.price, 'rgba(59,130,246,0.9)', `📍 지지 $${s.price.toFixed(2)}`));
 
-        // 5) 매매 전략 라인 — ATR(14) 기반 3단계 분할매수 + 3단계 분할익절
+        // 5) 매매 전략 라인 — ATR(14) 기반 3단계 분할매수 + 3단계 분할익절 (v651)
         //    일·주봉 + 김직선 활성 시에는 김직선 라인이 더 정교하므로 기존 매수/익절 라인 숨김 (v632)
+        //    1차 매수 = 현재가가 아니라 "의미있는 풀백 레벨" (지지선 또는 -0.3 ATR)
         const _kimWillRender = ((currentInterval === '1d' || currentInterval === '1wk') && _chartKimEnabled);
         const atrArr = calcATR(highs, lows, closes, 14);
         const atr = lastVal(atrArr);
         if (!_kimWillRender && atr != null && atr > 0 && lastClose != null && lastClose > 0) {
             const isKR = currentMarket === 'KR';
             const fmtP = p => isKR ? Math.round(p).toLocaleString() + '원' : '$' + p.toFixed(2);
-            const e1 = lastClose;
-            const e2 = lastClose - atr * 0.5;
-            const e3 = lastClose - atr * 1.0;
+
+            // 1차 매수: 현재가 바로 아래 지지선 우선 (있으면), 없으면 -0.3 ATR 풀백
+            //   - 지지선이 너무 가까우면(<0.15 ATR) 의미 없으니 ATR 풀백 사용
+            //   - 지지선이 너무 멀면(>1.5 ATR) 떨어질 가능성 낮으니 ATR 풀백 사용
+            const nearestSupport = troughs
+                .filter(p => p.price < lastClose
+                    && (lastClose - p.price) >= atr * 0.15
+                    && (lastClose - p.price) <= atr * 1.5)
+                .sort((a, b) => b.price - a.price)[0]; // 현재가에 가장 가까운 지지 (가장 높은 값)
+            const e1 = nearestSupport ? nearestSupport.price : (lastClose - atr * 0.3);
+            // 2차/3차는 1차 아래로 ATR 간격 (1차가 깊으면 더 깊게)
+            const e2 = Math.min(e1 - atr * 0.5, lastClose - atr * 1.0);
+            const e3 = Math.min(e2 - atr * 0.5, lastClose - atr * 1.8);
+            // 익절은 현재가 기준
             const t1 = lastClose + atr * 1.5;
             const t2 = lastClose + atr * 3.0;
             const t3 = lastClose + atr * 5.0;
@@ -12247,11 +12259,12 @@
                 } catch(e) {}
             };
             // 0=Solid, 1=Dotted, 2=Dashed (LWC LineStyle)
-            // 분할매수 3단계 — 1차는 굵은 실선(즉시 진입), 2~3차는 점선
-            addStratLine(e1, '#22c55e', 0, 3, `1차 매수 ${fmtP(e1)}`);
+            // 분할매수 3단계 — 1차는 굵은 실선(주문 대기), 2~3차는 점선
+            const e1Label = nearestSupport ? `1차 매수 (지지) ${fmtP(e1)}` : `1차 매수 ${fmtP(e1)}`;
+            addStratLine(e1, '#22c55e', 0, 3, e1Label);
             addStratLine(e2, '#a3e635', 2, 2, `2차 매수 ${fmtP(e2)}`);
             addStratLine(e3, '#eab308', 2, 2, `3차 매수 ${fmtP(e3)}`);
-            // 분할익절 3단계 — 캘큘레이터 매도 ATR 배수(1.5/3.0/5.0)와 동일
+            // 분할익절 3단계
             addStratLine(t1, '#22d3ee', 2, 2, `1차 익절 ${fmtP(t1)}`);
             addStratLine(t2, '#3b82f6', 2, 2, `2차 익절 ${fmtP(t2)}`);
             addStratLine(t3, '#a855f7', 2, 2, `3차 익절 ${fmtP(t3)}`);
