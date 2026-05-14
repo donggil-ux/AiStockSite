@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=628">
+    <link rel="stylesheet" href="/styles.css?v=629">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -12211,7 +12211,7 @@
         let tp3 = null;
         if (bbBreakout) {
             // 52주 고점 vs e1 + ATR*6
-            const high52 = q.fiftyTwoWeekHigh || (typeof stockData?.chart?.result?.[0]?.meta?.fiftyTwoWeekHigh === 'number' ? stockData.chart.result[0].meta.fiftyTwoWeekHigh : null);
+            const high52 = (typeof stockData !== 'undefined' && stockData?.chart?.result?.[0]?.meta?.fiftyTwoWeekHigh) || null;
             const trendTp = e1 + atr * 6.0;
             tp3 = (high52 && high52 > e1) ? Math.min(high52, trendTp) : trendTp;
         }
