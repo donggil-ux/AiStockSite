@@ -1807,18 +1807,16 @@ function _alpacaSafeSymbols(symbols) {
     return symbols.filter(s => /^[A-Z]{1,5}$/.test(s)); // 점·하이픈·숫자·5자 초과 제외
 }
 async function _alpacaSnapshots(symbols) {
-    if (!_alpacaEnabled() || !symbols.length) return { _err: 'env_missing' };
+    if (!_alpacaEnabled() || !symbols.length) return {};
     const safe = _alpacaSafeSymbols(symbols);
-    if (!safe.length) return { _err: 'no_valid_symbols' };
+    if (!safe.length) return {};
     try {
-        // symbols 는 콤마 구분 plain 그대로 (encodeURIComponent 시 %2C 가 Alpaca 파서 거부)
         const url = `https://data.alpaca.markets/v2/stocks/snapshots?symbols=${safe.join(',')}`;
         const r = await axios.get(url, { headers: _alpacaHeaders(), timeout: 8000, httpAgent, httpsAgent });
         return r.data || {};
     } catch (e) {
-        const errInfo = `${e.response?.status || ''} ${e.message} ${JSON.stringify(e.response?.data || '').slice(0, 200)}`;
-        console.warn('[alpaca-snapshots]', errInfo);
-        return { _err: errInfo.slice(0, 300) };
+        console.warn('[alpaca-snapshots]', e.message, e.response?.status);
+        return {};
     }
 }
 // 배치 일봉 — 20일 평균 거래량·ATR(14) 계산용
@@ -2189,15 +2187,10 @@ app.get('/api/catalyst/hunter', async (req, res) => {
             totalScanned: candidates.length,
             totalFilings: allFilings.length,
             scannedAt: new Date().toISOString(),
-            dataSource: alpacaActive ? (realtimeCount === finalResults.length ? 'alpaca_realtime' : 'mixed') : 'yfinance_delayed',
+            dataSource: !alpacaActive ? 'yfinance_delayed'
+                : realtimeCount === finalResults.length && finalResults.length > 0 ? 'alpaca_realtime'
+                : realtimeCount > 0 ? 'mixed' : 'yfinance_delayed',
             realtimeCount,
-            _debug: {
-                alpacaEnabled: _alpacaEnabled(),
-                alpacaKeyPrefix: process.env.ALPACA_KEY_ID ? process.env.ALPACA_KEY_ID.slice(0, 4) + '...' : 'missing',
-                snapshotsErr: snapshotsObj._err || null,
-                snapshotKeys: Object.keys(snapMap).slice(0, 5),
-                barsKeys: Object.keys(barsObj).slice(0, 5),
-            },
         };
         // 빈 결과는 캐시하지 않음 (다음 요청에서 즉시 재시도)
         if (results.length > 0) _catalystCache = { ts: now, data: payload };
