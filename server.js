@@ -2276,12 +2276,12 @@ function _catalystFreshnessScore(updatedIso) {
 //   캐시 1시간, 키 = ticker_formType_filedAt
 //   비용 모니터링: 일간 토큰·호출수·예상 비용 콘솔 로깅
 // ──────────────────────────────────────────────────────────────────────
-const CATALYST_AI_MODEL = 'gemini-2.0-flash';
+const CATALYST_AI_MODEL = 'gemini-3.1-flash-lite';   // v673 — 3.1 Flash-Lite (가성비 ↑)
 const CATALYST_AI_TTL = 60 * 60 * 1000; // 1시간
 const CATALYST_AI_MAX_CACHE = 300;
-// price: $0.10/1M in, $0.40/1M out (USD per token)
-const CATALYST_AI_PRICE_IN  = 0.10 / 1_000_000;
-const CATALYST_AI_PRICE_OUT = 0.40 / 1_000_000;
+// Gemini 3.1 Flash-Lite 가격: $0.075/1M in, $0.30/1M out (USD per token, 추정)
+const CATALYST_AI_PRICE_IN  = 0.075 / 1_000_000;
+const CATALYST_AI_PRICE_OUT = 0.30  / 1_000_000;
 const _catalystAiCache = new Map(); // key → { analyzedAt, expiresAt, filingAnalysis, riskAnalysis, tokensUsed, _meta }
 const _catalystAiUsage = { date: null, calls: 0, tokensIn: 0, tokensOut: 0, cost: 0 };
 
