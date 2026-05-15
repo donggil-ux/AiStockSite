@@ -100,7 +100,7 @@ if (!process.env.SUPABASE_ANON_KEY) {
 if (!process.env.FRED_API_KEY)    console.warn('⚠️  FRED_API_KEY 환경변수가 없습니다. 경제지표 기능이 비활성화됩니다.');
 if (!process.env.FINNHUB_API_KEY) console.warn('⚠️  FINNHUB_API_KEY 환경변수가 없습니다. 종목별 뉴스/실적 서프라이즈 기능이 비활성화됩니다.');
 if (!process.env.ALPACA_KEY_ID || !process.env.ALPACA_SECRET_KEY) {
-    console.warn('ℹ️  ALPACA_KEY_ID/ALPACA_SECRET_KEY 미설정 — 카탈리스트 헌터가 yfinance 15분 지연 데이터로 동작 (실시간 데이터 비활성화).');
+    console.warn('ℹ️  ALPACA_KEY_ID/ALPACA_SECRET_KEY 미설정 — 카탈리스트 스캐너가 yfinance 15분 지연 데이터로 동작 (실시간 데이터 비활성화).');
 }
 
 // [Fix-F] 싱글턴 캐싱 — 매 요청마다 인스턴스 재생성 방지
@@ -1854,7 +1854,7 @@ app.get('/api/scanner/pumpdump', async (req, res) => {
 });
 
 // ──────────────────────────────────────────────────────────────────────
-// 카탈리스트 헌터 (/api/catalyst/hunter) — SEC EDGAR 6-K/8-K + yfinance
+// 카탈리스트 스캐너 (/api/catalyst/hunter) — SEC EDGAR 6-K/8-K + yfinance
 //   1) EDGAR Atom RSS 에서 최근 8-K·6-K 공시 수집 (5분 캐시)
 //   2) 제목 키워드 점수 계산 (인수·파트너십·FDA·AI 등)
 //   3) 티커 추출 → yfinance quote 조회
@@ -1868,7 +1868,7 @@ const _CIK_TTL = 24 * 60 * 60 * 1000;
 const EDGAR_UA = 'StockAI stockai-site contact@example.com';
 
 // ── Alpaca Markets 실시간 데이터 헬퍼 (v658) ────────────────────────
-// 무료 IEX 피드 기준. 카탈리스트 헌터 전용 (다른 엔드포인트는 yfinance 유지).
+// 무료 IEX 피드 기준. 카탈리스트 스캐너 전용 (다른 엔드포인트는 yfinance 유지).
 function _alpacaEnabled() {
     return !!(process.env.ALPACA_KEY_ID && process.env.ALPACA_SECRET_KEY);
 }
