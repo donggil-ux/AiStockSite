@@ -2269,6 +2269,217 @@ function _catalystFreshnessScore(updatedIso) {
     return 0;
 }
 
+// ──────────────────────────────────────────────────────────────────────
+// Gemini 카탈리스트 심층 분석 (v671) — gemini-2.0-flash 가성비 모델
+//   기능 1: 공시 본문 의미 분석 (summary, verdict, grade, timeHorizon)
+//   기능 2: 진위 검증 + 리스크 평가 (7개 신호 0~10점, totalRisk 0~70)
+//   캐시 1시간, 키 = ticker_formType_filedAt
+//   비용 모니터링: 일간 토큰·호출수·예상 비용 콘솔 로깅
+// ──────────────────────────────────────────────────────────────────────
+const CATALYST_AI_MODEL = 'gemini-2.0-flash';
+const CATALYST_AI_TTL = 60 * 60 * 1000; // 1시간
+const CATALYST_AI_MAX_CACHE = 300;
+// price: $0.10/1M in, $0.40/1M out (USD per token)
+const CATALYST_AI_PRICE_IN  = 0.10 / 1_000_000;
+const CATALYST_AI_PRICE_OUT = 0.40 / 1_000_000;
+const _catalystAiCache = new Map(); // key → { analyzedAt, expiresAt, filingAnalysis, riskAnalysis, tokensUsed, _meta }
+const _catalystAiUsage = { date: null, calls: 0, tokensIn: 0, tokensOut: 0, cost: 0 };
+
+function _catalystAiCacheKey(ticker, formType, filedAt) {
+    return `${ticker}_${formType}_${(filedAt || '').slice(0, 16)}`;
+}
+function _catalystAiLogUsage(usage) {
+    const today = new Date().toISOString().slice(0, 10);
+    if (_catalystAiUsage.date !== today) {
+        if (_catalystAiUsage.date) {
+            console.log(`[catalyst-ai] ${_catalystAiUsage.date}: 호출 ${_catalystAiUsage.calls}회 / 토큰 in=${_catalystAiUsage.tokensIn} out=${_catalystAiUsage.tokensOut} / 비용 $${_catalystAiUsage.cost.toFixed(4)}`);
+        }
+        _catalystAiUsage.date = today;
+        _catalystAiUsage.calls = 0;
+        _catalystAiUsage.tokensIn = 0;
+        _catalystAiUsage.tokensOut = 0;
+        _catalystAiUsage.cost = 0;
+    }
+    _catalystAiUsage.calls += 1;
+    _catalystAiUsage.tokensIn  += (usage.tokensIn  || 0);
+    _catalystAiUsage.tokensOut += (usage.tokensOut || 0);
+    _catalystAiUsage.cost      += (usage.cost      || 0);
+}
+
+// JSON 파싱 — Gemini 응답에서 ```json 블록 또는 raw JSON 추출
+function _extractJsonFromGeminiResponse(text) {
+    if (!text) return null;
+    // 1) ```json ... ``` 코드블록 우선
+    const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const candidate = fenced ? fenced[1] : text;
+    // 2) 첫 { 부터 마지막 } 까지
+    const first = candidate.indexOf('{');
+    const last  = candidate.lastIndexOf('}');
+    if (first < 0 || last < 0 || last <= first) return null;
+    try { return JSON.parse(candidate.slice(first, last + 1)); }
+    catch (e) { return null; }
+}
+
+async function _geminiCatalystAnalyze(ticker, filing, marketData) {
+    if (!process.env.GEMINI_API_KEY) return null;
+    const key = _catalystAiCacheKey(ticker, filing.formType, filing.filedAt || filing.updated);
+    const cached = _catalystAiCache.get(key);
+    if (cached && Date.now() < cached.expiresAt) {
+        return { ...cached, _meta: { ...(cached._meta || {}), cached: true } };
+    }
+
+    const genAI = getGenAI();
+    const model = genAI.getGenerativeModel({
+        model: CATALYST_AI_MODEL,
+        generationConfig: { temperature: 0.3, responseMimeType: 'application/json' },
+    });
+
+    const filingText = (filing.filingText || filing.title || '').slice(0, 1500);
+    const filedAt = filing.filedAt || filing.updated || new Date().toISOString();
+
+    // ── 기능 1: 공시 본문 의미 분석 ───────────────────────────────
+    const prompt1 = `아래는 미국 주식 [${ticker}] 의 SEC 공시 본문이야.
+
+공시 유형: ${filing.formType || '?'}
+공시 제목: ${filing.title || ''}
+공시 시각: ${filedAt}
+
+공시 본문 (첫 1500자):
+${filingText}
+
+아래 5가지를 분석해줘:
+
+1. 공시의 핵심 내용 (한국어 1줄)
+2. 호재/악재 판단 (호재/중립/악재)
+3. 단기 주가 영향 (강한상승/약한상승/중립/하락)
+4. 촉매 등급:
+   - S급: FDA 승인, 대형 인수($1B+), 정부 계약
+   - A급: 파트너십, 신제품 발표, 어닝 서프라이즈, 중형 인수
+   - B급: 일반 인수, 라이센스 계약, 사업 확장
+   - C급: 단순 발표, 정기 공시
+5. 영향 시간대 (수시간/1~2일/1주일 이내)
+
+JSON으로만 답변:
+{
+  "summary": "한 줄 요약",
+  "verdict": "호재/중립/악재",
+  "impactLevel": "강한상승/약한상승/중립/하락",
+  "catalystGrade": "S/A/B/C",
+  "keyPoints": ["포인트1","포인트2","포인트3"],
+  "timeHorizon": "수시간/1~2일/1주일",
+  "sectorImplication": "섹터/테마 파급 효과 한 줄"
+}`;
+
+    let filingAnalysis = null, riskAnalysis = null;
+    let totalTokensIn = 0, totalTokensOut = 0;
+    try {
+        const r1 = await model.generateContent(prompt1);
+        const text1 = r1.response.text();
+        filingAnalysis = _extractJsonFromGeminiResponse(text1);
+        totalTokensIn  += r1.response.usageMetadata?.promptTokenCount || 0;
+        totalTokensOut += r1.response.usageMetadata?.candidatesTokenCount || 0;
+    } catch (e) {
+        console.warn('[catalyst-ai] filing analysis fail:', e.message);
+    }
+
+    if (!filingAnalysis) return null;
+
+    // ── 기능 2: 진위 검증 + 리스크 평가 ───────────────────────────
+    const md = marketData || {};
+    const prompt2 = `아래는 미국 주식 [${ticker}] 공시 + 시장 데이터야.
+
+공시:
+- 유형: ${filing.formType || '?'}
+- 제목: ${filing.title || ''}
+- 본문 요약: ${filingAnalysis.summary || ''}
+- 등급: ${filingAnalysis.catalystGrade || '?'}
+
+현재 시장:
+- 시총: $${md.marketCap || 0}
+- 주가: $${md.price || 0} (24h 변동률 ${md.priceChange24h ?? 0}%)
+- 거래량: 평소의 ${md.volumeRatio ?? 1}배
+- Short Float: ${md.shortFloat ?? 0}%
+- 최근 30일 공시 빈도: ${md.recentFilingsCount30d ?? 0}건
+
+아래 7가지 리스크를 0~10점으로 평가 (10이 가장 위험):
+
+1. 회사 진위성 — 페이퍼 컴퍼니 의심도
+2. 공시 모호성 — 구체적 수치 없는 모호한 표현 사용
+3. 이미 주가 반응 — 24h 변동이 너무 큼
+4. 시총 대비 규모 부적정 — 작은 회사가 거대 계약 발표
+5. 반복적 공시 — 펌프 의심 패턴
+6. 늦은 진입 — 거래량이 너무 폭발했음
+7. 단기 반등 후 급락 — 데드캣 바운스 위험
+
+JSON:
+{
+  "totalRisk": 0~70,
+  "signals": {
+    "shellCompanyRisk": 0~10,
+    "vagueLanguage": 0~10,
+    "priceAlreadyMoved": 0~10,
+    "sizeMismatch": 0~10,
+    "repeatedFilings": 0~10,
+    "lateEntry": 0~10,
+    "reversalRisk": 0~10
+  },
+  "verdict": "안전/주의/위험/매우위험",
+  "recommendation": "진입가능/관망/회피",
+  "entryTiming": "즉시/조정대기/관망",
+  "reasoning": "근거 2~3줄 (한국어)"
+}`;
+    try {
+        const r2 = await model.generateContent(prompt2);
+        const text2 = r2.response.text();
+        riskAnalysis = _extractJsonFromGeminiResponse(text2);
+        totalTokensIn  += r2.response.usageMetadata?.promptTokenCount || 0;
+        totalTokensOut += r2.response.usageMetadata?.candidatesTokenCount || 0;
+    } catch (e) {
+        console.warn('[catalyst-ai] risk analysis fail:', e.message);
+    }
+
+    const cost = totalTokensIn * CATALYST_AI_PRICE_IN + totalTokensOut * CATALYST_AI_PRICE_OUT;
+    _catalystAiLogUsage({ tokensIn: totalTokensIn, tokensOut: totalTokensOut, cost });
+
+    const result = {
+        ticker,
+        analyzedAt: new Date().toISOString(),
+        expiresAt: Date.now() + CATALYST_AI_TTL,
+        filingAnalysis,
+        riskAnalysis,
+        tokensUsed: totalTokensIn + totalTokensOut,
+        _meta: {
+            tokensInput: totalTokensIn,
+            tokensOutput: totalTokensOut,
+            estimatedCost: +cost.toFixed(6),
+            model: CATALYST_AI_MODEL,
+            cached: false,
+        },
+    };
+    // LRU 상한 관리
+    if (_catalystAiCache.size >= CATALYST_AI_MAX_CACHE) {
+        const oldest = _catalystAiCache.keys().next().value;
+        if (oldest) _catalystAiCache.delete(oldest);
+    }
+    _catalystAiCache.set(key, result);
+    return result;
+}
+
+// ── POST /api/catalyst/ai-analyze — 수동 트리거 (사용자 카드 클릭) ──
+app.post('/api/catalyst/ai-analyze', express.json({ limit: '64kb' }), async (req, res) => {
+    try {
+        const { ticker, formType, title, filingText, filedAt, marketData } = req.body || {};
+        if (!ticker || !formType) return res.status(400).json({ error: 'ticker, formType required' });
+        const filing = { formType, title, filingText, filedAt };
+        const result = await _geminiCatalystAnalyze(ticker, filing, marketData || {});
+        if (!result) return res.status(503).json({ error: 'AI 분석 실패 — GEMINI_API_KEY 누락 또는 호출 오류' });
+        res.json(result);
+    } catch (err) {
+        console.error('[catalyst-ai-analyze]', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/catalyst/hunter', async (req, res) => {
     const now = Date.now();
     if (_catalystCache.data && now - _catalystCache.ts < CATALYST_TTL) {
@@ -2474,6 +2685,30 @@ app.get('/api/catalyst/hunter', async (req, res) => {
         try {
             accumulationResults = await _scanAccumulation(seenTickers);
         } catch (e) { console.warn('[catalyst-accumulation]', e.message); }
+
+        // 6) Gemini AI 자동 분석 — 점수 70 이상 상위 5개 종목 (v671)
+        //    캐시 hit 시 즉시 반환, miss 시 호출 (1시간 캐시)
+        if (process.env.GEMINI_API_KEY) {
+            const highScoreCandidates = finalResults.filter(r => r.score >= 70).slice(0, 5);
+            await Promise.all(highScoreCandidates.map(async (r) => {
+                try {
+                    const ai = await _geminiCatalystAnalyze(r.ticker, {
+                        formType: r.filing?.formType,
+                        title: r.filing?.title,
+                        filingText: r.filing?.title, // 본문 미수집 시 제목 사용
+                        filedAt: r.filing?.updated,
+                    }, {
+                        marketCap: r.marketCap,
+                        price: r.price,
+                        priceChange24h: r.changePct,
+                        volumeRatio: r.volRatio,
+                        shortFloat: r.shortFloatPct,
+                        recentFilingsCount30d: 0,
+                    });
+                    if (ai) r.ai = ai;
+                } catch (e) { /* 실패 시 무시, 기본 카드 표시 */ }
+            }));
+        }
 
         const payload = {
             results: finalResults,

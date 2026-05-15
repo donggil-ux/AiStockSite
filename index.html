@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=670">
+    <link rel="stylesheet" href="/styles.css?v=671">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -7294,6 +7294,105 @@
         }
     }
 
+    // Gemini AI 분석 카드 확장 영역 렌더 (v671)
+    function _renderCatalystAiExpanded(ai) {
+        if (!ai) return '';
+        const fa = ai.filingAnalysis || {};
+        const ra = ai.riskAnalysis || {};
+        const verdictColor = fa.verdict === '호재' ? '#22c55e' : fa.verdict === '악재' ? '#ef4444' : '#94a3b8';
+        const riskVerdictColor = ra.verdict === '안전' ? '#22c55e' : ra.verdict === '주의' ? '#eab308' : ra.verdict === '위험' ? '#f97316' : '#ef4444';
+        const recColor = ra.recommendation === '진입가능' ? '#22c55e' : ra.recommendation === '관망' ? '#eab308' : '#ef4444';
+        const sigOrder = ['shellCompanyRisk','vagueLanguage','priceAlreadyMoved','sizeMismatch','repeatedFilings','lateEntry','reversalRisk'];
+        const sigLabels = {
+            shellCompanyRisk: '회사 진위성',
+            vagueLanguage: '공시 모호성',
+            priceAlreadyMoved: '주가 선반영',
+            sizeMismatch: '시총 대비 규모',
+            repeatedFilings: '반복 공시',
+            lateEntry: '늦은 진입',
+            reversalRisk: '데드캣 반등 위험',
+        };
+        const sigsHtml = (ra.signals || {}) && sigOrder.map(k => {
+            const v = (ra.signals || {})[k] ?? 0;
+            const pct = Math.min(100, v * 10);
+            const cls = v >= 7 ? 'sig-high' : v >= 4 ? 'sig-mid' : 'sig-low';
+            return `<div class="cat-ai-sig">
+                <span class="cat-ai-sig-label">${escHtml(sigLabels[k] || k)}</span>
+                <div class="cat-ai-sig-bar"><div class="cat-ai-sig-fill ${cls}" style="width:${pct}%"></div></div>
+                <span class="cat-ai-sig-val">${v}/10</span>
+            </div>`;
+        }).join('');
+        const points = (fa.keyPoints || []).slice(0, 3).map(p => `<li>${escHtml(p)}</li>`).join('');
+        const analyzedAgo = ai.analyzedAt ? `AI 분석 ${Math.max(1, Math.round((Date.now() - new Date(ai.analyzedAt).getTime()) / 60000))}분 전` : '';
+
+        return `
+        <div class="cat-ai-card">
+            <div class="cat-ai-section">
+                <div class="cat-ai-title">📄 AI 공시 분석</div>
+                <div class="cat-ai-row"><span class="cat-ai-key">요약</span><span class="cat-ai-val">${escHtml(fa.summary || '-')}</span></div>
+                <div class="cat-ai-row"><span class="cat-ai-key">판단</span><span class="cat-ai-pill" style="background:${verdictColor};color:#fff">${escHtml(fa.verdict || '?')}</span></div>
+                <div class="cat-ai-row"><span class="cat-ai-key">영향</span><span class="cat-ai-val">${escHtml(fa.impactLevel || '?')} · ${escHtml(fa.timeHorizon || '?')}</span></div>
+                <div class="cat-ai-row"><span class="cat-ai-key">섹터</span><span class="cat-ai-val">${escHtml(fa.sectorImplication || '-')}</span></div>
+                ${points ? `<ul class="cat-ai-points">${points}</ul>` : ''}
+            </div>
+            <div class="cat-ai-section">
+                <div class="cat-ai-title">⚠️ AI 리스크 평가 · 총 ${ra.totalRisk ?? '?'}/70</div>
+                <div class="cat-ai-sigs">${sigsHtml || ''}</div>
+                <div class="cat-ai-row"><span class="cat-ai-key">결론</span><span class="cat-ai-pill" style="background:${riskVerdictColor};color:#fff">${escHtml(ra.verdict || '?')}</span></div>
+                <div class="cat-ai-row"><span class="cat-ai-key">권장</span><span class="cat-ai-pill" style="background:${recColor};color:#fff">${escHtml(ra.recommendation || '?')}</span> · ${escHtml(ra.entryTiming || '?')}</div>
+                <div class="cat-ai-reasoning">${escHtml(ra.reasoning || '')}</div>
+            </div>
+            <div class="cat-ai-foot">${analyzedAgo}${ai._meta?.cached ? ' · 캐시 적중' : ''}</div>
+        </div>`;
+    }
+
+    // AI 수동 분석 (사용자 [🤖 AI 심층 분석] 클릭) — v671
+    async function _runCatalystAi(cardId, rawItem) {
+        const expEl = document.getElementById(`${cardId}-ai`);
+        const card = document.getElementById(cardId);
+        if (!expEl) return;
+        const btn = card?.querySelector('.catalyst-ai-btn');
+        if (btn) { btn.disabled = true; btn.textContent = '🤖 AI 분석 중...'; }
+        expEl.innerHTML = '<div class="cat-ai-loading">Gemini 분석 호출 중... (수초)</div>';
+        try {
+            const r = typeof rawItem === 'string' ? JSON.parse(rawItem) : rawItem;
+            const body = {
+                ticker: r.ticker,
+                formType: r.filing?.formType,
+                title: r.filing?.title,
+                filingText: r.filing?.title,
+                filedAt: r.filing?.updated,
+                marketData: {
+                    marketCap: r.marketCap,
+                    price: r.price,
+                    priceChange24h: r.changePct,
+                    volumeRatio: r.volRatio,
+                    shortFloat: r.shortFloatPct,
+                    recentFilingsCount30d: 0,
+                },
+            };
+            const res = await fetch('/api/catalyst/ai-analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            if (!res.ok) throw new Error('http ' + res.status);
+            const ai = await res.json();
+            if (!ai || ai.error) throw new Error(ai.error || 'AI 분석 실패');
+            // 결과를 카드에 주입
+            expEl.innerHTML = _renderCatalystAiExpanded(ai);
+            if (btn) btn.remove();
+            // 메모리 데이터 갱신 → 다음 렌더 시 유지
+            if (_catalystData && Array.isArray(_catalystData.results)) {
+                const found = _catalystData.results.find(x => x.ticker === r.ticker);
+                if (found) found.ai = ai;
+            }
+        } catch (e) {
+            expEl.innerHTML = `<div class="cat-ai-loading" style="color:#ef4444">AI 분석 실패: ${escHtml(e.message || '오류')}</div>`;
+            if (btn) { btn.disabled = false; btn.textContent = '🤖 AI 심층 분석 (재시도)'; }
+        }
+    }
+
     function _renderCatalyst(d) {
         const el = document.getElementById('catalystList');
         const warnEl = document.getElementById('catalystAccWarn');
@@ -7377,22 +7476,74 @@
         const _fmtP = p => '$' + (p >= 10 ? p.toFixed(2) : p.toFixed(3));
         const _fmtMc = v => v >= 1e9 ? `$${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `$${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(0)}K` : `$${v}`;
 
+        // AI 분석 결과 있는 S급 + 저위험 종목 상단 고정 (v671)
+        items = items.slice().sort((a, b) => {
+            const aPri = (a.ai?.filingAnalysis?.catalystGrade === 'S' && (a.ai?.riskAnalysis?.totalRisk ?? 99) < 30) ? 1 : 0;
+            const bPri = (b.ai?.filingAnalysis?.catalystGrade === 'S' && (b.ai?.riskAnalysis?.totalRisk ?? 99) < 30) ? 1 : 0;
+            if (aPri !== bPri) return bPri - aPri;
+            return (b.score || 0) - (a.score || 0);
+        });
+
         const cardsHtml = items.map((r, idx) => {
             const f = r.filing || {};
             const s = r.strategy || {};
+            const ai = r.ai || null;
+            const fa = ai?.filingAnalysis || null;
+            const ra = ai?.riskAnalysis || null;
             const fresh = f.updated && (Date.now() - new Date(f.updated).getTime()) < 3600 * 1000;
             const tagsHtml = (f.keywordTags || []).slice(0,3).map(t => `<span class="catalyst-tag">${escHtml(t)}</span>`).join('');
+
+            // AI 자동 분석 결과 (v671)
+            const highRisk = (ra?.totalRisk ?? 0) >= 50;
+            const isTopPri = fa?.catalystGrade === 'S' && (ra?.totalRisk ?? 99) < 30;
+            const verdictColor = fa?.verdict === '호재' ? '#22c55e' : fa?.verdict === '악재' ? '#ef4444' : '#94a3b8';
+            const gradeColors = { S: '#ef4444', A: '#f97316', B: '#eab308', C: '#94a3b8' };
+            const aiBadgeHtml = fa ? `
+                <div class="catalyst-ai-badge" style="border-color:${gradeColors[fa.catalystGrade] || '#94a3b8'}">
+                    🤖 AI:
+                    <span style="color:${verdictColor};font-weight:700">${escHtml(fa.verdict || '?')}</span>
+                    · <span style="color:${gradeColors[fa.catalystGrade] || '#94a3b8'};font-weight:700">${escHtml(fa.catalystGrade || '?')}급</span>
+                    · ${escHtml(fa.impactLevel || '?')}
+                </div>` : '';
+            const topPriBadge = isTopPri ? '<span class="catalyst-priority">🔥 최고 우선순위</span>' : '';
+            const highRiskBanner = highRisk ? `
+                <div class="catalyst-risk-banner">🚨 AI가 위험 신호 감지 — 진입 비권장 (위험도 ${ra.totalRisk}/70)</div>` : '';
+
+            // AI 확장 영역 (자동 분석 있으면 상시 펼침, 없으면 수동 버튼)
+            const cardId = `ccard-${r.ticker}-${idx}`;
+            const expandedAi = ai ? _renderCatalystAiExpanded(ai) : '';
+            const manualBtn = !ai && r.score >= 35 && r.score < 70 ? `
+                <button class="catalyst-ai-btn" onclick="event.stopPropagation(); _runCatalystAi('${cardId}', ${JSON.stringify(r).replace(/"/g, '&quot;')})">🤖 AI 심층 분석</button>` : '';
+
+            // 위험도 50+ 종목은 매매 라인 숨김
+            const stratHtml = highRisk ? '' : `
+                <div class="catalyst-strategy">
+                    <span class="cs-cell entry">진입 ${_fmtP(s.entry)}</span>
+                    <span class="cs-cell stop">손절 ${_fmtP(s.stop)}</span>
+                    <span class="cs-cell tp">익절1 ${_fmtP(s.tp1)}</span>
+                    <span class="cs-cell tp">익절2 ${_fmtP(s.tp2)}</span>
+                </div>`;
+
+            const cardCls = [
+                'catalyst-card',
+                fresh ? 'catalyst-card--fresh' : '',
+                isTopPri ? 'catalyst-card--top' : '',
+                fa?.verdict === '악재' ? 'catalyst-card--bear' : '',
+            ].filter(Boolean).join(' ');
+
             return `
-            <div class="catalyst-card ${fresh ? 'catalyst-card--fresh' : ''}" onclick="quickSearch('${r.ticker}','US')">
+            <div id="${cardId}" class="${cardCls}" onclick="quickSearch('${r.ticker}','US')">
+                ${highRiskBanner}
                 <div class="catalyst-card-head">
                     <div class="catalyst-rank">${idx + 1}</div>
                     <div class="catalyst-id">
-                        <div class="catalyst-sym">${escHtml(r.ticker)} <span class="catalyst-form">${escHtml(f.formType || '')}</span> ${r.dataSource === 'alpaca_realtime' ? '<span class="catalyst-rt-dot" title="Alpaca 실시간">🟢</span>' : '<span class="catalyst-rt-dot delayed" title="yfinance 15분 지연">🟡</span>'}</div>
+                        <div class="catalyst-sym">${escHtml(r.ticker)} <span class="catalyst-form">${escHtml(f.formType || '')}</span> ${r.dataSource === 'alpaca_realtime' ? '<span class="catalyst-rt-dot" title="Alpaca 실시간">🟢</span>' : '<span class="catalyst-rt-dot delayed" title="yfinance 15분 지연">🟡</span>'} ${topPriBadge}</div>
                         <div class="catalyst-name">${escHtml((r.name || '').slice(0, 30))}</div>
                     </div>
                     <div class="catalyst-grade" style="background:${r.gradeColor};color:#fff">${escHtml(r.grade)} · ${r.score}</div>
                 </div>
                 <div class="catalyst-title">${escHtml((f.title || '').slice(0, 100))}</div>
+                ${aiBadgeHtml}
                 <div class="catalyst-tags">${tagsHtml}</div>
                 <div class="catalyst-meta-row">
                     <span class="catalyst-meta-cell">⏰ ${_ago(f.updated)}</span>
@@ -7402,12 +7553,9 @@
                     ${r.shortFloatPct ? `<span class="catalyst-meta-cell">🩳 숏Float ${r.shortFloatPct.toFixed(1)}%</span>` : ''}
                     ${r.preGapPct != null ? `<span class="catalyst-meta-cell ${r.preGapPct >= 0 ? 'up':'down'}">🌅 프리 ${r.preGapPct >= 0 ? '+':''}${r.preGapPct.toFixed(1)}%</span>` : ''}
                 </div>
-                <div class="catalyst-strategy">
-                    <span class="cs-cell entry">진입 ${_fmtP(s.entry)}</span>
-                    <span class="cs-cell stop">손절 ${_fmtP(s.stop)}</span>
-                    <span class="cs-cell tp">익절1 ${_fmtP(s.tp1)}</span>
-                    <span class="cs-cell tp">익절2 ${_fmtP(s.tp2)}</span>
-                </div>
+                ${stratHtml}
+                ${manualBtn}
+                <div class="catalyst-ai-expanded" id="${cardId}-ai">${expandedAi}</div>
                 ${f.link ? `<a class="catalyst-source" href="${escHtml(f.link)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">📄 EDGAR 원문 →</a>` : ''}
             </div>`;
         }).join('');
@@ -22007,6 +22155,7 @@
         setMarket, searchStock, setChartInterval, setPeriod, _toggleIntervalDropdown,
         quickSearch, toggleFavorite, switchTab, toggleChartFullscreen,
         favSearch, removeFavorite, setTop100Filter, goTop100, goCatalyst, loadCatalyst, _catalystSetFilter,
+        _runCatalystAi, _renderCatalystAiExpanded,
 setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawToolbar, addAutoTrendAngle, toggleChartLabels,
         toggleTheme, showLoading, hideLoading, showToast, showSnackbar,
         openChangelog, closeChangelog,

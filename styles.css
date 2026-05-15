@@ -6387,6 +6387,45 @@
 .catalyst-card--acc{border-color:rgba(168,85,247,0.4);background:linear-gradient(135deg, rgba(168,85,247,0.04), var(--bg2) 50%);}
 .catalyst-tag--acc{background:rgba(168,85,247,0.15);color:#a855f7;border-color:rgba(168,85,247,0.4);}
 .catalyst-footer{margin-top:14px;padding:10px 12px;background:var(--bg3);border-radius:8px;font-size:11px;color:var(--text3);text-align:center;letter-spacing:0.02em;}
+
+/* Gemini AI 카탈리스트 분석 (v671) */
+.catalyst-ai-badge{display:inline-flex;align-items:center;gap:4px;margin:6px 0;padding:5px 10px;border:1px solid;border-radius:8px;font-size:11px;font-weight:600;background:rgba(99,102,241,0.06);color:var(--text1);}
+.catalyst-priority{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:100px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;}
+.catalyst-risk-banner{margin:-2px -2px 10px;padding:8px 12px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.4);border-radius:8px;font-size:12px;color:#ef4444;font-weight:700;text-align:center;}
+.catalyst-card--top{border-color:rgba(239,68,68,0.5);background:linear-gradient(135deg, rgba(239,68,68,0.06), var(--bg2) 50%);}
+.catalyst-card--bear{opacity:0.78;background:linear-gradient(135deg, rgba(0,0,0,0.04), var(--bg2));}
+[data-theme="dark"] .catalyst-card--bear{background:linear-gradient(135deg, rgba(0,0,0,0.25), var(--bg2));}
+.catalyst-ai-btn{margin-top:8px;padding:8px 12px;border:1px solid var(--border);background:var(--bg3);border-radius:8px;font-size:12px;font-weight:600;color:var(--text1);cursor:pointer;width:100%;transition:all .15s;}
+.catalyst-ai-btn:hover{background:var(--bg2);border-color:#6366f1;color:#6366f1;}
+.catalyst-ai-btn:disabled{opacity:0.6;cursor:wait;}
+.catalyst-ai-expanded{}
+.catalyst-ai-expanded:empty{display:none;}
+.cat-ai-card{margin-top:10px;padding:12px;background:linear-gradient(135deg, rgba(99,102,241,0.04), var(--bg3));border:1px solid rgba(99,102,241,0.20);border-radius:10px;font-size:12px;}
+.cat-ai-section{margin-bottom:10px;}
+.cat-ai-section:last-child{margin-bottom:0;}
+.cat-ai-title{font-size:12px;font-weight:700;color:var(--text1);margin-bottom:6px;}
+.cat-ai-row{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);margin-bottom:4px;flex-wrap:wrap;}
+.cat-ai-key{min-width:42px;color:var(--text3);font-size:11px;}
+.cat-ai-val{color:var(--text1);}
+.cat-ai-pill{display:inline-block;padding:2px 8px;border-radius:100px;font-size:11px;font-weight:700;}
+.cat-ai-points{margin:6px 0 0;padding-left:20px;font-size:12px;color:var(--text2);line-height:1.6;}
+.cat-ai-points li{margin-bottom:2px;}
+.cat-ai-sigs{margin-top:6px;}
+.cat-ai-sig{display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:11px;}
+.cat-ai-sig-label{flex:0 0 110px;color:var(--text3);}
+.cat-ai-sig-bar{flex:1;height:6px;background:var(--bg2);border-radius:100px;overflow:hidden;}
+.cat-ai-sig-fill{height:100%;border-radius:100px;transition:width .3s;}
+.cat-ai-sig-fill.sig-low{background:#22c55e;}
+.cat-ai-sig-fill.sig-mid{background:#eab308;}
+.cat-ai-sig-fill.sig-high{background:#ef4444;}
+.cat-ai-sig-val{flex:0 0 36px;text-align:right;color:var(--text2);font-variant-numeric:tabular-nums;}
+.cat-ai-reasoning{margin-top:8px;padding:8px;background:var(--bg2);border-radius:6px;font-size:11px;color:var(--text2);line-height:1.6;}
+.cat-ai-foot{margin-top:8px;font-size:10px;color:var(--text3);text-align:right;}
+.cat-ai-loading{padding:12px;text-align:center;color:var(--text2);font-size:12px;}
+@media(max-width:480px){
+    .cat-ai-sig-label{flex:0 0 88px;font-size:10px;}
+    .cat-ai-row{font-size:11px;}
+}
 .catalyst-loading,.catalyst-empty{padding:40px 16px;text-align:center;color:var(--text2);font-size:14px;}
 .catalyst-list{display:flex;flex-direction:column;gap:12px;}
 .catalyst-card{padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--bg2);cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .15s;}
