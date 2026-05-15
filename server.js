@@ -2180,10 +2180,12 @@ app.get('/api/catalyst/hunter', async (req, res) => {
             if (/PINK|OTC\b/.test(exFull))  return null;
             if (/^[A-Z]{4}F$/.test(c.ticker) && !hasAlpaca) return null;
             if (/^[A-Z]{4}Y$/.test(c.ticker) && !hasAlpaca) return null;
-            // 이미 당일 오른 종목 제외 (v657)
+            // 이미 당일 오른 종목 제외 — 추격 매수 방지 (v663)
+            //   +5% → +10% 로 완화 (사용자 요청)
+            //   프리갭 +10% → +15% 동기화
             const todayChg = (hasAlpaca && ap.changePct != null) ? ap.changePct : (q.regularMarketChangePercent || 0);
-            if (todayChg >= 5) return null;
-            if (preGapPct != null && preGapPct >= 10) return null;
+            if (todayChg >= 10) return null;
+            if (preGapPct != null && preGapPct >= 15) return null;
 
             // 점수 계산
             let score = 0;
