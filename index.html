@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=711">
+    <link rel="stylesheet" href="/styles.css?v=712">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -342,38 +342,33 @@
     <!-- ===== Earnings Calendar Screen ===== -->
     <div class="discover-screen" id="earningsScreen" style="display:none">
         <div class="disc-screen-title">실적발표 일정</div>
-        <div class="disc-screen-sub">미국 주요 종목의 실적 일정을 날짜별로 확인하세요 (S&amp;P500 · NASDAQ · NYSE + 즐겨찾기)</div>
-        <!-- 가로형 상단 날짜 네비게이션 바 -->
-        <div class="earn-topnav" id="earnTopNav">
-            <div class="earn-topnav-dates" id="earnDateChips">
-                <!-- _earnBuildDateChips() 로 동적 생성 -->
+        <div class="disc-screen-sub">미국 주요 종목의 주간 실적 발표 캘린더 (S&amp;P500 · NASDAQ · NYSE + 즐겨찾기)</div>
+        <!-- 주간 네비게이션 -->
+        <div class="earn-week-nav">
+            <button class="earn-wk-btn" id="earnWkPrev" onclick="_earnWeekNav(-1)" aria-label="이전 주">‹</button>
+            <div class="earn-wk-label" id="earnWeekLabel">이번 주</div>
+            <button class="earn-wk-btn" id="earnWkNext" onclick="_earnWeekNav(1)" aria-label="다음 주">›</button>
+        </div>
+        <!-- 필터 -->
+        <div class="earn-cal-filters">
+            <div class="earn-chip-group" data-filter-group="timing">
+                <button class="earn-chip active" data-value="all"    onclick="_earnSetFilter('timing','all', this)">전체</button>
+                <button class="earn-chip"        data-value="BMO"    onclick="_earnSetFilter('timing','BMO', this)">장전</button>
+                <button class="earn-chip"        data-value="AMC"    onclick="_earnSetFilter('timing','AMC', this)">장후</button>
             </div>
-            <div class="earn-topnav-actions">
-                <div class="earn-chip-group" data-filter-group="timing">
-                    <button class="earn-chip active" data-value="all"    onclick="_earnSetFilter('timing','all', this)">전체</button>
-                    <button class="earn-chip"        data-value="BMO"    onclick="_earnSetFilter('timing','BMO', this)">장전</button>
-                    <button class="earn-chip"        data-value="AMC"    onclick="_earnSetFilter('timing','AMC', this)">장후</button>
-                </div>
-                <div class="earn-chip-group" data-filter-group="result">
-                    <button class="earn-chip active" data-value="all"    onclick="_earnSetFilter('result','all', this)">전체</button>
-                    <button class="earn-chip"        data-value="beat"   onclick="_earnSetFilter('result','beat', this)">상회</button>
-                    <button class="earn-chip"        data-value="miss"   onclick="_earnSetFilter('result','miss', this)">하회</button>
-                </div>
-                <!-- 검색창 -->
-                <div class="earn-topnav-search">
-                    <input type="text" id="earnSearch" placeholder="검색" oninput="_earnApplyFilters()">
-                </div>
+            <div class="earn-chip-group" data-filter-group="result">
+                <button class="earn-chip active" data-value="all"    onclick="_earnSetFilter('result','all', this)">전체</button>
+                <button class="earn-chip"        data-value="beat"   onclick="_earnSetFilter('result','beat', this)">상회</button>
+                <button class="earn-chip"        data-value="miss"   onclick="_earnSetFilter('result','miss', this)">하회</button>
+            </div>
+            <div class="earn-topnav-search">
+                <input type="text" id="earnSearch" placeholder="검색" oninput="_earnApplyFilters()">
             </div>
         </div>
-        <!-- 메인 콘텐츠 (사이드바 없이 풀 너비) -->
+        <!-- 주간 캘린더 그리드 (월~금) -->
         <div class="disc-main earn-full-main">
-            <!-- 종목 카운트 -->
-            <div class="earn-toolbar">
-                <div class="earn-result-count" id="earnResultCount"></div>
-            </div>
-            <!-- 테이블 컬럼 헤더는 각 날짜 그룹 내부에 _earnBuildGroup() 으로 동적 생성 -->
-            <div class="earn-grid" id="earningsGrid"></div>
-            <div class="disc-empty" id="earningsEmpty" hidden>해당 기간에 실적 발표 예정 종목이 없어요.</div>
+            <div class="earn-cal-grid" id="earningsGrid"></div>
+            <div class="disc-empty" id="earningsEmpty" hidden>이번 주에 실적 발표 예정 종목이 없어요.</div>
         </div>
     </div>
 
@@ -6823,6 +6818,11 @@
     // 정렬 상태 — null 이면 기본(시가총액 내림차순)
     // 기본은 서버 정렬(장전 BMO → 장후 AMC) 유지 — null
     window._earnSort = { field: null, dir: 'desc' };
+    // 주간 캘린더 상태 (v712)
+    window._earnWeekOffset = 0;     // 0=이번 주, -1=지난 주, +1=다음 주
+    window._earnByDate = {};        // 'YYYY-MM-DD' → items[]
+    window._earnExpandedDays = {};  // 'YYYY-MM-DD' → true (펼침)
+    const _EARN_WK_MIN = -1, _EARN_WK_MAX = 3;  // 데이터 윈도우(-7~+23일) 내 이동 범위
 
     function _earnComputeRange(key) {
         // 반환: {from:'YYYY-MM-DD', to:'YYYY-MM-DD', label:'...'}
@@ -6921,6 +6921,109 @@
         if (t === 'BMO') return '<span class="earn-time-icon bmo" title="장전">☀️</span>';
         if (t === 'AMC') return '<span class="earn-time-icon amc" title="장후">🌙</span>';
         return '<span class="earn-time-icon tbd" title="미정">⏱</span>';
+    }
+
+    // ── 주간 캘린더 (v712) ────────────────────────────────────────
+    function _earnFmtDate(d) {
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+    function _earnTodayStr() { return _earnFmtDate(new Date()); }
+    // 이번 주 + offset 주의 월요일 Date 반환
+    function _earnMonday(offsetWeeks) {
+        const d = new Date();
+        d.setHours(0,0,0,0);
+        const dow = d.getDay();                       // 0=일..6=토
+        const toMon = (dow === 0 ? -6 : 1 - dow);
+        d.setDate(d.getDate() + toMon + (offsetWeeks||0) * 7);
+        return d;
+    }
+    // 시그널 칩 1개
+    function _earnCalChip(item) {
+        const sym = item.symbol;
+        const name = item.name || sym;
+        const surprise = _earnSurpriseLabel(item.surprisePct);
+        const reported = item.epsAct != null;
+        const stateCls = reported
+            ? (surprise.cls === 'beat' ? 'chip-beat' : surprise.cls === 'miss' ? 'chip-miss' : 'chip-meet')
+            : 'chip-up';
+        const tIcon = item.timing === 'BMO' ? '<span class="ecc-t" title="장전">☀</span>'
+                    : item.timing === 'AMC' ? '<span class="ecc-t" title="장후">🌙</span>' : '';
+        return `<button class="earn-cal-chip ${stateCls}" data-symbol="${sym}"
+                     title="${escHtml(name)}${reported ? ' · '+surprise.label : ''}"
+                     onclick="quickSearch('${sym}','US')">
+            ${_tickerLogoHTML(sym, 'US')}
+            <span class="ecc-tk">${escHtml(sym)}</span>
+            ${tIcon}
+        </button>`;
+    }
+    // 하루 칸 1개 (월~금)
+    function _earnBuildDayCell(dateStr, items, isToday, isPast) {
+        const [, m, d] = dateStr.split('-');
+        const dowK = ['일','월','화','수','목','금','토'][new Date(dateStr+'T00:00:00').getDay()];
+        const LIMIT = 7;
+        const expanded = !!window._earnExpandedDays[dateStr];
+        const shown = expanded ? items : items.slice(0, LIMIT);
+        const moreN = items.length - shown.length;
+        const chips = shown.map(_earnCalChip).join('');
+        const moreBtn = moreN > 0
+            ? `<button class="earn-cal-more" onclick="_earnToggleDay('${dateStr}')">+${moreN}개 더</button>`
+            : (expanded && items.length > LIMIT
+                ? `<button class="earn-cal-more" onclick="_earnToggleDay('${dateStr}')">접기</button>` : '');
+        return `<div class="earn-cal-day${isToday?' is-today':''}${isPast?' is-past':''}">
+            <div class="earn-cal-dayhd">
+                <span class="ecd-dow">${dowK}</span>
+                <span class="ecd-date">${+m}/${+d}</span>
+                ${items.length ? `<span class="ecd-cnt">${items.length}</span>` : ''}
+            </div>
+            <div class="earn-cal-chips">${chips || '<div class="earn-cal-none">—</div>'}${moreBtn}</div>
+        </div>`;
+    }
+    function _earnToggleDay(dateStr) {
+        window._earnExpandedDays[dateStr] = !window._earnExpandedDays[dateStr];
+        _earnRenderWeek();
+    }
+    function _earnWeekNav(delta) {
+        const next = (window._earnWeekOffset || 0) + delta;
+        if (next < _EARN_WK_MIN || next > _EARN_WK_MAX) return;
+        window._earnWeekOffset = next;
+        window._earnExpandedDays = {};  // 주 이동 시 펼침 초기화
+        _earnRenderWeek();
+    }
+    // 주간 캘린더 렌더 — _earnByDate + 필터 상태로 그림
+    function _earnRenderWeek() {
+        const grid = document.getElementById('earningsGrid');
+        if (!grid) return;
+        const offset = window._earnWeekOffset || 0;
+        const mon = _earnMonday(offset);
+        const f = window._earnFilters || {};
+        const search = (document.getElementById('earnSearch')?.value || '').toLowerCase().trim();
+        const today = _earnTodayStr();
+        let totalShown = 0, cells = '';
+        for (let i = 0; i < 5; i++) {  // 월~금
+            const dt = new Date(mon); dt.setDate(dt.getDate() + i);
+            const ds = _earnFmtDate(dt);
+            const items = (window._earnByDate[ds] || []).filter(it => {
+                const sc = _earnSurpriseLabel(it.surprisePct).cls;
+                if (f.timing && f.timing !== 'all' && (it.timing||'TBD') !== f.timing) return false;
+                if (f.result && f.result !== 'all' && sc !== f.result) return false;
+                if (search && !((it.symbol+' '+(it.name||'')).toLowerCase().includes(search))) return false;
+                return true;
+            });
+            totalShown += items.length;
+            cells += _earnBuildDayCell(ds, items, ds === today, ds < today);
+        }
+        grid.innerHTML = cells;
+        // 주 라벨
+        const fri = new Date(mon); fri.setDate(fri.getDate() + 4);
+        const word = offset === 0 ? '이번 주' : offset === -1 ? '지난 주' : offset === 1 ? '다음 주' : `${offset}주 후`;
+        const lbl = document.getElementById('earnWeekLabel');
+        if (lbl) lbl.textContent = `${word} · ${mon.getMonth()+1}/${mon.getDate()} – ${fri.getMonth()+1}/${fri.getDate()}`;
+        // 네비 버튼 비활성
+        const pv = document.getElementById('earnWkPrev'), nx = document.getElementById('earnWkNext');
+        if (pv) pv.disabled = offset <= _EARN_WK_MIN;
+        if (nx) nx.disabled = offset >= _EARN_WK_MAX;
+        const emptyEl = document.getElementById('earningsEmpty');
+        if (emptyEl) emptyEl.hidden = totalShown > 0;
     }
 
     function _earnBuildRow(item) {
@@ -7037,44 +7140,10 @@
     }
 
     // 검색 + 필터 적용 (DOM 에 직접 hidden 클래스 토글)
+    // 필터/검색 변경 → 주간 캘린더 재렌더 (v712)
     function _earnApplyFilters() {
-        const search = (document.getElementById('earnSearch')?.value || '').toLowerCase().trim();
-        window._earnFilters.search = search;
-        const f = window._earnFilters;
-        const dayFilter = window._earnDayFilter; // 'YYYY-MM-DD' 또는 null
-        const grid = document.getElementById('earningsGrid');
-        if (!grid) return;
-        let visibleTotal = 0;
-        grid.querySelectorAll('.earn-date-group').forEach(group => {
-            // 날짜 칩 필터: 특정 날짜 선택 시 해당 그룹만 표시
-            const groupDate = group.dataset.date;
-            if (dayFilter && groupDate !== dayFilter) {
-                group.classList.add('earn-group-hidden');
-                return;
-            }
-            let visibleInGroup = 0;
-            group.querySelectorAll('.earn-row').forEach(row => {
-                const timing    = row.dataset.timing  || '';
-                const result    = row.dataset.result  || '';
-                const mkt       = row.dataset.market  || 'other';
-                const searchKey = row.dataset.search  || '';
-                let show = true;
-                if (f.timing !== 'all' && timing !== f.timing) show = false;
-                if (f.result !== 'all' && result !== f.result) show = false;
-                if (f.market !== 'all' && mkt    !== f.market) show = false;
-                if (f.search && !searchKey.includes(f.search)) show = false;
-                row.classList.toggle('earn-row-hidden', !show);
-                if (show) visibleInGroup++;
-            });
-            // 그룹 자체 숨김 + 카운트 라벨 갱신
-            group.classList.toggle('earn-group-hidden', visibleInGroup === 0);
-            const countEl = group.querySelector('.earn-date-count');
-            if (countEl) countEl.textContent = visibleInGroup + '개 종목';
-            visibleTotal += visibleInGroup;
-        });
-        // 결과 카운트 표시 (툴바 내 span)
-        const rc = document.getElementById('earnResultCount');
-        if (rc) rc.textContent = visibleTotal > 0 ? `${visibleTotal}개 종목` : '';
+        window._earnFilters.search = (document.getElementById('earnSearch')?.value || '').toLowerCase().trim();
+        _earnRenderWeek();
     }
 
     // 아코디언 토글: 지난 날짜 그룹 펼침/접기 (인자로 element 직접 전달도 호환)
@@ -7137,23 +7206,27 @@
         return html;
     }
 
+    // groups[] → window._earnByDate 맵으로 변환
+    function _earnIndexGroups(groups) {
+        const map = {};
+        (groups || []).forEach(g => { if (g && g.date) map[g.date] = g.items || []; });
+        window._earnByDate = map;
+    }
+
     async function loadEarnings() {
-        const key = window._earnWindow || 'this';
+        // 주간 캘린더: 항상 month 윈도우(-7~+23일)로 받아 여러 주 이동 지원 (v712)
+        const key = 'month';
         const range = _earnComputeRange(key);
         const grid = document.getElementById('earningsGrid');
-        const emptyEl = document.getElementById('earningsEmpty');
-        const labelEl = document.getElementById('earningsWindowLabel');
         if (!grid) return;
-        if (labelEl) labelEl.textContent = range.label;
-        _earnAttachClickHandler(); // 아코디언 click handler 보장 (idempotent)
 
-        // 1) LS 캐시 우선
+        // 1) LS 캐시 우선 — 즉시 렌더
         const cached = _earnLoadLS(key);
         if (cached?.groups?.length) {
-            grid.innerHTML = cached.groups.map(_earnBuildGroup).join('');
-            if (emptyEl) emptyEl.hidden = true;
+            _earnIndexGroups(cached.groups);
+            _earnRenderWeek();
         } else {
-            grid.innerHTML = _earnSkeleton(5);
+            grid.innerHTML = '<div class="earn-cal-loading">실적 일정 불러오는 중…</div>';
         }
 
         // 2) 네트워크
@@ -7169,20 +7242,8 @@
             if (!res.ok) throw new Error('http ' + res.status);
             const data = await res.json();
             _earnSaveLS(key, data);
-            const groups = Array.isArray(data.groups) ? data.groups : [];
-            if (!groups.length) {
-                grid.innerHTML = '';
-                if (emptyEl) emptyEl.hidden = false;
-                return;
-            }
-            grid.innerHTML = groups.map(_earnBuildGroup).join('');
-            if (emptyEl) emptyEl.hidden = true;
-            _earnApplyFilters(); // 신규 그룹 렌더 직후 검색·필터 재적용
-            // AI 어닝콜 요약 비동기 enrich (epsAct 있는 종목만)
-            try {
-                const reportedItems = groups.flatMap(g => (g.items || [])).filter(it => it.epsAct != null);
-                _enrichEarningsWithAI(reportedItems);
-            } catch(e) { /* enrich 실패는 무시 */ }
+            _earnIndexGroups(Array.isArray(data.groups) ? data.groups : []);
+            _earnRenderWeek();
         } catch (err) {
             if (!cached || !cached.groups?.length) {
                 grid.innerHTML = `<div class="disc-empty-inline">불러오기에 실패했어요. 잠시 후 다시 시도해 주세요.</div>`;
@@ -7357,9 +7418,11 @@
         document.querySelectorAll('.hqnav-item').forEach(b => b.classList.remove('active'));
         // 하단 네비게이션 — 전체 메뉴 진입이므로 "전체" 활성화 (v668 버그픽스)
         updateBnActive('all');
-        if (!['past7','this','next','month'].includes(window._earnWindow)) window._earnWindow = 'this';
+        // 주간 캘린더 — 이번 주부터 (v712)
+        window._earnWindow = 'month';
         window._earnDayFilter = null;
-        _earnBuildDateChips(); // 상단 날짜 칩 빌드
+        window._earnWeekOffset = 0;
+        window._earnExpandedDays = {};
         window.scrollTo({ top: 0, behavior: 'smooth' });
         loadEarnings();
     }
@@ -23396,6 +23459,7 @@
         loadLeverageHome, renderLeverageHome, _renderLevStripCard, _fetchLevQuotesBatched, _levTracksLabel,
         goEarnings, loadEarnings, setEarningsWindow, _earnToggleGroup, _enrichEarningsWithAI,
         _earnSetFilter, _earnApplyFilters, _earnSortBy, _earnBuildDateChips, _earnSelectDateChip,
+        _earnWeekNav, _earnToggleDay,
         closeSideNav, toggleSideNav, openSideNav, goHome, goBack, goSmartMoney,
         switchSmTab, smDeepDive, smDeepBack, filterSmHoldings, smChartLink,
         renderGuruReal, guruDeepDiveReal, guruDeepBack, renderGuruHolders, goSmartMoneyAndOpen,
