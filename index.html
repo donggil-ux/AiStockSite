@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=703">
+    <link rel="stylesheet" href="/styles.css?v=704">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -13114,10 +13114,17 @@
             el = document.createElement('div');
             el.id = 'sigAlert';
             el.className = 'sig-alert';
-            el.innerHTML = `<div class="sig-alert-msg" id="sigAlertMsg"></div>
+            el.innerHTML = `<button class="sig-alert-close" id="sigAlertClose" aria-label="닫기">✕</button>
+                <div class="sig-alert-msg" id="sigAlertMsg"></div>
                 <div class="sig-alert-sub" id="sigAlertSub"></div>
                 <div class="sig-alert-track"><div class="sig-alert-bar" id="sigAlertBar"></div></div>`;
             document.body.appendChild(el);
+            // 닫기 버튼 — 사용자가 직접 알림 닫기
+            el.querySelector('#sigAlertClose').addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                el.classList.remove('show');
+                if (_sigAlertTimer) { clearTimeout(_sigAlertTimer); _sigAlertTimer = null; }
+            });
         }
         // 전체화면이면 차트 카드 안으로, 아니면 body 로 — stacking context 보장 (v696)
         //   전체화면 카드(position:fixed, z-index 99999)가 별도 stacking context 라
