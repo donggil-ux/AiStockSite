@@ -6579,6 +6579,16 @@
 [data-theme="dark"] .surge-filter.active{background:rgba(99,102,241,0.5);}
 @media(max-width:480px){.surge-filter{padding:5px 8px;font-size:11px;}}
 
+/* 과매도 탭 — 거래대금·시총 필터 (v689) */
+.bounce-filter-box{margin:10px 0 12px;padding:10px 12px;border-radius:12px;background:var(--bg2);border:1px solid var(--border);}
+.bounce-filter-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.bounce-filter-row + .bounce-filter-row{margin-top:6px;}
+.bounce-filter-label{font-size:12px;font-weight:700;color:var(--text2);flex:0 0 78px;}
+.bounce-filter-box .surge-filter-bar{margin:0;padding:0;border:none;background:transparent;flex:1;}
+.bounce-filter-count{margin-top:8px;font-size:11px;color:var(--text3);}
+.bounce-filter-count b{color:var(--text);font-weight:800;}
+@media(max-width:480px){.bounce-filter-label{flex-basis:64px;font-size:11px;}}
+
 /* ═══════════════════════════════════════════════════════
    김직선 분석 카드 (v628) — 일봉 전용
    ═══════════════════════════════════════════════════════ */

@@ -6345,6 +6345,7 @@ app.get('/api/oversold-radar', async (req, res) => {
                     changePct,
                     volume,
                     avgVolume: vol20 || q.averageDailyVolume10Day || null,
+                    marketCap: q.marketCap || 0,
                     spark:     closes.slice(-30),
                     ma50:      q.fiftyDayAverage || null,
                     ma200:     q.twoHundredDayAverage || null,

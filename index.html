@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=688">
+    <link rel="stylesheet" href="/styles.css?v=689">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -5163,6 +5163,50 @@
     // ═══════════════════════════════════════════════════════════
     let _alphaTab = 'bounce';
 
+    // ── 과매도 탭 필터 — 거래대금·시총 (v689) ───────────────────
+    // 거래대금: all / mid($5M+) / high($20M+) · 시총: all / mid($300M+) / high($2B+)
+    const _BOUNCE_VOL_TH  = { mid: 5e6,  high: 20e6 };
+    const _BOUNCE_MCAP_TH = { mid: 3e8,  high: 2e9  };
+    let _bounceVolFilter  = (() => { try { return localStorage.getItem('bounceVolFilter')  || 'mid'; } catch(e) { return 'mid'; } })();
+    let _bounceMcapFilter = (() => { try { return localStorage.getItem('bounceMcapFilter') || 'mid'; } catch(e) { return 'mid'; } })();
+    let _bounceAllResults = [];
+
+    function _bounceSetFilter(kind, val) {
+        if (kind === 'vol')  { _bounceVolFilter  = val; try { localStorage.setItem('bounceVolFilter',  val); } catch(e){} }
+        else                 { _bounceMcapFilter = val; try { localStorage.setItem('bounceMcapFilter', val); } catch(e){} }
+        _bounceApplyAndRender();
+    }
+
+    function _bouncePassesFilter(q) {
+        const dollarVol = (q.price || 0) * (q.volume || 0);
+        const mcap = q.marketCap || 0;
+        if (_bounceVolFilter !== 'all' && dollarVol < _BOUNCE_VOL_TH[_bounceVolFilter]) return false;
+        // 시총 0(데이터 없음)은 필터 통과시킴 — 데이터 누락으로 인한 누락 방지
+        if (_bounceMcapFilter !== 'all' && mcap > 0 && mcap < _BOUNCE_MCAP_TH[_bounceMcapFilter]) return false;
+        return true;
+    }
+
+    function _bounceFilterBarHtml(shownCount) {
+        const volChip  = (v, label) => `<button class="surge-filter ${_bounceVolFilter===v?'active':''}" onclick="_bounceSetFilter('vol','${v}')">${label}</button>`;
+        const mcapChip = (v, label) => `<button class="surge-filter ${_bounceMcapFilter===v?'active':''}" onclick="_bounceSetFilter('mcap','${v}')">${label}</button>`;
+        return `<div class="bounce-filter-box">
+            <div class="bounce-filter-row">
+                <span class="bounce-filter-label">💵 거래대금</span>
+                <div class="surge-filter-bar">${volChip('all','전체')}${volChip('mid','$5M+')}${volChip('high','$20M+')}</div>
+            </div>
+            <div class="bounce-filter-row">
+                <span class="bounce-filter-label">🏢 시가총액</span>
+                <div class="surge-filter-bar">${mcapChip('all','전체')}${mcapChip('mid','$300M+')}${mcapChip('high','$2B+')}</div>
+            </div>
+            <div class="bounce-filter-count">필터 결과 <b>${shownCount}</b>개 · 저거래·초소형 페니주 제외</div>
+        </div>`;
+    }
+
+    function _bounceApplyAndRender() {
+        const filtered = (_bounceAllResults || []).filter(_bouncePassesFilter);
+        _alphaRender(filtered, 'bounce', _bounceFilterBarHtml(filtered.length));
+    }
+
     // ── 급등 예상 적중률 추적 ────────────────────────────────────
     // localStorage 에 추천 시점 가격을 저장 → 3일 뒤 현재가와 비교
     // 적중 기준: +5% 이상 = 맞춤, -3% 이하 또는 +5% 미만 = 틀림
@@ -5360,7 +5404,8 @@
                     .slice(0, 100)
                     .map(({ item, signals }) => ({ ...item, _alphaKind: 'bounce', _bounceSignals: signals }));
                 if (_alphaTab !== 'bounce') return;
-                _alphaRender(scored, tab);
+                _bounceAllResults = scored;
+                _bounceApplyAndRender();
             } else if (tab === 'daytrade') {
                 await _alphaRenderBreakoutScanner(el);
             } else if (tab === 'swing') {
@@ -6050,17 +6095,18 @@
         if (typeof goScanner === 'function') goScanner();
     }
 
-    function _alphaRender(items, tab) {
+    function _alphaRender(items, tab, topHtml) {
         const el = document.getElementById('alphaResults');
         if (!el) return;
         const useTab = tab || _alphaTab;
         const timing = _alphaTimingGuide(useTab);
+        const extraTop = topHtml || '';
         // 급등 예상 탭에만 적중률 카드 + 자리 표시자
         const surgeStats = useTab === 'surge'
             ? `<div id="alphaSurgeStats">${_alphaSurgeStatsHTML(_loadAlphaSurgePicks())}</div>`
             : '';
         if (!items.length) {
-            el.innerHTML = timing + surgeStats + '<div class="sniper-empty">현재 조건에 맞는 종목이 없습니다</div>';
+            el.innerHTML = timing + surgeStats + extraTop + '<div class="sniper-empty">현재 조건에 맞는 종목이 없습니다 — 필터를 완화해 보세요</div>';
             return;
         }
         const tierLegend = `<div class="alpha-tier-legend">
@@ -6069,7 +6115,7 @@
             <span class="alpha-legend-item"><span class="alpha-dot alpha-dot--t3"></span>TIER 3 (1~2개)</span>
         </div>`;
         const cards = items.map((q, idx) => _alphaRenderCard(q, idx)).join('');
-        el.innerHTML = timing + surgeStats + tierLegend + '<div class="alpha-card-list">' + cards + '</div>';
+        el.innerHTML = timing + surgeStats + extraTop + tierLegend + '<div class="alpha-card-list">' + cards + '</div>';
         // 자동 AI 일괄 검증 (v677) — 상위 15개 종목에 대해 백그라운드 호출
         try { _alphaAutoBatchAi(items, useTab); } catch(_) {}
     }
@@ -23054,7 +23100,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         toggleScannerChip, setScannerPreset, syncScannerChipUI,
         debounceScannerFetch, runScannerFetch, filterScannerResults, renderScannerResults,
         _alphaSwitchTab, _alphaRender, _alphaRenderCard, _alphaToggleCard, _alphaTheme, _alphaRisk, _alphaTimingGuide,
-        _alphaHomeSwitch, loadAlphaHomePreview, goAlphaFromHome, _setSurgeFilter,
+        _alphaHomeSwitch, loadAlphaHomePreview, goAlphaFromHome, _setSurgeFilter, _bounceSetFilter,
         captureChartAndAnalyze, clearAiChartLines, drawAiChartLines, toggleAiReport, setTradeMode,
         renderAnalysisReport, buildChartContextJson,
         deleteSelectedAiTrendline,
