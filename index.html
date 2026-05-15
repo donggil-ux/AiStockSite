@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=693">
+    <link rel="stylesheet" href="/styles.css?v=694">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -823,6 +823,11 @@
                                 onclick="toggleChartLabels()" title="우측 가격 라벨(EMA20·EMA50·EMA200·BB+ 등) 숨기기/표시"
                                 style="border-color:var(--border);">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px;"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>라벨
+                            </button>
+                            <button class="chart-tb-btn" id="chartSoundBtn"
+                                onclick="toggleChartSound()" title="시그널 사운드 켜기 — 매수·매도 시그널 발생 시 소리 알림"
+                                style="border-color:var(--border);color:var(--text3);">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px;"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>소리
                             </button>
                             <button class="chart-tb-btn" id="chartAiClearBtn"
                                 onclick="clearAiChartLines()" title="AI 라인 지우기"
@@ -12973,6 +12978,63 @@
         }
     }
 
+    // ── 매수·매도 시그널 사운드 알림 (v694) ──────────────────────
+    let _chartSoundEnabled = localStorage.getItem('stockai_chart_sound') === '1'; // 기본 OFF
+    let _sigAudioCtx = null;
+
+    function _updateChartSoundBtnUi() {
+        const btn = document.getElementById('chartSoundBtn');
+        if (!btn) return;
+        if (_chartSoundEnabled) {
+            btn.style.color = 'var(--text1)';
+            btn.style.background = 'var(--bg2)';
+            btn.title = '시그널 사운드 끄기';
+        } else {
+            btn.style.color = 'var(--text3)';
+            btn.style.background = 'transparent';
+            btn.title = '시그널 사운드 켜기 — 매수·매도 시그널 발생 시 소리 알림';
+        }
+    }
+
+    // Web Audio 비프음 — buy: 상승 2음 / sell: 하강 2음
+    function _playSignalSound(kind) {
+        try {
+            if (!_sigAudioCtx) _sigAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const ctx = _sigAudioCtx;
+            if (ctx.state === 'suspended') ctx.resume();
+            const tones = kind === 'buy' ? [660, 990] : [520, 350];
+            tones.forEach((freq, i) => {
+                const t0 = ctx.currentTime + i * 0.16;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, t0);
+                gain.gain.setValueAtTime(0.0001, t0);
+                gain.gain.exponentialRampToValueAtTime(0.32, t0 + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.15);
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.start(t0); osc.stop(t0 + 0.16);
+            });
+        } catch (e) { console.warn('[sig-sound]', e?.message); }
+    }
+
+    function toggleChartSound() {
+        _chartSoundEnabled = !_chartSoundEnabled;
+        localStorage.setItem('stockai_chart_sound', _chartSoundEnabled ? '1' : '0');
+        _updateChartSoundBtnUi();
+        // 켜는 클릭(사용자 제스처)에 AudioContext 활성화 + 확인음 재생
+        if (_chartSoundEnabled) {
+            try {
+                if (!_sigAudioCtx) _sigAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (_sigAudioCtx.state === 'suspended') _sigAudioCtx.resume();
+            } catch (e) {}
+            _playSignalSound('buy');
+            try { showToast('🔔 시그널 사운드 ON — 매수·매도 시그널 발생 시 알림'); } catch(e) {}
+        } else {
+            try { showToast('🔕 시그널 사운드 OFF'); } catch(e) {}
+        }
+    }
+
     // 우측 가격 라벨 + EMA·BB 라인 토글 (한꺼번에 켜기/끄기)
     let _chartLabelsVisible = localStorage.getItem('stockai_chart_labels') === '1'; // 기본 숨김 (사용자가 켤 때만 표시)
     function _applyChartLabelsVisibility() {
@@ -13053,6 +13115,7 @@
         if (!bar || !lwCandleSeries || !candleData?.length) return;
         _lastSigArgs = { candleData, ts, q, bb }; // 토글 시 즉시 재렌더용
         _updateChartLinesBtnUi();
+        _updateChartSoundBtnUi();
 
         const closes = q.close, highs = q.high, lows = q.low;
         const lastVal = arr => { for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != null) return arr[i]; return null; };
@@ -13161,9 +13224,12 @@
             const newKey = `${currentSymbol}:${latest.time}:${latest.position}:${latest.text}`;
             const prevSameSymbol = _lastSigKey && _lastSigKey.startsWith(currentSymbol + ':');
             if (prevSameSymbol && _lastSigKey !== newKey) {
-                const dir   = latest.position === 'belowBar' ? '매수' : '매도';
-                const emoji = latest.position === 'belowBar' ? '🔴' : '🔵';
+                const isBuy = latest.position === 'belowBar';
+                const dir   = isBuy ? '매수' : '매도';
+                const emoji = isBuy ? '🔴' : '🔵';
                 try { showToast(`${emoji} ${latest.text} ${dir} 시그널`); } catch(e) {}
+                // 매수·매도 시그널 사운드 알림 (v694)
+                try { if (_chartSoundEnabled) _playSignalSound(isBuy ? 'buy' : 'sell'); } catch(e) {}
             }
             _lastSigKey = newKey;
         }
@@ -23147,7 +23213,7 @@
         _runCatalystAi, _renderCatalystAiExpanded,
         _runScannerAi, _renderScannerAiResult, _alphaAutoBatchAi, _renderAlphaAiMini,
         _alphaRenderSocialScanner, _runSocialAi, _renderSocialAiResult,
-setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawToolbar, addAutoTrendAngle, toggleChartLabels,
+setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawToolbar, addAutoTrendAngle, toggleChartLabels, toggleChartSound,
         toggleTheme, showLoading, hideLoading, showToast, showSnackbar,
         openChangelog, closeChangelog,
         loadOptionsDate, setOptionsFilter,
