@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=689">
+    <link rel="stylesheet" href="/styles.css?v=690">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -5207,6 +5207,52 @@
         _alphaRender(filtered, 'bounce', _bounceFilterBarHtml(filtered.length));
     }
 
+    // ── AI 판정 필터 — 매수/관망/회피 (v690) ────────────────────
+    // AI 일괄 분석(상위 15개)의 verdict 로 카드 show/hide. 칩 = 전체/매수/관망/회피
+    const _ALPHA_AI_TABS = new Set(['bounce', 'swing', 'rayner', 'sepa', 'daytrade']);
+    let _alphaVerdictFilter = (() => { try { return localStorage.getItem('alphaVerdictFilter') || 'all'; } catch(e) { return 'all'; } })();
+
+    function _alphaVerdictBarHtml() {
+        const chip = (v, label) => `<button class="surge-filter ${_alphaVerdictFilter===v?'active':''}" data-vchip="${v}" onclick="_alphaSetVerdictFilter('${v}')">${label}</button>`;
+        return `<div class="bounce-filter-box">
+            <div class="bounce-filter-row">
+                <span class="bounce-filter-label">🤖 AI 판정</span>
+                <div class="surge-filter-bar">${chip('all','전체')}${chip('buy','🟢 매수')}${chip('관망','🟡 관망')}${chip('회피','🔴 회피')}</div>
+            </div>
+            <div class="bounce-filter-count" id="alphaVerdictNote">🤖 AI가 상위 15개 종목을 분석합니다 — 분석 완료 후 필터가 적용됩니다</div>
+        </div>`;
+    }
+
+    function _alphaVerdictApply() {
+        const f = _alphaVerdictFilter;
+        document.querySelectorAll('[data-vchip]').forEach(b => b.classList.toggle('active', b.dataset.vchip === f));
+        const cards = document.querySelectorAll('#alphaResults .alpha-card');
+        let shown = 0, analyzed = 0;
+        cards.forEach(card => {
+            const v = card.dataset.verdict || '';
+            if (v) analyzed++;
+            let match;
+            if (f === 'all') match = true;
+            else if (!v) match = false;                       // 미분석 카드는 필터 시 숨김
+            else if (f === 'buy') match = (v === '매수' || v === '강한매수');
+            else match = (v === f);
+            card.style.display = match ? '' : 'none';
+            if (match) shown++;
+        });
+        const note = document.getElementById('alphaVerdictNote');
+        if (note) {
+            note.textContent = f === 'all'
+                ? `🤖 AI 상위 15개 분석 — ${analyzed}개 판정 완료`
+                : `🤖 '${f==='buy'?'매수':f}' ${shown}개 표시 · AI 분석은 상위 15개 종목 한정`;
+        }
+    }
+
+    function _alphaSetVerdictFilter(v) {
+        _alphaVerdictFilter = v;
+        try { localStorage.setItem('alphaVerdictFilter', v); } catch(e) {}
+        _alphaVerdictApply();
+    }
+
     // ── 급등 예상 적중률 추적 ────────────────────────────────────
     // localStorage 에 추천 시점 가격을 저장 → 3일 뒤 현재가와 비교
     // 적중 기준: +5% 이상 = 맞춤, -3% 이하 또는 +5% 미만 = 틀림
@@ -6100,7 +6146,7 @@
         if (!el) return;
         const useTab = tab || _alphaTab;
         const timing = _alphaTimingGuide(useTab);
-        const extraTop = topHtml || '';
+        const extraTop = (topHtml || '') + (_ALPHA_AI_TABS.has(useTab) ? _alphaVerdictBarHtml() : '');
         // 급등 예상 탭에만 적중률 카드 + 자리 표시자
         const surgeStats = useTab === 'surge'
             ? `<div id="alphaSurgeStats">${_alphaSurgeStatsHTML(_loadAlphaSurgePicks())}</div>`
@@ -6177,10 +6223,14 @@
                 if (!analysis) { el.style.display = 'none'; return; }
                 el.removeAttribute('data-pending');
                 el.innerHTML = _renderAlphaAiMini(analysis);
+                // AI 판정 필터용 — 카드에 verdict 태깅
+                const cardEl = document.getElementById(cardId);
+                if (cardEl && analysis.verdict) cardEl.dataset.verdict = analysis.verdict;
                 // 확장 영역의 상세 결과도 채움
                 const expEl = document.getElementById(`${cardId}-ai`);
                 if (expEl) expEl.innerHTML = _renderScannerAiResult({ analysis, _meta: { cached: true } });
             });
+            try { _alphaVerdictApply(); } catch(_) {}
         } catch (e) {
             // 실패 시 pending 표시 숨김
             document.querySelectorAll('.alpha-ai-mini[data-pending="1"]').forEach(el => { el.style.display = 'none'; });
@@ -23100,7 +23150,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         toggleScannerChip, setScannerPreset, syncScannerChipUI,
         debounceScannerFetch, runScannerFetch, filterScannerResults, renderScannerResults,
         _alphaSwitchTab, _alphaRender, _alphaRenderCard, _alphaToggleCard, _alphaTheme, _alphaRisk, _alphaTimingGuide,
-        _alphaHomeSwitch, loadAlphaHomePreview, goAlphaFromHome, _setSurgeFilter, _bounceSetFilter,
+        _alphaHomeSwitch, loadAlphaHomePreview, goAlphaFromHome, _setSurgeFilter, _bounceSetFilter, _alphaSetVerdictFilter,
         captureChartAndAnalyze, clearAiChartLines, drawAiChartLines, toggleAiReport, setTradeMode,
         renderAnalysisReport, buildChartContextJson,
         deleteSelectedAiTrendline,
