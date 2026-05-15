@@ -2636,6 +2636,40 @@ app.post('/api/scanner/ai-analyze', express.json({ limit: '32kb' }), async (req,
     }
 });
 
+// POST /api/scanner/ai-batch — 알파 스캐너 자동 일괄 검증 (v677)
+//   최대 15개 종목, 동시 6개씩 처리 (Vercel timeout 여유)
+//   캐시 적중률 따라 빠르게 반환 (1h LRU)
+app.post('/api/scanner/ai-batch', express.json({ limit: '64kb' }), async (req, res) => {
+    try {
+        const { scannerType, items } = req.body || {};
+        if (!scannerType || !Array.isArray(items)) {
+            return res.status(400).json({ error: 'scannerType, items[] required' });
+        }
+        const validTypes = new Set(['bounce', 'surge', 'swing', 'rayner', 'sepa']);
+        if (!validTypes.has(scannerType)) return res.status(400).json({ error: 'invalid scannerType' });
+        if (!process.env.GEMINI_API_KEY) return res.status(503).json({ error: 'GEMINI_API_KEY missing' });
+
+        const limited = items.slice(0, 15);
+        // 동시 실행 제한 (concurrency 6)
+        const out = [];
+        for (let i = 0; i < limited.length; i += 6) {
+            const chunk = limited.slice(i, i + 6);
+            const partial = await Promise.all(chunk.map(async (it) => {
+                if (!it?.ticker) return null;
+                try {
+                    const r = await _geminiScannerAnalyze(it.ticker, scannerType, it.candidateData || {});
+                    return r ? { ticker: it.ticker, analysis: r.analysis, _meta: r._meta } : null;
+                } catch (e) { return null; }
+            }));
+            out.push(...partial.filter(Boolean));
+        }
+        res.json({ scannerType, results: out, count: out.length, total: limited.length });
+    } catch (err) {
+        console.error('[scanner-ai-batch]', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/catalyst/hunter', async (req, res) => {
     const now = Date.now();
     if (_catalystCache.data && now - _catalystCache.ts < CATALYST_TTL) {
