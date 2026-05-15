@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=714">
+    <link rel="stylesheet" href="/styles.css?v=715">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -22615,8 +22615,9 @@
         const clearBtn = document.getElementById('chartAiClearBtn');
         if (clearBtn && lwAiPriceLines.length) clearBtn.style.display = '';
 
-        // 테스타 신호 카드 렌더링
-        _renderTestaSignalCard(data);
+        // 차트 하단 신호 카드(관망/미충족 조건 등) — 사용자 요청으로 기능 제거 (v715)
+        const _asc = document.getElementById('aiSummaryCard');
+        if (_asc) { _asc.style.display = 'none'; _asc.innerHTML = ''; }
     }
 
     // ── 테스타 신호 카드 렌더링 (4가지 신호 + 3가지 모드) ──
