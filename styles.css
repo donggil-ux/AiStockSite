@@ -6374,6 +6374,9 @@
 .catalyst-filter{padding:6px 14px;border:none;background:transparent;border-radius:8px;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap;-webkit-tap-highlight-color:transparent;}
 .catalyst-filter:hover{background:var(--bg3);}
 .catalyst-filter.active{background:var(--accent,#6366f1);color:#fff;}
+.catalyst-filter-cnt{display:inline-block;margin-left:4px;padding:1px 6px;background:rgba(0,0,0,0.08);border-radius:100px;font-size:10px;font-weight:700;line-height:1.4;vertical-align:1px;font-variant-numeric:tabular-nums;}
+.catalyst-filter.active .catalyst-filter-cnt{background:rgba(255,255,255,0.25);color:#fff;}
+[data-theme="dark"] .catalyst-filter-cnt{background:rgba(255,255,255,0.10);}
 [data-theme="dark"] .catalyst-filter.active{background:rgba(99,102,241,0.5);}
 .catalyst-filter--acc.active{background:#a855f7;color:#fff;}
 [data-theme="dark"] .catalyst-filter--acc.active{background:rgba(168,85,247,0.6);}

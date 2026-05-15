@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=669">
+    <link rel="stylesheet" href="/styles.css?v=670">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -457,15 +457,15 @@
             <div class="catalyst-warn">
                 ⚠️ EDGAR 공시는 감지 후 수분 지연이 있고, 가격 데이터는 🟢 Alpaca 실시간(IEX 피드) 또는 🟡 yfinance 15분 지연.
                 뉴스 발표 후 첫 1~2시간에 수익이 집중되므로 진입 타이밍 관리 필수.
-                <strong>이미 당일 +5% 이상 오른 종목·프리장 +10% 이상 갭업 종목은 자동 제외</strong>되어
+                <strong>이미 당일 +10% 이상 오른 종목·프리장 +15% 이상 갭업 종목은 자동 제외</strong>되어
                 사전 진입 가능한 종목만 표시됩니다.
             </div>
             <div class="catalyst-filter-bar">
-                <button class="catalyst-filter active" data-filter="all"          onclick="_catalystSetFilter('all')">전체</button>
-                <button class="catalyst-filter"        data-filter="urgent"       onclick="_catalystSetFilter('urgent')">🚨 긴급</button>
-                <button class="catalyst-filter"        data-filter="strong"       onclick="_catalystSetFilter('strong')">🔴 강한</button>
-                <button class="catalyst-filter"        data-filter="watch"        onclick="_catalystSetFilter('watch')">🟠 관심</button>
-                <button class="catalyst-filter catalyst-filter--acc" data-filter="accumulation" onclick="_catalystSetFilter('accumulation')">🕵️ 매집 의심</button>
+                <button class="catalyst-filter active" data-filter="all"          onclick="_catalystSetFilter('all')">전체 <span class="catalyst-filter-cnt" id="cfCntAll">0</span></button>
+                <button class="catalyst-filter"        data-filter="urgent"       onclick="_catalystSetFilter('urgent')">🚨 긴급 <span class="catalyst-filter-cnt" id="cfCntUrgent">0</span></button>
+                <button class="catalyst-filter"        data-filter="strong"       onclick="_catalystSetFilter('strong')">🔴 강한 <span class="catalyst-filter-cnt" id="cfCntStrong">0</span></button>
+                <button class="catalyst-filter"        data-filter="watch"        onclick="_catalystSetFilter('watch')">🟠 관심 <span class="catalyst-filter-cnt" id="cfCntWatch">0</span></button>
+                <button class="catalyst-filter catalyst-filter--acc" data-filter="accumulation" onclick="_catalystSetFilter('accumulation')">🕵️ 매집 의심 <span class="catalyst-filter-cnt" id="cfCntAcc">0</span></button>
             </div>
             <div class="catalyst-acc-warn" id="catalystAccWarn" style="display:none;">
                 ⚠️ 매집 의심은 통계적 패턴 감지입니다. 실제 내부자 거래 증거가 아니며 오탐 가능성이 높습니다. 반드시 직접 검증 후 참고용으로만 활용하세요.
@@ -7298,6 +7298,16 @@
         const el = document.getElementById('catalystList');
         const warnEl = document.getElementById('catalystAccWarn');
         if (!el) return;
+
+        // 필터별 카운트 (v670)
+        const allRes = (d && Array.isArray(d.results)) ? d.results : [];
+        const accRes = (d && Array.isArray(d.accumulation)) ? d.accumulation : [];
+        const _setCnt = (id, n) => { const e = document.getElementById(id); if (e) e.textContent = n; };
+        _setCnt('cfCntAll',    allRes.length);
+        _setCnt('cfCntUrgent', allRes.filter(r => r.score >= 75).length);
+        _setCnt('cfCntStrong', allRes.filter(r => r.score >= 55 && r.score < 75).length);
+        _setCnt('cfCntWatch',  allRes.filter(r => r.score >= 35 && r.score < 55).length);
+        _setCnt('cfCntAcc',    accRes.length);
 
         const isAcc = _catalystFilter === 'accumulation';
         if (warnEl) warnEl.style.display = isAcc ? '' : 'none';
