@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=698">
+    <link rel="stylesheet" href="/styles.css?v=699">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -13022,6 +13022,20 @@
         } catch (e) { console.warn('[sig-sound]', e?.message); }
     }
 
+    // 음성 안내 — "{종목} 매수/매도" 읽어주기 (v699)
+    function _speakSignal(ticker, dirKo) {
+        try {
+            const synth = window.speechSynthesis;
+            if (!synth) return;
+            synth.cancel(); // 이전 발화 중단
+            const u = new SpeechSynthesisUtterance(`${ticker}, ${dirKo}`);
+            u.lang = 'ko-KR';
+            u.rate = 1.05;
+            u.volume = 1;
+            synth.speak(u);
+        } catch (e) {}
+    }
+
     // AudioContext 깨우기 — 백그라운드 복귀·iOS 자동 suspend 대응 (v697)
     //   브라우저는 페이지가 백그라운드로 가거나 일정 시간 지나면 AudioContext 를
     //   suspend 시킴. setInterval(폴링) 안의 resume() 은 사용자 제스처가 아니라
@@ -13262,6 +13276,46 @@
                 text: p.label,
             });
         });
+        // ── 확장 시그널 (v699) — 미국 데이트레이딩 핵심 시그널 ──
+        // ① 골든/데드 크로스 — EMA50 × EMA200 (장기 추세 전환)
+        for (let i = 1; i < ema50Data.length; i++) {
+            const p50 = ema50Data[i-1], p200 = ema200Data[i-1], c50 = ema50Data[i], c200 = ema200Data[i];
+            if (p50 == null || p200 == null || c50 == null || c200 == null) continue;
+            if (p50 <= p200 && c50 > c200)      markers.push({ time: ts[i], position: 'belowBar', color: '#ef4444', shape: 'arrowUp',   text: '골든크로스' });
+            else if (p50 >= p200 && c50 < c200) markers.push({ time: ts[i], position: 'aboveBar', color: '#3b82f6', shape: 'arrowDown', text: '데드크로스' });
+        }
+        // ② 거래량 급증 — 20봉 평균 대비 2.5배 + 상승봉
+        {
+            const vols = q.volume || [];
+            for (let i = 20; i < closes.length; i++) {
+                if (vols[i] == null || closes[i] == null || closes[i-1] == null) continue;
+                let sum = 0, cnt = 0;
+                for (let j = i-20; j < i; j++) { if (vols[j] != null) { sum += vols[j]; cnt++; } }
+                const avg = cnt ? sum / cnt : 0;
+                if (avg > 0 && vols[i] >= avg * 2.5 && closes[i] > closes[i-1]) {
+                    markers.push({ time: ts[i], position: 'belowBar', color: '#f97316', shape: 'arrowUp', text: '거래량 급증' });
+                }
+            }
+        }
+        // ③ 볼린저 밴드 돌파/이탈 — 종가가 상단 위로 돌파 / 하단 아래로 이탈
+        if (bb && bb.upper && bb.lower) {
+            for (let i = 1; i < closes.length; i++) {
+                if (closes[i] == null || closes[i-1] == null) continue;
+                const cu = bb.upper[i], pu = bb.upper[i-1], cl = bb.lower[i], pl = bb.lower[i-1];
+                if (pu != null && cu != null && closes[i-1] <= pu && closes[i] > cu)
+                    markers.push({ time: ts[i], position: 'belowBar', color: '#ef4444', shape: 'arrowUp',   text: 'BB 돌파' });
+                else if (pl != null && cl != null && closes[i-1] >= pl && closes[i] < cl)
+                    markers.push({ time: ts[i], position: 'aboveBar', color: '#3b82f6', shape: 'arrowDown', text: 'BB 이탈' });
+            }
+        }
+        // ④ 신고가 돌파 — 직전 60봉 최고가 경신 (모멘텀 매수)
+        for (let i = 60; i < closes.length; i++) {
+            if (closes[i] == null) continue;
+            let mx = 0;
+            for (let j = i-60; j < i; j++) { if (closes[j] != null && closes[j] > mx) mx = closes[j]; }
+            if (mx > 0 && closes[i] > mx) markers.push({ time: ts[i], position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '신고가' });
+        }
+
         // 동일 봉 중복 마커는 첫 것만 유지
         const seen = new Set();
         const uniqMarkers = markers
@@ -13289,10 +13343,15 @@
                         ? ' · ' + Math.round(sp).toLocaleString() + '원'
                         : ' · $' + Number(sp).toFixed(2);
                 } catch(e) {}
-                // 10초 프로그레스바 시그널 알림 (v695) — 가격 포함 (v698)
-                try { _showSignalAlert(`${emoji} ${latest.text} ${dir} 시그널${priceStr}`, isBuy); } catch(e) {}
-                // 매수·매도 시그널 사운드 알림 (v694)
-                try { if (_chartSoundEnabled) _playSignalSound(isBuy ? 'buy' : 'sell'); } catch(e) {}
+                // 10초 프로그레스바 시그널 알림 — 종목명 + 가격 포함 (v695·v698·v699)
+                try { _showSignalAlert(`${emoji} ${currentSymbol} · ${latest.text} ${dir} 시그널${priceStr}`, isBuy); } catch(e) {}
+                // 매수·매도 시그널 사운드 + 음성 안내 (v694·v699)
+                try {
+                    if (_chartSoundEnabled) {
+                        _playSignalSound(isBuy ? 'buy' : 'sell');
+                        setTimeout(() => _speakSignal(currentSymbol, dir), 380); // 비프음 후 음성
+                    }
+                } catch(e) {}
             }
             _lastSigKey = newKey;
         }
