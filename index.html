@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=683">
+    <link rel="stylesheet" href="/styles.css?v=684">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -13051,10 +13051,10 @@
         const _supBelow = troughs.filter(p => p.price < curPrice).sort((a,b) => b.price - a.price);
         let supports = _supBelow.filter(p => p.price >= _srLo).slice(0, 3);
         if (supports.length < 2) supports = _supBelow.slice(0, 2);
-        const addLine = (price, color, label) => {
+        const addLine = (price, color, label, style) => {
             try {
                 const pl = lwCandleSeries.createPriceLine({
-                    price, color, lineWidth: 2, lineStyle: 0,  // 굵은 솔리드 — 매매 라인 위에서 가시성 확보 (v650)
+                    price, color, lineWidth: 2, lineStyle: style != null ? style : 0,
                     axisLabelVisible: true,
                     title: label,
                 });
@@ -13063,6 +13063,27 @@
         };
         resistances.forEach(r => addLine(r.price, 'rgba(239,68,68,0.9)',  `📍 저항 $${r.price.toFixed(2)}`));
         supports.forEach(s   => addLine(s.price, 'rgba(59,130,246,0.9)', `📍 지지 $${s.price.toFixed(2)}`));
+
+        // 4.5) 눌림목 · 돌파 자리 (v684) — 모든 인터벌 (분·일·주·월봉)
+        //   돌파 자리 = 최근 20봉 최고가 (현재가 아래면 미표시 — 이미 돌파됨)
+        //   눌림목 자리 = EMA20 (상승 추세에서 되돌림 매수 지점), 현재가 위면 미표시
+        try {
+            const ema20Arr = lwMaSeries.ema20_data || calcEMA(closes, 20);
+            const lastEma20 = lastVal(ema20Arr);
+            // 돌파 라인 — 최근 20봉(현재봉 제외) 최고가
+            const last20Hi = highs.slice(Math.max(0, highs.length - 21), highs.length - 1).filter(v => v != null);
+            if (last20Hi.length >= 5) {
+                const breakoutLv = Math.max(...last20Hi);
+                // 현재가가 돌파 라인 아래일 때만 표시 (= 돌파 대기 중)
+                if (breakoutLv > curPrice && breakoutLv <= curPrice * 1.35) {
+                    addLine(breakoutLv, 'rgba(234,179,8,0.95)', `🚀 돌파 $${breakoutLv.toFixed(2)}`, 2);
+                }
+            }
+            // 눌림목 라인 — EMA20 (현재가가 EMA20 위 = 상승 추세일 때만)
+            if (lastEma20 != null && lastEma20 < curPrice && lastEma20 >= curPrice * 0.80) {
+                addLine(lastEma20, 'rgba(34,197,94,0.95)', `🟢 눌림목 $${lastEma20.toFixed(2)}`, 2);
+            }
+        } catch(e) {}
 
         // 5) 매매 전략 라인 — ATR(14) 기반 3단계 분할매수 + 3단계 분할익절 (v651)
         //    일·주봉 + 김직선 활성 시에는 김직선 라인이 더 정교하므로 기존 매수/익절 라인 숨김 (v632)
