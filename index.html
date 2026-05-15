@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=705">
+    <link rel="stylesheet" href="/styles.css?v=706">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -13116,9 +13116,13 @@
             el = document.createElement('div');
             el.id = 'sigAlert';
             el.className = 'sig-alert';
-            el.innerHTML = `<button class="sig-alert-close" id="sigAlertClose" aria-label="닫기">✕</button>
-                <div class="sig-alert-msg" id="sigAlertMsg"></div>
-                <div class="sig-alert-sub" id="sigAlertSub"></div>
+            el.innerHTML = `<div class="sig-alert-row">
+                    <div class="sig-alert-texts">
+                        <div class="sig-alert-msg" id="sigAlertMsg"></div>
+                        <div class="sig-alert-sub" id="sigAlertSub"></div>
+                    </div>
+                    <button class="sig-alert-close" id="sigAlertClose" aria-label="닫기">✕</button>
+                </div>
                 <div class="sig-alert-track"><div class="sig-alert-bar" id="sigAlertBar"></div></div>`;
             document.body.appendChild(el);
             // 닫기 버튼 — 사용자가 직접 알림 닫기
