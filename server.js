@@ -2270,7 +2270,7 @@ function _catalystFreshnessScore(updatedIso) {
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// Gemini 카탈리스트 심층 분석 (v671) — gemini-2.0-flash 가성비 모델
+// Gemini 카탈리스트 심층 분석 (v671, v673→v675 모델 통일) — gemini-3.1-flash-lite
 //   기능 1: 공시 본문 의미 분석 (summary, verdict, grade, timeHorizon)
 //   기능 2: 진위 검증 + 리스크 평가 (7개 신호 0~10점, totalRisk 0~70)
 //   캐시 1시간, 키 = ticker_formType_filedAt
@@ -3535,8 +3535,8 @@ JSON:`;
             return out;
         }
         try {
-            console.warn('[earnings-summary] gemini-2.5-flash 과부하 → gemini-2.0-flash 폴백');
-            arr = await tryGemini('gemini-2.0-flash');
+            console.warn('[earnings-summary] gemini-2.5-flash 과부하 → gemini-3.1-flash-lite 폴백');
+            arr = await tryGemini('gemini-3.1-flash-lite');
         } catch (e2) {
             console.warn('[earnings-summary] Gemini 2.0 fail:', e2?.message?.slice(0, 100));
             return out;
