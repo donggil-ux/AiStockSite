@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=675">
+    <link rel="stylesheet" href="/styles.css?v=676">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -163,7 +163,8 @@
             </div>
             <div class="alpha-home-tabs" id="alphaHomeTabs">
                 <button class="alpha-home-tab active" data-tab="bounce" onclick="_alphaHomeSwitch('bounce')">과매도</button>
-                <button class="alpha-home-tab"        data-tab="surge"  onclick="_alphaHomeSwitch('surge')">급등 후보</button>
+                <!-- 급등 후보 탭 제거 (v676) — 검증 부족으로 비활성화 -->
+                <!-- <button class="alpha-home-tab"        data-tab="surge"  onclick="_alphaHomeSwitch('surge')">급등 후보</button> -->
                 <button class="alpha-home-tab"        data-tab="swing"  onclick="_alphaHomeSwitch('swing')">스윙 진입</button>
                 <button class="alpha-home-tab"        data-tab="rayner" onclick="_alphaHomeSwitch('rayner')">Rayner</button>
                 <button class="alpha-home-tab"        data-tab="sepa"   onclick="_alphaHomeSwitch('sepa')">SEPA</button>
@@ -323,7 +324,8 @@
         <!-- 4-카테고리 세그먼트 탭 -->
         <div class="alpha-tabs" id="alphaTabs">
             <button class="alpha-tab active" data-tab="bounce"   onclick="_alphaSwitchTab('bounce')">과매도</button>
-            <button class="alpha-tab"        data-tab="surge"    onclick="_alphaSwitchTab('surge')">급등 후보</button>
+            <!-- 급등 후보 탭 제거 (v676) — 검증 부족으로 비활성화 -->
+            <!-- <button class="alpha-tab"        data-tab="surge"    onclick="_alphaSwitchTab('surge')">급등 후보</button> -->
             <!-- 단타 진입 탭 — 임시 숨김 (v619) -->
             <button class="alpha-tab"        data-tab="daytrade" onclick="_alphaSwitchTab('daytrade')" style="display:none;">단타 진입</button>
             <button class="alpha-tab"        data-tab="swing"    onclick="_alphaSwitchTab('swing')">스윙 진입</button>
@@ -5329,6 +5331,8 @@
     }
 
     async function _alphaSwitchTab(tab) {
+        // 급등 후보 탭은 v676 에서 비활성화 — 호출 시 bounce 로 폴백
+        if (tab === 'surge') tab = 'bounce';
         _alphaTab = tab;
         document.querySelectorAll('.alpha-tab').forEach(b => {
             b.classList.toggle('active', b.dataset.tab === tab);
@@ -5773,6 +5777,8 @@
     }
 
     async function _alphaHomeSwitch(tab) {
+        // 급등 후보 탭은 v676 에서 비활성화 — 호출 시 bounce 로 폴백
+        if (tab === 'surge') tab = 'bounce';
         _alphaHomeTab = tab;
         document.querySelectorAll('#alphaHomeTabs .alpha-home-tab').forEach(b => {
             b.classList.toggle('active', b.dataset.tab === tab);
