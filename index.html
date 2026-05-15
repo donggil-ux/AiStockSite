@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=690">
+    <link rel="stylesheet" href="/styles.css?v=691">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -6278,7 +6278,7 @@
         const riskLabel = { low:'낮음', medium:'중간', high:'높음', extreme:'극고위험' }[risk] || '중간';
 
         // 시그널 + 점수 + reason 계산 (탭별)
-        let signals = [], score = 0, reason = '', timingBadge = '', expectedMove = '';
+        let signals = [], score = 0, reason = '', timingBadge = '', expectedMove = '', bounceTarget = 0;
         const kind = q._alphaKind;
 
         if (kind === 'surge') {
@@ -6355,15 +6355,18 @@
             expectedMove = Math.round(Math.min(80, Math.max(5, Math.abs(dayChg) + volRat * 3)));
         } else if (kind === 'bounce') {
             const bs = q._bounceSignals || [];
-            bs.forEach(s => signals.push({label:`${s.label}${s.detail ? ' ' + s.detail : ''}`, cls:'blue'}));
-            const rsi = q.rsi;
-            if (rsi != null && rsi <= 25) signals.push({label:`RSI ${rsi} 극심 과매도`, cls:'blue'});
-            if (q.ma200 && q.price && q.price < q.ma200 * 0.85) signals.push({label:'200일선 -15%↓ 이격', cls:'purple'});
-            if (chg <= -7) signals.push({label:`당일 ${chg.toFixed(1)}% 급락`, cls:'red'});
-            score = Math.min(6, bs.length + (rsi != null && rsi <= 25 ? 1 : 0));
-            reason = `${bs.length}개 과매도 신호 충족 — 누가 봐도 과매도 구간.`;
-            timingBadge = bs.length >= 4 ? {label:'⚡ 내일 반등', cls:'emerald'} : {label:'📅 내일모레', cls:'amber'};
-            expectedMove = Math.round(5 + bs.length * 2);
+            const sigCls = s => s.label.startsWith('🔨') ? 'emerald'
+                : (s.label.includes('볼린저') ? 'purple' : 'blue');
+            bs.forEach(s => signals.push({label:`${s.label}${s.detail ? ' ' + s.detail : ''}`, cls:sigCls(s)}));
+            // v691 #3 — 점수제: 시그널별 pts 합산 (최대 13점)
+            const totalPts = bs.reduce((sum, s) => sum + (s.pts || 0), 0);
+            score = totalPts;
+            reason = `과매도 점수 ${totalPts}점 · ${bs.length}개 시그널 충족 — 바닥 매집 흔적 점검.`;
+            timingBadge = totalPts >= 7 ? {label:'⚡ 내일 반등', cls:'emerald'} : {label:'📅 내일모레', cls:'amber'};
+            // v691 #4 — ATR(14) 기반 1차 목표가 (고정 % 추정 폐기)
+            const atr = q.atr || (q.price ? q.price * 0.04 : 0);
+            if (q.price && atr > 0) bounceTarget = q.price + atr * 1.5;
+            expectedMove = 0; // 퍼센트 배지 미사용 — 목표가 배지로 대체
         } else if (kind === 'daytrade') {
             // 5분봉 돌파 단타 — score 0~100 + 돌파 등급·RVOL·MA정배열·위험패턴
             const score100 = q._breakoutScore ?? q.score ?? 0;
@@ -6626,7 +6629,9 @@
 
                 <div class="alpha-meta-row">
                     <span class="alpha-timing-badge alpha-timing--${timingBadge.cls}">${timingBadge.label}</span>
-                    ${expectedMove > 0 ? `<span class="alpha-expect-badge">예상 ${kind === 'bounce' ? '반등' : '수익'} +${expectedMove}%</span>` : ''}
+                    ${kind === 'bounce'
+                        ? (bounceTarget > 0 ? `<span class="alpha-expect-badge">🎯 1차 목표가 $${bounceTarget.toFixed(2)}</span>` : '')
+                        : (expectedMove > 0 ? `<span class="alpha-expect-badge">예상 수익 +${expectedMove}%</span>` : '')}
                     <span class="alpha-tap-hint">탭하여 진입가 보기 →</span>
                 </div>
             </div>
@@ -8497,33 +8502,58 @@
     // 6개 신호 중 몇 개인지 계산
     // 누가 봐도 과매도 — 교과서적 과매도 신호 (v653)
     //   기존 "2개 이상 시그널 충족"의 다중 검증 모델 → "주요 과매도 조건 1개만 만족하면 노출"로 단순화
+    // 과매도 점수 시그널 — 각 시그널에 pts(가중치) 부여 (v691 #3, 최대 13점)
     function _calcBounceScore(item) {
         const signals = [];
-        const { rsi, price, ma200, ma50, volMult, changePct, pbr, high52, low52 } = item;
-        // 1. RSI ≤ 30 (교과서적 과매도 임계점)
-        if (rsi != null && rsi <= 30) signals.push({ label: 'RSI 과매도', detail: `RSI ${rsi.toFixed(0)}` });
+        const { rsi, price, ma200, ma50, volMult, changePct, pbr, high52, low52, spark, dayHigh, dayLow, dayClose } = item;
+        // 1. RSI 과매도 (≤35) — 단기 패닉
+        if (rsi != null && rsi <= 35) {
+            signals.push({ label: 'RSI 과매도', detail: `RSI ${rsi.toFixed(0)}`, pts: 2 });
+            // 극심한 과매도 (≤30) — 추가 가산점
+            if (rsi <= 30) signals.push({ label: '극심한 과매도', detail: `RSI ${rsi.toFixed(0)}`, pts: 1 });
+        }
         // 2. 200일 이동평균 대비 -15% 이상 이격 (장기 추세선 대비 깊은 하락)
         if (price && ma200 && ma200 > 0 && price < ma200 * 0.85) {
-            signals.push({ label: 'MA200 이격', detail: `-${(((ma200 - price) / ma200) * 100).toFixed(0)}%` });
+            signals.push({ label: 'MA200 이격', detail: `-${(((ma200 - price) / ma200) * 100).toFixed(0)}%`, pts: 2 });
         }
-        // 3. 52주 고점 대비 -30% 이상 폭락
-        if (price && high52 && high52 > 0 && price < high52 * 0.70) {
-            signals.push({ label: '52주 -30%↓', detail: `-${(((high52 - price) / high52) * 100).toFixed(0)}%` });
+        // 3. 52주 고점 대비 -35% 이상 폭락
+        if (price && high52 && high52 > 0 && price < high52 * 0.65) {
+            signals.push({ label: '52주 -35%↓', detail: `-${(((high52 - price) / high52) * 100).toFixed(0)}%`, pts: 2 });
         }
-        // 보조 시그널 (정렬·신뢰도 가산용 — 단독으로는 노출 자격 X)
-        if (changePct != null && changePct <= -5) signals.push({ label: '당일 급락', detail: `${changePct.toFixed(1)}%` });
-        if (volMult != null && volMult >= 1.5) signals.push({ label: '거래량 급증', detail: `×${volMult.toFixed(1)}` });
-        if (pbr != null && pbr > 0 && pbr < 2.0) signals.push({ label: 'PBR 저평가', detail: `PBR ${pbr.toFixed(2)}` });
+        // 보조 시그널
+        if (changePct != null && changePct <= -5) signals.push({ label: '당일 급락', detail: `${changePct.toFixed(1)}%`, pts: 1 });
+        if (volMult != null && volMult >= 1.5) signals.push({ label: '거래량 급증', detail: `×${volMult.toFixed(1)}`, pts: 1 });
+        if (pbr != null && pbr > 0 && pbr < 2.0) signals.push({ label: 'PBR 저평가', detail: `PBR ${pbr.toFixed(2)}`, pts: 1 });
+        // ── 스마트머니 캔들 시그널 (v691 #3) — 바닥 매집 흔적 ──
+        // Signal 1 — 해머/아랫꼬리: 최근 일봉의 아랫꼬리가 캔들 전체 길이의 40% 초과 → +2
+        if (dayHigh != null && dayLow != null && dayClose != null && dayHigh > dayLow) {
+            const wickRatio = (dayClose - dayLow) / (dayHigh - dayLow);
+            if (wickRatio > 0.4) {
+                signals.push({ label: '🔨 해머/아랫꼬리', detail: `꼬리 ${(wickRatio * 100).toFixed(0)}%`, pts: 2 });
+            }
+        }
+        // Signal 2 — 볼린저 하단 이탈: 당일 저가가 하단 밴드(20,2) 아래 → +1
+        if (dayLow != null && Array.isArray(spark) && spark.length >= 20) {
+            try {
+                const bb = calcBollingerBands(spark, 20, 2);
+                const lowerBB = (bb.lower || []).filter(v => v != null).pop();
+                if (lowerBB != null && dayLow < lowerBB) {
+                    signals.push({ label: '볼린저 하단 이탈', detail: 'BB(20,2)', pts: 1 });
+                }
+            } catch (e) {}
+        }
         return signals;
     }
 
-    // 핵심 과매도 시그널(1·2·3번) 충족 여부 — 노출 자격 판정
+    // 노출 자격 판정 (v691 #2) — 단기 패닉(RSI) 필수 AND 중·장기 낙폭
+    //   기존 OR 조건은 천천히 흘러내리는 종목을 포함시켜 승률을 낮춤 → AND 로 강화
     function _isClearlyOversold(item) {
         const { rsi, price, ma200, high52 } = item;
-        if (rsi != null && rsi <= 30) return true;
-        if (price && ma200 && ma200 > 0 && price < ma200 * 0.85) return true;
-        if (price && high52 && high52 > 0 && price < high52 * 0.70) return true;
-        return false;
+        const isRSIOversold = rsi != null && rsi <= 35;        // 단기 패닉 — 필수
+        if (!isRSIOversold) return false;
+        const isMA200DeepGap = !!(price && ma200 && ma200 > 0 && price < ma200 * 0.85);  // 200일선 -15%
+        const is52WDeepDrop  = !!(price && high52 && high52 > 0 && price < high52 * 0.65); // 52주 고점 -35%
+        return isMA200DeepGap || is52WDeepDrop;
     }
 
     function _renderBounceCard(item, showBigTech) {

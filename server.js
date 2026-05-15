@@ -2144,10 +2144,12 @@ function _alpacaToQuoteShape(symbol, snap, bars) {
         preMarketPrice = ap && bp ? (ap + bp) / 2 : (ap || bp);
     }
 
+    const todayClose = dailyBar?.c ?? null;
+
     return {
         symbol,
         _alpaca: true,
-        price, prevClose, todayOpen, todayHigh, todayLow, todayVol, avgVol20, atr,
+        price, prevClose, todayOpen, todayHigh, todayLow, todayClose, todayVol, avgVol20, atr,
         changePct, preMarketPrice,
     };
 }
@@ -6265,7 +6267,13 @@ app.get('/api/oversold-radar', async (req, res) => {
         }
 
         const screenerQuotes = [...losersQ, ...undervalQ, ...smallCapQ, ...growthQ];
-        const allQuotes = screenerQuotes.length ? screenerQuotes : fallbackQ;
+        const rawQuotes = screenerQuotes.length ? screenerQuotes : fallbackQ;
+        // v691 #1 — 유니버스 최적화: 페니주($5 미만)·마이크로캡($500M 미만) 제외
+        //   고위험 종목을 과거 데이터 수집 전에 걸러 승률 높은 후보만 남김
+        const allQuotes = rawQuotes.filter(q =>
+            (q.regularMarketPrice == null || q.regularMarketPrice >= 5) &&
+            (q.marketCap == null || q.marketCap >= 5e8)
+        );
         // 가격대 무관하게 다양한 종목 포함 — 캡 60 → 150 (v654)
         const allSyms = [...new Set(allQuotes.map(q => q.symbol))]
             .filter(s => /^[A-Z]{1,5}$/.test(s)).slice(0, 150);
@@ -6319,9 +6327,13 @@ app.get('/api/oversold-radar', async (req, res) => {
             .filter(q => q.symbol && q.regularMarketPrice != null)
             .filter(q => !_isExcludedStock(q)) // SPAC + OTC + 상장폐지 제외 (v662)
             .filter(q => { if (oversoldSeen.has(q.symbol)) return false; oversoldSeen.add(q.symbol); return true; });
-        // Alpaca snapshots — 상위 100종목만 보강 (Vercel timeout 안전)
+        // Alpaca snapshots + 일봉 bars — 상위 100종목만 보강 (Vercel timeout 안전)
+        //   bars 로 ATR(14)·당일 캔들 OHLC 산출 (v691 #3·#4)
         const overSyms = dedupedSrc.slice(0, 100).map(q => q.symbol);
-        const overSnaps = await _alpacaSnapshots(overSyms);
+        const [overSnaps, overBarsMap] = await Promise.all([
+            _alpacaSnapshots(overSyms),
+            _alpacaDailyBars(overSyms),
+        ]);
         const overSnapMap = overSnaps.snapshots || overSnaps || {};
 
         const oversoldItems = dedupedSrc
@@ -6332,7 +6344,8 @@ app.get('/api/oversold-radar', async (req, res) => {
                 const rsi = _radarCalcRSI14(closes);
                 const vol20 = volumes.length >= 10 ? volumes.slice(-20).reduce((a,b)=>a+b,0) / Math.min(volumes.length,20) : null;
                 // Alpaca 실시간 우선 (있으면), 없으면 yfinance fallback
-                const ap = _alpacaToQuoteShape(q.symbol, overSnapMap[q.symbol], null);
+                //   3번째 인자로 일봉 bars 전달 → ATR(14) 산출 (v691)
+                const ap = _alpacaToQuoteShape(q.symbol, overSnapMap[q.symbol], overBarsMap[q.symbol] || null);
                 const hasAlpaca = !!ap;
                 const price = (hasAlpaca && ap.price) || q.regularMarketPrice;
                 const changePct = (hasAlpaca && ap.changePct != null) ? ap.changePct : (q.regularMarketChangePercent ?? 0);
@@ -6355,6 +6368,11 @@ app.get('/api/oversold-radar', async (req, res) => {
                     volMult,
                     per:       q.trailingPE ?? q.forwardPE ?? null,
                     pbr:       q.priceToBook ?? null,
+                    // v691 #3·#4 — ATR(14) + 당일 캔들 OHLC (캔들 시그널·ATR 목표가용)
+                    atr:       (hasAlpaca && ap.atr) || null,
+                    dayHigh:   (hasAlpaca && ap.todayHigh) || null,
+                    dayLow:    (hasAlpaca && ap.todayLow) || null,
+                    dayClose:  (hasAlpaca && (ap.todayClose ?? ap.price)) || null,
                     dataSource: hasAlpaca ? 'alpaca_realtime' : 'yfinance_delayed',
                 };
             })
