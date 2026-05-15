@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=695">
+    <link rel="stylesheet" href="/styles.css?v=696">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -13047,6 +13047,12 @@
                 <div class="sig-alert-track"><div class="sig-alert-bar" id="sigAlertBar"></div></div>`;
             document.body.appendChild(el);
         }
+        // 전체화면이면 차트 카드 안으로, 아니면 body 로 — stacking context 보장 (v696)
+        //   전체화면 카드(position:fixed, z-index 99999)가 별도 stacking context 라
+        //   body 자식 배너는 그 아래로 가려짐 → 카드 안에 넣어 항상 최상단 노출
+        const fsCard = document.querySelector('.tv-chart-card.fullscreen');
+        const parent = fsCard || document.body;
+        if (el.parentElement !== parent) parent.appendChild(el);
         const msg = el.querySelector('#sigAlertMsg');
         const bar = el.querySelector('#sigAlertBar');
         el.classList.toggle('sig-alert--buy', !!isBuy);
