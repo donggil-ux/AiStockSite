@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=667">
+    <link rel="stylesheet" href="/styles.css?v=668">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -3384,6 +3384,8 @@
         document.getElementById('visionScannerScreen').style.display = 'none';
         const _ern3 = document.getElementById('earningsScreen'); if (_ern3) _ern3.style.display = 'none';
         const _lev3 = document.getElementById('leverageScreen'); if (_lev3) _lev3.style.display = 'none';
+        const _t100F = document.getElementById('top100Screen'); if (_t100F) _t100F.style.display = 'none';
+        const _catF  = document.getElementById('catalystScreen'); if (_catF) _catF.style.display = 'none';
         document.getElementById('favScreen').style.display = '';
         window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded'); const _fab=document.getElementById('calcFab'); if(_fab)_fab.style.display='none';
@@ -3410,6 +3412,9 @@
         document.getElementById('economicSection').style.display = 'none';
         document.getElementById('mainContent').style.display = 'none';
         const _t100 = document.getElementById('top100Screen'); if (_t100) _t100.style.display = 'none';
+        const _catH = document.getElementById('catalystScreen'); if (_catH) _catH.style.display = 'none';
+        const _ernH = document.getElementById('earningsScreen'); if (_ernH) _ernH.style.display = 'none';
+        const _levH = document.getElementById('leverageScreen'); if (_levH) _levH.style.display = 'none';
         window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded'); const _fab=document.getElementById('calcFab'); if(_fab)_fab.style.display='none';
         document.querySelectorAll('.side-nav-item').forEach(b => b.classList.remove('active'));
@@ -5098,6 +5103,7 @@
         document.getElementById('economicSection').style.display = 'none';
         const _ern1 = document.getElementById('earningsScreen'); if (_ern1) _ern1.style.display = 'none';
         const _lev1 = document.getElementById('leverageScreen'); if (_lev1) _lev1.style.display = 'none';
+        const _t100SM = document.getElementById('top100Screen'); if (_t100SM) _t100SM.style.display = 'none';
         document.getElementById('catalystScreen')?.style && (document.getElementById('catalystScreen').style.display = 'none');
         document.getElementById('smartMoneyScreen').style.display = '';
         window._vsActive = false;
@@ -5127,6 +5133,8 @@
         document.getElementById('visionScannerScreen').style.display = 'none';
         const _ern2 = document.getElementById('earningsScreen'); if (_ern2) _ern2.style.display = 'none';
         const _lev2 = document.getElementById('leverageScreen'); if (_lev2) _lev2.style.display = 'none';
+        const _t100S = document.getElementById('top100Screen'); if (_t100S) _t100S.style.display = 'none';
+        const _catS  = document.getElementById('catalystScreen'); if (_catS) _catS.style.display = 'none';
         document.getElementById('alphaScannerScreen').style.display = '';
         window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded'); const _fab=document.getElementById('calcFab'); if(_fab)_fab.style.display='none';
@@ -6810,6 +6818,8 @@
         document.getElementById('favScreen').style.display = 'none';
         document.getElementById('visionScannerScreen').style.display = 'none';
         const _levE = document.getElementById('leverageScreen'); if (_levE) _levE.style.display = 'none';
+        const _t100E = document.getElementById('top100Screen'); if (_t100E) _t100E.style.display = 'none';
+        const _catE  = document.getElementById('catalystScreen'); if (_catE) _catE.style.display = 'none';
         const ecoEl = document.getElementById('economicSection');
         if (ecoEl) ecoEl.style.display = 'none';
         // 실적발표 페이지: 시장 테마/탭 네비 숨김
@@ -6826,6 +6836,8 @@
         document.querySelectorAll('.side-nav-item').forEach(b => b.classList.remove('active'));
         document.getElementById('sideNavErnBtn')?.classList.add('active');
         document.querySelectorAll('.hqnav-item').forEach(b => b.classList.remove('active'));
+        // 하단 네비게이션 — 전체 메뉴 진입이므로 "전체" 활성화 (v668 버그픽스)
+        updateBnActive('all');
         if (!['past7','this','next','month'].includes(window._earnWindow)) window._earnWindow = 'this';
         window._earnDayFilter = null;
         _earnBuildDateChips(); // 상단 날짜 칩 빌드
@@ -10284,6 +10296,7 @@
             const _fav = document.getElementById('favScreen'); if (_fav) _fav.style.display = 'none';
             const _eco = document.getElementById('economicSection'); if (_eco) _eco.style.display = 'none';
             const _t100 = document.getElementById('top100Screen'); if (_t100) _t100.style.display = 'none';
+            const _cat = document.getElementById('catalystScreen'); if (_cat) _cat.style.display = 'none';
             const _ern = document.getElementById('earningsScreen'); if (_ern) _ern.style.display = 'none';
             const _lev = document.getElementById('leverageScreen'); if (_lev) _lev.style.display = 'none';
                 window._vsActive = false;
@@ -20344,6 +20357,8 @@
         document.getElementById('economicSection').style.display      = 'none';
         const _ern4 = document.getElementById('earningsScreen'); if (_ern4) _ern4.style.display = 'none';
         const _lev4 = document.getElementById('leverageScreen'); if (_lev4) _lev4.style.display = 'none';
+        const _t100V = document.getElementById('top100Screen'); if (_t100V) _t100V.style.display = 'none';
+        const _catV  = document.getElementById('catalystScreen'); if (_catV) _catV.style.display = 'none';
         document.getElementById('visionScannerScreen').style.display = '';
         document.getElementById('mainHeader')?.classList.remove('stock-loaded'); const _fab=document.getElementById('calcFab'); if(_fab)_fab.style.display='none';
         document.getElementById('stockHero').classList.remove('show');
@@ -20388,6 +20403,8 @@
         document.getElementById('visionScannerScreen').style.display = 'none';
         const _ern5 = document.getElementById('earningsScreen'); if (_ern5) _ern5.style.display = 'none';
         const _lev5 = document.getElementById('leverageScreen'); if (_lev5) _lev5.style.display = 'none';
+        const _t100Eco = document.getElementById('top100Screen'); if (_t100Eco) _t100Eco.style.display = 'none';
+        const _catEco  = document.getElementById('catalystScreen'); if (_catEco) _catEco.style.display = 'none';
         document.getElementById('mainContent').style.display         = 'none';
         document.getElementById('economicSection').style.display      = '';
         window._vsActive = false;
@@ -20399,6 +20416,8 @@
         document.getElementById('sideNavEcoBtn')?.classList.add('active');
         document.querySelectorAll('.hqnav-item').forEach(b => b.classList.remove('active'));
         document.getElementById('hqEco')?.classList.add('active');
+        // 하단 네비게이션 — 전체 메뉴 진입이므로 "전체" 활성화 (v668 버그픽스)
+        updateBnActive('all');
         window.scrollTo({ top: 0, behavior: 'smooth' });
         _ecoRenderCountdown();
         _ecoLoad();
