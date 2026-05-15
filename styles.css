@@ -186,7 +186,8 @@
         .side-nav-collapse-btn{display:none;}
 
         /* ===== HEADER - 토스증권 스타일 ===== */
-        .header{position:sticky;top:0;z-index:1100;background:color-mix(in srgb, var(--bg) 92%, transparent);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);padding:16px 16px 6px;padding-top:calc(16px + env(safe-area-inset-top));}
+        /* 불투명 배경 + backdrop-filter 제거 — Safari sticky compositing 버그(겹침) 방지 (v707) */
+        .header{position:sticky;top:0;z-index:1100;background:var(--bg);padding:16px 16px 6px;padding-top:calc(16px + env(safe-area-inset-top));}
         .header-top{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
         /* 헤더 검색 아이콘 버튼 */
         .header-search-icon-btn{
@@ -1394,7 +1395,9 @@
         .session-time{font-size:10px;color:var(--text3);margin-top:2px;}
 
         /* ===== TAB NAVIGATION - 토스 스타일 ===== */
-        .tab-nav{display:none;position:sticky;top:0;z-index:1001;background:color-mix(in srgb, var(--bg) 96%, transparent);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:8px 16px;gap:6px;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+        /* tab-nav: 헤더 바로 아래에 스택 고정. 불투명 배경 + backdrop-filter 제거
+           — Safari 의 position:sticky + backdrop-filter compositing 버그(겹침) 방지 (v707) */
+        .tab-nav{display:none;position:sticky;top:var(--hdr-h, 56px);z-index:1001;background:var(--bg);border-bottom:1px solid var(--border);padding:8px 16px;gap:6px;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
         .tab-nav::-webkit-scrollbar{display:none;}
         .tab-nav.show{display:flex;}
         .tab-item{padding:6px 14px;border-radius:999px;font-size:13.5px;font-weight:600;color:var(--text3);cursor:pointer;border:none;background:transparent;transition:all .18s;font-family:inherit;white-space:nowrap;flex-shrink:0;line-height:1.4;}
