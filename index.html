@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=673">
+    <link rel="stylesheet" href="/styles.css?v=674">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -6287,7 +6287,108 @@
                         상세 분석 보기 →
                     </button>
                 </div>
+                <button class="alpha-ai-btn" onclick="event.stopPropagation();_runScannerAi('${cardId}','${kind}',this)">🤖 AI 검증</button>
+                <div class="alpha-ai-result" id="${cardId}-ai" data-item='${JSON.stringify(q).replace(/'/g, '&#39;').replace(/"/g, '&quot;')}'></div>
             </div>
+        </div>`;
+    }
+
+    // 알파 스캐너 카드 AI 검증 (v674) — Gemini 3.1 Flash-Lite
+    async function _runScannerAi(cardId, scannerType, btn) {
+        const resultEl = document.getElementById(`${cardId}-ai`);
+        if (!resultEl) return;
+        if (btn) { btn.disabled = true; btn.textContent = '🤖 AI 분석 중...'; }
+        resultEl.innerHTML = '<div class="cat-ai-loading">Gemini 분석 호출 중... (수초)</div>';
+        try {
+            // 카드의 data-item 에서 종목 원본 데이터 복원
+            const raw = resultEl.getAttribute('data-item') || '{}';
+            const decoded = raw.replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+            const q = JSON.parse(decoded);
+            const ticker = q.symbol || q.ticker;
+            if (!ticker) throw new Error('티커 정보 없음');
+
+            // 탭별 시그널을 candidateData 로 추출
+            const cd = { price: q.regularMarketPrice || q.price, marketCap: q.marketCap, changePct: q.regularMarketChangePercent ?? q.changePct };
+            if (scannerType === 'bounce') {
+                cd.rsi = q.rsi; cd.ma200 = q.ma200; cd.volMult = q.volMult; cd.high52 = q.fiftyTwoWeekHigh;
+            } else if (scannerType === 'surge') {
+                cd.stage = q._sykesStage; cd.stageLabel = q._sykesLabel;
+                cd.consecUp = q._sykesConsec; cd.volRatio = q._sykesVolRatio;
+                cd.drawdownPct = q._sykesDrawdown; cd.totalGainPct = q._sykesGain;
+            } else if (scannerType === 'swing') {
+                cd.rr = q._rr; cd.fiftyTwoWeekHigh = q.fiftyTwoWeekHigh;
+            } else if (scannerType === 'rayner') {
+                cd.stage = q._raynerStage; cd.stageLabel = q._raynerStageLabel;
+                cd.entrySignal = q._raynerEntry; cd.pctAbove200 = q._raynerPctAbove200;
+                cd.score = q._raynerScore;
+            } else if (scannerType === 'sepa') {
+                cd.score = q._sepaScore; cd.trendPassed = q._sepaTrend;
+                cd.vcpFound = q._sepaVcpFound; cd.rs = q._sepaRs;
+                cd.todayVolMult = q._sepaTodayVolMult;
+            }
+
+            const res = await fetch('/api/scanner/ai-analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ticker, scannerType, candidateData: cd }),
+            });
+            if (!res.ok) throw new Error('http ' + res.status);
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+
+            resultEl.innerHTML = _renderScannerAiResult(data);
+            if (btn) btn.remove();
+        } catch (e) {
+            resultEl.innerHTML = `<div class="cat-ai-loading" style="color:#ef4444">AI 분석 실패: ${escHtml(e.message || '오류')}</div>`;
+            if (btn) { btn.disabled = false; btn.textContent = '🤖 AI 검증 (재시도)'; }
+        }
+    }
+
+    function _renderScannerAiResult(d) {
+        if (!d || !d.analysis) return '<div class="cat-ai-loading">분석 결과 없음</div>';
+        const a = d.analysis;
+        const verdictColor = a.verdict === '강한매수' ? '#22c55e'
+            : a.verdict === '매수' ? '#84cc16'
+            : a.verdict === '관망' ? '#eab308'
+            : '#ef4444';
+        const riskColor = a.riskLevel === '낮음' ? '#22c55e'
+            : a.riskLevel === '중간' ? '#eab308'
+            : a.riskLevel === '높음' ? '#f97316'
+            : '#ef4444';
+        const conf = Number(a.confidence) || 0;
+        const confPct = Math.min(100, conf * 10);
+        const risks = Array.isArray(a.topRisks) ? a.topRisks.slice(0, 2) : [];
+        const risksHtml = risks.length ? `<ul class="cat-ai-points">${risks.map(r => `<li>${escHtml(r)}</li>`).join('')}</ul>` : '';
+        return `
+        <div class="cat-ai-card">
+            <div class="cat-ai-section">
+                <div class="cat-ai-title">🤖 AI 검증 (Gemini 3.1 Flash-Lite)</div>
+                <div class="cat-ai-row">
+                    <span class="cat-ai-key">판단</span>
+                    <span class="cat-ai-pill" style="background:${verdictColor};color:#fff">${escHtml(a.verdict || '?')}</span>
+                    <span class="cat-ai-key" style="margin-left:8px">신뢰도</span>
+                    <span class="cat-ai-val">${conf}/10</span>
+                </div>
+                <div class="cat-ai-sig">
+                    <span class="cat-ai-sig-label">신뢰도</span>
+                    <div class="cat-ai-sig-bar"><div class="cat-ai-sig-fill ${conf >= 7 ? 'sig-low' : conf >= 4 ? 'sig-mid' : 'sig-high'}" style="width:${confPct}%"></div></div>
+                    <span class="cat-ai-sig-val">${conf}/10</span>
+                </div>
+                <div class="cat-ai-row">
+                    <span class="cat-ai-key">리스크</span>
+                    <span class="cat-ai-pill" style="background:${riskColor};color:#fff">${escHtml(a.riskLevel || '?')}</span>
+                    <span class="cat-ai-key" style="margin-left:8px">예상</span>
+                    <span class="cat-ai-val">${escHtml(String(a.expectedMovePct || '?'))}%</span>
+                </div>
+                <div class="cat-ai-row">
+                    <span class="cat-ai-key">타이밍</span>
+                    <span class="cat-ai-val">${escHtml(a.entryTiming || '?')}</span>
+                </div>
+                ${risksHtml}
+                <div class="cat-ai-reasoning">${escHtml(a.reasoning || '')}</div>
+                ${a.watchPoint ? `<div class="cat-ai-reasoning" style="border-left:3px solid #6366f1;margin-top:6px">💡 ${escHtml(a.watchPoint)}</div>` : ''}
+            </div>
+            <div class="cat-ai-foot">${d._meta?.cached ? '캐시 적중' : `${d._meta?.tokensInput || 0}+${d._meta?.tokensOutput || 0} 토큰`}</div>
         </div>`;
     }
 
@@ -22156,6 +22257,7 @@
         quickSearch, toggleFavorite, switchTab, toggleChartFullscreen,
         favSearch, removeFavorite, setTop100Filter, goTop100, goCatalyst, loadCatalyst, _catalystSetFilter,
         _runCatalystAi, _renderCatalystAiExpanded,
+        _runScannerAi, _renderScannerAiResult,
 setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawToolbar, addAutoTrendAngle, toggleChartLabels,
         toggleTheme, showLoading, hideLoading, showToast, showSnackbar,
         openChangelog, closeChangelog,
