@@ -6329,11 +6329,15 @@ app.get('/api/oversold-radar', async (req, res) => {
             .filter(q => { if (oversoldSeen.has(q.symbol)) return false; oversoldSeen.add(q.symbol); return true; });
         // Alpaca snapshots + 일봉 bars — 상위 100종목만 보강 (Vercel timeout 안전)
         //   bars 로 ATR(14)·당일 캔들 OHLC 산출 (v691 #3·#4)
+        //   bars 는 limit=1000(전체 합산) 제한이 있어 35종목씩 청크 호출 → 전 종목 ATR 확보
         const overSyms = dedupedSrc.slice(0, 100).map(q => q.symbol);
-        const [overSnaps, overBarsMap] = await Promise.all([
+        const barChunks = [];
+        for (let i = 0; i < overSyms.length; i += 35) barChunks.push(overSyms.slice(i, i + 35));
+        const [overSnaps, ...barResults] = await Promise.all([
             _alpacaSnapshots(overSyms),
-            _alpacaDailyBars(overSyms),
+            ...barChunks.map(c => _alpacaDailyBars(c)),
         ]);
+        const overBarsMap = Object.assign({}, ...barResults);
         const overSnapMap = overSnaps.snapshots || overSnaps || {};
 
         const oversoldItems = dedupedSrc
