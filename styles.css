@@ -2025,6 +2025,9 @@
                 padding:16px 16px 12px 16px;
                 padding-top:calc(16px + env(safe-area-inset-top));
             }
+            /* 종목 상세: 카드가 .app 에 flush 라 헤더 padding-left 제거해
+               뒤로가기 버튼을 아래 컨텐츠 좌측에 정렬 (v713) */
+            #mainHeader.stock-loaded .header-top{ padding-left:0; }
         }
         /* ≥1100px: 단열 유지, 차트 높이만 키움 */
         @media(min-width:1100px){
