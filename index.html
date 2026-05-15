@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=677">
+    <link rel="stylesheet" href="/styles.css?v=678">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -331,6 +331,7 @@
             <button class="alpha-tab"        data-tab="swing"    onclick="_alphaSwitchTab('swing')">스윙 진입</button>
             <button class="alpha-tab"        data-tab="rayner"   onclick="_alphaSwitchTab('rayner')">Rayner</button>
             <button class="alpha-tab"        data-tab="sepa"     onclick="_alphaSwitchTab('sepa')">Minervini SEPA</button>
+            <button class="alpha-tab"        data-tab="social"   onclick="_alphaSwitchTab('social')">소셜 트렌드</button>
         </div>
         <!-- 탭별 설명 -->
         <div class="alpha-desc" id="alphaDesc"></div>
@@ -5258,6 +5259,7 @@
         swing:    '52주 고점까지 충분한 상승 여력(R/R ≥ 1.5)이 있고 추세가 살아있는 종목 — 며칠~몇 주 단위 스윙에 적합합니다.',
         rayner:   'Rayner Teo의 EMA 20/50/200 + Weinstein Stage 분석 — Stage 2(상승추세) + 풀백·돌파·반전 진입 시그널 종목.',
         sepa:     'Mark Minervini SEPA — 트렌드 템플릿 8조건 + VCP + RS + 거래량 4박자 종합점수 70+ 종목 발굴.',
+        social:   '소셜 트렌드 — Reddit(ApeWisdom) 멘션 급증 + StockTwits 트렌딩 + 거래량 폭증 통합 점수. AI 심층 분석으로 펌프앤덤프 의심도 검증 필수.',
     };
 
     // ─── 알파 카드 헬퍼 ──────────────────────────────────────
@@ -5390,11 +5392,180 @@
                 await _alphaRenderSEPAScanner(el);
             } else if (tab === 'surge') {
                 await _alphaRenderSurgeScanner(el);
+            } else if (tab === 'social') {
+                await _alphaRenderSocialScanner(el);
             }
         } catch (e) {
             console.error('[alphaSwitchTab]', e);
             if (_alphaTab === tab) el.innerHTML = _alphaTimingGuide(tab) + '<div class="sniper-empty">데이터 로드 실패 — 잠시 후 다시 시도하세요</div>';
         }
+    }
+
+    // ── 소셜 트렌드 스캐너 (v678) — ApeWisdom + StockTwits 통합 ──────
+    let _socialAiCache = {}; // 클라이언트 메모리 (ticker → AI 결과)
+    async function _alphaRenderSocialScanner(el) {
+        el.innerHTML = '<div class="sniper-loading">' + Array(6).fill('<div class="sniper-skel"></div>').join('') + '</div>';
+        try {
+            const r = await fetch('/api/scanner/social');
+            if (!r.ok) throw new Error('http ' + r.status);
+            const d = await r.json();
+            if (_alphaTab !== 'social') return;
+            const results = Array.isArray(d.results) ? d.results : [];
+            window._lastSocialResults = results; // AI 버튼 핸들러용
+            if (!results.length) {
+                el.innerHTML = '<div class="sniper-empty">현재 화제 종목 없음 — 10분 후 재시도</div>';
+                return;
+            }
+            const html = `
+                <div class="social-warn">
+                    ⚠️ 소셜 트렌드는 커뮤니티 화제도 기반입니다. 펌프 앤 덤프 작전의 미끼일 수 있으므로
+                    반드시 카탈리스트(공시·뉴스)와 함께 검증 후 활용하세요.
+                    화제만으로 진입은 늦은 진입 = 고점 물량 받는 역할이 될 수 있습니다.
+                </div>
+                <div class="social-list">${results.map((r, i) => _renderSocialCard(r, i)).join('')}</div>
+            `;
+            el.innerHTML = html;
+        } catch (e) {
+            console.warn('[social-scan]', e);
+            if (_alphaTab === 'social') el.innerHTML = '<div class="sniper-empty">데이터 로드 실패 — 잠시 후 다시 시도하세요</div>';
+        }
+    }
+
+    function _renderSocialCard(r, idx) {
+        const cardId = `soc-${r.ticker}-${idx}`;
+        const _fmtMc = v => v >= 1e9 ? `$${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `$${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(0)}K` : `$${v}`;
+        const chgCls = r.changePct > 0 ? 'up' : r.changePct < 0 ? 'down' : 'flat';
+        const sign = r.changePct >= 0 ? '+' : '';
+        const surgeBadge = r.mentionRatio >= 5 ? '🔥' : '';
+        const stRank = r.stocktwitsRank ? `#${r.stocktwitsRank}` : '—';
+        const bullCls = r.bullishPct >= 60 ? 'bull' : r.bullishPct <= 40 ? 'bear' : 'neutral';
+        const cached = _socialAiCache[r.ticker];
+        return `
+        <div id="${cardId}" class="social-card" data-ticker="${r.ticker}" onclick="quickSearch('${r.ticker}','US')">
+            <div class="social-card-head">
+                <div class="social-rank">${idx + 1}</div>
+                <div class="social-id">
+                    <div class="social-sym">${escHtml(r.ticker)}</div>
+                    <div class="social-name">${escHtml((r.name || '').slice(0, 30))}</div>
+                </div>
+                <div class="social-grade" style="background:${r.gradeColor};color:#fff">${escHtml(r.grade)} · ${r.score}</div>
+            </div>
+            <div class="social-meta-row">
+                <span class="social-meta-cell">💰 $${r.price >= 10 ? r.price.toFixed(2) : r.price.toFixed(3)}</span>
+                <span class="social-meta-cell">🏢 ${_fmtMc(r.marketCap)}</span>
+                <span class="social-meta-cell ${chgCls}">${sign}${r.changePct.toFixed(2)}%</span>
+                <span class="social-meta-cell">💬 Reddit ${r.mentions}회 ${r.mentionRatio >= 2 ? `<b class="up">(24h ×${r.mentionRatio.toFixed(1)})${surgeBadge}</b>` : `(어제 ${r.mentions24hAgo})`}</span>
+                <span class="social-meta-cell">📈 ST ${stRank}</span>
+                <span class="social-meta-cell ${bullCls}">${r.bullishPct >= 60 ? '🟢' : r.bullishPct <= 40 ? '🔴' : '⚪'} Bullish ${r.bullishPct}%</span>
+                <span class="social-meta-cell">📊 거래량 ×${r.volRatio.toFixed(1)}</span>
+            </div>
+            <button class="social-ai-btn" onclick="event.stopPropagation();_runSocialAi('${cardId}', '${r.ticker}')">🤖 AI 심층 분석</button>
+            <div class="social-ai-result" id="${cardId}-ai">${cached ? _renderSocialAiResult(cached) : ''}</div>
+        </div>`;
+    }
+
+    async function _runSocialAi(cardId, ticker) {
+        const card = document.getElementById(cardId);
+        const resultEl = document.getElementById(`${cardId}-ai`);
+        const btn = card?.querySelector('.social-ai-btn');
+        if (!resultEl) return;
+        if (btn) { btn.disabled = true; btn.textContent = '🤖 AI 분석 중... (수초)'; }
+        resultEl.innerHTML = '<div class="cat-ai-loading">Gemini 분석 호출 중...</div>';
+        try {
+            // 카드의 현재 데이터에서 marketContext 구성
+            const item = (window._lastSocialResults || []).find(x => x.ticker === ticker) || {};
+            const body = {
+                ticker,
+                posts: [], // ApeWisdom 본문 미수집 — 멘션 통계로 분석
+                marketContext: {
+                    marketCap: item.marketCap, price: item.price,
+                    changePct: item.changePct, volRatio: item.volRatio,
+                    shortFloat: 0,
+                    mentions: item.mentions, mentions24hAgo: item.mentions24hAgo,
+                    bullishPct: item.bullishPct, stocktwitsRank: item.stocktwitsRank,
+                },
+            };
+            const res = await fetch('/api/social/ai-analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            if (!res.ok) throw new Error('http ' + res.status);
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            _socialAiCache[ticker] = data;
+
+            // 펌프앤덤프 50점 이상 → 카드 상단 경고 배너 추가 + 매매 라인 숨김 (소셜 탭엔 매매 라인 없음)
+            const pumpScore = data.pump?.totalScore ?? 0;
+            if (pumpScore >= 50 && card) {
+                card.classList.add('social-card--high-risk');
+            }
+            resultEl.innerHTML = _renderSocialAiResult(data);
+            if (btn) btn.remove();
+        } catch (e) {
+            resultEl.innerHTML = `<div class="cat-ai-loading" style="color:#ef4444">AI 분석 실패: ${escHtml(e.message || '오류')}</div>`;
+            if (btn) { btn.disabled = false; btn.textContent = '🤖 AI 심층 분석 (재시도)'; }
+        }
+    }
+
+    function _renderSocialAiResult(d) {
+        if (!d) return '';
+        const m = d.meaning || {};
+        const p = d.pump || {};
+        const sentColor = m.sentiment === 'Bullish' ? '#22c55e' : m.sentiment === 'Bearish' ? '#ef4444' : '#94a3b8';
+        const credColor = m.credibility === 'high' ? '#22c55e' : m.credibility === 'medium' ? '#eab308' : '#ef4444';
+        const pumpScore = p.totalScore ?? 0;
+        const pumpGrade = pumpScore >= 50 ? '🚨 매우 위험' : pumpScore >= 35 ? '🔴 주의' : pumpScore >= 20 ? '🟡 관찰' : '🟢 비교적 안전';
+        const pumpColor = pumpScore >= 50 ? '#ef4444' : pumpScore >= 35 ? '#f97316' : pumpScore >= 20 ? '#eab308' : '#22c55e';
+        const flags = Array.isArray(m.redFlags) ? m.redFlags : [];
+        const flagsHtml = flags.length ? `<ul class="cat-ai-points">${flags.slice(0,3).map(f => `<li>${escHtml(f)}</li>`).join('')}</ul>` : '';
+        const sigOrder = ['mentionExplosion','emptyHype','repeatPattern','smallCapLowVolume','noCatalyst','pressureLanguage','suspiciousAccounts'];
+        const sigLabels = {
+            mentionExplosion: '멘션 폭증', emptyHype: 'DD 없는 흥분',
+            repeatPattern: '반복 패턴', smallCapLowVolume: '소형주+저거래량',
+            noCatalyst: '촉매 없음', pressureLanguage: '압박 멘트',
+            suspiciousAccounts: '의심 계정',
+        };
+        const sigs = p.signals || {};
+        const sigsHtml = sigOrder.map(k => {
+            const v = sigs[k] ?? 0;
+            const pct = Math.min(100, v * 10);
+            const cls = v >= 7 ? 'sig-high' : v >= 4 ? 'sig-mid' : 'sig-low';
+            return `<div class="cat-ai-sig">
+                <span class="cat-ai-sig-label">${escHtml(sigLabels[k])}</span>
+                <div class="cat-ai-sig-bar"><div class="cat-ai-sig-fill ${cls}" style="width:${pct}%"></div></div>
+                <span class="cat-ai-sig-val">${v}/10</span>
+            </div>`;
+        }).join('');
+        const analyzedAgo = d.analyzedAt ? `AI 분석 ${Math.max(1, Math.round((Date.now() - new Date(d.analyzedAt).getTime()) / 60000))}분 전` : '';
+        const pumpBanner = pumpScore >= 50 ? `<div class="catalyst-risk-banner">🚨 AI 가 펌프앤덤프 작전 의심 — 진입 비권장 (${pumpScore}/70)</div>` : '';
+        return `
+        ${pumpBanner}
+        <div class="cat-ai-card">
+            <div class="cat-ai-section">
+                <div class="cat-ai-title">💬 AI 핵심 화제</div>
+                <div class="cat-ai-row"><span class="cat-ai-key">요약</span><span class="cat-ai-val">${escHtml(m.summary || '-')}</span></div>
+                <div class="cat-ai-row">
+                    <span class="cat-ai-key">촉매</span>
+                    <span class="cat-ai-pill" style="background:${m.hasCatalyst ? '#22c55e' : '#94a3b8'};color:#fff">${m.hasCatalyst ? '있음' : '없음'}</span>
+                    ${m.catalystDetail ? `<span class="cat-ai-val">${escHtml(m.catalystDetail)}</span>` : ''}
+                </div>
+                <div class="cat-ai-row">
+                    <span class="cat-ai-key">분위기</span>
+                    <span class="cat-ai-pill" style="background:${sentColor};color:#fff">${escHtml(m.sentiment || '?')}</span>
+                    <span class="cat-ai-key" style="margin-left:8px">신뢰도</span>
+                    <span class="cat-ai-pill" style="background:${credColor};color:#fff">${escHtml((m.credibility || '?').toUpperCase())}</span>
+                </div>
+                ${flagsHtml}
+            </div>
+            <div class="cat-ai-section">
+                <div class="cat-ai-title">⚠️ 펌프앤덤프 의심도 · ${pumpScore}/70 · <span style="color:${pumpColor}">${pumpGrade}</span></div>
+                <div class="cat-ai-sigs">${sigsHtml}</div>
+                <div class="cat-ai-row"><span class="cat-ai-key">결론</span><span class="cat-ai-pill" style="background:${pumpColor};color:#fff">${escHtml(p.verdict || '?')}</span></div>
+                <div class="cat-ai-reasoning">${escHtml(p.reasoning || '')}</div>
+            </div>
+            <div class="cat-ai-foot">${analyzedAgo}${d._meta?.cached ? ' · 캐시 적중' : ''}</div>
+        </div>`;
     }
 
     // ── Rayner Teo 스캐너 ──────────────────────────────────────────
@@ -22354,6 +22525,7 @@
         favSearch, removeFavorite, setTop100Filter, goTop100, goCatalyst, loadCatalyst, _catalystSetFilter,
         _runCatalystAi, _renderCatalystAiExpanded,
         _runScannerAi, _renderScannerAiResult, _alphaAutoBatchAi, _renderAlphaAiMini,
+        _alphaRenderSocialScanner, _runSocialAi, _renderSocialAiResult,
 setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawToolbar, addAutoTrendAngle, toggleChartLabels,
         toggleTheme, showLoading, hideLoading, showToast, showSnackbar,
         openChangelog, closeChangelog,

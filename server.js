@@ -2670,6 +2670,302 @@ app.post('/api/scanner/ai-batch', express.json({ limit: '64kb' }), async (req, r
     }
 });
 
+// ──────────────────────────────────────────────────────────────────────
+// 소셜 트렌드 스캐너 (/api/scanner/social) — v678
+//   ApeWisdom Reddit/StockTwits 통합 점수 + 사전 필터 (OTC/SPAC/상장폐지)
+//   10분 캐시, Vercel timeout 안전
+// ──────────────────────────────────────────────────────────────────────
+const SOCIAL_SCAN_TTL = 10 * 60 * 1000;
+let _socialScanCache = { ts: 0, data: null };
+
+function _socialGrade(score) {
+    if (score >= 75) return { grade: '🚨 화제 폭발', gradeColor: '#ef4444' };
+    if (score >= 55) return { grade: '🔴 강한 관심', gradeColor: '#dc2626' };
+    if (score >= 35) return { grade: '🟠 주목',     gradeColor: '#f97316' };
+    return null;
+}
+
+async function _fetchStocktwitsTrending() {
+    try {
+        const r = await fetch('https://api.stocktwits.com/api/2/streams/trending.json?limit=30', {
+            headers: { 'User-Agent': 'StockAI/1.0' },
+        });
+        if (!r.ok) return [];
+        const d = await r.json();
+        return d?.symbols || [];
+    } catch (e) { return []; }
+}
+
+app.get('/api/scanner/social', async (req, res) => {
+    const now = Date.now();
+    if (_socialScanCache.data && now - _socialScanCache.ts < SOCIAL_SCAN_TTL) {
+        return res.json(_socialScanCache.data);
+    }
+    try {
+        // 1) ApeWisdom + StockTwits 병렬 fetch
+        const [apewisdomMap, stocktwits] = await Promise.all([
+            _fetchApewisdomTop(),
+            _fetchStocktwitsTrending(),
+        ]);
+        const stRankMap = new Map();
+        stocktwits.forEach((s, i) => { if (s.symbol) stRankMap.set(String(s.symbol).toUpperCase(), i + 1); });
+
+        // 2) 유니버스 — ApeWisdom 상위 + StockTwits 트렌딩
+        const tickerSet = new Set();
+        apewisdomMap.forEach((_v, k) => tickerSet.add(k));
+        stRankMap.forEach((_v, k) => tickerSet.add(k));
+        // 유효한 미국 티커 형태만 (1~5 글자 알파벳, 점 포함 클래스 접미사 허용)
+        const tickers = Array.from(tickerSet).filter(t => /^[A-Z]{1,5}(\.[A-Z]{1,2})?$/.test(t)).slice(0, 60);
+        if (!tickers.length) {
+            return res.json({ results: [], scannedAt: new Date().toISOString() });
+        }
+
+        // 3) yfinance batch quote 조회
+        let quotes = [];
+        try {
+            const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(tickers.join(','))}`;
+            const data = await yfRequest(quoteUrl);
+            quotes = data?.quoteResponse?.result || [];
+        } catch (e) { console.warn('[social-scan] quote fail:', e.message); }
+        const qMap = new Map();
+        for (const q of quotes) if (q.symbol) qMap.set(q.symbol, q);
+
+        // 4) 점수 산출
+        const results = [];
+        for (const t of tickers) {
+            const ape = apewisdomMap.get(t);
+            const stRank = stRankMap.get(t);
+            const q = qMap.get(t);
+            if (!q) continue;
+            // OTC/SPAC/상장폐지 제외
+            if (_isExcludedStock(q, { staleDays: 4, strictExchange: true })) continue;
+            if (!q.regularMarketPrice || q.regularMarketPrice < 0.10) continue;
+
+            // Reddit 멘션 급증률 (24h 전 대비)
+            const mentions = ape?.mentions || 0;
+            const mentions24hAgo = ape?.mentions_24h_ago || 0;
+            const mentionRatio = mentions24hAgo > 0 ? mentions / mentions24hAgo : (mentions > 50 ? 999 : 0);
+            // Reddit 절대 멘션 점수
+            let mentionAbsScore = 0;
+            if (mentions >= 500) mentionAbsScore = 20;
+            else if (mentions >= 200) mentionAbsScore = 15;
+            else if (mentions >= 100) mentionAbsScore = 10;
+            else if (mentions >= 50)  mentionAbsScore = 5;
+            // Reddit 멘션 급증률 점수
+            let surgeScore = 0;
+            if (mentionRatio >= 5) surgeScore = 30;
+            else if (mentionRatio >= 3) surgeScore = 22;
+            else if (mentionRatio >= 2) surgeScore = 15;
+            else if (mentionRatio >= 1.5) surgeScore = 8;
+            // StockTwits 순위
+            let stScore = 0;
+            if (stRank) {
+                if (stRank <= 5) stScore = 20;
+                else if (stRank <= 15) stScore = 15;
+                else if (stRank <= 30) stScore = 10;
+            }
+            // Sentiment — ApeWisdom 의 sentiment_score 우선, 없으면 50 (중립)
+            const sentimentScore = ape?.sentiment_score != null ? Number(ape.sentiment_score) : 50;
+            const bullishPct = Math.max(0, Math.min(100, sentimentScore));
+            let sentScore = 0;
+            if (bullishPct >= 70) sentScore = 15;
+            else if (bullishPct >= 50) sentScore = 10;
+            else if (bullishPct >= 30) sentScore = 5;
+            // 거래량 배율
+            const vol = q.regularMarketVolume || 0;
+            const avgVol = q.averageDailyVolume3Month || q.averageDailyVolume10Day || 0;
+            const volRatio = avgVol > 0 ? vol / avgVol : 0;
+            let volScore = 0;
+            if (volRatio >= 3) volScore = 15;
+            else if (volRatio >= 2) volScore = 10;
+            else if (volRatio >= 1.5) volScore = 5;
+
+            const total = surgeScore + mentionAbsScore + stScore + sentScore + volScore;
+            const grading = _socialGrade(total);
+            if (!grading) continue;
+
+            results.push({
+                ticker: t,
+                name: q.shortName || q.longName || t,
+                price: +q.regularMarketPrice.toFixed(2),
+                marketCap: q.marketCap || 0,
+                changePct: q.regularMarketChangePercent != null ? +q.regularMarketChangePercent.toFixed(2) : 0,
+                mentions, mentions24hAgo,
+                mentionRatio: +mentionRatio.toFixed(2),
+                stocktwitsRank: stRank || null,
+                bullishPct: +bullishPct.toFixed(0),
+                volRatio: +volRatio.toFixed(2),
+                signals: {
+                    surge: surgeScore, abs: mentionAbsScore, st: stScore, sent: sentScore, vol: volScore,
+                },
+                redditUpvotes: ape?.upvotes || 0,
+                score: +total.toFixed(1),
+                grade: grading.grade,
+                gradeColor: grading.gradeColor,
+            });
+        }
+
+        results.sort((a, b) => b.score - a.score);
+        const finalResults = results.slice(0, 50);
+        const payload = {
+            results: finalResults,
+            totalScanned: tickers.length,
+            scannedAt: new Date().toISOString(),
+        };
+        if (finalResults.length > 0) _socialScanCache = { ts: now, data: payload };
+        res.json(payload);
+    } catch (err) {
+        console.error('[social-scan]', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ──────────────────────────────────────────────────────────────────────
+// 소셜 트렌드 AI 분석 (POST /api/social/ai-analyze) — v678
+//   기능 1: Reddit 포스트 의미 분석 (summary, hasCatalyst, sentiment, credibility, redFlags)
+//   기능 2: 펌프앤덤프 의심도 (7개 신호 0~10점, totalScore 0~70)
+//   gemini-3.1-flash-lite, 30분 캐시 LRU 200
+// ──────────────────────────────────────────────────────────────────────
+const SOCIAL_AI_MODEL = 'gemini-3.1-flash-lite';
+const SOCIAL_AI_TTL = 30 * 60 * 1000;
+const SOCIAL_AI_MAX_CACHE = 200;
+const _socialAiCache = new Map();
+
+async function _geminiSocialAnalyze(ticker, posts, marketContext) {
+    if (!process.env.GEMINI_API_KEY) return null;
+    if (!ticker) return null;
+    const key = `${ticker}_social`;
+    const cached = _socialAiCache.get(key);
+    if (cached && Date.now() < cached.expiresAt) {
+        return { ...cached, _meta: { ...(cached._meta || {}), cached: true } };
+    }
+
+    const genAI = getGenAI();
+    const model = genAI.getGenerativeModel({
+        model: SOCIAL_AI_MODEL,
+        generationConfig: { temperature: 0.3, responseMimeType: 'application/json' },
+    });
+
+    const postsText = (Array.isArray(posts) && posts.length)
+        ? posts.slice(0, 5).map((p, i) => `[포스트 ${i+1}] ${p.title || ''}\n${(p.body || '').slice(0, 300)}`).join('\n\n')
+        : '(Reddit 포스트 수집 불가 — 멘션 통계만 사용)';
+    const mc = marketContext || {};
+
+    // 기능 1: Reddit 의미 분석
+    const prompt1 = `아래는 미국 주식 [${ticker}] 에 대한 Reddit 핫 포스트야.
+
+${postsText}
+
+아래 4가지를 분석해줘:
+1. 화제의 핵심 이유 (1줄)
+2. 실제 촉매(뉴스/공시) 있는가 / 단순 모멘텀인가
+3. 커뮤니티 분위기 (Bullish/Bearish/혼조)
+4. 신뢰도 (DD가 탄탄한가, 단순 흥분 멘트인가)
+
+JSON 형식으로만 답변:
+{
+  "summary": "한 줄 요약",
+  "hasCatalyst": true|false,
+  "catalystDetail": "있다면 무엇인지, 없으면 빈 문자열",
+  "sentiment": "Bullish/Bearish/Mixed",
+  "credibility": "high/medium/low",
+  "redFlags": ["위험요인1", "위험요인2"]
+}`;
+
+    let meaning = null, pump = null;
+    let tIn = 0, tOut = 0;
+    try {
+        const r1 = await model.generateContent(prompt1);
+        meaning = _extractJsonFromGeminiResponse(r1.response.text());
+        tIn  += r1.response.usageMetadata?.promptTokenCount || 0;
+        tOut += r1.response.usageMetadata?.candidatesTokenCount || 0;
+    } catch (e) { console.warn('[social-ai] meaning fail:', e.message); }
+    if (!meaning) return null;
+
+    // 기능 2: 펌프앤덤프 점수
+    const prompt2 = `아래는 미국 주식 [${ticker}] 의 최근 데이터야.
+
+종목 정보:
+- 시총: $${mc.marketCap || 0}
+- 주가: $${mc.price || 0} (24h 변동률 ${mc.changePct ?? 0}%)
+- 거래량: 평소의 ${mc.volRatio ?? 1}배
+- Short Float: ${mc.shortFloat ?? 0}%
+
+Reddit 데이터:
+- 멘션 수: ${mc.mentions || 0}회 (24h 전 ${mc.mentions24hAgo || 0}회)
+- 핵심 화제 요약: ${meaning.summary || ''}
+- 촉매 여부: ${meaning.hasCatalyst ? '있음' : '없음'}
+- 신뢰도: ${meaning.credibility || '?'}
+
+StockTwits:
+- Bullish 비율: ${mc.bullishPct ?? '?'}%
+- 트렌딩 순위: ${mc.stocktwitsRank || '미포함'}위
+
+아래 펌프앤덤프 신호 7가지를 평가해줘:
+1. 갑작스러운 멘션 폭증 (1~2일 새 5배 이상)
+2. DD 없는 단순 흥분 멘트만 다수
+3. 같은 멘트/짤 반복 패턴
+4. 시총 매우 작음 + 평소 거래량 적음
+5. 공시/뉴스 없는데 주가 급등
+6. "100% 간다" "지금 들어가야" 식 압박
+7. 의심스러운 신규 계정의 글이 많음
+
+각 신호를 0~10점으로 평가하고 합산해서 0~70점 산출.
+
+JSON:
+{
+  "totalScore": 0~70,
+  "signals": {
+    "mentionExplosion": 0~10,
+    "emptyHype": 0~10,
+    "repeatPattern": 0~10,
+    "smallCapLowVolume": 0~10,
+    "noCatalyst": 0~10,
+    "pressureLanguage": 0~10,
+    "suspiciousAccounts": 0~10
+  },
+  "verdict": "안전/주의/위험/매우 위험",
+  "reasoning": "근거 2~3줄"
+}`;
+    try {
+        const r2 = await model.generateContent(prompt2);
+        pump = _extractJsonFromGeminiResponse(r2.response.text());
+        tIn  += r2.response.usageMetadata?.promptTokenCount || 0;
+        tOut += r2.response.usageMetadata?.candidatesTokenCount || 0;
+    } catch (e) { console.warn('[social-ai] pump fail:', e.message); }
+
+    const cost = tIn * CATALYST_AI_PRICE_IN + tOut * CATALYST_AI_PRICE_OUT;
+    _catalystAiLogUsage({ tokensIn: tIn, tokensOut: tOut, cost });
+
+    const result = {
+        ticker,
+        analyzedAt: new Date().toISOString(),
+        expiresAt: Date.now() + SOCIAL_AI_TTL,
+        meaning,
+        pump,
+        _meta: { tokensInput: tIn, tokensOutput: tOut, estimatedCost: +cost.toFixed(6), model: SOCIAL_AI_MODEL, cached: false },
+    };
+    if (_socialAiCache.size >= SOCIAL_AI_MAX_CACHE) {
+        const oldest = _socialAiCache.keys().next().value;
+        if (oldest) _socialAiCache.delete(oldest);
+    }
+    _socialAiCache.set(key, result);
+    return result;
+}
+
+app.post('/api/social/ai-analyze', express.json({ limit: '128kb' }), async (req, res) => {
+    try {
+        const { ticker, posts, marketContext } = req.body || {};
+        if (!ticker) return res.status(400).json({ error: 'ticker required' });
+        const result = await _geminiSocialAnalyze(ticker, posts || [], marketContext || {});
+        if (!result) return res.status(503).json({ error: 'AI 분석 실패 — GEMINI_API_KEY 누락 또는 호출 오류' });
+        res.json(result);
+    } catch (err) {
+        console.error('[social-ai-analyze]', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/catalyst/hunter', async (req, res) => {
     const now = Date.now();
     if (_catalystCache.data && now - _catalystCache.ts < CATALYST_TTL) {
