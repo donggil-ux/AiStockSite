@@ -1612,16 +1612,18 @@ function _calcSykesStrategy(stageInfo, hist) {
     return { dir, atr: +atr.toFixed(4) };
 }
 
-// ── 알파 스캐너 공통 필터 — SPAC + OTC + 상장폐지 (v662) ────────────────
+// ── 알파 스캐너 공통 필터 — SPAC + OTC + 상장폐지 (v662, 강화 v666) ──
 //   모든 스캐너에서 재사용. 입력은 Yahoo v7/quote 또는 screener quote shape.
 const _OTC_EXCHANGES = new Set(['PNK','OTC','OEM','OQB','OQX','OTCBB','OTCM']);
+// 화이트리스트 — 미국 주요 거래소만 허용 (v666)
+const _VALID_US_EXCHANGES = new Set(['NMS','NGM','NGA','NCM','NYQ','ASE']);
 function _isSpacTicker(sym) {
     if (!sym || typeof sym !== 'string') return false;
     return /^[A-Z]{1,4}(U|W|WW|WS|WT|R)$/.test(sym);
 }
 function _isSpacName(name) {
     if (!name) return false;
-    return /\bacquisition\s+corp|acquisition\s+corporation|\bspac\b/i.test(name);
+    return /\bacquisition\s+corp|acquisition\s+corporation|\bspac\b|blank\s+check/i.test(name);
 }
 function _isOtcQuote(q) {
     if (!q) return false;
@@ -1631,6 +1633,13 @@ function _isOtcQuote(q) {
     if (/PINK|OTC\b/.test(exFull)) return true;
     return false;
 }
+// 유효한 미국 거래소(NMS/NGM/NGA/NCM/NYQ/ASE)가 아니면 true (v666)
+function _isInvalidExchange(q) {
+    if (!q) return true;
+    const exShort = String(q.exchange || '').toUpperCase();
+    if (!exShort) return false; // exchange 누락 시 단정 못함 → 통과
+    return !_VALID_US_EXCHANGES.has(exShort);
+}
 function _isDelistedQuote(q, opts = {}) {
     if (!q) return true;
     const staleDays = opts.staleDays || 7;
@@ -1638,6 +1647,8 @@ function _isDelistedQuote(q, opts = {}) {
     const nowSec = Math.floor(Date.now() / 1000);
     if (lastTs && nowSec - lastTs > staleDays * 24 * 3600) return true;
     if (!q.regularMarketPrice) return true;
+    if (q.regularMarketPrice < 0.10) return true; // 페니 스톡 위험 ($0.10 미만, v666)
+    if (q.quoteType && q.quoteType !== 'EQUITY') return true; // ETF·옵션·인덱스 제외 (v666)
     return false;
 }
 // 통합 — quote 가 알파 스캐너에서 노출되면 안 되는 종목이면 true
@@ -1646,7 +1657,23 @@ function _isExcludedStock(q, opts = {}) {
     if (_isSpacTicker(q.symbol)) return true;
     if (_isSpacName(q.shortName || q.longName || q.displayName)) return true;
     if (_isOtcQuote(q)) return true;
+    if (opts.strictExchange && _isInvalidExchange(q)) return true;
     if (_isDelistedQuote(q, opts)) return true;
+    return false;
+}
+
+// 히스토리 기반 정지·고스트 검증 (v666)
+//   최근 5일 거래량 모두 0 → 거래 정지
+//   최근 5일 가격 변동폭 0.5% 미만 → 사실상 정지
+function _isHaltedByBars(bars) {
+    if (!Array.isArray(bars) || bars.length < 5) return false;
+    const last5 = bars.slice(-5);
+    const vols = last5.map(b => b.v || 0);
+    if (vols.every(v => v === 0)) return true;
+    const prices = last5.map(b => b.c).filter(v => v != null);
+    if (prices.length < 3) return false;
+    const range = (Math.max(...prices) - Math.min(...prices)) / Math.min(...prices);
+    if (range < 0.005) return true;
     return false;
 }
 
@@ -1885,6 +1912,169 @@ async function _alpacaDailyBars(symbols) {
         return {};
     }
 }
+// ──────────────────────────────────────────────────────────────────────
+// 매집 의심 스캐너 (v666) — 공시 없이 거래량 조용히 증가 + 가격 안정 종목
+//   조건 (3가지 동시 충족):
+//     1) 최근 5일 평균 거래량 / 직전 15일 평균 ≥ 1.3
+//     2) 최근 5일 가격 변동폭 < 8%
+//     3) EDGAR 공시 미발견 (해당 종목 seenTickers 에 없음)
+//   매집 점수 0~100:
+//     거래량 비율 1.5+: +30, 1.3~1.5: +20
+//     가격 변동폭 ≤5%: +25, 5~8%: +15
+//     Short Float 20%+: +20
+//     시총 ≤$30M: +15
+//     공시 미발견(기본 충족): +10
+//   등급: 70+ 🚨 강한 매집 의심 / 50~69 🔴 매집 가능성 / 35~49 🟡 관찰
+// ──────────────────────────────────────────────────────────────────────
+async function _scanAccumulation(edgarTickerSet) {
+    // 유니버스: aggressive_small_caps + most_actives (페니/스몰캡 중심)
+    const screenerBody = (scrIds) => ({
+        offset: 0, size: 100,
+        sortField: 'dayvolume', sortType: 'desc',
+        quoteType: 'EQUITY',
+        query: {
+            operator: 'and',
+            operands: [
+                { operator: 'gte', operands: ['intradayprice', 0.3] },
+                { operator: 'lte', operands: ['intradayprice', 10] },
+                { operator: 'lt',  operands: ['intradaymarketcap', 200_000_000] },
+                { operator: 'gte', operands: ['averagedailyvol3month', 50_000] },
+                {
+                    operator: 'or',
+                    operands: [
+                        { operator: 'eq', operands: ['exchange', 'NMS'] },
+                        { operator: 'eq', operands: ['exchange', 'NGM'] },
+                        { operator: 'eq', operands: ['exchange', 'NGA'] },
+                        { operator: 'eq', operands: ['exchange', 'NYQ'] },
+                        { operator: 'eq', operands: ['exchange', 'ASE'] },
+                    ],
+                },
+            ],
+        },
+    });
+    let universe = [];
+    try {
+        const [r1, r2] = await Promise.allSettled([
+            _postYfScreener(screenerBody('aggressive_small_caps')),
+            _postYfScreener(screenerBody('most_actives')),
+        ]);
+        const q1 = r1.status === 'fulfilled' ? (r1.value?.data?.finance?.result?.[0]?.quotes || []) : [];
+        const q2 = r2.status === 'fulfilled' ? (r2.value?.data?.finance?.result?.[0]?.quotes || []) : [];
+        universe = [...q1, ...q2];
+    } catch (e) { return []; }
+    if (!universe.length) return [];
+
+    // 중복 제거 + EDGAR 공시 있는 종목 제외 + 기본 필터 적용
+    const seen = new Set();
+    const cands = [];
+    for (const q of universe) {
+        const sym = q.symbol;
+        if (!sym || seen.has(sym)) continue;
+        seen.add(sym);
+        if (edgarTickerSet && edgarTickerSet.has(sym)) continue; // 공시 있는 종목 제외
+        if (_isExcludedStock(q, { staleDays: 5, strictExchange: true })) continue;
+        // 당일 큰 변동 = 매집 단계 아님 (이미 알려진 종목)
+        const chg = q.regularMarketChangePercent || 0;
+        if (Math.abs(chg) > 8) continue;
+        cands.push(q);
+        if (cands.length >= 40) break;
+    }
+    if (!cands.length) return [];
+
+    // Alpaca 일봉 fetch (한 번에)
+    const symbols = cands.map(c => c.symbol);
+    const barsMap = await _alpacaDailyBars(symbols);
+    if (!barsMap || !Object.keys(barsMap).length) {
+        // Alpaca 실패 시 매집 의심 스캔 결과 없음 (히스토리 없으면 검증 불가)
+        return [];
+    }
+
+    const results = cands.map(q => {
+        const sym = q.symbol;
+        const bars = barsMap[sym];
+        if (!Array.isArray(bars) || bars.length < 20) return null;
+        if (_isHaltedByBars(bars)) return null;
+
+        // 최근 5일 vs 직전 15일 거래량 평균
+        const last5  = bars.slice(-5);
+        const prev15 = bars.slice(-20, -5);
+        const avg5  = last5.reduce((s,b) => s + (b.v || 0), 0) / 5;
+        const avg15 = prev15.reduce((s,b) => s + (b.v || 0), 0) / 15;
+        if (avg15 <= 0) return null;
+        const volRatio = avg5 / avg15;
+        if (volRatio < 1.3) return null;
+
+        // 최근 5일 가격 변동폭
+        const closes5 = last5.map(b => b.c).filter(v => v != null);
+        if (closes5.length < 3) return null;
+        const rangePct = ((Math.max(...closes5) - Math.min(...closes5)) / Math.min(...closes5)) * 100;
+        if (rangePct >= 8) return null;
+
+        // 매집 점수 계산
+        let score = 10; // 공시 없음 기본 가산
+        if (volRatio >= 1.5)      score += 30;
+        else                       score += 20; // 1.3~1.5
+        if (rangePct <= 5)        score += 25;
+        else                       score += 15; // 5~8
+        const floatShares = q.floatShares || q.sharesOutstanding || 0;
+        const sharesShort = q.sharesShort || 0;
+        const shortFloatPct = floatShares > 0 ? (sharesShort / floatShares) * 100 : 0;
+        if (shortFloatPct >= 20) score += 20;
+        const mc = q.marketCap || 0;
+        if (mc && mc <= 30_000_000) score += 15;
+
+        let grade = null, gradeColor = '#a855f7';
+        if (score >= 70)      { grade = '🚨 강한 매집 의심'; gradeColor = '#a855f7'; }
+        else if (score >= 50) { grade = '🔴 매집 가능성';   gradeColor = '#c084fc'; }
+        else if (score >= 35) { grade = '🟡 관찰';          gradeColor = '#facc15'; }
+        else return null;
+
+        const price = bars[bars.length - 1].c;
+        // ATR 휴리스틱
+        let atr = 0;
+        const last14 = bars.slice(-14);
+        if (last14.length >= 2) {
+            const trs = [];
+            for (let i = 1; i < last14.length; i++) {
+                const b = last14[i], pb = last14[i-1];
+                if (b.h != null && b.l != null && pb.c != null) {
+                    trs.push(Math.max(b.h - b.l, Math.abs(b.h - pb.c), Math.abs(b.l - pb.c)));
+                }
+            }
+            if (trs.length) atr = trs.reduce((s,v) => s+v, 0) / trs.length;
+        }
+        if (!atr) atr = price * 0.04;
+        const entry = price;
+        const stop  = price - atr * 1.0;
+        const tp1   = price + atr * 2.5;
+        const tp2   = price + atr * 5.0;
+
+        return {
+            ticker: sym,
+            name: q.shortName || q.longName || sym,
+            price: +price.toFixed(2),
+            marketCap: mc,
+            changePct: q.regularMarketChangePercent != null ? +q.regularMarketChangePercent.toFixed(2) : 0,
+            shortFloatPct: +shortFloatPct.toFixed(2),
+            volRatio5to15: +volRatio.toFixed(2),
+            range5dPct: +rangePct.toFixed(2),
+            reason: `거래량 ${volRatio.toFixed(1)}x 증가 중 / 주가 변동 ${rangePct.toFixed(1)}% / 30일 공시 미발견`,
+            strategy: {
+                entry: +entry.toFixed(2),
+                stop:  +stop.toFixed(2),
+                tp1:   +tp1.toFixed(2),
+                tp2:   +tp2.toFixed(2),
+                atr:   +atr.toFixed(2),
+            },
+            score: +score.toFixed(1),
+            grade, gradeColor,
+        };
+    }).filter(Boolean);
+
+    results.sort((a, b) => b.score - a.score);
+    return results.slice(0, 30);
+}
+
 // 미국 시장 시간 판정 (ET 기준)
 function _isUSPreMarket() {
     try {
@@ -2148,14 +2338,17 @@ app.get('/api/catalyst/hunter', async (req, res) => {
         const alpacaActive = _alpacaEnabled() && Object.keys(snapMap).length > 0;
 
         // 4) 종목별 점수 합산 — Alpaca 실시간 우선, yfinance 보조 (v658)
+        //    v666: 엄격 제외 — OTC·SPAC·상장폐지·거래중지·잘못된 거래소·페니스톡 위험
+        const _excl = { otc: 0, spac: 0, delisted: 0, halted: 0, badExchange: 0, alreadyMoved: 0 };
         const results = candidates.map(c => {
             const q = qMap[c.ticker] || {};
             const ap = _alpacaToQuoteShape(c.ticker, snapMap[c.ticker], barsObj[c.ticker]);
             const hasAlpaca = !!ap;
+            const barsArr = barsObj[c.ticker];
 
             // 가격·거래량·갭은 Alpaca 우선
             const price = (hasAlpaca && ap.price) || q.regularMarketPrice;
-            if (!price) return null;
+            if (!price) { _excl.delisted++; return null; }
             const marketCap = q.marketCap || 0;
             const avgVol = (hasAlpaca && ap.avgVol20) || q.averageDailyVolume3Month || q.averageDailyVolume10Day || 0;
             const vol = (hasAlpaca && ap.todayVol) || q.regularMarketVolume || 0;
@@ -2170,22 +2363,35 @@ app.get('/api/catalyst/hunter', async (req, res) => {
             const shortRatio = q.shortRatio || 0;
             const dataSource = hasAlpaca ? 'alpaca_realtime' : 'yfinance_delayed';
 
-            if (!price || price < 0.1) return null;
+            // 가격 유효성 — 최소 $0.10
+            if (price < 0.10) { _excl.delisted++; return null; }
+            // 시총 너무 큰 종목 제외 (촉매 영향 미미)
             if (marketCap && marketCap > 50e9) return null;
-            // OTC/Pink 시트 종목 제외 (v661)
-            const OTC_EXCHANGES = new Set(['PNK','OTC','OEM','OQB','OQX','OTCBB','OTCM']);
-            const exShort = String(q.exchange || '').toUpperCase();
-            const exFull  = String(q.fullExchangeName || '').toUpperCase();
-            if (OTC_EXCHANGES.has(exShort)) return null;
-            if (/PINK|OTC\b/.test(exFull))  return null;
-            if (/^[A-Z]{4}F$/.test(c.ticker) && !hasAlpaca) return null;
-            if (/^[A-Z]{4}Y$/.test(c.ticker) && !hasAlpaca) return null;
+
+            // SPAC 추가 검증 (티커 + 회사명)
+            if (_isSpacTicker(c.ticker) || _isSpacName(q.shortName || q.longName)) { _excl.spac++; return null; }
+
+            // OTC/Pink 시트 종목 제외
+            if (_isOtcQuote(q)) { _excl.otc++; return null; }
+
+            // 거래소 화이트리스트 — Alpaca 데이터 있을 땐 거래 가능 종목이므로 통과,
+            // yfinance만 있을 땐 거래소가 메이저 미국 시장이어야 함
+            if (!hasAlpaca && _isInvalidExchange(q)) { _excl.badExchange++; return null; }
+
+            // 상장폐지·이상 종목
+            if (q.quoteType && q.quoteType !== 'EQUITY') { _excl.delisted++; return null; }
+            if (/^[A-Z]{4}F$/.test(c.ticker) && !hasAlpaca) { _excl.otc++; return null; }
+            if (/^[A-Z]{4}Y$/.test(c.ticker) && !hasAlpaca) { _excl.otc++; return null; }
+
+            // 5일 거래 정지 의심 (Alpaca bars 있을 때만 검증 가능)
+            if (_isHaltedByBars(barsArr)) { _excl.halted++; return null; }
+
             // 이미 당일 오른 종목 제외 — 추격 매수 방지 (v663)
             //   +5% → +10% 로 완화 (사용자 요청)
             //   프리갭 +10% → +15% 동기화
             const todayChg = (hasAlpaca && ap.changePct != null) ? ap.changePct : (q.regularMarketChangePercent || 0);
-            if (todayChg >= 10) return null;
-            if (preGapPct != null && preGapPct >= 15) return null;
+            if (todayChg >= 10) { _excl.alreadyMoved++; return null; }
+            if (preGapPct != null && preGapPct >= 15) { _excl.alreadyMoved++; return null; }
 
             // 점수 계산
             let score = 0;
@@ -2261,8 +2467,17 @@ app.get('/api/catalyst/hunter', async (req, res) => {
 
         const finalResults = results.slice(0, 50);
         const realtimeCount = finalResults.filter(r => r.dataSource === 'alpaca_realtime').length;
+
+        // 5) 매집 의심 스캔 (v666) — EDGAR 공시 없는 + 거래량 조용히 증가 + 가격 안정 종목
+        //    EDGAR seenTickers 와 겹치지 않는 종목 중에서 검색
+        let accumulationResults = [];
+        try {
+            accumulationResults = await _scanAccumulation(seenTickers);
+        } catch (e) { console.warn('[catalyst-accumulation]', e.message); }
+
         const payload = {
             results: finalResults,
+            accumulation: accumulationResults,
             totalScanned: candidates.length,
             totalFilings: allFilings.length,
             scannedAt: new Date().toISOString(),
@@ -2270,9 +2485,10 @@ app.get('/api/catalyst/hunter', async (req, res) => {
                 : realtimeCount === finalResults.length && finalResults.length > 0 ? 'alpaca_realtime'
                 : realtimeCount > 0 ? 'mixed' : 'yfinance_delayed',
             realtimeCount,
+            _exclusion: _excl,
         };
         // 빈 결과는 캐시하지 않음 (다음 요청에서 즉시 재시도)
-        if (results.length > 0) _catalystCache = { ts: now, data: payload };
+        if (results.length > 0 || accumulationResults.length > 0) _catalystCache = { ts: now, data: payload };
         res.json(payload);
     } catch (err) {
         console.error('[catalyst-hunter]', err.message);

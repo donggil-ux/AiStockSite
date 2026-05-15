@@ -6375,6 +6375,15 @@
 .catalyst-filter:hover{background:var(--bg3);}
 .catalyst-filter.active{background:var(--accent,#6366f1);color:#fff;}
 [data-theme="dark"] .catalyst-filter.active{background:rgba(99,102,241,0.5);}
+.catalyst-filter--acc.active{background:#a855f7;color:#fff;}
+[data-theme="dark"] .catalyst-filter--acc.active{background:rgba(168,85,247,0.6);}
+
+/* 매집 의심 경고문 + 카드 + 푸터 (v666) */
+.catalyst-acc-warn{padding:10px 14px;margin-bottom:14px;background:rgba(168,85,247,0.10);border:1px solid rgba(168,85,247,0.35);border-radius:10px;font-size:12px;color:#7e22ce;line-height:1.6;}
+[data-theme="dark"] .catalyst-acc-warn{color:#d8b4fe;}
+.catalyst-card--acc{border-color:rgba(168,85,247,0.4);background:linear-gradient(135deg, rgba(168,85,247,0.04), var(--bg2) 50%);}
+.catalyst-tag--acc{background:rgba(168,85,247,0.15);color:#a855f7;border-color:rgba(168,85,247,0.4);}
+.catalyst-footer{margin-top:14px;padding:10px 12px;background:var(--bg3);border-radius:8px;font-size:11px;color:var(--text3);text-align:center;letter-spacing:0.02em;}
 .catalyst-loading,.catalyst-empty{padding:40px 16px;text-align:center;color:var(--text2);font-size:14px;}
 .catalyst-list{display:flex;flex-direction:column;gap:12px;}
 .catalyst-card{padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--bg2);cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .15s;}

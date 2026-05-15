@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=665">
+    <link rel="stylesheet" href="/styles.css?v=666">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -461,10 +461,14 @@
                 사전 진입 가능한 종목만 표시됩니다.
             </div>
             <div class="catalyst-filter-bar">
-                <button class="catalyst-filter active" data-filter="all"     onclick="_catalystSetFilter('all')">전체</button>
-                <button class="catalyst-filter"        data-filter="urgent"  onclick="_catalystSetFilter('urgent')">🚨 긴급</button>
-                <button class="catalyst-filter"        data-filter="strong"  onclick="_catalystSetFilter('strong')">🔴 강한</button>
-                <button class="catalyst-filter"        data-filter="watch"   onclick="_catalystSetFilter('watch')">🟠 관심</button>
+                <button class="catalyst-filter active" data-filter="all"          onclick="_catalystSetFilter('all')">전체</button>
+                <button class="catalyst-filter"        data-filter="urgent"       onclick="_catalystSetFilter('urgent')">🚨 긴급</button>
+                <button class="catalyst-filter"        data-filter="strong"       onclick="_catalystSetFilter('strong')">🔴 강한</button>
+                <button class="catalyst-filter"        data-filter="watch"        onclick="_catalystSetFilter('watch')">🟠 관심</button>
+                <button class="catalyst-filter catalyst-filter--acc" data-filter="accumulation" onclick="_catalystSetFilter('accumulation')">🕵️ 매집 의심</button>
+            </div>
+            <div class="catalyst-acc-warn" id="catalystAccWarn" style="display:none;">
+                ⚠️ 매집 의심은 통계적 패턴 감지입니다. 실제 내부자 거래 증거가 아니며 오탐 가능성이 높습니다. 반드시 직접 검증 후 참고용으로만 활용하세요.
             </div>
             <div class="catalyst-list" id="catalystList">
                 <div class="catalyst-loading">EDGAR 공시 스캔 중...</div>
@@ -7278,7 +7282,53 @@
 
     function _renderCatalyst(d) {
         const el = document.getElementById('catalystList');
+        const warnEl = document.getElementById('catalystAccWarn');
         if (!el) return;
+
+        const isAcc = _catalystFilter === 'accumulation';
+        if (warnEl) warnEl.style.display = isAcc ? '' : 'none';
+
+        // 매집 의심 탭: d.accumulation 배열을 별도 렌더
+        if (isAcc) {
+            const accItems = (d && Array.isArray(d.accumulation)) ? d.accumulation : [];
+            if (!accItems.length) {
+                el.innerHTML = '<div class="catalyst-empty">현재 감지된 매집 의심 종목 없음 — 5분 후 재시도</div>';
+                return;
+            }
+            const _fmtP = p => '$' + (p >= 10 ? p.toFixed(2) : p.toFixed(3));
+            const _fmtMc = v => v >= 1e9 ? `$${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `$${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(0)}K` : `$${v}`;
+            el.innerHTML = accItems.map((r, idx) => {
+                const s = r.strategy || {};
+                return `
+                <div class="catalyst-card catalyst-card--acc" onclick="quickSearch('${r.ticker}','US')">
+                    <div class="catalyst-card-head">
+                        <div class="catalyst-rank">${idx + 1}</div>
+                        <div class="catalyst-id">
+                            <div class="catalyst-sym">${escHtml(r.ticker)} <span class="catalyst-tag catalyst-tag--acc">🕵️ 매집 의심</span></div>
+                            <div class="catalyst-name">${escHtml((r.name || '').slice(0, 30))}</div>
+                        </div>
+                        <div class="catalyst-grade" style="background:${r.gradeColor};color:#fff">${escHtml(r.grade)} · ${r.score}</div>
+                    </div>
+                    <div class="catalyst-title">${escHtml(r.reason || '')}</div>
+                    <div class="catalyst-meta-row">
+                        <span class="catalyst-meta-cell">💰 ${_fmtP(r.price)}</span>
+                        <span class="catalyst-meta-cell">🏢 ${_fmtMc(r.marketCap)}</span>
+                        <span class="catalyst-meta-cell">📊 5d/15d ×${r.volRatio5to15.toFixed(2)}</span>
+                        <span class="catalyst-meta-cell">📉 5일 변동 ${r.range5dPct.toFixed(1)}%</span>
+                        ${r.shortFloatPct ? `<span class="catalyst-meta-cell">🩳 숏Float ${r.shortFloatPct.toFixed(1)}%</span>` : ''}
+                    </div>
+                    <div class="catalyst-strategy">
+                        <span class="cs-cell entry">진입 ${_fmtP(s.entry)}</span>
+                        <span class="cs-cell stop">손절 ${_fmtP(s.stop)}</span>
+                        <span class="cs-cell tp">익절1 ${_fmtP(s.tp1)}</span>
+                        <span class="cs-cell tp">익절2 ${_fmtP(s.tp2)}</span>
+                    </div>
+                </div>`;
+            }).join('');
+            return;
+        }
+
+        // 기본 카탈리스트 탭
         if (!d || !Array.isArray(d.results) || !d.results.length) {
             el.innerHTML = '<div class="catalyst-empty">현재 감지된 카탈리스트 종목 없음 — 다음 EDGAR 스캔 대기 (5분)</div>';
             return;
@@ -7303,7 +7353,7 @@
         const _fmtP = p => '$' + (p >= 10 ? p.toFixed(2) : p.toFixed(3));
         const _fmtMc = v => v >= 1e9 ? `$${(v/1e9).toFixed(1)}B` : v >= 1e6 ? `$${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(0)}K` : `$${v}`;
 
-        const html = items.map((r, idx) => {
+        const cardsHtml = items.map((r, idx) => {
             const f = r.filing || {};
             const s = r.strategy || {};
             const fresh = f.updated && (Date.now() - new Date(f.updated).getTime()) < 3600 * 1000;
@@ -7338,7 +7388,10 @@
             </div>`;
         }).join('');
 
-        el.innerHTML = html;
+        // 푸터: 제외된 종목 통계 (v666)
+        const ex = d._exclusion;
+        const exFooter = ex ? `<div class="catalyst-footer">✅ OTC ${ex.otc||0} · SPAC ${ex.spac||0} · 상장폐지·정지 ${(ex.delisted||0)+(ex.halted||0)+(ex.badExchange||0)} · 추격(+10%↑) ${ex.alreadyMoved||0} 자동 제외됨</div>` : '';
+        el.innerHTML = cardsHtml + exFooter;
     }
 
 
