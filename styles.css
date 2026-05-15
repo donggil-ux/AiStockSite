@@ -4247,6 +4247,98 @@
     .earn-cal-day{flex-basis:300px;}
     .earn-wk-label{min-width:150px;font-size:13.5px;}
 }
+
+/* ===== 💼 내 포지션 (v716) ===== */
+.mypos-card{margin:10px 0;padding:12px 14px;}
+.mypos-row{display:flex;align-items:center;gap:11px;}
+.mypos-ico{font-size:22px;flex-shrink:0;}
+.mypos-main{flex:1;min-width:0;}
+.mypos-t{font-size:13.5px;font-weight:800;color:var(--text);}
+.mypos-s{font-size:12px;color:var(--text2);margin-top:2px;}
+.mypos-pnl.pos{color:var(--red);} .mypos-pnl.neg{color:var(--blue);}
+.mypos-btn{flex-shrink:0;padding:8px 16px;border:none;border-radius:9px;
+    background:linear-gradient(135deg,#9D4EDD,#6366f1);color:#fff;font-size:12.5px;font-weight:800;
+    cursor:pointer;font-family:inherit;}
+.mypos-memo{margin-top:8px;font-size:11.5px;color:var(--text3);}
+.mypos-holding{border-color:rgba(157,78,221,.45);}
+
+/* 등록/편집 시트 */
+.pos-sheet-overlay{position:fixed;inset:0;z-index:100040;background:rgba(0,0,0,.5);
+    display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;
+    transition:opacity .25s;}
+.pos-sheet-overlay.open{opacity:1;pointer-events:auto;}
+.pos-sheet{width:100%;max-width:480px;max-height:88vh;overflow-y:auto;background:var(--bg2);
+    border-radius:20px 20px 0 0;padding:8px 18px calc(22px + env(safe-area-inset-bottom));
+    transform:translateY(100%);transition:transform .3s cubic-bezier(.16,1,.3,1);}
+.pos-sheet-overlay.open .pos-sheet{transform:translateY(0);}
+@media(min-width:768px){
+    .pos-sheet-overlay{align-items:center;}
+    .pos-sheet{border-radius:18px;max-height:90vh;}
+}
+.pos-sheet-handle{width:38px;height:4px;border-radius:100px;background:var(--border);margin:6px auto 10px;}
+.pos-sheet-hd{font-size:16px;font-weight:900;color:var(--text);margin-bottom:14px;}
+.pos-field{margin-bottom:13px;}
+.pos-field label{display:block;font-size:11.5px;font-weight:700;color:var(--text3);margin-bottom:6px;}
+.pos-field input{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid var(--border);
+    border-radius:10px;background:var(--bg3);color:var(--text);font-size:14px;font-family:inherit;}
+.pos-field input:focus{outline:none;border-color:#9D4EDD;}
+.pos-seg-row{display:flex;gap:6px;}
+.pos-seg{flex:1;padding:10px 4px;border:1px solid var(--border);border-radius:10px;background:var(--bg3);
+    color:var(--text2);font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .12s;}
+.pos-seg.active{background:#9D4EDD;border-color:#9D4EDD;color:#fff;}
+.pos-quick{display:flex;gap:6px;margin-top:7px;}
+.pos-quick button{flex:1;padding:7px 4px;border:1px solid var(--border);border-radius:8px;
+    background:var(--bg3);color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;}
+.pos-quick button:hover{border-color:#9D4EDD;color:var(--text);}
+.pos-sheet-actions{display:flex;gap:8px;margin-top:18px;}
+.pos-sheet-actions button{padding:12px;border:none;border-radius:11px;font-size:14px;font-weight:800;
+    cursor:pointer;font-family:inherit;}
+.pos-save-btn{flex:1;background:linear-gradient(135deg,#9D4EDD,#6366f1);color:#fff;}
+.pos-cancel-btn{flex:0 0 84px;background:var(--bg3);color:var(--text2);}
+.pos-del-btn{flex:0 0 72px;background:rgba(239,68,68,.14);color:var(--red);}
+
+/* 대시보드 */
+.pos-dash{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:6px 0 16px;}
+.pos-dash-item{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:11px 8px;text-align:center;}
+.pd-lbl{font-size:10.5px;color:var(--text3);font-weight:700;}
+.pd-val{font-size:15px;font-weight:900;color:var(--text);margin-top:4px;}
+.pd-val.pos{color:var(--red);} .pd-val.neg{color:var(--blue);}
+@media(max-width:560px){.pos-dash{grid-template-columns:repeat(2,1fr);} .pd-val{font-size:13.5px;}}
+
+.pos-filter-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;}
+.pos-io-btns{display:flex;gap:6px;}
+.pos-io-btn{padding:7px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);
+    color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;}
+.pos-io-btn:hover{border-color:#9D4EDD;color:var(--text);}
+
+/* 포지션 카드 */
+.pos-empty{padding:36px 12px;text-align:center;color:var(--text3);font-size:13px;}
+.pos-card-list{display:flex;flex-direction:column;gap:9px;}
+.pos-card{background:var(--bg2);border:1px solid var(--border);border-left:3px solid #9D4EDD;
+    border-radius:12px;padding:12px 14px;cursor:pointer;transition:background .12s;}
+.pos-card:hover{background:var(--bg3);}
+.pos-card-watching{border-left-color:#eab308;}
+.pos-card-closed{border-left-color:var(--text3);opacity:.82;}
+.pos-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.pos-card-id{display:flex;align-items:baseline;gap:7px;min-width:0;}
+.pos-card-tk{font-size:15px;font-weight:900;color:var(--text);}
+.pos-card-nm{font-size:11.5px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pos-card-pnl{font-size:15px;font-weight:900;flex-shrink:0;}
+.pos-card-pnl.pos{color:var(--red);} .pos-card-pnl.neg{color:var(--blue);}
+.pos-card-mid{display:flex;flex-wrap:wrap;align-items:center;gap:5px 12px;margin-top:7px;
+    font-size:12px;color:var(--text2);font-variant-numeric:tabular-nums;}
+.pos-badge{font-size:10px;font-weight:800;padding:2px 8px;border-radius:100px;}
+.pos-badge-holding{background:rgba(157,78,221,.16);color:#9D4EDD;}
+.pos-badge-watching{background:rgba(234,179,8,.16);color:#d97706;}
+.pos-badge-closed{background:var(--bg3);color:var(--text3);}
+[data-theme="dark"] .pos-badge-watching{color:#fbbf24;}
+.pos-card-memo{margin-top:7px;font-size:11.5px;color:var(--text3);}
+.pos-card-actions{display:flex;gap:6px;margin-top:10px;}
+.pos-card-actions button{padding:6px 12px;border:1px solid var(--border);border-radius:8px;
+    background:var(--bg3);color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;}
+.pos-card-actions button:hover{border-color:#9D4EDD;color:var(--text);}
+.pos-card-actions .pos-card-del:hover{border-color:var(--red);color:var(--red);}
+
 .earn-date-group{
     background:var(--bg2);
     border:1px solid var(--border);

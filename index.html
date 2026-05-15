@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=715">
+    <link rel="stylesheet" href="/styles.css?v=716">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -39,6 +39,11 @@
                 <button class="side-nav-item active" onclick="goHome();closeSideNav();">
                     <span class="side-nav-item-icon"><i class="ri-home-5-fill"></i></span>
                     <span class="side-nav-item-text">홈</span>
+                </button>
+                <button class="side-nav-item" id="sideNavPosBtn" onclick="goMyPosition();closeSideNav();">
+                    <span class="side-nav-item-icon"><i class="ri-briefcase-2-fill"></i></span>
+                    <span class="side-nav-item-text">내 포지션</span>
+                    <span class="side-nav-item-sub">NEW</span>
                 </button>
                 <button class="side-nav-item" id="sideNavSmBtn" onclick="goSmartMoney();closeSideNav();">
                     <span class="side-nav-item-icon"><i class="ri-briefcase-fill"></i></span>
@@ -370,6 +375,26 @@
             <div class="earn-cal-grid" id="earningsGrid"></div>
             <div class="disc-empty" id="earningsEmpty" hidden>이번 주에 실적 발표 예정 종목이 없어요.</div>
         </div>
+    </div>
+
+    <!-- ===== 내 포지션 화면 (v716) ===== -->
+    <div class="discover-screen" id="positionScreen" style="display:none">
+        <div class="disc-screen-title">💼 내 포지션</div>
+        <div class="disc-screen-sub">종목별 진입가·수량·상태를 기록하고 수익률을 한눈에 관리하세요 (이 기기에만 저장)</div>
+        <div id="posDashboard"></div>
+        <div class="pos-filter-row" id="posFilterRow">
+            <div class="earn-chip-group" data-filter-group="posStatus">
+                <button class="earn-chip active" data-value="holding" onclick="_posSetFilter('holding',this)">보유 중</button>
+                <button class="earn-chip"        data-value="watching" onclick="_posSetFilter('watching',this)">관망 중</button>
+                <button class="earn-chip"        data-value="closed"  onclick="_posSetFilter('closed',this)">매도 완료</button>
+            </div>
+            <div class="pos-io-btns">
+                <button class="pos-io-btn" onclick="_posExport()">📤 내보내기</button>
+                <button class="pos-io-btn" onclick="_posImportPick()">📥 가져오기</button>
+                <input type="file" id="posImportFile" accept="application/json,.json" style="display:none" onchange="_posImportFile(event)">
+            </div>
+        </div>
+        <div id="posList"></div>
     </div>
 
     <!-- ===== Leverage ETF Screen ===== -->
@@ -967,6 +992,9 @@
 
             <!-- Kim 기법(시가+MA20+BB) 분석 카드 — 일봉 전용 (v628) -->
             <div id="kimMethodAnalysis"></div>
+
+            <!-- 💼 내 포지션 요약/등록 카드 (v716) -->
+            <div id="myPositionSlot"></div>
 
             <!-- SMB Capital 분석 카드 — 5분봉 전용 (v636) -->
             <div id="smbAnalysis"></div>
@@ -3406,6 +3434,7 @@
         const dest = window._lastScreen || 'home';
         const map = {
             earnings:      goEarnings,
+            position:      goMyPosition,
             smartMoney:    goSmartMoney,
             visionScanner: goVisionScanner,
             economic:      goEconomic,
@@ -7415,6 +7444,385 @@
         }
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // 💼 내 포지션 (My Position) — localStorage + IndexedDB 백업 (v716)
+    // ═══════════════════════════════════════════════════════════
+    const _POS_KEY = 'stock_positions';
+    window._posStatusFilter = 'holding';
+    let _posChartLines = [];
+    let _posSheetState = null;
+    let _posPriceMap = {};
+
+    function _posLoad() {
+        try { const a = JSON.parse(localStorage.getItem(_POS_KEY)); return Array.isArray(a) ? a : []; }
+        catch(e) { return []; }
+    }
+    function _posSaveAll(arr) {
+        try { localStorage.setItem(_POS_KEY, JSON.stringify(arr)); } catch(e) {}
+        _posBackupIDB(arr);
+    }
+    // IndexedDB 보조 백업 — localStorage 손실 대비
+    function _posBackupIDB(arr) {
+        try {
+            const req = indexedDB.open('stockai_positions', 1);
+            req.onupgradeneeded = () => { try { req.result.createObjectStore('kv'); } catch(e){} };
+            req.onsuccess = () => {
+                try {
+                    const tx = req.result.transaction('kv', 'readwrite');
+                    tx.objectStore('kv').put({ data: arr, ts: Date.now() }, 'positions');
+                } catch(e){}
+            };
+        } catch(e) {}
+    }
+    function _posUuid() { return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+    function _posToday() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+    function _posForTicker(t) { return _posLoad().filter(p => p.ticker === t); }
+    function _posLatestForTicker(t) { const l=_posForTicker(t); return l.length ? l[l.length-1] : null; }
+    function _posActiveForTicker(t) {
+        const open = _posForTicker(t).filter(p => p.status !== 'closed');
+        return open.length ? open[open.length-1] : null;
+    }
+    function _posCurrentPrice() {
+        try {
+            const m = stockData?.meta;
+            if (m && m.regularMarketPrice != null) return m.regularMarketPrice;
+            const cl = (stockData?.indicators?.quote?.[0]?.close || []).filter(v=>v!=null);
+            if (cl.length) return cl[cl.length-1];
+        } catch(e){}
+        return null;
+    }
+    function _posFmtP(v, market) {
+        if (v == null || isNaN(v)) return '-';
+        return (market === 'KR') ? Math.round(v).toLocaleString()+'원' : '$'+Number(v).toFixed(2);
+    }
+    function _posPnlPct(entry, cur) {
+        if (!entry || cur == null || isNaN(cur)) return null;
+        return (cur - entry) / entry * 100;
+    }
+
+    // ── 차트 내 진입가 라인 ──────────────────────────────────────
+    function _posClearChartLine() {
+        _posChartLines.forEach(pl => { try { lwCandleSeries?.removePriceLine(pl); } catch(e){} });
+        _posChartLines = [];
+    }
+    function _posDrawChartLine() {
+        if (!lwCandleSeries) return;
+        _posClearChartLine();
+        if (!currentSymbol) return;
+        const pos = _posLatestForTicker(currentSymbol);
+        if (!pos || !pos.entryPrice) return;
+        const cur = _posCurrentPrice();
+        try {
+            if (pos.status === 'closed') {
+                _posChartLines.push(lwCandleSeries.createPriceLine({
+                    price: pos.entryPrice, color:'#9D4EDD', lineWidth:2, lineStyle:2, axisLabelVisible:true,
+                    title:`내 진입 ${_posFmtP(pos.entryPrice,currentMarket)}`,
+                }));
+                if (pos.closedPrice) {
+                    const rl = _posPnlPct(pos.entryPrice, pos.closedPrice);
+                    _posChartLines.push(lwCandleSeries.createPriceLine({
+                        price: pos.closedPrice, color:'#94a3b8', lineWidth:2, lineStyle:2, axisLabelVisible:true,
+                        title:`내 매도 ${_posFmtP(pos.closedPrice,currentMarket)}${rl!=null?` (실현 ${rl>=0?'+':''}${rl.toFixed(1)}%)`:''}`,
+                    }));
+                }
+            } else {
+                const pnl = _posPnlPct(pos.entryPrice, cur);
+                const pnlTxt = pnl != null ? ` (${pnl>=0?'+':''}${pnl.toFixed(1)}%)` : '';
+                _posChartLines.push(lwCandleSeries.createPriceLine({
+                    price: pos.entryPrice, color:'#9D4EDD', lineWidth:2, lineStyle:0, axisLabelVisible:true,
+                    title:`내 ${pos.status==='watching'?'목표':'진입'} ${_posFmtP(pos.entryPrice,currentMarket)}${pnlTxt}`,
+                }));
+            }
+        } catch(e){}
+    }
+
+    // ── 차트 페이지 포지션 요약/등록 카드 ────────────────────────
+    function renderMyPosition() {
+        const el = document.getElementById('myPositionSlot');
+        if (!el) return;
+        if (!currentSymbol) { el.innerHTML = ''; return; }
+        const pos = _posLatestForTicker(currentSymbol);
+        const cur = _posCurrentPrice();
+        let html;
+        if (!pos || pos.status === 'closed') {
+            const sub = (pos && pos.status==='closed') ? '매도 완료 — 재진입 검토 중' : '아직 등록된 포지션이 없습니다';
+            html = `<div class="card mypos-card">
+                <div class="mypos-row">
+                    <div class="mypos-ico">💼</div>
+                    <div class="mypos-main"><div class="mypos-t">내 포지션</div><div class="mypos-s">${sub}</div></div>
+                    <button class="mypos-btn" onclick="_posOpenSheet('${currentSymbol}')">등록</button>
+                </div>
+            </div>`;
+        } else {
+            const pnl = _posPnlPct(pos.entryPrice, cur);
+            const pnlCls = pnl==null?'':pnl>=0?'pos':'neg';
+            const statusTxt = pos.status==='holding' ? '보유 중' : '진입 대기';
+            const qtyTxt = pos.quantity ? `${pos.quantity}주 ` : '';
+            html = `<div class="card mypos-card mypos-${pos.status}">
+                <div class="mypos-row">
+                    <div class="mypos-ico">💼</div>
+                    <div class="mypos-main">
+                        <div class="mypos-t">${statusTxt} · ${qtyTxt}@ ${_posFmtP(pos.entryPrice,currentMarket)}</div>
+                        <div class="mypos-s">현재 ${_posFmtP(cur,currentMarket)} ${pnl!=null?`<b class="mypos-pnl ${pnlCls}">${pnl>=0?'+':''}${pnl.toFixed(2)}%</b>`:''}</div>
+                    </div>
+                    <button class="mypos-btn" onclick="_posOpenSheet('${currentSymbol}')">편집</button>
+                </div>
+                ${pos.memo?`<div class="mypos-memo">📝 ${escHtml(pos.memo)}</div>`:''}
+            </div>`;
+        }
+        el.innerHTML = html;
+        _posDrawChartLine();
+    }
+
+    // ── 등록/편집 시트 (바텀시트/모달) ───────────────────────────
+    function _posOpenSheet(ticker) {
+        ticker = ticker || currentSymbol;
+        if (!ticker) return;
+        let ov = document.getElementById('posSheetOverlay');
+        if (!ov) {
+            ov = document.createElement('div');
+            ov.id = 'posSheetOverlay';
+            ov.className = 'pos-sheet-overlay';
+            ov.onclick = (e) => { if (e.target === ov) _posCloseSheet(); };
+            ov.innerHTML = `<div class="pos-sheet" role="dialog" aria-modal="true">
+                <div class="pos-sheet-handle"></div>
+                <div class="pos-sheet-body" id="posSheetBody"></div>
+            </div>`;
+            document.body.appendChild(ov);
+        }
+        const editable = _posActiveForTicker(ticker);
+        _posSheetState = editable ? {
+            ticker, id: editable.id, status: editable.status,
+            entryPrice: editable.entryPrice ?? '', quantity: editable.quantity ?? '',
+            closedPrice: editable.closedPrice ?? '', memo: editable.memo || '', entryDate: editable.entryDate || _posToday(),
+        } : {
+            ticker, id: null, status: 'watching',
+            entryPrice: '', quantity: '', closedPrice: '', memo: '', entryDate: _posToday(),
+        };
+        _posRenderSheet();
+        ov.classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+    function _posCloseSheet() {
+        const ov = document.getElementById('posSheetOverlay');
+        if (ov) ov.classList.remove('open');
+        document.body.style.overflow = '';
+    }
+    function _posRenderSheet() {
+        const body = document.getElementById('posSheetBody');
+        if (!body || !_posSheetState) return;
+        const s = _posSheetState;
+        const cur = _posCurrentPrice();
+        const isKR = currentMarket === 'KR';
+        const seg = (val,label) => `<button class="pos-seg ${s.status===val?'active':''}" onclick="_posSheetSet('status','${val}')">${label}</button>`;
+        const showEntry = true;
+        const showClosed = s.status === 'closed';
+        const quick = (!cur) ? '' : `<div class="pos-quick">
+            <button onclick="_posSheetSet('entryPrice',${+cur.toFixed(2)})">현재가</button>
+            <button onclick="_posSheetSet('entryPrice',${+(cur*0.98).toFixed(2)})">-2%</button>
+            <button onclick="_posSheetSet('entryPrice',${+(cur*0.95).toFixed(2)})">-5%</button>
+        </div>`;
+        body.innerHTML = `
+            <div class="pos-sheet-hd">${escHtml(s.ticker)} 포지션 ${s.id?'편집':'등록'}</div>
+            <div class="pos-field"><label>상태</label>
+                <div class="pos-seg-row">${seg('watching','관망')}${seg('holding','보유 중')}${seg('closed','매도 완료')}</div>
+            </div>
+            <div class="pos-field"><label>진입가${isKR?' (원)':' ($)'}</label>
+                <input type="number" inputmode="decimal" id="posInEntry" value="${s.entryPrice}" placeholder="진입 가격" oninput="_posSheetSet('entryPrice',this.value)">
+                ${quick}
+            </div>
+            ${showClosed ? `<div class="pos-field"><label>매도가${isKR?' (원)':' ($)'}</label>
+                <input type="number" inputmode="decimal" id="posInClosed" value="${s.closedPrice}" placeholder="매도 가격" oninput="_posSheetSet('closedPrice',this.value)">
+            </div>` : ''}
+            <div class="pos-field"><label>수량 (선택)</label>
+                <input type="number" inputmode="numeric" id="posInQty" value="${s.quantity}" placeholder="보유 수량" oninput="_posSheetSet('quantity',this.value)">
+            </div>
+            <div class="pos-field"><label>메모 (선택)</label>
+                <input type="text" id="posInMemo" value="${escHtml(String(s.memo||''))}" placeholder="진입 근거 등" maxlength="80" oninput="_posSheetSet('memo',this.value)">
+            </div>
+            <div class="pos-sheet-actions">
+                ${s.id ? `<button class="pos-del-btn" onclick="_posDelete('${s.id}')">삭제</button>` : ''}
+                <button class="pos-cancel-btn" onclick="_posCloseSheet()">취소</button>
+                <button class="pos-save-btn" onclick="_posSave()">저장</button>
+            </div>`;
+    }
+    function _posSheetSet(k, v) {
+        if (!_posSheetState) return;
+        _posSheetState[k] = v;
+        if (k === 'status') _posRenderSheet();
+        else if (k === 'entryPrice') { const i=document.getElementById('posInEntry'); if (i && i.value!==String(v)) i.value=v; }
+    }
+    function _posSave() {
+        const s = _posSheetState;
+        if (!s) return;
+        const entry = parseFloat(s.entryPrice);
+        if (!entry || entry <= 0) { try{showToast('진입가를 입력하세요');}catch(e){} return; }
+        const arr = _posLoad();
+        const name = (currentSymbol === s.ticker)
+            ? (stockData?.meta?.longName || stockData?.meta?.shortName || s.ticker)
+            : ((_posLatestForTicker(s.ticker)||{}).name || s.ticker);
+        let rec = s.id ? arr.find(p=>p.id===s.id) : null;
+        if (!rec) { rec = { id:_posUuid(), createdAt:new Date().toISOString() }; arr.push(rec); }
+        rec.ticker = s.ticker;
+        rec.name = name;
+        rec.entryPrice = entry;
+        rec.quantity = s.quantity ? parseFloat(s.quantity) : null;
+        rec.entryDate = s.entryDate || _posToday();
+        rec.status = s.status;
+        rec.memo = (s.memo||'').trim();
+        if (s.status === 'closed') {
+            rec.closedPrice = s.closedPrice ? parseFloat(s.closedPrice) : null;
+            rec.closedAt = rec.closedAt || new Date().toISOString();
+        } else { rec.closedPrice = null; rec.closedAt = null; }
+        _posSaveAll(arr);
+        _posCloseSheet();
+        try { showToast('💼 포지션 저장됨'); } catch(e){}
+        try { renderMyPosition(); } catch(e){}
+        if (document.getElementById('positionScreen')?.style.display === '') _posLoadAndRender();
+    }
+    function _posDelete(id) {
+        _posSaveAll(_posLoad().filter(p => p.id !== id));
+        _posCloseSheet();
+        try { showToast('포지션 삭제됨'); } catch(e){}
+        try { renderMyPosition(); } catch(e){}
+        if (document.getElementById('positionScreen')?.style.display === '') _posLoadAndRender();
+    }
+    function _posQuickClose(id) {
+        const rec = _posLoad().find(p=>p.id===id);
+        if (!rec) return;
+        _posOpenSheet(rec.ticker);
+        _posSheetSet('status','closed');
+    }
+
+    // ── 내 포지션 탭 ─────────────────────────────────────────────
+    function goMyPosition() {
+        window._lastScreen = 'position';
+        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','leverageScreen','top100Screen','catalystScreen','earningsScreen'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
+        const mc=document.getElementById('mainContent'); if(mc) mc.style.display='none';
+        const eco=document.getElementById('economicSection'); if(eco) eco.style.display='none';
+        const thermo=document.getElementById('marketThermometer'); if(thermo) thermo.style.display='none';
+        const qnav=document.getElementById('headerQNav'); if(qnav) qnav.style.display='none';
+        document.getElementById('positionScreen').style.display='';
+        document.getElementById('mainHeader')?.classList.remove('stock-loaded');
+        const fab=document.getElementById('calcFab'); if(fab) fab.style.display='none';
+        document.getElementById('stockHero')?.classList.remove('show');
+        document.getElementById('tabNav')?.classList.remove('show');
+        document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+        document.querySelectorAll('.side-nav-item').forEach(b=>b.classList.remove('active'));
+        document.getElementById('sideNavPosBtn')?.classList.add('active');
+        try { updateBnActive('all'); } catch(e){}
+        try { _pushRoute('position'); } catch(e){}
+        window.scrollTo({top:0,behavior:'smooth'});
+        _posLoadAndRender();
+    }
+    async function _posLoadAndRender() {
+        _posRenderDashboard();
+        _posRenderList();
+        const tickers = [...new Set(_posLoad().map(p=>p.ticker))];
+        if (!tickers.length) return;
+        try {
+            const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(tickers.join(','))}`;
+            const data = await fetchWithProxy(url);
+            (data?.quoteResponse?.result || []).forEach(q => {
+                if (q.symbol && q.regularMarketPrice != null) _posPriceMap[q.symbol] = q.regularMarketPrice;
+            });
+            _posRenderDashboard();
+            _posRenderList();
+        } catch(e){}
+    }
+    function _posRenderDashboard() {
+        const el = document.getElementById('posDashboard');
+        if (!el) return;
+        const holding = _posLoad().filter(p=>p.status==='holding');
+        let total=0, cnt=0, best=null, worst=null;
+        holding.forEach(p=>{
+            const pnl=_posPnlPct(p.entryPrice,_posPriceMap[p.ticker]);
+            if(pnl!=null){ total+=pnl; cnt++;
+                if(!best||pnl>best.pnl) best={t:p.ticker,pnl};
+                if(!worst||pnl<worst.pnl) worst={t:p.ticker,pnl}; }
+        });
+        const avg = cnt? total/cnt : null;
+        const fmtP = o => o ? `${o.t} ${o.pnl>=0?'+':''}${o.pnl.toFixed(1)}%` : '-';
+        el.innerHTML = `<div class="pos-dash">
+            <div class="pos-dash-item"><div class="pd-lbl">보유 종목</div><div class="pd-val">${holding.length}</div></div>
+            <div class="pos-dash-item"><div class="pd-lbl">평균 손익</div><div class="pd-val ${avg==null?'':avg>=0?'pos':'neg'}">${avg==null?'-':(avg>=0?'+':'')+avg.toFixed(2)+'%'}</div></div>
+            <div class="pos-dash-item"><div class="pd-lbl">최고 수익</div><div class="pd-val pos">${fmtP(best)}</div></div>
+            <div class="pos-dash-item"><div class="pd-lbl">최대 손실</div><div class="pd-val neg">${fmtP(worst)}</div></div>
+        </div>`;
+    }
+    function _posRenderList() {
+        const el = document.getElementById('posList');
+        if (!el) return;
+        const filter = window._posStatusFilter || 'holding';
+        const list = _posLoad().filter(p => p.status === filter);
+        if (!list.length) {
+            el.innerHTML = `<div class="pos-empty">${filter==='holding'?'보유 중인':filter==='watching'?'관망 중인':'매도 완료된'} 포지션이 없습니다.</div>`;
+            return;
+        }
+        el.innerHTML = '<div class="pos-card-list">' + list.map(_posCardHtml).join('') + '</div>';
+    }
+    function _posCardHtml(p) {
+        const cur = _posPriceMap[p.ticker];
+        const fmt = v => (v==null||isNaN(v)) ? '-' : '$'+Number(v).toFixed(2);
+        const pnl = (p.status==='closed') ? _posPnlPct(p.entryPrice,p.closedPrice) : _posPnlPct(p.entryPrice,cur);
+        const pnlCls = pnl==null?'':pnl>=0?'pos':'neg';
+        const pnlTxt = pnl==null?'—':`${pnl>=0?'+':''}${pnl.toFixed(2)}%`;
+        const stTxt = p.status==='holding'?'보유 중':p.status==='watching'?'관망 중':'매도 완료';
+        const curTxt = (p.status==='closed') ? `매도 ${fmt(p.closedPrice)}` : `현재 ${fmt(cur)}`;
+        return `<div class="pos-card pos-card-${p.status}" onclick="quickSearch('${p.ticker}','US')">
+            <div class="pos-card-top">
+                <div class="pos-card-id"><span class="pos-card-tk">${escHtml(p.ticker)}</span>
+                    <span class="pos-card-nm">${escHtml(p.name||p.ticker)}</span></div>
+                <span class="pos-card-pnl ${pnlCls}">${pnlTxt}</span>
+            </div>
+            <div class="pos-card-mid">
+                <span>진입 ${fmt(p.entryPrice)}</span><span>${curTxt}</span>
+                ${p.quantity?`<span>${p.quantity}주</span>`:''}
+                <span class="pos-badge pos-badge-${p.status}">${stTxt}</span>
+            </div>
+            ${p.memo?`<div class="pos-card-memo">📝 ${escHtml(p.memo)}</div>`:''}
+            <div class="pos-card-actions" onclick="event.stopPropagation()">
+                <button onclick="_posOpenSheet('${p.ticker}')">편집</button>
+                ${p.status==='holding'?`<button onclick="_posQuickClose('${p.id}')">완료(매도)</button>`:''}
+                <button class="pos-card-del" onclick="_posDelete('${p.id}')">삭제</button>
+            </div>
+        </div>`;
+    }
+    function _posSetFilter(v, btn) {
+        window._posStatusFilter = v;
+        document.querySelectorAll('[data-filter-group="posStatus"] .earn-chip').forEach(c=>c.classList.toggle('active', c===btn));
+        _posRenderList();
+    }
+    function _posExport() {
+        try {
+            const blob = new Blob([JSON.stringify(_posLoad(),null,2)], {type:'application/json'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `stockai_positions_${_posToday()}.json`;
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+        } catch(e){ try{showToast('내보내기 실패');}catch(_){} }
+    }
+    function _posImportPick() { document.getElementById('posImportFile')?.click(); }
+    function _posImportFile(e) {
+        const file = e.target.files?.[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            try {
+                const arr = JSON.parse(reader.result);
+                if (!Array.isArray(arr)) throw 0;
+                const map = {};
+                _posLoad().forEach(p=>{ if(p&&p.id) map[p.id]=p; });
+                arr.forEach(p=>{ if(p&&p.id&&p.ticker) map[p.id]=p; });
+                _posSaveAll(Object.values(map));
+                try{showToast('📥 포지션 가져오기 완료');}catch(_){}
+                _posLoadAndRender();
+            } catch(err) { try{showToast('가져오기 실패 — 올바른 파일이 아닙니다');}catch(_){} }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+    }
+
     function goEarnings() {
         _pushRoute('earnings');
         window._lastScreen = 'earnings';
@@ -11124,6 +11532,8 @@
             try { _renderMultiFactorCard(); } catch (e) { console.warn('[mf] render fail', e); }
             try { renderMinerviniSEPA(); } catch (e) { console.warn('[sepa] render fail', e); }
             try { renderSwingAnalysis(); } catch (e) { console.warn('[swing] render fail', e); }
+
+            try { renderMyPosition(); } catch (e) { console.warn("[mypos] render fail", e); }
             try { if (typeof renderGuruHolders === 'function' && typeof currentSymbol !== 'undefined') renderGuruHolders(currentSymbol); } catch {}
             rrWidgetAutoFill();
             renderRSIMomentum();
@@ -11779,6 +12189,8 @@
             try { _renderMultiFactorCard(); } catch (e) { console.warn('[mf] render fail', e); }
             try { renderMinerviniSEPA(); } catch (e) { console.warn('[sepa] render fail', e); }
             try { renderSwingAnalysis(); } catch (e) { console.warn('[swing] render fail', e); }
+
+            try { renderMyPosition(); } catch (e) { console.warn("[mypos] render fail", e); }
             try { if (typeof renderGuruHolders === 'function' && typeof currentSymbol !== 'undefined') renderGuruHolders(currentSymbol); } catch {}
             rrWidgetAutoFill();
             renderRSIMomentum();
@@ -13478,40 +13890,61 @@
             if (prevSameSymbol && _lastSigKey !== newKey) {
                 const isBuy = latest.position === 'belowBar';
                 const dir   = isBuy ? '매수' : '매도';
-                const emoji = isBuy ? '🔴' : '🔵';
-                // 시그널 발생가 + ATR 기반 목표가 — 매수가·매도가 함께 안내 (v700)
-                let subStr = '';
+                let emoji = isBuy ? '🔴' : '🔵';
+                let headline = `${latest.text} ${dir} 시그널`;
+                // ── 내 포지션 상태 연동 (v716 3단계) ──
+                let posSkip = false;
                 try {
-                    const sIdx = ts.indexOf(latest.time);
-                    const sp = (sIdx >= 0 && q.close[sIdx] != null)
-                        ? q.close[sIdx]
-                        : candleData[candleData.length - 1]?.close;
-                    const atr = calcATR(q.high, q.low, q.close).filter(v => v != null).pop();
-                    const fmtP = p => currentMarket === 'KR'
-                        ? Math.round(p).toLocaleString() + '원'
-                        : '$' + Number(p).toFixed(2);
-                    if (sp != null) {
-                        if (atr && atr > 0) {
-                            const tgt = isBuy ? sp + atr * 2 : sp - atr * 2;
-                            subStr = isBuy
-                                ? `매수 ${fmtP(sp)}   →   목표 매도 ${fmtP(tgt)}`
-                                : `매도 ${fmtP(sp)}   →   목표 매수 ${fmtP(tgt)}`;
-                        } else {
-                            subStr = `${dir} ${fmtP(sp)}`;
+                    const _pa = _posActiveForTicker(currentSymbol);
+                    if (_pa) {
+                        if (_pa.status === 'holding') {
+                            if (isBuy) posSkip = true;                  // 보유 중 — 매수 알림 억제
+                            else { emoji = '💰'; headline = `보유 포지션 — 익절·손절 점검 (${latest.text})`; }
+                        } else if (_pa.status === 'watching' && isBuy) {
+                            emoji = '🎯'; headline = `관심 종목 진입가 근접 (${latest.text})`;
                         }
+                    } else {
+                        const _pl = _posLatestForTicker(currentSymbol);
+                        if (_pl && _pl.status === 'closed') { emoji = '🔄'; headline = `재진입 검토 시그널 (${latest.text})`; }
                     }
                 } catch(e) {}
-                // 10초 프로그레스바 시그널 알림 — 종목명 + 매수·매도가 (v695·v699·v700)
-                try { _showSignalAlert(`${emoji} ${currentSymbol} · ${latest.text} ${dir} 시그널`, isBuy, subStr); } catch(e) {}
-                // 매수·매도 시그널 사운드 + 음성 안내 (v694·v699)
-                try {
-                    if (_chartSoundEnabled) {
-                        _playSignalSound(isBuy ? 'buy' : 'sell');
-                        setTimeout(() => _speakSignal(currentSymbol, dir), 380); // 비프음 후 음성
-                    }
-                } catch(e) {}
+                if (!posSkip) {
+                    // 시그널 발생가 + ATR 기반 목표가 — 매수가·매도가 함께 안내 (v700)
+                    let subStr = '';
+                    try {
+                        const sIdx = ts.indexOf(latest.time);
+                        const sp = (sIdx >= 0 && q.close[sIdx] != null)
+                            ? q.close[sIdx]
+                            : candleData[candleData.length - 1]?.close;
+                        const atr = calcATR(q.high, q.low, q.close).filter(v => v != null).pop();
+                        const fmtP = p => currentMarket === 'KR'
+                            ? Math.round(p).toLocaleString() + '원'
+                            : '$' + Number(p).toFixed(2);
+                        if (sp != null) {
+                            if (atr && atr > 0) {
+                                const tgt = isBuy ? sp + atr * 2 : sp - atr * 2;
+                                subStr = isBuy
+                                    ? `매수 ${fmtP(sp)}   →   목표 매도 ${fmtP(tgt)}`
+                                    : `매도 ${fmtP(sp)}   →   목표 매수 ${fmtP(tgt)}`;
+                            } else {
+                                subStr = `${dir} ${fmtP(sp)}`;
+                            }
+                        }
+                    } catch(e) {}
+                    // 10초 프로그레스바 시그널 알림 — 종목명 + 매수·매도가 (v695·v699·v700)
+                    try { _showSignalAlert(`${emoji} ${currentSymbol} · ${headline}`, isBuy, subStr); } catch(e) {}
+                    // 매수·매도 시그널 사운드 + 음성 안내 (v694·v699)
+                    try {
+                        if (_chartSoundEnabled) {
+                            _playSignalSound(isBuy ? 'buy' : 'sell');
+                            setTimeout(() => _speakSignal(currentSymbol, dir), 380); // 비프음 후 음성
+                        }
+                    } catch(e) {}
+                }
             }
             _lastSigKey = newKey;
+            // 내 포지션 진입가 라인 재그리기 (차트 갱신 시)
+            try { _posDrawChartLine(); } catch(e) {}
         }
 
         // 라인 토글 OFF → 배지·마커만 유지, 가격 라인은 그리지 않음
@@ -23487,6 +23920,8 @@
         goEarnings, loadEarnings, setEarningsWindow, _earnToggleGroup, _enrichEarningsWithAI,
         _earnSetFilter, _earnApplyFilters, _earnSortBy, _earnBuildDateChips, _earnSelectDateChip,
         _earnWeekNav, _earnToggleDay,
+        goMyPosition, renderMyPosition, _posOpenSheet, _posCloseSheet, _posSheetSet, _posSave,
+        _posDelete, _posQuickClose, _posSetFilter, _posExport, _posImportPick, _posImportFile,
         closeSideNav, toggleSideNav, openSideNav, goHome, goBack, goSmartMoney,
         switchSmTab, smDeepDive, smDeepBack, filterSmHoldings, smChartLink,
         renderGuruReal, guruDeepDiveReal, guruDeepBack, renderGuruHolders, goSmartMoneyAndOpen,
