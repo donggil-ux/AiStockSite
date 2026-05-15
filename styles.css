@@ -64,8 +64,10 @@
         }
 
         /* ===== APP SHELL ===== */
-        .app-wrapper{display:flex;min-height:100vh;transition:padding-left .28s cubic-bezier(.4,0,.2,1);overflow-x:clip;max-width:100vw;}
-        .app{flex:1;min-width:0;width:100%;max-width:834px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative;overflow-x:clip;}
+        .app-wrapper{display:flex;min-height:100vh;transition:padding-left .28s cubic-bezier(.4,0,.2,1);max-width:100vw;}
+        /* overflow-x:clip 제거 — iOS Safari 에서 .header position:sticky 를 깨던 원인.
+           가로 오버플로는 html·body 의 overflow-x:clip 이 이미 차단함 (v705) */
+        .app{flex:1;min-width:0;width:100%;max-width:834px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative;}
 
         /* [Fix] display:grid 가 min-height:100vh + auto rows 와 합쳐져 헤더 높이를 비정상적으로 stretch 시키는 버그 → block 으로 복원
            (스크린들은 absolute가 아니라 일반 흐름이므로 block 만으로 정상 작동) */
