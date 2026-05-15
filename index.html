@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=702">
+    <link rel="stylesheet" href="/styles.css?v=703">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -3365,6 +3365,39 @@
     // 종목 상세(searchStock) 는 _lastScreen 을 건드리지 않음 → 뒤로가기 시 직전 목록 화면으로.
     // ────────────────────────────────────────────────────────────
     window._lastScreen = window._lastScreen || 'home';
+    // ── 종목 페이지 스크롤 시 상단바에 종목명·금액·퍼센트 노출 (v703) ──
+    //   스크롤 전: 상단바 종목 표시 숨김 / Hero 가격을 지나치면 컴팩트 표시
+    function _syncHeaderStock() {
+        const pEl = document.getElementById('hdrStkPrice');
+        const cEl = document.getElementById('hdrStkChg');
+        if (!pEl || !cEl) return;
+        const hp = document.getElementById('stockPrice');
+        const hc = document.getElementById('stockChange');
+        if (hp) pEl.textContent = hp.textContent.trim();
+        if (hc) {
+            const m = hc.textContent.match(/[+-]?[\d.]+%/);
+            const dir = hc.classList.contains('up') ? 'up'
+                      : hc.classList.contains('down') ? 'down' : 'flat';
+            const arrow = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '';
+            cEl.textContent = m ? `${arrow}${m[0].replace(/^[+-]/, '')}` : '';
+            cEl.className = 'hdr-stk-chg ' + dir;
+        }
+    }
+    function _updateHeaderStockOnScroll() {
+        const hdr = document.getElementById('mainHeader');
+        if (!hdr) return;
+        if (!hdr.classList.contains('stock-loaded')) { hdr.classList.remove('header--show-stock'); return; }
+        const hero = document.getElementById('stockPrice');
+        // Hero 가격이 헤더 아래로 사라지면(=스크롤 내림) 컴팩트 표시
+        const scrolledPast = hero
+            ? hero.getBoundingClientRect().bottom < 8
+            : (window.scrollY || 0) > 130;
+        hdr.classList.toggle('header--show-stock', scrolledPast);
+        if (scrolledPast) _syncHeaderStock();
+    }
+    document.addEventListener('scroll', _updateHeaderStockOnScroll, { passive: true, capture: true });
+    window.addEventListener('resize', _updateHeaderStockOnScroll, { passive: true });
+
     function goBack() {
         const dest = window._lastScreen || 'home';
         const map = {
@@ -11062,10 +11095,16 @@
                 _heroLogo.innerHTML = _tickerLogoHTML(_logoSym, currentMarket);
             }
         } catch {}
-        // 모바일 상단 바 종목명 업데이트
+        // 모바일 상단 바 종목명 — 스크롤 시 노출될 컴팩트 표시 (종목명+금액+퍼센트)
         const _mobName = document.getElementById('mobStockName');
-        if (_mobName) _mobName.textContent = currentMarket === 'KR' ? name : `${meta.symbol} · ${meta.exchangeName || 'US'}`;
+        if (_mobName) {
+            const _hdrName = currentMarket === 'KR' ? name : (meta.symbol || name || '');
+            _mobName.innerHTML = `<span class="hdr-stk-name">${escHtml(_hdrName)}</span>`
+                + `<span class="hdr-stk-price" id="hdrStkPrice"></span>`
+                + `<span class="hdr-stk-chg" id="hdrStkChg"></span>`;
+        }
         document.getElementById('mainHeader')?.classList.add('stock-loaded');
+        document.getElementById('mainHeader')?.classList.remove('header--show-stock'); // 진입 직후엔 숨김
         document.getElementById('calcFab').style.display = 'flex'; // 종목 진입 시 FAB 표시
 
         const isKR = currentMarket === 'KR';
@@ -11084,6 +11123,8 @@
             changeEl.className = 'stock-change ' + (change > 0 ? 'up' : change < 0 ? 'down' : 'flat');
         }
         document.getElementById('stockPrice').style.color = change > 0 ? 'var(--red)' : change < 0 ? 'var(--blue)' : 'var(--text)';
+        // 상단바 컴팩트 종목 표시 동기화 + 스크롤 상태 갱신
+        try { _syncHeaderStock(); _updateHeaderStockOnScroll(); } catch(e) {}
 
         // ── 실적 발표 D-3 배지 (3일 이내일 때만 표시) ──
         if (currentMarket === 'US') _loadStockEarningsBadge(meta.symbol);
