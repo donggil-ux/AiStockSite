@@ -4,7 +4,7 @@
         :root{
             /* ===== StockAI Design System v2 — Dark Mode ===== */
             --bg:#000000;--bg2:#141414;--bg3:#1C1C1E;--bg4:#242426;
-            --border:rgba(255,255,255,0.07);--text:#FFFFFF;--text2:#8E8E93;--text3:#48484A;
+            --border:rgba(255,255,255,0.07);--text:#FFFFFF;--text1:#FFFFFF;--text2:#A1A1A6;--text3:#7E7E83;
             --blue:#0080FB;--green:#0CF5B0;--red:#FF453A;--yellow:#FFD60A;--purple:#BF5AF2;--cyan:#64D2FF;
             /* Semantic color tokens */
             --color-buy:#0CF5B0;--color-sell:#FF453A;--color-brand-accent:#0080FB;
@@ -30,7 +30,7 @@
         }
         [data-theme="light"]{
             --bg:#FFFFFF;--bg2:#F7F8FA;--bg3:#F2F2F7;--bg4:#E5E5EA;
-            --border:rgba(0,0,0,0.08);--text:#110F1A;--text2:#6C6C70;--text3:#AEAEB2;
+            --border:rgba(0,0,0,0.08);--text:#110F1A;--text1:#110F1A;--text2:#6C6C70;--text3:#9C9CA0;
             --blue:#0080FB;--green:#00A882;--red:#FF3B30;--yellow:#FF9500;--purple:#AF52DE;--cyan:#32ADE6;
             --color-buy:#00A882;--color-sell:#FF3B30;--color-brand-accent:#0080FB;
             --color-text-primary:#110F1A;--color-text-secondary:#6C6C70;--color-text-tertiary:#AEAEB2;
@@ -6423,6 +6423,44 @@
 .cat-ai-foot{margin-top:8px;font-size:10px;color:var(--text3);text-align:right;}
 .cat-ai-loading{padding:12px;text-align:center;color:var(--text2);font-size:12px;}
 
+/* AI 분석 카드 다크모드 가독성 보강 (v679) */
+[data-theme="dark"] .cat-ai-card{
+    background:linear-gradient(135deg, rgba(99,102,241,0.14), var(--bg3));
+    border-color:rgba(99,102,241,0.36);
+}
+[data-theme="dark"] .cat-ai-title{color:#E5E7EB;}
+[data-theme="dark"] .cat-ai-val{color:#F3F4F6;}
+[data-theme="dark"] .cat-ai-row{color:#D1D5DB;}
+[data-theme="dark"] .cat-ai-key{color:#9CA3AF;}
+[data-theme="dark"] .cat-ai-points{color:#D1D5DB;}
+[data-theme="dark"] .cat-ai-sig-label{color:#9CA3AF;}
+[data-theme="dark"] .cat-ai-sig-val{color:#D1D5DB;}
+[data-theme="dark"] .cat-ai-sig-bar{background:rgba(255,255,255,0.10);}
+[data-theme="dark"] .cat-ai-reasoning{
+    background:rgba(255,255,255,0.06);
+    color:#D1D5DB;
+    border:1px solid rgba(255,255,255,0.08);
+}
+[data-theme="dark"] .cat-ai-foot{color:#9CA3AF;}
+[data-theme="dark"] .catalyst-ai-badge{
+    background:rgba(99,102,241,0.18);
+    color:#F3F4F6;
+}
+[data-theme="dark"] .catalyst-ai-btn,
+[data-theme="dark"] .alpha-ai-btn,
+[data-theme="dark"] .social-ai-btn{
+    background:rgba(99,102,241,0.12);
+    color:#F3F4F6;
+    border-color:rgba(99,102,241,0.30);
+}
+[data-theme="dark"] .catalyst-ai-btn:hover,
+[data-theme="dark"] .alpha-ai-btn:hover,
+[data-theme="dark"] .social-ai-btn:hover{
+    background:rgba(99,102,241,0.22);
+    color:#fff;
+    border-color:#818cf8;
+}
+
 /* 알파 스캐너 AI 검증 (v674) */
 .alpha-ai-btn{margin-top:10px;padding:8px 12px;width:100%;border:1px solid var(--border);background:linear-gradient(135deg, rgba(99,102,241,0.05), var(--bg3));border-radius:8px;font-size:12px;font-weight:600;color:var(--text1);cursor:pointer;transition:all .15s;}
 .alpha-ai-btn:hover{background:rgba(99,102,241,0.10);border-color:#6366f1;color:#6366f1;}
@@ -6457,6 +6495,23 @@
     .social-card{padding:12px;}
     .social-grade{font-size:10px;padding:3px 8px;}
 }
+
+/* 소셜 카드 다크모드 가독성 (v679) */
+[data-theme="dark"] .social-card{background:var(--bg2);border-color:rgba(255,255,255,0.08);}
+[data-theme="dark"] .social-card:hover{border-color:rgba(99,102,241,0.5);box-shadow:0 4px 14px rgba(0,0,0,0.4);}
+[data-theme="dark"] .social-card--high-risk{background:linear-gradient(135deg, rgba(239,68,68,0.12), var(--bg2) 50%);border-color:rgba(239,68,68,0.6);}
+[data-theme="dark"] .social-sym{color:#F3F4F6;}
+[data-theme="dark"] .social-name{color:#9CA3AF;}
+[data-theme="dark"] .social-meta-row{color:#D1D5DB;}
+[data-theme="dark"] .social-rank{background:rgba(255,255,255,0.08);color:#D1D5DB;}
+[data-theme="dark"] .social-warn{
+    background:rgba(251,191,36,0.14);
+    color:#fde68a;
+    border-color:rgba(251,191,36,0.45);
+}
+
+/* 알파 AI 미니 배지 다크모드 (v679) */
+[data-theme="dark"] .alpha-ai-mini-pending{color:#9CA3AF;}
 
 /* 알파 카드 자동 AI 미니 배지 (v677) */
 .alpha-ai-mini{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:6px 0 4px;font-size:11px;}
