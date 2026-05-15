@@ -3225,49 +3225,11 @@ async function _fetchQuoteSnapshots(symbols) {
 
 // Gemini 배치 요약: [{symbol, title, changePct, volumeRatio}] → Map<symbol, summary>
 // 프롬프트: 각 종목당 한 문장(20-40자) 한국어, 뉴스 원인 + 등락률 맥락. JSON 반환.
+// Gemini 호출 비활성화 (v672) — _shortenReason 폴백만 사용 (Finnhub 헤드라인 축약)
+// TOP 100 종목 뉴스 요약은 Gemini 비용이 가장 컸던 항목 — 사용자 요청으로 차단.
+// UI 는 그대로 동작 (축약된 뉴스 제목 한 줄 표시).
 async function _summarizeReasonsBatch(items) {
-    const fallback = new Map(items.map(x => [x.symbol, _shortenReason(x.title)]));
-    if (!process.env.GEMINI_API_KEY || !items.length) return fallback;
-    const valid = items.filter(x => x.title && x.title.length > 5);
-    if (!valid.length) return fallback;
-    const lines = valid.map(x => {
-        const chg = Number.isFinite(x.changePct) ? `${x.changePct >= 0 ? '+' : ''}${x.changePct.toFixed(1)}%` : '-';
-        const vol = x.volumeRatio && x.volumeRatio > 2 ? ` 거래량${x.volumeRatio.toFixed(1)}x` : '';
-        return `- ${x.symbol} [${chg}${vol}]: ${x.title}`;
-    }).join('\n');
-    const prompt = `다음은 주식 종목별 최신 뉴스 제목과 등락률입니다. 각 종목에 대해 "한국어 한 문장(20~40자)"으로 상승/하락 사유를 요약하세요.
-규칙:
-- 뉴스 핵심 원인만. 선정적 서브타이틀·인용구·부제목은 제거.
-- 등락률이 크면 "급등"/"급락"/"하락"/"상승" 같은 단어로 자연스럽게 포함.
-- 티커/회사명 생략(이미 표시됨).
-- 과장 금지. 사실 기반 요약.
-- JSON 배열만 출력: [{"s":"SYMBOL","r":"요약"}]
-
-입력:
-${lines}
-
-JSON:`;
-    try {
-        const genAI = getGenAI();
-        if (!genAI) return fallback;
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash', generationConfig: { temperature: 0.3 } });
-        const resp = await model.generateContent(prompt);
-        let txt = resp.response?.text?.() || '';
-        txt = txt.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
-        const arr = JSON.parse(txt);
-        if (!Array.isArray(arr)) return fallback;
-        const m = new Map(fallback); // fallback 우선 셋업
-        arr.forEach(x => {
-            if (!x || typeof x.s !== 'string' || typeof x.r !== 'string') return;
-            let r = x.r.trim();
-            if (r.length > 60) r = r.slice(0, 58).trim() + '…';
-            if (r.length >= 8) m.set(x.s.toUpperCase(), r);
-        });
-        return m;
-    } catch (e) {
-        console.warn('[news-reason] Gemini summarize fail:', e?.message?.slice(0,100));
-        return fallback;
-    }
+    return new Map(items.map(x => [x.symbol, _shortenReason(x.title)]));
 }
 
 // ─────────────────────────────────────────────
