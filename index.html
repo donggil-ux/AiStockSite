@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=708">
+    <link rel="stylesheet" href="/styles.css?v=709">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -3386,9 +3386,13 @@
     function _updateHeaderStockOnScroll() {
         const hdr = document.getElementById('mainHeader');
         if (!hdr) return;
-        // 탭바(.tab-nav)가 헤더 바로 아래에 스택 고정되도록 헤더 높이를 CSS 변수로 노출
-        const _hh = hdr.offsetHeight;
-        if (_hh) document.documentElement.style.setProperty('--hdr-h', _hh + 'px');
+        // 탭바(.tab-nav)가 상단 고정 바 바로 아래에 붙도록 바 높이를 CSS 변수로 노출
+        //   모바일: .header 전체가 sticky → #mainHeader 높이
+        //   데스크탑: 내부 .header-top 만 fixed 바 → .header-top 높이 (사이 벌어짐 방지)
+        const _ht = hdr.querySelector('.header-top');
+        let _barH = hdr.offsetHeight;
+        if (_ht && getComputedStyle(_ht).position === 'fixed') _barH = _ht.offsetHeight;
+        if (_barH) document.documentElement.style.setProperty('--hdr-h', _barH + 'px');
         if (!hdr.classList.contains('stock-loaded')) { hdr.classList.remove('header--show-stock'); return; }
         const hero = document.getElementById('stockPrice');
         // Hero 가격이 헤더 아래로 가려지면(=스크롤 내림) 컴팩트 표시

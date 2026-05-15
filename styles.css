@@ -2018,9 +2018,7 @@
                 transform:translateX(-50%);
                 width:100%; max-width:834px;
                 z-index:1100;
-                background:color-mix(in srgb, var(--bg) 92%, transparent);
-                backdrop-filter:blur(24px);
-                -webkit-backdrop-filter:blur(24px);
+                background:var(--bg);
                 margin:0;
                 box-sizing:border-box;
                 /* 로고 좌측 정렬: 컨텐츠(welcome-screen, 카드)의 padding-left 16px 와 일치 */
