@@ -4983,7 +4983,7 @@
     border:1px solid var(--border);
     border-radius:12px;
     box-shadow:0 12px 32px rgba(0,0,0,.32), 0 2px 8px rgba(0,0,0,.18);
-    z-index:9000;
+    z-index:100001;  /* 전체화면 차트(99999) 위 — v681 */
     min-width:120px;
     padding:6px;
     display:flex; flex-direction:column; gap:1px;
@@ -5014,7 +5014,7 @@
     .interval-dd-backdrop{
         display:none;
         position:fixed;inset:0;background:rgba(0,0,0,.5);
-        z-index:9998;
+        z-index:100000;  /* 전체화면 차트(99999) 위 — v681 */
         opacity:0;transition:opacity .2s;
     }
     .interval-dd-backdrop.show{display:block;opacity:1;}
@@ -5025,7 +5025,7 @@
         margin:0!important;
         border-radius:16px 16px 0 0!important;
         padding:8px 12px calc(20px + env(safe-area-inset-bottom))!important;
-        z-index:9999!important;
+        z-index:100001!important;  /* 전체화면 차트(99999) 위 — v681 */
         max-height:70vh;overflow-y:auto;
         box-shadow:0 -8px 32px rgba(0,0,0,.4)!important;
         transform:translateY(100%);
