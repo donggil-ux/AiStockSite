@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=707">
+    <link rel="stylesheet" href="/styles.css?v=708">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -13368,18 +13368,7 @@
                     markers.push({ time: ts[i], position: 'aboveBar', color: '#3b82f6', shape: 'arrowDown', text: 'BB 이탈' });
             }
         }
-        // ④ 신고가 돌파 — 직전 60봉 최고가를 "처음" 경신하는 봉만 표시 (v701)
-        //   상승 추세에선 매 봉이 60봉 신고가라 마커가 도배됨 → 직전 봉이 신고가가
-        //   아니었을 때(=돌파 첫 봉)만 마킹해 연속 중복 제거.
-        for (let i = 61; i < closes.length; i++) {
-            if (closes[i] == null || closes[i-1] == null) continue;
-            let maxPrev = 0, maxPrev2 = 0;
-            for (let j = i-60; j < i; j++)   { if (closes[j] != null && closes[j] > maxPrev)  maxPrev  = closes[j]; }
-            for (let j = i-61; j < i-1; j++) { if (closes[j] != null && closes[j] > maxPrev2) maxPrev2 = closes[j]; }
-            if (maxPrev > 0 && closes[i] > maxPrev && closes[i-1] <= maxPrev2) {
-                markers.push({ time: ts[i], position: 'belowBar', color: '#22c55e', shape: 'arrowUp', text: '신고가' });
-            }
-        }
+        // ④ 신고가 마커 — 사용자 요청으로 제거 (v708)
 
         // 동일 봉 중복 마커는 첫 것만 유지
         const seen = new Set();
