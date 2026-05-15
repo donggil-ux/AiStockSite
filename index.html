@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=684">
+    <link rel="stylesheet" href="/styles.css?v=685">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -13051,6 +13051,14 @@
         const _supBelow = troughs.filter(p => p.price < curPrice).sort((a,b) => b.price - a.price);
         let supports = _supBelow.filter(p => p.price >= _srLo).slice(0, 3);
         if (supports.length < 2) supports = _supBelow.slice(0, 2);
+        // 폴백 — 스윙 저점이 전혀 없으면(현재가가 저점 부근) 최근 40봉 최저가를 지지선으로 (v685)
+        if (supports.length === 0) {
+            const _recentLows = lows.slice(Math.max(0, lows.length - 40)).filter(v => v != null);
+            if (_recentLows.length) {
+                const _recLow = Math.min(..._recentLows);
+                if (_recLow < curPrice) supports = [{ price: _recLow, i: -1 }];
+            }
+        }
         const addLine = (price, color, label, style) => {
             try {
                 const pl = lwCandleSeries.createPriceLine({
