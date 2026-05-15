@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=685">
+    <link rel="stylesheet" href="/styles.css?v=686">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -977,6 +977,9 @@
 
             <!-- 🎯 Minervini SEPA 분석 카드: 트렌드 템플릿 + VCP + RS + 거래량 + 종합점수 -->
             <div id="sepaAnalysis"></div>
+
+            <!-- 스윙 분석 카드 — 7개 카테고리 알고리즘 점수 + AI 종합평 (v686) -->
+            <div id="swingAnalysis"></div>
 
             <!-- 💎 보유 Guru (SEC EDGAR 13F 실데이터) -->
             <div id="guruHolders" style="display:none"></div>
@@ -10851,6 +10854,7 @@
             try { renderRaynerAnalysis(); } catch (e) { console.warn('[rayner] render fail', e); }
             try { _renderMultiFactorCard(); } catch (e) { console.warn('[mf] render fail', e); }
             try { renderMinerviniSEPA(); } catch (e) { console.warn('[sepa] render fail', e); }
+            try { renderSwingAnalysis(); } catch (e) { console.warn('[swing] render fail', e); }
             try { if (typeof renderGuruHolders === 'function' && typeof currentSymbol !== 'undefined') renderGuruHolders(currentSymbol); } catch {}
             rrWidgetAutoFill();
             renderRSIMomentum();
@@ -11497,6 +11501,7 @@
             try { renderRaynerAnalysis(); } catch (e) { console.warn('[rayner] render fail', e); }
             try { _renderMultiFactorCard(); } catch (e) { console.warn('[mf] render fail', e); }
             try { renderMinerviniSEPA(); } catch (e) { console.warn('[sepa] render fail', e); }
+            try { renderSwingAnalysis(); } catch (e) { console.warn('[swing] render fail', e); }
             try { if (typeof renderGuruHolders === 'function' && typeof currentSymbol !== 'undefined') renderGuruHolders(currentSymbol); } catch {}
             rrWidgetAutoFill();
             renderRSIMomentum();
@@ -17026,6 +17031,360 @@
                 </div>
             </div>
         `;
+    }
+
+    // ========================================
+    // 스윙 분석 카드 — 7개 카테고리 알고리즘 점수 + AI 종합평 (v686)
+    // ========================================
+    const _swingFundCache = {};   // symbol → {ts, fin}
+    const _SWING_FUND_TTL = 30 * 60 * 1000;
+
+    async function _fetchSwingFundamentals(symbol) {
+        if (!symbol) return null;
+        const c = _swingFundCache[symbol];
+        if (c && Date.now() - c.ts < _SWING_FUND_TTL) return c.fin;
+        try {
+            const res = await fetch(`${API_BASE}/api/page/${symbol}`, { signal: AbortSignal.timeout(8000) });
+            if (!res.ok) return null;
+            const html = await res.text();
+            const m = html.match(/"QuoteSummaryStore":\s*(\{[\s\S]*?\})\s*,\s*"/);
+            if (!m) return null;
+            const store = JSON.parse(m[1]);
+            const sd = store.summaryDetail || {}, fd = store.financialData || {}, ks = store.defaultKeyStatistics || {};
+            const fin = {
+                per: sd.trailingPE?.raw ?? null,
+                forwardPE: sd.forwardPE?.raw ?? ks.forwardPE?.raw ?? null,
+                pbr: sd.priceToBook?.raw ?? ks.priceToBook?.raw ?? null,
+                eps: ks.trailingEps?.raw ?? null,
+                revenueGrowth: fd.revenueGrowth?.raw ?? null,
+                earningsGrowth: fd.earningsGrowth?.raw ?? null,
+                profitMargin: fd.profitMargins?.raw ?? null,
+            };
+            _swingFundCache[symbol] = { ts: Date.now(), fin };
+            return fin;
+        } catch (e) { return null; }
+    }
+
+    // ── 7개 카테고리 알고리즘 점수 ──
+    function _swingScoreTechnical(d) {
+        const { closes, ma5, ma20, ma60, rsi, histogram } = d;
+        if (!closes || closes.length < 30) return { score: 50, reason: '데이터 부족 — 중립' };
+        let score = 50;
+        const reasons = [];
+        const ema200 = calcEMA(closes, 200), ema50 = calcEMA(closes, 50);
+        const stage = _detectMarketStage(closes, ema200, ema50);
+        if (stage) {
+            if (stage.stage === 2) { score += 22; reasons.push('상승추세(Stage 2)'); }
+            else if (stage.stage === 3) { score -= 8; reasons.push('분배 구간'); }
+            else if (stage.stage === 4) { score -= 24; reasons.push('하락추세(Stage 4)'); }
+            else reasons.push('횡보');
+        }
+        const m5 = ma5?.filter(v=>v!=null).pop(), m20 = ma20?.filter(v=>v!=null).pop(), m60 = ma60?.filter(v=>v!=null).pop();
+        if (m5 && m20 && m60) {
+            if (m5 > m20 && m20 > m60) { score += 14; reasons.push('정배열'); }
+            else if (m5 < m20 && m20 < m60) { score -= 14; reasons.push('역배열'); }
+        }
+        const hLast = histogram?.filter(v=>v!=null).pop();
+        if (hLast != null) {
+            if (hLast > 0) { score += 8; reasons.push('MACD 양전환'); }
+            else { score -= 8; reasons.push('MACD 음'); }
+        }
+        const rLast = rsi?.filter(v=>v!=null).pop();
+        if (rLast != null) {
+            if (rLast >= 40 && rLast <= 65) { score += 8; reasons.push(`RSI ${rLast.toFixed(0)} 적정`); }
+            else if (rLast > 75) { score -= 10; reasons.push(`RSI ${rLast.toFixed(0)} 과열`); }
+            else if (rLast < 30) { score -= 6; reasons.push(`RSI ${rLast.toFixed(0)} 과매도`); }
+        }
+        score = Math.max(0, Math.min(100, score));
+        return { score: Math.round(score), reason: reasons.slice(0,3).join(' · ') || '중립' };
+    }
+
+    function _swingScoreVolatility(d) {
+        const { highs, lows, closes, price, bb } = d;
+        if (!closes || closes.length < 20) return { score: 50, reason: '데이터 부족 — 중립' };
+        const atrArr = calcATR(d.quotes.high, d.quotes.low, d.quotes.close);
+        const atr = atrArr.filter(v=>v!=null).pop();
+        if (!atr || !price) return { score: 50, reason: '변동성 측정 불가' };
+        const atrPct = atr / price * 100;
+        let score, reason;
+        // 스윙 적정 ATR 2~5%
+        if (atrPct >= 2 && atrPct <= 5) { score = 85; reason = `ATR ${atrPct.toFixed(1)}% — 스윙 적정 변동성`; }
+        else if (atrPct < 2) { score = 45 + atrPct * 15; reason = `ATR ${atrPct.toFixed(1)}% — 변동성 부족(움직임 둔함)`; }
+        else { score = Math.max(20, 85 - (atrPct - 5) * 9); reason = `ATR ${atrPct.toFixed(1)}% — 변동성 과대(리스크↑)`; }
+        // 볼린저 폭 보정
+        if (bb && bb.upper && bb.lower && bb.middle) {
+            const u = bb.upper.filter(v=>v!=null).pop(), l = bb.lower.filter(v=>v!=null).pop(), mid = bb.middle.filter(v=>v!=null).pop();
+            if (u && l && mid) {
+                const bw = (u - l) / mid * 100;
+                if (bw < 8) { score -= 6; reason += ' · 밴드 수축(스퀴즈)'; }
+            }
+        }
+        score = Math.max(0, Math.min(100, score));
+        return { score: Math.round(score), reason };
+    }
+
+    function _swingScoreRisk(d) {
+        const { closes, volumes, price } = d;
+        if (!closes || closes.length < 30 || !price) return { score: 50, reason: '데이터 부족 — 중립' };
+        if (_isFallingKnife()) return { score: 18, reason: '낙폭과대(falling knife) — 진입 금지 구간' };
+        const atrArr = calcATR(d.quotes.high, d.quotes.low, d.quotes.close);
+        const atr = atrArr.filter(v=>v!=null).pop();
+        if (!atr) return { score: 50, reason: 'ATR 측정 불가' };
+        const stop = price - 1.5 * atr;
+        let target = price * 1.10;
+        try {
+            const prof = calcVolumeProfile(closes, volumes, Math.min(120, closes.length));
+            const res = findResistanceLevels(prof, price);
+            if (res && res.length) target = res[0];
+        } catch (e) {}
+        const risk = price - stop, reward = target - price;
+        if (risk <= 0) return { score: 50, reason: '손절폭 산출 불가' };
+        const rr = reward / risk;
+        let score, reason;
+        if (rr >= 2.5) { score = 90; reason = `R/R ${rr.toFixed(1)} — 손익비 우수`; }
+        else if (rr >= 2) { score = 78; reason = `R/R ${rr.toFixed(1)} — 손익비 양호`; }
+        else if (rr >= 1.5) { score = 62; reason = `R/R ${rr.toFixed(1)} — 손익비 보통`; }
+        else if (rr >= 1) { score = 42; reason = `R/R ${rr.toFixed(1)} — 손익비 부족`; }
+        else { score = 25; reason = `R/R ${rr.toFixed(1)} — 손익비 열위(저항 근접)`; }
+        return { score, reason };
+    }
+
+    function _swingScoreLiquidity(d) {
+        const { volumes, price } = d;
+        if (!volumes || volumes.length < 10 || !price) return { score: 50, reason: '데이터 부족 — 중립' };
+        const recent = volumes.slice(-20).filter(v=>v!=null);
+        const avgVol = recent.reduce((a,b)=>a+b,0) / (recent.length||1);
+        const isKR = currentMarket === 'KR';
+        const dollarVol = avgVol * price;
+        const mcap = stockData?.meta?.marketCap || stockData?.price?.marketCap || 0;
+        let score, reason;
+        // 거래대금 기준 (USD 환산 대략)
+        const dvUsd = isKR ? dollarVol / 1350 : dollarVol;
+        if (dvUsd >= 5e7) { score = 88; reason = '거래대금 풍부 — 진입·청산 원활'; }
+        else if (dvUsd >= 1e7) { score = 70; reason = '거래대금 양호'; }
+        else if (dvUsd >= 2e6) { score = 50; reason = '거래대금 보통 — 분할 주문 권장'; }
+        else { score = 28; reason = '저거래 — 슬리피지·체결 위험'; }
+        if (mcap) {
+            if (mcap >= 1e10) score += 6;
+            else if (mcap < 3e8) score -= 10;
+        }
+        score = Math.max(0, Math.min(100, score));
+        return { score: Math.round(score), reason };
+    }
+
+    function _swingScoreInterest(d) {
+        const { volumes } = d;
+        if (!volumes || volumes.length < 25) return { score: 50, reason: '데이터 부족 — 중립' };
+        const valid = volumes.filter(v=>v!=null);
+        const today = valid[valid.length-1];
+        const base = valid.slice(-21, -1);
+        const avg = base.reduce((a,b)=>a+b,0) / (base.length||1);
+        if (!avg || !today) return { score: 50, reason: '거래량 측정 불가' };
+        const mult = today / avg;
+        let score, reason;
+        if (mult >= 3) { score = 92; reason = `거래량 ${mult.toFixed(1)}배 폭증 — 시장 관심 집중`; }
+        else if (mult >= 1.8) { score = 78; reason = `거래량 ${mult.toFixed(1)}배 증가 — 관심 유입`; }
+        else if (mult >= 1.1) { score = 60; reason = `거래량 ${mult.toFixed(1)}배 — 평이한 관심`; }
+        else if (mult >= 0.7) { score = 45; reason = `거래량 ${mult.toFixed(1)}배 — 관심 저조`; }
+        else { score = 30; reason = `거래량 ${mult.toFixed(1)}배 — 소외 구간`; }
+        return { score, reason };
+    }
+
+    function _swingScoreFundamental(fin) {
+        if (!fin) return { score: 50, reason: '펀더멘탈 데이터 없음 — 중립 처리' };
+        let score = 55;
+        const reasons = [];
+        const per = fin.per ?? fin.forwardPE;
+        if (per != null) {
+            if (per < 0) { score -= 15; reasons.push('적자(PER 음수)'); }
+            else if (per >= 8 && per <= 25) { score += 14; reasons.push(`PER ${per.toFixed(1)} 적정`); }
+            else if (per > 50) { score -= 10; reasons.push(`PER ${per.toFixed(0)} 고평가`); }
+            else if (per > 25) { score -= 3; reasons.push(`PER ${per.toFixed(0)} 다소 높음`); }
+            else { score += 4; reasons.push(`PER ${per.toFixed(1)} 저평가`); }
+        }
+        if (fin.eps != null) {
+            if (fin.eps < 0) { score -= 12; reasons.push('EPS 적자'); }
+            else { score += 6; reasons.push('EPS 흑자'); }
+        }
+        if (fin.revenueGrowth != null) {
+            const g = fin.revenueGrowth * 100;
+            if (g >= 15) { score += 12; reasons.push(`매출성장 +${g.toFixed(0)}%`); }
+            else if (g >= 0) { score += 4; reasons.push(`매출성장 +${g.toFixed(0)}%`); }
+            else { score -= 10; reasons.push(`매출감소 ${g.toFixed(0)}%`); }
+        }
+        if (fin.profitMargin != null && fin.profitMargin > 0.15) { score += 5; reasons.push('이익률 우수'); }
+        score = Math.max(0, Math.min(100, score));
+        return { score: Math.round(score), reason: reasons.slice(0,3).join(' · ') || '중립' };
+    }
+
+    const _SWING_CATS = [
+        { key:'technical',   name:'기술적 분석', icon:'📈', weight:0.25 },
+        { key:'risk',        name:'리스크 관리', icon:'🛡️', weight:0.20 },
+        { key:'fundamental', name:'펀더멘탈',   icon:'🏢', weight:0.15 },
+        { key:'volatility',  name:'변동성',     icon:'📊', weight:0.15 },
+        { key:'liquidity',   name:'유동성',     icon:'💧', weight:0.10 },
+        { key:'news',        name:'시장 뉴스',  icon:'📰', weight:0.08 },
+        { key:'interest',    name:'시장 관심',  icon:'🔥', weight:0.07 },
+    ];
+
+    function _swingColor(s) {
+        if (s >= 75) return '#22c55e';
+        if (s >= 55) return '#eab308';
+        if (s >= 35) return '#f97316';
+        return '#ef4444';
+    }
+    function _swingGrade(s) {
+        if (s >= 75) return { label:'🟢 우수 — 스윙 진입 매력적', color:'#22c55e' };
+        if (s >= 55) return { label:'🟡 양호 — 조건부 진입 검토', color:'#eab308' };
+        if (s >= 35) return { label:'🟠 보통 — 신중한 관망', color:'#f97316' };
+        return { label:'🔴 주의 — 진입 비권장', color:'#ef4444' };
+    }
+
+    function _buildSwingCardHtml(scores, ticker) {
+        let overall = 0;
+        _SWING_CATS.forEach(c => { overall += (scores[c.key]?.score ?? 50) * c.weight; });
+        overall = Math.round(overall);
+        const grade = _swingGrade(overall);
+        const barsHtml = _SWING_CATS.map(c => {
+            const r = scores[c.key] || { score:50, reason:'계산 중...', pending:true };
+            const col = _swingColor(r.score);
+            const pct = Math.max(3, Math.min(100, r.score));
+            return `<div style="margin-bottom:10px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                    <span style="font-size:12px;font-weight:700;color:var(--text);">${c.icon} ${c.name}</span>
+                    <span style="font-size:12px;font-weight:800;color:${col};font-variant-numeric:tabular-nums;">${r.pending?'⏳':r.score}</span>
+                </div>
+                <div style="height:7px;background:var(--bg2);border-radius:100px;overflow:hidden;">
+                    <div style="height:100%;width:${r.pending?0:pct}%;background:${col};border-radius:100px;transition:width .4s;"></div>
+                </div>
+                <div style="font-size:11px;color:var(--text2);margin-top:3px;line-height:1.4;">${escHtml(r.reason||'')}</div>
+            </div>`;
+        }).join('');
+        return `
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;margin:12px 0;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                <div style="font-size:14px;font-weight:900;color:var(--text);">🎯 스윙 분석</div>
+                <div style="font-size:11px;color:var(--text3);">7개 카테고리 종합</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;margin:10px 0 14px;padding:12px;background:var(--bg3);border-radius:10px;">
+                <div style="font-size:32px;font-weight:900;color:${grade.color};font-variant-numeric:tabular-nums;line-height:1;">${overall}</div>
+                <div style="flex:1;">
+                    <div style="font-size:13px;font-weight:800;color:${grade.color};">${grade.label}</div>
+                    <div style="font-size:11px;color:var(--text2);margin-top:2px;">가중 종합 점수 (기술 25% · 리스크 20% · 펀더 15% · 변동성 15% · 유동성 10% · 뉴스 8% · 관심 7%)</div>
+                </div>
+            </div>
+            ${barsHtml}
+            <button id="swingAiBtn" onclick="_runSwingAi('${escHtml(ticker)}')" style="width:100%;margin-top:6px;padding:11px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:800;cursor:pointer;">🤖 AI 종합 분석</button>
+            <div id="swingAnalysis-ai" style="margin-top:10px;"></div>
+            <div style="margin-top:12px;padding:9px 11px;background:var(--bg3);border-radius:8px;font-size:10.5px;color:var(--text3);line-height:1.5;">
+                💡 점수는 룰베이스 알고리즘 자동 산출입니다. 펀더멘탈·뉴스는 외부 데이터 로드 후 갱신됩니다. AI 종합 분석은 버튼 클릭 시에만 호출됩니다.
+            </div>
+        </div>`;
+    }
+
+    async function renderSwingAnalysis() {
+        const el = document.getElementById('swingAnalysis');
+        if (!el) return;
+        if (!stockData || !stockData.indicators) { el.innerHTML = ''; return; }
+        const symbol = currentFullSymbol;
+
+        let d;
+        try { d = getAnalysisData(); } catch (e) { el.innerHTML = ''; return; }
+
+        // 즉시 계산 5종
+        const scores = {
+            technical:  _swingScoreTechnical(d),
+            risk:       _swingScoreRisk(d),
+            volatility: _swingScoreVolatility(d),
+            liquidity:  _swingScoreLiquidity(d),
+            interest:   _swingScoreInterest(d),
+            fundamental:{ score:50, reason:'펀더멘탈 로드 중...', pending:true },
+            news:       { score:50, reason:'뉴스 촉매 확인 중...', pending:true },
+        };
+        el.innerHTML = _buildSwingCardHtml(scores, currentSymbol || symbol || '');
+
+        // 펀더멘탈 (async)
+        _fetchSwingFundamentals(symbol).then(fin => {
+            if (currentFullSymbol !== symbol) return;
+            scores.fundamental = _swingScoreFundamental(fin);
+            const elNow = document.getElementById('swingAnalysis');
+            if (elNow) elNow.innerHTML = _buildSwingCardHtml(scores, currentSymbol || symbol || '');
+        }).catch(()=>{});
+
+        // 뉴스 촉매 (async)
+        (async () => {
+            try {
+                const res = await fetch(`/api/news-reason?symbols=${encodeURIComponent(symbol)}`);
+                if (!res.ok) throw 0;
+                const map = await res.json();
+                const text = map[symbol] || map[currentSymbol] || '';
+                if (text && text.length > 12) {
+                    scores.news = { score: 76, reason: '최근 뉴스 촉매 존재 — ' + text.slice(0, 48) };
+                } else {
+                    scores.news = { score: 48, reason: '특별한 뉴스 촉매 없음 — 중립' };
+                }
+            } catch (e) {
+                scores.news = { score: 50, reason: '뉴스 데이터 없음 — 중립 처리' };
+            }
+            if (currentFullSymbol !== symbol) return;
+            const elNow = document.getElementById('swingAnalysis');
+            if (elNow) elNow.innerHTML = _buildSwingCardHtml(scores, currentSymbol || symbol || '');
+        })();
+    }
+
+    async function _runSwingAi(ticker) {
+        const out = document.getElementById('swingAnalysis-ai');
+        const btn = document.getElementById('swingAiBtn');
+        if (!out) return;
+        // 현재 카드에서 점수 수집
+        const el = document.getElementById('swingAnalysis');
+        const cats = [];
+        if (el) {
+            // scores 재계산
+            try {
+                const d = getAnalysisData();
+                const fin = _swingFundCache[currentFullSymbol]?.fin || null;
+                const live = {
+                    technical:_swingScoreTechnical(d), risk:_swingScoreRisk(d),
+                    volatility:_swingScoreVolatility(d), liquidity:_swingScoreLiquidity(d),
+                    interest:_swingScoreInterest(d), fundamental:_swingScoreFundamental(fin),
+                };
+                _SWING_CATS.forEach(c => {
+                    if (live[c.key]) cats.push({ name:c.name, score:live[c.key].score, reason:live[c.key].reason });
+                });
+            } catch (e) {}
+        }
+        if (!cats.length) { out.innerHTML = '<div style="font-size:12px;color:var(--text2);">점수 데이터를 읽을 수 없습니다.</div>'; return; }
+        let overall = 0, wsum = 0;
+        _SWING_CATS.forEach((c,i) => { if(cats[i]){ overall += cats[i].score*c.weight; wsum += c.weight; } });
+        overall = Math.round(overall / (wsum||1));
+        if (btn) { btn.disabled = true; btn.textContent = '🤖 AI 분석 중...'; btn.style.opacity = '0.6'; }
+        out.innerHTML = '<div style="font-size:12px;color:var(--text2);padding:8px;">🤖 Gemini 종합 분석 중...</div>';
+        try {
+            const res = await fetch('/api/swing/ai-analyze', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ ticker, categories: cats, overallScore: overall }),
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const ai = await res.json();
+            out.innerHTML = _buildSwingAiHtml(ai);
+        } catch (e) {
+            out.innerHTML = `<div style="font-size:12px;color:var(--red);padding:8px;">AI 분석 실패: ${escHtml(e.message||'')}</div>`;
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = '🤖 AI 종합 분석 다시'; btn.style.opacity = '1'; }
+        }
+    }
+
+    function _buildSwingAiHtml(ai) {
+        if (!ai || typeof ai !== 'object') return '<div style="font-size:12px;color:var(--text2);">분석 결과 없음</div>';
+        const row = (label, val, col) => val ? `<div style="margin-top:7px;"><span style="font-size:11px;font-weight:800;color:${col||'var(--text2)'};">${label}</span><div style="font-size:12px;color:var(--text);line-height:1.55;margin-top:2px;">${escHtml(val)}</div></div>` : '';
+        return `<div class="cat-ai-card">
+            ${ai.verdict ? `<div style="font-size:13px;font-weight:900;color:var(--text);margin-bottom:4px;">🤖 ${escHtml(ai.verdict)}</div>` : ''}
+            ${ai.summary ? `<div style="font-size:12px;color:var(--text);line-height:1.6;">${escHtml(ai.summary)}</div>` : ''}
+            ${row('💪 강점', ai.strength, '#22c55e')}
+            ${row('⚠️ 약점', ai.weakness, '#ef4444')}
+            ${row('🎯 스윙 적합도', ai.swingFit, '#6366f1')}
+        </div>`;
     }
 
     // ========================================
@@ -22566,7 +22925,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         toggleChartSigLines, toggleChartKimLines, toggleChartSmbLayer,
         handleSearchKeydown, openSearchDropdown, closeSearchDropdown, searchSuggest, levenshtein,
         renderDayUnified, renderDanteAnalysis, runDanteBacktest,
-        renderRRAnalysis, renderRaynerAnalysis, renderMinerviniSEPA, renderRSIMomentum, analyzeRSIDynamic,
+        renderRRAnalysis, renderRaynerAnalysis, renderMinerviniSEPA, renderSwingAnalysis, _runSwingAi, renderRSIMomentum, analyzeRSIDynamic,
         renderMACDSignal, analyzeMACDRayner, _applyRRGate, _isFallingKnife,
         toggleChecklist,
         calcRRWidget, rrWidgetAutoFill, rrCalcEntryChanged,

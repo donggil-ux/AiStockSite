@@ -2636,6 +2636,88 @@ app.post('/api/scanner/ai-analyze', express.json({ limit: '32kb' }), async (req,
     }
 });
 
+// ──────────────────────────────────────────────────────────────────────
+// 스윙 분석 카드 AI 종합평 (v686) — gemini-3.1-flash-lite
+//   알고리즘이 산출한 7개 카테고리 점수를 종합해 한 문단 코멘트 생성
+//   캐시 1시간 LRU 300개. 키 = ticker_swing
+// ──────────────────────────────────────────────────────────────────────
+const SWING_AI_MODEL = 'gemini-3.1-flash-lite';
+const SWING_AI_TTL = 60 * 60 * 1000;
+const SWING_AI_MAX_CACHE = 300;
+const _swingAiCache = new Map();
+
+async function _geminiSwingAnalyze(ticker, categories, overallScore) {
+    if (!process.env.GEMINI_API_KEY) return null;
+    if (!ticker || !Array.isArray(categories) || !categories.length) return null;
+    const key = `${ticker}_swing`;
+    const cached = _swingAiCache.get(key);
+    if (cached && Date.now() < cached.expiresAt) {
+        return { ...cached.data, _cached: true };
+    }
+
+    const catLines = categories
+        .map(c => `- ${c.name}: ${c.score}점 — ${(c.reason || '').slice(0, 100)}`)
+        .join('\n');
+    const prompt = `당신은 스윙 트레이딩 전문 분석가입니다.
+
+종목: ${ticker}
+알고리즘 종합 점수: ${overallScore}/100
+
+7개 카테고리 점수 (룰베이스 알고리즘 산출):
+${catLines}
+
+위 점수를 종합해 스윙 트레이딩(수일~수주 보유) 관점에서 평가해주세요.
+다음 JSON 으로만 답변 (모두 한국어, 사실 기반, 과장 금지):
+{
+  "verdict": "한 줄 종합 판정 (예: 스윙 진입 매력적 / 조건부 관찰 / 진입 비권장)",
+  "summary": "2~3줄 종합 코멘트 — 점수가 말하는 핵심",
+  "strength": "가장 강한 축 1개와 그 이유 (1줄)",
+  "weakness": "가장 약한 축 1개와 주의점 (1줄)",
+  "swingFit": "스윙 트레이딩 적합도 한 줄 평 (진입 타이밍·손절 관점)"
+}`;
+
+    try {
+        const genAI = getGenAI();
+        const model = genAI.getGenerativeModel({
+            model: SWING_AI_MODEL,
+            generationConfig: { temperature: 0.35, responseMimeType: 'application/json' },
+        });
+        const r = await model.generateContent(prompt);
+        const parsed = _extractJsonFromGeminiResponse(r.response.text());
+        if (!parsed) return null;
+        const tokensIn  = r.response.usageMetadata?.promptTokenCount || 0;
+        const tokensOut = r.response.usageMetadata?.candidatesTokenCount || 0;
+        const cost = tokensIn * CATALYST_AI_PRICE_IN + tokensOut * CATALYST_AI_PRICE_OUT;
+        _catalystAiLogUsage({ tokensIn, tokensOut, cost });
+
+        if (_swingAiCache.size >= SWING_AI_MAX_CACHE) {
+            const oldest = _swingAiCache.keys().next().value;
+            if (oldest) _swingAiCache.delete(oldest);
+        }
+        _swingAiCache.set(key, { data: parsed, expiresAt: Date.now() + SWING_AI_TTL });
+        return parsed;
+    } catch (e) {
+        console.warn('[swing-ai]', e.message);
+        return null;
+    }
+}
+
+// POST /api/swing/ai-analyze — 스윙 분석 카드 AI 버튼 (사용자 수동 트리거)
+app.post('/api/swing/ai-analyze', express.json({ limit: '32kb' }), async (req, res) => {
+    try {
+        const { ticker, categories, overallScore } = req.body || {};
+        if (!ticker || !Array.isArray(categories) || !categories.length) {
+            return res.status(400).json({ error: 'ticker, categories required' });
+        }
+        const result = await _geminiSwingAnalyze(ticker, categories, overallScore || 0);
+        if (!result) return res.status(503).json({ error: 'AI 분석 실패 — GEMINI_API_KEY 누락 또는 호출 오류' });
+        res.json(result);
+    } catch (err) {
+        console.error('[swing-ai-analyze]', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // POST /api/scanner/ai-batch — 알파 스캐너 자동 일괄 검증 (v677)
 //   최대 15개 종목, 동시 6개씩 처리 (Vercel timeout 여유)
 //   캐시 적중률 따라 빠르게 반환 (1h LRU)
