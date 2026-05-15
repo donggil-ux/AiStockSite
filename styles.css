@@ -5002,7 +5002,10 @@
    차트 인터벌 — 분봉 드롭다운 + 일/주/월/년 버튼
    ================================================================== */
 .interval-dropdown{
-    position:relative; display:inline-block; z-index:1500;
+    /* z-index 제거 — 1500 이면 stacking context 가 헤더(1100)·탭바(1001) 위로
+       올라가, 스크롤 시 분봉 버튼이 상단 고정바 위에 떠 보이던 버그 원인.
+       드롭다운 메뉴(.interval-dd-menu)는 position:fixed+z-index 로 자체 처리됨. */
+    position:relative; display:inline-block;
 }
 .interval-dd-btn{
     display:inline-flex; align-items:center; gap:4px;
