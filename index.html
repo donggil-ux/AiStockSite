@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=686">
+    <link rel="stylesheet" href="/styles.css?v=687">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -17149,6 +17149,103 @@
         return { score, reason };
     }
 
+    // ── 1차/2차 분할 진입 플랜 (v687) ──
+    function _swingEntryPlan(d) {
+        const { closes, highs, lows, volumes, price, ma20, ma60 } = d;
+        if (!closes || closes.length < 30 || !price) {
+            return { recommend: false, note: '데이터 부족 — 진입가 산출 불가' };
+        }
+        // 추세 판정 — 진입 금지 케이스
+        if (_isFallingKnife()) {
+            return { recommend: false, note: '낙폭과대(falling knife) — 추세 반전 확인 후 재검토' };
+        }
+        try {
+            const ema200 = calcEMA(closes, 200), ema50 = calcEMA(closes, 50);
+            const stage = _detectMarketStage(closes, ema200, ema50);
+            if (stage && stage.stage === 4) {
+                return { recommend: false, note: '하락추세(Stage 4) — 진입 비권장, 추세 전환 대기' };
+            }
+        } catch (e) {}
+
+        const atrArr = calcATR(d.quotes.high, d.quotes.low, d.quotes.close);
+        const atr = atrArr.filter(v => v != null).pop() || price * 0.02;
+        const m20 = (ma20 || []).filter(v => v != null).pop() || null;
+        const m60 = (ma60 || []).filter(v => v != null).pop() || null;
+        const validLows = (lows || []).slice(-20).filter(v => v != null && v > 0);
+        const swingLow20 = validLows.length ? Math.min(...validLows) : null;
+
+        // ── 1차 진입가 — 눌림목(지지) 기반 ──
+        const supportCands = [];
+        if (m20 != null && m20 <= price * 1.005) supportCands.push({ p: m20, label: 'MA20 눌림목' });
+        if (swingLow20 != null && swingLow20 <= price * 1.005) supportCands.push({ p: swingLow20, label: '최근 저점 지지' });
+        let entry1, basis1;
+        if (supportCands.length) {
+            // 현재가에 가장 가까운(=가장 높은) 지지 후보
+            supportCands.sort((a, b) => b.p - a.p);
+            const top = supportCands[0];
+            if (price <= top.p * 1.01) { entry1 = price; basis1 = '현재가 — 지지선 근접'; }
+            else { entry1 = top.p; basis1 = top.label; }
+        } else {
+            entry1 = price * 0.985; basis1 = '단기 풀백(-1.5%)';
+        }
+
+        // ── 2차 진입가 — 더 깊은 추가매수 자리 ──
+        const atrBased = entry1 - atr;
+        let entry2, basis2;
+        if (m60 != null && m60 < entry1 * 0.985 && m60 < atrBased * 1.02) {
+            entry2 = m60; basis2 = 'MA60 추가매수';
+        } else {
+            entry2 = atrBased; basis2 = 'ATR 1배 하단';
+        }
+        // 1차보다 충분히 낮게 클램프
+        if (entry2 > entry1 * 0.97) { entry2 = entry1 * 0.97; basis2 = '1차 -3% 추가매수'; }
+
+        // ── 손절 · 목표 · R/R ──
+        let stop = entry2 - atr;
+        const stopFloor = entry1 * 0.88; // 1차 대비 -12% 클램프
+        if (stop < stopFloor) stop = stopFloor;
+        let target = price * 1.12;
+        try {
+            const prof = calcVolumeProfile(closes, volumes, Math.min(120, closes.length));
+            const res = findResistanceLevels(prof, price);
+            if (res && res.length && res[0] > entry1) target = res[0];
+        } catch (e) {}
+        const risk = entry1 - stop;
+        const rr = risk > 0 ? (target - entry1) / risk : 0;
+
+        return { recommend: true, entry1, entry2, stop, target, rr, basis1, basis2 };
+    }
+
+    function _buildSwingEntryHtml(plan) {
+        const isKR = currentMarket === 'KR';
+        const fmtP = p => p == null ? '-' : (isKR ? Math.round(p).toLocaleString() + '원' : '$' + p.toFixed(2));
+        if (!plan || !plan.recommend) {
+            return `<div style="margin:12px 0;padding:11px 13px;background:var(--bg3);border:1px solid var(--border);border-radius:9px;">
+                <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:3px;">🎯 분할 진입 플랜</div>
+                <div style="font-size:11.5px;color:var(--text2);line-height:1.5;">⚠️ ${escHtml(plan?.note || '진입가 산출 불가')}</div>
+            </div>`;
+        }
+        const rrCol = plan.rr >= 2 ? '#22c55e' : plan.rr >= 1.5 ? '#eab308' : '#ef4444';
+        const cell = (label, val, col, cap) => `<div style="text-align:center;">
+            <div style="font-size:10px;color:var(--text2);font-weight:700;">${label}</div>
+            <div style="font-size:14px;font-weight:800;color:${col};margin-top:3px;font-variant-numeric:tabular-nums;">${val}</div>
+            ${cap ? `<div style="font-size:9.5px;color:var(--text3);margin-top:2px;line-height:1.3;">${escHtml(cap)}</div>` : ''}
+        </div>`;
+        return `<div style="margin:12px 0;padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;">
+            <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:9px;">🎯 분할 진입 플랜</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:9px;">
+                ${cell('1차 진입가', fmtP(plan.entry1), '#3b82f6', plan.basis1)}
+                ${cell('2차 진입가 (추가매수)', fmtP(plan.entry2), '#6366f1', plan.basis2)}
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding-top:9px;border-top:1px solid var(--border);">
+                ${cell('손절가', fmtP(plan.stop), '#ef4444', '')}
+                ${cell('1차 목표가', fmtP(plan.target), '#22c55e', '')}
+                ${cell('R/R', plan.rr.toFixed(1), rrCol, plan.rr >= 2 ? '우수' : plan.rr >= 1.5 ? '양호' : '주의')}
+            </div>
+            <div style="font-size:10px;color:var(--text3);margin-top:8px;line-height:1.45;">💡 1차에서 비중 일부 진입 후 2차에서 분할 추가매수. 손절가 이탈 시 전량 정리. R/R 1.5 미만은 진입 신중.</div>
+        </div>`;
+    }
+
     function _swingScoreLiquidity(d) {
         const { volumes, price } = d;
         if (!volumes || volumes.length < 10 || !price) return { score: 50, reason: '데이터 부족 — 중립' };
@@ -17240,7 +17337,7 @@
         return { label:'🔴 주의 — 진입 비권장', color:'#ef4444' };
     }
 
-    function _buildSwingCardHtml(scores, ticker) {
+    function _buildSwingCardHtml(scores, ticker, d) {
         let overall = 0;
         _SWING_CATS.forEach(c => { overall += (scores[c.key]?.score ?? 50) * c.weight; });
         overall = Math.round(overall);
@@ -17274,6 +17371,7 @@
                 </div>
             </div>
             ${barsHtml}
+            ${d ? _buildSwingEntryHtml(_swingEntryPlan(d)) : ''}
             <button id="swingAiBtn" onclick="_runSwingAi('${escHtml(ticker)}')" style="width:100%;margin-top:6px;padding:11px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:800;cursor:pointer;">🤖 AI 종합 분석</button>
             <div id="swingAnalysis-ai" style="margin-top:10px;"></div>
             <div style="margin-top:12px;padding:9px 11px;background:var(--bg3);border-radius:8px;font-size:10.5px;color:var(--text3);line-height:1.5;">
@@ -17301,14 +17399,14 @@
             fundamental:{ score:50, reason:'펀더멘탈 로드 중...', pending:true },
             news:       { score:50, reason:'뉴스 촉매 확인 중...', pending:true },
         };
-        el.innerHTML = _buildSwingCardHtml(scores, currentSymbol || symbol || '');
+        el.innerHTML = _buildSwingCardHtml(scores, currentSymbol || symbol || '', d);
 
         // 펀더멘탈 (async)
         _fetchSwingFundamentals(symbol).then(fin => {
             if (currentFullSymbol !== symbol) return;
             scores.fundamental = _swingScoreFundamental(fin);
             const elNow = document.getElementById('swingAnalysis');
-            if (elNow) elNow.innerHTML = _buildSwingCardHtml(scores, currentSymbol || symbol || '');
+            if (elNow) elNow.innerHTML = _buildSwingCardHtml(scores, currentSymbol || symbol || '', d);
         }).catch(()=>{});
 
         // 뉴스 촉매 (async)
@@ -17328,7 +17426,7 @@
             }
             if (currentFullSymbol !== symbol) return;
             const elNow = document.getElementById('swingAnalysis');
-            if (elNow) elNow.innerHTML = _buildSwingCardHtml(scores, currentSymbol || symbol || '');
+            if (elNow) elNow.innerHTML = _buildSwingCardHtml(scores, currentSymbol || symbol || '', d);
         })();
     }
 
