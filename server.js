@@ -3110,9 +3110,10 @@ app.get('/api/catalyst/hunter', async (req, res) => {
                 else if (preGapPct >= 5)  score += 3;
             }
 
-            const grade = score >= 75 ? '🚨 긴급 포착' : score >= 55 ? '🔴 강한 신호' : score >= 35 ? '🟠 관심 후보' : null;
+            // 점수 컷 35 → 25 완화 (v680) — 한산한 시간대에도 후보 노출
+            const grade = score >= 75 ? '🚨 긴급 포착' : score >= 55 ? '🔴 강한 신호' : score >= 35 ? '🟠 관심 후보' : score >= 25 ? '⚪ 약한 신호' : null;
             if (!grade) return null;
-            const gradeColor = score >= 75 ? '#ef4444' : score >= 55 ? '#dc2626' : '#f97316';
+            const gradeColor = score >= 75 ? '#ef4444' : score >= 55 ? '#dc2626' : score >= 35 ? '#f97316' : '#94a3b8';
 
             // ATR — Alpaca 일봉 기반 정확 계산 우선, 없으면 일중 변동폭 휴리스틱
             const dayHigh = (hasAlpaca && ap.todayHigh) || q.regularMarketDayHigh || price;
