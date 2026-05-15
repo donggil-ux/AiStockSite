@@ -2396,6 +2396,9 @@ JSON으로만 답변:
 - 본문 요약: ${filingAnalysis.summary || ''}
 - 등급: ${filingAnalysis.catalystGrade || '?'}
 
+공시 본문 (첫 1500자):
+${filingText}
+
 현재 시장:
 - 시총: $${md.marketCap || 0}
 - 주가: $${md.price || 0} (24h 변동률 ${md.priceChange24h ?? 0}%)
@@ -2413,6 +2416,15 @@ JSON으로만 답변:
 6. 늦은 진입 — 거래량이 너무 폭발했음
 7. 단기 반등 후 급락 — 데드캣 바운스 위험
 
+CRITICAL RISK CHECK (필수 — 독성 자금조달 탐지):
+8-K 본문과 회사의 최근 공시에서 'Toxic Financing'(독성 자금조달)·주주가치 희석 징후를 면밀히 스캔하라.
+특히 다음 키워드를 집중적으로 찾아라: 'Direct Offering', 'Warrants', 'Convertible Notes',
+'Shelf Registration', 'ATM (At-the-Market) offering', 'Reverse Split'.
+이러한 희석 위험이 하나라도 감지되면, totalRisk 를 반드시 최대치(70)로 설정하고,
+recommendation 을 반드시 '회피' 로 지정하며, reasoning(과 keyPoints)에 어떤 희석 위험이
+감지됐는지 명시적으로 기술하라. 이는 '호재 발표 직후 유상증자'로 개미를 털어가는
+펌프앤덤프를 회피하기 위한 최우선 점검 항목이다.
+
 JSON:
 {
   "totalRisk": 0~70,
@@ -2425,10 +2437,11 @@ JSON:
     "lateEntry": 0~10,
     "reversalRisk": 0~10
   },
+  "dilutionRisk": true/false,
   "verdict": "안전/주의/위험/매우위험",
   "recommendation": "진입가능/관망/회피",
   "entryTiming": "즉시/조정대기/관망",
-  "reasoning": "근거 2~3줄 (한국어)"
+  "reasoning": "근거 2~3줄 (한국어 — 희석 위험 감지 시 반드시 명시)"
 }`;
     try {
         const r2 = await model.generateContent(prompt2);
@@ -3178,11 +3191,22 @@ app.get('/api/catalyst/hunter', async (req, res) => {
             let score = 0;
             score += c.keywordScore;                                        // 10/20/30
             score += _catalystFreshnessScore(c.updated);                    // 0~20
-            if (volRatio >= 10)     score += 25;
-            else if (volRatio >= 5) score += 20;
-            else if (volRatio >= 3) score += 15;
-            else if (volRatio >= 2) score += 10;
-            else if (volRatio >= 1) score += 5;
+
+            // v693 #2 — 거래량 점수: Float Turnover(유통주식 회전율) 우선, 미상 시 volRatio 폴백
+            const turnoverRatio = floatShares > 0 ? vol / floatShares : null;
+            if (turnoverRatio != null) {
+                if (turnoverRatio >= 0.5)      score += 25;  // 유통주식 50%+ 손바뀜 — 강한 수급
+                else if (turnoverRatio >= 0.2) score += 15;  // 20%+ 손바뀜
+                else if (turnoverRatio >= 0.1) score += 8;
+                else if (volRatio >= 2)        score += 5;
+            } else {
+                // Float 데이터 미상 → 기존 volRatio 기반 폴백
+                if (volRatio >= 10)     score += 25;
+                else if (volRatio >= 5) score += 20;
+                else if (volRatio >= 3) score += 15;
+                else if (volRatio >= 2) score += 10;
+                else if (volRatio >= 1) score += 5;
+            }
             if (shortFloatPct >= 30)      score += 15;
             else if (shortFloatPct >= 20) score += 12;
             else if (shortFloatPct >= 10) score += 8;
@@ -3193,6 +3217,33 @@ app.get('/api/catalyst/hunter', async (req, res) => {
                 else if (preGapPct >= 10) score += 5;
                 else if (preGapPct >= 5)  score += 3;
             }
+
+            // v693 #1 — 기술적 컨텍스트: 바닥 턴어라운드 호재 가점 / 과열 감점
+            let rsi14 = null;
+            if (Array.isArray(barsArr) && barsArr.length >= 15) {
+                rsi14 = _radarCalcRSI14(barsArr.map(b => b.c).filter(v => v != null));
+            }
+            const ma200 = q.twoHundredDayAverage || null;
+            let turnaroundCatalyst = false;
+            if (rsi14 != null && ma200 && price < ma200 && rsi14 <= 35) {
+                score += 15; turnaroundCatalyst = true;   // 과매도 바닥 + 호재 = 턴어라운드
+            } else if (rsi14 != null && rsi14 >= 70) {
+                score -= 15;                              // 과열 — 소문에 사고 뉴스에 파는 위험
+            }
+
+            // v693 #3 — 실적발표 임박(D-3) 경고. 제외하지 않고 UI 경고 배지만 부착
+            let earningsWarning = false, earningsDaysAway = null;
+            const earnTs = q.earningsTimestamp || q.earningsTimestampStart || 0;
+            if (earnTs) {
+                const daysAway = (earnTs * 1000 - Date.now()) / 86400000;
+                if (daysAway >= 0 && daysAway <= 3) {
+                    // 예외: 8-K 자체가 실적 공시(Item 2.02)면 경고 불필요
+                    const titleLc = (c.title || '').toLowerCase();
+                    const isEarningsFiling = /results of operations|item 2\.02|quarterly results|earnings release|financial results/.test(titleLc);
+                    if (!isEarningsFiling) { earningsWarning = true; earningsDaysAway = Math.max(0, Math.ceil(daysAway)); }
+                }
+            }
+            if (score < 0) score = 0;
 
             // 점수 컷 35 → 25 완화 (v680) — 한산한 시간대에도 후보 노출
             const grade = score >= 75 ? '🚨 긴급 포착' : score >= 55 ? '🔴 강한 신호' : score >= 35 ? '🟠 관심 후보' : score >= 25 ? '⚪ 약한 신호' : null;
@@ -3217,6 +3268,12 @@ app.get('/api/catalyst/hunter', async (req, res) => {
                 volume: vol,
                 avgVolume: avgVol,
                 volRatio: +volRatio.toFixed(2),
+                turnoverRatio: turnoverRatio != null ? +turnoverRatio.toFixed(3) : null,
+                rsi: rsi14,
+                ma200: ma200 ? +ma200.toFixed(2) : null,
+                turnaroundCatalyst,
+                earningsWarning,
+                earningsDaysAway,
                 shortFloatPct: +shortFloatPct.toFixed(2),
                 shortRatio: +shortRatio.toFixed(2),
                 preGapPct: preGapPct != null ? +preGapPct.toFixed(2) : null,

@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=691">
+    <link rel="stylesheet" href="/styles.css?v=693">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -7964,6 +7964,9 @@
             const ra = ai?.riskAnalysis || null;
             const fresh = f.updated && (Date.now() - new Date(f.updated).getTime()) < 3600 * 1000;
             const tagsHtml = (f.keywordTags || []).slice(0,3).map(t => `<span class="catalyst-tag">${escHtml(t)}</span>`).join('');
+            // v693 — 바닥 턴어라운드 호재 태그 + D-3 실적발표 경고 배지
+            const turnTag = r.turnaroundCatalyst ? `<span class="catalyst-tag catalyst-tag--turn">📉➡️📈 바닥 턴어라운드 호재</span>` : '';
+            const earnWarnHtml = r.earningsWarning ? `<div class="catalyst-earn-warn">⚠️ D-${r.earningsDaysAway ?? 3} 실적발표 임박 — 정규 실적이 변수로 작용할 수 있음</div>` : '';
 
             // AI 자동 분석 결과 (v671)
             const highRisk = (ra?.totalRisk ?? 0) >= 50;
@@ -7979,7 +7982,7 @@
                 </div>` : '';
             const topPriBadge = isTopPri ? '<span class="catalyst-priority">🔥 최고 우선순위</span>' : '';
             const highRiskBanner = highRisk ? `
-                <div class="catalyst-risk-banner">🚨 AI가 위험 신호 감지 — 진입 비권장 (위험도 ${ra.totalRisk}/70)</div>` : '';
+                <div class="catalyst-risk-banner">🚨 ${ra?.dilutionRisk ? 'AI가 <b>주주가치 희석(독성 자금조달)</b> 위험 감지' : 'AI가 위험 신호 감지'} — 진입 비권장 (위험도 ${ra.totalRisk}/70)</div>` : '';
 
             // AI 확장 영역 (자동 분석 있으면 상시 펼침, 없으면 수동 버튼)
             const cardId = `ccard-${r.ticker}-${idx}`;
@@ -8015,13 +8018,17 @@
                     <div class="catalyst-grade" style="background:${r.gradeColor};color:#fff">${escHtml(r.grade)} · ${r.score}</div>
                 </div>
                 <div class="catalyst-title">${escHtml((f.title || '').slice(0, 100))}</div>
+                ${earnWarnHtml}
                 ${aiBadgeHtml}
-                <div class="catalyst-tags">${tagsHtml}</div>
+                <div class="catalyst-tags">${turnTag}${tagsHtml}</div>
                 <div class="catalyst-meta-row">
                     <span class="catalyst-meta-cell">⏰ ${_ago(f.updated)}</span>
                     <span class="catalyst-meta-cell">💰 ${_fmtP(r.price)}</span>
                     <span class="catalyst-meta-cell">🏢 ${_fmtMc(r.marketCap)}</span>
-                    <span class="catalyst-meta-cell">📊 거래량 ×${r.volRatio.toFixed(1)}</span>
+                    ${r.turnoverRatio != null
+                        ? `<span class="catalyst-meta-cell">🔄 회전율 ${(r.turnoverRatio * 100).toFixed(0)}%</span>`
+                        : `<span class="catalyst-meta-cell">📊 거래량 ×${r.volRatio.toFixed(1)}</span>`}
+                    ${r.rsi != null ? `<span class="catalyst-meta-cell">📐 RSI ${r.rsi}</span>` : ''}
                     ${r.shortFloatPct ? `<span class="catalyst-meta-cell">🩳 숏Float ${r.shortFloatPct.toFixed(1)}%</span>` : ''}
                     ${r.preGapPct != null ? `<span class="catalyst-meta-cell ${r.preGapPct >= 0 ? 'up':'down'}">🌅 프리 ${r.preGapPct >= 0 ? '+':''}${r.preGapPct.toFixed(1)}%</span>` : ''}
                 </div>
