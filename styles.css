@@ -329,7 +329,7 @@
         .dp-chip,
         .radar-tab,
         .earn-date-chip,
-        .earn-topnav-actions .earn-chip,
+        .earn-chip-group .earn-chip,
         .alpha-tab,
         .sm-sub-tab{
             position:relative;
@@ -354,21 +354,21 @@
         .dp-chip:hover:not(.active),
         .radar-tab:hover:not(.active),
         .earn-date-chip:hover:not(.active),
-        .earn-topnav-actions .earn-chip:hover:not(.active),
+        .earn-chip-group .earn-chip:hover:not(.active),
         .alpha-tab:hover:not(.active),
         .sm-sub-tab:hover:not(.active){color:rgba(60,60,67,0.46)!important;background:transparent!important;}
         [data-theme="light"] .top100-filter,
         [data-theme="light"] .dp-chip,
         [data-theme="light"] .radar-tab,
         [data-theme="light"] .earn-date-chip,
-        [data-theme="light"] .earn-topnav-actions .earn-chip,
+        [data-theme="light"] .earn-chip-group .earn-chip,
         [data-theme="light"] .alpha-tab,
         [data-theme="light"] .sm-sub-tab{color:rgba(60,60,67,0.46)!important;}
         [data-theme="dark"] .top100-filter:not(.active),
         [data-theme="dark"] .dp-chip:not(.active),
         [data-theme="dark"] .radar-tab:not(.active),
         [data-theme="dark"] .earn-date-chip:not(.active),
-        [data-theme="dark"] .earn-topnav-actions .earn-chip:not(.active),
+        [data-theme="dark"] .earn-chip-group .earn-chip:not(.active),
         [data-theme="dark"] .alpha-tab:not(.active),
         [data-theme="dark"] .sm-sub-tab:not(.active){color:rgba(235,235,245,0.46)!important;}
 
@@ -376,7 +376,7 @@
         .dp-chip.active,
         .radar-tab.active,
         .earn-date-chip.active,
-        .earn-topnav-actions .earn-chip.active,
+        .earn-chip-group .earn-chip.active,
         .alpha-tab.active,
         .sm-sub-tab.active{
             background:#FFFFFF!important;
@@ -391,7 +391,7 @@
         [data-theme="dark"] .dp-chip.active,
         [data-theme="dark"] .radar-tab.active,
         [data-theme="dark"] .earn-date-chip.active,
-        [data-theme="dark"] .earn-topnav-actions .earn-chip.active,
+        [data-theme="dark"] .earn-chip-group .earn-chip.active,
         [data-theme="dark"] .alpha-tab.active,
         [data-theme="dark"] .sm-sub-tab.active{
             background:rgba(118,118,128,0.36)!important;
@@ -401,7 +401,7 @@
         .dp-chip:hover:not(.active),
         .radar-tab:hover:not(.active),
         .earn-date-chip:hover:not(.active),
-        .earn-topnav-actions .earn-chip:hover:not(.active),
+        .earn-chip-group .earn-chip:hover:not(.active),
         .alpha-tab:hover:not(.active),
         .sm-sub-tab:hover:not(.active){opacity:.7;}
         /* 알파 스캐너 설명·결과 영역 */
@@ -4162,7 +4162,7 @@
     /* flex:1 데스크탑 값 무력화 → 풀 너비 강제 */
     .earn-topnav-actions { order: 2; padding-top: 8px; flex-wrap: wrap; row-gap: 8px; width: 100%; flex: 0 0 100%; min-width: 0; }
     .earn-chip-group { margin-right: 8px; }
-    .earn-date-chip, .earn-topnav-actions .earn-chip { height: 28px; padding: 0 10px; font-size: 12px; }
+    .earn-date-chip, .earn-chip-group .earn-chip { height: 28px; padding: 0 10px; font-size: 12px; }
     /* 검색창: 새 줄 + 풀 너비 */
     .earn-topnav-search { width: 100%; margin-left: 0; padding-right: 0; flex: 0 0 100%; }
     .earn-topnav-search input { width: 100%; height: 34px; box-sizing: border-box; }
@@ -4176,53 +4176,76 @@
 }
 .earn-grid{display:flex; flex-direction:column; gap:12px;}
 
-/* ===== 주간 실적 캘린더 (v712) ===== */
+/* ===== 주간 실적 캘린더 — 스와이프형 (v714) ===== */
 .earn-week-nav{display:flex;align-items:center;justify-content:center;gap:10px;margin:10px 0 4px;}
-.earn-wk-btn{width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--bg2);
-    color:var(--text);font-size:18px;line-height:1;cursor:pointer;flex-shrink:0;transition:background .15s;}
+.earn-wk-btn{width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--bg2);
+    color:var(--text);font-size:19px;line-height:1;cursor:pointer;flex-shrink:0;transition:background .15s;}
 .earn-wk-btn:hover:not(:disabled){background:var(--bg3);}
 .earn-wk-btn:disabled{opacity:.32;cursor:default;}
-.earn-wk-label{font-size:14px;font-weight:800;color:var(--text);min-width:170px;text-align:center;}
-.earn-cal-filters{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0 12px;}
+.earn-wk-label{font-size:14.5px;font-weight:800;color:var(--text);min-width:180px;text-align:center;}
+.earn-cal-filters{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0 14px;}
 .earn-cal-loading,.disc-empty-inline{padding:30px 12px;text-align:center;color:var(--text3);font-size:13px;}
 
-.earn-cal-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;align-items:start;}
-.earn-cal-day{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;min-height:90px;}
-.earn-cal-day.is-today{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue);}
-.earn-cal-day.is-past{opacity:.62;}
-.earn-cal-dayhd{display:flex;align-items:baseline;gap:4px;padding:7px 8px 5px;border-bottom:1px solid var(--border);
-    background:var(--bg3);}
+/* 가로 스와이프 캐러셀 — 하루 = 1 칼럼 */
+.earn-cal-grid{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x proximity;
+    -webkit-overflow-scrolling:touch;padding:2px 2px 10px;align-items:flex-start;}
+.earn-cal-grid::-webkit-scrollbar{height:6px;}
+.earn-cal-grid::-webkit-scrollbar-thumb{background:var(--border);border-radius:100px;}
+.earn-cal-day{flex:0 0 340px;max-width:86vw;scroll-snap-align:start;
+    background:var(--bg2);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
+.earn-cal-day.is-today{border-color:var(--blue);box-shadow:0 0 0 1.5px var(--blue);}
+.earn-cal-day.is-past{opacity:.7;}
+.earn-cal-dayhd{display:flex;align-items:baseline;gap:6px;padding:13px 14px 11px;
+    border-bottom:1px solid var(--border);background:var(--bg3);}
 .earn-cal-day.is-today .earn-cal-dayhd{background:rgba(0,128,251,.14);}
-.ecd-dow{font-size:11px;font-weight:800;color:var(--text2);}
+.ecd-dow{font-size:13px;font-weight:800;color:var(--text2);}
 .earn-cal-day.is-today .ecd-dow{color:var(--blue);}
-.ecd-date{font-size:12px;font-weight:800;color:var(--text);}
-.ecd-cnt{margin-left:auto;font-size:10px;font-weight:700;color:var(--text3);
-    background:var(--bg);border-radius:100px;padding:1px 6px;}
-.earn-cal-chips{display:flex;flex-direction:column;gap:4px;padding:6px;}
-.earn-cal-none{font-size:13px;color:var(--text3);text-align:center;padding:8px 0;}
-.earn-cal-chip{display:flex;align-items:center;gap:4px;width:100%;padding:4px 6px;border:none;
-    border-left:3px solid var(--border);border-radius:5px;background:var(--bg3);cursor:pointer;
+.ecd-date{font-size:15px;font-weight:900;color:var(--text);}
+.ecd-cnt{margin-left:auto;font-size:11px;font-weight:800;color:var(--text2);
+    background:var(--bg);border-radius:100px;padding:2px 9px;}
+.earn-cal-rows{display:flex;flex-direction:column;gap:7px;padding:9px;}
+.earn-cal-none{font-size:13px;color:var(--text3);text-align:center;padding:22px 0;}
+
+/* 종목 행 — 로고·티커·예상/실적 지표 */
+.earn-cal-row{display:flex;flex-direction:column;gap:5px;width:100%;padding:10px 11px;border:none;
+    border-left:3px solid var(--border);border-radius:9px;background:var(--bg3);cursor:pointer;
     font-family:inherit;text-align:left;transition:background .12s;}
-.earn-cal-chip:hover{background:var(--bg4);}
-.earn-cal-chip .tlogo,.earn-cal-chip .tlogo-wrap{width:16px;height:16px;font-size:8px;flex-shrink:0;border-radius:4px;}
-.earn-cal-chip .tlogo img{width:16px;height:16px;}
-.ecc-tk{font-size:11px;font-weight:800;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;}
-.ecc-t{font-size:9px;flex-shrink:0;}
-/* 칩 상태 색 (좌측 보더) */
-.earn-cal-chip.chip-beat{border-left-color:var(--red);}
-.earn-cal-chip.chip-miss{border-left-color:var(--blue);}
-.earn-cal-chip.chip-meet{border-left-color:var(--text3);}
-.earn-cal-chip.chip-up{border-left-color:#eab308;}
-.earn-cal-more{margin-top:1px;padding:4px 6px;border:none;background:transparent;color:var(--blue);
-    font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit;text-align:left;border-radius:5px;}
-.earn-cal-more:hover{background:var(--bg3);}
+.earn-cal-row:hover{background:var(--bg4);}
+.earn-cal-row.row-beat{border-left-color:var(--red);}
+.earn-cal-row.row-miss{border-left-color:var(--blue);}
+.earn-cal-row.row-meet{border-left-color:var(--text3);}
+.earn-cal-row.row-up{border-left-color:#eab308;}
+.ecr-top{display:flex;align-items:center;gap:8px;}
+.earn-cal-row .tlogo,.earn-cal-row .tlogo-wrap{width:26px;height:26px;font-size:11px;flex-shrink:0;border-radius:7px;}
+.earn-cal-row .tlogo img{width:26px;height:26px;}
+.ecr-id{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0;}
+.ecr-tk{font-size:14px;font-weight:900;color:var(--text);}
+.ecr-nm{font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ecr-time{font-size:10.5px;font-weight:700;flex-shrink:0;padding:3px 8px;border-radius:100px;}
+.ecr-time.bmo{background:rgba(245,158,11,.16);color:#d97706;}
+.ecr-time.amc{background:rgba(99,102,241,.16);color:#6366f1;}
+.ecr-time.tbd{background:var(--bg);color:var(--text3);}
+[data-theme="dark"] .ecr-time.bmo{color:#fbbf24;}
+[data-theme="dark"] .ecr-time.amc{color:#a5b4fc;}
+.ecr-metrics{display:flex;flex-wrap:wrap;gap:3px 12px;font-size:11.5px;color:var(--text2);}
+.ecr-m b{font-weight:800;color:var(--text);}
+.ecr-m b.pos{color:var(--red);}
+.ecr-m b.neg{color:var(--blue);}
+.ecr-tags{display:flex;flex-wrap:wrap;gap:6px;}
+.ecr-sur{font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:100px;}
+.ecr-sur.sur-beat{background:rgba(239,68,68,.16);color:var(--red);}
+.ecr-sur.sur-miss{background:rgba(59,130,246,.16);color:var(--blue);}
+.ecr-sur.sur-meet{background:var(--bg);color:var(--text2);}
+.ecr-sur.sur-pending{display:none;}
+.ecr-yoy{font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:100px;background:var(--bg);}
+.ecr-yoy.up{color:var(--red);}
+.ecr-yoy.down{color:var(--blue);}
+.earn-cal-more{margin-top:2px;padding:9px;border:none;background:var(--bg3);color:var(--blue);
+    font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;border-radius:9px;width:100%;}
+.earn-cal-more:hover{background:var(--bg4);}
 @media(max-width:560px){
-    .earn-cal-grid{gap:4px;}
-    .earn-cal-chips{padding:4px;gap:3px;}
-    .earn-cal-chip{padding:3px 4px;gap:3px;}
-    .ecc-tk{font-size:10px;}
-    .earn-cal-dayhd{padding:6px 5px 4px;}
-    .ecd-date{font-size:11px;}
+    .earn-cal-day{flex-basis:300px;}
+    .earn-wk-label{min-width:150px;font-size:13.5px;}
 }
 .earn-date-group{
     background:var(--bg2);

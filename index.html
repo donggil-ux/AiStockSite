@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=713">
+    <link rel="stylesheet" href="/styles.css?v=714">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -6938,44 +6938,59 @@
         return d;
     }
     // 시그널 칩 1개
-    function _earnCalChip(item) {
+    // 종목 행 — 로고·티커·예상/실적 지표 (v714)
+    function _earnCalRow(item) {
         const sym = item.symbol;
         const name = item.name || sym;
         const surprise = _earnSurpriseLabel(item.surprisePct);
         const reported = item.epsAct != null;
         const stateCls = reported
-            ? (surprise.cls === 'beat' ? 'chip-beat' : surprise.cls === 'miss' ? 'chip-miss' : 'chip-meet')
-            : 'chip-up';
-        const tIcon = item.timing === 'BMO' ? '<span class="ecc-t" title="장전">☀</span>'
-                    : item.timing === 'AMC' ? '<span class="ecc-t" title="장후">🌙</span>' : '';
-        return `<button class="earn-cal-chip ${stateCls}" data-symbol="${sym}"
-                     title="${escHtml(name)}${reported ? ' · '+surprise.label : ''}"
-                     onclick="quickSearch('${sym}','US')">
-            ${_tickerLogoHTML(sym, 'US')}
-            <span class="ecc-tk">${escHtml(sym)}</span>
-            ${tIcon}
+            ? (surprise.cls === 'beat' ? 'row-beat' : surprise.cls === 'miss' ? 'row-miss' : 'row-meet')
+            : 'row-up';
+        const timing = item.timing === 'BMO' ? '<span class="ecr-time bmo">☀ 장전</span>'
+                     : item.timing === 'AMC' ? '<span class="ecr-time amc">🌙 장후</span>'
+                     : '<span class="ecr-time tbd">⏱ 미정</span>';
+        // EPS·매출 — 발표 완료 시 예상→실적, 예정 시 예상만
+        const epsLine = reported
+            ? `EPS <b>${_earnFmtEps(item.epsEst)}</b> → <b class="${item.epsEst!=null && item.epsAct>=item.epsEst?'pos':'neg'}">${_earnFmtEps(item.epsAct)}</b>`
+            : `EPS 예상 <b>${_earnFmtEps(item.epsEst)}</b>`;
+        const revLine = reported
+            ? `매출 <b>${_earnFmtRev(item.revEst)}</b> → <b class="${item.revEst!=null && item.revAct>=item.revEst?'pos':'neg'}">${_earnFmtRev(item.revAct)}</b>`
+            : `매출 예상 <b>${_earnFmtRev(item.revEst)}</b>`;
+        const yoyHtml = (typeof item.yoy === 'number' && !isNaN(item.yoy))
+            ? `<span class="ecr-yoy ${item.yoy>=0?'up':'down'}">YoY ${item.yoy>=0?'+':''}${item.yoy.toFixed(1)}%</span>` : '';
+        const surBadge = reported ? `<span class="ecr-sur sur-${surprise.cls}">${surprise.label}</span>` : '';
+        const tags = (surBadge || yoyHtml) ? `<div class="ecr-tags">${surBadge}${yoyHtml}</div>` : '';
+        return `<button class="earn-cal-row ${stateCls}" onclick="quickSearch('${sym}','US')">
+            <div class="ecr-top">
+                ${_tickerLogoHTML(sym, 'US')}
+                <div class="ecr-id"><span class="ecr-tk">${escHtml(sym)}</span><span class="ecr-nm">${escHtml(name)}</span></div>
+                ${timing}
+            </div>
+            <div class="ecr-metrics"><span class="ecr-m">${epsLine}</span><span class="ecr-m">${revLine}</span></div>
+            ${tags}
         </button>`;
     }
-    // 하루 칸 1개 (월~금)
+    // 하루 칸 1개 (월~금) — 스와이프 캐러셀의 한 페이지
     function _earnBuildDayCell(dateStr, items, isToday, isPast) {
         const [, m, d] = dateStr.split('-');
         const dowK = ['일','월','화','수','목','금','토'][new Date(dateStr+'T00:00:00').getDay()];
-        const LIMIT = 7;
+        const LIMIT = 8;
         const expanded = !!window._earnExpandedDays[dateStr];
         const shown = expanded ? items : items.slice(0, LIMIT);
         const moreN = items.length - shown.length;
-        const chips = shown.map(_earnCalChip).join('');
+        const rows = shown.map(_earnCalRow).join('');
         const moreBtn = moreN > 0
-            ? `<button class="earn-cal-more" onclick="_earnToggleDay('${dateStr}')">+${moreN}개 더</button>`
+            ? `<button class="earn-cal-more" onclick="_earnToggleDay('${dateStr}')">+${moreN}개 더 보기</button>`
             : (expanded && items.length > LIMIT
                 ? `<button class="earn-cal-more" onclick="_earnToggleDay('${dateStr}')">접기</button>` : '');
-        return `<div class="earn-cal-day${isToday?' is-today':''}${isPast?' is-past':''}">
+        return `<div class="earn-cal-day${isToday?' is-today':''}${isPast?' is-past':''}" data-date="${dateStr}">
             <div class="earn-cal-dayhd">
                 <span class="ecd-dow">${dowK}</span>
                 <span class="ecd-date">${+m}/${+d}</span>
-                ${items.length ? `<span class="ecd-cnt">${items.length}</span>` : ''}
+                ${items.length ? `<span class="ecd-cnt">${items.length}개</span>` : ''}
             </div>
-            <div class="earn-cal-chips">${chips || '<div class="earn-cal-none">—</div>'}${moreBtn}</div>
+            <div class="earn-cal-rows">${rows || '<div class="earn-cal-none">실적 발표 없음</div>'}${moreBtn}</div>
         </div>`;
     }
     function _earnToggleDay(dateStr) {
@@ -7024,6 +7039,17 @@
         if (nx) nx.disabled = offset >= _EARN_WK_MAX;
         const emptyEl = document.getElementById('earningsEmpty');
         if (emptyEl) emptyEl.hidden = totalShown > 0;
+        // 오늘(또는 이번 주면 첫 평일) 칸으로 가로 스크롤 이동
+        try {
+            const target = grid.querySelector('.earn-cal-day.is-today')
+                || (offset === 0 ? grid.querySelector('.earn-cal-day') : null);
+            if (target) {
+                grid.scrollLeft = target.getBoundingClientRect().left
+                    - grid.getBoundingClientRect().left + grid.scrollLeft;
+            } else {
+                grid.scrollLeft = 0;
+            }
+        } catch (e) {}
     }
 
     function _earnBuildRow(item) {
