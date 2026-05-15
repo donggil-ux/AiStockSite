@@ -6278,40 +6278,38 @@ app.get('/api/oversold-radar', async (req, res) => {
         const allSyms = [...new Set(allQuotes.map(q => q.symbol))]
             .filter(s => /^[A-Z]{1,5}$/.test(s)).slice(0, 150);
 
-        // ── Spark batch (3개월 종가/거래량) — v7 spark (crumb 불필요) ──
+        // ── Spark batch (3개월 종가/거래량) — v7 spark, 청크 병렬 (v692) ──
+        //   기존: 20종목씩 8라운드 순차 → 개선: 동시 4청크씩 → 2라운드로 단축
         const sparkMap = {};
         const SPARK_CHUNK = 20;
-        for (let i = 0; i < allSyms.length; i += SPARK_CHUNK) {
-            const chunk = allSyms.slice(i, i + SPARK_CHUNK);
+        const SPARK_CONCURRENCY = 4;
+        const sparkChunks = [];
+        for (let i = 0; i < allSyms.length; i += SPARK_CHUNK) sparkChunks.push(allSyms.slice(i, i + SPARK_CHUNK));
+
+        const _ingestSpark = (results) => (results || []).forEach(item => {
+            const q = item?.response?.[0]?.indicators?.quote?.[0] || {};
+            sparkMap[item.symbol] = {
+                close:  (q.close  || []).filter(v => v != null),
+                volume: (q.volume || []).filter(v => v != null),
+            };
+        });
+        const _fetchSparkChunk = async (chunk) => {
+            const url = `https://query1.finance.yahoo.com/v7/finance/spark?symbols=${encodeURIComponent(chunk.join(','))}&range=3mo&interval=1d`;
             try {
-                const url = `https://query1.finance.yahoo.com/v7/finance/spark?symbols=${encodeURIComponent(chunk.join(','))}&range=3mo&interval=1d`;
                 const r = await axios.get(url, {
                     headers: { 'User-Agent': UA, 'Accept': 'application/json' },
                     timeout: 12000, httpAgent, httpsAgent,
                 });
-                (r.data?.spark?.result || []).forEach(item => {
-                    const resp = item?.response?.[0];
-                    const q = resp?.indicators?.quote?.[0] || {};
-                    sparkMap[item.symbol] = {
-                        close:  (q.close  || []).filter(v => v != null),
-                        volume: (q.volume || []).filter(v => v != null),
-                    };
-                });
+                _ingestSpark(r.data?.spark?.result);
             } catch (e) {
                 // v7 실패시 yfRequest(crumb) 재시도
-                try {
-                    const url2 = `https://query1.finance.yahoo.com/v7/finance/spark?symbols=${encodeURIComponent(chunk.join(','))}&range=3mo&interval=1d`;
-                    const data2 = await yfRequest(url2);
-                    (data2?.spark?.result || []).forEach(item => {
-                        const resp = item?.response?.[0];
-                        const q = resp?.indicators?.quote?.[0] || {};
-                        sparkMap[item.symbol] = {
-                            close:  (q.close  || []).filter(v => v != null),
-                            volume: (q.volume || []).filter(v => v != null),
-                        };
-                    });
-                } catch (e2) { console.warn('[radar] spark chunk fail:', e2.message); }
+                try { _ingestSpark((await yfRequest(url))?.spark?.result); }
+                catch (e2) { console.warn('[radar] spark chunk fail:', e2.message); }
             }
+        };
+        // 동시 SPARK_CONCURRENCY 청크씩 병렬 실행 (Yahoo rate-limit 보호)
+        for (let i = 0; i < sparkChunks.length; i += SPARK_CONCURRENCY) {
+            await Promise.all(sparkChunks.slice(i, i + SPARK_CONCURRENCY).map(_fetchSparkChunk));
         }
 
         // ── quote map 구성 ──
