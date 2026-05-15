@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=694">
+    <link rel="stylesheet" href="/styles.css?v=695">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -13035,6 +13035,35 @@
         }
     }
 
+    // ── 매수·매도 시그널 알림 배너 — 10초 프로그레스바 (v695) ──────
+    let _sigAlertTimer = null;
+    function _showSignalAlert(text, isBuy) {
+        let el = document.getElementById('sigAlert');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'sigAlert';
+            el.className = 'sig-alert';
+            el.innerHTML = `<div class="sig-alert-msg" id="sigAlertMsg"></div>
+                <div class="sig-alert-track"><div class="sig-alert-bar" id="sigAlertBar"></div></div>`;
+            document.body.appendChild(el);
+        }
+        const msg = el.querySelector('#sigAlertMsg');
+        const bar = el.querySelector('#sigAlertBar');
+        el.classList.toggle('sig-alert--buy', !!isBuy);
+        el.classList.toggle('sig-alert--sell', !isBuy);
+        msg.textContent = text;
+        el.classList.add('show');
+        // 프로그레스바 리셋 → 10초 동안 0%로 감소
+        bar.style.transition = 'none';
+        bar.style.width = '100%';
+        void bar.offsetWidth; // reflow 강제 → transition 재시작
+        bar.style.transition = 'width 10s linear';
+        bar.style.width = '0%';
+        // 10초 경과 후 배너 숨김
+        if (_sigAlertTimer) clearTimeout(_sigAlertTimer);
+        _sigAlertTimer = setTimeout(() => { el.classList.remove('show'); }, 10300);
+    }
+
     // 우측 가격 라벨 + EMA·BB 라인 토글 (한꺼번에 켜기/끄기)
     let _chartLabelsVisible = localStorage.getItem('stockai_chart_labels') === '1'; // 기본 숨김 (사용자가 켤 때만 표시)
     function _applyChartLabelsVisibility() {
@@ -13227,7 +13256,8 @@
                 const isBuy = latest.position === 'belowBar';
                 const dir   = isBuy ? '매수' : '매도';
                 const emoji = isBuy ? '🔴' : '🔵';
-                try { showToast(`${emoji} ${latest.text} ${dir} 시그널`); } catch(e) {}
+                // 10초 프로그레스바 시그널 알림 (v695)
+                try { _showSignalAlert(`${emoji} ${latest.text} ${dir} 시그널`, isBuy); } catch(e) {}
                 // 매수·매도 시그널 사운드 알림 (v694)
                 try { if (_chartSoundEnabled) _playSignalSound(isBuy ? 'buy' : 'sell'); } catch(e) {}
             }
