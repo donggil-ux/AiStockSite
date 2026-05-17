@@ -14836,7 +14836,7 @@
         return trend;
     }
 
-    function _calcSplitBuyLevels(q, atr) {
+    function _calcSplitBuyLevels(q, atr, emaHint = {}) {
         const closes = q.close || [], highs = q.high || [], lows = q.low || [], volumes = q.volume || [];
         const n = closes.length;
         if (n < 20) return null;
@@ -14896,6 +14896,18 @@
                 fibLabel: (f.pct * 100).toFixed(1) + '%',
                 fmtP, pctOf,
             })).filter(lv => lv.price > 0);
+        }
+
+        // ── EMA 눌림목이 감지되면 EMA 가격을 진입가로 우선 사용 ──────
+        const { swEma20: _hEma20, swEma60: _hEma60, swEma120: _hEma120,
+                emaPullback1: _pb1, emaPullback2: _pb2, emaPullback3: _pb3 } = emaHint;
+        const _emaLevels = [];
+        if (_pb1 && _hEma20  != null) _emaLevels.push({ price: +_hEma20.toFixed(isKR?0:2),  label: '진입 1차', fibLabel: 'EMA 20',  weight: 30, suffix: '',      color: '#06B6D4', width: 2, style: 0, fmtP, pctOf });
+        if (_pb2 && _hEma60  != null) _emaLevels.push({ price: +_hEma60.toFixed(isKR?0:2),  label: '진입 2차', fibLabel: 'EMA 60',  weight: 30, suffix: '',      color: '#06B6D4', width: 2, style: 0, fmtP, pctOf });
+        if (_pb3 && _hEma120 != null) _emaLevels.push({ price: +_hEma120.toFixed(isKR?0:2), label: '진입 3차', fibLabel: 'EMA 120', weight: 40, suffix: ' ★핵심', color: '#F59E0B', width: 2, style: 0, fmtP, pctOf });
+        if (_emaLevels.length > 0) {
+            const _emaBelow = _emaLevels.filter(lv => lv.price < lastClose);
+            if (_emaBelow.length > 0) levels = _emaBelow;
         }
 
         // ER 기반 최대 차수 제한 (강한 추세: 4차, 보통: 3차, 횡보: 진입 억제)
@@ -14991,7 +15003,8 @@
         const emaPullback2 = !!(_swLast && swEma60  != null && _swLast.low <= swEma60  && _swBull && _swRsiOk && swEma60  > (swEma120 || 0));
         const emaPullback3 = !!(_swLast && swEma120 != null && _swLast.low <= swEma120 && _swBull && _swRsiOk && swEma120 > (swEma240 || 0));
 
-        const data = _calcSplitBuyLevels(q, atr);
+        const _emaHint = { swEma20, swEma60, swEma120, swEma240, emaPullback1, emaPullback2, emaPullback3 };
+        const data = _calcSplitBuyLevels(q, atr, _emaHint);
         if (!data) return;
 
         const coeff = getSplitBuyCoeff(currentSymbol);
