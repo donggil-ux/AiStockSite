@@ -4471,15 +4471,10 @@
         },
         {
             id:'tiger', name:'Tiger Global Management', manager:'Chase Coleman',
-            ret1q:-7.4, ret1y:9.8, newBuySector:'AI 반도체·이머징 소비자테크',
-            hotBadge:'🐯', emoji:'🐯',
+            aum:22.85,
+            top3:[{ticker:'GOOGL',wt:13.4},{ticker:'NVDA',wt:9.2},{ticker:'AMZN',wt:9.1}],
+            emoji:'🐯',
             tags:['성장주','글로벌테크','AI반도체'],
-            volatilePicks:['GOOGL','TSM','CPNG'],
-            top3Add:[
-                {ticker:'TSM',name:'Taiwan Semiconductor',wtChg:+2.4,avgPrice:186.40,theme:'AI 파운드리 독점 — 수요 구조적'},
-                {ticker:'CPNG',name:'Coupang Inc',wtChg:+3.8,avgPrice:24.40,theme:'한국 이커머스 AI 물류 고성장'},
-                {ticker:'AVGO',name:'Broadcom Inc',wtChg:+2.2,avgPrice:188.40,theme:'AI 커스텀칩(XPU) 수요 가속'},
-            ],
             holdings:[
                 {ticker:'GOOGL',name:'Alphabet Inc',wt:13.4,wtChg:0,avgPrice:168.40,action:'hold'},
                 {ticker:'NVDA',name:'NVIDIA Corp',wt:9.2,wtChg:+1.8,avgPrice:112.40,action:'add'},
@@ -10371,7 +10366,7 @@
         panel.innerHTML = sorted.map((inst, i) => {
             const rank = i + 1;
             const tags = inst.tags.map(t => `<span class="guru-tag">${t}</span>`).join('');
-            const top3html = inst.top3.map(h =>
+            const top3html = (inst.top3 || []).map(h =>
                 `<span class="sm-top3-hold"><img src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(h.ticker)}?format=png" class="sm-chip-logo" alt="" loading="lazy" onerror="this.style.display='none'"/>${h.ticker} <span style="color:var(--blue)">${h.wt}%</span></span>`
             ).join('');
             const kRankLabel = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
