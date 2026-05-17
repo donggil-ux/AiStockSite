@@ -14825,9 +14825,16 @@
     }
 
     function _calcSplitBuyLevels(q, atr) {
-        const closes = q.close || [], highs = q.high || [], lows = q.low || [];
+        const closes = q.close || [], highs = q.high || [], lows = q.low || [], volumes = q.volume || [];
         const n = closes.length;
         if (n < 20) return null;
+
+        // ─── Smart Dip v2: TQI + ER + SuperTrend 필터 ───────────────
+        const er      = _calcER(closes, 20);
+        const tqi     = _calcTQI(closes, highs, lows, volumes, er);
+        const stTrend = _calcSuperTrend(closes, highs, lows, atr, 2.0);
+        if (tqi < 0.3)      return null;   // 추세 품질 부족 — 진입 억제
+        if (stTrend === -1) return null;   // SuperTrend 하락 — 진입 억제
 
         const lastClose = (() => { for (let i = n-1; i >= 0; i--) if (closes[i] != null) return closes[i]; return null; })();
         if (!lastClose) return null;
@@ -14879,6 +14886,11 @@
             })).filter(lv => lv.price > 0);
         }
 
+        // ER 기반 최대 차수 제한 (강한 추세: 4차, 보통: 3차, 횡보: 진입 억제)
+        const erMaxEntry = er > 0.5 ? 4 : er > 0.25 ? 3 : 0;
+        if (erMaxEntry === 0) return null;
+        if (levels.length > erMaxEntry) levels = levels.slice(0, erMaxEntry);
+
         // 손절선: 스윙 저점 - ATR*0.3
         const stopPrice = swingLow - (atr || swingLow * 0.03) * 0.3;
 
@@ -14887,8 +14899,15 @@
         const isDiscount   = lastClose <= equilibrium;  // 50% 아래 → 저가 매수 적합
         const isPremium    = lastClose > equilibrium;   // 50% 위  → 고가 주의
 
+        // ─── v2: 신호 품질 점수 + 동적 익절 ──────────────────────────
+        const score    = Math.round((tqi * 0.5 + er * 0.3 + (stTrend === 1 ? 0.2 : 0)) * 100);
+        const dynScale = Math.min(Math.max(tqi * 0.6 + 1.0 * 0.4, 0.5), 2.0);
+        const tp1      = +(swingLow + (swingHigh - swingLow) * 0.618 * dynScale).toFixed(2);
+        const tp2      = +(swingLow + (swingHigh - swingLow) * 1.0   * dynScale).toFixed(2);
+
         return { levels, stopPrice, swingHigh, swingLow, range, lastClose, fmtP, pctOf,
-                 equilibrium: +equilibrium.toFixed(2), isDiscount, isPremium };
+                 equilibrium: +equilibrium.toFixed(2), isDiscount, isPremium,
+                 tqi, er, stTrend, score, dynScale, tp1, tp2, erMaxEntry };
     }
 
     // 금지 조건 감지 (SPY MA20, VIX 대신 내부 근사값 사용)
