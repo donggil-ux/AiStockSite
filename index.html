@@ -7131,77 +7131,175 @@
         const body = document.getElementById('posSheetBody');
         if (!body || !_posSheetState) return;
         const s = _posSheetState;
-        const cur = _posCurrentPrice();
         const isKR = currentMarket === 'KR';
-        const seg = (val,label) => `<button class="pos-seg ${s.status===val?'active':''}" onclick="_posSheetSet('status','${val}')">${label}</button>`;
+        const cur  = s.currency || (isKR ? '원' : '$');
         const showClosed = s.status === 'closed';
-        const showSLTP = !showClosed; // holding/watching 상태에서만 표시
-        const quick = (!cur) ? '' : `<div class="pos-quick">
-            <button onclick="_posSheetSet('entryPrice',${+cur.toFixed(2)})">현재가</button>
-            <button onclick="_posSheetSet('entryPrice',${+(cur*0.98).toFixed(2)})">-2%</button>
-            <button onclick="_posSheetSet('entryPrice',${+(cur*0.95).toFixed(2)})">-5%</button>
-        </div>`;
-        const refP = parseFloat(s.entryPrice) || cur; // 빠른 버튼 기준가
-        const slQuick = (!refP) ? '' : `<div class="pos-quick">
-            <button onclick="_posSheetSet('stopLoss',${+(refP*0.95).toFixed(isKR?0:2)})">-5%</button>
-            <button onclick="_posSheetSet('stopLoss',${+(refP*0.90).toFixed(isKR?0:2)})">-10%</button>
-        </div>`;
-        const tp1Quick = (!refP) ? '' : `<div class="pos-quick">
-            <button onclick="_posSheetSet('tp1',${+(refP*1.05).toFixed(isKR?0:2)})">+5%</button>
-            <button onclick="_posSheetSet('tp1',${+(refP*1.10).toFixed(isKR?0:2)})">+10%</button>
-        </div>`;
-        const tp2Quick = (!refP) ? '' : `<div class="pos-quick">
-            <button onclick="_posSheetSet('tp2',${+(refP*1.15).toFixed(isKR?0:2)})">+15%</button>
-            <button onclick="_posSheetSet('tp2',${+(refP*1.20).toFixed(isKR?0:2)})">+20%</button>
-        </div>`;
-        const tp3Quick = (!refP) ? '' : `<div class="pos-quick">
-            <button onclick="_posSheetSet('tp3',${+(refP*1.20).toFixed(isKR?0:2)})">+20%</button>
-            <button onclick="_posSheetSet('tp3',${+(refP*1.30).toFixed(isKR?0:2)})">+30%</button>
-        </div>`;
+
         body.innerHTML = `
             <div class="pos-sheet-hd">${escHtml(s.ticker)} 포지션 ${s.id?'편집':'등록'}</div>
-            <div class="pos-field"><label>상태</label>
-                <div class="pos-seg-row">${seg('holding','보유 중')}${seg('closed','매도 완료')}</div>
-            </div>
-            <div class="pos-field"><label>진입가${isKR?' (원)':' ($)'}</label>
-                <input type="number" inputmode="decimal" id="posInEntry" value="${s.entryPrice}" placeholder="진입 가격" oninput="_posSheetSet('entryPrice',this.value);_posOnEntryPriceInput(this.value);">
-                ${quick}
-            </div>
-            ${showClosed ? `<div class="pos-field"><label>매도가${isKR?' (원)':' ($)'}</label>
-                <input type="number" inputmode="decimal" id="posInClosed" value="${s.closedPrice}" placeholder="매도 가격" oninput="_posSheetSet('closedPrice',this.value)">
-            </div>` : ''}
-            ${showSLTP ? `
-            <div class="pos-field">
-                <label class="pos-label-sl">손절가${isKR?' (원)':' ($)'} <span class="pos-label-opt">선택</span></label>
-                <input type="number" inputmode="decimal" id="posInStop" value="${s.stopLoss}" placeholder="손절 가격" oninput="_posSheetSet('stopLoss',this.value)">
-                ${slQuick}
-            </div>
-            <div class="pos-field">
-                <label class="pos-label-tp">1차 익절가${isKR?' (원)':' ($)'} <span class="pos-label-opt">선택</span></label>
-                <input type="number" inputmode="decimal" id="posInTp1" value="${s.tp1}" placeholder="1차 목표가" oninput="_posSheetSet('tp1',this.value)">
-                ${tp1Quick}
-            </div>
-            <div class="pos-field">
-                <label class="pos-label-tp2">2차 익절가${isKR?' (원)':' ($)'} <span class="pos-label-opt">선택</span></label>
-                <input type="number" inputmode="decimal" id="posInTp2" value="${s.tp2}" placeholder="2차 목표가 (선택)" oninput="_posSheetSet('tp2',this.value)">
-                ${tp2Quick}
-            </div>
-            <div class="pos-field">
-                <label class="pos-label-tp2">3차 익절가${isKR?' (원)':' ($)'} <span class="pos-label-opt">선택</span></label>
-                <input type="number" inputmode="decimal" id="posInTp3" value="${s.tp3||''}" placeholder="3차 목표가 (선택)" oninput="_posSheetSet('tp3',this.value)">
-                ${tp3Quick}
-            </div>` : ''}
-            <div class="pos-field"><label>수량 (선택)</label>
-                <input type="number" inputmode="numeric" id="posInQty" value="${s.quantity}" placeholder="보유 수량" oninput="_posSheetSet('quantity',this.value)">
-            </div>
-            <div class="pos-field"><label>메모 (선택)</label>
-                <input type="text" id="posInMemo" value="${escHtml(String(s.memo||''))}" placeholder="진입 근거 등" maxlength="80" oninput="_posSheetSet('memo',this.value)">
-            </div>
+            <div class="pos-modal-body">
+
+              <!-- 상태 탭 -->
+              <div class="pos-status-tabs">
+                <button class="pos-tab ${s.status==='holding'?'active':''}"
+                  onclick="_posSetStatus('holding')">보유 중</button>
+                <button class="pos-tab ${s.status==='closed'?'active':''}"
+                  onclick="_posSetStatus('closed')">매도 완료</button>
+              </div>
+
+              ${showClosed ? `
+              <!-- 매도 완료 입력 -->
+              <div class="pos-section">
+                <div class="pos-section-title">📍 포지션 정보</div>
+                <div class="pos-field">
+                  <label>진입가 (${cur})</label>
+                  <input type="number" id="posEntry1" placeholder="진입 가격" style="width:100%">
+                </div>
+                <div class="pos-field">
+                  <label>매도가 (${cur})</label>
+                  <input type="number" id="posInClosed" placeholder="매도 가격" style="width:100%">
+                </div>
+              </div>` : `
+
+              <!-- ─── 투자 예산 ─── -->
+              <div class="pos-section">
+                <div class="pos-section-title">💰 투자 예산</div>
+                <div class="pos-field">
+                  <label>최대 투자금액 (${cur})
+                    <span class="pos-hint">이 종목에 투자할 최대 금액</span>
+                  </label>
+                  <input type="number" id="posMaxBudget" placeholder="예: 10000"
+                    oninput="_posCalcSplitPlan()" style="width:100%">
+                </div>
+                <div class="pos-field">
+                  <label>분할 차수<span class="pos-hint">몇 번에 나눠서 매수할지</span></label>
+                  <div class="pos-split-count-row">
+                    <button onclick="_posChangeSplitCount(-1)">−</button>
+                    <span id="posSplitCount">${_posSplitCount}</span>
+                    <button onclick="_posChangeSplitCount(+1)">+</button>
+                    <span class="pos-hint">차 분할</span>
+                  </div>
+                </div>
+                <div class="pos-field">
+                  <label>분배 방식</label>
+                  <div class="pos-radio-row">
+                    <label><input type="radio" name="splitMode" value="equal" checked
+                      onchange="_posCalcSplitPlan()"> 균등 분배</label>
+                    <label><input type="radio" name="splitMode" value="pyramid"
+                      onchange="_posCalcSplitPlan()"> 피라미딩 (하락할수록 많이)</label>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ─── 1차 진입 ─── -->
+              <div class="pos-section">
+                <div class="pos-section-title">📍 1차 진입</div>
+                <div class="pos-field">
+                  <label>1차 진입가 (${cur})</label>
+                  <input type="number" id="posEntry1" placeholder="진입 가격"
+                    oninput="_posCalcSplitPlan()" style="width:100%">
+                  <div class="pos-quick-btns">
+                    <button onclick="_posSetEntryToCurrent(1)">현재가</button>
+                    <button onclick="_posSetEntryOffset(1,-0.02)">-2%</button>
+                    <button onclick="_posSetEntryOffset(1,-0.05)">-5%</button>
+                  </div>
+                </div>
+                <div class="pos-field">
+                  <label>1차 매수금액 (${cur})<span class="pos-hint" id="posEntry1Shares"></span></label>
+                  <input type="number" id="posAmount1" placeholder="자동계산"
+                    oninput="_posCalcSplitPlan()" style="width:100%">
+                </div>
+              </div>
+
+              <!-- ─── 분할매수 계획 ─── -->
+              <div class="pos-section" id="posSplitPlanSection">
+                <div class="pos-section-title">📊 분할매수 계획</div>
+                <div id="posSplitPlanRows"></div>
+              </div>
+
+              <!-- ─── 손절 설정 ─── -->
+              <div class="pos-section">
+                <div class="pos-section-title">🔴 손절 설정</div>
+                <div class="pos-field">
+                  <label>손절가 (${cur})</label>
+                  <input type="number" id="posStop" placeholder="손절 가격"
+                    oninput="_posCalcSplitPlan()" style="width:100%">
+                  <div class="pos-quick-btns">
+                    <button onclick="_posSetStopPct(-0.05)">-5%</button>
+                    <button onclick="_posSetStopPct(-0.08)">-8%</button>
+                    <button onclick="_posSetStopPct(-0.10)">-10%</button>
+                    <button onclick="_posSetStopToEma()">EMA 240</button>
+                  </div>
+                </div>
+                <div class="pos-field" id="posRiskSummary"></div>
+              </div>
+
+              <!-- ─── 익절 설정 ─── -->
+              <div class="pos-section">
+                <div class="pos-section-title">✅ 익절 설정</div>
+                <div class="pos-field">
+                  <label>1차 익절가 (${cur}) — 30% 매도</label>
+                  <input type="number" id="posTp1" placeholder="1차 목표가"
+                    oninput="_posCalcSplitPlan()" style="width:100%">
+                  <div class="pos-quick-btns">
+                    <button onclick="_posTpPct(1,0.05)">+5%</button>
+                    <button onclick="_posTpPct(1,0.10)">+10%</button>
+                  </div>
+                </div>
+                <div class="pos-field">
+                  <label>2차 익절가 (${cur}) — 40% 매도</label>
+                  <input type="number" id="posTp2" placeholder="2차 목표가"
+                    oninput="_posCalcSplitPlan()" style="width:100%">
+                  <div class="pos-quick-btns">
+                    <button onclick="_posTpPct(2,0.15)">+15%</button>
+                    <button onclick="_posTpPct(2,0.20)">+20%</button>
+                  </div>
+                </div>
+                <div class="pos-field">
+                  <label>3차 익절가 (${cur}) — 30% 매도</label>
+                  <input type="number" id="posTp3" placeholder="3차 목표가"
+                    oninput="_posCalcSplitPlan()" style="width:100%">
+                  <div class="pos-quick-btns">
+                    <button onclick="_posTpPct(3,0.20)">+20%</button>
+                    <button onclick="_posTpPct(3,0.30)">+30%</button>
+                  </div>
+                </div>
+              </div>`}
+
+              <!-- ─── 투자 요약 ─── -->
+              <div class="pos-section pos-summary-box" id="posSummaryBox"></div>
+
+              <!-- ─── 메모 ─── -->
+              <div class="pos-section" style="border-bottom:none;margin-bottom:0;">
+                <div class="pos-field">
+                  <label>메모 (선택)</label>
+                  <input type="text" id="posMemo" placeholder="진입 근거 등" style="width:100%">
+                </div>
+              </div>
+
+            </div><!-- /.pos-modal-body -->
+
             <div class="pos-sheet-actions">
-                ${s.id ? `<button class="pos-del-btn" onclick="_posDelete('${s.id}')">삭제</button>` : ''}
-                <button class="pos-cancel-btn" onclick="_posCloseSheet()">취소</button>
-                <button class="pos-save-btn" onclick="_posSave()">저장</button>
+              ${s.id ? `<button class="pos-del-btn" onclick="_posDelete('${s.id}')">삭제</button>` : ''}
+              <button class="pos-cancel-btn" onclick="_posCloseSheet()">취소</button>
+              <button class="pos-save-btn" onclick="_posSave()">저장</button>
             </div>`;
+
+        // ── 기존 값 복원 ──────────────────────────────────────────
+        const _setV = (id, v) => { const el=document.getElementById(id); if (el && v!=null && v!=='') el.value=v; };
+        _setV('posEntry1',  s.entryPrice);
+        _setV('posMaxBudget', s.maxBudget);
+        _setV('posStop',    s.stopLoss);
+        _setV('posTp1',     s.tp1);
+        _setV('posTp2',     s.tp2);
+        _setV('posTp3',     s.tp3);
+        _setV('posMemo',    s.memo);
+        _setV('posInClosed', s.closedPrice);
+        if (s.splitMode) {
+            const r = document.querySelector(`input[name="splitMode"][value="${s.splitMode}"]`);
+            if (r) r.checked = true;
+        }
+        _posCalcSplitPlan();
     }
     function _posSheetSet(k, v) {
         if (!_posSheetState) return;
