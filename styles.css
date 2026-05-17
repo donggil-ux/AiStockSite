@@ -397,6 +397,15 @@
             background:rgba(118,118,128,0.36)!important;
             color:#FFFFFF!important;
         }
+        .sm-tab-count{
+            display:inline-flex;align-items:center;justify-content:center;
+            min-width:18px;height:18px;padding:0 5px;margin-left:5px;
+            font-size:10px;font-weight:700;border-radius:9px;
+            background:rgba(0,0,0,0.10);color:inherit;vertical-align:middle;
+        }
+        .sm-sub-tab.active .sm-tab-count{background:rgba(0,0,0,0.18);}
+        [data-theme="dark"] .sm-tab-count{background:rgba(255,255,255,0.15);}
+        [data-theme="dark"] .sm-sub-tab.active .sm-tab-count{background:rgba(255,255,255,0.25);}
         .top100-filter:hover:not(.active),
         .dp-chip:hover:not(.active),
         .radar-tab:hover:not(.active),
