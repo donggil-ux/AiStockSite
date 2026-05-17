@@ -845,6 +845,9 @@
                                 onclick="toggleChartSound()" title="시그널 사운드 켜기 — 매수·매도 시그널 발생 시 소리 알림"
                                 style="border-color:var(--border);color:var(--text3);">소리
                             </button>
+                            <button class="chart-tb-btn" id="chartAiReaderBtn"
+                                onclick="captureChartAndAnalyze()" title="AI가 차트를 캡처해 분석 — Gemini Vision"
+                                style="display:none;border-color:rgba(157,78,221,.5);color:#9D4EDD;background:rgba(157,78,221,.08);">🔍 AI분석</button>
                             <button class="chart-tb-btn" id="chartAiClearBtn"
                                 onclick="clearAiChartLines()" title="AI 라인 지우기"
                                 style="display:none;border-color:var(--border);color:var(--text3);">🗑 AI 라인</button>
