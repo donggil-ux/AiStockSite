@@ -857,9 +857,6 @@
                                 onclick="toggleChartSound()" title="시그널 사운드 켜기 — 매수·매도 시그널 발생 시 소리 알림"
                                 style="border-color:var(--border);color:var(--text3);">소리
                             </button>
-                            <button class="chart-tb-btn" id="chartAiReaderBtn"
-                                onclick="captureChartAndAnalyze()" title="AI가 차트를 캡처해 분석 — Gemini Vision"
-                                style="display:none;border-color:rgba(157,78,221,.5);color:#9D4EDD;background:rgba(157,78,221,.08);">🔍 AI분석</button>
                             <button class="chart-tb-btn" id="chartAiClearBtn"
                                 onclick="clearAiChartLines()" title="AI 라인 지우기"
                                 style="display:none;border-color:var(--border);color:var(--text3);">🗑 AI 라인</button>
@@ -949,45 +946,11 @@
 
                 <!-- ═══ 빠른 이동 네비게이션 ═══ -->
                 <div class="group-nav" id="groupNav">
-                    <button onclick="_scrollToGroup('groupAi')">🤖 AI</button>
                     <button onclick="_scrollToGroup('groupTradePlan')">📊 매매</button>
                     <button onclick="_scrollToGroup('groupSystem')">⭐ 시스템</button>
                     <button onclick="_scrollToGroup('groupDayTrade')">⚡ 단타</button>
                 </div>
 
-                <!-- ═══ 그룹 1: AI 핵심 분석 ═══ -->
-                <div class="analysis-group" id="groupAi">
-                    <div class="group-header">
-                        <span class="group-icon">🤖</span>
-                        <span class="group-title">AI 핵심 분석</span>
-                    </div>
-                    <div class="group-body">
-                <!-- AI 판독기 요약 카드 -->
-                <div class="ai-summary-card" id="aiSummaryCard" style="display:none;">
-                    <div class="ai-summary-header">
-                        <div class="ai-summary-title">AI분석 결과</div>
-                        <button class="ai-summary-close" onclick="clearAiChartLines()" title="닫기">&times;</button>
-                    </div>
-                    <div class="ai-summary-levels" id="aiSummaryLevels"></div>
-                    <div class="ai-summary-text" id="aiSummaryText"></div>
-                    <div class="ai-pattern-section" id="aiPatternSection" style="display:none;">
-                        <div class="ai-pattern-title">📐 차트 패턴</div>
-                        <div class="ai-pattern-list" id="aiPatternList"></div>
-                    </div>
-                    <div class="ai-horizon-section" id="aiHorizonSection" style="display:none;">
-                        <div class="ai-horizon-title">⏱ 시간 지평별 시나리오</div>
-                        <div class="ai-horizon-grid" id="aiHorizonGrid"></div>
-                    </div>
-                    <button class="ai-summary-toggle" id="aiSummaryToggle" onclick="toggleAiReport()" style="display:none;">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                        상세 분석 리포트 보기
-                    </button>
-                    <div class="ai-summary-report" id="aiSummaryReport">
-                        <div class="ai-summary-report-inner" id="aiSummaryReportInner"></div>
-                    </div>
-                </div>
-                    </div><!-- /group-body groupAi -->
-                </div><!-- /analysis-group groupAi -->
 
                 <!-- 보조 지표 2열 그리드 -->
                 <div class="sub-chart-grid">
