@@ -2861,11 +2861,29 @@
         [data-theme="dark"] .guru-badge.add{background:rgba(0,128,251,.15);color:var(--blue);}
         [data-theme="dark"] .guru-badge.reduce{background:#78350f;color:#fcd34d;}
         [data-theme="dark"] .guru-badge.sold{background:#7f1d1d;color:#fca5a5;}
-        /* Guru 포트폴리오 액션 필터 칩 */
+        /* Guru 포트폴리오 필터 탭 */
+        .guru-filter-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+        .guru-filter-label{font-size:11px;color:var(--text3);white-space:nowrap;flex-shrink:0;padding-right:2px;}
+        .guru-filter-btn{display:inline-flex;align-items:center;gap:3px;padding:5px 10px;border-radius:999px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap;font-family:inherit;}
+        .guru-filter-btn:hover{background:var(--bg3);color:var(--text);}
+        .guru-filter-btn.active{background:rgba(59,130,246,.18);border-color:rgba(59,130,246,.4);color:#3B82F6;font-weight:700;}
+        [data-theme="light"] .guru-filter-btn.active{background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.35);color:#1d4ed8;}
+        .guru-filter-cnt{font-size:10px;opacity:.65;}
+        /* 시가총액 배지 */
+        .guru-cap-badge{display:inline-block;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;white-space:nowrap;vertical-align:middle;margin-left:3px;}
+        .guru-cap-large{background:rgba(59,130,246,.15);color:#3B82F6;}
+        .guru-cap-mid{background:rgba(245,158,11,.15);color:#F59E0B;}
+        .guru-cap-small{background:rgba(139,92,246,.15);color:#8B5CF6;}
+        .guru-cap-nano{background:rgba(107,114,128,.15);color:#6B7280;}
+        [data-theme="dark"] .guru-cap-large{background:rgba(59,130,246,.2);color:#60a5fa;}
+        [data-theme="dark"] .guru-cap-mid{background:rgba(245,158,11,.2);color:#fbbf24;}
+        [data-theme="dark"] .guru-cap-small{background:rgba(139,92,246,.2);color:#a78bfa;}
+        [data-theme="dark"] .guru-cap-nano{background:rgba(107,114,128,.2);color:#9ca3af;}
+        /* 하위호환 */
         .guru-action-chip{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:999px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap;font-family:inherit;}
         .guru-action-chip:hover{background:var(--bg3);}
-        .guru-action-chip.active{background:var(--accent);border-color:var(--accent);color:#fff;}
-        [data-theme="light"] .guru-action-chip.active{background:var(--blue);border-color:var(--blue);}
+        .guru-action-chip.active{background:rgba(59,130,246,.18);border-color:rgba(59,130,246,.4);color:#3B82F6;}
+        [data-theme="light"] .guru-action-chip.active{background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.35);color:#1d4ed8;}
         .sm-table{border-collapse:collapse;font-size:12px;}
         .sm-table th{padding:8px 10px;font-size:11px;font-weight:700;color:var(--text2);background:var(--bg2);border-bottom:1px solid var(--border);text-align:left;}
         .sm-table td{padding:9px 10px;border-bottom:1px solid var(--border);}

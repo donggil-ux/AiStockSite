@@ -10808,15 +10808,25 @@
         return `${y}Q3`;
     }
 
+    // ── 시가총액 배지 (비중 기준 간접 추정) ─────────────────────────
+    function _guruCapBadge(weight) {
+        const w = Number(weight || 0);
+        if (w >= 5)   return `<span class="guru-cap-badge guru-cap-large">대형</span>`;
+        if (w >= 1)   return `<span class="guru-cap-badge guru-cap-mid">중형</span>`;
+        if (w >= 0.1) return `<span class="guru-cap-badge guru-cap-small">소형</span>`;
+        return `<span class="guru-cap-badge guru-cap-nano">초소형</span>`;
+    }
+
     // 포지션 행 단건 렌더 (필터 재적용 시 재사용)
     function _renderGuruRow(p, i, meta) {
         const shortName = (p.name || '').replace(/ (CORP|INC|LTD|PLC|CO|GROUP|HOLDINGS|TECHNOLOGIES|TECHNOLOGY|INTERNATIONAL|BANCSHARES|FINANCIAL)\.?$/i, '').slice(0, 22);
         const tickerLogo = p.ticker
-            ? `<img src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(p.ticker)}?format=png" class="sm-row-logo" alt="" loading="lazy" onerror="this.style.display='none'" style="vertical-align:middle;margin-right:6px"/>`
+            ? `<img src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(p.ticker)}?format=png" class="sm-row-logo" alt="" loading="lazy" onerror="this.style.display='none'" style="vertical-align:middle;margin-right:6px;flex-shrink:0"/>`
             : '';
+        const capBadge = _guruCapBadge(p.weight);
         const ticker = p.ticker
-            ? `${tickerLogo}<a href="#" onclick="event.preventDefault();smChartLink('${p.ticker}',0,'${escHtml((meta||{}).name||'Guru')}')" style="color:var(--accent);font-weight:700;font-size:13px;vertical-align:middle">${escHtml(p.ticker)}</a>`
-            : `<span style="color:var(--text);font-weight:700;font-size:12px" title="${escHtml(p.name||'')}">${escHtml(shortName)}</span>`;
+            ? `${tickerLogo}<a href="#" onclick="event.preventDefault();smChartLink('${p.ticker}',0,'${escHtml((meta||{}).name||'Guru')}')" style="color:var(--accent);font-weight:700;font-size:13px;vertical-align:middle">${escHtml(p.ticker)}</a>${capBadge}`
+            : `<span style="color:var(--text);font-weight:700;font-size:12px" title="${escHtml(p.name||'')}">${escHtml(shortName)}</span>${capBadge}`;
         const subName = p.ticker ? `<div style="font-size:10px;color:var(--text-secondary)">${escHtml((p.name||'').slice(0,30))}</div>` : '';
         const deltaShares = (p.prev_shares != null && p.shares != null) ? (p.shares - p.prev_shares) : 0;
         const deltaStr = deltaShares === 0 ? '—' :
@@ -10824,7 +10834,7 @@
             `<span style="color:var(--red)">${_guruFmtShares(deltaShares)}</span>`;
         return `<tr>
             <td style="font-size:10px;color:var(--text-secondary)">${i+1}</td>
-            <td>${ticker}${subName}</td>
+            <td><div style="display:flex;align-items:center;flex-wrap:wrap;gap:2px">${ticker}</div>${subName}</td>
             <td style="text-align:right;font-weight:600">${Number(p.weight||0).toFixed(2)}%</td>
             <td style="text-align:right">${_guruFmtUSD(p.value_usd)}</td>
             <td style="text-align:right">${_guruFmtShares(p.shares)}</td>
@@ -10833,20 +10843,40 @@
         </tr>`;
     }
 
-    // 필터 칩 클릭 → tbody 즉시 재렌더
-    function _applyGuruFilter(action) {
-        _guruActionFilter = action;
-        document.querySelectorAll('.guru-action-chip').forEach(b =>
-            b.classList.toggle('active', b.dataset.action === action));
+    // ── 통합 필터 함수 (action + 규모) ───────────────────────────────
+    function _guruFilterPos(filter, btn) {
+        // 버튼 활성화 토글
+        document.querySelectorAll('.guru-filter-btn').forEach(b => b.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+
+        // 포지션 필터링
+        let filtered;
+        switch (filter) {
+            case 'new':    filtered = _guruDeepPositions.filter(p => p.action === 'NEW');   break;
+            case 'add':    filtered = _guruDeepPositions.filter(p => p.action === 'ADD');   break;
+            case 'reduce': filtered = _guruDeepPositions.filter(p => p.action === 'REDUCE'); break;
+            case 'sold':   filtered = _guruDeepPositions.filter(p => p.action === 'SOLD');  break;
+            case 'hold':   filtered = _guruDeepPositions.filter(p => p.action === 'HOLD');  break;
+            case 'large':  filtered = _guruDeepPositions.filter(p => Number(p.weight||0) >= 5); break;
+            case 'mid':    filtered = _guruDeepPositions.filter(p => { const w=Number(p.weight||0); return w>=1&&w<5; }); break;
+            case 'small':  filtered = _guruDeepPositions.filter(p => Number(p.weight||0) < 1);  break;
+            default:       filtered = _guruDeepPositions;
+        }
+
         const tbody = document.getElementById('guruPosTbody');
         const cntEl = document.getElementById('guruFilterCnt');
         if (!tbody) return;
-        const filtered = action === 'all'
-            ? _guruDeepPositions
-            : _guruDeepPositions.filter(p => (p.action || 'HOLD') === action);
-        tbody.innerHTML = filtered.map((p, i) => _renderGuruRow(p, i, _guruDeepMeta)).join('');
+
+        if (!filtered.length) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-secondary)">해당 조건의 포지션이 없습니다.</td></tr>`;
+        } else {
+            tbody.innerHTML = filtered.map((p, i) => _renderGuruRow(p, i, _guruDeepMeta)).join('');
+        }
         if (cntEl) cntEl.textContent = filtered.length + '개';
     }
+
+    // 하위 호환: 기존 _applyGuruFilter 유지
+    function _applyGuruFilter(action) { _guruFilterPos(action === 'all' ? 'all' : action.toLowerCase(), null); }
 
     // 최신 분기 자동 수집 (confirm 없이 조용히 실행)
     async function _guruRefreshLatest(cik) {
@@ -10908,21 +10938,38 @@
                 🔄 최신 수집
                </button>`;
 
-        // 액션 카운트
+        // ── 필터 카운트 계산 ────────────────────────────────────────
         const cntMap = {};
         positions.forEach(p => { const a = p.action || 'HOLD'; cntMap[a] = (cntMap[a]||0)+1; });
-        const chips = [
-            { action:'all',    label:'전체',  cnt: positions.length },
-            { action:'NEW',    label:'🆕 신규', cnt: cntMap['NEW']||0 },
-            { action:'ADD',    label:'🔵 추가', cnt: cntMap['ADD']||0 },
-            { action:'REDUCE', label:'🟡 축소', cnt: cntMap['REDUCE']||0 },
-            { action:'SOLD',   label:'🔴 청산', cnt: cntMap['SOLD']||0 },
-            { action:'HOLD',   label:'⚪ 유지', cnt: cntMap['HOLD']||0 },
-        ].filter(c => c.action === 'all' || c.cnt > 0)
-         .map(c => `<button class="guru-action-chip${c.action==='all'?' active':''}" data-action="${c.action}"
-                        onclick="_applyGuruFilter('${c.action}')">
-                        ${c.label} <span style="opacity:.65;font-size:10px">${c.cnt}</span>
-                    </button>`).join('');
+        const cntLarge = positions.filter(p => Number(p.weight||0) >= 5).length;
+        const cntMid   = positions.filter(p => { const w=Number(p.weight||0); return w>=1&&w<5; }).length;
+        const cntSmall = positions.filter(p => Number(p.weight||0) < 1).length;
+
+        // 행동 필터 — 0개인 항목 자동 제외
+        const actionFilters = [
+            { key:'all',    label:'전체',      cnt: positions.length },
+            { key:'new',    label:'🆕 신규',   cnt: cntMap['NEW']||0 },
+            { key:'add',    label:'➕ 추가매수', cnt: cntMap['ADD']||0 },
+            { key:'reduce', label:'➖ 축소',    cnt: cntMap['REDUCE']||0 },
+            { key:'sold',   label:'🔴 청산',   cnt: cntMap['SOLD']||0 },
+            { key:'hold',   label:'유지',       cnt: cntMap['HOLD']||0 },
+        ].filter(f => f.key === 'all' || f.cnt > 0);
+
+        // 규모 필터
+        const sizeFilters = [
+            { key:'large', label:'대형주', cnt: cntLarge },
+            { key:'mid',   label:'중형주', cnt: cntMid   },
+            { key:'small', label:'소형주', cnt: cntSmall },
+        ].filter(f => f.cnt > 0);
+
+        const mkBtn = (f, isFirst) =>
+            `<button class="guru-filter-btn${isFirst ? ' active' : ''}" data-filter="${f.key}"
+                     onclick="_guruFilterPos('${f.key}', this)">
+                ${f.label} <span class="guru-filter-cnt">${f.cnt}</span>
+             </button>`;
+
+        const actionBtns = actionFilters.map((f, i) => mkBtn(f, i === 0)).join('');
+        const sizeBtns   = sizeFilters.map(f => mkBtn(f, false)).join('');
 
         const rows = positions.map((p, i) => _renderGuruRow(p, i, meta)).join('');
 
@@ -10945,15 +10992,23 @@
                 ${refreshBtn}
                 <span style="font-size:10px;color:var(--text-secondary);opacity:.7">13F 최대 45일 지연</span>
             </div>
-            <div class="guru-action-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-                ${chips}
-                <span id="guruFilterCnt" style="margin-left:auto;font-size:11px;color:var(--text-secondary);align-self:center">${positions.length}개</span>
-            </div>
             ${treemapHtml ? `<div style="margin-bottom:16px">
                 <div style="font-size:13px;font-weight:600;margin-bottom:6px">Top 8 포트폴리오 비중</div>
                 ${treemapHtml}
             </div>` : ''}
-            ${positions.length ? `<div class="sm-table-wrap" style="overflow-x:auto">
+            ${positions.length ? `
+            <div style="margin-bottom:6px">
+                <div class="guru-filter-row">
+                    <span class="guru-filter-label">행동</span>
+                    ${actionBtns}
+                </div>
+                ${sizeBtns ? `<div class="guru-filter-row" style="margin-top:6px">
+                    <span class="guru-filter-label">규모</span>
+                    ${sizeBtns}
+                    <span id="guruFilterCnt" style="margin-left:auto;font-size:11px;color:var(--text-secondary);align-self:center">${positions.length}개</span>
+                </div>` : `<span id="guruFilterCnt" style="display:none">${positions.length}</span>`}
+            </div>
+            <div class="sm-table-wrap" style="overflow-x:auto">
                 <table class="sm-table" style="width:100%">
                     <thead><tr>
                         <th>#</th><th>종목</th><th style="text-align:right">비중</th>
@@ -25728,7 +25783,7 @@
         switchSmTab, smDeepDive, smDeepBack, filterSmHoldings, smChartLink,
         renderGuruReal, guruDeepDiveReal, guruDeepBack, renderGuruHolders, goSmartMoneyAndOpen,
         loadGuruHome, goSmartMoneyAndOpenReal, guruRefresh, _guruImgErr,
-        _applyGuruFilter, _guruRefreshLatest,
+        _applyGuruFilter, _guruFilterPos, _guruRefreshLatest,
         setMarket, searchStock, setChartInterval, setPeriod, _toggleIntervalDropdown,
         quickSearch, toggleFavorite, switchTab, toggleChartFullscreen,
         favSearch, removeFavorite, setTop100Filter, goTop100, goCatalyst, loadCatalyst, _catalystSetFilter,
