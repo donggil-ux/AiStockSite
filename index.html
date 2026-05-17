@@ -6979,6 +6979,17 @@
                 _addPosLine(pos.entryPrice, '#9D4EDD', 2, 0,
                     `내 ${pos.status==='watching'?'목표':'진입'} ${_posFmtP(pos.entryPrice,currentMarket)}${pnlTxt}`);
 
+                // 분할매수 차수별 라인 (splits 있으면 개별 표시, 없으면 진입가 하나만)
+                const _splitColors = ['#06B6D4','#3B82F6','#8B5CF6','#F97316','#10B981','#F59E0B'];
+                if (pos.splits && pos.splits.length > 1) {
+                    pos.splits.forEach((sp, i) => {
+                        if (sp.nth === 1) return; // 1차는 이미 위에서 그림
+                        const color = _splitColors[i] || '#94a3b8';
+                        _addPosLine(sp.price, color, 1, 2,
+                            `${sp.nth}차 진입 ${_posFmtP(sp.price,currentMarket)}`);
+                    });
+                }
+
                 // 손절가 (holding 전용)
                 if (pos.status === 'holding' && pos.stopLoss) {
                     const slPct = _posPnlPct(pos.entryPrice, pos.stopLoss);
