@@ -7210,11 +7210,19 @@
                 </div>
                 <div class="pos-field">
                   <label>분배 방식</label>
-                  <div class="pos-radio-row">
-                    <label><input type="radio" name="splitMode" value="equal" checked
-                      onchange="_posCalcSplitPlan()"> 균등 분배</label>
-                    <label><input type="radio" name="splitMode" value="pyramid"
-                      onchange="_posCalcSplitPlan()"> 피라미딩 (하락할수록 많이)</label>
+                  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--text2);">
+                      <input type="radio" name="splitMode" value="equal" checked
+                        onchange="_posCalcSplitPlan()"
+                        style="width:16px;height:16px;cursor:pointer;">
+                      균등 분배
+                    </label>
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--text2);">
+                      <input type="radio" name="splitMode" value="pyramid"
+                        onchange="_posCalcSplitPlan()"
+                        style="width:16px;height:16px;cursor:pointer;">
+                      피라미딩 (하락할수록 많이)
+                    </label>
                   </div>
                 </div>
               </div>
