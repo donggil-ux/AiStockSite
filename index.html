@@ -14511,6 +14511,16 @@
             );
         }
 
+        // Kullamägi 활성 시 셋업 없으면 안내 배지
+        if (_chartKullamagiEnabled) {
+            const _noSetupBar = document.getElementById('chartSigBar');
+            if (_noSetupBar && setups.length === 0) {
+                _noSetupBar.insertAdjacentHTML('beforeend',
+                    `<span class="chart-sig-pill" style="background:rgba(157,78,221,0.1);color:#9D4EDD;border-color:rgba(157,78,221,0.3)">🟣 Kullamägi — 현재 셋업 없음</span>`
+                );
+            }
+        }
+
         // 카드 렌더
         _renderKullamagiCard(setups, scoreData, tickerType);
         _updateKullagBtnUi();
