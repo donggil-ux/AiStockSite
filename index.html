@@ -14837,7 +14837,8 @@
                 if (!groupVisible) return;
 
                 const active = entryNum <= mobileMaxEntries && !(has5_6Warn && entryNum >= 5);
-                const color = active ? lv.color : 'rgba(148,163,184,0.4)';
+                // 우측 가격 라벨 배경색 2차 기준(#06B6D4)으로 통일
+                const color = active ? '#06B6D4' : 'rgba(148,163,184,0.4)';
                 // 1차 진입가 강조 (🎯, 굵은 실선, 높은 우선순위)
                 // 필터링 후 재배치된 순서대로 번호 재생성
                 const newLabel = `진입 ${entryNum}차`;
