@@ -1581,9 +1581,11 @@
         .chart-toolbar{display:flex;align-items:center;gap:6px;padding:10px 14px;background:var(--bg2);border-radius:8px 8px 0 0;border-bottom:1px solid var(--border);flex-wrap:wrap;}
         .chart-toolbar-group{display:flex;gap:3px;align-items:center;}
         .chart-toolbar-divider{width:1px;height:20px;background:var(--border);margin:0 6px;}
-        .chart-tb-btn{padding:5px 12px;border:1px solid var(--border);background:transparent;color:var(--text3);border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all .12s;white-space:nowrap;}
+        .chart-tb-btn{padding:5px 12px;border:1px solid var(--border);background:transparent;color:var(--text3);border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all .12s;white-space:nowrap;display:inline-flex;align-items:center;}
         .chart-tb-btn:hover{border-color:var(--text3);color:var(--text2);}
         .chart-tb-btn.active{border-color:var(--blue);color:var(--blue);background:rgba(0,128,251,.08);}
+        .dd-arrow{width:14px;height:14px;margin-left:3px;flex-shrink:0;transition:transform .2s ease;}
+        .chart-tb-btn[data-open="1"] .dd-arrow{transform:rotate(180deg);}
         .chart-ai-reader-btn{border-color:var(--purple);color:var(--purple);background:rgba(191,90,242,.08);margin-right:4px;}
         .chart-ai-reader-btn:hover{background:rgba(191,90,242,.18) !important;border-color:var(--purple) !important;color:var(--purple) !important;}
         /* AI Progress Bar */

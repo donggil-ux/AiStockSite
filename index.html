@@ -808,7 +808,7 @@
                             <div class="chart-dd-wrap" id="analysisDdWrap">
                                 <button class="chart-tb-btn" id="analysisDdBtn"
                                     onclick="_toggleAnalysisDd(event)" title="분석 라인 설정"
-                                    style="border-color:var(--border);color:var(--text3);">분석 ▾
+                                    style="border-color:var(--border);color:var(--text3);">분석 <svg class="dd-arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M11.9999 13.1714L16.9497 8.22168L18.3639 9.63589L11.9999 15.9999L5.63599 9.63589L7.0502 8.22168L11.9999 13.1714Z"/></svg>
                                 </button>
                                 <div class="chart-dd-menu" id="analysisDdMenu" style="display:none;">
                                     <button class="chart-dd-item" onclick="event.stopPropagation();toggleKullamagiLayer();_updateDdStates();">
@@ -837,7 +837,7 @@
                             <div class="chart-dd-wrap" id="lineDdWrap">
                                 <button class="chart-tb-btn" id="lineDdBtn"
                                     onclick="_toggleLineDd(event)" title="차트 라인 설정"
-                                    style="border-color:var(--border);color:var(--text3);">라인 ▾
+                                    style="border-color:var(--border);color:var(--text3);">라인 <svg class="dd-arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M11.9999 13.1714L16.9497 8.22168L18.3639 9.63589L11.9999 15.9999L5.63599 9.63589L7.0502 8.22168L11.9999 13.1714Z"/></svg>
                                 </button>
                                 <div class="chart-dd-menu" id="lineDdMenu" style="display:none;">
                                     <button class="chart-dd-item" onclick="event.stopPropagation();toggleSplitBuyLayer();_updateDdStates();">
@@ -15763,7 +15763,7 @@
         if (!menu) return;
         const open = menu.style.display !== 'none';
         _closeAllDds();
-        if (!open) _ddOpenMenu(menu, btn);
+        if (!open) { _ddOpenMenu(menu, btn); btn.dataset.open = '1'; }
     }
 
     function _toggleLineDd(e) {
@@ -15773,14 +15773,18 @@
         if (!menu) return;
         const open = menu.style.display !== 'none';
         _closeAllDds();
-        if (!open) _ddOpenMenu(menu, btn);
+        if (!open) { _ddOpenMenu(menu, btn); btn.dataset.open = '1'; }
     }
 
     function _closeAllDds() {
         const am = document.getElementById('analysisDdMenu');
         const lm = document.getElementById('lineDdMenu');
+        const ab = document.getElementById('analysisDdBtn');
+        const lb = document.getElementById('lineDdBtn');
         if (am) am.style.display = 'none';
         if (lm) lm.style.display = 'none';
+        if (ab) delete ab.dataset.open;
+        if (lb) delete lb.dataset.open;
     }
 
     function _setDdCheck(id, isChecked) {
