@@ -10418,6 +10418,16 @@
         }).join('');
     }
 
+    // SM_KINGDOM id → SEC EDGAR CIK 매핑
+    // /api/guru에 등록된 기관만 실데이터 사용; 나머지는 하드코딩 폴백
+    const SM_KINGDOM_CIK = {
+        'berkshire25':   '0001067983',  // Berkshire Hathaway (Warren Buffett)
+        'citadel':       '0001423053',  // Citadel (Ken Griffin)
+        'renaissance25': '0001037389',  // Renaissance Technologies (Simons)
+        'tiger':         '0001167483',  // Tiger Global (Chase Coleman)
+        'millennium':    '0001273931',  // Millennium Management
+    };
+
     async function smDeepDive(id) {
         // id format: 'hot_xxx' or 'kingdom_xxx'
         const [mode, instId] = id.split('_');
