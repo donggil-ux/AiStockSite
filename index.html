@@ -15364,6 +15364,7 @@
     let _chartSrLines   = [];
     let _chartSrEnabled = localStorage.getItem('stockai_chart_sr_enabled') !== '0';
     let _chartSrMode    = parseInt(localStorage.getItem('stockai_chart_sr_mode') || '3'); // 3=3★이상(기본) 5=5★만
+    let _srLevels       = null; // 다른 레이어에서 참조 가능한 감지 결과 캐시 (SR 비활성 시에도 항상 계산)
 
     function _updateSrBtnUi() {
         const btn = document.getElementById('chartSrBtn');
@@ -15537,6 +15538,10 @@
     function _renderSrLayer(q, ts) {
         _clearSrLines();
         _updateSrBtnUi();
+        // SR 비활성 시에도 _srLevels는 항상 계산 — Smart Dip 등 다른 레이어에서 참조
+        if (q?.close?.length) {
+            try { _srLevels = _srDetectLevels(q, ts); } catch(_) { _srLevels = null; }
+        }
         if (!_chartSrEnabled || !q?.close?.length || !lwCandleSeries) return;
 
         const lastClose = (() => { for (let i = q.close.length-1; i >= 0; i--) if (q.close[i] != null) return q.close[i]; return null; })();
@@ -15546,7 +15551,7 @@
         const fmtP  = p => isKR ? Math.round(p).toLocaleString() + '원' : '$' + p.toFixed(2);
         const starStr = n => '★'.repeat(Math.min(Math.max(n, 0), 5));
 
-        const levels   = _srDetectLevels(q, ts);
+        const levels   = _srLevels || _srDetectLevels(q, ts); // 이미 계산된 캐시 재사용
         const breakouts = _srDetectBreakouts(levels, q);
 
         const minStars = _chartSrMode === 5 ? 5 : 3;
