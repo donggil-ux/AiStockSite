@@ -13210,11 +13210,16 @@
     }
 
     // ── 우측 가격 라벨 중복 방지 ──────────────────────────────────
-    // priority: 낮을수록 우선순위 높음 (1=손절/진입, 2=분할매수, 3=TP1, 4=지지저항, 5=피보나치)
-    // ±0.8% 이내 같은 가격대에 더 높은 우선순위 라인이 이미 있으면 axisLabel 숨김
+    // priority: 낮을수록 우선순위 높음
+    //   1 = 손절선
+    //   2 = SD 분할매수 (1~6차) — _renderSplitBuyLayer
+    //   3 = 익절 1차
+    //   4 = 익절 2~3차 / 지지·저항
+    //   5 = 동적 지지 (EMA, VWAP) / 기타
+    // ±0.5% 이내 같은 가격대에 더 높은 우선순위 라인이 이미 있으면 axisLabel 숨김
     function _claimPriceLabel(price, priority) {
         if (!price || !isFinite(price) || price <= 0) return false;
-        const TOL = price * 0.008;
+        const TOL = price * 0.005;
         const conflict = _priceLabelRegistry.find(p => Math.abs(p.price - price) <= TOL && p.priority <= priority);
         if (!conflict) { _priceLabelRegistry.push({ price, priority }); return true; }
         return false;
@@ -13603,27 +13608,15 @@
             }
         } catch(e) {}
 
-        // 5) 매매 전략 라인 — ATR(14) 기반 3단계 분할매수 + 3단계 분할익절
-        //    1차 매수 = 현재가가 아니라 "의미있는 풀백 레벨" (지지선 또는 -0.3 ATR)
+        // 5) 익절 라인 — ATR(14) 기반 3단계 분할익절
+        //    분할매수 라인은 _renderSplitBuyLayer(SD 1~6차)가 담당하므로 여기서는 익절만 표시
         const atrArr = calcATR(highs, lows, closes, 14);
         const atr = lastVal(atrArr);
         if (atr != null && atr > 0 && lastClose != null && lastClose > 0) {
             const isKR = currentMarket === 'KR';
             const fmtP = p => isKR ? Math.round(p).toLocaleString() + '원' : '$' + p.toFixed(2);
 
-            // 1차 매수: 현재가 바로 아래 지지선 우선 (있으면), 없으면 -0.3 ATR 풀백
-            //   - 지지선이 너무 가까우면(<0.15 ATR) 의미 없으니 ATR 풀백 사용
-            //   - 지지선이 너무 멀면(>1.5 ATR) 떨어질 가능성 낮으니 ATR 풀백 사용
-            const nearestSupport = troughs
-                .filter(p => p.price < lastClose
-                    && (lastClose - p.price) >= atr * 0.15
-                    && (lastClose - p.price) <= atr * 1.5)
-                .sort((a, b) => b.price - a.price)[0]; // 현재가에 가장 가까운 지지 (가장 높은 값)
-            const e1 = nearestSupport ? nearestSupport.price : (lastClose - atr * 0.3);
-            // 2차/3차는 1차 아래로 ATR 간격 (1차가 깊으면 더 깊게)
-            const e2 = Math.min(e1 - atr * 0.5, lastClose - atr * 1.0);
-            const e3 = Math.min(e2 - atr * 0.5, lastClose - atr * 1.8);
-            // 익절은 현재가 기준
+            // 익절은 현재가 기준 (ATR 배수)
             const t1 = lastClose + atr * 1.5;
             const t2 = lastClose + atr * 3.0;
             const t3 = lastClose + atr * 5.0;
@@ -13638,16 +13631,10 @@
                     _chartLiveLines.push(pl);
                 } catch(e) {}
             };
-            // 0=Solid, 1=Dotted, 2=Dashed (LWC LineStyle)
-            // 분할매수 3단계 — 1차는 굵은 실선(주문 대기), 2~3차는 점선
-            const e1Label = nearestSupport ? `1차 매수 (지지) ${fmtP(e1)}` : `1차 매수 ${fmtP(e1)}`;
-            addStratLine(e1, '#a3e635', 0, 3, e1Label, 2);
-            addStratLine(e2, '#a3e635', 2, 2, `2차 매수 ${fmtP(e2)}`, 2);
-            addStratLine(e3, '#a3e635', 2, 2, `3차 매수 ${fmtP(e3)}`, 2);
             // 분할익절 — 기본 1차만, _chartTpLevel 설정에 따라 2~3차 추가
             addStratLine(t1, '#22d3ee', 2, 2, `1차 익절 ${fmtP(t1)}`, 3);
-            if (_chartTpLevel >= 2) addStratLine(t2, '#3b82f6', 2, 2, `2차 익절 ${fmtP(t2)}`, 5);
-            if (_chartTpLevel >= 3) addStratLine(t3, '#a855f7', 2, 2, `3차 익절 ${fmtP(t3)}`, 5);
+            if (_chartTpLevel >= 2) addStratLine(t2, '#3b82f6', 2, 2, `2차 익절 ${fmtP(t2)}`, 4);
+            if (_chartTpLevel >= 3) addStratLine(t3, '#a855f7', 2, 2, `3차 익절 ${fmtP(t3)}`, 4);
         }
 
         } // end if (_chartLinesEnabled) — 보조지표 가격 라인 블록 끝
@@ -14555,10 +14542,22 @@
                 addLine(avg, '#9D4EDD', 1, 2, `평균 ${fmtP(avg)} (${pos.splitCount || '?'}차 완료)${pnlLabel}`);
             }
 
-            // 시그널 배지
+            // 시그널 배지 — 종목 유형 + 핵심 진입 가격
             const bar = document.getElementById('chartSigBar');
             if (bar && levels.length > 0) {
-                const lvl4 = levels[3]; // 핵심 4차
+                // 종목 유형 배지 (1~N차 안내)
+                const _sdTypeBadgeMap = {
+                    '3x 레버리지 ETF': { icon: '🔋', label: '3x 레버리지', cls: 'sig-red' },
+                    '2x 레버리지 ETF': { icon: '🔋', label: '2x 레버리지', cls: 'sig-neutral' },
+                    '소형 테마주':      { icon: '📍', label: '소형주',       cls: 'sig-neutral' },
+                    '일반 개별주':      { icon: '📊', label: '일반주',       cls: 'sig-neutral' },
+                };
+                const _sdTypeMeta = _sdTypeBadgeMap[coeff.typeLabel] || { icon: '📊', label: '일반주', cls: 'sig-neutral' };
+                bar.insertAdjacentHTML('beforeend',
+                    `<span class="chart-sig-pill ${_sdTypeMeta.cls}" title="${coeff.typeLabel} — 총 ${coeff.maxEntries}차 분할매수 활성">${_sdTypeMeta.icon} ${_sdTypeMeta.label} (1~${coeff.maxEntries}차)</span>`
+                );
+                // 핵심 4차 진입 가격
+                const lvl4 = levels[3]; // 핵심 4차 (0.618 황금비율)
                 bar.insertAdjacentHTML('beforeend',
                     `<span class="chart-sig-pill" style="background:rgba(6,182,212,.15);color:#06B6D4;border-color:rgba(6,182,212,.4)">분할매수 핵심 ${fmtP(lvl4.price)} (${lvl4.fibLabel})</span>`
                 );
