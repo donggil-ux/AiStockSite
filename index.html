@@ -10430,7 +10430,9 @@
 
     async function smDeepDive(id) {
         // id format: 'hot_xxx' or 'kingdom_xxx'
-        const [mode, instId] = id.split('_');
+        const sep = id.indexOf('_');
+        const mode   = id.slice(0, sep);
+        const instId = id.slice(sep + 1);
         smDeepMode = mode;
         const dataset = mode === 'hot' ? SM_HOT : SM_KINGDOM;
         const inst = dataset.find(i => i.id === instId);
@@ -10438,12 +10440,92 @@
         smCurrentFilter = 'all';
         document.querySelectorAll('.sm-panel').forEach(p => p.classList.remove('active'));
         document.getElementById('smDeep').style.display = '';
-        document.getElementById('smDeep').innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-secondary)">불러오는 중...</div>`;
-        // 상장폐지 종목 필터
+        document.getElementById('smDeep').innerHTML =
+            `<div style="padding:40px;text-align:center;color:var(--text-secondary)">불러오는 중...</div>`;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        // ── kingdom 모드 → CIK 있으면 실제 13F API 호출 ─────────────
+        if (mode === 'kingdom') {
+            const cik = SM_KINGDOM_CIK[instId];
+            if (cik) {
+                try {
+                    const r = await fetch(`/api/guru/${cik}/positions`);
+                    if (r.ok) {
+                        const posData = await r.json();
+                        const positions = posData.positions || [];
+
+                        // API 포지션 → holdings 형식 변환
+                        const apiHoldings = positions
+                            .filter(p => p.ticker || p.name)
+                            .map(p => ({
+                                ticker:    p.ticker || null,
+                                name:      p.name || '',
+                                wt:        Number(p.weight || 0),
+                                wtChg:     p.prev_shares && p.shares
+                                    ? ((p.shares - p.prev_shares) / Math.max(Number(p.prev_shares), 1))
+                                        * Number(p.weight || 0)
+                                    : 0,
+                                avgPrice:  0,
+                                action:    (p.action || 'hold').toLowerCase()
+                                    .replace(/^new$/,    'new')
+                                    .replace(/^add$/,    'add')
+                                    .replace(/^reduce$/, 'reduce')
+                                    .replace(/^sold?$/,  'cut')
+                                    .replace(/^hold$/,   'hold'),
+                                shares:    p.shares    != null ? Number(p.shares)    : null,
+                                value_usd: p.value_usd != null ? Number(p.value_usd) : null,
+                            }));
+
+                        // top3Add: action 이 new/add 인 상위 3개
+                        const top3Add = apiHoldings
+                            .filter(h => h.action === 'new' || h.action === 'add')
+                            .slice(0, 3)
+                            .map(h => ({
+                                ticker:   h.ticker,
+                                name:     h.name,
+                                wtChg:    +(h.wtChg || 0).toFixed(2),
+                                avgPrice: 0,
+                                theme:    h.action === 'new' ? '신규 편입' : '추가 매수',
+                            }));
+
+                        const instWithApi = {
+                            ...inst,
+                            holdings: apiHoldings,
+                            top3Add:  top3Add.length > 0 ? top3Add : (inst.top3Add || []),
+                            _fromApi: true,
+                            _quarter: posData.quarter || '',
+                        };
+
+                        // 유효 티커 필터 (상장폐지 제거)
+                        const tickers = apiHoldings.map(h => h.ticker).filter(Boolean);
+                        const validSet = await _filterValidTickers(tickers);
+                        const filtered = {
+                            ...instWithApi,
+                            holdings: apiHoldings.filter(
+                                h => !h.ticker || validSet.has(h.ticker)
+                            ),
+                        };
+
+                        document.getElementById('smDeep').innerHTML = _renderDeepKingdom(filtered);
+                        return;
+                    }
+                } catch (e) {
+                    console.warn('[SmDeepDive] API 실패, 하드코딩 폴백:', instId, e);
+                }
+            }
+        }
+
+        // ── 폴백: 기존 하드코딩 데이터 사용 ─────────────────────────
         const tickers = (inst.holdings || []).map(h => h.ticker).filter(Boolean);
         const validSet = await _filterValidTickers(tickers);
-        const filteredInst = { ...inst, holdings: (inst.holdings || []).filter(h => validSet.has(h.ticker)) };
-        document.getElementById('smDeep').innerHTML = mode === 'hot' ? _renderDeepHot(filteredInst) : _renderDeepKingdom(filteredInst);
+        const filteredInst = {
+            ...inst,
+            holdings: (inst.holdings || []).filter(h => validSet.has(h.ticker)),
+        };
+        document.getElementById('smDeep').innerHTML =
+            mode === 'hot'
+                ? _renderDeepHot(filteredInst)
+                : _renderDeepKingdom(filteredInst);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
