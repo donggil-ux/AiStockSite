@@ -970,9 +970,11 @@
 
                 <!-- ═══ 빠른 이동 네비게이션 ═══ -->
                 <div class="group-nav" id="groupNav">
+                    <button onclick="_scrollToGroup('groupAi')">🤖 AI</button>
                     <button onclick="_scrollToGroup('groupTradePlan')">📊 매매</button>
                     <button onclick="_scrollToGroup('groupSystem')">⭐ 시스템</button>
                     <button onclick="_scrollToGroup('groupDayTrade')">⚡ 단타</button>
+                    <button onclick="_scrollToGroup('groupBasicInfo')">📋 종목</button>
                 </div>
 
 
@@ -1005,8 +1007,25 @@
                 <button class="analysis-refresh-btn" id="analysisRefreshBtn" onclick="manualAnalysisRefresh()">↻ 지금 갱신</button>
             </div>
 
+            <!-- ═══ 그룹 1: AI 핵심 분석 ═══ -->
+            <div class="analysis-group" id="groupAi">
+                <div class="group-header">
+                    <span class="group-icon">🤖</span>
+                    <span class="group-title">AI 핵심 분석</span>
+                </div>
+                <div class="group-body" id="groupAi-body">
+                    <div id="aiSummaryCard"></div>
+                    <div id="aiPatternSection" style="display:none;"></div>
+                    <div id="aiHorizonSection" style="display:none;"></div>
+                </div><!-- /group-body groupAi -->
+            </div><!-- /analysis-group groupAi -->
+
             <!-- ═══ 그룹 2: 매매 계획 ═══ -->
             <div class="analysis-group" id="groupTradePlan">
+                <div class="group-header">
+                    <span class="group-icon">📊</span>
+                    <span class="group-title">매매 계획</span>
+                </div>
                 <div class="group-body" id="groupTradePlan-body">
                     <!-- 멀티팩터 스코어 카드: 4개 팩터 → TIER A/B/C/D -->
                     <div id="mfScoreCard"></div>
@@ -1027,6 +1046,10 @@
 
             <!-- ═══ 그룹 3: 트레이더 시스템 ═══ -->
             <div class="analysis-group" id="groupSystem">
+                <div class="group-header">
+                    <span class="group-icon">⭐</span>
+                    <span class="group-title">트레이더 시스템</span>
+                </div>
                 <div class="group-body" id="groupSystem-body">
                     <!-- 🎯 Minervini SEPA 분석 카드 -->
                     <div id="sepaAnalysis"></div>
@@ -1037,6 +1060,10 @@
 
             <!-- ═══ 그룹 4: 단타 정보 ═══ -->
             <div class="analysis-group" id="groupDayTrade">
+                <div class="group-header">
+                    <span class="group-icon">⚡</span>
+                    <span class="group-title">단타 정보</span>
+                </div>
                 <div class="group-body" id="groupDayTrade-body" style="padding:0;">
                     <!-- ===== 5분봉 돌파 단타 분석 (v575 UX 개편) ===== -->
                     <div id="tsPanelDay" style="padding:0;">
@@ -1057,8 +1084,17 @@
                 </div><!-- /group-body groupDayTrade -->
             </div><!-- /analysis-group groupDayTrade -->
 
-            <!-- RSI 모멘텀 진단 (동적 밴드 + 다이버전스) -->
-            <div id="rsiMomentum"></div>
+            <!-- ═══ 그룹 5: 종목 기본 정보 ═══ -->
+            <div class="analysis-group" id="groupBasicInfo">
+                <div class="group-header">
+                    <span class="group-icon">📋</span>
+                    <span class="group-title">종목 기본 정보</span>
+                </div>
+                <div class="group-body" id="groupBasicInfo-body">
+                    <!-- RSI 모멘텀 진단 (동적 밴드 + 다이버전스) -->
+                    <div id="rsiMomentum"></div>
+                </div><!-- /group-body groupBasicInfo -->
+            </div><!-- /analysis-group groupBasicInfo -->
 
             <!-- 폴리마켓 예측 (차트 탭 하단) -->
 
