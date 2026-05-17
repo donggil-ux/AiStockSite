@@ -14711,6 +14711,44 @@
     }
 
     // 6차 분할매수 레벨 계산
+    // ── SMC: FVG (Fair Value Gap) 감지 ─────────────────────────────
+    // 상승 FVG: 이전 봉 고점 < 다음 봉 저점 → 가격 불균형 상승 구간
+    // 하락 FVG: 이전 봉 저점 > 다음 봉 고점 → 가격 불균형 하락 구간
+    function _detectFVG(candleData) {
+        const fvgs = [];
+        if (!candleData || candleData.length < 3) return fvgs;
+
+        for (let i = 1; i < candleData.length - 1; i++) {
+            const prev = candleData[i - 1];
+            const curr = candleData[i];
+            const next = candleData[i + 1];
+            if (!prev || !curr || !next) continue;
+
+            // 상승 FVG: 이전 봉 고점 < 다음 봉 저점
+            if (prev.high < next.low) {
+                fvgs.push({
+                    type: 'bullish',
+                    top: next.low,
+                    bottom: prev.high,
+                    mid: (next.low + prev.high) / 2,
+                    time: curr.time,
+                });
+            }
+            // 하락 FVG: 이전 봉 저점 > 다음 봉 고점
+            if (prev.low > next.high) {
+                fvgs.push({
+                    type: 'bearish',
+                    top: prev.low,
+                    bottom: next.high,
+                    mid: (prev.low + next.high) / 2,
+                    time: curr.time,
+                });
+            }
+        }
+        // 최근 5개만 반환
+        return fvgs.slice(-5);
+    }
+
     function _calcSplitBuyLevels(q, atr) {
         const closes = q.close || [], highs = q.high || [], lows = q.low || [];
         const n = closes.length;
