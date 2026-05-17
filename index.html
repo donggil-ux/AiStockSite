@@ -10421,11 +10421,16 @@
     // SM_KINGDOM id → SEC EDGAR CIK 매핑
     // /api/guru에 등록된 기관만 실데이터 사용; 나머지는 하드코딩 폴백
     const SM_KINGDOM_CIK = {
+        'blackrock':     '0001364742',  // BlackRock Inc (Larry Fink)
+        'vanguard':      '0000102909',  // Vanguard Group (Salim Ramji)
         'berkshire25':   '0001067983',  // Berkshire Hathaway (Warren Buffett)
-        'citadel':       '0001423053',  // Citadel (Ken Griffin)
-        'renaissance25': '0001037389',  // Renaissance Technologies (Simons)
-        'tiger':         '0001167483',  // Tiger Global (Chase Coleman)
-        'millennium':    '0001273931',  // Millennium Management
+        'statestreet':   '0000093751',  // State Street Global Advisors (Yie-Hsin Hung)
+        'fidelity':      '0000315066',  // Fidelity Investments (Abigail Johnson)
+        'jpmorgan':      '0000019617',  // JPMorgan Asset Management (Mary Callahan Erdoes)
+        'citadel':       '0001423053',  // Citadel Advisors (Ken Griffin)
+        'renaissance25': '0001037389',  // Renaissance Technologies (Jim Simons)
+        'tiger':         '0001167483',  // Tiger Global Management (Chase Coleman)
+        'millennium':    '0001273087',  // Millennium Management (Israel Englander)
     };
 
     async function smDeepDive(id) {
