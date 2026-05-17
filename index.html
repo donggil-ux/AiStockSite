@@ -15350,7 +15350,7 @@
     // ═══════════════════════════════════════════════════════════
     let _chartSrLines   = [];
     let _chartSrEnabled = localStorage.getItem('stockai_chart_sr_enabled') !== '0';
-    let _chartSrMode    = parseInt(localStorage.getItem('stockai_chart_sr_mode') || '5'); // 5=5★만 3=3★이상
+    let _chartSrMode    = parseInt(localStorage.getItem('stockai_chart_sr_mode') || '3'); // 3=3★이상(기본) 5=5★만
 
     function _updateSrBtnUi() {
         const btn = document.getElementById('chartSrBtn');
@@ -15360,24 +15360,24 @@
             btn.style.color = 'var(--text3)'; btn.style.background = 'transparent'; btn.style.borderColor = 'var(--border)';
             btn.title = '지지/저항선 ON — 5봉 피벗 + 강도 평가';
             if (lbl) lbl.textContent = '지지저항';
-        } else if (_chartSrMode === 5) {
+        } else if (_chartSrMode === 3) {
             btn.style.color = '#F59E0B'; btn.style.background = 'rgba(245,158,11,.12)'; btn.style.borderColor = 'rgba(245,158,11,.4)';
-            btn.title = '지지/저항 ON (★★★★★ 기본) — 클릭 시 3★ 이상으로 확장';
-            if (lbl) lbl.textContent = '지지저항 5★';
+            btn.title = '지지/저항 ON (3★ 이상 전체) — 클릭 시 5★만 표시';
+            if (lbl) lbl.textContent = '지지저항 3★';
         } else {
             btn.style.color = '#F59E0B'; btn.style.background = 'rgba(245,158,11,.22)'; btn.style.borderColor = 'rgba(245,158,11,.7)';
-            btn.title = '지지/저항 ON (★★★+ 전체) — 클릭 시 OFF';
-            if (lbl) lbl.textContent = '지지저항 3★';
+            btn.title = '지지/저항 ON (★★★★★ 강한 레벨만) — 클릭 시 OFF';
+            if (lbl) lbl.textContent = '지지저항 5★';
         }
     }
 
     function toggleSrLayer() {
         if (!_chartSrEnabled) {
-            _chartSrEnabled = true; _chartSrMode = 5;
-        } else if (_chartSrMode === 5) {
-            _chartSrMode = 3;
+            _chartSrEnabled = true; _chartSrMode = 3;   // OFF → 3★
+        } else if (_chartSrMode === 3) {
+            _chartSrMode = 5;                           // 3★ → 5★
         } else {
-            _chartSrEnabled = false; _chartSrMode = 5;
+            _chartSrEnabled = false; _chartSrMode = 3;  // 5★ → OFF
         }
         localStorage.setItem('stockai_chart_sr_enabled', _chartSrEnabled ? '1' : '0');
         localStorage.setItem('stockai_chart_sr_mode', String(_chartSrMode));
@@ -15537,14 +15537,14 @@
         const levels   = _srDetectLevels(q, ts);
         const breakouts = _srDetectBreakouts(levels, q);
 
-        const minStars = _chartSrMode === 3 ? 3 : 5;
-        const priceHi  = lastClose * 1.10;
-        const priceLo  = lastClose * 0.90;
+        const minStars = _chartSrMode === 5 ? 5 : 3;
+        const priceHi  = lastClose * 1.15;  // ±10% → ±15% 로 확장
+        const priceLo  = lastClose * 0.85;
 
         // 돌파된 저항 (리테스트 → 지지 라벨 자동 변경)
         const brokenPrices = new Set(breakouts.filter(b => b.type === 'breakout').map(b => b.level.price));
 
-        const srMaxLines = _isMobileView ? 1 : 2;
+        const srMaxLines = _isMobileView ? 2 : 3;  // 모바일도 최대 2개, 데스크탑 3개
         const visRes = levels.resistances
             .filter(r => r.price > lastClose * 1.001 && r.price <= priceHi && r.stars >= minStars)
             .sort((a, b) => a.price - b.price).slice(0, srMaxLines);
