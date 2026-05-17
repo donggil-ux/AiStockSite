@@ -7116,7 +7116,7 @@
 .chart-dd-wrap{position:relative;display:inline-flex;flex-shrink:0;}
 .chart-dd-menu{
     position:absolute;top:calc(100% + 5px);left:0;
-    min-width:130px;
+    min-width:160px;
     background:var(--bg2);
     border:1px solid var(--border);
     border-radius:10px;
@@ -7135,9 +7135,20 @@
 }
 .chart-dd-item:hover{background:var(--bg3);}
 .chart-dd-check{font-size:13px;width:14px;flex-shrink:0;transition:color .15s;}
+/* 매매 유형 태그 */
+.chart-dd-tag{
+    margin-left:auto;padding:2px 6px;
+    font-size:10px;font-weight:600;
+    border-radius:4px;flex-shrink:0;
+    line-height:1.4;
+}
+.chart-dd-tag-swing{background:rgba(157,78,221,.15);color:#9D4EDD;}
+.chart-dd-tag-long{background:rgba(59,130,246,.15);color:#3B82F6;}
+.chart-dd-tag-day{background:rgba(245,158,11,.15);color:#F59E0B;}
 @media(max-width:640px){
-    .chart-dd-menu{min-width:110px;}
+    .chart-dd-menu{min-width:140px;}
     .chart-dd-item{font-size:12px;padding:7px 12px;}
+    .chart-dd-tag{font-size:9px;padding:1px 5px;}
 }
 
 /* ═══ 지지/저항선 자동 감지 시스템 — R:R 카드 섹션 ════════════ */
