@@ -13630,6 +13630,12 @@
         }
         // ④ 신고가 마커 — 사용자 요청으로 제거 (v708)
 
+        // ── EMA 눌림목/이탈 마커용 배열 (기존 calcEMA 활용) ────────
+        const emaC20  = calcEMA(closes, 20);
+        const emaC60  = calcEMA(closes, 60);
+        const emaC120 = calcEMA(closes, 120);
+        const emaC240 = calcEMA(closes, 240);
+
         // 동일 봉 중복 마커는 첫 것만 유지
         const seen = new Set();
         const uniqMarkers = markers
