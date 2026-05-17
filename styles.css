@@ -2861,6 +2861,11 @@
         [data-theme="dark"] .guru-badge.add{background:rgba(0,128,251,.15);color:var(--blue);}
         [data-theme="dark"] .guru-badge.reduce{background:#78350f;color:#fcd34d;}
         [data-theme="dark"] .guru-badge.sold{background:#7f1d1d;color:#fca5a5;}
+        /* Guru 포트폴리오 액션 필터 칩 */
+        .guru-action-chip{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:999px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap;font-family:inherit;}
+        .guru-action-chip:hover{background:var(--bg3);}
+        .guru-action-chip.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+        [data-theme="light"] .guru-action-chip.active{background:var(--blue);border-color:var(--blue);}
         .sm-table{border-collapse:collapse;font-size:12px;}
         .sm-table th{padding:8px 10px;font-size:11px;font-weight:700;color:var(--text2);background:var(--bg2);border-bottom:1px solid var(--border);text-align:left;}
         .sm-table td{padding:9px 10px;border-bottom:1px solid var(--border);}

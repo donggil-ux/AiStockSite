@@ -10763,9 +10763,97 @@
         }
     }
 
+    // ── Guru 포트폴리오 필터 상태 ──────────────────────────────────
+    let _guruDeepPositions = [];
+    let _guruDeepMeta = null;
+    let _guruActionFilter = 'all';
+
+    // 현재 날짜 기준 기대 최신 분기 (13F 제출 기준, 45일 지연 반영)
+    function _guruExpectedQuarter() {
+        const now = new Date();
+        const y = now.getFullYear(), m = now.getMonth() + 1, d = now.getDate();
+        // Q4 prev year → filing due Feb 15
+        if (m < 2 || (m === 2 && d < 15)) return `${y-1}Q4`;
+        // Q1 current year → filing due May 15
+        if (m < 5 || (m === 5 && d < 15)) return `${y-1}Q4`;
+        if (m === 5 || (m <= 7)) return `${y}Q1`;
+        // Q2 current year → filing due Aug 15
+        if (m < 8 || (m === 8 && d < 15)) return `${y}Q1`;
+        if (m <= 10) return `${y}Q2`;
+        // Q3 current year → filing due Nov 15
+        if (m < 11 || (m === 11 && d < 15)) return `${y}Q2`;
+        return `${y}Q3`;
+    }
+
+    // 포지션 행 단건 렌더 (필터 재적용 시 재사용)
+    function _renderGuruRow(p, i, meta) {
+        const shortName = (p.name || '').replace(/ (CORP|INC|LTD|PLC|CO|GROUP|HOLDINGS|TECHNOLOGIES|TECHNOLOGY|INTERNATIONAL|BANCSHARES|FINANCIAL)\.?$/i, '').slice(0, 22);
+        const tickerLogo = p.ticker
+            ? `<img src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(p.ticker)}?format=png" class="sm-row-logo" alt="" loading="lazy" onerror="this.style.display='none'" style="vertical-align:middle;margin-right:6px"/>`
+            : '';
+        const ticker = p.ticker
+            ? `${tickerLogo}<a href="#" onclick="event.preventDefault();smChartLink('${p.ticker}',0,'${escHtml((meta||{}).name||'Guru')}')" style="color:var(--accent);font-weight:700;font-size:13px;vertical-align:middle">${escHtml(p.ticker)}</a>`
+            : `<span style="color:var(--text);font-weight:700;font-size:12px" title="${escHtml(p.name||'')}">${escHtml(shortName)}</span>`;
+        const subName = p.ticker ? `<div style="font-size:10px;color:var(--text-secondary)">${escHtml((p.name||'').slice(0,30))}</div>` : '';
+        const deltaShares = (p.prev_shares != null && p.shares != null) ? (p.shares - p.prev_shares) : 0;
+        const deltaStr = deltaShares === 0 ? '—' :
+            deltaShares > 0 ? `<span style="color:var(--blue)">+${_guruFmtShares(deltaShares)}</span>` :
+            `<span style="color:var(--red)">${_guruFmtShares(deltaShares)}</span>`;
+        return `<tr>
+            <td style="font-size:10px;color:var(--text-secondary)">${i+1}</td>
+            <td>${ticker}${subName}</td>
+            <td style="text-align:right;font-weight:600">${Number(p.weight||0).toFixed(2)}%</td>
+            <td style="text-align:right">${_guruFmtUSD(p.value_usd)}</td>
+            <td style="text-align:right">${_guruFmtShares(p.shares)}</td>
+            <td style="text-align:center">${_guruBadge(p.action)}</td>
+            <td style="text-align:right;font-size:11px">${deltaStr}</td>
+        </tr>`;
+    }
+
+    // 필터 칩 클릭 → tbody 즉시 재렌더
+    function _applyGuruFilter(action) {
+        _guruActionFilter = action;
+        document.querySelectorAll('.guru-action-chip').forEach(b =>
+            b.classList.toggle('active', b.dataset.action === action));
+        const tbody = document.getElementById('guruPosTbody');
+        const cntEl = document.getElementById('guruFilterCnt');
+        if (!tbody) return;
+        const filtered = action === 'all'
+            ? _guruDeepPositions
+            : _guruDeepPositions.filter(p => (p.action || 'HOLD') === action);
+        tbody.innerHTML = filtered.map((p, i) => _renderGuruRow(p, i, _guruDeepMeta)).join('');
+        if (cntEl) cntEl.textContent = filtered.length + '개';
+    }
+
+    // 최신 분기 자동 수집 (confirm 없이 조용히 실행)
+    async function _guruRefreshLatest(cik) {
+        const btn = document.getElementById('guruRefreshBtn');
+        if (btn) { btn.disabled = true; btn.textContent = '수집 중...'; }
+        try {
+            const r = await fetch('/api/guru-refresh/' + cik, { method: 'POST' });
+            if (r.status === 401 || r.status === 403) {
+                if (btn) { btn.disabled = false; btn.textContent = '🔄 최신 수집'; }
+                try { showToast('관리자 권한이 필요합니다'); } catch(e) {}
+                return;
+            }
+            const j = await r.json();
+            if (!r.ok) throw new Error(j.error || 'HTTP ' + r.status);
+            _guruCache.list = null; _guruCache.ts = 0;
+            try { showToast(`✅ ${j.positions || 0}개 포지션 수집 완료`); } catch(e) {}
+            // 갱신된 데이터로 다시 로드
+            guruDeepDiveReal(cik);
+        } catch (e) {
+            if (btn) { btn.disabled = false; btn.textContent = '🔄 최신 수집'; }
+            try { showToast('수집 실패: ' + e.message); } catch(ex) {}
+        }
+    }
+
     function _renderGuruDeep(meta, pos) {
         const deep = document.getElementById('smDeep');
+        _guruDeepMeta = meta;
+        _guruActionFilter = 'all';
         const positions = (pos.positions || []).filter(p => p.ticker || p.name);
+        _guruDeepPositions = positions;
         const currentQ = pos.quarter;
         const quarters = meta.quarters || [];
 
@@ -10774,39 +10862,46 @@
         const treemapData = top8.map(p => ({
             ticker: p.ticker,
             wt: Number(p.weight) || 0,
-            wtChg: 0, // 13F 실데이터에서는 비중변화 계산 생략 (prev_shares로 간접 표시)
-            avgPrice: 0, // 평단 없음
         }));
         const tmTotal = treemapData.reduce((s, h) => s + h.wt, 0);
         const treemapHtml = tmTotal > 0 ? _renderGuruTreemap(treemapData) : '';
 
+        // 분기 드롭다운 옵션
         const qOptions = quarters.map(q =>
             `<option value="${q.quarter}" ${q.quarter === currentQ ? 'selected' : ''}>${q.quarter} (${q.filing_date})</option>`
         ).join('');
 
-        const rows = positions.map((p, i) => {
-            const shortName = (p.name || '').replace(/ (CORP|INC|LTD|PLC|CO|GROUP|HOLDINGS|TECHNOLOGIES|TECHNOLOGY|INTERNATIONAL|BANCSHARES|FINANCIAL)\.?$/i, '').slice(0, 22);
-            const tickerLogo = p.ticker
-                ? `<img src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(p.ticker)}?format=png" class="sm-row-logo" alt="" loading="lazy" onerror="this.style.display='none'" style="vertical-align:middle;margin-right:6px"/>`
-                : '';
-            const ticker = p.ticker
-                ? `${tickerLogo}<a href="#" onclick="event.preventDefault();smChartLink('${p.ticker}',0,'${escHtml(meta.name||'Guru')}')" style="color:var(--accent);font-weight:700;font-size:13px;vertical-align:middle">${escHtml(p.ticker)}</a>`
-                : `<span style="color:var(--text);font-weight:700;font-size:12px" title="${escHtml(p.name||'')}">${escHtml(shortName)}</span>`;
-            const subName = p.ticker ? `<div style="font-size:10px;color:var(--text-secondary)">${escHtml((p.name||'').slice(0,30))}</div>` : '';
-            const deltaShares = (p.prev_shares != null && p.shares != null) ? (p.shares - p.prev_shares) : 0;
-            const deltaStr = deltaShares === 0 ? '—' :
-                deltaShares > 0 ? `<span style="color:var(--blue)">+${_guruFmtShares(deltaShares)}</span>` :
-                `<span style="color:var(--red)">${_guruFmtShares(deltaShares)}</span>`;
-            return `<tr>
-                <td style="font-size:10px;color:var(--text-secondary)">${i+1}</td>
-                <td>${ticker}${subName}</td>
-                <td style="text-align:right;font-weight:600">${Number(p.weight||0).toFixed(2)}%</td>
-                <td style="text-align:right">${_guruFmtUSD(p.value_usd)}</td>
-                <td style="text-align:right">${_guruFmtShares(p.shares)}</td>
-                <td style="text-align:center">${_guruBadge(p.action)}</td>
-                <td style="text-align:right;font-size:11px">${deltaStr}</td>
-            </tr>`;
-        }).join('');
+        // 최신 분기 여부 체크 → 수집 버튼 표시
+        const expectedQ = _guruExpectedQuarter();
+        const latestInDB = quarters.length ? quarters[0].quarter : (currentQ || '');
+        const needsRefresh = !latestInDB || latestInDB < expectedQ;
+        const refreshBtn = needsRefresh
+            ? `<button id="guruRefreshBtn" onclick="_guruRefreshLatest('${meta.cik}')"
+                style="padding:5px 11px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--accent);font-size:12px;cursor:pointer;white-space:nowrap">
+                🔄 ${expectedQ} 수집
+               </button>`
+            : `<button id="guruRefreshBtn" onclick="_guruRefreshLatest('${meta.cik}')"
+                style="padding:5px 11px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:11px;cursor:pointer;opacity:.6;white-space:nowrap">
+                🔄 최신 수집
+               </button>`;
+
+        // 액션 카운트
+        const cntMap = {};
+        positions.forEach(p => { const a = p.action || 'HOLD'; cntMap[a] = (cntMap[a]||0)+1; });
+        const chips = [
+            { action:'all',    label:'전체',  cnt: positions.length },
+            { action:'NEW',    label:'🆕 신규', cnt: cntMap['NEW']||0 },
+            { action:'ADD',    label:'🔵 추가', cnt: cntMap['ADD']||0 },
+            { action:'REDUCE', label:'🟡 축소', cnt: cntMap['REDUCE']||0 },
+            { action:'SOLD',   label:'🔴 청산', cnt: cntMap['SOLD']||0 },
+            { action:'HOLD',   label:'⚪ 유지', cnt: cntMap['HOLD']||0 },
+        ].filter(c => c.action === 'all' || c.cnt > 0)
+         .map(c => `<button class="guru-action-chip${c.action==='all'?' active':''}" data-action="${c.action}"
+                        onclick="_applyGuruFilter('${c.action}')">
+                        ${c.label} <span style="opacity:.65;font-size:10px">${c.cnt}</span>
+                    </button>`).join('');
+
+        const rows = positions.map((p, i) => _renderGuruRow(p, i, meta)).join('');
 
         deep.innerHTML = `<div class="sm-deep-wrap">
             <button class="sm-back-btn" onclick="guruDeepBack()">← 돌아가기</button>
@@ -10821,10 +10916,15 @@
                     <div style="font-size:10px;color:var(--text-secondary)">최신: ${meta.last_filed_at || '—'}</div>
                 </div>
             </div>
-            <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                <label style="font-size:12px;color:var(--text-secondary)">분기 선택:</label>
-                <select onchange="guruDeepDiveReal('${meta.cik}', this.value)" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text)">${qOptions || `<option>${currentQ||'—'}</option>`}</select>
-                <span style="font-size:11px;color:var(--text-secondary)">※ 13F는 분기 종료 후 최대 45일 지연</span>
+            <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <label style="font-size:12px;color:var(--text-secondary);white-space:nowrap">분기 선택:</label>
+                <select onchange="guruDeepDiveReal('${meta.cik}', this.value)" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px">${qOptions || `<option value="${currentQ||''}">${currentQ||'—'}</option>`}</select>
+                ${refreshBtn}
+                <span style="font-size:10px;color:var(--text-secondary);opacity:.7">13F 최대 45일 지연</span>
+            </div>
+            <div class="guru-action-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+                ${chips}
+                <span id="guruFilterCnt" style="margin-left:auto;font-size:11px;color:var(--text-secondary);align-self:center">${positions.length}개</span>
             </div>
             ${treemapHtml ? `<div style="margin-bottom:16px">
                 <div style="font-size:13px;font-weight:600;margin-bottom:6px">Top 8 포트폴리오 비중</div>
@@ -10837,7 +10937,7 @@
                         <th style="text-align:right">평가액</th><th style="text-align:right">주식수</th>
                         <th style="text-align:center">상태</th><th style="text-align:right">지난분기 변화</th>
                     </tr></thead>
-                    <tbody>${rows}</tbody>
+                    <tbody id="guruPosTbody">${rows}</tbody>
                 </table>
             </div>` : `<div class="guru-empty-block">
                 📭 최근 13F 공시 데이터를 불러오지 못했습니다.<br>
@@ -25605,6 +25705,7 @@
         switchSmTab, smDeepDive, smDeepBack, filterSmHoldings, smChartLink,
         renderGuruReal, guruDeepDiveReal, guruDeepBack, renderGuruHolders, goSmartMoneyAndOpen,
         loadGuruHome, goSmartMoneyAndOpenReal, guruRefresh, _guruImgErr,
+        _applyGuruFilter, _guruRefreshLatest,
         setMarket, searchStock, setChartInterval, setPeriod, _toggleIntervalDropdown,
         quickSearch, toggleFavorite, switchTab, toggleChartFullscreen,
         favSearch, removeFavorite, setTop100Filter, goTop100, goCatalyst, loadCatalyst, _catalystSetFilter,
