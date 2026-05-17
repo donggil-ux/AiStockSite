@@ -316,9 +316,15 @@
         </div>
         <!-- 서브 탭 -->
         <div class="sm-sub-tabs">
-            <button class="sm-sub-tab active" id="smTabTop10" onclick="switchSmTab('top10')">폼 미친 기관들</button>
-            <button class="sm-sub-tab" id="smTabGuru" onclick="switchSmTab('guru')">월가 킹덤</button>
-            <button class="sm-sub-tab" id="smTabReal" onclick="switchSmTab('real')">부자 포트폴리오</button>
+            <button class="sm-sub-tab active" id="smTabTop10" onclick="switchSmTab('top10')">
+                폼 미친 기관들<span class="sm-tab-count" id="smTabTop10Count"></span>
+            </button>
+            <button class="sm-sub-tab" id="smTabGuru" onclick="switchSmTab('guru')">
+                월가 킹덤<span class="sm-tab-count" id="smTabGuruCount"></span>
+            </button>
+            <button class="sm-sub-tab" id="smTabReal" onclick="switchSmTab('real')">
+                부자 포트폴리오<span class="sm-tab-count" id="smTabRealCount"></span>
+            </button>
         </div>
         <!-- Panel A: TOP 10 -->
         <div class="sm-panel active" id="smPanelTop10"></div>
