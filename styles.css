@@ -7145,10 +7145,26 @@
 .chart-dd-tag-swing{background:rgba(157,78,221,.15);color:#9D4EDD;}
 .chart-dd-tag-long{background:rgba(59,130,246,.15);color:#3B82F6;}
 .chart-dd-tag-day{background:rgba(245,158,11,.15);color:#F59E0B;}
+/* SD 차수 그룹 하위 메뉴 */
+.chart-dd-sub{
+    padding-left:12px;
+    border-left:2px solid var(--border);
+    margin:2px 8px 4px;
+}
+.chart-dd-sub-item{
+    display:flex;align-items:center;gap:6px;
+    padding:5px 8px;font-size:11px;
+    color:var(--text3);cursor:pointer;
+    border-radius:4px;width:100%;
+    background:none;border:none;
+    transition:background .12s,color .12s;
+}
+.chart-dd-sub-item:hover{background:var(--bg3);color:var(--text1);}
 @media(max-width:640px){
     .chart-dd-menu{min-width:140px;}
     .chart-dd-item{font-size:12px;padding:7px 12px;}
     .chart-dd-tag{font-size:9px;padding:1px 5px;}
+    .chart-dd-sub-item{font-size:10.5px;padding:4px 6px;}
 }
 
 /* ═══ 지지/저항선 자동 감지 시스템 — R:R 카드 섹션 ════════════ */

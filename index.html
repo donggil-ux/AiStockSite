@@ -827,6 +827,18 @@
                                     <button class="chart-dd-item" onclick="event.stopPropagation();toggleSplitBuyLayer();_updateDdStates();">
                                         <span class="chart-dd-check" id="ddSplitCheck">☐</span>분할매수
                                     </button>
+                                    <!-- SD 차수 그룹 하위 토글 (분할매수 ON 시 표시) -->
+                                    <div class="chart-dd-sub" id="splitSubMenu" style="display:none;">
+                                        <button class="chart-dd-sub-item" onclick="event.stopPropagation();toggleSplitGroup('1_2');_updateDdStates();">
+                                            <span id="ddSplit12Check">☑</span>1~2차<span class="chart-dd-tag" style="background:rgba(6,182,212,0.15);color:#06B6D4;margin-left:auto;">진입</span>
+                                        </button>
+                                        <button class="chart-dd-sub-item" onclick="event.stopPropagation();toggleSplitGroup('3_4');_updateDdStates();">
+                                            <span id="ddSplit34Check">☑</span>3~4차 ★<span class="chart-dd-tag" style="background:rgba(245,158,11,0.15);color:#F59E0B;margin-left:auto;">핵심</span>
+                                        </button>
+                                        <button class="chart-dd-sub-item" onclick="event.stopPropagation();toggleSplitGroup('5_6');_updateDdStates();">
+                                            <span id="ddSplit56Check">☑</span>5~6차<span class="chart-dd-tag" style="background:rgba(239,68,68,0.15);color:#EF4444;margin-left:auto;">마지막</span>
+                                        </button>
+                                    </div>
                                     <button class="chart-dd-item" onclick="event.stopPropagation();togglePullbackLayer();_updateDdStates();">
                                         <span class="chart-dd-check" id="ddPullbackCheck">☐</span>눌림목
                                     </button>
@@ -14424,6 +14436,17 @@
         }
     }
 
+    // SD 차수 그룹 토글 (1~2차 / 3~4차 / 5~6차 독립 on/off)
+    function toggleSplitGroup(group) {
+        const key = `stockai_split_show_${group}`;
+        const cur = localStorage.getItem(key) !== '0';
+        localStorage.setItem(key, cur ? '0' : '1');
+        if (_lastSigArgs) {
+            try { renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
+            catch(e) {}
+        }
+    }
+
     function _clearSplitBuyLines() {
         _chartSplitLines.forEach(pl => { try { lwCandleSeries?.removePriceLine(pl); } catch(e) {} });
         _chartSplitLines = [];
@@ -14580,10 +14603,20 @@
             const mobileMaxEntries = _isMobileView ? Math.min(coeff.maxEntries, 4) : coeff.maxEntries;
             levels.forEach((lv, idx) => {
                 const entryNum = idx + 1;
+                // 차수 그룹별 표시 여부 (1~2차/3~4차/5~6차 독립 토글)
+                const groupKey = entryNum <= 2 ? '1_2' : entryNum <= 4 ? '3_4' : '5_6';
+                const groupVisible = localStorage.getItem(`stockai_split_show_${groupKey}`) !== '0';
+                if (!groupVisible) return;
+
                 const active = entryNum <= mobileMaxEntries && !(has5_6Warn && entryNum >= 5);
                 const color = active ? lv.color : 'rgba(148,163,184,0.4)';
-                const title = `${lv.label} ${fmtP(lv.price)} (${lv.fibLabel}) — ${lv.weight}%${lv.suffix}`;
-                addLine(lv.price, color, lv.style, active ? lv.width : 1, title, 2);
+                // 1차 진입가 강조 (🎯, 굵은 실선, 높은 우선순위)
+                const title = entryNum === 1
+                    ? `🎯 1차 진입가 ${fmtP(lv.price)} (${lv.fibLabel})`
+                    : `${lv.label} ${fmtP(lv.price)} (${lv.fibLabel}) — ${lv.weight}%${lv.suffix}`;
+                const width = entryNum === 1 ? 3 : (active ? lv.width : 1);
+                const priority = entryNum === 1 ? 1 : 2;
+                addLine(lv.price, color, lv.style, width, title, priority);
             });
 
             // 손절선 — priority 1 (가장 중요)
@@ -15561,6 +15594,22 @@
         items.forEach(({ id, on, color }) => {
             const el = document.getElementById(id);
             if (el) { el.textContent = on ? '☑' : '☐'; el.style.color = on ? color : 'var(--text3)'; }
+        });
+
+        // 분할매수 하위 그룹 체크 상태 + 서브메뉴 표시
+        const splitSub = document.getElementById('splitSubMenu');
+        if (splitSub) splitSub.style.display = splitOn ? 'block' : 'none';
+        const sg = [
+            { id: 'ddSplit12Check', key: 'stockai_split_show_1_2' },
+            { id: 'ddSplit34Check', key: 'stockai_split_show_3_4' },
+            { id: 'ddSplit56Check', key: 'stockai_split_show_5_6' },
+        ];
+        sg.forEach(({ id, key }) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const on = localStorage.getItem(key) !== '0';
+            el.textContent = on ? '☑' : '☐';
+            el.style.color = on ? '#06B6D4' : 'var(--text3)';
         });
 
         const lineBtn = document.getElementById('lineDdBtn');
@@ -24224,7 +24273,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         loadOptionsDate, setOptionsFilter,
         setOptionsStrikeRange, toggleOptionsVolFilter, sortOptionsBy,
         manualAnalysisRefresh, pwaInstall,
-        toggleChartSigLines, toggleKullamagiLayer, toggleSplitBuyLayer, getSplitBuyCoeff, togglePullbackLayer, toggleTpLevel, toggleSrLayer,
+        toggleChartSigLines, toggleKullamagiLayer, toggleSplitBuyLayer, toggleSplitGroup, getSplitBuyCoeff, togglePullbackLayer, toggleTpLevel, toggleSrLayer,
         toggleSmartDipLayer, toggleSepaLayer, getSmartDipMode, _scrollToGroup,
         _toggleAnalysisDd, _toggleLineDd, _closeAllDds, _updateDdStates,
         handleSearchKeydown, openSearchDropdown, closeSearchDropdown, searchSuggest, levenshtein,
