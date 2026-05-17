@@ -14671,6 +14671,18 @@
         }
     }
 
+    // _toggleSplitGroup: toggleSplitGroup의 private 별칭 (_updateDdStates 포함)
+    function _toggleSplitGroup(group) {
+        const key = `stockai_split_show_${group}`;
+        const cur = localStorage.getItem(key) !== '0';
+        localStorage.setItem(key, cur ? '0' : '1');
+        if (_lastSigArgs) {
+            try { renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
+            catch(e) {}
+        }
+        if (typeof _updateDdStates === 'function') _updateDdStates();
+    }
+
     function _clearSplitBuyLines() {
         _chartSplitLines.forEach(pl => { try { lwCandleSeries?.removePriceLine(pl); } catch(e) {} });
         _chartSplitLines = [];
@@ -24842,7 +24854,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         loadOptionsDate, setOptionsFilter,
         setOptionsStrikeRange, toggleOptionsVolFilter, sortOptionsBy,
         manualAnalysisRefresh, pwaInstall,
-        toggleChartSigLines, toggleKullamagiLayer, toggleSplitBuyLayer, toggleSplitGroup, getSplitBuyCoeff, togglePullbackLayer, toggleTpLevel, toggleSrLayer, toggleSrMode,
+        toggleChartSigLines, toggleKullamagiLayer, toggleSplitBuyLayer, toggleSplitGroup, _toggleSplitGroup, getSplitBuyCoeff, togglePullbackLayer, toggleTpLevel, toggleSrLayer, toggleSrMode,
         toggleSmartDipLayer, toggleSmartDipGroup, toggleSepaLayer, getSmartDipMode, _scrollToGroup,
         _toggleAnalysisDd, _toggleLineDd, _closeAllDds, _updateDdStates, _setDdCheck,
         handleSearchKeydown, openSearchDropdown, closeSearchDropdown, searchSuggest, levenshtein,
