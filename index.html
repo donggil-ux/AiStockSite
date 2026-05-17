@@ -2556,20 +2556,77 @@
         'CRTO':'🇬🇷','GLNG':'🇧🇲','SBLK':'🇬🇷','GSL':'🇬🇷','DAC':'🇬🇷','GNK':'🇬🇷',
     };
 
+    // ── 국내 종목 로고 도메인 매핑 (Clearbit 1순위) ──────────────
+    const KR_LOGO_DOMAINS = {
+        '005930':'samsung.com',        // 삼성전자
+        '000660':'skhynix.com',        // SK하이닉스
+        '035420':'naver.com',          // NAVER
+        '035720':'kakao.com',          // 카카오
+        '051910':'lgchem.com',         // LG화학
+        '006400':'samsungsdi.com',     // 삼성SDI
+        '028260':'samsung.com',        // 삼성물산
+        '105560':'kbfg.com',           // KB금융
+        '055550':'shinhan.com',        // 신한지주
+        '012330':'hyundai.com',        // 현대모비스
+        '207940':'samsungbioepis.com', // 삼성바이오로직스
+        '068270':'celltrion.com',      // 셀트리온
+        '003550':'lgcorp.com',         // LG
+        '096770':'skoil.co.kr',        // SK이노베이션
+        '017670':'sktelecom.com',      // SK텔레콤
+        '030200':'kt.com',             // KT
+        '032830':'samsunglife.com',    // 삼성생명
+        '086790':'hanabank.com',       // 하나금융지주
+        '066570':'lg.com',             // LG전자
+        '009830':'hanwha.com',         // 한화솔루션
+        '000270':'kia.com',            // 기아
+        '005380':'hyundai.com',        // 현대차
+        '018260':'samsung.com',        // 삼성에스디에스
+        '011170':'lottechem.com',      // 롯데케미칼
+        '034730':'sk.com',             // SK(주)
+    };
+
+    // 국내 종목 로고 URL 우선순위:
+    //   1) Clearbit(도메인 매핑) → 2) 네이버 금융 CDN → 3) 이니셜 아바타
+    function _getKrLogoUrl(code) {
+        if (KR_LOGO_DOMAINS[code])
+            return `https://logo.clearbit.com/${KR_LOGO_DOMAINS[code]}`;
+        return `https://ssl.pstatic.net/imgstock/logo/${code}.png`;
+    }
+
     // 원형 로고 + 국기 오버레이 HTML
-    //  - Parqet CDN(ticker 기반) 1차 시도
-    //  - 실패 시 onerror에서 이니셜 아바타로 치환
-    function _tickerLogoHTML(sym, market) {
+    //  - KR(6자리 숫자): Clearbit(도메인 매핑) → 네이버 금융 CDN → 이니셜
+    //  - US: Parqet CDN → 이니셜
+    function _tickerLogoHTML(sym, market, companyName) {
         const safe = _top100SafeTicker(sym);
         if (!safe) return '<div class="tlogo-wrap"></div>';
-        const initial = safe.replace(/[^A-Z0-9]/gi,'').slice(0,1).toUpperCase() || '?';
+        const isKr = /^\d{6}$/.test(safe);
         const color = _tickerColor(safe);
-        // 1) 도미사일 매핑 우선 → 2) market 기본(US/KR)
-        const flag = _TICKER_COUNTRY[safe.toUpperCase()] || (market === 'KR' ? '🇰🇷' : '🇺🇸');
-        // Parqet logo CDN: https://assets.parqet.com/logos/symbol/{TICKER}
-        const logoUrl = `https://assets.parqet.com/logos/symbol/${encodeURIComponent(safe)}?format=png`;
-        // 속성 내부 JS 문자열에 안전하게 삽입하기 위해 &quot; 로 내부 속성 따옴표 인코딩
+        const flag  = _TICKER_COUNTRY[safe.toUpperCase()] || (isKr || market === 'KR' ? '🇰🇷' : '🇺🇸');
+
+        // 이니셜: KR은 종목명 첫 한글, US는 심볼 첫 알파벳
+        const nameForInitial = companyName || safe;
+        const initial = isKr
+            ? (nameForInitial.replace(/[a-zA-Z0-9\s()\[\]]/g,'').charAt(0) || safe.charAt(0))
+            : (safe.replace(/[^A-Z0-9]/gi,'').charAt(0).toUpperCase() || '?');
         const fallback = `<span class=&quot;tlogo tlogo-fb&quot; style=&quot;background:${color}&quot;>${initial}</span>`;
+
+        if (isKr) {
+            // KR: Clearbit 1차 → 네이버 CDN 2차 → 이니셜
+            const primary   = `https://logo.clearbit.com/${KR_LOGO_DOMAINS[safe] || ''}`;
+            const secondary = `https://ssl.pstatic.net/imgstock/logo/${safe}.png`;
+            const logoUrl   = KR_LOGO_DOMAINS[safe] ? primary : secondary;
+            // Clearbit 실패 시 네이버 CDN 재시도, 그것도 실패 시 이니셜
+            const onErr = KR_LOGO_DOMAINS[safe]
+                ? `if(this.dataset.fb==='1'){this.outerHTML='${fallback}';}else{this.dataset.fb='1';this.src='${secondary}';}`
+                : `this.outerHTML='${fallback}';`;
+            return `<div class="tlogo-wrap">
+                <img class="tlogo" src="${logoUrl}" alt="" loading="lazy" onerror="${onErr}">
+                <span class="tlogo-flag">${flag}</span>
+            </div>`;
+        }
+
+        // US: Parqet CDN → 이니셜
+        const logoUrl = `https://assets.parqet.com/logos/symbol/${encodeURIComponent(safe)}?format=png`;
         return `<div class="tlogo-wrap">
             <img class="tlogo" src="${logoUrl}" alt="" loading="lazy" onerror="this.outerHTML='${fallback}'">
             <span class="tlogo-flag">${flag}</span>
