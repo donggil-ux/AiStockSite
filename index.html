@@ -15553,28 +15553,32 @@
             .filter(s => s.price < lastClose * 0.999 && s.price >= priceLo && s.stars >= minStars)
             .sort((a, b) => b.price - a.price).slice(0, srMaxLines);
 
-        // 차트 라인 생성
-        const addSrLine = (price, color, width, label, priority) => {
+        // 차트 라인 생성 — lineStyle: 2(대시)로 일반 이동평균선과 구분
+        const addSrLine = (price, color, width, label, priority, style) => {
             if (!price || !isFinite(price) || price <= 0) return;
             try {
                 const axisLabelVisible = _claimPriceLabel(price, priority);
-                const pl = lwCandleSeries.createPriceLine({ price, color, lineWidth: width, lineStyle: 0, axisLabelVisible, title: label });
+                const pl = lwCandleSeries.createPriceLine({ price, color, lineWidth: width, lineStyle: style ?? 2, axisLabelVisible, title: label });
                 _chartSrLines.push(pl);
             } catch(e) {}
         };
 
         visRes.forEach(r => {
             const isRetest = brokenPrices.has(r.price);
-            const color = isRetest ? '#3B82F6' : (r.stars >= 4 ? '#EF4444' : '#FCA5A5');
-            const width = r.stars >= 4 ? 2 : 1.5;
+            // 저항: 강한(4★+) → 선명한 빨강 실선, 보통 → 연빨강 대시
+            const color = isRetest ? '#60A5FA' : (r.stars >= 4 ? '#F87171' : '#FCA5A5');
+            const width = r.stars >= 4 ? 2.5 : 2;
+            const style = r.stars >= 4 ? 0 : 2;   // 4★+ 실선, 그 외 대시
             const typeLabel = isRetest ? '이전저항→지지' : '저항';
-            addSrLine(r.price, color, width, `${typeLabel} ${starStr(r.stars)} ${fmtP(r.price)} (${r.touchCount}회)`, r.stars >= 4 ? 4 : 6);
+            addSrLine(r.price, color, width, `${typeLabel} ${starStr(r.stars)} ${fmtP(r.price)} (${r.touchCount}회)`, r.stars >= 4 ? 4 : 6, style);
         });
 
         visSup.forEach(s => {
-            const color = s.stars >= 4 ? '#3B82F6' : '#93C5FD';
-            const width = s.stars >= 4 ? 2 : 1.5;
-            addSrLine(s.price, color, width, `지지 ${starStr(s.stars)} ${fmtP(s.price)} (${s.touchCount}회)`, s.stars >= 4 ? 4 : 6);
+            // 지지: 강한(4★+) → 선명한 파랑 실선, 보통 → 연파랑 대시
+            const color = s.stars >= 4 ? '#60A5FA' : '#93C5FD';
+            const width = s.stars >= 4 ? 2.5 : 2;
+            const style = s.stars >= 4 ? 0 : 2;
+            addSrLine(s.price, color, width, `지지 ${starStr(s.stars)} ${fmtP(s.price)} (${s.touchCount}회)`, s.stars >= 4 ? 4 : 6, style);
         });
 
         // ── 시그널 배지 ──────────────────────────────────────────
