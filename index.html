@@ -6997,6 +6997,12 @@
                     _addPosLine(pos.tp2, '#86EFAC', 1, 2,
                         `익절2 ${_posFmtP(pos.tp2,currentMarket)}${tp2Pct!=null?` (+${tp2Pct.toFixed(1)}%)`:''}`)
                 }
+                // 3차 익절가
+                if (pos.tp3) {
+                    const tp3Pct = _posPnlPct(pos.entryPrice, pos.tp3);
+                    _addPosLine(pos.tp3, '#9D4EDD', 2, 2,
+                        `익절3 ${_posFmtP(pos.tp3,currentMarket)}${tp3Pct!=null?` (+${tp3Pct.toFixed(1)}%)`:''}`)
+                }
             }
         } catch(e){}
     }
@@ -7106,11 +7112,11 @@
             ticker, id: editable.id, status: editable.status,
             entryPrice: editable.entryPrice ?? '', quantity: editable.quantity ?? '',
             closedPrice: editable.closedPrice ?? '', memo: editable.memo || '', entryDate: editable.entryDate || _posToday(),
-            stopLoss: editable.stopLoss ?? '', tp1: editable.tp1 ?? '', tp2: editable.tp2 ?? '',
+            stopLoss: editable.stopLoss ?? '', tp1: editable.tp1 ?? '', tp2: editable.tp2 ?? '', tp3: editable.tp3 ?? '',
         } : {
             ticker, id: null, status: 'holding',
             entryPrice: '', quantity: '', closedPrice: '', memo: '', entryDate: _posToday(),
-            stopLoss: '', tp1: '', tp2: '',
+            stopLoss: '', tp1: '', tp2: '', tp3: '',
         };
         _posRenderSheet();
         ov.classList.add('open');
@@ -7148,6 +7154,10 @@
             <button onclick="_posSheetSet('tp2',${+(refP*1.15).toFixed(isKR?0:2)})">+15%</button>
             <button onclick="_posSheetSet('tp2',${+(refP*1.20).toFixed(isKR?0:2)})">+20%</button>
         </div>`;
+        const tp3Quick = (!refP) ? '' : `<div class="pos-quick">
+            <button onclick="_posSheetSet('tp3',${+(refP*1.20).toFixed(isKR?0:2)})">+20%</button>
+            <button onclick="_posSheetSet('tp3',${+(refP*1.30).toFixed(isKR?0:2)})">+30%</button>
+        </div>`;
         body.innerHTML = `
             <div class="pos-sheet-hd">${escHtml(s.ticker)} 포지션 ${s.id?'편집':'등록'}</div>
             <div class="pos-field"><label>상태</label>
@@ -7175,6 +7185,11 @@
                 <label class="pos-label-tp2">2차 익절가${isKR?' (원)':' ($)'} <span class="pos-label-opt">선택</span></label>
                 <input type="number" inputmode="decimal" id="posInTp2" value="${s.tp2}" placeholder="2차 목표가 (선택)" oninput="_posSheetSet('tp2',this.value)">
                 ${tp2Quick}
+            </div>
+            <div class="pos-field">
+                <label class="pos-label-tp2">3차 익절가${isKR?' (원)':' ($)'} <span class="pos-label-opt">선택</span></label>
+                <input type="number" inputmode="decimal" id="posInTp3" value="${s.tp3||''}" placeholder="3차 목표가 (선택)" oninput="_posSheetSet('tp3',this.value)">
+                ${tp3Quick}
             </div>` : ''}
             <div class="pos-field"><label>수량 (선택)</label>
                 <input type="number" inputmode="numeric" id="posInQty" value="${s.quantity}" placeholder="보유 수량" oninput="_posSheetSet('quantity',this.value)">
@@ -7194,7 +7209,7 @@
         if (k === 'status') _posRenderSheet();
         else {
             // DOM 동기화 — 빠른 버튼 클릭 시 입력 필드에 값이 반영되도록
-            const idMap = { entryPrice:'posInEntry', stopLoss:'posInStop', tp1:'posInTp1', tp2:'posInTp2', closedPrice:'posInClosed', quantity:'posInQty' };
+            const idMap = { entryPrice:'posInEntry', stopLoss:'posInStop', tp1:'posInTp1', tp2:'posInTp2', tp3:'posInTp3', closedPrice:'posInClosed', quantity:'posInQty' };
             const elId = idMap[k];
             if (elId) { const i=document.getElementById(elId); if (i && i.value!==String(v)) i.value=v; }
         }
@@ -7206,14 +7221,17 @@
         const sl  = +(p * 0.95).toFixed(isKR ? 0 : 2);
         const tp1 = +(p * 1.10).toFixed(isKR ? 0 : 2);
         const tp2 = +(p * 1.20).toFixed(isKR ? 0 : 2);
+        const tp3 = +(p * 1.30).toFixed(isKR ? 0 : 2);
         const slEl  = document.getElementById('posInStop');
         const tp1El = document.getElementById('posInTp1');
         const tp2El = document.getElementById('posInTp2');
+        const tp3El = document.getElementById('posInTp3');
         const st = _posSheetState || {};
         // DOM 값과 상태 값 모두 비어있을 때만 자동 채움 (quick 버튼 값 보호)
         if (slEl  && !slEl.value  && !st.stopLoss) { slEl.value  = sl;  _posSheetSet('stopLoss', sl); }
         if (tp1El && !tp1El.value && !st.tp1)      { tp1El.value = tp1; _posSheetSet('tp1', tp1); }
         if (tp2El && !tp2El.value && !st.tp2)      { tp2El.value = tp2; _posSheetSet('tp2', tp2); }
+        if (tp3El && !tp3El.value && !st.tp3)      { tp3El.value = tp3; _posSheetSet('tp3', tp3); }
     }
     function _posAddWatching() {
         const ticker = currentSymbol;
@@ -7259,6 +7277,7 @@
         rec.stopLoss = s.stopLoss ? parseFloat(s.stopLoss) : null;
         rec.tp1 = s.tp1 ? parseFloat(s.tp1) : null;
         rec.tp2 = s.tp2 ? parseFloat(s.tp2) : null;
+        rec.tp3 = s.tp3 ? parseFloat(s.tp3) : null;
         if (s.status === 'closed') {
             rec.closedPrice = s.closedPrice ? parseFloat(s.closedPrice) : null;
             rec.closedAt = rec.closedAt || new Date().toISOString();
