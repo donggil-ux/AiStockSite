@@ -6760,35 +6760,102 @@ app.get('/api/guru/by-ticker/:ticker', async (req, res) => {
     const supabase = getSupabase();
     if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
     try {
-        // 각 Guru의 최신 분기에서 해당 티커 보유한 것만
-        const { data, error } = await supabase
+        // 1) 포지션 조회 (flat — Supabase FK 없음)
+        const { data: positions, error } = await supabase
             .from('guru_position')
-            .select('cik,quarter,weight,value_usd,shares,action,guru(name,manager,emoji)')
+            .select('cik,quarter,weight,value_usd,shares,action')
             .eq('ticker', ticker)
             .order('quarter', { ascending: false });
         if (error) throw new Error(error.message);
 
         // Guru별로 최신 분기만 유지
         const seen = new Set();
-        const out = [];
-        (data || []).forEach(r => {
-            if (seen.has(r.cik)) return;
+        const latestPos = [];
+        (positions || []).forEach(r => {
+            if (!r.cik || seen.has(r.cik)) return;
             seen.add(r.cik);
-            out.push({
-                cik: r.cik,
-                quarter: r.quarter,
-                name: r.guru && r.guru.name,
-                manager: r.guru && r.guru.manager,
-                emoji: (r.guru && r.guru.emoji) || '💎',
-                weight: r.weight,
-                value_usd: r.value_usd,
-                shares: r.shares,
-                action: r.action,
-            });
+            latestPos.push(r);
         });
-        // 비중 내림차순
-        out.sort((a, b) => (b.weight || 0) - (a.weight || 0));
+        if (!latestPos.length) return res.json([]);
+
+        // 2) Guru 메타 별도 조회
+        const { data: gurus } = await supabase
+            .from('guru')
+            .select('cik,name,manager,emoji')
+            .in('cik', latestPos.map(r => r.cik));
+        const guruMap = {};
+        (gurus || []).forEach(g => { guruMap[g.cik] = g; });
+
+        const out = latestPos.map(r => ({
+            cik:       r.cik,
+            quarter:   r.quarter,
+            name:      guruMap[r.cik]?.name    || null,
+            manager:   guruMap[r.cik]?.manager || null,
+            emoji:     guruMap[r.cik]?.emoji   || '💎',
+            weight:    r.weight,
+            value_usd: r.value_usd,
+            shares:    r.shares,
+            action:    r.action,
+        })).sort((a, b) => (b.weight || 0) - (a.weight || 0));
+
         res.json(out);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ──────── GET: 티커로 보유 Guru 역조회 (query-param 버전) ────────
+// /api/guru-ticker?ticker=NVDA  — 프론트 검색 UI용
+app.get('/api/guru-ticker', async (req, res) => {
+    const ticker = ((req.query.ticker || '') + '').toUpperCase().trim();
+    if (!ticker || !validTicker(ticker)) return res.status(400).json({ error: 'ticker required' });
+    const supabase = getSupabase();
+    if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+    try {
+        // 1) 포지션 조회 (관계 없이 flat select)
+        const { data: positions, error: e1 } = await supabase
+            .from('guru_position')
+            .select('cik,quarter,weight,value_usd,shares,action')
+            .eq('ticker', ticker)
+            .order('quarter', { ascending: false });
+        if (e1) throw new Error(e1.message);
+
+        // Guru별 최신 분기만 유지
+        const seen = new Set();
+        const latestPos = [];
+        (positions || []).forEach(r => {
+            if (!r.cik || seen.has(r.cik)) return;
+            seen.add(r.cik);
+            latestPos.push(r);
+        });
+        if (!latestPos.length) return res.json({ ticker, holders: [], total: 0 });
+
+        // 2) Guru 메타 별도 조회
+        const ciks = latestPos.map(r => r.cik);
+        const { data: gurus } = await supabase
+            .from('guru')
+            .select('cik,name,manager,emoji')
+            .in('cik', ciks);
+        const guruMap = {};
+        (gurus || []).forEach(g => { guruMap[g.cik] = g; });
+
+        // 3) 합치기 + 비중 내림차순
+        const holders = latestPos.map(r => {
+            const g = guruMap[r.cik] || {};
+            return {
+                cik:       r.cik,
+                quarter:   r.quarter,
+                name:      g.name    || null,
+                manager:   g.manager || null,
+                emoji:     g.emoji   || '💎',
+                weight:    r.weight,
+                value_usd: r.value_usd,
+                shares:    r.shares,
+                action:    r.action,
+            };
+        }).sort((a, b) => (b.weight || 0) - (a.weight || 0));
+
+        res.json({ ticker, holders, total: holders.length });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }

@@ -291,6 +291,29 @@
                 <strong>최대 4.5개월</strong> 지연될 수 있습니다.
             </div>
         </div>
+        <!-- 종목 역검색 -->
+        <div id="guruTickerSearch" style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px;">
+            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">
+                🔍 종목으로 기관 검색
+                <span style="font-size:10px;color:var(--text-secondary);font-weight:400;margin-left:4px">어떤 기관이 샀는지 확인</span>
+            </div>
+            <div style="display:flex;gap:8px">
+                <input type="text" id="guruTickerInput"
+                    placeholder="티커 입력 (예: NVDA, AAPL, TSLA)"
+                    maxlength="10" autocomplete="off" autocapitalize="characters"
+                    oninput="this.value=this.value.toUpperCase()"
+                    onkeydown="if(event.key==='Enter')_searchGuruByTicker()"
+                    style="flex:1;padding:9px 12px;border-radius:8px;border:1px solid var(--border);
+                           background:var(--bg);color:var(--text);font-size:13px;font-weight:600;
+                           letter-spacing:1px;outline:none;"/>
+                <button onclick="_searchGuruByTicker()"
+                    style="padding:9px 18px;border-radius:8px;background:var(--accent);color:#fff;
+                           border:none;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">
+                    검색
+                </button>
+            </div>
+            <div id="guruTickerResult" style="margin-top:8px"></div>
+        </div>
         <!-- 서브 탭 -->
         <div class="sm-sub-tabs">
             <button class="sm-sub-tab active" id="smTabTop10" onclick="switchSmTab('top10')">폼 미친 기관들</button>
@@ -10540,6 +10563,97 @@
         }).join('');
         const emptyState = visibleCount === 0
             ? `<div class="sm-holdings-empty">이번 분기에 해당 변동 종목이 없습니다.<br><span style="font-size:11px;opacity:.7">대형 패시브 기관은 신규 편입이 드뭅니다.</span></div>` : '';
+
+        // ── 신규/추가 섹션 ─────────────────────────────────────────
+        const newAdd = inst.holdings.filter(h => h.action === 'new' || h.action === 'add');
+        const newAddSection = newAdd.length > 0 ? `
+        <div style="margin:14px 0 10px">
+            <div style="font-size:12px;font-weight:700;color:var(--text-secondary);margin-bottom:8px">
+                📈 이번 분기 신규·추가매수 <span style="color:var(--blue);font-size:11px">${newAdd.length}개</span>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+                ${newAdd.map(h => {
+                    const chgStr = h.wtChg > 0 ? `+${h.wtChg.toFixed(1)}%p` : h.wtChg === 0 ? '신규' : `${h.wtChg.toFixed(1)}%p`;
+                    const isNew = h.action === 'new';
+                    const bg = isNew ? 'rgba(34,197,94,0.12)' : 'rgba(59,130,246,0.10)';
+                    const border = isNew ? '#22c55e' : '#3b82f6';
+                    const badge = isNew ? `<span style="font-size:9px;background:#22c55e;color:#fff;padding:1px 5px;border-radius:3px;margin-left:4px">NEW</span>`
+                                        : `<span style="font-size:9px;background:#3b82f6;color:#fff;padding:1px 5px;border-radius:3px;margin-left:4px">추가</span>`;
+                    return `<div onclick="smChartLink('${h.ticker}',${h.avgPrice},'${inst.name}')"
+                        style="display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:10px;
+                               background:${bg};border:1px solid ${border};cursor:pointer;min-width:110px;flex:0 1 auto">
+                        <img src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(h.ticker)}?format=png"
+                             style="width:20px;height:20px;border-radius:50%;object-fit:contain" alt="" loading="lazy" onerror="this.style.display='none'"/>
+                        <div>
+                            <div style="font-size:13px;font-weight:700;line-height:1.2">${h.ticker}${badge}</div>
+                            <div style="font-size:10px;color:var(--text-secondary);margin-top:1px">${h.wt.toFixed(1)}% · <span style="color:${border}">${chgStr}</span></div>
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>
+        </div>` : '';
+
+        // ── 소형주·중소형 섹션 (접기/펼치기) ──────────────────────
+        const SMALL_LIMIT = 30;
+        const smallHoldings  = inst.holdings.filter(h => h.wt < 1.0);
+        const midHoldings    = inst.holdings.filter(h => h.wt >= 1.0 && h.wt < 2.0);
+        const smallTop = smallHoldings.slice(0, SMALL_LIMIT);
+        const midTop   = midHoldings.slice(0, SMALL_LIMIT);
+        const smallKingdomId = `sk-${inst.id}`;
+        const midKingdomId   = `mk-${inst.id}`;
+
+        const _smCapRow = (h, capLabel, capColor) => {
+            const wtChgStr = h.wtChg > 0 ? `+${h.wtChg.toFixed(1)}%p` : h.wtChg < 0 ? `${h.wtChg.toFixed(1)}%p` : '±0';
+            const actMap = {new:'🆕 신규', add:'➕ 추가', reduce:'➖ 축소', cut:'🔴 청산', hold:'— 유지'};
+            const actColor = {new:'#22c55e', add:'#3b82f6', reduce:'#f59e0b', cut:'#ef4444', hold:'var(--text-secondary)'};
+            return `<div style="display:grid;grid-template-columns:1fr 52px 44px 70px;align-items:center;
+                                padding:6px 8px;border-bottom:1px solid var(--border);cursor:pointer"
+                         onclick="smChartLink('${h.ticker}',${h.avgPrice},'${inst.name}')">
+                <div style="display:flex;align-items:center;gap:7px;min-width:0">
+                    <img src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(h.ticker)}?format=png"
+                         style="width:18px;height:18px;border-radius:50%;object-fit:contain;flex-shrink:0" alt="" loading="lazy" onerror="this.style.display='none'"/>
+                    <div style="min-width:0">
+                        <div style="font-size:12px;font-weight:700;color:var(--accent)">${h.ticker}</div>
+                        <div style="font-size:10px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml((h.name||'').slice(0,18))}</div>
+                    </div>
+                </div>
+                <div style="text-align:right">
+                    <div style="font-size:11px;font-weight:600">${h.wt.toFixed(1)}%</div>
+                    <div style="font-size:9px;color:${h.wtChg>0?'var(--blue)':h.wtChg<0?'var(--red)':'var(--text-secondary)'}">${wtChgStr}</div>
+                </div>
+                <div style="text-align:center"><span style="font-size:9px;padding:1px 5px;border-radius:4px;background:${capColor}20;color:${capColor}">${capLabel}</span></div>
+                <div style="text-align:center;font-size:10px;color:${actColor[h.action]||'var(--text-secondary)'}">
+                    ${actMap[h.action]||'— 유지'}
+                </div>
+            </div>`;
+        };
+
+        const _smCapSection = (id, label, color, items) => items.length === 0 ? '' : `
+        <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
+            <div onclick="var el=document.getElementById('${id}');var btn=document.getElementById('${id}-btn');
+                          if(el.style.display==='none'){el.style.display='block';btn.textContent='▲ 접기';}
+                          else{el.style.display='none';btn.textContent='▼ 펼치기 ('+${items.length}+'개)';}"
+                 style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none">
+                <div style="font-size:11px;font-weight:700;display:flex;align-items:center;gap:6px">
+                    <span style="background:${color}20;color:${color};font-size:10px;padding:1px 7px;border-radius:4px">${label}</span>
+                    <span style="color:var(--text-secondary)">${items.length}개 종목</span>
+                </div>
+                <button id="${id}-btn" style="font-size:10px;color:var(--text-secondary);background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;white-space:nowrap">
+                    ▼ 펼치기 (${items.length}개)
+                </button>
+            </div>
+            <div id="${id}" style="display:none;margin-top:8px;max-height:400px;overflow-y:auto;border-radius:8px;overflow:hidden;border:1px solid var(--border)">
+                <div style="display:grid;grid-template-columns:1fr 52px 44px 70px;font-size:10px;color:var(--text-secondary);
+                            padding:5px 8px;background:var(--bg2);border-bottom:1px solid var(--border)">
+                    <span>종목</span><span style="text-align:right">비중</span><span style="text-align:center">규모</span><span style="text-align:center">동향</span>
+                </div>
+                ${items.map(h => _smCapRow(h, label, color)).join('')}
+            </div>
+        </div>`;
+
+        const midSection   = _smCapSection(midKingdomId,   '중형주', '#f59e0b', midTop);
+        const smallSection = _smCapSection(smallKingdomId, '소형주', '#8B5CF6', smallTop);
+
         return `<div class="sm-deep-wrap">
             <div class="sm-deep-header">
                 <button class="sm-back-btn" onclick="smDeepBack()">← 뒤로</button>
@@ -10551,6 +10665,7 @@
             </div>
             <div style="margin:12px 0 6px;font-size:12px;font-weight:600;color:var(--text-secondary)">📊 포트폴리오 트리맵</div>
             ${treemapHtml}
+            ${newAddSection}
             <div style="margin:14px 0 6px;font-size:12px;font-weight:600;color:var(--text-secondary)">전체 포트폴리오</div>
             <div class="sm-holdings-filter">${filterBtns}</div>
             <div class="sm-holdings-table">
@@ -10559,7 +10674,9 @@
                 </div>
                 ${rows}${emptyState}
             </div>
-            <div class="sm-deep-insight">
+            ${midSection}
+            ${smallSection}
+            <div class="sm-deep-insight" style="margin-top:16px">
                 <div class="sm-insight-title">📌 운용사 관점</div>
                 <div class="sm-insight-body">${inst.insight}</div>
             </div>
@@ -10945,6 +11062,12 @@
         const cntMid   = positions.filter(p => { const w=Number(p.weight||0); return w>=1&&w<5; }).length;
         const cntSmall = positions.filter(p => Number(p.weight||0) < 1).length;
 
+        // 소형주 섹션 (접기/펼치기 토글용)
+        const small = positions.filter(p => Number(p.weight||0) < 1);
+        const SMALL_LIMIT = 30;
+        const smallTop = small.slice(0, SMALL_LIMIT);
+        const smallId = `small-${meta.cik}`;
+
         // 행동 필터 — 0개인 항목 자동 제외
         const actionFilters = [
             { key:'all',    label:'전체',      cnt: positions.length },
@@ -10972,6 +11095,51 @@
         const sizeBtns   = sizeFilters.map(f => mkBtn(f, false)).join('');
 
         const rows = positions.map((p, i) => _renderGuruRow(p, i, meta)).join('');
+
+        // 소형주 접기/펼치기 섹션 HTML
+        const smallSection = smallTop.length > 0 ? `
+<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
+    <div onclick="
+            var el = document.getElementById('${smallId}');
+            var btn = document.getElementById('${smallId}-btn');
+            if (el.style.display === 'none') {
+                el.style.display = 'block';
+                btn.textContent = '▲ 접기';
+            } else {
+                el.style.display = 'none';
+                btn.textContent = '▼ 펼치기 (${smallTop.length}개)';
+            }"
+         style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none">
+        <div style="font-size:11px;color:#8B5CF6;font-weight:700;display:flex;align-items:center;gap:6px">
+            <span style="background:rgba(139,92,246,0.15);color:#8B5CF6;font-size:10px;padding:1px 6px;border-radius:4px">소형</span>
+            소형주 ${smallTop.length}개${small.length > SMALL_LIMIT ? ' (상위 '+SMALL_LIMIT+'개)' : ''}
+        </div>
+        <button id="${smallId}-btn"
+            style="font-size:11px;color:var(--text-secondary);background:none;border:1px solid var(--border);
+                   border-radius:6px;cursor:pointer;padding:3px 8px;white-space:nowrap">
+            ▼ 펼치기 (${smallTop.length}개)
+        </button>
+    </div>
+    <div id="${smallId}" style="display:none;margin-top:8px;max-height:400px;overflow-y:auto">
+        <div style="display:grid;grid-template-columns:1fr 52px 44px 70px;gap:0;font-size:10px;color:var(--text-secondary);padding:4px 6px;border-bottom:1px solid var(--border)">
+            <span>종목</span><span style="text-align:right">비중</span><span style="text-align:center">규모</span><span style="text-align:center">동향</span>
+        </div>
+        ${smallTop.map(p => {
+            const t = p.ticker || (p.name||'').slice(0,10) || '—';
+            const wt = Number(p.weight||0).toFixed(2);
+            const act = p.action || 'HOLD';
+            const actLabel = act === 'NEW' ? '🆕 신규' : act === 'ADD' ? '➕ 추가' : act === 'REDUCE' ? '➖ 축소' : act === 'SOLD' ? '🔴 청산' : '— 유지';
+            const actCls = act === 'NEW' ? 'color:#22c55e' : act === 'ADD' ? 'color:#3b82f6' : act === 'REDUCE' ? 'color:#f59e0b' : act === 'SOLD' ? 'color:#ef4444' : 'color:var(--text-secondary)';
+            return `<div style="display:grid;grid-template-columns:1fr 52px 44px 70px;gap:0;padding:5px 6px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer"
+                         onclick="smChartLink('${p.ticker||''}',0,'${escHtml(meta.name||'')}')">
+                <span style="font-weight:600;font-size:12px;color:var(--accent)">${escHtml(t)}</span>
+                <span style="text-align:right;font-size:11px;color:var(--text)">${wt}%</span>
+                <span style="text-align:center"><span style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(139,92,246,0.15);color:#8B5CF6">소형</span></span>
+                <span style="text-align:center;font-size:10px;${actCls}">${actLabel}</span>
+            </div>`;
+        }).join('')}
+    </div>
+</div>` : '';
 
         deep.innerHTML = `<div class="sm-deep-wrap">
             <button class="sm-back-btn" onclick="guruDeepBack()">← 돌아가기</button>
@@ -11017,7 +11185,8 @@
                     </tr></thead>
                     <tbody id="guruPosTbody">${rows}</tbody>
                 </table>
-            </div>` : `<div class="guru-empty-block">
+            </div>
+            ${smallSection}` : `<div class="guru-empty-block">
                 📭 최근 13F 공시 데이터를 불러오지 못했습니다.<br>
                 <span style="font-size:11px;opacity:.7">SEC EDGAR에서 13F-HR 폼을 찾지 못했거나, 아직 크롤링되지 않았습니다.</span><br>
                 <button onclick="guruRefresh('${meta.cik}')">다시 수집</button>
@@ -11088,6 +11257,74 @@
             </div>`;
             box.style.display = '';
         } catch {}
+    }
+
+    // ── 종목 역검색: 어떤 기관이 보유 중인지 ─────────────────────
+    async function _searchGuruByTicker() {
+        const input    = document.getElementById('guruTickerInput');
+        const resultEl = document.getElementById('guruTickerResult');
+        if (!input || !resultEl) return;
+        const ticker = input.value.toUpperCase().trim();
+        if (!ticker) { input.focus(); return; }
+
+        resultEl.innerHTML = `<div style="padding:12px;text-align:center;color:var(--text-secondary);font-size:12px">
+            🔍 <strong style="color:var(--text)">${ticker}</strong> 보유 기관 검색 중...</div>`;
+        try {
+            const r = await fetch(`/api/guru-ticker?ticker=${encodeURIComponent(ticker)}`);
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const data = await r.json();
+
+            if (!data.holders || !data.holders.length) {
+                resultEl.innerHTML = `<div style="padding:12px;text-align:center;color:var(--text-secondary);font-size:12px">
+                    등록된 기관 중 <strong style="color:var(--text)">${ticker}</strong>를 보유한 곳이 없어요.
+                    <div style="font-size:10px;margin-top:4px">13F 공시 기준 · 현재 등록된 ${data.total !== undefined ? data.total : 24}개 기관만 검색됩니다</div>
+                </div>`;
+                return;
+            }
+
+            const rows = data.holders.map(h => {
+                const actColor = h.action === 'NEW' ? '#22c55e' : h.action === 'ADD' ? '#3b82f6' :
+                                 h.action === 'REDUCE' ? '#f59e0b' : h.action === 'SOLD' ? '#ef4444' : 'var(--text-secondary)';
+                const actText  = h.action === 'NEW' ? '🆕 신규' : h.action === 'ADD' ? '➕ 추가' :
+                                 h.action === 'REDUCE' ? '➖ 축소' : h.action === 'SOLD' ? '🔴 청산' : '— 유지';
+                const valStr   = h.value_usd ? _guruFmtUSD(h.value_usd) : '—';
+                return `<div onclick="goSmartMoneyAndOpen('${h.cik}')"
+                    style="display:flex;justify-content:space-between;align-items:center;
+                           padding:9px 8px;border-bottom:1px solid var(--border);cursor:pointer;
+                           border-radius:6px;transition:background 0.1s"
+                    onmouseover="this.style.background='var(--bg3,var(--bg2))'"
+                    onmouseout="this.style.background=''">
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span style="font-size:20px;line-height:1">${h.emoji || '💎'}</span>
+                        <div>
+                            <div style="font-size:12px;font-weight:700;color:var(--text)">${escHtml(h.manager || h.name || '—')}</div>
+                            <div style="font-size:10px;color:var(--text-secondary)">${escHtml(h.name || '')} · ${h.quarter || '—'}</div>
+                        </div>
+                    </div>
+                    <div style="text-align:right;flex-shrink:0">
+                        <div style="font-size:13px;font-weight:700;color:var(--text)">${Number(h.weight||0).toFixed(2)}%</div>
+                        <div style="font-size:10px;color:var(--text-secondary)">${valStr}</div>
+                        <div style="font-size:11px;font-weight:600;color:${actColor};margin-top:1px">${actText}</div>
+                    </div>
+                </div>`;
+            }).join('');
+
+            resultEl.innerHTML = `
+                <div style="display:flex;align-items:center;gap:6px;padding:6px 2px;
+                            font-size:11px;color:var(--text-secondary);
+                            border-bottom:1px solid var(--border);margin-bottom:4px">
+                    <img src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(ticker)}?format=png"
+                         style="width:16px;height:16px;border-radius:3px;object-fit:contain" alt="" onerror="this.style.display='none'"/>
+                    <strong style="color:var(--text)">${ticker}</strong> 보유 기관
+                    <span style="background:rgba(59,130,246,0.15);color:#3b82f6;
+                                 padding:1px 8px;border-radius:8px;font-weight:700">${data.total}개</span>
+                    <span style="margin-left:auto;font-size:10px;opacity:.6">13F 기준 · 45일 지연</span>
+                </div>
+                ${rows}`;
+        } catch(e) {
+            resultEl.innerHTML = `<div style="padding:12px;text-align:center;color:#ef4444;font-size:12px">
+                ⚠️ 검색 실패: ${escHtml(e.message)}</div>`;
+        }
     }
 
     function goSmartMoneyAndOpen(cik) {
@@ -25782,7 +26019,7 @@
         closeSideNav, toggleSideNav, openSideNav, goHome, goBack, goSmartMoney,
         switchSmTab, smDeepDive, smDeepBack, filterSmHoldings, smChartLink,
         renderGuruReal, guruDeepDiveReal, guruDeepBack, renderGuruHolders, goSmartMoneyAndOpen,
-        loadGuruHome, goSmartMoneyAndOpenReal, guruRefresh, _guruImgErr,
+        loadGuruHome, goSmartMoneyAndOpenReal, guruRefresh, _guruImgErr, _searchGuruByTicker,
         _applyGuruFilter, _guruFilterPos, _guruRefreshLatest,
         setMarket, searchStock, setChartInterval, setPeriod, _toggleIntervalDropdown,
         quickSearch, toggleFavorite, switchTab, toggleChartFullscreen,
