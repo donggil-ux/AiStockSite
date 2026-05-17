@@ -10413,15 +10413,21 @@
     }
 
     function _renderDeepHot(inst) {
+        // 액션별 카운트
+        const actCnt = {};
+        inst.holdings.forEach(h => { actCnt[h.action] = (actCnt[h.action]||0)+1; });
         const filters = [
-            {key:'all', label:'전체'},
-            {key:'new', label:'🆕 신규'},
-            {key:'add', label:'🔼 추가'},
-            {key:'reduce', label:'🔽 축소'},
-            {key:'hold', label:'유지'},
-        ];
+            {key:'all',    label:'전체',    cnt: inst.holdings.length},
+            {key:'new',    label:'🆕 신규', cnt: actCnt['new']||0},
+            {key:'add',    label:'🔼 추가', cnt: actCnt['add']||0},
+            {key:'reduce', label:'🔽 축소', cnt: actCnt['reduce']||0},
+            {key:'cut',    label:'🔴 청산', cnt: actCnt['cut']||0},
+            {key:'hold',   label:'유지',    cnt: actCnt['hold']||0},
+        ].filter(f => f.key === 'all' || f.cnt > 0);
         const filterBtns = filters.map(f =>
-            `<button class="sm-hf-btn${f.key === smCurrentFilter ? ' active' : ''}" onclick="filterSmHoldings('hot_${inst.id}','${f.key}')">${f.label}</button>`
+            `<button class="sm-hf-btn${f.key === smCurrentFilter ? ' active' : ''}" onclick="filterSmHoldings('hot_${inst.id}','${f.key}')">
+                ${f.label}<span class="sm-hf-cnt">${f.cnt}</span>
+             </button>`
         ).join('');
         const top3Cards = inst.top3Add.map(h =>
             `<div class="sm-top3-add-card" onclick="smChartLink('${h.ticker}',${h.avgPrice},'${inst.name}')">
@@ -10434,17 +10440,20 @@
                 <div style="font-size:10px;color:var(--text-secondary);margin-top:4px">평균단가 $${h.avgPrice.toFixed(2)}</div>
             </div>`
         ).join('');
+        const visibleCount = smCurrentFilter === 'all' ? inst.holdings.length
+            : inst.holdings.filter(h => h.action === smCurrentFilter).length;
         const rows = inst.holdings.map(h => {
-            const wtChgStr = h.wtChg > 0 ? `+${h.wtChg.toFixed(1)}%` : h.wtChg < 0 ? `${h.wtChg.toFixed(1)}%` : '±0';
+            const wtChgStr = h.wtChg > 0 ? `+${h.wtChg.toFixed(1)}%p` : h.wtChg < 0 ? `${h.wtChg.toFixed(1)}%p` : '±0';
             const wtChgCls = h.wtChg > 0 ? 'pos' : h.wtChg < 0 ? 'neg' : 'zero';
             const hidden = smCurrentFilter !== 'all' && h.action !== smCurrentFilter ? ' hidden' : '';
             const shares = inst.aum ? _smFmtShares(inst.aum, h.wt, h.avgPrice) : '—';
+            const shortName = (h.name||'').replace(/ (CORP|INC|LTD|PLC|CO|GROUP|HOLDINGS|TECHNOLOGIES|TECHNOLOGY|INTERNATIONAL)\.?$/i,'').slice(0,18);
             return `<div class="sm-holding-row${hidden}" onclick="smChartLink('${h.ticker}',${h.avgPrice},'${inst.name}')">
-                <div style="display:flex;align-items:center;gap:8px;min-width:0">
-                    <img src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(h.ticker)}?format=png" class="sm-row-logo" alt="" loading="lazy" onerror="this.style.display='none'"/>
+                <div class="sm-hr-ticker">
+                    <img src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(h.ticker)}?format=png" class="sm-row-logo" alt="" loading="lazy" onerror="this.style.display='none'" style="flex-shrink:0"/>
                     <div style="min-width:0">
                         <div class="sm-tick">${h.ticker}</div>
-                        <div class="sm-chart-hint">차트 보기 ›</div>
+                        ${shortName ? `<div class="sm-sub">${escHtml(shortName)}</div>` : ''}
                     </div>
                 </div>
                 <div>
@@ -10453,9 +10462,11 @@
                 </div>
                 <div class="sm-avg">$${h.avgPrice.toFixed(2)}</div>
                 <div class="sm-shares">${shares}</div>
-                <div><span class="sm-action ${h.action}">${_smActionLabel(h.action)}</span></div>
+                <div style="text-align:center"><span class="sm-action ${h.action}">${_smActionLabel(h.action)}</span></div>
             </div>`;
         }).join('');
+        const emptyState = visibleCount === 0
+            ? `<div class="sm-holdings-empty">이번 분기에 해당 변동 종목이 없습니다.</div>` : '';
         return `<div class="sm-deep-wrap">
             <div class="sm-deep-header">
                 <button class="sm-back-btn" onclick="smDeepBack()">← 뒤로</button>
@@ -10471,9 +10482,9 @@
             <div class="sm-holdings-filter">${filterBtns}</div>
             <div class="sm-holdings-table">
                 <div class="sm-th-row">
-                    <div>티커</div><div>비중</div><div>평균단가</div><div>보유수량</div><div>액션</div>
+                    <div>티커</div><div style="text-align:right">비중</div><div style="text-align:right">평균단가</div><div style="text-align:right">보유수량</div><div style="text-align:center">액션</div>
                 </div>
-                ${rows}
+                ${rows}${emptyState}
             </div>
             <div class="sm-deep-insight">
                 <div class="sm-insight-title">📌 운용사 관점</div>
@@ -10484,28 +10495,38 @@
 
     function _renderDeepKingdom(inst) {
         const fmtAum = v => v >= 1000 ? `$${(v/1000).toFixed(1)}T` : `$${v}B`;
+        // 액션별 카운트
+        const actCnt = {};
+        inst.holdings.forEach(h => { actCnt[h.action] = (actCnt[h.action]||0)+1; });
         const filters = [
-            {key:'all', label:'전체'},
-            {key:'new', label:'🆕 신규'},
-            {key:'add', label:'🔼 추가'},
-            {key:'reduce', label:'🔽 축소'},
-            {key:'hold', label:'유지'},
-        ];
+            {key:'all',    label:'전체',    cnt: inst.holdings.length},
+            {key:'new',    label:'🆕 신규', cnt: actCnt['new']||0},
+            {key:'add',    label:'🔼 추가', cnt: actCnt['add']||0},
+            {key:'reduce', label:'🔽 축소', cnt: actCnt['reduce']||0},
+            {key:'cut',    label:'🔴 청산', cnt: actCnt['cut']||0},
+            {key:'hold',   label:'유지',    cnt: actCnt['hold']||0},
+        ].filter(f => f.key === 'all' || f.cnt > 0);
         const filterBtns = filters.map(f =>
-            `<button class="sm-hf-btn${f.key === smCurrentFilter ? ' active' : ''}" onclick="filterSmHoldings('kingdom_${inst.id}','${f.key}')">${f.label}</button>`
+            `<button class="sm-hf-btn${f.key === smCurrentFilter ? ' active' : ''}" onclick="filterSmHoldings('kingdom_${inst.id}','${f.key}')">
+                ${f.label}<span class="sm-hf-cnt">${f.cnt}</span>
+             </button>`
         ).join('');
+        // 트리맵: 전체 표시 (필터와 무관)
         const treemapHtml = _renderTreemap(inst.holdings);
+        const visibleCount = smCurrentFilter === 'all' ? inst.holdings.length
+            : inst.holdings.filter(h => h.action === smCurrentFilter).length;
         const rows = inst.holdings.map(h => {
-            const wtChgStr = h.wtChg > 0 ? `+${h.wtChg.toFixed(1)}%` : h.wtChg < 0 ? `${h.wtChg.toFixed(1)}%` : '±0';
+            const wtChgStr = h.wtChg > 0 ? `+${h.wtChg.toFixed(1)}%p` : h.wtChg < 0 ? `${h.wtChg.toFixed(1)}%p` : '±0';
             const wtChgCls = h.wtChg > 0 ? 'pos' : h.wtChg < 0 ? 'neg' : 'zero';
             const hidden = smCurrentFilter !== 'all' && h.action !== smCurrentFilter ? ' hidden' : '';
             const shares = _smFmtShares(inst.aum, h.wt, h.avgPrice);
+            const shortName = (h.name||'').replace(/ (CORP|INC|LTD|PLC|CO|GROUP|HOLDINGS|TECHNOLOGIES|TECHNOLOGY|INTERNATIONAL)\.?$/i,'').slice(0,18);
             return `<div class="sm-holding-row${hidden}" onclick="smChartLink('${h.ticker}',${h.avgPrice},'${inst.name}')">
-                <div style="display:flex;align-items:center;gap:8px;min-width:0">
-                    <img src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(h.ticker)}?format=png" class="sm-row-logo" alt="" loading="lazy" onerror="this.style.display='none'"/>
+                <div class="sm-hr-ticker">
+                    <img src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(h.ticker)}?format=png" class="sm-row-logo" alt="" loading="lazy" onerror="this.style.display='none'" style="flex-shrink:0"/>
                     <div style="min-width:0">
                         <div class="sm-tick">${h.ticker}</div>
-                        <div class="sm-chart-hint">차트 보기 ›</div>
+                        ${shortName ? `<div class="sm-sub">${escHtml(shortName)}</div>` : ''}
                     </div>
                 </div>
                 <div>
@@ -10514,9 +10535,11 @@
                 </div>
                 <div class="sm-avg">$${h.avgPrice.toFixed(2)}</div>
                 <div class="sm-shares">${shares}</div>
-                <div><span class="sm-action ${h.action}">${_smActionLabel(h.action)}</span></div>
+                <div style="text-align:center"><span class="sm-action ${h.action}">${_smActionLabel(h.action)}</span></div>
             </div>`;
         }).join('');
+        const emptyState = visibleCount === 0
+            ? `<div class="sm-holdings-empty">이번 분기에 해당 변동 종목이 없습니다.<br><span style="font-size:11px;opacity:.7">대형 패시브 기관은 신규 편입이 드뭅니다.</span></div>` : '';
         return `<div class="sm-deep-wrap">
             <div class="sm-deep-header">
                 <button class="sm-back-btn" onclick="smDeepBack()">← 뒤로</button>
@@ -10532,9 +10555,9 @@
             <div class="sm-holdings-filter">${filterBtns}</div>
             <div class="sm-holdings-table">
                 <div class="sm-th-row">
-                    <div>티커</div><div>비중</div><div>평균단가</div><div>보유수량</div><div>액션</div>
+                    <div>티커</div><div style="text-align:right">비중</div><div style="text-align:right">평균단가</div><div style="text-align:right">보유수량</div><div style="text-align:center">액션</div>
                 </div>
-                ${rows}
+                ${rows}${emptyState}
             </div>
             <div class="sm-deep-insight">
                 <div class="sm-insight-title">📌 운용사 관점</div>
