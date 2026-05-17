@@ -7110,6 +7110,12 @@
     .split-rr-header,.split-rr-row{grid-template-columns:32px 32px 1fr 46px auto;gap:4px;font-size:11.5px;}
 }
 
+/* ═══ SMC 요약 (분할매수 R:R 카드 내) ══════════════════════════ */
+.sd-smc-summary{margin-top:10px;padding:10px 12px;background:rgba(157,78,221,0.06);border:1px solid rgba(157,78,221,0.2);border-radius:10px;display:flex;flex-direction:column;gap:5px;}
+.sd-smc-title{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;}
+.sd-smc-row{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;color:var(--text2);}
+.sd-smc-row span:last-child{font-variant-numeric:tabular-nums;}
+
 /* ═══ 눌림목 감지 시스템 — R:R 카드 섹션 ════════════════════════ */
 .pb-rr-section{margin-top:16px;padding-top:14px;border-top:1px solid var(--border);}
 .pb-rr-title{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;font-weight:700;color:var(--text1);}
