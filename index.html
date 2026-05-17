@@ -13706,7 +13706,70 @@
                                     posSkip = true;                     // 수익 중 / 손실 -3% 미만 — 매수 알림 억제
                                 }
                             }
-                            else { emoji = '💰'; headline = `보유 포지션 — 익절·손절 점검 (${latest.text})`; }
+                            else {
+                                // 포지션 상태에 맞는 구체적인 알림 메시지 생성
+                                emoji = '💰';
+                                const _fmtP = p => currentMarket === 'KR'
+                                    ? Math.round(p).toLocaleString() + '원'
+                                    : '$' + Number(p).toFixed(2);
+
+                                const _entry   = _pa.entryPrice;
+                                const _sl      = _pa.stopLoss;
+                                const _tp1     = _pa.tp1;
+                                const _tp2     = _pa.tp2;
+                                const _tp3     = _pa.tp3;
+                                const _pnlPct  = _entry
+                                    ? (lastClose - _entry) / _entry * 100
+                                    : null;
+
+                                // 손절 근접 (손절가 대비 2% 이내)
+                                if (_sl && lastClose <= _sl * 1.02 && lastClose >= _sl * 0.98) {
+                                    emoji = '🔴';
+                                    headline = `⚠️ 손절선 근접 — 현재가 ${_fmtP(lastClose)} · 손절 ${_fmtP(_sl)}`;
+
+                                // 손절 이탈
+                                } else if (_sl && lastClose < _sl) {
+                                    emoji = '🔴';
+                                    headline = `🚨 손절선 이탈 — 현재가 ${_fmtP(lastClose)} · 손절 ${_fmtP(_sl)} · 매도 검토`;
+
+                                // 3차 익절 근접 (2% 이내)
+                                } else if (_tp3 && Math.abs(lastClose - _tp3) / _tp3 <= 0.02) {
+                                    emoji = '🎉';
+                                    headline = `🎉 3차 익절 근접 ${_fmtP(_tp3)} — 전량 매도 검토`;
+
+                                // 2차 익절 근접 (2% 이내)
+                                } else if (_tp2 && Math.abs(lastClose - _tp2) / _tp2 <= 0.02) {
+                                    emoji = '💰';
+                                    headline = `💰 2차 익절 근접 ${_fmtP(_tp2)} — 40% 매도 검토`;
+
+                                // 1차 익절 근접 (2% 이내)
+                                } else if (_tp1 && Math.abs(lastClose - _tp1) / _tp1 <= 0.02) {
+                                    emoji = '✅';
+                                    headline = `✅ 1차 익절 근접 ${_fmtP(_tp1)} — 30% 매도 검토`;
+
+                                // 1차 익절 달성 후 보유
+                                } else if (_tp1 && lastClose > _tp1) {
+                                    const nextTarget = _tp2 || _tp3;
+                                    headline = nextTarget
+                                        ? `1차 익절 달성 · ${_pnlPct > 0 ? '+' : ''}${_pnlPct?.toFixed(1)}% — 다음 목표 ${_fmtP(nextTarget)}`
+                                        : `1차 익절 달성 · ${_pnlPct > 0 ? '+' : ''}${_pnlPct?.toFixed(1)}% — 익절 고려`;
+
+                                // 수익 중 (진입가 + 1% 이상)
+                                } else if (_pnlPct !== null && _pnlPct >= 1) {
+                                    headline = `수익 중 +${_pnlPct.toFixed(1)}% · 보유 유지 — 익절가 ${_tp1 ? _fmtP(_tp1) : '미설정'}`;
+
+                                // 손실 중 (-3% 이하)
+                                } else if (_pnlPct !== null && _pnlPct <= -3) {
+                                    headline = `손실 ${_pnlPct.toFixed(1)}% · 분할매수 검토 — 손절 ${_sl ? _fmtP(_sl) : '미설정'}`;
+
+                                // 진입가 근처 (±1%)
+                                } else {
+                                    const pnlStr = _pnlPct !== null
+                                        ? ` (${_pnlPct > 0 ? '+' : ''}${_pnlPct.toFixed(1)}%)`
+                                        : '';
+                                    headline = `보유 중${pnlStr} · 익절 ${_tp1 ? _fmtP(_tp1) : '미설정'} · 손절 ${_sl ? _fmtP(_sl) : '미설정'}`;
+                                }
+                            }
                         } else if (_pa.status === 'watching') {
                             if (isBuy) {
                                 emoji = '🎯'; headline = `관심 종목 진입가 근접 (${latest.text})`;
