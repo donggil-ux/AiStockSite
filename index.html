@@ -21540,16 +21540,71 @@
     async function _togglePushBell() {
         const state = await getPushState();
         if (state.subscribed) {
-            await unsubscribePush();
-            showToast('알림이 해제되었습니다.');
-            document.getElementById('pushBellBtn').style.opacity = '0.4';
+            // 이미 구독 중 → 설정 모달 표시 (구독 해제는 모달 내 버튼으로)
+            _showNotifSettingsModal();
         } else {
             const ok = await subscribePush();
             if (ok) {
                 showToast('알림이 활성화되었습니다 🔔');
-                document.getElementById('pushBellBtn').style.opacity = '1';
+                const btn = document.getElementById('pushBellBtn');
+                if (btn) btn.style.opacity = '1';
+                _showNotifSettingsModal();
             }
         }
+    }
+
+    // 알림 설정 모달 — 알림 종류별 ON/OFF + 구독 해제
+    function _showNotifSettingsModal() {
+        let modal = document.getElementById('notifSettingsModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'notifSettingsModal';
+            modal.innerHTML = `
+            <div class="notif-modal-backdrop" onclick="document.getElementById('notifSettingsModal').style.display='none'"></div>
+            <div class="notif-modal-box">
+                <div class="notif-modal-header">
+                    <span>🔔 알림 설정</span>
+                    <button class="notif-modal-close" onclick="document.getElementById('notifSettingsModal').style.display='none'">✕</button>
+                </div>
+                <div class="notif-modal-body">
+                    ${[
+                        ['notifBuy',  'buy',  '📈 매수 진입 신호'],
+                        ['notifTp',   'tp',   '💰 익절 도달'],
+                        ['notifStop', 'stop', '🔴 손절선 이탈'],
+                        ['notifPos',  'pos',  '📋 포지션 변화'],
+                    ].map(([id, key, label]) => `
+                    <label class="notif-row" for="${id}">
+                        <span>${label}</span>
+                        <input type="checkbox" id="${id}" class="notif-check"
+                            onchange="_saveNotifPref('${key}', this.checked)">
+                    </label>`).join('')}
+                </div>
+                <div class="notif-modal-footer">
+                    <button class="notif-unsub-btn" onclick="_confirmUnsubPush()">알림 해제</button>
+                </div>
+            </div>`;
+            document.body.appendChild(modal);
+        }
+        // 체크 상태 동기화
+        [['notifBuy','buy'],['notifTp','tp'],['notifStop','stop'],['notifPos','pos']].forEach(([id, k]) => {
+            const el = document.getElementById(id);
+            if (el) el.checked = localStorage.getItem('stockai_notif_' + k) !== '0';
+        });
+        const isHidden = !modal.style.display || modal.style.display === 'none';
+        modal.style.display = isHidden ? 'flex' : 'none';
+    }
+
+    function _saveNotifPref(key, val) {
+        localStorage.setItem('stockai_notif_' + key, val ? '1' : '0');
+        showToast(val ? `${key === 'buy' ? '매수' : key === 'tp' ? '익절' : key === 'stop' ? '손절' : '포지션'} 알림 켜짐` : `알림 꺼짐`);
+    }
+
+    async function _confirmUnsubPush() {
+        document.getElementById('notifSettingsModal').style.display = 'none';
+        await unsubscribePush();
+        showToast('알림이 해제되었습니다.');
+        const btn = document.getElementById('pushBellBtn');
+        if (btn) btn.style.opacity = '0.4';
     }
 
     // 종목 상세 페이지 알림 버튼 클릭
@@ -24895,7 +24950,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         goEconomic, switchEcoTab, switchEcoChartMode, generateEconomicAI,
         subscribePush, unsubscribePush, getPushState,
         openPriceAlertModal, _setPaDir, _savePriceAlert, _deletePriceAlert,
-        _togglePushBell, _openCurrentPriceAlert,
+        _togglePushBell, _openCurrentPriceAlert, _showNotifSettingsModal, _saveNotifPref, _confirmUnsubPush,
         openMobilePreview, closeMobilePreview,
         _sideNavSearchKey, _sideNavSearchInput,
         _renderRecentSearchStrip, _clickRecentChip, _deleteRecentSearch, _clearAllRecentSearches,

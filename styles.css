@@ -7379,6 +7379,62 @@
     .vp-levels{gap:5px;}
     .vp-vah,.vp-poc,.vp-val{font-size:10.5px;padding:2px 5px;}
 }
+/* ── 푸시 알림 설정 모달 ─────────────────────────────── */
+#notifSettingsModal{
+    position:fixed;inset:0;z-index:9999;
+    display:none;align-items:flex-end;justify-content:flex-end;
+    padding:0 16px 80px 0;
+}
+.notif-modal-backdrop{
+    position:fixed;inset:0;background:rgba(0,0,0,0.4);
+}
+.notif-modal-box{
+    position:relative;z-index:1;
+    width:260px;
+    background:var(--bg2);
+    border:1px solid var(--border);
+    border-radius:14px;
+    box-shadow:0 8px 32px rgba(0,0,0,0.5);
+    overflow:hidden;
+}
+.notif-modal-header{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:14px 16px 10px;
+    font-size:14px;font-weight:700;color:var(--text1);
+    border-bottom:1px solid var(--border);
+}
+.notif-modal-close{
+    background:none;border:none;color:var(--text3);
+    cursor:pointer;font-size:16px;line-height:1;padding:2px 4px;
+}
+.notif-modal-close:hover{color:var(--text1);}
+.notif-modal-body{padding:4px 0;}
+.notif-row{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:10px 16px;font-size:13px;color:var(--text2);
+    border-bottom:1px solid var(--border);cursor:pointer;
+    gap:8px;
+}
+.notif-row:last-child{border-bottom:none;}
+.notif-row:hover{background:var(--bg3);}
+.notif-check{
+    width:18px;height:18px;cursor:pointer;flex-shrink:0;
+    accent-color:var(--blue,#0080FB);
+}
+.notif-modal-footer{
+    padding:10px 16px;border-top:1px solid var(--border);
+}
+.notif-unsub-btn{
+    width:100%;padding:8px 0;border-radius:8px;border:none;
+    background:rgba(239,68,68,0.1);color:#EF4444;
+    font-size:13px;font-weight:600;cursor:pointer;
+    transition:background .15s;
+}
+.notif-unsub-btn:hover{background:rgba(239,68,68,0.2);}
+@media(max-width:640px){
+    #notifSettingsModal{padding:0 8px 72px 0;}
+    .notif-modal-box{width:calc(100vw - 16px);}
+}
 /* ── Smart Dip v2 R:R 카드 섹션 ─────────────────────── */
 .sd-v2-section{
     margin-top:12px;
