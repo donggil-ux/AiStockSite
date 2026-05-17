@@ -6499,10 +6499,13 @@
     display:flex;flex-direction:row;
     gap:8px;
     overflow-x:auto;overflow-y:hidden;
-    padding:0 16px 4px;
+    padding:0 16px 4px 0;
     scroll-snap-type:x proximity;
     -webkit-overflow-scrolling:touch;
     scrollbar-width:none;
+}
+.mob-recent-strip .mob-recent-chip:first-child{
+    margin-left:16px;
 }
 .mob-recent-strip::-webkit-scrollbar{display:none;}
 
