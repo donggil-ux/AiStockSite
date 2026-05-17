@@ -13621,16 +13621,12 @@
                             }
                         }
                     } else {
-                        // 무포지션
                         const _pl = _posLatestForTicker(currentSymbol);
                         if (_pl && _pl.status === 'closed') {
-                            if (isBuy) {
-                                emoji = '🔄'; headline = `재진입 검토 시그널 (${latest.text})`;
-                            } else {
-                                posSkip = true; // 매도 완료 후 추가 매도 시그널 억제
-                            }
-                        } else if (!isBuy) {
-                            posSkip = true; // 무포지션 — 매도 시그널 억제
+                            emoji = '🔄';
+                            headline = `재진입 검토 시그널 (${latest.text})`;
+                        } else {
+                            posSkip = true; // 포지션 없으면 알림 억제
                         }
                     }
                 } catch(e) {}
