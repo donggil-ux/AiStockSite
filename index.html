@@ -10612,6 +10612,20 @@
 
     function _renderDeepKingdom(inst) {
         const fmtAum = v => v >= 1000 ? `$${(v/1000).toFixed(1)}T` : `$${v}B`;
+
+        // ── 분기 배지: 실데이터 vs 추정 ──────────────────────────────
+        const quarterBadge = inst._fromApi && inst._quarter
+            ? `<span style="font-size:10px;padding:2px 7px;border-radius:8px;
+                           background:rgba(34,197,94,0.12);color:#22C55E;
+                           margin-left:6px;font-weight:600;vertical-align:middle">
+                   📊 ${inst._quarter} 실데이터
+               </span>`
+            : `<span style="font-size:10px;padding:2px 7px;border-radius:8px;
+                           background:rgba(245,158,11,0.12);color:#F59E0B;
+                           margin-left:6px;vertical-align:middle">
+                   추정 데이터
+               </span>`;
+
         // 액션별 카운트
         const actCnt = {};
         inst.holdings.forEach(h => { actCnt[h.action] = (actCnt[h.action]||0)+1; });
@@ -10636,13 +10650,27 @@
             const wtChgStr = h.wtChg > 0 ? `+${h.wtChg.toFixed(1)}%p` : h.wtChg < 0 ? `${h.wtChg.toFixed(1)}%p` : '±0';
             const wtChgCls = h.wtChg > 0 ? 'pos' : h.wtChg < 0 ? 'neg' : 'zero';
             const hidden = smCurrentFilter !== 'all' && h.action !== smCurrentFilter ? ' hidden' : '';
-            const shares = _smFmtShares(inst.aum, h.wt, h.avgPrice);
+            // 보유수량: API 데이터면 shares 직접 사용, 아니면 추정
+            const sharesDisplay = h.shares != null
+                ? _guruFmtShares(h.shares)
+                : (inst.aum && h.avgPrice ? _smFmtShares(inst.aum, h.wt, h.avgPrice) : '—');
+            // 평균단가: API 데이터면 '—', 하드코딩이면 표시
+            const avgPriceDisplay = h.avgPrice > 0 ? `$${h.avgPrice.toFixed(2)}` : '—';
             const shortName = (h.name||'').replace(/ (CORP|INC|LTD|PLC|CO|GROUP|HOLDINGS|TECHNOLOGIES|TECHNOLOGY|INTERNATIONAL)\.?$/i,'').slice(0,18);
+            // 시가총액 배지 (wt 기준)
+            const capBadge = h.wt >= 5
+                ? `<span style="font-size:9px;padding:1px 4px;border-radius:3px;
+                               background:rgba(59,130,246,0.15);color:#3B82F6;margin-left:3px">대형</span>`
+                : h.wt >= 1
+                    ? `<span style="font-size:9px;padding:1px 4px;border-radius:3px;
+                                   background:rgba(245,158,11,0.15);color:#F59E0B;margin-left:3px">중형</span>`
+                    : `<span style="font-size:9px;padding:1px 4px;border-radius:3px;
+                                   background:rgba(139,92,246,0.15);color:#8B5CF6;margin-left:3px">소형</span>`;
             return `<div class="sm-holding-row${hidden}" onclick="smChartLink('${h.ticker}',${h.avgPrice},'${inst.name}')">
                 <div class="sm-hr-ticker">
                     <img src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(h.ticker)}?format=png" class="sm-row-logo" alt="" loading="lazy" onerror="this.style.display='none'" style="flex-shrink:0"/>
                     <div style="min-width:0">
-                        <div class="sm-tick">${h.ticker}</div>
+                        <div class="sm-tick">${h.ticker}${capBadge}</div>
                         ${shortName ? `<div class="sm-sub">${escHtml(shortName)}</div>` : ''}
                     </div>
                 </div>
@@ -10650,8 +10678,8 @@
                     <div class="sm-wt">${h.wt.toFixed(1)}%</div>
                     <div class="sm-wt-chg ${wtChgCls}">${wtChgStr}</div>
                 </div>
-                <div class="sm-avg">$${h.avgPrice.toFixed(2)}</div>
-                <div class="sm-shares">${shares}</div>
+                <div class="sm-avg">${avgPriceDisplay}</div>
+                <div class="sm-shares">${sharesDisplay}</div>
                 <div style="text-align:center"><span class="sm-action ${h.action}">${_smActionLabel(h.action)}</span></div>
             </div>`;
         }).join('');
@@ -10753,8 +10781,8 @@
                 <button class="sm-back-btn" onclick="smDeepBack()">← 뒤로</button>
                 <span class="sm-deep-emoji">${inst.emoji}</span>
                 <div>
-                    <div class="sm-deep-title">${inst.name}</div>
-                    <div class="sm-deep-subtitle">${inst.manager} · <span class="sm-quarter-badge">Q1 2026</span> · AUM ${fmtAum(inst.aum)}</div>
+                    <div class="sm-deep-title">${inst.name}${quarterBadge}</div>
+                    <div class="sm-deep-subtitle">${inst.manager} · <span class="sm-quarter-badge">${inst._quarter || 'Q1 2026'}</span>${inst.aum ? ` · AUM ${fmtAum(inst.aum)}` : ''}</div>
                 </div>
             </div>
             <div style="margin:12px 0 6px;font-size:12px;font-weight:600;color:var(--text-secondary)">📊 포트폴리오 트리맵</div>
