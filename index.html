@@ -7113,11 +7113,15 @@
             entryPrice: editable.entryPrice ?? '', quantity: editable.quantity ?? '',
             closedPrice: editable.closedPrice ?? '', memo: editable.memo || '', entryDate: editable.entryDate || _posToday(),
             stopLoss: editable.stopLoss ?? '', tp1: editable.tp1 ?? '', tp2: editable.tp2 ?? '', tp3: editable.tp3 ?? '',
+            maxBudget: editable.maxBudget ?? '', splitCount: editable.splitCount ?? 3,
+            splits: editable.splits ?? [], splitMode: editable.splitMode ?? 'equal',
         } : {
             ticker, id: null, status: 'holding',
             entryPrice: '', quantity: '', closedPrice: '', memo: '', entryDate: _posToday(),
             stopLoss: '', tp1: '', tp2: '', tp3: '',
+            maxBudget: '', splitCount: 3, splits: [], splitMode: 'equal',
         };
+        _posSplitCount = (_posSheetState.splitCount) || 3;
         _posRenderSheet();
         ov.classList.add('open');
         document.body.style.overflow = 'hidden';
@@ -7305,12 +7309,12 @@
         if (!_posSheetState) return;
         _posSheetState[k] = v;
         if (k === 'status') _posRenderSheet();
-        else {
-            // DOM 동기화 — 빠른 버튼 클릭 시 입력 필드에 값이 반영되도록
-            const idMap = { entryPrice:'posInEntry', stopLoss:'posInStop', tp1:'posInTp1', tp2:'posInTp2', tp3:'posInTp3', closedPrice:'posInClosed', quantity:'posInQty' };
-            const elId = idMap[k];
-            if (elId) { const i=document.getElementById(elId); if (i && i.value!==String(v)) i.value=v; }
-        }
+    }
+    // 상태 탭 토글 (새 모달용)
+    function _posSetStatus(val) {
+        if (!_posSheetState) return;
+        _posSheetState.status = val;
+        _posRenderSheet();
     }
     function _posOnEntryPriceInput(val) {
         const p = parseFloat(val);
@@ -7353,38 +7357,214 @@
         try { renderMyPosition(); } catch(e){}
         try { if (document.getElementById('positionScreen')?.style.display === '') _posLoadAndRender(); } catch(e){}
     }
+    // ── 분할매수 모달 헬퍼 ─────────────────────────────────────────
+    let _posSplitCount = 3;
+
+    function _posChangeSplitCount(delta) {
+        _posSplitCount = Math.max(2, Math.min(6, _posSplitCount + delta));
+        const el = document.getElementById('posSplitCount');
+        if (el) el.textContent = _posSplitCount;
+        _posCalcSplitPlan();
+    }
+
+    function _posCalcSplitPlan() {
+        const maxBudget = parseFloat(document.getElementById('posMaxBudget')?.value) || 0;
+        const entry1    = parseFloat(document.getElementById('posEntry1')?.value)    || 0;
+        const stop      = parseFloat(document.getElementById('posStop')?.value)      || 0;
+        const mode      = document.querySelector('input[name="splitMode"]:checked')?.value || 'equal';
+        const isKR      = currentMarket === 'KR';
+        const fmtAmt    = v => isKR ? Math.round(v).toLocaleString() + '원' : '$' + v.toFixed(0);
+        const fmtPrc    = v => isKR ? Math.round(v).toLocaleString()       : v.toFixed(2);
+
+        if (!maxBudget || !entry1) {
+            const rows = document.getElementById('posSplitPlanRows');
+            if (rows) rows.innerHTML = '';
+            _posUpdateSummary(maxBudget, [], entry1, stop);
+            return;
+        }
+
+        // 차수별 비율 계산
+        let ratios = [];
+        if (mode === 'equal') {
+            ratios = Array(_posSplitCount).fill(1 / _posSplitCount);
+        } else {
+            const weights = Array.from({length: _posSplitCount}, (_, i) => 1 + i * 0.5);
+            const total   = weights.reduce((a, b) => a + b, 0);
+            ratios = weights.map(w => w / total);
+        }
+
+        // 차수별 진입가 (1차 기준 -3%씩)
+        const dropPct  = 0.03;
+        const planRows = ratios.map((ratio, i) => {
+            const nth    = i + 1;
+            const price  = nth === 1 ? entry1 : +(entry1 * (1 - dropPct * i)).toFixed(isKR ? 0 : 2);
+            const amount = +(maxBudget * ratio).toFixed(isKR ? 0 : 0);
+            const shares = price > 0 ? (amount / price).toFixed(isKR ? 0 : 2) : '—';
+            const riskPct = (stop && price) ? ((price - stop) / price * 100).toFixed(1) : '—';
+            return { nth, price, amount, shares, riskPct };
+        });
+
+        const rows = document.getElementById('posSplitPlanRows');
+        if (rows) {
+            rows.innerHTML = `
+            <div class="pos-split-header">
+                <span>차수</span><span>진입가</span><span>투자금</span>
+                <span style="text-align:center">수량</span><span style="text-align:right">리스크</span>
+            </div>
+            ${planRows.map(r => `
+            <div class="pos-split-row ${r.nth===1?'pos-split-row-1st':''}">
+                <div class="pos-split-nth">${r.nth}차</div>
+                <div class="pos-split-price">
+                    <input type="number" id="posSplitPrice${r.nth}" value="${r.price}"
+                        oninput="_posUpdateSplitRow(${r.nth})" placeholder="진입가">
+                </div>
+                <div class="pos-split-amount">
+                    <input type="number" id="posSplitAmount${r.nth}" value="${r.amount}"
+                        oninput="_posUpdateSplitRow(${r.nth})" placeholder="금액">
+                </div>
+                <div class="pos-split-shares">
+                    <span id="posSplitShares${r.nth}">${r.shares}${isKR?'주':'주'}</span>
+                </div>
+                <div class="pos-split-risk">손절 ${r.riskPct}%</div>
+            </div>`).join('')}`;
+        }
+
+        // 1차 금액 동기화
+        const amt1El = document.getElementById('posAmount1');
+        if (amt1El && !amt1El.value) amt1El.value = planRows[0]?.amount || '';
+
+        // 1차 주수 힌트
+        const sharesHint = document.getElementById('posEntry1Shares');
+        if (sharesHint && entry1 > 0 && planRows[0]) {
+            sharesHint.textContent = `≈ ${planRows[0].shares}주`;
+        }
+
+        _posUpdateSummary(maxBudget, ratios, entry1, stop);
+    }
+
+    function _posUpdateSplitRow(nth) {
+        const price  = parseFloat(document.getElementById(`posSplitPrice${nth}`)?.value)  || 0;
+        const amount = parseFloat(document.getElementById(`posSplitAmount${nth}`)?.value) || 0;
+        const el     = document.getElementById(`posSplitShares${nth}`);
+        if (el && price > 0) {
+            const isKR = currentMarket === 'KR';
+            el.textContent = (amount / price).toFixed(isKR ? 0 : 2) + '주';
+        }
+    }
+
+    function _posUpdateSummary(maxBudget, ratios, entry1, stop) {
+        const tp1 = parseFloat(document.getElementById('posTp1')?.value) || 0;
+        const tp2 = parseFloat(document.getElementById('posTp2')?.value) || 0;
+        if (!maxBudget) { const b=document.getElementById('posSummaryBox'); if(b) b.innerHTML=''; return; }
+
+        const riskAmt   = (stop && entry1) ? +(maxBudget * (entry1 - stop) / entry1).toFixed(0) : 0;
+        const rewardAmt = (tp2   && entry1) ? +(maxBudget * (tp2 - entry1) / entry1).toFixed(0) : 0;
+        const rrRatio   = riskAmt > 0 ? (rewardAmt / riskAmt).toFixed(1) : '—';
+        const isKR      = currentMarket === 'KR';
+        const fmt       = v => isKR ? Math.round(v).toLocaleString()+'원' : '$'+Math.abs(v).toLocaleString();
+
+        const box = document.getElementById('posSummaryBox');
+        if (box) box.innerHTML = `
+            <div class="pos-summary-title">📋 투자 요약</div>
+            <div class="pos-summary-row"><span>총 투자금</span><span>${fmt(maxBudget)}</span></div>
+            <div class="pos-summary-row"><span>분할 차수</span><span>${_posSplitCount}차</span></div>
+            ${riskAmt   ? `<div class="pos-summary-row" style="color:#EF4444"><span>최대 손실금</span><span>${fmt(riskAmt)}</span></div>` : ''}
+            ${rewardAmt ? `<div class="pos-summary-row" style="color:#22C55E"><span>목표 수익금 (2차)</span><span>${fmt(rewardAmt)}</span></div>` : ''}
+            <div class="pos-summary-row"><span>R:R 비율</span><span>${rrRatio}:1</span></div>`;
+    }
+
+    // 빠른 버튼 함수들
+    function _posSetEntryToCurrent(nth) {
+        const el  = document.getElementById(`posEntry${nth}`);
+        const cur = _posCurrentPrice();
+        const isKR = currentMarket === 'KR';
+        if (el && cur) { el.value = isKR ? Math.round(cur) : cur.toFixed(2); _posCalcSplitPlan(); }
+    }
+    function _posSetEntryOffset(nth, pct) {
+        const base = parseFloat(document.getElementById(`posEntry${nth}`)?.value) || _posCurrentPrice() || 0;
+        const el   = document.getElementById(`posEntry${nth}`);
+        const isKR = currentMarket === 'KR';
+        if (el && base) { el.value = isKR ? Math.round(base*(1+pct)) : (base*(1+pct)).toFixed(2); _posCalcSplitPlan(); }
+    }
+    function _posSetStopPct(pct) {
+        const entry = parseFloat(document.getElementById('posEntry1')?.value) || _posCurrentPrice() || 0;
+        const el    = document.getElementById('posStop');
+        const isKR  = currentMarket === 'KR';
+        if (el && entry) { el.value = isKR ? Math.round(entry*(1+pct)) : (entry*(1+pct)).toFixed(2); _posCalcSplitPlan(); }
+    }
+    function _posSetStopToEma() {
+        const ema = window._lastEma240;
+        const el  = document.getElementById('posStop');
+        const isKR = currentMarket === 'KR';
+        if (el && ema) { el.value = isKR ? Math.round(ema) : ema.toFixed(2); _posCalcSplitPlan(); }
+        else { try { showToast('EMA 240 값이 없습니다 — 차트에서 분할매수를 먼저 활성화하세요'); } catch(e){} }
+    }
+    function _posTpPct(nth, pct) {
+        const entry = parseFloat(document.getElementById('posEntry1')?.value) || _posCurrentPrice() || 0;
+        const el    = document.getElementById(`posTp${nth}`);
+        const isKR  = currentMarket === 'KR';
+        if (el && entry) { el.value = isKR ? Math.round(entry*(1+pct)) : (entry*(1+pct)).toFixed(2); _posCalcSplitPlan(); }
+    }
+
+    // ── _posSave (분할매수 버전) ───────────────────────────────────
     function _posSave() {
         const s = _posSheetState;
         if (!s) return;
-        const entry = parseFloat(s.entryPrice);
-        if (!entry || entry <= 0) { try{showToast('진입가를 입력하세요');}catch(e){} return; }
-        const arr = _posLoad();
+        const status   = s.status || 'holding';
+        const isClosed = status === 'closed';
+        const entry1   = parseFloat(document.getElementById('posEntry1')?.value)   || 0;
+        const closedV  = parseFloat(document.getElementById('posInClosed')?.value) || 0;
+
+        if (!entry1 && !closedV) {
+            try { showToast('진입가를 입력하세요'); } catch(e) {}
+            return;
+        }
+
+        // 분할매수 행 수집
+        const splits = [];
+        for (let i = 1; i <= _posSplitCount; i++) {
+            const price  = parseFloat(document.getElementById(`posSplitPrice${i}`)?.value);
+            const amount = parseFloat(document.getElementById(`posSplitAmount${i}`)?.value);
+            if (price && amount) splits.push({ nth: i, price, amount, shares: +(amount / price).toFixed(4) });
+        }
+
+        const arr  = _posLoad();
         const name = (currentSymbol === s.ticker)
             ? (stockData?.meta?.longName || stockData?.meta?.shortName || s.ticker)
             : ((_posLatestForTicker(s.ticker)||{}).name || s.ticker);
-        let rec = s.id ? arr.find(p=>p.id===s.id) : null;
-        if (!rec) { rec = { id:_posUuid(), createdAt:new Date().toISOString() }; arr.push(rec); }
-        rec.ticker = s.ticker;
-        rec.name = name;
-        rec.entryPrice = entry;
-        rec.quantity = s.quantity ? parseFloat(s.quantity) : null;
-        rec.entryDate = s.entryDate || _posToday();
-        rec.status = s.status;
-        rec.memo = (s.memo||'').trim();
-        // 손절가 / 익절가 (하위 호환: 없으면 null)
-        rec.stopLoss = s.stopLoss ? parseFloat(s.stopLoss) : null;
-        rec.tp1 = s.tp1 ? parseFloat(s.tp1) : null;
-        rec.tp2 = s.tp2 ? parseFloat(s.tp2) : null;
-        rec.tp3 = s.tp3 ? parseFloat(s.tp3) : null;
-        if (s.status === 'closed') {
-            rec.closedPrice = s.closedPrice ? parseFloat(s.closedPrice) : null;
-            rec.closedAt = rec.closedAt || new Date().toISOString();
-            // closed 시 손절/익절 정보 유지 (참조용)
-        } else { rec.closedPrice = null; rec.closedAt = null; }
+
+        let rec = s.id ? arr.find(p => p.id === s.id) : null;
+        if (!rec) { rec = { id: _posUuid(), createdAt: new Date().toISOString() }; arr.push(rec); }
+
+        rec.ticker     = s.ticker;
+        rec.name       = name;
+        rec.entryPrice = entry1 || null;
+        rec.quantity   = splits.length ? +(splits.reduce((sum, sp) => sum + sp.shares, 0)).toFixed(4) : null;
+        rec.entryDate  = s.entryDate || _posToday();
+        rec.status     = status;
+        rec.memo       = (document.getElementById('posMemo')?.value || '').trim();
+        rec.stopLoss   = parseFloat(document.getElementById('posStop')?.value)  || null;
+        rec.tp1        = parseFloat(document.getElementById('posTp1')?.value)   || null;
+        rec.tp2        = parseFloat(document.getElementById('posTp2')?.value)   || null;
+        rec.tp3        = parseFloat(document.getElementById('posTp3')?.value)   || null;
+        rec.maxBudget  = parseFloat(document.getElementById('posMaxBudget')?.value) || null;
+        rec.splitCount = _posSplitCount;
+        rec.splits     = splits;
+        rec.splitMode  = document.querySelector('input[name="splitMode"]:checked')?.value || 'equal';
+
+        if (isClosed) {
+            rec.closedPrice = closedV || null;
+            rec.closedAt    = rec.closedAt || new Date().toISOString();
+        } else {
+            rec.closedPrice = null;
+            rec.closedAt    = null;
+        }
+
         _posSaveAll(arr);
         _posCloseSheet();
-        try { showToast('💼 포지션 저장됨'); } catch(e){}
-        try { renderMyPosition(); } catch(e){}
+        try { _posDrawChartLine(); } catch(e) {}
+        try { showToast(`✅ ${s.ticker} 포지션 저장 완료`); } catch(e) {}
+        try { renderMyPosition(); } catch(e) {}
         if (document.getElementById('positionScreen')?.style.display === '') _posLoadAndRender();
     }
     function _posDelete(id) {
@@ -15210,6 +15390,8 @@
         const swEma120  = _emaGet(_ema120A);
         const swEma240  = _emaGet(_ema240A);
         const swEma480  = _emaGet(_ema480A);
+        // 포지션 모달 EMA 240 손절 버튼용 전역 노출
+        try { window._lastEma240 = swEma240; } catch(e) {}
         const isEmaAligned = swEma20 != null && swEma60 != null && swEma120 != null && swEma240 != null
             && swEma20 > swEma60 && swEma60 > swEma120 && swEma120 > swEma240;
         // EMA 눌림목 감지 — 최근 캔들이 EMA에 닿고 양봉 마감 + RSI ≥ 40
@@ -25228,6 +25410,8 @@
         _earnWeekNav, _earnToggleDay,
         goMyPosition, renderMyPosition, _posOpenSheet, _posCloseSheet, _posSheetSet, _posSave,
         _posOnEntryPriceInput, _posAddWatching,
+        _posSetStatus, _posChangeSplitCount, _posCalcSplitPlan, _posUpdateSplitRow,
+        _posSetEntryToCurrent, _posSetEntryOffset, _posSetStopPct, _posSetStopToEma, _posTpPct,
         _posDelete, _posQuickClose, _posSetFilter, _posExport, _posImportPick, _posImportFile,
         closeSideNav, toggleSideNav, openSideNav, goHome, goBack, goSmartMoney,
         switchSmTab, smDeepDive, smDeepBack, filterSmHoldings, smChartLink,
