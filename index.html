@@ -7183,8 +7183,21 @@
                   <label>최대 투자금액 (${cur})
                     <span class="pos-hint">이 종목에 투자할 최대 금액</span>
                   </label>
-                  <input type="number" id="posMaxBudget" placeholder="예: 10000"
-                    oninput="_posCalcSplitPlan()" style="width:100%">
+                  <input type="text" id="posMaxBudget" inputmode="numeric"
+                    placeholder="예: 400,000"
+                    oninput="
+                        const raw=this.value.replace(/[^0-9]/g,'');
+                        const num=parseInt(raw,10);
+                        if(!isNaN(num)){
+                            const pos=this.selectionStart;
+                            const prevLen=this.value.length;
+                            this.value=num.toLocaleString('en-US');
+                            const newLen=this.value.length;
+                            this.setSelectionRange(pos+(newLen-prevLen),pos+(newLen-prevLen));
+                        }else{this.value='';}
+                        _posCalcSplitPlan();
+                    "
+                    style="width:100%">
                 </div>
                 <div class="pos-field">
                   <label>분할 차수<span class="pos-hint">몇 번에 나눠서 매수할지</span></label>
@@ -7303,7 +7316,11 @@
         // ── 기존 값 복원 ──────────────────────────────────────────
         const _setV = (id, v) => { const el=document.getElementById(id); if (el && v!=null && v!=='') el.value=v; };
         _setV('posEntry1',  s.entryPrice);
-        _setV('posMaxBudget', s.maxBudget);
+        // posMaxBudget: 텍스트 필드이므로 콤마 포맷으로 복원
+        if (s.maxBudget != null && s.maxBudget !== '') {
+            const el = document.getElementById('posMaxBudget');
+            if (el) el.value = Number(s.maxBudget).toLocaleString('en-US');
+        }
         _setV('posStop',    s.stopLoss);
         _setV('posTp1',     s.tp1);
         _setV('posTp2',     s.tp2);
@@ -7379,7 +7396,8 @@
     }
 
     function _posCalcSplitPlan() {
-        const maxBudget = parseFloat(document.getElementById('posMaxBudget')?.value) || 0;
+        const maxBudget = parseFloat(
+            (document.getElementById('posMaxBudget')?.value || '0').replace(/,/g, '')) || 0;
         const entry1    = parseFloat(document.getElementById('posEntry1')?.value)    || 0;
         const stop      = parseFloat(document.getElementById('posStop')?.value)      || 0;
         const mode      = document.querySelector('input[name="splitMode"]:checked')?.value || 'equal';
@@ -7558,7 +7576,7 @@
         rec.tp1        = parseFloat(document.getElementById('posTp1')?.value)   || null;
         rec.tp2        = parseFloat(document.getElementById('posTp2')?.value)   || null;
         rec.tp3        = parseFloat(document.getElementById('posTp3')?.value)   || null;
-        rec.maxBudget  = parseFloat(document.getElementById('posMaxBudget')?.value) || null;
+        rec.maxBudget  = parseFloat((document.getElementById('posMaxBudget')?.value || '').replace(/,/g,'')) || null;
         rec.splitCount = _posSplitCount;
         rec.splits     = splits;
         rec.splitMode  = document.querySelector('input[name="splitMode"]:checked')?.value || 'equal';
