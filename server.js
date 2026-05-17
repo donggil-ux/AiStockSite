@@ -400,6 +400,81 @@ app.get('/api/quote', async (req, res) => {
 });
 
 /**
+ * GET /api/price/:symbol — 실시간 현재가 (Alpaca 우선, yfinance 폴백)
+ * 장 중(ET 09:30~16:00)이면 Alpaca 최신 스냅샷, 그 외엔 yfinance
+ */
+app.get('/api/price/:symbol', async (req, res) => {
+    const { symbol } = req.params;
+    if (!validSymbol(symbol)) return res.status(400).json({ error: 'invalid symbol' });
+
+    // 장 중 여부 판단 (ET 기준)
+    const now = new Date();
+    const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+    const et = new Date(etStr);
+    const day = et.getDay(); // 0=Sun, 6=Sat
+    const totalMin = et.getHours() * 60 + et.getMinutes();
+    const marketOpen = day >= 1 && day <= 5 && totalMin >= 570 && totalMin < 960; // 9:30~16:00
+
+    // 장 중 + Alpaca 활성화 → Alpaca 실시간
+    if (marketOpen && _alpacaEnabled()) {
+        try {
+            const snap = await _alpacaSnapshots([symbol.toUpperCase()]);
+            const s = snap[symbol.toUpperCase()];
+            if (s) {
+                // latestTrade 또는 latestQuote 미드포인트
+                const tradePrice = s.latestTrade?.p;
+                const askPrice   = s.latestQuote?.ap;
+                const bidPrice   = s.latestQuote?.bp;
+                const price = tradePrice || (askPrice && bidPrice ? (askPrice + bidPrice) / 2 : askPrice || bidPrice);
+                if (price && price > 0) {
+                    const dailyBar = s.dailyBar;
+                    const prevClose = s.prevDailyBar?.c;
+                    const change = prevClose ? price - prevClose : null;
+                    const changePct = prevClose ? (price - prevClose) / prevClose * 100 : null;
+                    return res.json({
+                        price: +price.toFixed(4),
+                        source: 'alpaca_realtime',
+                        isMarketHours: true,
+                        change: change != null ? +change.toFixed(4) : null,
+                        changePct: changePct != null ? +changePct.toFixed(4) : null,
+                        open: dailyBar?.o,
+                        high: dailyBar?.h,
+                        low:  dailyBar?.l,
+                        volume: dailyBar?.v,
+                    });
+                }
+            }
+        } catch (e) {
+            console.warn(`[price/alpaca] ${symbol}:`, e.message);
+        }
+    }
+
+    // 폴백: yfinance
+    try {
+        const url  = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol.toUpperCase())}`;
+        const data = await yfRequest(url);
+        const q    = data?.quoteResponse?.result?.[0];
+        if (!q) return res.status(404).json({ error: 'symbol not found' });
+        const price = q.regularMarketPrice;
+        return res.json({
+            price: price != null ? +price.toFixed(4) : null,
+            source: 'yfinance_delayed',
+            isMarketHours: marketOpen,
+            change:    q.regularMarketChange != null ? +q.regularMarketChange.toFixed(4) : null,
+            changePct: q.regularMarketChangePercent != null ? +q.regularMarketChangePercent.toFixed(4) : null,
+            preMarketPrice:    q.preMarketPrice,
+            postMarketPrice:   q.postMarketPrice,
+            preMarketChangePct:  q.preMarketChangePercent,
+            postMarketChangePct: q.postMarketChangePercent,
+            marketState: q.marketState,
+        });
+    } catch (err) {
+        console.error(`[price] ${symbol}:`, err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
  * 기업 요약 정보 (PER, PBR, EPS, 재무 등)
  * GET /api/summary/:symbol?modules=defaultKeyStatistics,financialData,summaryDetail,price
  */
@@ -1020,6 +1095,58 @@ app.get('/api/sepa-scan', async (req, res) => {
 const BREAKOUT_SCAN_TTL = 30 * 60 * 1000;
 let _breakoutScanCache = { ts: 0, data: null };
 
+// ── Volume Profile — Valentini NASDAQ Scalping Methodology ───────────────
+// POC: 가장 거래량 많은 가격대 | VAH/VAL: 전체 거래량 70% 구간 상/하단
+function calcVolumeProfile(candles, bins = 50) {
+    if (!candles?.length) return null;
+    const minP = Math.min(...candles.map(c => c.low));
+    const maxP = Math.max(...candles.map(c => c.high));
+    if (maxP <= minP) return null;
+    const binSize = (maxP - minP) / bins;
+    const profile = new Array(bins).fill(0);
+    candles.forEach(c => {
+        const vol = (c.volume || 0) / bins;
+        const lo = Math.max(0, Math.floor((c.low  - minP) / binSize));
+        const hi = Math.min(bins - 1, Math.ceil( (c.high - minP) / binSize));
+        for (let i = lo; i <= hi; i++) profile[i] += vol;
+    });
+    const pocIdx = profile.indexOf(Math.max(...profile));
+    const poc    = minP + (pocIdx + 0.5) * binSize;
+    const totalVol = profile.reduce((a, b) => a + b, 0);
+    if (!totalVol) return null;
+    const target = totalVol * 0.70;
+    let accumulated = profile[pocIdx];
+    let lo = pocIdx, hi = pocIdx;
+    while (accumulated < target && (lo > 0 || hi < bins - 1)) {
+        const expandLo = lo > 0         ? profile[lo - 1] : 0;
+        const expandHi = hi < bins - 1  ? profile[hi + 1] : 0;
+        if (expandLo >= expandHi && lo > 0) { lo--; accumulated += profile[lo]; }
+        else if (hi < bins - 1)             { hi++; accumulated += profile[hi]; }
+        else break;
+    }
+    return {
+        poc: +poc.toFixed(2),
+        vah: +(minP + (hi + 1) * binSize).toFixed(2),
+        val: +(minP + lo       * binSize).toFixed(2),
+        valueAreaPct: +((accumulated / totalVol) * 100).toFixed(1),
+    };
+}
+
+// VP 기반 단타 신호 분류 (4가지)
+function getVPSignal(currentPrice, vp) {
+    if (!vp || !currentPrice) return { type: 'NEUTRAL', label: '⬜ 중립', strength: 'none', desc: '명확한 VP 신호 없음' };
+    const { poc, vah, val } = vp;
+    const nearVAL  = Math.abs(currentPrice - val) / val < 0.01;
+    const abovePOC = currentPrice > poc;
+    const aboveVAH = currentPrice > vah;
+    const insideVA = currentPrice >= val && currentPrice <= vah;
+    if (nearVAL && abovePOC) return { type: 'VAL_BOUNCE',  label: '📍 VAL 반등 + POC 위', strength: 'high',   desc: '기관 가치 구간 하단 반등 — 강한 단타 진입 신호' };
+    if (aboveVAH)             return { type: 'VAH_BREAKOUT',label: '🚀 VAH 상단 돌파',     strength: 'high',   desc: '가치 구간 상단 돌파 — 모멘텀 단타 진입' };
+    if (insideVA && abovePOC) return { type: 'POC_HOLD',   label: '⭐ POC 위 유지',        strength: 'medium', desc: 'POC 위 가격 유지 — 매수 우위' };
+    if (nearVAL)              return { type: 'VAL_TEST',   label: '📊 VAL 테스트 중',      strength: 'watch',  desc: 'VAL 지지 확인 대기 — 반등 시 진입' };
+    return                           { type: 'NEUTRAL',    label: '⬜ 중립',               strength: 'none',   desc: '명확한 VP 신호 없음' };
+}
+
 function _breakoutAnalyzeServer(closes, highs, lows, opens, volumes, meta) {
     if (!closes || closes.length < 30) return null;
     const N = closes.length;
@@ -1090,8 +1217,19 @@ function _breakoutAnalyzeServer(closes, highs, lows, opens, volumes, meta) {
         }
     }
 
-    // ─── 종합 ───
-    const score = Math.round(s1 * 0.35 + s2 * 0.25 + s3 * 0.20 + s4 * 0.10 + s5 * 0.10);
+    // ─── Volume Profile (최근 5일 일봉) ─────────────────────────────────
+    const vpCandles = [];
+    for (let i = Math.max(0, N - 5); i < N; i++) {
+        if (closes[i] != null && highs[i] != null && lows[i] != null)
+            vpCandles.push({ close: closes[i], high: highs[i], low: lows[i], volume: volumes?.[i] || 0 });
+    }
+    let vp = null, vpSignal = null;
+    try { vp = calcVolumeProfile(vpCandles); } catch(_) {}
+    try { if (vp) vpSignal = getVPSignal(price, vp); } catch(_) {}
+    const vpScore = { high: 30, medium: 15, watch: 5, none: 0 }[vpSignal?.strength] || 0;
+
+    // ─── 종합 (기존 5단계 + VP 보너스) ───────────────────────────────────
+    const score = Math.round(s1 * 0.35 + s2 * 0.25 + s3 * 0.20 + s4 * 0.10 + s5 * 0.10) + vpScore;
     return {
         score,
         s1, s2, s3, s4, s5,
@@ -1105,6 +1243,7 @@ function _breakoutAnalyzeServer(closes, highs, lows, opens, volumes, meta) {
         breakAboveOpen: todayOpen != null && price > todayOpen,
         maAligned: lma5 != null && lma20 != null && lma5 > lma20,
         dangerPattern: s5 < 50,
+        vp, vpSignal, vpScore,
     };
 }
 
@@ -3724,7 +3863,7 @@ async function _reasonLoadFromSupabase(symbols) {
             const len = (r.text || '').length;
             const isEmpty = len === 0;                       // 빈 텍스트 → 재fetch 유도
             const isTruncated = len > 0 && len <= 25;       // 구버전 22자 잘림
-            const isLegacyRaw = len > 65;                   // 구버전 raw 뉴스 헤드라인(요약 전)
+            const isLegacyRaw = len > 200;                  // 구버전 raw 뉴스 헤드라인(요약 전) — 200자 초과만 거부
             if (age < REASON_SUPABASE_TTL && !isEmpty && !isTruncated && !isLegacyRaw) m.set(r.symbol, r.text);
         });
         return m;
@@ -3754,7 +3893,7 @@ function _shortenReason(text) {
     // 첫 문장만
     const sm = t.match(/^(.{8,}?[.!?])\s/);
     if (sm) t = sm[1].trim();
-    if (t.length > 60) t = t.slice(0, 58).trim() + '…';
+    if (t.length > 120) t = t.slice(0, 118).trim() + '…';
     return t;
 }
 
@@ -7553,94 +7692,6 @@ app.get('/api/cron/earnings-reminder', cronAuth, async (req, res) => {
     }
 });
 
-// ── Polymarket 예측 시장 ───────────────────────────────────────────────────
-const _polyHomeCache   = { data: null, ts: 0 };
-const _polyStocksCache = { data: null, ts: 0 };
-const POLY_HOME_TTL    = 5 * 60 * 1000;
-const POLY_STOCKS_TTL  = 5 * 60 * 1000;
-
-// 이벤트 객체를 클라이언트가 기대하는 포맷으로 정규화
-function _normalizePolyEvent(ev) {
-    const mkts = (ev.markets || []).filter(m => m.active && !m.closed);
-    const m = mkts[0] || {};
-    return {
-        question: ev.title || m.question || '',
-        outcomes: m.outcomes || '["Yes","No"]',
-        outcomePrices: m.outcomePrices || '["0.5","0.5"]',
-        volume: ev.volume || m.volume || 0,
-        endDate: ev.endDate || m.endDate || '',
-        slug: ev.slug || m.slug || '',
-    };
-}
-
-app.get('/api/polymarket/home', async (_req, res) => {
-    res.set('Cache-Control', 'public, max-age=120, stale-while-revalidate=300');
-    const now = Date.now();
-    if (_polyHomeCache.data && now - _polyHomeCache.ts < POLY_HOME_TTL) {
-        return res.json({ markets: _polyHomeCache.data, cached: true });
-    }
-    try {
-        // finance + economics 이벤트 병렬 요청
-        const [rFin, rEco] = await Promise.all([
-            fetch('https://gamma-api.polymarket.com/events?limit=12&active=true&closed=false&tag_slug=finance&order=volume&ascending=false',   { headers: { 'User-Agent': 'StockAI/1.0' } }),
-            fetch('https://gamma-api.polymarket.com/events?limit=12&active=true&closed=false&tag_slug=economics&order=volume&ascending=false', { headers: { 'User-Agent': 'StockAI/1.0' } }),
-        ]);
-        const [finEvents, ecoEvents] = await Promise.all([
-            rFin.ok ? rFin.json() : [],
-            rEco.ok ? rEco.json() : [],
-        ]);
-        const seen = new Set();
-        const merged = [...finEvents, ...ecoEvents].filter(ev => {
-            if (seen.has(ev.id)) return false;
-            seen.add(ev.id); return true;
-        });
-        // volume 내림차순 정렬 후 정규화 + 한글 번역
-        merged.sort((a, b) => (Number(b.volume) || 0) - (Number(a.volume) || 0));
-        const raw = merged.map(_normalizePolyEvent).filter(m => m.question);
-        const markets = await Promise.all(raw.map(async m => ({
-            ...m, question: await translateToKo(m.question)
-        })));
-        _polyHomeCache.data = markets;
-        _polyHomeCache.ts   = now;
-        res.json({ markets, cached: false });
-    } catch (err) {
-        console.error('[polymarket/home]', err.message);
-        res.status(502).json({ error: 'Polymarket 데이터를 가져올 수 없어요' });
-    }
-});
-
-app.get('/api/polymarket/symbol/:symbol', async (req, res) => {
-    const { symbol } = req.params;
-    if (!validSymbol(symbol)) return res.status(400).json({ error: 'invalid symbol' });
-    res.set('Cache-Control', 'public, max-age=120, stale-while-revalidate=300');
-    const sym = symbol.toUpperCase().replace(/\.(KS|KQ)$/i, '');
-    const now = Date.now();
-
-    // stocks 이벤트 공유 캐시 — 정규화 + 번역까지 미리 처리해 저장
-    // 캐시 항목: { rawTitle: 원본 영어 제목(필터용), market: 번역된 정규화 객체 }
-    if (!_polyStocksCache.data || now - _polyStocksCache.ts > POLY_STOCKS_TTL) {
-        try {
-            const r = await fetch('https://gamma-api.polymarket.com/events?limit=50&active=true&closed=false&tag_slug=stocks&order=volume&ascending=false', { headers: { 'User-Agent': 'StockAI/1.0' } });
-            if (r.ok) {
-                const events = await r.json();
-                _polyStocksCache.data = await Promise.all(events.map(async ev => {
-                    const norm = _normalizePolyEvent(ev);
-                    if (!norm.question) return null;
-                    const translated = await translateToKo(norm.question);
-                    return { rawTitle: ev.title || '', market: { ...norm, question: translated } };
-                })).then(arr => arr.filter(Boolean));
-                _polyStocksCache.ts = now;
-            }
-        } catch { /* silent — fall through to empty */ }
-    }
-
-    const all = _polyStocksCache.data || [];
-    // 정규식 특수문자 이스케이프 후 ticker 매칭 (BRK.A 등 안전)
-    const escSym = sym.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const re = new RegExp(`\\b${escSym}\\b`, 'i');
-    const markets = all.filter(c => re.test(c.rawTitle)).slice(0, 3).map(c => c.market);
-    res.json({ markets, cached: _polyStocksCache.ts < now });
-});
 
 // index.html fallback (SPA 라우팅)
 app.get('*', (req, res) => {
@@ -7666,42 +7717,6 @@ function logEnvStatus() {
     console.log('');
 }
 
-// 폴리마켓 캐시 워밍 — 첫 사용자가 콜드 캐시 대기 안 하도록 백그라운드 fetch
-async function _warmupPolymarket() {
-    try {
-        // home 캐시 워밍
-        const [rFin, rEco] = await Promise.all([
-            fetch('https://gamma-api.polymarket.com/events?limit=12&active=true&closed=false&tag_slug=finance&order=volume&ascending=false',   { headers: { 'User-Agent': 'StockAI/1.0' } }),
-            fetch('https://gamma-api.polymarket.com/events?limit=12&active=true&closed=false&tag_slug=economics&order=volume&ascending=false', { headers: { 'User-Agent': 'StockAI/1.0' } }),
-        ]);
-        const [finEvents, ecoEvents] = await Promise.all([
-            rFin.ok ? rFin.json() : [],
-            rEco.ok ? rEco.json() : [],
-        ]);
-        const seen = new Set();
-        const merged = [...finEvents, ...ecoEvents].filter(ev => { if (seen.has(ev.id)) return false; seen.add(ev.id); return true; });
-        merged.sort((a, b) => (Number(b.volume) || 0) - (Number(a.volume) || 0));
-        const raw = merged.map(_normalizePolyEvent).filter(m => m.question);
-        const markets = await Promise.all(raw.map(async m => ({ ...m, question: await translateToKo(m.question) })));
-        _polyHomeCache.data = markets;
-        _polyHomeCache.ts = Date.now();
-
-        // stocks 캐시 워밍
-        const r = await fetch('https://gamma-api.polymarket.com/events?limit=50&active=true&closed=false&tag_slug=stocks&order=volume&ascending=false', { headers: { 'User-Agent': 'StockAI/1.0' } });
-        if (r.ok) {
-            const events = await r.json();
-            _polyStocksCache.data = (await Promise.all(events.map(async ev => {
-                const norm = _normalizePolyEvent(ev);
-                if (!norm.question) return null;
-                return { rawTitle: ev.title || '', market: { ...norm, question: await translateToKo(norm.question) } };
-            }))).filter(Boolean);
-            _polyStocksCache.ts = Date.now();
-        }
-        console.log(`✓ Polymarket 워밍 완료: home ${markets.length}, stocks ${_polyStocksCache.data?.length || 0}`);
-    } catch (err) {
-        console.error('⚠️  Polymarket 워밍 실패:', err.message);
-    }
-}
 
 if (require.main === module) {
     // 로컬 실행
@@ -7710,13 +7725,11 @@ if (require.main === module) {
         console.log(`📡 Health check    →  http://localhost:${PORT}/health`);
         logEnvStatus();
         getCrumb().catch(err => console.error('⚠️  Initial crumb fetch 실패:', err.message));
-        _warmupPolymarket();  // 백그라운드 워밍
     });
 } else {
     // Vercel 서버리스: cold start 시 crumb 미리 발급
     logEnvStatus();
     getCrumb().catch(() => {});
-    _warmupPolymarket();
 }
 
 module.exports = app;
