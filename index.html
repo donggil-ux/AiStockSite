@@ -14749,6 +14749,81 @@
         return fvgs.slice(-5);
     }
 
+    // ─── Smart Dip v2 — SATS (Self-Aware Trend System) 알고리즘 ────
+    // ER: 추세 효율성 (0~1). 1에 가까울수록 강한 추세, 0에 가까울수록 횡보
+    function _calcER(closes, len) {
+        if (!closes || closes.length < len + 1) return 0.5;
+        const valid = closes.filter(v => v != null);
+        if (valid.length < len + 1) return 0.5;
+        const n = valid.length;
+        const change = Math.abs(valid[n-1] - valid[n-1-len]);
+        let volatility = 0;
+        for (let i = n-len; i < n; i++) volatility += Math.abs(valid[i] - valid[i-1]);
+        return volatility > 0 ? Math.min(change / volatility, 1) : 0.5;
+    }
+
+    // TQI: 추세 품질 지수 (0~1). 4가지 팩터 가중 평균 (ER / 거래량 / 구조 / 모멘텀)
+    function _calcTQI(closes, highs, lows, volumes, er) {
+        if (!closes || closes.length < 20) return 0.5;
+        const valid = closes.filter(v => v != null);
+        const n = valid.length;
+
+        // 1. ER 팩터 (가중치 0.35)
+        const tqiEr = Math.min(Math.max(er, 0), 1);
+
+        // 2. 거래량 팩터 (가중치 0.20)
+        let tqiVol = 0.5;
+        if (volumes && volumes.length >= 20) {
+            const vols = volumes.filter(v => v != null && v > 0);
+            if (vols.length >= 20) {
+                const vMean = vols.slice(-20).reduce((a,b) => a+b, 0) / 20;
+                const vStd  = Math.sqrt(vols.slice(-20).reduce((a,b) => a + (b-vMean)**2, 0) / 20);
+                const vZ = vStd > 0 ? (vols[vols.length-1] - vMean) / vStd : 0;
+                tqiVol = Math.min(Math.max((vZ + 1) / 3, 0), 1);
+            }
+        }
+
+        // 3. 구조 팩터 — 20봉 내 가격 위치 (가중치 0.25)
+        const slen = Math.min(20, valid.length);
+        const structHi = Math.max(...highs.slice(-slen).filter(v => v != null));
+        const structLo = Math.min(...lows.slice(-slen).filter(v => v != null));
+        const structRange = structHi - structLo;
+        const pricePos = structRange > 0 ? (valid[n-1] - structLo) / structRange : 0.5;
+        const tqiStruct = Math.min(Math.abs(pricePos - 0.5) * 2, 1);
+
+        // 4. 모멘텀 팩터 — 방향 일치 봉 비율 (가중치 0.20)
+        const momLen = Math.min(10, n - 1);
+        const winChange = valid[n-1] - valid[n-1-momLen];
+        let aligned = 0;
+        for (let i = n-momLen; i < n; i++) {
+            const d = valid[i] - valid[i-1];
+            if ((winChange > 0 && d > 0) || (winChange < 0 && d < 0)) aligned++;
+        }
+        const tqiMom = aligned / momLen;
+
+        return Math.min(Math.max(tqiEr*0.35 + tqiVol*0.20 + tqiStruct*0.25 + tqiMom*0.20, 0), 1);
+    }
+
+    // SuperTrend: 1 = 상승 추세, -1 = 하락 추세 (ATR 밴드 기반)
+    function _calcSuperTrend(closes, highs, lows, atr, mult) {
+        if (!closes || closes.length < 20) return 1;
+        const n = closes.length;
+        const m = mult || 2.0;
+        let trend = 1, upperBand = 0, lowerBand = 0;
+        for (let i = 1; i < n; i++) {
+            if (closes[i] == null || highs[i] == null || lows[i] == null) continue;
+            const hl2 = (highs[i] + lows[i]) / 2;
+            const atrVal = atr || (highs[i] - lows[i]);
+            const newLower = hl2 - m * atrVal;
+            const newUpper = hl2 + m * atrVal;
+            lowerBand = (closes[i-1] > lowerBand) ? Math.max(newLower, lowerBand) : newLower;
+            upperBand = (closes[i-1] < upperBand) ? Math.min(newUpper, upperBand) : newUpper;
+            if      (trend === -1 && closes[i] > upperBand) trend =  1;
+            else if (trend ===  1 && closes[i] < lowerBand) trend = -1;
+        }
+        return trend;
+    }
+
     function _calcSplitBuyLevels(q, atr) {
         const closes = q.close || [], highs = q.high || [], lows = q.low || [];
         const n = closes.length;
