@@ -7258,13 +7258,86 @@
                 <div class="pos-section-title">🔴 손절 설정</div>
                 <div class="pos-field">
                   <label>손절가 (${cur})</label>
-                  <input type="number" id="posStop" placeholder="손절 가격"
-                    oninput="_posCalcSplitPlan()" style="width:100%">
-                  <div class="pos-quick-btns">
-                    <button onclick="_posSetStopPct(-0.05)">-5%</button>
-                    <button onclick="_posSetStopPct(-0.08)">-8%</button>
-                    <button onclick="_posSetStopPct(-0.10)">-10%</button>
-                    <button onclick="_posSetStopToEma()">EMA 240</button>
+                  <!-- 탭 전환 -->
+                  <div style="display:flex;gap:4px;margin-bottom:8px">
+                    <button id="posStopTabPriceBtn" onclick="_posStopTab('price')"
+                      style="flex:1;padding:6px;font-size:12px;border-radius:6px;cursor:pointer;
+                             border:1px solid rgba(239,68,68,0.4);background:rgba(239,68,68,0.15);
+                             color:#EF4444;font-weight:600;">가격 입력</button>
+                    <button id="posStopTabPctBtn" onclick="_posStopTab('pct')"
+                      style="flex:1;padding:6px;font-size:12px;border-radius:6px;cursor:pointer;
+                             border:1px solid var(--border);background:var(--bg3);
+                             color:var(--text3);">% 입력</button>
+                  </div>
+                  <!-- 가격 입력 모드 (공유 hidden input + 표시 input) -->
+                  <input type="number" id="posStop" style="display:none">
+                  <div id="posStopPriceDiv">
+                    <input type="number" id="posStopPriceDisplay" placeholder="손절 가격"
+                      oninput="document.getElementById('posStop').value=this.value;_posOnStopPrice();"
+                      style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);
+                             background:var(--bg3);color:var(--text1);box-sizing:border-box;">
+                    <div style="display:flex;gap:6px;margin-top:6px">
+                      <button onclick="_posStopSetPct(-2)"
+                        style="flex:1;padding:5px;font-size:11px;border-radius:6px;
+                               border:1px solid var(--border);background:var(--bg3);
+                               color:var(--text2);cursor:pointer;">-2%</button>
+                      <button onclick="_posStopSetPct(-3)"
+                        style="flex:1;padding:5px;font-size:11px;border-radius:6px;
+                               border:1px solid var(--border);background:var(--bg3);
+                               color:var(--text2);cursor:pointer;">-3%</button>
+                      <button onclick="_posStopSetPct(-5)"
+                        style="flex:1;padding:5px;font-size:11px;border-radius:6px;
+                               border:1px solid var(--border);background:var(--bg3);
+                               color:var(--text2);cursor:pointer;">-5%</button>
+                      <button onclick="_posStopSetPct(-8)"
+                        style="flex:1;padding:5px;font-size:11px;border-radius:6px;
+                               border:1px solid var(--border);background:var(--bg3);
+                               color:var(--text2);cursor:pointer;">-8%</button>
+                      <button onclick="_posStopSetPct(-10)"
+                        style="flex:1;padding:5px;font-size:11px;border-radius:6px;
+                               border:1px solid var(--border);background:var(--bg3);
+                               color:var(--text2);cursor:pointer;">-10%</button>
+                      <button onclick="_posSetStopToEma()"
+                        style="flex:1;padding:5px;font-size:10px;border-radius:6px;
+                               border:1px solid var(--border);background:var(--bg3);
+                               color:var(--text2);cursor:pointer;">EMA240</button>
+                    </div>
+                  </div>
+                  <!-- % 입력 모드 -->
+                  <div id="posStopPctDiv" style="display:none">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span style="color:#EF4444;font-size:16px;font-weight:700;">-</span>
+                      <input type="number" id="posStopPctVal" placeholder="예: 3"
+                        min="0.1" max="50" step="0.1" inputmode="decimal"
+                        oninput="_posOnStopPct()"
+                        style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);
+                               background:var(--bg3);color:var(--text1);">
+                      <span style="color:var(--text3);font-size:14px">%</span>
+                    </div>
+                    <div style="display:flex;gap:6px;margin-top:6px">
+                      <button onclick="_posStopQuickPct(1)"
+                        style="flex:1;padding:5px;font-size:11px;border-radius:6px;
+                               border:1px solid var(--border);background:var(--bg3);
+                               color:var(--text2);cursor:pointer;">-1%</button>
+                      <button onclick="_posStopQuickPct(2)"
+                        style="flex:1;padding:5px;font-size:11px;border-radius:6px;
+                               border:1px solid var(--border);background:var(--bg3);
+                               color:var(--text2);cursor:pointer;">-2%</button>
+                      <button onclick="_posStopQuickPct(3)"
+                        style="flex:1;padding:5px;font-size:11px;border-radius:6px;
+                               border:1px solid var(--border);background:var(--bg3);
+                               color:var(--text2);cursor:pointer;">-3%</button>
+                      <button onclick="_posStopQuickPct(5)"
+                        style="flex:1;padding:5px;font-size:11px;border-radius:6px;
+                               border:1px solid var(--border);background:var(--bg3);
+                               color:var(--text2);cursor:pointer;">-5%</button>
+                      <button onclick="_posStopQuickPct(10)"
+                        style="flex:1;padding:5px;font-size:11px;border-radius:6px;
+                               border:1px solid var(--border);background:var(--bg3);
+                               color:var(--text2);cursor:pointer;">-10%</button>
+                    </div>
+                    <div id="posStopCalcShow"
+                      style="margin-top:8px;font-size:12px;color:#EF4444;min-height:18px;font-weight:600;"></div>
                   </div>
                 </div>
                 <div class="pos-field" id="posRiskSummary"></div>
@@ -7330,6 +7403,7 @@
             if (el) el.value = Number(s.maxBudget).toLocaleString('en-US');
         }
         _setV('posStop',    s.stopLoss);
+        _setV('posStopPriceDisplay', s.stopLoss); // 표시용 input도 동기화
         _setV('posTp1',     s.tp1);
         _setV('posTp2',     s.tp2);
         _setV('posTp3',     s.tp3);
@@ -7530,12 +7604,92 @@
         if (el && entry) { el.value = isKR ? Math.round(entry*(1+pct)) : (entry*(1+pct)).toFixed(2); _posCalcSplitPlan(); }
     }
     function _posSetStopToEma() {
-        const ema = window._lastEma240;
-        const el  = document.getElementById('posStop');
+        const ema  = window._lastEma240;
+        const el   = document.getElementById('posStop');
+        const disp = document.getElementById('posStopPriceDisplay');
         const isKR = currentMarket === 'KR';
-        if (el && ema) { el.value = isKR ? Math.round(ema) : ema.toFixed(2); _posCalcSplitPlan(); }
-        else { try { showToast('EMA 240 값이 없습니다 — 차트에서 분할매수를 먼저 활성화하세요'); } catch(e){} }
+        if (el && ema) {
+            const v = isKR ? Math.round(ema) : +ema.toFixed(2);
+            el.value = v;
+            if (disp) disp.value = v;
+            _posCalcSplitPlan();
+        } else { try { showToast('EMA 240 값이 없습니다 — 차트에서 분할매수를 먼저 활성화하세요'); } catch(e){} }
     }
+
+    // ── 손절 탭 전환 ──────────────────────────────────────────────
+    function _posStopTab(mode) {
+        const priceDiv = document.getElementById('posStopPriceDiv');
+        const pctDiv   = document.getElementById('posStopPctDiv');
+        const priceBtn = document.getElementById('posStopTabPriceBtn');
+        const pctBtn   = document.getElementById('posStopTabPctBtn');
+        if (!priceDiv || !pctDiv) return;
+        const activeStyle  = { bg:'rgba(239,68,68,0.15)', color:'#EF4444', border:'rgba(239,68,68,0.4)', fw:'600' };
+        const inactiveStyle= { bg:'var(--bg3)', color:'var(--text3)', border:'var(--border)', fw:'normal' };
+        const applyStyle = (btn, s) => {
+            if (!btn) return;
+            btn.style.background  = s.bg;
+            btn.style.color       = s.color;
+            btn.style.borderColor = s.border;
+            btn.style.fontWeight  = s.fw;
+        };
+        if (mode === 'price') {
+            priceDiv.style.display = '';
+            pctDiv.style.display   = 'none';
+            applyStyle(priceBtn, activeStyle);
+            applyStyle(pctBtn,   inactiveStyle);
+        } else {
+            priceDiv.style.display = 'none';
+            pctDiv.style.display   = '';
+            applyStyle(pctBtn,   activeStyle);
+            applyStyle(priceBtn, inactiveStyle);
+        }
+    }
+    // 가격 직접 입력 → % 역산
+    function _posOnStopPrice() {
+        const entry  = parseFloat(document.getElementById('posEntry1')?.value) || 0;
+        const stop   = parseFloat(document.getElementById('posStopPriceDisplay')?.value) || 0;
+        const hidden = document.getElementById('posStop');
+        if (hidden) hidden.value = stop;
+        const pctEl  = document.getElementById('posStopPctVal');
+        if (entry > 0 && stop > 0 && pctEl)
+            pctEl.value = ((entry - stop) / entry * 100).toFixed(1);
+        _posCalcSplitPlan();
+    }
+    // % 입력 → 손절가 자동 계산
+    function _posOnStopPct() {
+        const pct    = parseFloat(document.getElementById('posStopPctVal')?.value) || 0;
+        const entry  = parseFloat(document.getElementById('posEntry1')?.value) || 0;
+        const show   = document.getElementById('posStopCalcShow');
+        const hidden = document.getElementById('posStop');
+        const disp   = document.getElementById('posStopPriceDisplay');
+        const isKR   = currentMarket === 'KR';
+        if (entry > 0 && pct > 0) {
+            const stopPrice = isKR ? Math.round(entry * (1 - pct / 100)) : +(entry * (1 - pct / 100)).toFixed(2);
+            if (hidden) hidden.value = stopPrice;
+            if (disp)   disp.value   = stopPrice;
+            if (show) show.textContent = `손절가: ${isKR ? stopPrice.toLocaleString()+'원' : '$'+Number(stopPrice).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+        } else {
+            if (show) show.textContent = entry > 0 ? '비율을 입력해주세요' : '진입가를 먼저 입력해주세요';
+        }
+        _posCalcSplitPlan();
+    }
+    // % 빠른 선택
+    function _posStopQuickPct(pct) {
+        const el = document.getElementById('posStopPctVal');
+        if (el) { el.value = pct; _posOnStopPct(); }
+    }
+    // 가격 탭 % 빠른 버튼 (-2, -3, -5, -8, -10)
+    function _posStopSetPct(pct) {
+        const entry = parseFloat(document.getElementById('posEntry1')?.value) || _posCurrentPrice() || 0;
+        const disp  = document.getElementById('posStopPriceDisplay');
+        const isKR  = currentMarket === 'KR';
+        if (disp && entry) {
+            const v = isKR ? Math.round(entry * (1 + pct/100)) : +(entry * (1 + pct/100)).toFixed(2);
+            disp.value = v;
+            _posOnStopPrice();
+        }
+    }
+
     function _posTpPct(nth, pct) {
         const entry = parseFloat(document.getElementById('posEntry1')?.value) || _posCurrentPrice() || 0;
         const el    = document.getElementById(`posTp${nth}`);
@@ -25449,6 +25603,7 @@
         _posOnEntryPriceInput, _posAddWatching,
         _posSetStatus, _posChangeSplitCount, _posCalcSplitPlan, _posUpdateSplitRow,
         _posSetEntryToCurrent, _posSetEntryOffset, _posSetStopPct, _posSetStopToEma, _posTpPct,
+        _posStopTab, _posOnStopPrice, _posOnStopPct, _posStopQuickPct, _posStopSetPct,
         _posDelete, _posQuickClose, _posSetFilter, _posExport, _posImportPick, _posImportFile,
         closeSideNav, toggleSideNav, openSideNav, goHome, goBack, goSmartMoney,
         switchSmTab, smDeepDive, smDeepBack, filterSmHoldings, smChartLink,
