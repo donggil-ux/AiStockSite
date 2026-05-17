@@ -2586,41 +2586,39 @@
     };
 
     // 국내 종목 로고 URL 우선순위:
-    //   1) Clearbit(도메인 매핑) → 2) 네이버 금융 CDN → 3) 이니셜 아바타
+    //   1) Alpha Square CDN (가장 안정적) → 2) Clearbit(도메인 매핑) → 3) 이니셜 아바타
     function _getKrLogoUrl(code) {
-        if (KR_LOGO_DOMAINS[code])
-            return `https://logo.clearbit.com/${KR_LOGO_DOMAINS[code]}`;
-        return `https://ssl.pstatic.net/imgstock/logo/${code}.png`;
+        return `https://file.alphasquare.co.kr/media/images/stock_logo/kr/${code}.png`;
     }
 
     // 원형 로고 + 국기 오버레이 HTML
-    //  - KR(6자리 숫자): Clearbit(도메인 매핑) → 네이버 금융 CDN → 이니셜
+    //  - KR(6자리 숫자): Alpha Square CDN → Clearbit(도메인 매핑) → 이니셜
     //  - US: Parqet CDN → 이니셜
     function _tickerLogoHTML(sym, market, companyName) {
         const safe = _top100SafeTicker(sym);
         if (!safe) return '<div class="tlogo-wrap"></div>';
-        const isKr = /^\d{6}$/.test(safe);
+        // 6자리 숫자 또는 market=KR 이면 국내 종목으로 판단
+        const isKr = /^\d{6}$/.test(safe) || market === 'KR';
         const color = _tickerColor(safe);
-        const flag  = _TICKER_COUNTRY[safe.toUpperCase()] || (isKr || market === 'KR' ? '🇰🇷' : '🇺🇸');
+        const flag  = _TICKER_COUNTRY[safe.toUpperCase()] || (isKr ? '🇰🇷' : '🇺🇸');
 
-        // 이니셜: KR은 종목명 첫 한글, US는 심볼 첫 알파벳
-        const nameForInitial = companyName || safe;
+        // 이니셜: KR은 KR_STOCK_NAMES 한글명 첫 글자, US는 심볼 첫 알파벳
+        const krStockName = isKr ? (typeof KR_STOCK_NAMES !== 'undefined' && KR_STOCK_NAMES[safe]) : null;
+        const nameForInitial = krStockName || companyName || safe;
         const initial = isKr
-            ? (nameForInitial.replace(/[a-zA-Z0-9\s()\[\]]/g,'').charAt(0) || safe.charAt(0))
+            ? (krStockName ? krStockName.charAt(0) : (companyName || '').replace(/[a-zA-Z0-9\s.,()[\]-]/g,'').charAt(0) || safe.charAt(0))
             : (safe.replace(/[^A-Z0-9]/gi,'').charAt(0).toUpperCase() || '?');
         const fallback = `<span class=&quot;tlogo tlogo-fb&quot; style=&quot;background:${color}&quot;>${initial}</span>`;
 
         if (isKr) {
-            // KR: Clearbit 1차 → 네이버 CDN 2차 → 이니셜
-            const primary   = `https://logo.clearbit.com/${KR_LOGO_DOMAINS[safe] || ''}`;
-            const secondary = `https://ssl.pstatic.net/imgstock/logo/${safe}.png`;
-            const logoUrl   = KR_LOGO_DOMAINS[safe] ? primary : secondary;
-            // Clearbit 실패 시 네이버 CDN 재시도, 그것도 실패 시 이니셜
-            const onErr = KR_LOGO_DOMAINS[safe]
+            // KR: Alpha Square 1차 → Clearbit 2차 → 이니셜
+            const primary   = `https://file.alphasquare.co.kr/media/images/stock_logo/kr/${safe}.png`;
+            const secondary = KR_LOGO_DOMAINS[safe] ? `https://logo.clearbit.com/${KR_LOGO_DOMAINS[safe]}` : '';
+            const onErr = secondary
                 ? `if(this.dataset.fb==='1'){this.outerHTML='${fallback}';}else{this.dataset.fb='1';this.src='${secondary}';}`
                 : `this.outerHTML='${fallback}';`;
             return `<div class="tlogo-wrap">
-                <img class="tlogo" src="${logoUrl}" alt="" loading="lazy" onerror="${onErr}">
+                <img class="tlogo" src="${primary}" alt="" loading="lazy" onerror="${onErr}">
                 <span class="tlogo-flag">${flag}</span>
             </div>`;
         }
@@ -11129,13 +11127,15 @@
         const change = price - prevClose;
         const changePercent = prevClose ? (change / prevClose * 100) : 0;
 
-        // 상단(stock-name): 티커 + 거래소 / 하단(stock-code): 회사 풀네임
+        // 상단(stock-name): KR=회사명(한글), US=티커·거래소
+        // 하단(stock-code): KR=코드·거래소, US=회사 풀네임
         let name = meta.symbol;
         if (currentMarket === 'KR') {
             const code = currentSymbol;
-            name = `${code} · ${meta.exchangeName || 'KRX'}`;
-            const fullName = meta.longName || meta.shortName || KR_STOCK_NAMES[code] || code;
-            document.getElementById('stockCode').textContent = fullName;
+            const krName = KR_STOCK_NAMES[code] || meta.shortName || meta.longName || code;
+            name = krName; // 상단: 한글 회사명
+            const exch = meta.exchangeName || 'KRX';
+            document.getElementById('stockCode').textContent = `${code} · ${exch}`;
         } else {
             name = `${meta.symbol} · ${meta.exchangeName || 'US'}`;
             const fullName = meta.longName || meta.shortName || meta.symbol;
@@ -11151,7 +11151,8 @@
             const _heroLogo = document.getElementById('stockHeroLogo');
             if (_heroLogo && typeof _tickerLogoHTML === 'function') {
                 const _logoSym = currentMarket === 'KR' ? (currentSymbol || meta.symbol) : meta.symbol;
-                _heroLogo.innerHTML = _tickerLogoHTML(_logoSym, currentMarket, meta.shortName || meta.name || meta.longName);
+                const _krName = currentMarket === 'KR' ? (KR_STOCK_NAMES[currentSymbol] || meta.shortName || meta.longName) : null;
+                _heroLogo.innerHTML = _tickerLogoHTML(_logoSym, currentMarket, _krName || meta.shortName || meta.name || meta.longName);
             }
         } catch {}
         // 모바일 상단 바 종목명 — 스크롤 시 노출될 컴팩트 표시 (종목명+금액+퍼센트)
