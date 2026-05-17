@@ -14022,6 +14022,11 @@
                 const sepaEl = document.getElementById('sepaAnalysis');
                 if (sepaEl) sepaEl.classList.add('sepa-hidden');
             }
+            // 수정 1: Smart Dip ON → 분할매수 자동 OFF (중복 라인 방지)
+            if (_chartSplitEnabled) {
+                _chartSplitEnabled = false;
+                localStorage.setItem('stockai_chart_split_enabled', '0');
+            }
         }
         _chartSmartDipEnabled = newState;
         localStorage.setItem('stockai_chart_smartdip_enabled', newState ? '1' : '0');
