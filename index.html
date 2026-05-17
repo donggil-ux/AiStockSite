@@ -14957,7 +14957,8 @@
         if (!data) return;
 
         const coeff = getSplitBuyCoeff(currentSymbol);
-        const { levels, stopPrice, swingHigh, swingLow, lastClose, fmtP, pctOf } = data;
+        const { levels, stopPrice, swingHigh, swingLow, lastClose, fmtP, pctOf,
+                tqi = 0.5, er = 0.5, stTrend = 1, score = 50, dynScale = 0.8, tp1, tp2 } = data;
 
         const warnings = _splitBuyWarnings(q);
         const has5_6Warn = warnings.some(w => w.disable5_6);
@@ -15042,6 +15043,11 @@
                     );
                 });
             }
+            // ── v2: 동적 익절 라인 (TP1 / TP2) ──────────────────────
+            if (tp1 && tp2 && tp1 > lastClose) {
+                addLine(tp1, 'rgba(34,197,94,0.55)', 2, 1, `TP1 ${fmtP(tp1)}`, 3);
+                addLine(tp2, 'rgba(34,197,94,0.85)', 0, 1, `TP2 ${fmtP(tp2)}`, 3);
+            }
         }
 
         // ── SMC: Premium/Discount Zone 배지 + Equilibrium 라인 ────
@@ -15099,6 +15105,27 @@
             });
         }
 
+        // ── Smart Dip v2 배지 (TQI / ER / Score) ──────────────────
+        if (_chartSplitEnabled) {
+            const v2Bar = document.getElementById('chartSigBar');
+            if (v2Bar) {
+                const tqiColor = tqi > 0.6 ? 'rgba(34,197,94,0.15)' : tqi > 0.35 ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)';
+                const tqiTxt   = tqi > 0.6 ? '#22C55E' : tqi > 0.35 ? '#F59E0B' : '#EF4444';
+                const tqiLabel = tqi > 0.6 ? '고품질' : tqi > 0.35 ? '보통' : '저품질';
+                const erLabel  = er > 0.5 ? '강한 추세' : er > 0.25 ? '보통 추세' : '횡보';
+                const scoreColor = score >= 70 ? '#22C55E' : score >= 50 ? '#F59E0B' : '#EF4444';
+                v2Bar.insertAdjacentHTML('beforeend',
+                    `<span class="chart-sig-pill" style="background:${tqiColor};color:${tqiTxt};border-color:${tqiColor.replace('0.15','0.4')}">TQI ${(tqi*100).toFixed(0)} · ${tqiLabel}</span>`
+                );
+                v2Bar.insertAdjacentHTML('beforeend',
+                    `<span class="chart-sig-pill" style="background:rgba(99,102,241,0.1);color:#818CF8;border-color:rgba(99,102,241,0.3)">ER ${(er*100).toFixed(0)} · ${erLabel}</span>`
+                );
+                v2Bar.insertAdjacentHTML('beforeend',
+                    `<span class="chart-sig-pill" style="background:rgba(15,23,42,0.4);color:${scoreColor};border-color:rgba(255,255,255,0.1)">Score ${score}/100</span>`
+                );
+            }
+        }
+
         // ── R:R 카드에 분할매수 섹션 주입 ──────────────────────────
         _appendSplitBuyToRR(data, coeff, warnings, bullishFVGs);
     }
@@ -15109,7 +15136,8 @@
         if (!rrEl || !rrEl.innerHTML || !data) return;
 
         const { levels, stopPrice, swingHigh, swingLow, lastClose, fmtP, pctOf,
-                equilibrium, isDiscount, isPremium } = data;
+                equilibrium, isDiscount, isPremium,
+                tqi = 0.5, er = 0.5, stTrend = 1, score = 50, dynScale = 0.8, tp1, tp2 } = data;
         const isKR = currentMarket === 'KR';
         const has5_6Warn = warnings.some(w => w.disable5_6);
 
@@ -15190,6 +15218,32 @@
                     <span>상승 FVG</span>
                     <span style="color:#F59E0B;font-weight:700">💎 ${bullishFVGs.length}개 감지</span>
                 </div>` : ''}
+            </div>` : ''}
+            ${tqi != null ? `
+            <div class="sd-v2-section">
+                <div class="sd-v2-title">Smart Dip v2 분석</div>
+                <div class="sd-v2-row">
+                    <span>TQI (추세 품질)</span>
+                    <span style="color:${tqi > 0.6 ? '#22C55E' : tqi > 0.35 ? '#F59E0B' : '#EF4444'};font-weight:700">${(tqi*100).toFixed(0)}/100 · ${tqi > 0.6 ? '고품질' : tqi > 0.35 ? '보통' : '저품질'}</span>
+                </div>
+                <div class="sd-v2-row">
+                    <span>ER (추세 효율)</span>
+                    <span>${(er*100).toFixed(0)}% · ${er > 0.5 ? '강한 추세' : er > 0.25 ? '보통 추세' : '횡보'}</span>
+                </div>
+                <div class="sd-v2-row">
+                    <span>SuperTrend</span>
+                    <span style="color:${stTrend === 1 ? '#22C55E' : '#EF4444'}">${stTrend === 1 ? '▲ 상승 추세' : '▼ 하락 추세'}</span>
+                </div>
+                <div class="sd-v2-row">
+                    <span>신호 점수</span>
+                    <span style="color:${score >= 70 ? '#22C55E' : score >= 50 ? '#F59E0B' : '#EF4444'};font-weight:700">${score}/100</span>
+                </div>
+                <div class="sd-v2-row">
+                    <span>동적 익절 스케일</span>
+                    <span>×${dynScale.toFixed(2)}</span>
+                </div>
+                ${tp1 ? `<div class="sd-v2-row"><span>익절 TP1 (61.8%)</span><span style="color:#22C55E;font-variant-numeric:tabular-nums">${fmtP(tp1)}</span></div>` : ''}
+                ${tp2 ? `<div class="sd-v2-row"><span>익절 TP2 (100%)</span><span style="color:#22C55E;font-variant-numeric:tabular-nums">${fmtP(tp2)}</span></div>` : ''}
             </div>` : ''}
         </div>`;
 
