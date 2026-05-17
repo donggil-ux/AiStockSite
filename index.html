@@ -14651,6 +14651,7 @@
     // ═══════════════════════════════════════════════════════════
     let _chartSplitLines = [];
     let _chartSplitEnabled = localStorage.getItem('stockai_chart_split_enabled') !== '0';
+    let _lastTrailingToastTime = 0; // 트레일링 손절 토스트 쓰로틀 (1분)
 
     // 분할매수 버튼 UI 업데이트
     function _updateSplitBuyBtnUi() {
@@ -15022,6 +15023,30 @@
         const emaPullback2 = !!(_swLast && swEma60  != null && _swLast.low <= swEma60  && _swBull && _swRsiOk && swEma60  > (swEma120 || 0));
         const emaPullback3 = !!(_swLast && swEma120 != null && _swLast.low <= swEma120 && _swBull && _swRsiOk && swEma120 > (swEma240 || 0));
 
+        // ── EMA 240 트레일링 손절 자동 업데이트 ────────────────────
+        // 포지션 보유 중이고 EMA 240이 현재 손절가보다 높을 때만 업데이트 (항상 위 방향)
+        if (_chartSplitEnabled && swEma240 != null && typeof _posActiveForTicker === 'function') {
+            const _trailPa = _posActiveForTicker(currentSymbol);
+            if (_trailPa && _trailPa.status === 'holding') {
+                const _curStop = _trailPa.stopLoss || 0;
+                if (swEma240 > _curStop) {
+                    const _trailArr = _posLoad();
+                    const _trailRec = _trailArr.find(p => p.id === _trailPa.id);
+                    if (_trailRec) {
+                        _trailRec.stopLoss = +(swEma240.toFixed(currentMarket === 'KR' ? 0 : 2));
+                        _posSaveAll(_trailArr);
+                        try { _posDrawChartLine(); } catch(e) {}
+                        const _now = Date.now();
+                        if (_now - _lastTrailingToastTime > 60000) {
+                            _lastTrailingToastTime = _now;
+                            const _fmtT = v => currentMarket === 'KR' ? Math.round(v).toLocaleString()+'원' : '$'+v.toFixed(2);
+                            try { showToast(`📈 트레일링 손절 업데이트: ${_fmtT(_trailRec.stopLoss)}`); } catch(e) {}
+                        }
+                    }
+                }
+            }
+        }
+
         const _emaHint = { swEma20, swEma60, swEma120, swEma240, emaPullback1, emaPullback2, emaPullback3 };
         const data = _calcSplitBuyLevels(q, atr, _emaHint);
         if (!data) return;
@@ -15216,6 +15241,18 @@
             }
         }
 
+        // ── EMA 240 이탈 경고 배지 ─────────────────────────────────
+        if (_chartSplitEnabled && swEma240 != null && lastClose != null && lastClose < swEma240) {
+            const wBar = document.getElementById('chartSigBar');
+            if (wBar) {
+                const _isKR3 = currentMarket === 'KR';
+                const _fmtW  = v => _isKR3 ? Math.round(v).toLocaleString()+'원' : '$'+v.toFixed(2);
+                wBar.insertAdjacentHTML('beforeend',
+                    `<span class="chart-sig-pill" style="background:rgba(239,68,68,0.15);color:#EF4444;border-color:rgba(239,68,68,0.4)">⚠️ EMA 240 이탈 ${_fmtW(swEma240)} — 손절 고려</span>`
+                );
+            }
+        }
+
         // ── R:R 카드에 분할매수 섹션 주입 ──────────────────────────
         _appendSplitBuyToRR(data, coeff, warnings, bullishFVGs);
     }
@@ -15335,6 +15372,27 @@
                 ${tp1 ? `<div class="sd-v2-row"><span>익절 TP1 (61.8%)</span><span style="color:#22C55E;font-variant-numeric:tabular-nums">${fmtP(tp1)}</span></div>` : ''}
                 ${tp2 ? `<div class="sd-v2-row"><span>익절 TP2 (100%)</span><span style="color:#22C55E;font-variant-numeric:tabular-nums">${fmtP(tp2)}</span></div>` : ''}
             </div>` : ''}
+            ${(() => {
+                const _paSw = typeof _posActiveForTicker === 'function' ? _posActiveForTicker(currentSymbol) : null;
+                if (!_paSw || _paSw.status !== 'holding' || !_paSw.entryPrice) return '';
+                const _pEntry = _paSw.entryPrice;
+                const _pStop  = _paSw.stopLoss;
+                const _pRisk  = _pStop ? _pEntry - _pStop : 0;
+                const _pRR    = _paSw.tp2 && _pRisk > 0 ? ((_paSw.tp2 - _pEntry) / _pRisk).toFixed(2) : null;
+                const _holdMs = _paSw.entryDate ? Date.now() - new Date(_paSw.entryDate).getTime() : 0;
+                const _holdD  = _holdMs > 0 ? Math.floor(_holdMs / 86400000) : 0;
+                return `
+            <div class="sd-v2-section">
+                <div class="sd-v2-title">📋 스윙 매매 계획</div>
+                <div class="sd-v2-row"><span>진입가</span><span style="font-variant-numeric:tabular-nums">${fmtP(_pEntry)}</span></div>
+                ${_pStop ? `<div class="sd-v2-row"><span>손절 (EMA 240)</span><span style="color:#EF4444;font-variant-numeric:tabular-nums">${fmtP(_pStop)}</span></div>` : ''}
+                ${_paSw.tp1 ? `<div class="sd-v2-row"><span>익절 1차 (30%)</span><span style="color:#22C55E;font-variant-numeric:tabular-nums">${fmtP(_paSw.tp1)}</span></div>` : ''}
+                ${_paSw.tp2 ? `<div class="sd-v2-row"><span>익절 2차 (40%)</span><span style="color:#06B6D4;font-variant-numeric:tabular-nums">${fmtP(_paSw.tp2)}</span></div>` : ''}
+                ${_paSw.tp3 ? `<div class="sd-v2-row"><span>익절 3차 (30%)</span><span style="color:#9D4EDD;font-variant-numeric:tabular-nums">${fmtP(_paSw.tp3)}</span></div>` : ''}
+                ${_pRR ? `<div class="sd-v2-row"><span>R:R 비율</span><span style="font-weight:700">${_pRR}:1</span></div>` : ''}
+                <div class="sd-v2-row"><span>보유 D+</span><span>${_holdD}일</span></div>
+            </div>`;
+            })()}
         </div>`;
 
         // 기존 R:R 카드 .card div 안에 주입 (끝에 append)
