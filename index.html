@@ -861,6 +861,14 @@
                                     <button class="chart-dd-item" onclick="event.stopPropagation();toggleSrLayer();_updateDdStates();">
                                         <span class="dd-ios-check" id="ddSrCheck"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>지지저항
                                     </button>
+                                    <div class="chart-dd-sub" id="srSubMenu" style="display:none;">
+                                        <button class="chart-dd-sub-item" onclick="event.stopPropagation();toggleSrMode(3);_updateDdStates();">
+                                            <span class="dd-ios-check" id="ddSr3Check"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>3★ 이상<span class="chart-dd-tag" style="background:rgba(245,158,11,0.15);color:#F59E0B;margin-left:auto;">기본</span>
+                                        </button>
+                                        <button class="chart-dd-sub-item" onclick="event.stopPropagation();toggleSrMode(5);_updateDdStates();">
+                                            <span class="dd-ios-check" id="ddSr5Check"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>5★만<span class="chart-dd-tag" style="background:rgba(239,68,68,0.15);color:#EF4444;margin-left:auto;">강함</span>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             <!-- 익절1 단독 유지 -->
@@ -13849,7 +13857,7 @@
                 _sdAddLine(price, isGolden ? SD_AMBER : 'rgba(245,158,11,0.45)', isGolden ? 2 : 1, isGolden ? 0 : 2,
                     `매수 ${num}차 ${(fib*100).toFixed(1)}%${isGolden?' ★':''}`);
             });
-            _sdAddLine(stopLoss, '#EF4444', 1, 2, `SD 손절 ${fmtP(stopLoss)}`);
+            _sdAddLine(stopLoss, '#EF4444', 1, 2, `손절라인 ${fmtP(stopLoss)}`);
             if (mode === 'reentry' && pos?.entryPrice) _sdAddLine(pos.entryPrice, '#94a3b8', 1, 2, `이전 진입 ${fmtP(pos.entryPrice)}`);
             if (mode === 'reentry' && pos?.closedPrice) _sdAddLine(pos.closedPrice, '#64748b', 1, 2, `이전 매도 ${fmtP(pos.closedPrice)}`);
         } else if (mode === 'loss') {
@@ -15358,28 +15366,27 @@
         if (!btn) return;
         if (!_chartSrEnabled) {
             btn.style.color = 'var(--text3)'; btn.style.background = 'transparent'; btn.style.borderColor = 'var(--border)';
-            btn.title = '지지/저항선 ON — 5봉 피벗 + 강도 평가';
+            btn.title = '지지/저항선 ON';
             if (lbl) lbl.textContent = '지지저항';
-        } else if (_chartSrMode === 3) {
-            btn.style.color = '#F59E0B'; btn.style.background = 'rgba(245,158,11,.12)'; btn.style.borderColor = 'rgba(245,158,11,.4)';
-            btn.title = '지지/저항 ON (3★ 이상 전체) — 클릭 시 5★만 표시';
-            if (lbl) lbl.textContent = '지지저항 3★';
         } else {
-            btn.style.color = '#F59E0B'; btn.style.background = 'rgba(245,158,11,.22)'; btn.style.borderColor = 'rgba(245,158,11,.7)';
-            btn.title = '지지/저항 ON (★★★★★ 강한 레벨만) — 클릭 시 OFF';
-            if (lbl) lbl.textContent = '지지저항 5★';
+            const modeLabel = _chartSrMode === 5 ? '5★' : '3★';
+            btn.style.color = '#F59E0B'; btn.style.background = 'rgba(245,158,11,.12)'; btn.style.borderColor = 'rgba(245,158,11,.4)';
+            btn.title = `지지/저항 ON (${modeLabel}) — 클릭 시 OFF`;
+            if (lbl) lbl.textContent = `지지저항 ${modeLabel}`;
         }
     }
 
     function toggleSrLayer() {
-        if (!_chartSrEnabled) {
-            _chartSrEnabled = true; _chartSrMode = 3;   // OFF → 3★
-        } else if (_chartSrMode === 3) {
-            _chartSrMode = 5;                           // 3★ → 5★
-        } else {
-            _chartSrEnabled = false; _chartSrMode = 3;  // 5★ → OFF
-        }
+        _chartSrEnabled = !_chartSrEnabled;
         localStorage.setItem('stockai_chart_sr_enabled', _chartSrEnabled ? '1' : '0');
+        _updateSrBtnUi();
+        if (_lastSigArgs) renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb);
+    }
+
+    function toggleSrMode(mode) {
+        if (!_chartSrEnabled) _chartSrEnabled = true;
+        _chartSrMode = mode;
+        localStorage.setItem('stockai_chart_sr_enabled', '1');
         localStorage.setItem('stockai_chart_sr_mode', String(_chartSrMode));
         _updateSrBtnUi();
         if (_lastSigArgs) renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb);
@@ -15743,6 +15750,13 @@
         _setDdCheck('ddSplit12Check', localStorage.getItem('stockai_split_show_1_2') !== '0');
         _setDdCheck('ddSplit34Check', localStorage.getItem('stockai_split_show_3_4') !== '0');
         _setDdCheck('ddSplit56Check', localStorage.getItem('stockai_split_show_5_6') !== '0');
+
+        // 지지저항 서브메뉴 표시/숨김 + 모드 체크 상태
+        const srSub = document.getElementById('srSubMenu');
+        if (srSub) srSub.style.display = srOn ? 'block' : 'none';
+        const srMode = typeof _chartSrMode !== 'undefined' ? _chartSrMode : 3;
+        _setDdCheck('ddSr3Check', srMode === 3);
+        _setDdCheck('ddSr5Check', srMode === 5);
 
         const lineBtn = document.getElementById('lineDdBtn');
         if (lineBtn) {
@@ -24406,7 +24420,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         loadOptionsDate, setOptionsFilter,
         setOptionsStrikeRange, toggleOptionsVolFilter, sortOptionsBy,
         manualAnalysisRefresh, pwaInstall,
-        toggleChartSigLines, toggleKullamagiLayer, toggleSplitBuyLayer, toggleSplitGroup, getSplitBuyCoeff, togglePullbackLayer, toggleTpLevel, toggleSrLayer,
+        toggleChartSigLines, toggleKullamagiLayer, toggleSplitBuyLayer, toggleSplitGroup, getSplitBuyCoeff, togglePullbackLayer, toggleTpLevel, toggleSrLayer, toggleSrMode,
         toggleSmartDipLayer, toggleSmartDipGroup, toggleSepaLayer, getSmartDipMode, _scrollToGroup,
         _toggleAnalysisDd, _toggleLineDd, _closeAllDds, _updateDdStates, _setDdCheck,
         handleSearchKeydown, openSearchDropdown, closeSearchDropdown, searchSuggest, levenshtein,
