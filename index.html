@@ -14965,6 +14965,32 @@
         const atr = (() => { for (let i = atrArr.length-1; i >= 0; i--) if (atrArr[i] != null) return atrArr[i]; return null; })();
         if (!atr) return;
 
+        // ─── Smart Dip v2 스윙: EMA 5단계 계산 ───────────────────────
+        const _swCloses = q.close || [];
+        const _ema20A   = calcEMA(_swCloses, 20);
+        const _ema60A   = calcEMA(_swCloses, 60);
+        const _ema120A  = calcEMA(_swCloses, 120);
+        const _ema240A  = calcEMA(_swCloses, 240);
+        const _ema480A  = calcEMA(_swCloses, 480);
+        const _emaGet   = arr => { for (let i = arr.length-1; i >= 0; i--) if (arr[i] != null) return arr[i]; return null; };
+        const swEma20   = _emaGet(_ema20A);
+        const swEma60   = _emaGet(_ema60A);
+        const swEma120  = _emaGet(_ema120A);
+        const swEma240  = _emaGet(_ema240A);
+        const swEma480  = _emaGet(_ema480A);
+        const isEmaAligned = swEma20 != null && swEma60 != null && swEma120 != null && swEma240 != null
+            && swEma20 > swEma60 && swEma60 > swEma120 && swEma120 > swEma240;
+        // EMA 눌림목 감지 — 최근 캔들이 EMA에 닿고 양봉 마감 + RSI ≥ 40
+        const _swCd    = _lastSigArgs?.candleData;
+        const _swLast  = _swCd?.length ? _swCd[_swCd.length - 1] : null;
+        const _swBull  = _swLast && _swLast.close > _swLast.open;
+        const _swRsiArr = calcRSI(_swCloses);
+        const _swLastRsi = _emaGet(_swRsiArr);
+        const _swRsiOk  = _swLastRsi != null ? _swLastRsi > 40 : true;
+        const emaPullback1 = !!(_swLast && swEma20  != null && _swLast.low <= swEma20  && _swBull && _swRsiOk);
+        const emaPullback2 = !!(_swLast && swEma60  != null && _swLast.low <= swEma60  && _swBull && _swRsiOk && swEma60  > (swEma120 || 0));
+        const emaPullback3 = !!(_swLast && swEma120 != null && _swLast.low <= swEma120 && _swBull && _swRsiOk && swEma120 > (swEma240 || 0));
+
         const data = _calcSplitBuyLevels(q, atr);
         if (!data) return;
 
@@ -15134,6 +15160,26 @@
                 );
                 v2Bar.insertAdjacentHTML('beforeend',
                     `<span class="chart-sig-pill" style="background:rgba(15,23,42,0.4);color:${scoreColor};border-color:rgba(255,255,255,0.1)">Score ${score}/100</span>`
+                );
+            }
+        }
+
+        // ── EMA 정배열 / 눌림목 배지 ───────────────────────────────
+        if (_chartSplitEnabled) {
+            const _isKR2 = currentMarket === 'KR';
+            const _fmtEma = v => v == null ? '-' : _isKR2 ? Math.round(v).toLocaleString()+'원' : '$'+v.toFixed(2);
+            const eBar = document.getElementById('chartSigBar');
+            if (eBar) {
+                if (emaPullback1 || emaPullback2 || emaPullback3) {
+                    const pNum = emaPullback3 ? 3 : emaPullback2 ? 2 : 1;
+                    const pVal = emaPullback3 ? swEma120 : emaPullback2 ? swEma60 : swEma20;
+                    eBar.insertAdjacentHTML('beforeend',
+                        `<span class="chart-sig-pill" style="background:rgba(34,197,94,0.12);color:#22C55E;border-color:rgba(34,197,94,0.4)">📈 EMA ${pNum}차 눌림목 ${_fmtEma(pVal)}</span>`
+                    );
+                }
+                eBar.insertAdjacentHTML('beforeend', isEmaAligned
+                    ? `<span class="chart-sig-pill" style="background:rgba(99,102,241,0.1);color:#818CF8;border-color:rgba(99,102,241,0.3)">✅ EMA 정배열</span>`
+                    : `<span class="chart-sig-pill" style="background:rgba(239,68,68,0.1);color:#EF4444;border-color:rgba(239,68,68,0.3)">❌ EMA 역배열</span>`
                 );
             }
         }
