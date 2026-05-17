@@ -45,7 +45,7 @@
                     <span class="side-nav-item-text">내 포지션</span>
                     <span class="side-nav-item-sub">NEW</span>
                 </button>
-                <button class="side-nav-item" id="sideNavSmBtn" onclick="goSmartMoney();closeSideNav();">
+                <button class="side-nav-item" id="sideNavSmBtn" onclick="closeSideNav();setTimeout(goSmartMoney,50);">
                     <span class="side-nav-item-icon"><i class="ri-briefcase-fill"></i></span>
                     <span class="side-nav-item-text">기관 포트폴리오</span>
                     <span class="side-nav-item-sub">13F</span>
@@ -5035,6 +5035,7 @@
         document.getElementById('sideNavSmBtn')?.classList.add('active');
         document.querySelectorAll('.hqnav-item').forEach(b => b.classList.remove('active'));
         document.getElementById('hqSm')?.classList.add('active');
+        try { updateBnActive('all'); } catch(e) {}
         renderSmTop10();
         renderSmGuru();
         window.scrollTo({ top: 0, behavior: 'smooth' });
