@@ -281,7 +281,7 @@
         <div class="sm-screen-sub">기관투자자 13F 공시 기반 포트폴리오 분석</div>
         <div class="sm-disclaimer">
             <div>
-                <span class="sm-quarter-badge" id="smQuarterBadge">Q4 2025</span> 기준 공시 데이터입니다.
+                <span class="sm-quarter-badge" id="smQuarterBadge">Q1 2026</span> 기준 공시 데이터입니다.
                 13F는 분기 종료 후 <strong>최대 45일 이내</strong> 제출 의무로, 실제 포지션 변경으로부터
                 <strong>최대 4.5개월</strong> 지연될 수 있습니다.
             </div>
@@ -807,14 +807,25 @@
                                 </button>
                                 <div class="chart-dd-menu" id="analysisDdMenu" style="display:none;">
                                     <button class="chart-dd-item" onclick="event.stopPropagation();toggleKullamagiLayer();_updateDdStates();">
-                                        <span class="chart-dd-check" id="ddKullamagiCheck">☐</span>Kullamägi<span class="chart-dd-tag chart-dd-tag-swing">스윙</span>
+                                        <span class="dd-ios-radio" id="ddKullamagiCheck"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" class="dd-radio-ring"/><circle cx="12" cy="12" r="5" class="dd-radio-dot"/></svg></span>Kullamägi<span class="chart-dd-tag chart-dd-tag-swing">스윙</span>
                                     </button>
                                     <button class="chart-dd-item" onclick="event.stopPropagation();toggleSepaLayer();_updateDdStates();">
-                                        <span class="chart-dd-check" id="ddSepaCheck">☐</span>Minervini SEPA<span class="chart-dd-tag chart-dd-tag-long">중장기</span>
+                                        <span class="dd-ios-radio" id="ddSepaCheck"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" class="dd-radio-ring"/><circle cx="12" cy="12" r="5" class="dd-radio-dot"/></svg></span>Minervini SEPA<span class="chart-dd-tag chart-dd-tag-long">중장기</span>
                                     </button>
                                     <button class="chart-dd-item" onclick="event.stopPropagation();toggleSmartDipLayer();_updateDdStates();">
-                                        <span class="chart-dd-check" id="ddSmartDipCheck">☐</span>Smart Dip<span class="chart-dd-tag chart-dd-tag-day">단타</span>
+                                        <span class="dd-ios-radio" id="ddSmartDipCheck"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" class="dd-radio-ring"/><circle cx="12" cy="12" r="5" class="dd-radio-dot"/></svg></span>Smart Dip<span class="chart-dd-tag chart-dd-tag-day">단타</span>
                                     </button>
+                                    <div class="chart-dd-sub" id="sdSubMenu" style="display:none;">
+                                        <button class="chart-dd-sub-item" onclick="event.stopPropagation();toggleSmartDipGroup('1_2');_updateDdStates();">
+                                            <span class="dd-ios-check checked" id="ddSd12Check"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>1~2차<span class="chart-dd-tag" style="background:rgba(6,182,212,0.15);color:#06B6D4;margin-left:auto;">진입</span>
+                                        </button>
+                                        <button class="chart-dd-sub-item" onclick="event.stopPropagation();toggleSmartDipGroup('3_4');_updateDdStates();">
+                                            <span class="dd-ios-check checked" id="ddSd34Check"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>3~4차 ★<span class="chart-dd-tag" style="background:rgba(245,158,11,0.15);color:#F59E0B;margin-left:auto;">핵심</span>
+                                        </button>
+                                        <button class="chart-dd-sub-item" onclick="event.stopPropagation();toggleSmartDipGroup('5_6');_updateDdStates();">
+                                            <span class="dd-ios-check checked" id="ddSd56Check"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>5~6차<span class="chart-dd-tag" style="background:rgba(239,68,68,0.15);color:#EF4444;margin-left:auto;">마지막</span>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             <!-- [라인 ▾] 드롭다운 — 분할매수 / 눌림목 / 지지저항 -->
@@ -825,25 +836,25 @@
                                 </button>
                                 <div class="chart-dd-menu" id="lineDdMenu" style="display:none;">
                                     <button class="chart-dd-item" onclick="event.stopPropagation();toggleSplitBuyLayer();_updateDdStates();">
-                                        <span class="chart-dd-check" id="ddSplitCheck">☐</span>분할매수
+                                        <span class="dd-ios-check" id="ddSplitCheck"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>분할매수
                                     </button>
                                     <!-- SD 차수 그룹 하위 토글 (분할매수 ON 시 표시) -->
                                     <div class="chart-dd-sub" id="splitSubMenu" style="display:none;">
                                         <button class="chart-dd-sub-item" onclick="event.stopPropagation();toggleSplitGroup('1_2');_updateDdStates();">
-                                            <span id="ddSplit12Check">☑</span>1~2차<span class="chart-dd-tag" style="background:rgba(6,182,212,0.15);color:#06B6D4;margin-left:auto;">진입</span>
+                                            <span class="dd-ios-check checked" id="ddSplit12Check"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>1~2차<span class="chart-dd-tag" style="background:rgba(6,182,212,0.15);color:#06B6D4;margin-left:auto;">진입</span>
                                         </button>
                                         <button class="chart-dd-sub-item" onclick="event.stopPropagation();toggleSplitGroup('3_4');_updateDdStates();">
-                                            <span id="ddSplit34Check">☑</span>3~4차 ★<span class="chart-dd-tag" style="background:rgba(245,158,11,0.15);color:#F59E0B;margin-left:auto;">핵심</span>
+                                            <span class="dd-ios-check checked" id="ddSplit34Check"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>3~4차 ★<span class="chart-dd-tag" style="background:rgba(245,158,11,0.15);color:#F59E0B;margin-left:auto;">핵심</span>
                                         </button>
                                         <button class="chart-dd-sub-item" onclick="event.stopPropagation();toggleSplitGroup('5_6');_updateDdStates();">
-                                            <span id="ddSplit56Check">☑</span>5~6차<span class="chart-dd-tag" style="background:rgba(239,68,68,0.15);color:#EF4444;margin-left:auto;">마지막</span>
+                                            <span class="dd-ios-check checked" id="ddSplit56Check"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>5~6차<span class="chart-dd-tag" style="background:rgba(239,68,68,0.15);color:#EF4444;margin-left:auto;">마지막</span>
                                         </button>
                                     </div>
                                     <button class="chart-dd-item" onclick="event.stopPropagation();togglePullbackLayer();_updateDdStates();">
-                                        <span class="chart-dd-check" id="ddPullbackCheck">☐</span>눌림목
+                                        <span class="dd-ios-check" id="ddPullbackCheck"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>눌림목
                                     </button>
                                     <button class="chart-dd-item" onclick="event.stopPropagation();toggleSrLayer();_updateDdStates();">
-                                        <span class="chart-dd-check" id="ddSrCheck">☐</span>지지저항
+                                        <span class="dd-ios-check" id="ddSrCheck"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>지지저항
                                     </button>
                                 </div>
                             </div>
@@ -983,10 +994,6 @@
 
             <!-- ═══ 그룹 2: 매매 계획 ═══ -->
             <div class="analysis-group" id="groupTradePlan">
-                <div class="group-header">
-                    <span class="group-icon">📊</span>
-                    <span class="group-title">매매 계획</span>
-                </div>
                 <div class="group-body" id="groupTradePlan-body">
                     <!-- 멀티팩터 스코어 카드: 4개 팩터 → TIER A/B/C/D -->
                     <div id="mfScoreCard"></div>
@@ -1007,10 +1014,6 @@
 
             <!-- ═══ 그룹 3: 트레이더 시스템 ═══ -->
             <div class="analysis-group" id="groupSystem">
-                <div class="group-header">
-                    <span class="group-icon">⭐</span>
-                    <span class="group-title">트레이더 시스템</span>
-                </div>
                 <div class="group-body" id="groupSystem-body">
                     <!-- 🎯 Minervini SEPA 분석 카드 -->
                     <div id="sepaAnalysis"></div>
@@ -1021,10 +1024,6 @@
 
             <!-- ═══ 그룹 4: 단타 정보 ═══ -->
             <div class="analysis-group" id="groupDayTrade">
-                <div class="group-header">
-                    <span class="group-icon">⚡</span>
-                    <span class="group-title">단타 정보</span>
-                </div>
                 <div class="group-body" id="groupDayTrade-body" style="padding:0;">
                     <!-- ===== 5분봉 돌파 단타 분석 (v575 UX 개편) ===== -->
                     <div id="tsPanelDay" style="padding:0;">
@@ -3272,101 +3271,101 @@
     let pendingSmartMoneyLine = null;
     let smCurrentFilter = 'all';
 
-    // ===== 🔥 폼 미친 기관들 — 수익률 HIGH 퍼포머 (Q4 2025) =====
+    // ===== 🔥 폼 미친 기관들 — 수익률 HIGH 퍼포머 (Q1 2026) =====
     const SM_HOT = [
         {
             id:'coatue', name:'Coatue Management', manager:'Philippe Laffont',
-            ret1q:28.4, ret1y:94.2, newBuySector:'AI 인프라',
-            hotBadge:'🚀', emoji:'🔬',
-            tags:['기술성장','AI','모멘텀'],
-            volatilePicks:['HIMS','IONQ','APP'],
+            ret1q:-6.2, ret1y:13.9, newBuySector:'AI 인프라·반도체 장비',
+            hotBadge:'🔬', emoji:'🔬',
+            tags:['기술성장','AI인프라','반도체장비'],
+            volatilePicks:['ASML','AMAT','GEV'],
             top3Add:[
-                {ticker:'IONQ',name:'IonQ Inc',wtChg:+8.4,avgPrice:28.40,theme:'양자컴퓨팅 1등주'},
-                {ticker:'HIMS',name:'Hims & Hers Health',wtChg:+6.2,avgPrice:22.80,theme:'GLP-1 직접판매 플랫폼'},
-                {ticker:'APP',name:'Applovin Corp',wtChg:+5.1,avgPrice:312.40,theme:'AI 광고 최대 수혜'},
+                {ticker:'ASML',name:'ASML Holding',wtChg:+4.8,avgPrice:682.40,theme:'AI 반도체 장비 독점 — DeepSeek 이후 수혜'},
+                {ticker:'NFLX',name:'Netflix Inc',wtChg:+4.2,avgPrice:952.60,theme:'AI 콘텐츠 추천·광고 플랫폼 성장'},
+                {ticker:'AMAT',name:'Applied Materials',wtChg:+4.5,avgPrice:168.40,theme:'AI 칩 제조 장비 수요 구조적 증가'},
             ],
             holdings:[
-                {ticker:'NVDA',name:'NVIDIA Corp',wt:18.4,wtChg:+4.2,avgPrice:126.80,action:'add'},
-                {ticker:'APP',name:'Applovin Corp',wt:12.1,wtChg:+5.1,avgPrice:312.40,action:'add'},
-                {ticker:'IONQ',name:'IonQ Inc',wt:8.4,wtChg:+8.4,avgPrice:28.40,action:'new'},
-                {ticker:'HIMS',name:'Hims & Hers Health',wt:6.2,wtChg:+6.2,avgPrice:22.80,action:'new'},
-                {ticker:'PLTR',name:'Palantir Technologies',wt:7.8,wtChg:+3.4,avgPrice:84.20,action:'add'},
-                {ticker:'META',name:'Meta Platforms',wt:9.2,wtChg:+1.8,avgPrice:548.60,action:'add'},
-                {ticker:'RDDT',name:'Reddit Inc',wt:4.6,wtChg:+4.6,avgPrice:148.20,action:'new'},
-                {ticker:'SNOW',name:'Snowflake Inc',wt:3.2,wtChg:-2.8,avgPrice:162.40,action:'reduce'},
-                {ticker:'MSFT',name:'Microsoft Corp',wt:8.4,wtChg:+0.8,avgPrice:418.60,action:'hold'},
-                {ticker:'AMZN',name:'Amazon.com',wt:6.8,wtChg:+1.2,avgPrice:192.80,action:'add'},
-                {ticker:'GOOGL',name:'Alphabet Inc',wt:5.6,wtChg:+0.6,avgPrice:170.60,action:'hold'},
-                {ticker:'CRWD',name:'CrowdStrike Holdings',wt:4.8,wtChg:+2.4,avgPrice:366.80,action:'add'},
-                {ticker:'AVGO',name:'Broadcom Inc',wt:4.2,wtChg:+1.4,avgPrice:222.40,action:'add'},
-                {ticker:'ANET',name:'Arista Networks',wt:3.8,wtChg:+0.8,avgPrice:386.40,action:'add'},
-                {ticker:'NFLX',name:'Netflix Inc',wt:3.4,wtChg:+0.4,avgPrice:964.20,action:'hold'},
+                {ticker:'TSM',name:'Taiwan Semiconductor',wt:7.0,wtChg:+2.8,avgPrice:186.40,action:'add'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:6.5,wtChg:+2.4,avgPrice:412.60,action:'add'},
+                {ticker:'AMZN',name:'Amazon.com',wt:6.0,wtChg:+1.8,avgPrice:198.40,action:'add'},
+                {ticker:'META',name:'Meta Platforms',wt:6.5,wtChg:-1.2,avgPrice:558.20,action:'reduce'},
+                {ticker:'GEV',name:'GE Vernova',wt:5.7,wtChg:+2.6,avgPrice:342.60,action:'add'},
+                {ticker:'GOOGL',name:'Alphabet Inc',wt:5.5,wtChg:+1.8,avgPrice:168.40,action:'add'},
+                {ticker:'CEG',name:'Constellation Energy',wt:5.2,wtChg:+0.8,avgPrice:282.40,action:'hold'},
+                {ticker:'ASML',name:'ASML Holding',wt:4.8,wtChg:+4.8,avgPrice:682.40,action:'new'},
+                {ticker:'AMAT',name:'Applied Materials',wt:4.5,wtChg:+4.5,avgPrice:168.40,action:'add'},
+                {ticker:'NFLX',name:'Netflix Inc',wt:4.2,wtChg:+4.2,avgPrice:952.60,action:'add'},
+                {ticker:'AVGO',name:'Broadcom Inc',wt:4.0,wtChg:-1.8,avgPrice:188.40,action:'reduce'},
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:3.8,wtChg:-2.6,avgPrice:112.40,action:'reduce'},
+                {ticker:'DASH',name:'DoorDash Inc',wt:3.5,wtChg:+3.5,avgPrice:182.40,action:'add'},
+                {ticker:'SPOT',name:'Spotify Technology',wt:3.2,wtChg:+3.2,avgPrice:642.40,action:'add'},
+                {ticker:'NU',name:'Nu Holdings',wt:2.8,wtChg:+2.0,avgPrice:14.60,action:'add'},
             ],
-            insight:'코아튜는 Q4 2025에 양자컴퓨팅(IONQ)과 AI 헬스케어(HIMS)를 신규 대량 매수했습니다. APP 비중을 AI 광고 생태계 장악에 베팅하며 대폭 확대. NVDA·PLTR 추가매수로 AI 풀스택 포트폴리오 구축 중.'
+            insight:'라폰트는 Q1 2026 DeepSeek 충격 이후 AI 하드웨어(NVDA·AVGO) 비중을 축소하고 반도체 장비(ASML·AMAT)와 AI 인프라 전력(GEV·CEG)으로 로테이션. NFLX·SPOT·DASH 소비자 AI 플랫폼 대규모 매수. 전략 핵심: "AI 칩 수요는 효율화되지만 장비·전력·네트워크 수요는 구조적".'
         },
         {
             id:'sachem', name:'Sachem Head Capital', manager:'Scott Ferguson',
-            ret1q:24.8, ret1y:78.6, newBuySector:'양자·방산 테크',
+            ret1q:3.8, ret1y:20.4, newBuySector:'이벤트드리븐·위성·에너지',
             hotBadge:'⚡', emoji:'🎯',
-            tags:['행동주의','집중투자','특수상황'],
-            volatilePicks:['QBTS','NVTS','IONQ'],
+            tags:['행동주의','이벤트드리븐','특수상황'],
+            volatilePicks:['SATS','CVNA','LYV'],
             top3Add:[
-                {ticker:'QBTS',name:'D-Wave Quantum',wtChg:+9.2,avgPrice:8.60,theme:'양자컴퓨팅 상용화 선두'},
-                {ticker:'NVTS',name:'Navitas Semiconductor',wtChg:+7.4,avgPrice:4.20,theme:'GaN 전력반도체 성장주'},
-                {ticker:'HIMS',name:'Hims & Hers Health',wtChg:+5.8,avgPrice:24.10,theme:'텔레헬스 플랫폼 고성장'},
+                {ticker:'SATS',name:'EchoStar Corp',wtChg:+13.7,avgPrice:28.40,theme:'위성통신 구조적 전환 — 행동주의 집중 포지션'},
+                {ticker:'CVNA',name:'Carvana Co',wtChg:+6.4,avgPrice:248.60,theme:'중고차 대출·AI 플랫폼 회복 베팅'},
+                {ticker:'LYV',name:'Live Nation Entertainment',wtChg:+4.2,avgPrice:126.40,theme:'라이브 이벤트 구조적 성장 + M&A 후보'},
             ],
             holdings:[
-                {ticker:'QBTS',name:'D-Wave Quantum',wt:9.2,wtChg:+9.2,avgPrice:8.60,action:'new'},
-                {ticker:'NVTS',name:'Navitas Semiconductor',wt:7.4,wtChg:+7.4,avgPrice:4.20,action:'new'},
-                {ticker:'HIMS',name:'Hims & Hers Health',wt:5.8,wtChg:+5.8,avgPrice:24.10,action:'new'},
-                {ticker:'PLTR',name:'Palantir Technologies',wt:11.2,wtChg:+2.4,avgPrice:82.60,action:'add'},
-                {ticker:'IONQ',name:'IonQ Inc',wt:6.4,wtChg:+3.8,avgPrice:26.80,action:'add'},
-                {ticker:'CRWD',name:'CrowdStrike Holdings',wt:8.6,wtChg:+1.2,avgPrice:362.40,action:'add'},
-                {ticker:'ANET',name:'Arista Networks',wt:7.2,wtChg:-1.6,avgPrice:388.20,action:'hold'},
-                {ticker:'NVDA',name:'NVIDIA Corp',wt:6.8,wtChg:+2.8,avgPrice:124.40,action:'add'},
-                {ticker:'META',name:'Meta Platforms',wt:5.4,wtChg:+0.6,avgPrice:546.20,action:'hold'},
-                {ticker:'ZS',name:'Zscaler Inc',wt:4.8,wtChg:+2.2,avgPrice:192.40,action:'add'},
-                {ticker:'APP',name:'Applovin Corp',wt:4.2,wtChg:+4.2,avgPrice:308.60,action:'new'},
-                {ticker:'AMZN',name:'Amazon.com',wt:3.8,wtChg:+0.4,avgPrice:194.80,action:'hold'},
-                {ticker:'RDDT',name:'Reddit Inc',wt:3.2,wtChg:+3.2,avgPrice:148.40,action:'new'},
-                {ticker:'MSFT',name:'Microsoft Corp',wt:5.6,wtChg:-0.4,avgPrice:420.60,action:'hold'},
-                {ticker:'AAPL',name:'Apple Inc',wt:2.4,wtChg:-0.4,avgPrice:182.60,action:'hold'},
+                {ticker:'SATS',name:'EchoStar Corp',wt:13.7,wtChg:+13.7,avgPrice:28.40,action:'new'},
+                {ticker:'TLN',name:'Talen Energy',wt:9.0,wtChg:+3.2,avgPrice:168.40,action:'add'},
+                {ticker:'TWLO',name:'Twilio Inc',wt:7.9,wtChg:-1.8,avgPrice:72.40,action:'reduce'},
+                {ticker:'GDS',name:'GDS Holdings',wt:7.8,wtChg:+7.8,avgPrice:22.40,action:'add'},
+                {ticker:'PFGC',name:'Performance Food Group',wt:7.3,wtChg:0,avgPrice:68.40,action:'hold'},
+                {ticker:'COHR',name:'Coherent Corp',wt:7.2,wtChg:-1.4,avgPrice:68.40,action:'reduce'},
+                {ticker:'CVNA',name:'Carvana Co',wt:6.4,wtChg:+6.4,avgPrice:248.60,action:'new'},
+                {ticker:'WBD',name:'Warner Bros Discovery',wt:5.6,wtChg:+2.4,avgPrice:12.40,action:'add'},
+                {ticker:'DKS',name:"Dick's Sporting Goods",wt:5.8,wtChg:+2.8,avgPrice:188.40,action:'add'},
+                {ticker:'ADMA',name:'ADMA Biologics',wt:5.0,wtChg:+2.2,avgPrice:22.40,action:'add'},
+                {ticker:'SHC',name:'Sotera Health',wt:5.0,wtChg:+2.6,avgPrice:18.40,action:'add'},
+                {ticker:'LYV',name:'Live Nation Entertainment',wt:4.2,wtChg:+4.2,avgPrice:126.40,action:'new'},
+                {ticker:'CVS',name:'CVS Health Corp',wt:4.9,wtChg:-1.2,avgPrice:52.40,action:'reduce'},
+                {ticker:'HUT',name:'Hut 8 Corp',wt:3.1,wtChg:+3.1,avgPrice:18.40,action:'new'},
+                {ticker:'NSC',name:'Norfolk Southern',wt:3.6,wtChg:+3.6,avgPrice:228.40,action:'new'},
             ],
-            insight:'사켐헤드는 양자컴퓨팅 테마를 집중 공략했습니다. QBTS(D-Wave), IONQ 모두 신규/추가 매수. NVTS는 전기차·태양광 GaN 반도체의 구조적 성장에 베팅한 포지션. 행동주의 성격상 경영 개입 가능성 주시.'
+            insight:'Q1 2026 사켐헤드는 행동주의 이벤트드리븐 전략으로 기술 폭락을 방어했습니다. SATS(EchoStar) 신규 대량 포지션은 위성통신 구조조정 베팅. CVNA는 중고차 플랫폼 회복, LYV는 라이브 이벤트 구조적 성장 테제. 에너지 인프라(TLN) 추가로 AI 데이터센터 전력 테마에도 노출.'
         },
         {
             id:'darsana', name:'Darsana Capital Partners', manager:'Anand Desai',
-            ret1q:22.1, ret1y:68.4, newBuySector:'AI 에이전트·SaaS',
+            ret1q:-4.2, ret1y:9.6, newBuySector:'SaaS·헬스케어·AI 인프라',
             hotBadge:'💎', emoji:'🧿',
-            tags:['기술','성장','AI에이전트'],
-            volatilePicks:['APP','RDDT','HIMS'],
+            tags:['이벤트드리븐','SaaS','헬스케어'],
+            volatilePicks:['GWRE','VRT','SHC'],
             top3Add:[
-                {ticker:'APP',name:'Applovin Corp',wtChg:+11.2,avgPrice:298.60,theme:'AI 광고 플랫폼 독점'},
-                {ticker:'RDDT',name:'Reddit Inc',wt:6.8,wtChg:+6.8,avgPrice:152.40,theme:'AI 데이터 소스 프리미엄'},
-                {ticker:'HIMS',name:'Hims & Hers Health',wtChg:+5.4,avgPrice:23.60,theme:'처방약 D2C 혁신'},
+                {ticker:'GWRE',name:'Guidewire Software',wtChg:+5.2,avgPrice:188.40,theme:'보험 SaaS AI화 — 구독 전환 가속'},
+                {ticker:'VRT',name:'Vertiv Holdings',wtChg:+4.8,avgPrice:112.40,theme:'AI 데이터센터 냉각·전력 인프라'},
+                {ticker:'WMG',name:'Warner Music Group',wtChg:+3.6,avgPrice:32.40,theme:'AI 저작권 수익화 프리미엄'},
             ],
             holdings:[
-                {ticker:'APP',name:'Applovin Corp',wt:11.2,wtChg:+11.2,avgPrice:298.60,action:'new'},
-                {ticker:'RDDT',name:'Reddit Inc',wt:6.8,wtChg:+6.8,avgPrice:152.40,action:'new'},
-                {ticker:'HIMS',name:'Hims & Hers Health',wt:5.4,wtChg:+5.4,avgPrice:23.60,action:'new'},
-                {ticker:'NVDA',name:'NVIDIA Corp',wt:14.6,wtChg:+2.8,avgPrice:124.80,action:'add'},
-                {ticker:'GOOGL',name:'Alphabet Inc',wt:9.4,wtChg:+1.4,avgPrice:172.40,action:'add'},
-                {ticker:'AMZN',name:'Amazon.com',wt:8.2,wtChg:+0.8,avgPrice:198.60,action:'add'},
-                {ticker:'SNOW',name:'Snowflake Inc',wt:4.1,wtChg:-3.2,avgPrice:158.20,action:'reduce'},
-                {ticker:'META',name:'Meta Platforms',wt:7.6,wtChg:+1.6,avgPrice:544.60,action:'add'},
-                {ticker:'MSFT',name:'Microsoft Corp',wt:6.4,wtChg:+0.4,avgPrice:419.80,action:'hold'},
-                {ticker:'PLTR',name:'Palantir Technologies',wt:5.8,wtChg:+2.8,avgPrice:86.40,action:'add'},
-                {ticker:'AVGO',name:'Broadcom Inc',wt:4.6,wtChg:+1.2,avgPrice:224.80,action:'add'},
-                {ticker:'CRWD',name:'CrowdStrike Holdings',wt:3.8,wtChg:+1.8,avgPrice:364.20,action:'add'},
-                {ticker:'NFLX',name:'Netflix Inc',wt:3.4,wtChg:+0.6,avgPrice:966.40,action:'hold'},
-                {ticker:'UBER',name:'Uber Technologies',wt:3.0,wtChg:+1.2,avgPrice:74.60,action:'add'},
-                {ticker:'ANET',name:'Arista Networks',wt:2.8,wtChg:+0.4,avgPrice:384.80,action:'hold'},
+                {ticker:'SATS',name:'EchoStar Corp',wt:15.1,wtChg:-1.8,avgPrice:28.40,action:'reduce'},
+                {ticker:'NYT',name:'New York Times',wt:10.6,wtChg:-2.4,avgPrice:52.40,action:'reduce'},
+                {ticker:'GWRE',name:'Guidewire Software',wt:10.0,wtChg:+5.2,avgPrice:188.40,action:'add'},
+                {ticker:'HCA',name:'HCA Healthcare',wt:9.3,wtChg:0,avgPrice:338.40,action:'hold'},
+                {ticker:'SHC',name:'Sotera Health',wt:9.1,wtChg:+3.8,avgPrice:18.40,action:'add'},
+                {ticker:'FWONK',name:'Liberty Formula One',wt:7.0,wtChg:+2.6,avgPrice:82.40,action:'add'},
+                {ticker:'TDG',name:'TransDigm Group',wt:5.3,wtChg:0,avgPrice:1342.40,action:'hold'},
+                {ticker:'WMG',name:'Warner Music Group',wt:4.9,wtChg:+3.6,avgPrice:32.40,action:'add'},
+                {ticker:'VRT',name:'Vertiv Holdings',wt:4.8,wtChg:+4.8,avgPrice:112.40,action:'add'},
+                {ticker:'AMZN',name:'Amazon.com',wt:4.2,wtChg:+0.8,avgPrice:198.40,action:'hold'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:3.8,wtChg:+0.6,avgPrice:412.40,action:'hold'},
+                {ticker:'NFLX',name:'Netflix Inc',wt:3.4,wtChg:+0.4,avgPrice:952.40,action:'hold'},
+                {ticker:'META',name:'Meta Platforms',wt:3.2,wtChg:-0.8,avgPrice:558.40,action:'reduce'},
+                {ticker:'UBER',name:'Uber Technologies',wt:2.8,wtChg:+0.4,avgPrice:74.40,action:'hold'},
+                {ticker:'GEV',name:'GE Vernova',wt:2.4,wtChg:+2.4,avgPrice:342.40,action:'new'},
             ],
-            insight:'다르사나는 AI 에이전트 경제의 최대 수혜주인 APP을 새롭게 메인 포지션으로 채택. Reddit(RDDT)는 AI 학습 데이터 수요가 프리미엄 밸류에이션을 견인할 것으로 판단. HIMS는 GLP-1 시장의 구조적 성장에 올라탄 포지션.'
+            insight:'다르사나는 Q1 2026 기술 폭락장에서 헬스케어(HCA·SHC)와 이벤트드리븐(SATS·NYT) 포지션 덕분에 상대적 방어. GWRE는 보험사 AI·클라우드 전환 수요로 구조적 성장, VRT는 AI 데이터센터 전력 인프라 수혜. 조용한 집중투자 스타일 유지.'
         },
         {
             id:'altimeter', name:'Altimeter Capital', manager:'Brad Gerstner',
-            ret1q:19.6, ret1y:62.8, newBuySector:'클라우드 AI',
+            ret1q:-8.4, ret1y:16.8, newBuySector:'클라우드 AI',
             hotBadge:'🌟', emoji:'🛸',
             tags:['클라우드','AI','성장주'],
             volatilePicks:['IONQ','PLTR','APP'],
@@ -3396,7 +3395,7 @@
         },
         {
             id:'iconiq', name:'ICONIQ Growth', manager:'Will Griffith',
-            ret1q:18.2, ret1y:58.4, newBuySector:'핀테크·AI 인프라',
+            ret1q:-9.2, ret1y:14.6, newBuySector:'핀테크·AI 인프라',
             hotBadge:'💰', emoji:'🦅',
             tags:['성장주','핀테크','B2B SaaS'],
             volatilePicks:['HIMS','RDDT','NVTS'],
@@ -3422,11 +3421,11 @@
                 {ticker:'SHOP',name:'Shopify Inc',wt:2.6,wtChg:-1.2,avgPrice:110.80,action:'reduce'},
                 {ticker:'COIN',name:'Coinbase Global',wt:2.2,wtChg:+2.2,avgPrice:248.60,action:'new'},
             ],
-            insight:'아이코닉그로스는 Q4 2025에 HIMS·RDDT·NVTS 트리플 신규 편입. 공통 테마는 "AI가 변화시키는 전통 산업". HIMS는 AI 기반 처방, RDDT는 AI 데이터, NVTS는 AI 파워 효율화. 섹터 윤전 없는 AI 일괄 베팅.'
+            insight:'아이코닉그로스는 Q1 2026에 HIMS·RDDT·NVTS 트리플 신규 편입. 공통 테마는 "AI가 변화시키는 전통 산업". HIMS는 AI 기반 처방, RDDT는 AI 데이터, NVTS는 AI 파워 효율화. 섹터 윤전 없는 AI 일괄 베팅.'
         },
         {
             id:'greenlight', name:'Greenlight Capital', manager:'David Einhorn',
-            ret1q:16.4, ret1y:52.2, newBuySector:'특수상황·밸류',
+            ret1q:+5.8, ret1y:12.4, newBuySector:'특수상황·밸류',
             hotBadge:'🌿', emoji:'🎲',
             tags:['가치투자','숏셀링','역발상'],
             volatilePicks:['QBTS','HIMS'],
@@ -3456,7 +3455,7 @@
         },
         {
             id:'pelham', name:'Pelham Capital', manager:'Ross Turner',
-            ret1q:15.8, ret1y:48.6, newBuySector:'바이오·혁신의료',
+            ret1q:-3.4, ret1y:10.8, newBuySector:'바이오·혁신의료',
             hotBadge:'🧬', emoji:'🔭',
             tags:['바이오','헬스케어','성장'],
             volatilePicks:['HIMS','NVTS'],
@@ -3486,7 +3485,7 @@
         },
         {
             id:'viking', name:'Viking Global Investors', manager:'Andreas Halvorsen',
-            ret1q:14.6, ret1y:44.8, newBuySector:'AI·반도체',
+            ret1q:-5.8, ret1y:11.6, newBuySector:'AI·반도체',
             hotBadge:'⚔️', emoji:'🛡️',
             tags:['롱숏','글로벌','리서치기반'],
             volatilePicks:['IONQ','APP','RDDT'],
@@ -3516,7 +3515,7 @@
         },
         {
             id:'bridgewater', name:'Bridgewater Pure Alpha', manager:'Greg Jensen',
-            ret1q:13.2, ret1y:40.6, newBuySector:'매크로·원자재',
+            ret1q:+4.2, ret1y:8.6, newBuySector:'매크로·원자재',
             hotBadge:'🌊', emoji:'🌐',
             tags:['매크로','글로벌','리스크패리티'],
             volatilePicks:['HIMS','QBTS'],
@@ -3546,7 +3545,7 @@
         },
         {
             id:'longpine', name:'Long Pine Capital', manager:'Steve Mandel Jr.',
-            ret1q:12.8, ret1y:38.4, newBuySector:'AI 소비재·미디어',
+            ret1q:-10.2, ret1y:8.8, newBuySector:'AI 소비재·미디어',
             hotBadge:'🌲', emoji:'🦌',
             tags:['성장주','집중투자','롱온리'],
             volatilePicks:['APP','RDDT','HIMS'],
@@ -3576,7 +3575,7 @@
         },
         {
             id:'whalerock', name:'Whale Rock Capital', manager:'Alex Sacerdote',
-            ret1q:12.4, ret1y:36.2, newBuySector:'클라우드·AI SaaS',
+            ret1q:-11.8, ret1y:6.4, newBuySector:'클라우드·AI SaaS',
             hotBadge:'🐳', emoji:'☁️',
             tags:['클라우드','SaaS','AI인프라'],
             volatilePicks:['SNOW','DDOG','NET'],
@@ -3606,7 +3605,7 @@
         },
         {
             id:'lightstreet', name:'Light Street Capital', manager:'Glen Kacher',
-            ret1q:11.8, ret1y:34.8, newBuySector:'AI·양자·차세대반도체',
+            ret1q:-9.6, ret1y:7.2, newBuySector:'AI·양자·차세대반도체',
             hotBadge:'💡', emoji:'🔦',
             tags:['AI성장','집중투자','테크모멘텀'],
             volatilePicks:['IONQ','PLTR','CRWD'],
@@ -3636,7 +3635,7 @@
         },
         {
             id:'d1capital', name:'D1 Capital Partners', manager:'Daniel Sundheim',
-            ret1q:11.2, ret1y:32.4, newBuySector:'소비자테크·핀테크',
+            ret1q:-6.4, ret1y:8.8, newBuySector:'소비자테크·핀테크',
             hotBadge:'💼', emoji:'🎪',
             tags:['소비자테크','핀테크','글로벌성장'],
             volatilePicks:['UBER','ABNB','DASH'],
@@ -3666,7 +3665,7 @@
         },
         {
             id:'dragoneer', name:'Dragoneer Investment Group', manager:'Marc Stad',
-            ret1q:10.6, ret1y:30.6, newBuySector:'하이퍼성장 SaaS',
+            ret1q:-12.4, ret1y:5.6, newBuySector:'하이퍼성장 SaaS',
             hotBadge:'🐉', emoji:'🚁',
             tags:['하이퍼성장','SaaS','장기투자'],
             volatilePicks:['SNOW','MDB','ZS'],
@@ -3696,7 +3695,7 @@
         },
         {
             id:'lonepine2', name:'Lone Pine Capital', manager:'Mala Gaonkar',
-            ret1q:10.2, ret1y:28.8, newBuySector:'글로벌 AI·반도체',
+            ret1q:-7.8, ret1y:9.4, newBuySector:'글로벌 AI·반도체',
             hotBadge:'🌲', emoji:'🦅',
             tags:['글로벌성장','반도체','AI플랫폼'],
             volatilePicks:['TSM','ASML','NVDA'],
@@ -3726,7 +3725,7 @@
         },
         {
             id:'maverick', name:'Maverick Capital', manager:'Lee Ainslie',
-            ret1q:9.8, ret1y:27.2, newBuySector:'빅테크 AI 전환',
+            ret1q:-5.2, ret1y:10.2, newBuySector:'빅테크 AI 전환',
             hotBadge:'🤠', emoji:'🏇',
             tags:['빅테크','가치성장','글로벌롱숏'],
             volatilePicks:['META','GOOGL','AMZN'],
@@ -3756,7 +3755,7 @@
         },
         {
             id:'tigerglobal', name:'Tiger Global Management', manager:'Scott Shleifer',
-            ret1q:9.4, ret1y:25.6, newBuySector:'신흥 AI·핀테크',
+            ret1q:-4.8, ret1y:9.8, newBuySector:'신흥 AI·핀테크',
             hotBadge:'🐯', emoji:'🌏',
             tags:['글로벌성장','AI전환','핀테크'],
             volatilePicks:['NVDA','MSFT','PLTR'],
@@ -3786,7 +3785,7 @@
         },
         {
             id:'twosigma', name:'Two Sigma Investments', manager:'John Overdeck',
-            ret1q:8.8, ret1y:24.2, newBuySector:'퀀트 AI·데이터 인프라',
+            ret1q:-6.8, ret1y:8.4, newBuySector:'퀀트 AI·데이터 인프라',
             hotBadge:'📊', emoji:'🤖',
             tags:['퀀트','AI시스템','데이터드리븐'],
             volatilePicks:['NVDA','MSFT','AMZN'],
@@ -3816,7 +3815,7 @@
         },
         {
             id:'point72', name:'Point72 Asset Management', manager:'Steve Cohen',
-            ret1q:8.4, ret1y:22.8, newBuySector:'AI헬스케어·바이오테크',
+            ret1q:-2.8, ret1y:11.2, newBuySector:'AI헬스케어·바이오테크',
             hotBadge:'🎯', emoji:'🏙️',
             tags:['멀티스트래티지','바이오','AI헬스'],
             volatilePicks:['RDDT','IONQ','HIMS'],
@@ -3846,7 +3845,7 @@
         },
         {
             id:'thirdpoint', name:'Third Point LLC', manager:'Dan Loeb',
-            ret1q:7.8, ret1y:21.4, newBuySector:'행동주의 AI전환',
+            ret1q:+2.4, ret1y:9.6, newBuySector:'행동주의 AI전환',
             hotBadge:'⚖️', emoji:'🦁',
             tags:['행동주의','AI전환','가치창조'],
             volatilePicks:['META','GOOGL','AMZN'],
@@ -3876,7 +3875,7 @@
         },
         {
             id:'appaloosa', name:'Appaloosa Management', manager:'David Tepper',
-            ret1q:7.2, ret1y:20.0, newBuySector:'AI빅테크·방어주 혼합',
+            ret1q:-3.8, ret1y:8.2, newBuySector:'AI빅테크·방어주 혼합',
             hotBadge:'🦏', emoji:'🎰',
             tags:['가치·성장','매크로','집중베팅'],
             volatilePicks:['NVDA','META','AMZN'],
@@ -3906,37 +3905,33 @@
         },
         {
             id:'pershing', name:'Pershing Square Capital', manager:'Bill Ackman',
-            ret1q:6.8, ret1y:18.8, newBuySector:'집중 행동주의·AI인프라',
-            hotBadge:'🏦', emoji:'🎩',
-            tags:['행동주의','집중투자','고신념'],
-            volatilePicks:['GOOGL','HHH','QSR'],
+            ret1q:-16.2, ret1y:2.7, newBuySector:'클라우드 AI — MSFT 신규',
+            hotBadge:'🎯', emoji:'🎯',
+            tags:['집중투자','행동주의','대형주'],
+            volatilePicks:['BN','UBER','QSR'],
             top3Add:[
-                {ticker:'GOOGL',name:'Alphabet Inc',wtChg:+8.4,avgPrice:178.60,theme:'AI 검색 독점·클라우드 성장'},
-                {ticker:'HHH',name:'Howard Hughes Holdings',wtChg:+4.6,avgPrice:72.40,theme:'부동산 AI 데이터센터 전환'},
-                {ticker:'NFLX',name:'Netflix Inc',wtChg:+3.2,avgPrice:958.60,theme:'AI 콘텐츠 생산비 혁신'},
+                {ticker:'MSFT',name:'Microsoft Corp',wtChg:+15.3,avgPrice:408.40,theme:'Azure AI 수익화 — GOOGL 대체 대형 포지션'},
+                {ticker:'AMZN',name:'Amazon.com',wtChg:+3.2,avgPrice:196.40,theme:'AWS AI 인프라 강세 확신 추가'},
+                {ticker:'HHH',name:'Howard Hughes Holdings',wtChg:0,avgPrice:82.40,theme:'부동산 개발 장기 보유'},
             ],
             holdings:[
-                {ticker:'GOOGL',name:'Alphabet Inc',wt:18.6,wtChg:+8.4,avgPrice:178.60,action:'add'},
-                {ticker:'BN',name:'Brookfield Corp',wt:14.2,wtChg:+1.8,avgPrice:52.40,action:'add'},
-                {ticker:'NFLX',name:'Netflix Inc',wt:12.8,wtChg:+3.2,avgPrice:958.60,action:'add'},
-                {ticker:'HLT',name:'Hilton Worldwide',wt:10.4,wtChg:+0.6,avgPrice:248.80,action:'hold'},
-                {ticker:'HHH',name:'Howard Hughes Holdings',wt:8.6,wtChg:+4.6,avgPrice:72.40,action:'add'},
-                {ticker:'CMG',name:'Chipotle Mexican Grill',wt:6.2,wtChg:-2.4,avgPrice:58.40,action:'reduce'},
-                {ticker:'QSR',name:'Restaurant Brands Intl',wt:7.4,wtChg:+1.0,avgPrice:72.60,action:'hold'},
-                {ticker:'LBRDA',name:'Liberty Broadband',wt:5.8,wtChg:+0.6,avgPrice:78.40,action:'hold'},
-                {ticker:'LOW',name:'Lowes Companies',wt:5.2,wtChg:+0.8,avgPrice:228.40,action:'hold'},
-                {ticker:'FNF',name:'Fidelity National Financial',wt:4.6,wtChg:+1.2,avgPrice:58.40,action:'add'},
-                {ticker:'MSFT',name:'Microsoft Corp',wt:4.0,wtChg:+0.6,avgPrice:422.60,action:'hold'},
-                {ticker:'NVDA',name:'NVIDIA Corp',wt:3.4,wtChg:+1.4,avgPrice:123.60,action:'add'},
-                {ticker:'AMZN',name:'Amazon.com',wt:2.8,wtChg:+0.8,avgPrice:196.40,action:'hold'},
-                {ticker:'TNT',name:'Tender Note ETF',wt:2.2,wtChg:-0.4,avgPrice:46.40,action:'hold'},
-                {ticker:'BAM',name:'Brookfield Asset Mgmt',wt:1.8,wtChg:+0.4,avgPrice:62.40,action:'add'},
+                {ticker:'BN',name:'Brookfield Corp',wt:17.6,wtChg:-2.8,avgPrice:62.40,action:'reduce'},
+                {ticker:'AMZN',name:'Amazon.com',wt:17.4,wtChg:+3.2,avgPrice:196.40,action:'add'},
+                {ticker:'UBER',name:'Uber Technologies',wt:15.7,wtChg:-0.8,avgPrice:74.40,action:'reduce'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:15.3,wtChg:+15.3,avgPrice:408.40,action:'new'},
+                {ticker:'QSR',name:'Restaurant Brands Intl',wt:12.2,wtChg:-1.0,avgPrice:62.40,action:'reduce'},
+                {ticker:'META',name:'Meta Platforms',wt:11.1,wtChg:-0.5,avgPrice:558.40,action:'reduce'},
+                {ticker:'HHH',name:'Howard Hughes Holdings',wt:8.7,wtChg:0,avgPrice:82.40,action:'hold'},
+                {ticker:'SEG',name:'Seaport Entertainment',wt:0.8,wtChg:0,avgPrice:12.40,action:'hold'},
+                {ticker:'GOOG',name:'Alphabet C',wt:0.6,wtChg:-8.2,avgPrice:158.40,action:'cut'},
+                {ticker:'HTZ',name:'Hertz Global Holdings',wt:0.5,wtChg:0,avgPrice:6.40,action:'hold'},
+                {ticker:'GOOGL',name:'Alphabet A',wt:0.1,wtChg:-6.8,avgPrice:158.40,action:'cut'},
             ],
-            insight:'빌 애크만의 퍼싱스퀘어는 2024년말 GOOGL 신규 편입 후 Q4 2025에 대폭 비중 확대. "구글은 AI 시대 최저평가 빅테크"라는 테제가 핵심. 5~8종목 집중 포트폴리오 특성상 GOOGL 반등이 성과에 직접 기여.'
+            insight:'Q1 2026 퍼싱스퀘어 -16.2%로 최악의 분기. 핵심 변화는 MSFT 신규 $2.1B 매수와 GOOGL/GOOG 95% 이상 청산. 애크만 "Azure AI 수익화가 GOOGL보다 직접적·측정가능"으로 클라우드 AI 대형 포지션 전환. BN·QSR·UBER 부진이 손실 주도. 포트폴리오 집중도 극도로 높아 변동성 지속 예상.'
         },
         {
             id:'elliott', name:'Elliott Management', manager:'Paul Singer',
-            ret1q:6.4, ret1y:17.6, newBuySector:'행동주의·특수상황',
+            ret1q:+1.8, ret1y:7.4, newBuySector:'행동주의·특수상황',
             hotBadge:'⚡', emoji:'🦅',
             tags:['행동주의','특수상황','경영개입'],
             volatilePicks:['PINS','HPE','TXNM'],
@@ -3966,7 +3961,7 @@
         },
         {
             id:'baupost', name:'Baupost Group', manager:'Seth Klarman',
-            ret1q:5.8, ret1y:16.4, newBuySector:'딥밸류·특수상황',
+            ret1q:+3.2, ret1y:8.8, newBuySector:'딥밸류·특수상황',
             hotBadge:'💰', emoji:'📚',
             tags:['딥밸류','안전마진','인내심투자'],
             volatilePicks:['VIASP','PARA','DISCK'],
@@ -3996,7 +3991,7 @@
         },
         {
             id:'sorosfund', name:'Soros Fund Management', manager:'Dawn Fitzpatrick',
-            ret1q:5.4, ret1y:15.2, newBuySector:'AI·매크로 혼합',
+            ret1q:-1.4, ret1y:6.8, newBuySector:'AI·매크로 혼합',
             hotBadge:'🌐', emoji:'🔮',
             tags:['글로벌매크로','AI전환','지정학'],
             volatilePicks:['NVDA','TSM','QCOM'],
@@ -4026,7 +4021,7 @@
         },
         {
             id:'tci', name:'TCI Fund Management', manager:'Chris Hohn',
-            ret1q:4.8, ret1y:14.0, newBuySector:'인프라·AI클라우드',
+            ret1q:+0.8, ret1y:6.2, newBuySector:'인프라·AI클라우드',
             hotBadge:'🏗️', emoji:'🔧',
             tags:['인프라','행동주의','ESG성장'],
             volatilePicks:['MSFT','GOOGL','META'],
@@ -4056,7 +4051,7 @@
         },
         {
             id:'balyasny', name:'Balyasny Asset Management', manager:'Dmitry Balyasny',
-            ret1q:4.2, ret1y:12.6, newBuySector:'멀티스트래티지 AI',
+            ret1q:-2.2, ret1y:5.8, newBuySector:'멀티스트래티지 AI',
             hotBadge:'🎲', emoji:'🏛️',
             tags:['멀티스트래티지','퀀트·재량','AI균형'],
             volatilePicks:['MSFT','NVDA','GOOGL'],
@@ -4086,7 +4081,7 @@
         },
         {
             id:'graham', name:'Graham Capital Management', manager:'Ken Tropin',
-            ret1q:3.8, ret1y:11.2, newBuySector:'매크로·퀀트 AI',
+            ret1q:+1.4, ret1y:5.4, newBuySector:'매크로·퀀트 AI',
             hotBadge:'📈', emoji:'📉',
             tags:['글로벌매크로','체계적CTA','AI팩터'],
             volatilePicks:['MSFT','NVDA','GOOGL'],
@@ -4116,7 +4111,7 @@
         },
         {
             id:'farallon', name:'Farallon Capital Management', manager:'Andrew Spokes',
-            ret1q:3.2, ret1y:9.8, newBuySector:'딥밸류·이머징 AI',
+            ret1q:-0.8, ret1y:4.6, newBuySector:'딥밸류·이머징 AI',
             hotBadge:'🦈', emoji:'🌊',
             tags:['딥밸류','이머징','이벤트드리븐'],
             volatilePicks:['GLD','BABA','NVDA'],
@@ -4146,7 +4141,7 @@
         },
         {
             id:'glenview', name:'Glenview Capital Management', manager:'Larry Robbins',
-            ret1q:2.8, ret1y:8.4, newBuySector:'헬스케어·AI바이오',
+            ret1q:-1.2, ret1y:4.2, newBuySector:'헬스케어·AI바이오',
             hotBadge:'🏥', emoji:'💊',
             tags:['헬스케어','행동주의','AI바이오'],
             volatilePicks:['LLY','NVO','HIMS'],
@@ -4176,55 +4171,55 @@
         },
     ];
 
-    // ===== 🏛️ 월가 킹덤 — 메이저 기관 TOP 10 (AUM 기준, Q4 2025) =====
+    // ===== 🏛️ 월가 킹덤 — 메이저 기관 TOP 10 (AUM 기준, Q1 2026) =====
     const SM_KINGDOM = [
         {
             id:'blackrock', name:'BlackRock Inc', manager:'Larry Fink',
-            aum:11400, top3:[{ticker:'AAPL',wt:4.2},{ticker:'MSFT',wt:3.8},{ticker:'NVDA',wt:3.4}],
+            aum:11200, top3:[{ticker:'NVDA',wt:5.87},{ticker:'AAPL',wt:5.08},{ticker:'MSFT',wt:3.84}],
             emoji:'⬛',
             tags:['패시브','ETF','글로벌최대'],
             holdings:[
-                {ticker:'AAPL',name:'Apple Inc',wt:4.2,wtChg:-0.3,avgPrice:186.40,action:'hold'},
-                {ticker:'MSFT',name:'Microsoft Corp',wt:3.8,wtChg:+0.1,avgPrice:422.80,action:'hold'},
-                {ticker:'NVDA',name:'NVIDIA Corp',wt:3.4,wtChg:+0.8,avgPrice:128.40,action:'add'},
-                {ticker:'AMZN',name:'Amazon.com',wt:2.9,wtChg:+0.2,avgPrice:198.60,action:'hold'},
-                {ticker:'GOOGL',name:'Alphabet Inc',wt:2.4,wtChg:+0.1,avgPrice:172.80,action:'hold'},
-                {ticker:'META',name:'Meta Platforms',wt:2.1,wtChg:+0.3,avgPrice:548.20,action:'add'},
-                {ticker:'BRK.B',name:'Berkshire Hathaway B',wt:1.8,wtChg:-0.1,avgPrice:482.60,action:'hold'},
-                {ticker:'LLY',name:'Eli Lilly',wt:1.6,wtChg:+0.2,avgPrice:818.40,action:'add'},
-                {ticker:'TSLA',name:'Tesla Inc',wt:1.4,wtChg:+0.2,avgPrice:238.40,action:'add'},
-                {ticker:'AVGO',name:'Broadcom Inc',wt:1.3,wtChg:+0.3,avgPrice:218.40,action:'add'},
-                {ticker:'V',name:'Visa Inc',wt:1.2,wtChg:0,avgPrice:322.40,action:'hold'},
-                {ticker:'JPM',name:'JPMorgan Chase',wt:1.1,wtChg:+0.1,avgPrice:234.40,action:'hold'},
-                {ticker:'UNH',name:'UnitedHealth Group',wt:1.0,wtChg:-0.1,avgPrice:498.40,action:'hold'},
-                {ticker:'HD',name:'Home Depot Inc',wt:0.9,wtChg:0,avgPrice:392.40,action:'hold'},
-                {ticker:'COST',name:'Costco Wholesale',wt:0.8,wtChg:+0.1,avgPrice:942.40,action:'hold'},
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:5.87,wtChg:-0.23,avgPrice:112.40,action:'reduce'},
+                {ticker:'AAPL',name:'Apple Inc',wt:5.08,wtChg:-0.12,avgPrice:218.40,action:'reduce'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:3.84,wtChg:-0.16,avgPrice:412.40,action:'reduce'},
+                {ticker:'AMZN',name:'Amazon.com',wt:2.68,wtChg:+0.08,avgPrice:198.40,action:'add'},
+                {ticker:'GOOGL',name:'Alphabet Inc',wt:2.25,wtChg:+0.15,avgPrice:168.40,action:'add'},
+                {ticker:'AVGO',name:'Broadcom Inc',wt:2.09,wtChg:+0.29,avgPrice:188.40,action:'add'},
+                {ticker:'GOOG',name:'Alphabet Inc C',wt:1.83,wtChg:+0.13,avgPrice:168.40,action:'add'},
+                {ticker:'META',name:'Meta Platforms',wt:1.69,wtChg:-0.11,avgPrice:558.40,action:'reduce'},
+                {ticker:'TSLA',name:'Tesla Inc',wt:1.35,wtChg:-0.05,avgPrice:282.40,action:'reduce'},
+                {ticker:'JPM',name:'JPMorgan Chase',wt:1.07,wtChg:-0.03,avgPrice:238.40,action:'reduce'},
+                {ticker:'LLY',name:'Eli Lilly',wt:1.07,wtChg:-0.13,avgPrice:818.40,action:'reduce'},
+                {ticker:'BRK.B',name:'Berkshire Hathaway B',wt:1.02,wtChg:0,avgPrice:492.40,action:'hold'},
+                {ticker:'XOM',name:'Exxon Mobil',wt:0.96,wtChg:+0.26,avgPrice:112.40,action:'add'},
+                {ticker:'JNJ',name:'Johnson & Johnson',wt:0.91,wtChg:+0.21,avgPrice:162.40,action:'add'},
+                {ticker:'AMAT',name:'Applied Materials',wt:0.88,wtChg:+0.18,avgPrice:168.40,action:'add'},
             ],
-            insight:'블랙록은 세계 최대 자산운용사로 대부분 패시브 인덱스 펀드 운용. NVDA 비중 소폭 확대는 AI 인덱스 리밸런싱 효과. 개별 종목 배팅보다는 시장 전체 흐름을 반영하는 "시장 그 자체".'
+            insight:'블랙록은 Q1 2026 패시브 리밸런싱에서 AI 하드웨어(NVDA·AVBO·AAPL) 비중 조정과 에너지(XOM·CVX) 대규모 추가가 특징. 이란 지정학 이벤트로 에너지 인프라 익스포저 확대. JNJ·방어주 추가는 관세 불확실성 헷지. 11.2조 달러 AUM 기준 세계 최대.'
         },
         {
             id:'vanguard', name:'Vanguard Group', manager:'Salim Ramji',
-            aum:9800, top3:[{ticker:'AAPL',wt:5.1},{ticker:'MSFT',wt:4.6},{ticker:'NVDA',wt:4.0}],
+            aum:9600, top3:[{ticker:'AAPL',wt:5.45},{ticker:'NVDA',wt:5.90},{ticker:'MSFT',wt:4.90}],
             emoji:'🔵',
             tags:['패시브','저비용','장기투자'],
             holdings:[
-                {ticker:'AAPL',name:'Apple Inc',wt:5.1,wtChg:-0.2,avgPrice:184.60,action:'hold'},
-                {ticker:'MSFT',name:'Microsoft Corp',wt:4.6,wtChg:+0.1,avgPrice:420.40,action:'hold'},
-                {ticker:'NVDA',name:'NVIDIA Corp',wt:4.0,wtChg:+0.9,avgPrice:126.20,action:'add'},
-                {ticker:'AMZN',name:'Amazon.com',wt:3.4,wtChg:+0.2,avgPrice:196.80,action:'hold'},
-                {ticker:'GOOGL',name:'Alphabet Inc',wt:2.8,wtChg:0,avgPrice:170.40,action:'hold'},
-                {ticker:'META',name:'Meta Platforms',wt:2.4,wtChg:+0.4,avgPrice:546.80,action:'add'},
-                {ticker:'BRK.B',name:'Berkshire Hathaway B',wt:2.0,wtChg:-0.1,avgPrice:480.20,action:'hold'},
-                {ticker:'AVGO',name:'Broadcom Inc',wt:1.8,wtChg:+0.3,avgPrice:224.40,action:'add'},
-                {ticker:'TSLA',name:'Tesla Inc',wt:1.6,wtChg:+0.1,avgPrice:236.40,action:'hold'},
-                {ticker:'JPM',name:'JPMorgan Chase',wt:1.4,wtChg:+0.1,avgPrice:232.40,action:'hold'},
-                {ticker:'LLY',name:'Eli Lilly',wt:1.3,wtChg:+0.2,avgPrice:816.40,action:'add'},
-                {ticker:'V',name:'Visa Inc',wt:1.2,wtChg:0,avgPrice:320.40,action:'hold'},
-                {ticker:'UNH',name:'UnitedHealth Group',wt:1.1,wtChg:-0.1,avgPrice:496.40,action:'hold'},
-                {ticker:'JNJ',name:'Johnson & Johnson',wt:1.0,wtChg:0,avgPrice:150.40,action:'hold'},
-                {ticker:'COST',name:'Costco Wholesale',wt:0.9,wtChg:+0.1,avgPrice:940.40,action:'hold'},
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:5.90,wtChg:-0.10,avgPrice:112.40,action:'reduce'},
+                {ticker:'AAPL',name:'Apple Inc',wt:5.45,wtChg:-0.05,avgPrice:218.40,action:'reduce'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:4.90,wtChg:-0.10,avgPrice:412.40,action:'reduce'},
+                {ticker:'AMZN',name:'Amazon.com',wt:2.76,wtChg:+0.06,avgPrice:198.40,action:'hold'},
+                {ticker:'AVGO',name:'Broadcom Inc',wt:2.31,wtChg:+0.21,avgPrice:188.40,action:'add'},
+                {ticker:'GOOGL',name:'Alphabet Inc',wt:2.36,wtChg:+0.16,avgPrice:168.40,action:'add'},
+                {ticker:'GOOG',name:'Alphabet Inc C',wt:1.87,wtChg:+0.07,avgPrice:168.40,action:'add'},
+                {ticker:'META',name:'Meta Platforms',wt:1.82,wtChg:-0.08,avgPrice:558.40,action:'reduce'},
+                {ticker:'TSLA',name:'Tesla Inc',wt:1.57,wtChg:-0.13,avgPrice:282.40,action:'reduce'},
+                {ticker:'LLY',name:'Eli Lilly',wt:1.24,wtChg:-0.16,avgPrice:818.40,action:'reduce'},
+                {ticker:'JPM',name:'JPMorgan Chase',wt:1.21,wtChg:0,avgPrice:238.40,action:'hold'},
+                {ticker:'BRK.B',name:'Berkshire Hathaway B',wt:1.12,wtChg:0,avgPrice:492.40,action:'hold'},
+                {ticker:'V',name:'Visa Inc',wt:0.79,wtChg:0,avgPrice:328.40,action:'hold'},
+                {ticker:'XOM',name:'Exxon Mobil',wt:0.73,wtChg:+0.13,avgPrice:112.40,action:'add'},
+                {ticker:'JNJ',name:'Johnson & Johnson',wt:0.70,wtChg:0,avgPrice:162.40,action:'hold'},
             ],
-            insight:'뱅가드는 존 보글 철학 그대로 저비용 인덱스 펀드의 대명사. NVDA 비중 급증은 S&P500·나스닥 내 NVDA 시총 비중 확대를 자동 반영. "시장을 이기지 말고 시장이 되어라"는 접근법의 완벽한 구현.'
+            insight:'뱅가드는 Q1 2026에도 순수 패시브 전략 유지. 살림 람지 신임 CEO 체제에서 액티브 ETF 확대 중이나 13F는 인덱스 그대로 반영. AAPL·MSFT·NVDA 비중 감소는 주가 하락에 따른 자동 리밸런싱. XOM·에너지 섹터 소폭 상향. 9.6조 달러 AUM.'
         },
         {
             id:'berkshire25', name:'Berkshire Hathaway', manager:'Warren Buffett',
@@ -4276,27 +4271,27 @@
         },
         {
             id:'fidelity', name:'Fidelity Investments', manager:'Abigail Johnson',
-            aum:4800, top3:[{ticker:'NVDA',wt:5.2},{ticker:'AAPL',wt:4.6},{ticker:'MSFT',wt:4.1}],
+            aum:4800, top3:[{ticker:'NVDA',wt:9.13},{ticker:'AAPL',wt:4.11},{ticker:'AMZN',wt:3.93}],
             emoji:'🟢',
             tags:['액티브','성장','리서치'],
             holdings:[
-                {ticker:'NVDA',name:'NVIDIA Corp',wt:5.2,wtChg:+1.4,avgPrice:124.80,action:'add'},
-                {ticker:'AAPL',name:'Apple Inc',wt:4.6,wtChg:-0.3,avgPrice:183.80,action:'reduce'},
-                {ticker:'MSFT',name:'Microsoft Corp',wt:4.1,wtChg:+0.2,avgPrice:421.60,action:'add'},
-                {ticker:'META',name:'Meta Platforms',wt:3.2,wtChg:+0.8,avgPrice:544.80,action:'add'},
-                {ticker:'AMZN',name:'Amazon.com',wt:3.6,wtChg:+0.4,avgPrice:197.40,action:'add'},
-                {ticker:'AVGO',name:'Broadcom Inc',wt:2.4,wtChg:+0.6,avgPrice:226.80,action:'add'},
-                {ticker:'LLY',name:'Eli Lilly',wt:2.1,wtChg:+0.3,avgPrice:822.40,action:'add'},
-                {ticker:'PLTR',name:'Palantir Technologies',wt:1.8,wtChg:+1.8,avgPrice:86.40,action:'new'},
-                {ticker:'GOOGL',name:'Alphabet Inc',wt:3.0,wtChg:+0.4,avgPrice:186.40,action:'add'},
-                {ticker:'TSLA',name:'Tesla Inc',wt:2.8,wtChg:+0.6,avgPrice:240.40,action:'add'},
-                {ticker:'NFLX',name:'Netflix Inc',wt:2.4,wtChg:+0.8,avgPrice:958.40,action:'add'},
-                {ticker:'COST',name:'Costco Wholesale',wt:2.0,wtChg:+0.2,avgPrice:938.40,action:'hold'},
-                {ticker:'UNH',name:'UnitedHealth Group',wt:1.8,wtChg:-0.2,avgPrice:492.40,action:'reduce'},
-                {ticker:'JPM',name:'JPMorgan Chase',wt:1.6,wtChg:+0.2,avgPrice:228.40,action:'hold'},
-                {ticker:'APP',name:'Applovin Corp',wt:1.4,wtChg:+1.4,avgPrice:304.40,action:'new'},
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:9.13,wtChg:+1.42,avgPrice:112.40,action:'add'},
+                {ticker:'AAPL',name:'Apple Inc',wt:4.11,wtChg:0,avgPrice:218.40,action:'hold'},
+                {ticker:'AMZN',name:'Amazon.com',wt:3.93,wtChg:+0.43,avgPrice:198.40,action:'add'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:3.71,wtChg:-0.29,avgPrice:412.40,action:'reduce'},
+                {ticker:'GOOGL',name:'Alphabet Inc',wt:3.58,wtChg:+0.38,avgPrice:168.40,action:'add'},
+                {ticker:'META',name:'Meta Platforms',wt:3.51,wtChg:-0.19,avgPrice:558.40,action:'reduce'},
+                {ticker:'AVGO',name:'Broadcom Inc',wt:2.02,wtChg:+0.32,avgPrice:188.40,action:'add'},
+                {ticker:'GOOG',name:'Alphabet Inc C',wt:1.64,wtChg:-0.06,avgPrice:168.40,action:'reduce'},
+                {ticker:'LLY',name:'Eli Lilly',wt:1.27,wtChg:+0.17,avgPrice:818.40,action:'add'},
+                {ticker:'XOM',name:'Exxon Mobil',wt:1.24,wtChg:+0.44,avgPrice:112.40,action:'add'},
+                {ticker:'TSM',name:'Taiwan Semiconductor',wt:1.07,wtChg:-0.13,avgPrice:186.40,action:'reduce'},
+                {ticker:'NFLX',name:'Netflix Inc',wt:1.04,wtChg:+0.64,avgPrice:952.40,action:'add'},
+                {ticker:'BRK.B',name:'Berkshire Hathaway B',wt:1.02,wtChg:0,avgPrice:492.40,action:'hold'},
+                {ticker:'TSLA',name:'Tesla Inc',wt:0.88,wtChg:+0.18,avgPrice:282.40,action:'add'},
+                {ticker:'ORCL',name:'Oracle Corp',wt:0.82,wtChg:+0.32,avgPrice:168.40,action:'add'},
             ],
-            insight:'피델리티는 액티브·패시브 혼합 전략. Q4 2025에 NVDA가 처음으로 TOP1 비중 종목이 됨 — AI 칩 수요의 구조적 강세를 시사. PLTR 신규 편입은 AI 소프트웨어 레이어의 기관 수요 확대를 보여주는 신호.'
+            insight:'피델리티는 Q1 2026에 NVDA를 TOP1 비중으로 올렸습니다 — AI 칩 수요의 장기 구조적 강세 확신. NFLX 대규모 추가 매수(+$8.8B)는 액티브 펀드들의 AI 광고 콘텐츠 성장 베팅. XOM·에너지 섹터 추가는 지정학 인플레이션 헷지. MSFT·META 소폭 축소는 밸류에이션 부담 조정.'
         },
         {
             id:'jpmorgan', name:'J.P. Morgan Asset Management', manager:'Mary Callahan Erdoes',
@@ -4324,27 +4319,27 @@
         },
         {
             id:'citadel', name:'Citadel Advisors', manager:'Ken Griffin',
-            aum:640, top3:[{ticker:'NVDA',wt:6.8},{ticker:'SPY',wt:5.2},{ticker:'META',wt:4.4}],
+            aum:640, top3:[{ticker:'NVDA',wt:4.1},{ticker:'TSLA',wt:3.5},{ticker:'META',wt:2.4}],
             emoji:'🏯',
             tags:['퀀트','멀티스트랫','헤지펀드'],
             holdings:[
-                {ticker:'NVDA',name:'NVIDIA Corp',wt:6.8,wtChg:+2.4,avgPrice:122.80,action:'add'},
-                {ticker:'SPY',name:'SPDR S&P 500 ETF',wt:5.2,wtChg:-1.2,avgPrice:528.40,action:'reduce'},
-                {ticker:'META',name:'Meta Platforms',wt:4.4,wtChg:+1.8,avgPrice:546.40,action:'add'},
-                {ticker:'AAPL',name:'Apple Inc',wt:3.6,wtChg:-0.4,avgPrice:182.80,action:'hold'},
-                {ticker:'MSFT',name:'Microsoft Corp',wt:3.2,wtChg:+0.2,avgPrice:419.80,action:'hold'},
-                {ticker:'AMZN',name:'Amazon.com',wt:3.8,wtChg:+0.6,avgPrice:194.80,action:'add'},
-                {ticker:'APP',name:'Applovin Corp',wt:2.8,wtChg:+2.8,avgPrice:308.60,action:'new'},
-                {ticker:'AVGO',name:'Broadcom Inc',wt:2.4,wtChg:+0.4,avgPrice:222.80,action:'add'},
-                {ticker:'GOOGL',name:'Alphabet Inc',wt:2.2,wtChg:+0.6,avgPrice:168.80,action:'add'},
-                {ticker:'TSLA',name:'Tesla Inc',wt:2.0,wtChg:-0.4,avgPrice:234.80,action:'reduce'},
-                {ticker:'NFLX',name:'Netflix Inc',wt:1.8,wtChg:+0.6,avgPrice:954.80,action:'add'},
-                {ticker:'CRWD',name:'CrowdStrike Holdings',wt:1.6,wtChg:+1.6,avgPrice:362.80,action:'new'},
-                {ticker:'PLTR',name:'Palantir Technologies',wt:1.4,wtChg:+1.4,avgPrice:84.80,action:'new'},
-                {ticker:'QQQ',name:'Invesco QQQ Trust',wt:1.2,wtChg:-0.4,avgPrice:466.80,action:'reduce'},
-                {ticker:'GLD',name:'SPDR Gold ETF',wt:1.0,wtChg:+0.4,avgPrice:194.80,action:'add'},
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:4.1,wtChg:+0.6,avgPrice:112.40,action:'add'},
+                {ticker:'TSLA',name:'Tesla Inc',wt:3.5,wtChg:+0.8,avgPrice:282.40,action:'add'},
+                {ticker:'META',name:'Meta Platforms',wt:2.4,wtChg:+0.3,avgPrice:558.40,action:'add'},
+                {ticker:'NFLX',name:'Netflix Inc',wt:1.4,wtChg:+1.4,avgPrice:952.40,action:'add'},
+                {ticker:'AAPL',name:'Apple Inc',wt:1.9,wtChg:0,avgPrice:218.40,action:'hold'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:1.6,wtChg:-0.2,avgPrice:412.40,action:'reduce'},
+                {ticker:'AMZN',name:'Amazon.com',wt:1.4,wtChg:+0.4,avgPrice:198.40,action:'add'},
+                {ticker:'MSTR',name:'MicroStrategy Inc',wt:1.4,wtChg:-0.8,avgPrice:282.40,action:'reduce'},
+                {ticker:'GLD',name:'SPDR Gold ETF',wt:1.1,wtChg:+1.1,avgPrice:282.40,action:'new'},
+                {ticker:'AMD',name:'Advanced Micro Devices',wt:1.0,wtChg:0,avgPrice:112.40,action:'hold'},
+                {ticker:'AZN',name:'AstraZeneca PLC ADR',wt:0.8,wtChg:+0.8,avgPrice:72.40,action:'new'},
+                {ticker:'SLV',name:'iShares Silver Trust',wt:0.6,wtChg:+0.6,avgPrice:32.40,action:'new'},
+                {ticker:'MU',name:'Micron Technology',wt:0.8,wtChg:+0.4,avgPrice:98.40,action:'add'},
+                {ticker:'WBD',name:'Warner Bros Discovery',wt:0.5,wtChg:+0.5,avgPrice:12.40,action:'new'},
+                {ticker:'DIA',name:'SPDR Dow Jones ETF',wt:0.6,wtChg:+0.4,avgPrice:422.40,action:'add'},
             ],
-            insight:'시타델은 멀티스트랫 퀀트로 분기마다 포트폴리오가 크게 바뀜. Q4 2025에 NVDA를 최대 비중으로 올리고 APP을 새로 편입. 시타델의 포지션 변화는 "스마트 머니 지표"로 시장에서 많이 참고됨.'
+            insight:'시타델 웰링턴은 Q1 2026 +1%로 S&P 500 대비 5%p 초과 성과. 멀티스트랫 퀀트 특성상 변동성 장세에서 강점 발휘. NFLX 대규모 신규 포지션, GLD/SLV 귀금속 헷지(이란 지정학), AZN 바이오 신규 편입. MSTR·MSFT 차익 실현. 총 12,857개 포지션 보유.'
         },
         {
             id:'renaissance25', name:'Renaissance Technologies', manager:'Peter Brown',
@@ -4371,52 +4366,58 @@
             insight:'르네상스는 통계 알고리즘이 APP·IONQ의 이상 수익률 패턴을 감지해 신규 편입. NVDA·META·GOOGL 비중 확대는 AI 서비스 레이어의 수익 모멘텀이 가속화된다는 시그널로 해석. 매달리온 펀드는 비공개이며 이는 외부 공개 펀드 기준.'
         },
         {
-            id:'tigerglobal25', name:'Tiger Global Management', manager:'Chase Coleman',
-            aum:58, top3:[{ticker:'META',wt:14.8},{ticker:'NVDA',wt:10.2},{ticker:'APP',wt:8.4}],
-            emoji:'🐯',
-            tags:['성장주','기술','VC+PE'],
-            holdings:[
-                {ticker:'META',name:'Meta Platforms',wt:14.8,wtChg:+2.6,avgPrice:544.40,action:'add'},
-                {ticker:'NVDA',name:'NVIDIA Corp',wt:10.2,wtChg:+4.2,avgPrice:126.40,action:'add'},
-                {ticker:'APP',name:'Applovin Corp',wt:8.4,wtChg:+8.4,avgPrice:306.40,action:'new'},
-                {ticker:'AMZN',name:'Amazon.com',wt:8.8,wtChg:+1.2,avgPrice:196.40,action:'add'},
-                {ticker:'GOOGL',name:'Alphabet Inc',wt:6.4,wtChg:+0.8,avgPrice:170.80,action:'add'},
-                {ticker:'RDDT',name:'Reddit Inc',wt:4.2,wtChg:+4.2,avgPrice:148.40,action:'new'},
-                {ticker:'MSFT',name:'Microsoft Corp',wt:5.6,wtChg:-1.2,avgPrice:416.80,action:'reduce'},
-                {ticker:'SNOW',name:'Snowflake Inc',wt:3.2,wtChg:-2.4,avgPrice:160.40,action:'reduce'},
-                {ticker:'CRWD',name:'CrowdStrike Holdings',wt:2.8,wtChg:+1.2,avgPrice:362.40,action:'add'},
-                {ticker:'PLTR',name:'Palantir Technologies',wt:2.4,wtChg:+2.4,avgPrice:84.40,action:'new'},
-                {ticker:'NFLX',name:'Netflix Inc',wt:2.0,wtChg:+0.6,avgPrice:952.40,action:'add'},
-                {ticker:'UBER',name:'Uber Technologies',wt:1.8,wtChg:+0.4,avgPrice:78.40,action:'add'},
-                {ticker:'SHOP',name:'Shopify Inc',wt:1.6,wtChg:+0.6,avgPrice:114.40,action:'add'},
-                {ticker:'MELI',name:'MercadoLibre Inc',wt:1.4,wtChg:+0.4,avgPrice:1986.40,action:'hold'},
-                {ticker:'NU',name:'Nu Holdings',wt:1.2,wtChg:+1.2,avgPrice:14.40,action:'new'},
+            id:'tiger', name:'Tiger Global Management', manager:'Chase Coleman',
+            ret1q:-7.4, ret1y:9.8, newBuySector:'AI 반도체·이머징 소비자테크',
+            hotBadge:'🐯', emoji:'🐯',
+            tags:['성장주','글로벌테크','AI반도체'],
+            volatilePicks:['GOOGL','TSM','CPNG'],
+            top3Add:[
+                {ticker:'TSM',name:'Taiwan Semiconductor',wtChg:+2.4,avgPrice:186.40,theme:'AI 파운드리 독점 — 수요 구조적'},
+                {ticker:'CPNG',name:'Coupang Inc',wtChg:+3.8,avgPrice:24.40,theme:'한국 이커머스 AI 물류 고성장'},
+                {ticker:'AVGO',name:'Broadcom Inc',wtChg:+2.2,avgPrice:188.40,theme:'AI 커스텀칩(XPU) 수요 가속'},
             ],
-            insight:'타이거 글로벌은 2025년에 완전히 부활. META·NVDA 이중 확대와 APP 신규 대량 편입이 수익률의 핵심. RDDT도 새롭게 추가했으며, SNOW·MSFT는 성장 모멘텀 둔화로 축소. Chase Coleman의 AI 순수 베팅 전략이 주효.'
+            holdings:[
+                {ticker:'GOOGL',name:'Alphabet Inc',wt:13.4,wtChg:0,avgPrice:168.40,action:'hold'},
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:9.2,wtChg:+1.8,avgPrice:112.40,action:'add'},
+                {ticker:'AMZN',name:'Amazon.com',wt:9.1,wtChg:0,avgPrice:198.40,action:'hold'},
+                {ticker:'TSM',name:'Taiwan Semiconductor',wt:8.2,wtChg:+2.4,avgPrice:186.40,action:'add'},
+                {ticker:'META',name:'Meta Platforms',wt:7.7,wtChg:+1.2,avgPrice:558.40,action:'add'},
+                {ticker:'SE',name:'Sea Limited',wt:5.6,wtChg:0,avgPrice:112.40,action:'hold'},
+                {ticker:'AVGO',name:'Broadcom Inc',wt:4.9,wtChg:+2.2,avgPrice:188.40,action:'add'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:4.1,wtChg:-1.8,avgPrice:412.40,action:'reduce'},
+                {ticker:'GEV',name:'GE Vernova',wt:3.7,wtChg:0,avgPrice:342.40,action:'hold'},
+                {ticker:'LRCX',name:'Lam Research',wt:3.6,wtChg:0,avgPrice:72.40,action:'hold'},
+                {ticker:'SPOT',name:'Spotify Technology',wt:3.4,wtChg:+1.2,avgPrice:642.40,action:'add'},
+                {ticker:'CPNG',name:'Coupang Inc',wt:2.9,wtChg:+3.8,avgPrice:24.40,action:'add'},
+                {ticker:'AMAT',name:'Applied Materials',wt:2.5,wtChg:+1.8,avgPrice:168.40,action:'add'},
+                {ticker:'INTC',name:'Intel Corp',wt:2.2,wtChg:+2.2,avgPrice:22.40,action:'new'},
+                {ticker:'APP',name:'AppLovin Corp',wt:1.7,wtChg:-1.2,avgPrice:248.40,action:'reduce'},
+            ],
+            insight:'타이거글로벌은 Q1 2026 기술 하락장에서 GOOGL·NVDA 대형 포지션 유지로 손실. MSFT를 소폭 축소하고 반도체 장비(AMAT·LRCX)와 아시아 소비자 테크(CPNG·SE) 비중 확대. INTC 신규 매수는 파운드리 전환 카드 역발상 베팅. 22.85B달러 AUM으로 전분기 대비 감소.'
         },
         {
             id:'millennium', name:'Millennium Management', manager:'Izzy Englander',
-            aum:290, top3:[{ticker:'NVDA',wt:5.4},{ticker:'SPY',wt:4.8},{ticker:'MSFT',wt:4.2}],
+            aum:228, top3:[{ticker:'IVV',wt:4.2},{ticker:'IWM',wt:3.8},{ticker:'NVDA',wt:3.1}],
             emoji:'🔮',
             tags:['멀티스트랫','퀀트','롱숏'],
             holdings:[
-                {ticker:'NVDA',name:'NVIDIA Corp',wt:5.4,wtChg:+2.0,avgPrice:124.40,action:'add'},
-                {ticker:'SPY',name:'SPDR S&P 500 ETF',wt:4.8,wtChg:-0.8,avgPrice:526.40,action:'reduce'},
-                {ticker:'MSFT',name:'Microsoft Corp',wt:4.2,wtChg:+0.4,avgPrice:420.40,action:'add'},
-                {ticker:'META',name:'Meta Platforms',wt:3.8,wtChg:+1.2,avgPrice:544.60,action:'add'},
-                {ticker:'AMZN',name:'Amazon.com',wt:3.4,wtChg:+0.6,avgPrice:195.40,action:'add'},
-                {ticker:'AAPL',name:'Apple Inc',wt:3.0,wtChg:-0.4,avgPrice:183.60,action:'hold'},
-                {ticker:'APP',name:'Applovin Corp',wt:2.6,wtChg:+2.6,avgPrice:310.60,action:'new'},
-                {ticker:'PLTR',name:'Palantir Technologies',wt:2.2,wtChg:+2.2,avgPrice:87.60,action:'new'},
-                {ticker:'GOOGL',name:'Alphabet Inc',wt:2.0,wtChg:+0.4,avgPrice:166.60,action:'add'},
-                {ticker:'AVGO',name:'Broadcom Inc',wt:1.8,wtChg:+0.6,avgPrice:220.60,action:'add'},
-                {ticker:'TSLA',name:'Tesla Inc',wt:1.6,wtChg:-0.6,avgPrice:232.60,action:'reduce'},
-                {ticker:'CRWD',name:'CrowdStrike Holdings',wt:1.4,wtChg:+1.4,avgPrice:358.60,action:'new'},
-                {ticker:'QQQ',name:'Invesco QQQ Trust',wt:1.2,wtChg:-0.4,avgPrice:464.60,action:'reduce'},
-                {ticker:'GLD',name:'SPDR Gold ETF',wt:1.0,wtChg:+0.6,avgPrice:192.60,action:'add'},
-                {ticker:'AMZN',name:'Amazon.com',wt:0.8,wtChg:+0.2,avgPrice:192.60,action:'hold'},
+                {ticker:'IVV',name:'iShares S&P 500 ETF',wt:4.2,wtChg:+0.8,avgPrice:522.40,action:'add'},
+                {ticker:'NVDA',name:'NVIDIA Corp',wt:3.1,wtChg:+0.8,avgPrice:112.40,action:'add'},
+                {ticker:'IWM',name:'iShares Russell 2000 ETF',wt:3.8,wtChg:+2.8,avgPrice:196.40,action:'add'},
+                {ticker:'MSFT',name:'Microsoft Corp',wt:2.5,wtChg:0,avgPrice:412.40,action:'hold'},
+                {ticker:'AMZN',name:'Amazon.com',wt:2.0,wtChg:0,avgPrice:198.40,action:'hold'},
+                {ticker:'TSLA',name:'Tesla Inc',wt:0.8,wtChg:+0.2,avgPrice:282.40,action:'add'},
+                {ticker:'META',name:'Meta Platforms',wt:1.5,wtChg:0,avgPrice:558.40,action:'hold'},
+                {ticker:'AAPL',name:'Apple Inc',wt:1.2,wtChg:+0.6,avgPrice:218.40,action:'add'},
+                {ticker:'GOOGL',name:'Alphabet Inc',wt:0.8,wtChg:0,avgPrice:168.40,action:'hold'},
+                {ticker:'NFLX',name:'Netflix Inc',wt:0.7,wtChg:0,avgPrice:952.40,action:'hold'},
+                {ticker:'AVGO',name:'Broadcom Inc',wt:0.7,wtChg:0,avgPrice:188.40,action:'hold'},
+                {ticker:'AMD',name:'Advanced Micro Devices',wt:0.7,wtChg:0,avgPrice:112.40,action:'hold'},
+                {ticker:'WMT',name:'Walmart Inc',wt:1.1,wtChg:0,avgPrice:98.40,action:'hold'},
+                {ticker:'NSC',name:'Norfolk Southern Corp',wt:0.6,wtChg:+0.6,avgPrice:228.40,action:'add'},
+                {ticker:'XLE',name:'Energy Select SPDR ETF',wt:0.5,wtChg:+0.5,avgPrice:88.40,action:'new'},
             ],
-            insight:'밀레니엄은 분산된 멀티스트랫 구조로 단일 종목 비중이 상대적으로 낮음. Q4 2025에 APP·PLTR 동시 신규 편입 — AI 소프트웨어 레이어에 기관 수요가 몰리고 있음을 시사. 퀀트 롱숏 비중이 높아 시장 방향성 중립 유지.'
+            insight:'밀레니엄은 Q1 2026 +1.5% — 팟 기반 분산이 시장 하락 방어. IWM 소형주 ETF 대규모 추가는 관세 재건 수혜 베팅. NVDA·AAPL 추가매수는 딥시크 충격 저점 포착. NSC 철도 신규는 리쇼어링 인프라 테마. 이란 분쟁 주간 손실이 있었으나 전분기 수익으로 만회. 228B달러 AUM.'
         },
         {
             id:'capitalgroup', name:'Capital Group', manager:'Mike Gitlin',
@@ -4488,7 +4489,7 @@
                 {ticker:'IAU',name:'iShares Gold ETF',wt:2.0,wtChg:+0.6,avgPrice:40.40,action:'add'},
                 {ticker:'IEMB',name:'iShares EM USD Bond',wt:1.6,wtChg:+0.4,avgPrice:87.40,action:'add'},
             ],
-            insight:'핌코는 채권 전문 운용사지만 Q4 2025 AI 혁명에 주식 익스포저 확대. 금리 하락 국면에서 TLT·AGG 비중 늘리면서 NVDA로 AI 인프라 성장 수혜도 동시 취득. 매크로·AI 복합 포트폴리오 전략.'
+            insight:'핌코는 채권 전문 운용사지만 Q1 2026 AI 혁명에 주식 익스포저 확대. 금리 하락 국면에서 TLT·AGG 비중 늘리면서 NVDA로 AI 인프라 성장 수혜도 동시 취득. 매크로·AI 복합 포트폴리오 전략.'
         },
         {
             id:'bnymellon', name:'BNY Mellon Investment Mgmt', manager:'Hanneke Smits',
@@ -4512,7 +4513,7 @@
                 {ticker:'COST',name:'Costco Wholesale',wt:0.6,wtChg:+0.1,avgPrice:926.40,action:'hold'},
                 {ticker:'AVGO',name:'Broadcom Inc',wt:0.5,wtChg:+0.2,avgPrice:192.40,action:'add'},
             ],
-            insight:'BNY멜론은 수탁·커스터디 서비스와 운용을 병행. 패시브 인덱스 비중이 크나 Q4 2025에 NVDA 비중 확대가 돋보임. AI 기반 수탁 인프라 혁신 사업과 AI 주식 투자가 동시 진행 중.'
+            insight:'BNY멜론은 수탁·커스터디 서비스와 운용을 병행. 패시브 인덱스 비중이 크나 Q1 2026에 NVDA 비중 확대가 돋보임. AI 기반 수탁 인프라 혁신 사업과 AI 주식 투자가 동시 진행 중.'
         },
         {
             id:'amundi', name:'Amundi Asset Management', manager:'Valérie Baudson',
@@ -4584,7 +4585,7 @@
                 {ticker:'PLTR',name:'Palantir Technologies',wt:0.8,wtChg:+0.8,avgPrice:80.80,action:'new'},
                 {ticker:'SHOP',name:'Shopify Inc',wt:0.6,wtChg:+0.4,avgPrice:108.80,action:'add'},
             ],
-            insight:'T.로우프라이스는 성장주 장기 액티브의 대명사. Q4 2025에 NVDA를 TOP1 비중으로 올리며 AI 인프라 우선 전략 명확화. META·AMZN 동시 추가매수로 AI 광고+클라우드 이중 수혜 포지션 강화.'
+            insight:'T.로우프라이스는 성장주 장기 액티브의 대명사. Q1 2026에 NVDA를 TOP1 비중으로 올리며 AI 인프라 우선 전략 명확화. META·AMZN 동시 추가매수로 AI 광고+클라우드 이중 수혜 포지션 강화.'
         },
         {
             id:'morganstanleyim', name:'Morgan Stanley Invest. Mgmt', manager:'Dan Simkowitz',
@@ -4704,7 +4705,7 @@
                 {ticker:'PLTR',name:'Palantir Technologies',wt:0.7,wtChg:+0.7,avgPrice:78.80,action:'new'},
                 {ticker:'SHOP',name:'Shopify Inc',wt:0.6,wtChg:+0.4,avgPrice:106.80,action:'add'},
             ],
-            insight:'얼라이언스번스타인은 성장과 가치의 결합 운용으로 유명. Q4 2025에 NVDA를 TOP2 비중으로 올리며 AI 칩 독점 강세에 강한 확신. GOOGL·META·AMZN 동시 추가는 AI 플랫폼 전방위 베팅 전략.'
+            insight:'얼라이언스번스타인은 성장과 가치의 결합 운용으로 유명. Q1 2026에 NVDA를 TOP2 비중으로 올리며 AI 칩 독점 강세에 강한 확신. GOOGL·META·AMZN 동시 추가는 AI 플랫폼 전방위 베팅 전략.'
         },
         {
             id:'kkr', name:'KKR & Co', manager:'Joe Bae & Scott Nuttall',
@@ -5793,6 +5794,7 @@
 
         // 시그널 + 점수 + reason 계산 (탭별)
         let signals = [], score = 0, reason = '', timingBadge = '', expectedMove = '', bounceTarget = 0, vpSectionHtml = '';
+        let entry = price, stopLoss = price * 0.95, target = price * 1.10;
         const kind = q._alphaKind;
 
         if (kind === 'bounce') {
@@ -5931,7 +5933,21 @@
                                                          : { label:'📅 추세 형성 대기', cls:'amber' };
             // 예상 수익 — Minervini 1차 목표 +20%
             expectedMove = sepaScore >= 85 ? 20 : sepaScore >= 70 ? 15 : 10;
-        } else if (kind === 'bounce') {
+        }
+        // 티어 등급 (시그널 수 기반)
+        let tierClass, tierLabel;
+        if (kind === 'bounce') {
+            const sigCount = (q._bounceSignals || []).length;
+            if (sigCount >= 4)      { tierClass = 'alpha-tier1'; tierLabel = 'TIER 1'; }
+            else if (sigCount >= 2) { tierClass = 'alpha-tier2'; tierLabel = 'TIER 2'; }
+            else                    { tierClass = 'alpha-tier3'; tierLabel = 'TIER 3'; }
+        } else {
+            if (score >= 5)      { tierClass = 'alpha-tier1'; tierLabel = 'TIER 1'; }
+            else if (score >= 3) { tierClass = 'alpha-tier2'; tierLabel = 'TIER 2'; }
+            else                 { tierClass = 'alpha-tier3'; tierLabel = 'TIER 3'; }
+        }
+        // 진입가·손절·목표가 (탭별) — 별도 if 체인으로 분리
+        if (kind === 'bounce') {
             stopLoss = price * 0.96;
             target = price * (1 + (expectedMove || 8) / 100);
         } else if (kind === 'daytrade') {
@@ -6891,15 +6907,20 @@
         let html;
         if (!pos || pos.status === 'closed') {
             const isClosed = pos && pos.status === 'closed';
+            const _allPos = _posLoad();
+            const _isWatching = _allPos.some(p => p.ticker === currentSymbol && p.status === 'watching');
             html = `<div class="mypos-card mypos-empty">
                 <div class="mypos-empty-left">
                     <span class="mypos-label-chip">내 포지션</span>
-                    <div class="mypos-empty-txt">${isClosed ? '매도 완료 · 재진입 검토' : '이 종목 포지션을 등록하세요'}</div>
+                    <div class="mypos-empty-txt">${isClosed ? '매도 완료 · 재진입 검토' : _isWatching ? '관망 중 — 진입 시 등록하세요' : '이 종목 포지션을 등록하세요'}</div>
                 </div>
-                <button class="mypos-add-btn" onclick="_posOpenSheet('${currentSymbol}')">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    ${isClosed ? '재등록' : '등록'}
-                </button>
+                <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+                    <button class="mypos-watch-btn${_isWatching ? ' active' : ''}" id="posWatchBtn" onclick="_posAddWatching()">${_isWatching ? '👁 관망 중' : '👁 관망'}</button>
+                    <button class="mypos-add-btn" onclick="_posOpenSheet('${currentSymbol}')">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        ${isClosed ? '재등록' : '등록'}
+                    </button>
+                </div>
             </div>`;
         } else {
             const pnl = _posPnlPct(pos.entryPrice, cur);
@@ -6950,6 +6971,10 @@
                     ${tp2Txt ? `<span class="mypos-tp2-chip">🟩 익절2 ${tp2Txt}</span>` : ''}
                 </div>` : ''}
                 ${pos.memo ? `<div class="mypos-memo">📝 ${escHtml(pos.memo)}</div>` : ''}
+                ${pos.status === 'watching' ? `
+                <div class="mypos-unwatch-row">
+                    <button class="mypos-unwatch-btn" onclick="_posAddWatching()">관망 해제</button>
+                </div>` : ''}
             </div>`;
         }
         el.innerHTML = html;
@@ -6979,7 +7004,7 @@
             closedPrice: editable.closedPrice ?? '', memo: editable.memo || '', entryDate: editable.entryDate || _posToday(),
             stopLoss: editable.stopLoss ?? '', tp1: editable.tp1 ?? '', tp2: editable.tp2 ?? '',
         } : {
-            ticker, id: null, status: 'watching',
+            ticker, id: null, status: 'holding',
             entryPrice: '', quantity: '', closedPrice: '', memo: '', entryDate: _posToday(),
             stopLoss: '', tp1: '', tp2: '',
         };
@@ -6999,7 +7024,6 @@
         const cur = _posCurrentPrice();
         const isKR = currentMarket === 'KR';
         const seg = (val,label) => `<button class="pos-seg ${s.status===val?'active':''}" onclick="_posSheetSet('status','${val}')">${label}</button>`;
-        const showEntry = true;
         const showClosed = s.status === 'closed';
         const showSLTP = !showClosed; // holding/watching 상태에서만 표시
         const quick = (!cur) ? '' : `<div class="pos-quick">
@@ -7023,10 +7047,10 @@
         body.innerHTML = `
             <div class="pos-sheet-hd">${escHtml(s.ticker)} 포지션 ${s.id?'편집':'등록'}</div>
             <div class="pos-field"><label>상태</label>
-                <div class="pos-seg-row">${seg('watching','관망')}${seg('holding','보유 중')}${seg('closed','매도 완료')}</div>
+                <div class="pos-seg-row">${seg('holding','보유 중')}${seg('closed','매도 완료')}</div>
             </div>
             <div class="pos-field"><label>진입가${isKR?' (원)':' ($)'}</label>
-                <input type="number" inputmode="decimal" id="posInEntry" value="${s.entryPrice}" placeholder="진입 가격" oninput="_posSheetSet('entryPrice',this.value)">
+                <input type="number" inputmode="decimal" id="posInEntry" value="${s.entryPrice}" placeholder="진입 가격" oninput="_posSheetSet('entryPrice',this.value);_posOnEntryPriceInput(this.value);">
                 ${quick}
             </div>
             ${showClosed ? `<div class="pos-field"><label>매도가${isKR?' (원)':' ($)'}</label>
@@ -7064,7 +7088,50 @@
         if (!_posSheetState) return;
         _posSheetState[k] = v;
         if (k === 'status') _posRenderSheet();
-        else if (k === 'entryPrice') { const i=document.getElementById('posInEntry'); if (i && i.value!==String(v)) i.value=v; }
+        else {
+            // DOM 동기화 — 빠른 버튼 클릭 시 입력 필드에 값이 반영되도록
+            const idMap = { entryPrice:'posInEntry', stopLoss:'posInStop', tp1:'posInTp1', tp2:'posInTp2', closedPrice:'posInClosed', quantity:'posInQty' };
+            const elId = idMap[k];
+            if (elId) { const i=document.getElementById(elId); if (i && i.value!==String(v)) i.value=v; }
+        }
+    }
+    function _posOnEntryPriceInput(val) {
+        const p = parseFloat(val);
+        if (!p || p <= 0) return;
+        const isKR = currentMarket === 'KR';
+        const sl  = +(p * 0.95).toFixed(isKR ? 0 : 2);
+        const tp1 = +(p * 1.10).toFixed(isKR ? 0 : 2);
+        const tp2 = +(p * 1.20).toFixed(isKR ? 0 : 2);
+        const slEl  = document.getElementById('posInStop');
+        const tp1El = document.getElementById('posInTp1');
+        const tp2El = document.getElementById('posInTp2');
+        const st = _posSheetState || {};
+        // DOM 값과 상태 값 모두 비어있을 때만 자동 채움 (quick 버튼 값 보호)
+        if (slEl  && !slEl.value  && !st.stopLoss) { slEl.value  = sl;  _posSheetSet('stopLoss', sl); }
+        if (tp1El && !tp1El.value && !st.tp1)      { tp1El.value = tp1; _posSheetSet('tp1', tp1); }
+        if (tp2El && !tp2El.value && !st.tp2)      { tp2El.value = tp2; _posSheetSet('tp2', tp2); }
+    }
+    function _posAddWatching() {
+        const ticker = currentSymbol;
+        if (!ticker) return;
+        const arr = _posLoad();
+        const existing = arr.find(p => p.ticker === ticker && p.status === 'watching');
+        if (existing) {
+            _posSaveAll(arr.filter(p => p.id !== existing.id));
+            try { showToast('관망 해제'); } catch(e){}
+        } else {
+            const name = stockData?.meta?.longName || stockData?.meta?.shortName || ticker;
+            arr.push({
+                id: _posUuid(), ticker, name, status: 'watching',
+                entryPrice: null, quantity: null, closedPrice: null, closedAt: null,
+                memo: '', entryDate: _posToday(), stopLoss: null, tp1: null, tp2: null,
+                createdAt: new Date().toISOString(),
+            });
+            _posSaveAll(arr);
+            try { showToast('👁 관망 등록됨'); } catch(e){}
+        }
+        try { renderMyPosition(); } catch(e){}
+        try { if (document.getElementById('positionScreen')?.style.display === '') _posLoadAndRender(); } catch(e){}
     }
     function _posSave() {
         const s = _posSheetState;
@@ -9807,7 +9874,7 @@
                 <span class="sm-deep-emoji">${inst.emoji}</span>
                 <div>
                     <div class="sm-deep-title">${inst.name}</div>
-                    <div class="sm-deep-subtitle">${inst.manager} · <span class="sm-quarter-badge">Q4 2025</span> · 1Y +${inst.ret1y}%</div>
+                    <div class="sm-deep-subtitle">${inst.manager} · <span class="sm-quarter-badge">Q1 2026</span> · 1Y +${inst.ret1y}%</div>
                 </div>
             </div>
             <div style="margin:12px 0 6px;font-size:12px;font-weight:600;color:var(--text-secondary)">🔥 최다 비중 증가 TOP 3</div>
@@ -9868,7 +9935,7 @@
                 <span class="sm-deep-emoji">${inst.emoji}</span>
                 <div>
                     <div class="sm-deep-title">${inst.name}</div>
-                    <div class="sm-deep-subtitle">${inst.manager} · <span class="sm-quarter-badge">Q4 2025</span> · AUM ${fmtAum(inst.aum)}</div>
+                    <div class="sm-deep-subtitle">${inst.manager} · <span class="sm-quarter-badge">Q1 2026</span> · AUM ${fmtAum(inst.aum)}</div>
                 </div>
             </div>
             <div style="margin:12px 0 6px;font-size:12px;font-weight:600;color:var(--text-secondary)">📊 포트폴리오 트리맵</div>
@@ -13475,12 +13542,25 @@
                                 }
                             }
                             else { emoji = '💰'; headline = `보유 포지션 — 익절·손절 점검 (${latest.text})`; }
-                        } else if (_pa.status === 'watching' && isBuy) {
-                            emoji = '🎯'; headline = `관심 종목 진입가 근접 (${latest.text})`;
+                        } else if (_pa.status === 'watching') {
+                            if (isBuy) {
+                                emoji = '🎯'; headline = `관심 종목 진입가 근접 (${latest.text})`;
+                            } else {
+                                posSkip = true; // 관망 중(미진입) — 매도 시그널 억제
+                            }
                         }
                     } else {
+                        // 무포지션
                         const _pl = _posLatestForTicker(currentSymbol);
-                        if (_pl && _pl.status === 'closed') { emoji = '🔄'; headline = `재진입 검토 시그널 (${latest.text})`; }
+                        if (_pl && _pl.status === 'closed') {
+                            if (isBuy) {
+                                emoji = '🔄'; headline = `재진입 검토 시그널 (${latest.text})`;
+                            } else {
+                                posSkip = true; // 매도 완료 후 추가 매도 시그널 억제
+                            }
+                        } else if (!isBuy) {
+                            posSkip = true; // 무포지션 — 매도 시그널 억제
+                        }
                     }
                 } catch(e) {}
                 if (!posSkip) {
@@ -13562,8 +13642,26 @@
                 _chartLiveLines.push(pl);
             } catch(e) {}
         };
-        resistances.forEach(r => addLine(r.price, 'rgba(239,68,68,0.9)',  `📍 저항 $${r.price.toFixed(2)}`, undefined, 4));
-        supports.forEach(s   => addLine(s.price, 'rgba(59,130,246,0.9)', `📍 지지 $${s.price.toFixed(2)}`, undefined, 4));
+        // 가격 라벨 포맷 — KR/US 통화 분기
+        const _lpFmt = p => currentMarket === 'KR'
+            ? Math.round(p).toLocaleString() + '원'
+            : '$' + p.toFixed(2);
+        resistances.forEach(r => addLine(r.price, 'rgba(239,68,68,0.9)',  `📍 저항 ${_lpFmt(r.price)}`, undefined, 4));
+        let _bounceBadgeShown = false; // 중복 배지 방지
+        supports.forEach(s => {
+            const _distPct = curPrice > 0 ? (curPrice - s.price) / s.price * 100 : 999;
+            if (_distPct >= 0 && _distPct <= 5.0) {
+                // 지지선 5% 이내 — 지지 반등 매수 가능
+                addLine(s.price, 'rgba(34,197,94,0.9)', `🔄 지지 반등 ${_lpFmt(s.price)}`, 0, 3);
+                if (bar && !_bounceBadgeShown) {
+                    bar.insertAdjacentHTML('beforeend',
+                        `<span class="chart-sig-pill sig-emerald">🔄 지지 반등 매수</span>`);
+                    _bounceBadgeShown = true;
+                }
+            } else {
+                addLine(s.price, 'rgba(59,130,246,0.9)', `📍 지지 ${_lpFmt(s.price)}`, undefined, 4);
+            }
+        });
 
         // 4.5) 눌림목 · 돌파 자리 (v684) — 모든 인터벌 (분·일·주·월봉)
         //   돌파 자리 = 최근 20봉 최고가 (현재가 아래면 미표시 — 이미 돌파됨)
@@ -13575,45 +13673,21 @@
             const last20Hi = highs.slice(Math.max(0, highs.length - 21), highs.length - 1).filter(v => v != null);
             if (last20Hi.length >= 5) {
                 const breakoutLv = Math.max(...last20Hi);
-                // 현재가가 돌파 라인 아래일 때만 표시 (= 돌파 대기 중)
                 if (breakoutLv > curPrice && breakoutLv <= curPrice * 1.35) {
-                    addLine(breakoutLv, 'rgba(234,179,8,0.95)', `🚀 돌파 $${breakoutLv.toFixed(2)}`, 2, 3);
+                    // 돌파 대기 중 — 노란 점선
+                    addLine(breakoutLv, 'rgba(234,179,8,0.95)', `🚀 돌파 ${_lpFmt(breakoutLv)}`, 2, 3);
+                } else if (curPrice >= breakoutLv && curPrice <= breakoutLv * 1.05) {
+                    // 돌파 직후 (0~5% 이내) — 초록 실선 + 진입 배지
+                    addLine(breakoutLv, 'rgba(34,197,94,0.95)', `✅ 돌파 진입 ${_lpFmt(breakoutLv)}`, 0, 2);
+                    if (bar) bar.insertAdjacentHTML('beforeend',
+                        `<span class="chart-sig-pill sig-emerald">✅ 돌파 진입</span>`);
                 }
             }
             // 눌림목 라인 — EMA20 (현재가가 EMA20 위 = 상승 추세일 때만)
             if (lastEma20 != null && lastEma20 < curPrice && lastEma20 >= curPrice * 0.80) {
-                addLine(lastEma20, 'rgba(34,197,94,0.95)', `🟢 눌림목 $${lastEma20.toFixed(2)}`, 2, 3);
+                addLine(lastEma20, 'rgba(34,197,94,0.95)', `🟢 눌림목 ${_lpFmt(lastEma20)}`, 2, 3);
             }
         } catch(e) {}
-
-        // 5) 익절 라인 — ATR(14) 기반 3단계 분할익절
-        //    분할매수 라인은 _renderSplitBuyLayer(SD 1~6차)가 담당하므로 여기서는 익절만 표시
-        const atrArr = calcATR(highs, lows, closes, 14);
-        const atr = lastVal(atrArr);
-        if (atr != null && atr > 0 && lastClose != null && lastClose > 0) {
-            const isKR = currentMarket === 'KR';
-            const fmtP = p => isKR ? Math.round(p).toLocaleString() + '원' : '$' + p.toFixed(2);
-
-            // 익절은 현재가 기준 (ATR 배수)
-            const t1 = lastClose + atr * 1.5;
-            const t2 = lastClose + atr * 3.0;
-            const t3 = lastClose + atr * 5.0;
-
-            const addStratLine = (price, color, style, width, label, priority = 3) => {
-                try {
-                    const axisLabelVisible = _claimPriceLabel(price, priority);
-                    const pl = lwCandleSeries.createPriceLine({
-                        price, color, lineWidth: width, lineStyle: style,
-                        axisLabelVisible, title: label,
-                    });
-                    _chartLiveLines.push(pl);
-                } catch(e) {}
-            };
-            // 분할익절 — 기본 1차만, _chartTpLevel 설정에 따라 2~3차 추가
-            addStratLine(t1, '#22d3ee', 2, 2, `1차 익절 ${fmtP(t1)}`, 3);
-            if (_chartTpLevel >= 2) addStratLine(t2, '#3b82f6', 2, 2, `2차 익절 ${fmtP(t2)}`, 4);
-            if (_chartTpLevel >= 3) addStratLine(t3, '#a855f7', 2, 2, `3차 익절 ${fmtP(t3)}`, 4);
-        }
 
         } // end if (_chartLinesEnabled) — 보조지표 가격 라인 블록 끝
 
@@ -13621,7 +13695,10 @@
         try { _renderKullamagiLayer(q, ts, bb); } catch (e) { console.warn('[kull] render fail', e); }
 
         // 7) 6번 역피라미딩 분할매수 레이어 — _chartSplitEnabled 자체 플래그 (독립 모듈)
-        try { _renderSplitBuyLayer(q, ts); } catch (e) { console.warn('[split] render fail', e); }
+        // Smart Dip 활성 시 SD 레이어가 분할매수를 대신 처리하므로 중복 방지
+        if (!_chartSmartDipEnabled) {
+            try { _renderSplitBuyLayer(q, ts); } catch (e) { console.warn('[split] render fail', e); }
+        }
 
         // 8) 눌림목 감지 레이어 — _chartPullbackEnabled 자체 플래그 (독립 모듈)
         try { _renderPullbackLayer(q, ts); } catch (e) { console.warn('[pullback] render fail', e); }
@@ -13655,7 +13732,7 @@
         const t = SMART_DIP_MAP[ticker?.toUpperCase()]?.type;
         if (t === 'lev3') return { sl:0.3, tp1:1.0, tp2:2.0, maxEntry:4, allocs:[5,10,15,20] };
         if (t === 'lev2') return { sl:0.5, tp1:1.5, tp2:3.0, maxEntry:5, allocs:[5,8,12,15,10] };
-        if (t === 'small') return { sl:0.7, tp1:1.5, tp2:3.0, maxEntry:4, allocs:[5,10,15,20] };
+        if (t === 'small') return { sl:0.7, tp1:1.5, tp2:3.0, maxEntry:6, allocs:[5,8,12,15,5,5] };
         return { sl:1.0, tp1:2.0, tp2:4.0, maxEntry:6, allocs:[5,8,10,15,7,5] };
     }
 
@@ -13741,10 +13818,30 @@
 
         // ── 차트 라인 ──
         if (mode === 'entry' || mode === 'reentry') {
-            entryLevels.forEach(({ num, fib, price }) => {
+            // 현재가 아래 레벨만 표시
+            let sdVisible = entryLevels.filter(e => e.price < lastClose);
+            // ATR 폴백 조건:
+            //   (1) 현재가 아래 레벨 자체가 없거나
+            //   (2) 현재가 아래 레벨이 있어도 활성화된 그룹의 레벨이 없는 경우
+            //   → 활성 그룹 기준으로 폴백해야 1~2차가 현재가 위일 때도 표시됨
+            const _sdGrpOf = num => num <= 2 ? '1_2' : num <= 4 ? '3_4' : '5_6';
+            const _anyEnabledBelow = sdVisible.some(
+                ({ num }) => localStorage.getItem(`stockai_sd_show_${_sdGrpOf(num)}`) !== '0'
+            );
+            if (!_anyEnabledBelow) {
+                // 활성화된 그룹 기준 ATR 폴백 — 현재가 아래에 재계산
+                const SD_FIB_VALS = SD_FIB.slice(0, maxEntry);
+                sdVisible = entryLevels.map((e, i) => ({
+                    ...e,
+                    price: +(lastClose - atr * SD_FIB_VALS[i] * 3).toFixed(2),
+                })).filter(e => e.price > 0);
+            }
+            sdVisible.forEach(({ num, fib, price }) => {
+                const grp = num <= 2 ? '1_2' : num <= 4 ? '3_4' : '5_6';
+                if (localStorage.getItem(`stockai_sd_show_${grp}`) === '0') return;
                 const isGolden = fib === 0.618;
                 _sdAddLine(price, isGolden ? SD_AMBER : 'rgba(245,158,11,0.45)', isGolden ? 2 : 1, isGolden ? 0 : 2,
-                    `SD ${num}차 ${(fib*100).toFixed(1)}%${isGolden?' ★':''}`);
+                    `매수 ${num}차 ${(fib*100).toFixed(1)}%${isGolden?' ★':''}`);
             });
             _sdAddLine(stopLoss, '#EF4444', 1, 2, `SD 손절 ${fmtP(stopLoss)}`);
             if (mode === 'reentry' && pos?.entryPrice) _sdAddLine(pos.entryPrice, '#94a3b8', 1, 2, `이전 진입 ${fmtP(pos.entryPrice)}`);
@@ -13752,8 +13849,12 @@
         } else if (mode === 'loss') {
             if (pos?.entryPrice) _sdAddLine(pos.entryPrice, '#9D4EDD', 2, 0, `내 진입 ${fmtP(pos.entryPrice)}`);
             const done = pos?.splitCount || 1;
-            entryLevels.slice(done).forEach(({ num, fib, price }) =>
-                _sdAddLine(price, SD_AMBER, 1, 2, `SD ${num}차 추가 ${fmtP(price)}`));
+            // 현재가 아래 남은 레벨만 표시
+            entryLevels.slice(done).filter(e => e.price < lastClose).forEach(({ num, fib, price }) => {
+                const grp = num <= 2 ? '1_2' : num <= 4 ? '3_4' : '5_6';
+                if (localStorage.getItem(`stockai_sd_show_${grp}`) === '0') return;
+                _sdAddLine(price, SD_AMBER, 1, 2, `매수 ${num}차 추가 ${fmtP(price)}`);
+            });
             _sdAddLine(pos?.stopLoss || stopLoss, '#EF4444', 2, 0, `손절 ${fmtP(pos?.stopLoss || stopLoss)}`);
         } else if (mode === 'profit') {
             if (pos?.entryPrice) _sdAddLine(pos.entryPrice, '#9D4EDD', 2, 0, `내 진입 ${fmtP(pos.entryPrice)}`);
@@ -13919,6 +14020,16 @@
         }
     }
 
+    function toggleSmartDipGroup(group) {
+        const key = `stockai_sd_show_${group}`;
+        const cur = localStorage.getItem(key) !== '0';
+        localStorage.setItem(key, cur ? '0' : '1');
+        if (_lastSigArgs) {
+            try { renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
+            catch(e) {}
+        }
+    }
+
     // ── Minervini SEPA 토글 (카드 표시/숨김) ─────────────────────
     let _chartSepaEnabled = localStorage.getItem('stockai_chart_sepa') !== '0';
     // 초기 상태 반영 (sepaAnalysis는 렌더 후 표시 여부 제어)
@@ -13967,6 +14078,21 @@
     let _chartKullamagiLines = [];
     let _chartKullamagiEnabled = localStorage.getItem('stockai_chart_kull') !== '0';
 
+    // 페이지 로드 시 분석 라디오 상태 강제 정리
+    // 둘 이상 ON이면 우선순위 적용: Smart Dip > Kullamägi > SEPA
+    (function _initAnalysisRadioState() {
+        const onCount = [_chartKullamagiEnabled, _chartSepaEnabled, _chartSmartDipEnabled].filter(Boolean).length;
+        if (onCount <= 1) return;
+        if (_chartSmartDipEnabled) {
+            _chartKullamagiEnabled = false;
+            _chartSepaEnabled = false;
+            localStorage.setItem('stockai_chart_kull', '0');
+            localStorage.setItem('stockai_chart_sepa', '0');
+        } else if (_chartKullamagiEnabled) {
+            _chartSepaEnabled = false;
+            localStorage.setItem('stockai_chart_sepa', '0');
+        }
+    })();
 
     // ── Kullamägi 버튼 UI ──────────────────────────────────────
     function _updateKullagBtnUi() {
@@ -14476,20 +14602,34 @@
         // 피보나치 레트레이스 레벨 (고점에서 저점 방향)
         // price = swingHigh - range * fibPct
         const FIBS = [
-            { pct: 0.236, weight: 5,  label: '1차', color: '#06B6D4', width: 1, style: 1, suffix: '' },
-            { pct: 0.382, weight: 10, label: '2차', color: '#06B6D4', width: 1, style: 1, suffix: '' },
-            { pct: 0.500, weight: 15, label: '3차', color: '#06B6D4', width: 2, style: 0, suffix: '' },
-            { pct: 0.618, weight: 20, label: '4차', color: '#06B6D4', width: 2, style: 0, suffix: ' ★핵심' },
-            { pct: 0.786, weight: 22, label: '5차', color: '#06B6D4', width: 2, style: 0, suffix: ' ⚠️신중' },
-            { pct: 0.886, weight: 28, label: '6차', color: '#06B6D4', width: 2, style: 0, suffix: ' 🔴마지막' },
+            { pct: 0.236, weight: 5,  label: '진입 1차', color: '#06B6D4', width: 1, style: 1, suffix: '' },
+            { pct: 0.382, weight: 10, label: '진입 2차', color: '#06B6D4', width: 1, style: 1, suffix: '' },
+            { pct: 0.500, weight: 15, label: '진입 3차', color: '#06B6D4', width: 2, style: 0, suffix: '' },
+            { pct: 0.618, weight: 20, label: '진입 4차', color: '#06B6D4', width: 2, style: 0, suffix: ' ★핵심' },
+            { pct: 0.786, weight: 22, label: '진입 5차', color: '#F97316', width: 2, style: 0, suffix: ' ⚠️신중' },
+            { pct: 0.886, weight: 28, label: '진입 6차', color: '#EF4444', width: 2, style: 0, suffix: ' 🔴마지막' },
         ];
 
-        const levels = FIBS.map(f => ({
+        const allLevels = FIBS.map(f => ({
             ...f,
             price: swingHigh - range * f.pct,
             fibLabel: (f.pct * 100).toFixed(1) + '%',
             fmtP, pctOf,
         }));
+
+        // 현재가 아래 라인만 표시
+        // 모두 현재가 위에 있으면 ATR 기반으로 현재가 아래 재계산
+        let levels = allLevels.filter(lv => lv.price < lastClose);
+
+        if (levels.length === 0) {
+            const FIBS_PCT = [0.236, 0.382, 0.500, 0.618, 0.786, 0.886];
+            levels = FIBS.map((f, i) => ({
+                ...f,
+                price: +(lastClose - (atr || lastClose * 0.02) * FIBS_PCT[i] * 3).toFixed(2),
+                fibLabel: (f.pct * 100).toFixed(1) + '%',
+                fmtP, pctOf,
+            })).filter(lv => lv.price > 0);
+        }
 
         // 손절선: 스윙 저점 - ATR*0.3
         const stopPrice = swingLow - (atr || swingLow * 0.03) * 0.3;
@@ -14574,16 +14714,22 @@
                 const active = entryNum <= mobileMaxEntries && !(has5_6Warn && entryNum >= 5);
                 const color = active ? lv.color : 'rgba(148,163,184,0.4)';
                 // 1차 진입가 강조 (🎯, 굵은 실선, 높은 우선순위)
+                // 필터링 후 재배치된 순서대로 번호 재생성
+                const newLabel = `진입 ${entryNum}차`;
+                const suffix = entryNum >= 5 ? ' ⚠️신중'
+                             : entryNum === levels.length ? ' 🔴마지막' : '';
                 const title = entryNum === 1
-                    ? `🎯 1차 진입가 ${fmtP(lv.price)} (${lv.fibLabel})`
-                    : `${lv.label} ${fmtP(lv.price)} (${lv.fibLabel}) — ${lv.weight}%${lv.suffix}`;
+                    ? `🎯 진입 1차 ${fmtP(lv.price)} (${lv.fibLabel})`
+                    : `${newLabel} ${fmtP(lv.price)} (${lv.fibLabel}) — ${lv.weight}%${suffix}`;
                 const width = entryNum === 1 ? 3 : (active ? lv.width : 1);
                 const priority = entryNum === 1 ? 1 : 2;
                 addLine(lv.price, color, lv.style, width, title, priority);
             });
 
-            // 손절선 — priority 1 (가장 중요)
-            addLine(stopPrice, '#EF4444', 1, 3, `🔴 손절선 ${fmtP(stopPrice)} — 이탈 시 전량 청산`, 1);
+            // 손절선 — Smart Dip 활성 시 SD 레이어가 손절선 표시 → 중복 방지
+            if (!_chartSmartDipEnabled) {
+                addLine(stopPrice, '#EF4444', 1, 3, `🔴 손절선 ${fmtP(stopPrice)} — 이탈 시 전량 청산`, 1);
+            }
 
             // 평균 단가 라인 (포지션 등록 시)
             const pos = typeof _posActiveForTicker === 'function' ? _posActiveForTicker(currentSymbol) : null;
@@ -14609,11 +14755,13 @@
                 bar.insertAdjacentHTML('beforeend',
                     `<span class="chart-sig-pill ${_sdTypeMeta.cls}" title="${coeff.typeLabel} — 총 ${coeff.maxEntries}차 분할매수 활성">${_sdTypeMeta.icon} ${_sdTypeMeta.label} (1~${coeff.maxEntries}차)</span>`
                 );
-                // 핵심 4차 진입 가격
-                const lvl4 = levels[3]; // 핵심 4차 (0.618 황금비율)
-                bar.insertAdjacentHTML('beforeend',
-                    `<span class="chart-sig-pill" style="background:rgba(6,182,212,.15);color:#06B6D4;border-color:rgba(6,182,212,.4)">분할매수 핵심 ${fmtP(lvl4.price)} (${lvl4.fibLabel})</span>`
-                );
+                // 핵심 4차 진입 가격 (0.618 황금비율) — levels < 4이면 표시 안함
+                if (levels.length >= 4) {
+                    const lvl4 = levels[3];
+                    bar.insertAdjacentHTML('beforeend',
+                        `<span class="chart-sig-pill" style="background:rgba(6,182,212,.15);color:#06B6D4;border-color:rgba(6,182,212,.4)">분할매수 핵심 ${fmtP(lvl4.price)} (${lvl4.fibLabel})</span>`
+                    );
+                }
                 warnings.filter(w => w.warnOnly).forEach(w => {
                     bar.insertAdjacentHTML('beforeend',
                         `<span class="chart-sig-pill sig-neutral">${w.text}</span>`
@@ -15493,22 +15641,42 @@
     // ═══════════════════════════════════════════════════════════
     // 툴바 드롭다운 — [분석 ▾] / [라인 ▾]
     // ═══════════════════════════════════════════════════════════
+    function _ddOpenMenu(menu, btn) {
+        if (!menu || !btn) return;
+        // 모바일: chart-toolbar의 overflow:auto가 드롭다운을 clipping → position:fixed로 탈출
+        if (window.innerWidth <= 768) {
+            const r = btn.getBoundingClientRect();
+            menu.style.position = 'fixed';
+            menu.style.top  = (r.bottom + 5) + 'px';
+            menu.style.left = Math.min(r.left, window.innerWidth - 170) + 'px';
+            menu.style.zIndex = '99999';
+        } else {
+            menu.style.position = '';
+            menu.style.top  = '';
+            menu.style.left = '';
+            menu.style.zIndex = '';
+        }
+        menu.style.display = 'block';
+    }
+
     function _toggleAnalysisDd(e) {
         e.stopPropagation();
         const menu = document.getElementById('analysisDdMenu');
+        const btn  = document.getElementById('analysisDdBtn');
         if (!menu) return;
         const open = menu.style.display !== 'none';
         _closeAllDds();
-        if (!open) menu.style.display = 'block';
+        if (!open) _ddOpenMenu(menu, btn);
     }
 
     function _toggleLineDd(e) {
         e.stopPropagation();
         const menu = document.getElementById('lineDdMenu');
+        const btn  = document.getElementById('lineDdBtn');
         if (!menu) return;
         const open = menu.style.display !== 'none';
         _closeAllDds();
-        if (!open) menu.style.display = 'block';
+        if (!open) _ddOpenMenu(menu, btn);
     }
 
     function _closeAllDds() {
@@ -15518,23 +15686,29 @@
         if (lm) lm.style.display = 'none';
     }
 
+    function _setDdCheck(id, isChecked) {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('checked', isChecked);
+    }
+
     function _updateDdStates() {
-        // ── [분석 ▾] — Kullamägi 상태 ─────────────────────────
+        // ── [분석 ▾] — Kullamägi / SEPA / Smart Dip ─────────────
         const kullOn = typeof _chartKullamagiEnabled !== 'undefined' && _chartKullamagiEnabled;
-        const elKull = document.getElementById('ddKullamagiCheck');
-        if (elKull) { elKull.textContent = kullOn ? '☑' : '☐'; elKull.style.color = kullOn ? '#9D4EDD' : 'var(--text3)'; }
+        const sepaOn = typeof _chartSepaEnabled      !== 'undefined' && _chartSepaEnabled;
+        const sdOn   = typeof _chartSmartDipEnabled  !== 'undefined' && _chartSmartDipEnabled;
 
-        // ── Minervini SEPA 상태 ───────────────────────────────
-        const sepaOn = typeof _chartSepaEnabled !== 'undefined' && _chartSepaEnabled;
-        const elSepa = document.getElementById('ddSepaCheck');
-        if (elSepa) { elSepa.textContent = sepaOn ? '☑' : '☐'; elSepa.style.color = sepaOn ? '#3B82F6' : 'var(--text3)'; }
+        _setDdCheck('ddKullamagiCheck', kullOn);
+        _setDdCheck('ddSepaCheck',      sepaOn);
+        _setDdCheck('ddSmartDipCheck',  sdOn);
 
-        // ── Smart Dip 상태 ───────────────────────────────────
-        const sdOn = typeof _chartSmartDipEnabled !== 'undefined' && _chartSmartDipEnabled;
-        const elSd = document.getElementById('ddSmartDipCheck');
-        if (elSd) { elSd.textContent = sdOn ? '☑' : '☐'; elSd.style.color = sdOn ? '#F59E0B' : 'var(--text3)'; }
+        // SD 서브메뉴 표시/숨김 + 하위 그룹 체크
+        const elSdSub = document.getElementById('sdSubMenu');
+        if (elSdSub) elSdSub.style.display = sdOn ? 'block' : 'none';
+        _setDdCheck('ddSd12Check', localStorage.getItem('stockai_sd_show_1_2') !== '0');
+        _setDdCheck('ddSd34Check', localStorage.getItem('stockai_sd_show_3_4') !== '0');
+        _setDdCheck('ddSd56Check', localStorage.getItem('stockai_sd_show_5_6') !== '0');
 
-        // ── 버튼 색상 (하나라도 ON이면 활성) ─────────────────
+        // ── 분석 버튼 색상 (하나라도 ON이면 활성) ────────────────
         const analysisBtn = document.getElementById('analysisDdBtn');
         if (analysisBtn) {
             const anyOn = kullOn || sepaOn || sdOn;
@@ -15544,36 +15718,21 @@
             analysisBtn.style.borderColor = anyOn ? `rgba(${sdOn?'245,158,11':sepaOn?'59,130,246':'157,78,221'},.5)` : 'var(--border)';
         }
 
-        // ── [라인 ▾] — 분할매수 / 눌림목 / 지지저항 상태 ────────
+        // ── [라인 ▾] — 분할매수 / 눌림목 / 지지저항 ─────────────
         const splitOn = typeof _chartSplitEnabled    !== 'undefined' && _chartSplitEnabled;
         const pbOn    = typeof _chartPullbackEnabled !== 'undefined' && _chartPullbackEnabled;
         const srOn    = typeof _chartSrEnabled       !== 'undefined' && _chartSrEnabled;
 
-        const items = [
-            { id: 'ddSplitCheck',    on: splitOn, color: '#06B6D4' },
-            { id: 'ddPullbackCheck', on: pbOn,    color: '#10B981' },
-            { id: 'ddSrCheck',       on: srOn,    color: '#F59E0B' },
-        ];
-        items.forEach(({ id, on, color }) => {
-            const el = document.getElementById(id);
-            if (el) { el.textContent = on ? '☑' : '☐'; el.style.color = on ? color : 'var(--text3)'; }
-        });
+        _setDdCheck('ddSplitCheck',    splitOn);
+        _setDdCheck('ddPullbackCheck', pbOn);
+        _setDdCheck('ddSrCheck',       srOn);
 
         // 분할매수 하위 그룹 체크 상태 + 서브메뉴 표시
         const splitSub = document.getElementById('splitSubMenu');
         if (splitSub) splitSub.style.display = splitOn ? 'block' : 'none';
-        const sg = [
-            { id: 'ddSplit12Check', key: 'stockai_split_show_1_2' },
-            { id: 'ddSplit34Check', key: 'stockai_split_show_3_4' },
-            { id: 'ddSplit56Check', key: 'stockai_split_show_5_6' },
-        ];
-        sg.forEach(({ id, key }) => {
-            const el = document.getElementById(id);
-            if (!el) return;
-            const on = localStorage.getItem(key) !== '0';
-            el.textContent = on ? '☑' : '☐';
-            el.style.color = on ? '#06B6D4' : 'var(--text3)';
-        });
+        _setDdCheck('ddSplit12Check', localStorage.getItem('stockai_split_show_1_2') !== '0');
+        _setDdCheck('ddSplit34Check', localStorage.getItem('stockai_split_show_3_4') !== '0');
+        _setDdCheck('ddSplit56Check', localStorage.getItem('stockai_split_show_5_6') !== '0');
 
         const lineBtn = document.getElementById('lineDdBtn');
         if (lineBtn) {
@@ -18238,19 +18397,19 @@
         if (!currentFullSymbol) { el.innerHTML = ''; return; }
 
         // 로딩 표시
-        el.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:12px 0;font-size:13px;color:var(--text2);">🎯 Minervini SEPA — 일봉 데이터 로드 중...</div>`;
+        el.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:14px 16px;margin:0;font-size:13px;color:var(--text2);">🎯 Minervini SEPA — 일봉 데이터 로드 중...</div>`;
 
         const symbol = currentFullSymbol;
         const data = await _fetchSEPADaily(symbol);
         // 종목이 바뀐 경우 무효화
         if (currentFullSymbol !== symbol) return;
         if (!data) {
-            el.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:12px 0;font-size:13px;color:var(--text2);">🎯 Minervini SEPA — 일봉 데이터를 불러올 수 없습니다</div>`;
+            el.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:14px 16px;margin:0;font-size:13px;color:var(--text2);">🎯 Minervini SEPA — 일봉 데이터를 불러올 수 없습니다</div>`;
             return;
         }
         const validCloses = (data.closes || []).filter(v => v != null);
         if (validCloses.length < 200) {
-            el.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:12px 0;font-size:13px;color:var(--text2);">🎯 Minervini SEPA — 200일 이상 일봉 데이터 필요 (현재 ${validCloses.length}일) · 상장 1년 미만 종목</div>`;
+            el.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:14px 16px;margin:0;font-size:13px;color:var(--text2);">🎯 Minervini SEPA — 200일 이상 일봉 데이터 필요 (현재 ${validCloses.length}일) · 상장 1년 미만 종목</div>`;
             return;
         }
 
@@ -18402,7 +18561,7 @@
         `).join('');
 
         return `
-            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:12px 0;">
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:16px 18px;margin:0;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
                     <div style="font-size:16px;font-weight:800;letter-spacing:-.3px;">🎯 Minervini SEPA 분석</div>
                 </div>
@@ -18808,7 +18967,7 @@
             </div>`;
         }).join('');
         return `
-        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;margin:12px 0;">
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:16px;margin:0;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
                 <div style="font-size:14px;font-weight:900;color:var(--text);">🎯 스윙 분석</div>
                 <div style="font-size:11px;color:var(--text3);">7개 카테고리 종합</div>
@@ -18822,7 +18981,7 @@
             </div>
             ${barsHtml}
             ${d ? _buildSwingEntryHtml(_swingEntryPlan(d)) : ''}
-            <button id="swingAiBtn" onclick="_runSwingAi('${escHtml(ticker)}')" style="width:100%;margin-top:6px;padding:11px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:800;cursor:pointer;">🤖 AI 종합 분석</button>
+            <button id="swingAiBtn" onclick="_runSwingAi('${escHtml(ticker)}')" style="width:100%;margin-top:6px;padding:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:999px;font-size:13px;font-weight:800;cursor:pointer;letter-spacing:.02em;">🤖 AI 종합 분석</button>
             <div id="swingAnalysis-ai" style="margin-top:10px;"></div>
             <div style="margin-top:12px;padding:9px 11px;background:var(--bg3);border-radius:8px;font-size:10.5px;color:var(--text3);line-height:1.5;">
                 💡 점수는 룰베이스 알고리즘 자동 산출입니다. 펀더멘탈·뉴스는 외부 데이터 로드 후 갱신됩니다. AI 종합 분석은 버튼 클릭 시에만 호출됩니다.
@@ -24219,6 +24378,7 @@
         _earnSetFilter, _earnApplyFilters, _earnSortBy, _earnBuildDateChips, _earnSelectDateChip,
         _earnWeekNav, _earnToggleDay,
         goMyPosition, renderMyPosition, _posOpenSheet, _posCloseSheet, _posSheetSet, _posSave,
+        _posOnEntryPriceInput, _posAddWatching,
         _posDelete, _posQuickClose, _posSetFilter, _posExport, _posImportPick, _posImportFile,
         closeSideNav, toggleSideNav, openSideNav, goHome, goBack, goSmartMoney,
         switchSmTab, smDeepDive, smDeepBack, filterSmHoldings, smChartLink,
@@ -24237,8 +24397,8 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         setOptionsStrikeRange, toggleOptionsVolFilter, sortOptionsBy,
         manualAnalysisRefresh, pwaInstall,
         toggleChartSigLines, toggleKullamagiLayer, toggleSplitBuyLayer, toggleSplitGroup, getSplitBuyCoeff, togglePullbackLayer, toggleTpLevel, toggleSrLayer,
-        toggleSmartDipLayer, toggleSepaLayer, getSmartDipMode, _scrollToGroup,
-        _toggleAnalysisDd, _toggleLineDd, _closeAllDds, _updateDdStates,
+        toggleSmartDipLayer, toggleSmartDipGroup, toggleSepaLayer, getSmartDipMode, _scrollToGroup,
+        _toggleAnalysisDd, _toggleLineDd, _closeAllDds, _updateDdStates, _setDdCheck,
         handleSearchKeydown, openSearchDropdown, closeSearchDropdown, searchSuggest, levenshtein,
         renderDayUnified, renderDanteAnalysis, runDanteBacktest,
         renderRRAnalysis, renderMinerviniSEPA, renderSwingAnalysis, _runSwingAi, renderRSIMomentum, analyzeRSIDynamic,

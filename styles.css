@@ -1541,6 +1541,8 @@
         .chart-sig-pill.sig-red{background:rgba(239,68,68,.14);color:#ef4444;border:1px solid rgba(239,68,68,.25);}
         .chart-sig-pill.sig-blue{background:rgba(59,130,246,.14);color:#3b82f6;border:1px solid rgba(59,130,246,.30);}
         .chart-sig-pill.sig-neutral{background:rgba(148,163,184,.10);color:var(--text2);border:1px solid var(--border);}
+        .chart-sig-pill.sig-emerald{background:rgba(34,197,94,.18);color:#22c55e;border:1px solid rgba(34,197,94,.35);font-weight:700;animation:sigPulse 1s ease-in-out 3;}
+        @keyframes sigPulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.7;transform:scale(1.04);}}
         [data-theme="light"] .chart-sig-bar{background:#fafafa;}
 
         .tv-chart-wrap{position:relative;width:100%;height:580px;border-radius:0 0 8px 8px;overflow:hidden;}
@@ -4264,6 +4266,28 @@
     cursor:pointer;font-family:inherit;
 }
 .mypos-edit-btn:hover{background:var(--bg3);}
+.mypos-watch-btn{
+    display:inline-flex;align-items:center;gap:4px;flex-shrink:0;
+    padding:9px 13px;border:1.5px solid rgba(139,92,246,.35);border-radius:10px;
+    background:rgba(139,92,246,.10);color:#a78bfa;
+    font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;
+    white-space:nowrap;transition:all .2s;
+}
+.mypos-watch-btn.active{
+    background:rgba(139,92,246,.25);color:#c4b5fd;
+    border-color:rgba(139,92,246,.55);
+}
+.mypos-watch-btn:hover{background:rgba(139,92,246,.18);}
+.mypos-unwatch-row{
+    padding:8px 16px 14px;
+    display:flex;justify-content:center;
+}
+.mypos-unwatch-btn{
+    width:100%;padding:10px;border:1px solid rgba(239,68,68,.35);border-radius:999px;
+    background:rgba(239,68,68,.08);color:#f87171;font-size:12px;font-weight:700;
+    cursor:pointer;font-family:inherit;letter-spacing:.02em;transition:all .2s;
+}
+.mypos-unwatch-btn:hover{background:rgba(239,68,68,.16);border-color:rgba(239,68,68,.5);}
 /* 본문 수치 영역 */
 .mypos-card-body{
     display:flex;align-items:center;gap:10px;
@@ -6819,7 +6843,7 @@
    김직선 분석 카드 (v628) — 일봉 전용
    ═══════════════════════════════════════════════════════ */
 /* ═══ Kullamägi 분석 카드 ═══════════════════════════════════════ */
-.kull-card{margin:12px 0;padding:16px;border:1px solid rgba(157,78,221,.25);border-radius:14px;background:var(--bg2);}
+.kull-card{margin:0;padding:16px;border:1px solid rgba(157,78,221,.25);border-radius:var(--r);background:var(--bg2);}
 .kull-type-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:rgba(157,78,221,.15);color:#9D4EDD;margin-left:8px;vertical-align:middle;}
 /* 종합 점수 */
 .kull-score-wrap{display:flex;align-items:center;gap:14px;padding:12px;background:var(--bg3);border-radius:12px;margin:12px 0;}
@@ -7134,7 +7158,33 @@
     transition:background .12s;
 }
 .chart-dd-item:hover{background:var(--bg3);}
-.chart-dd-check{font-size:13px;width:14px;flex-shrink:0;transition:color .15s;}
+/* 라디오 버튼 스타일 (분석 드롭다운 — 상호 배타) */
+.dd-ios-radio{
+    display:inline-flex;align-items:center;justify-content:center;
+    flex-shrink:0;width:16px;height:16px;
+}
+.dd-ios-radio svg{width:16px;height:16px;}
+.dd-radio-ring{stroke:var(--text3,#888);stroke-width:1.5;fill:transparent;transition:all .2s ease;}
+.dd-radio-dot{fill:transparent;transition:all .2s ease;}
+.dd-ios-radio.checked .dd-radio-ring{stroke:#007AFF;}
+.dd-ios-radio.checked .dd-radio-dot{fill:#007AFF;}
+
+/* iOS 스타일 체크박스 */
+.dd-ios-check{
+    display:inline-flex;align-items:center;justify-content:center;
+    flex-shrink:0;width:16px;height:16px;
+}
+.dd-check-icon{width:16px;height:16px;}
+.dd-check-circle{stroke:var(--text3,#888);stroke-width:1.5;fill:transparent;transition:all .2s ease;}
+.dd-check-mark{stroke:transparent;transition:all .2s ease;}
+.dd-ios-check.checked .dd-check-circle{fill:#007AFF;stroke:#007AFF;}
+.dd-ios-check.checked .dd-check-mark{stroke:#ffffff;}
+.chart-dd-sub-item .dd-ios-check{width:14px;height:14px;}
+.chart-dd-sub-item .dd-check-icon{width:14px;height:14px;}
+@media(max-width:768px){
+    .dd-ios-check{width:16px;height:16px;}
+    .dd-check-icon{width:16px;height:16px;}
+}
 /* 매매 유형 태그 */
 .chart-dd-tag{
     margin-left:auto;padding:2px 6px;
@@ -7190,19 +7240,21 @@
 /* ══════════════════════════════════════════════════
    분석 카드 그룹 시스템
    ══════════════════════════════════════════════════ */
-.analysis-group{margin-bottom:12px;padding:0;border:1px solid var(--border);border-radius:var(--radius-sm,10px);overflow:hidden;background:transparent;}
+.analysis-group{margin-bottom:12px;padding:0;border:none;border-radius:var(--radius-sm,10px);overflow:hidden;background:transparent;}
+#kullamagiAnalysis,#smartDipCard,#guruHolders{margin-bottom:12px;}
 .group-header{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--bg2);border-bottom:1px solid var(--border);}
 .group-icon{font-size:13px;line-height:1;}
 .group-title{font-size:12.5px;font-weight:600;color:var(--text1);letter-spacing:.01em;}
 [data-theme="light"] .group-header{background:var(--bg2);}
-.group-body{padding:8px;display:flex;flex-direction:column;gap:6px;background:transparent;}
+.group-body{padding:0;display:flex;flex-direction:column;gap:12px;background:transparent;}
+.group-body>*{margin-top:0!important;margin-bottom:0!important;}
 [data-theme="light"] .group-body{background:transparent;}
 .group-nav{display:flex;gap:6px;padding:6px 0 10px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;}
 .group-nav::-webkit-scrollbar{display:none;}
 .group-nav button{flex-shrink:0;padding:4px 11px;font-size:11px;border-radius:var(--radius-full,9999px);border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer;white-space:nowrap;transition:background 120ms,color 120ms;}
 .group-nav button:hover,.group-nav button:active{background:var(--bg3);color:var(--text1);}
 @media(max-width:640px){
-    .group-body{padding:6px;}
+    .group-body{padding:0;}
     .group-nav{padding:4px 0 8px;}
     .group-nav button{font-size:10.5px;padding:3px 9px;}
 }

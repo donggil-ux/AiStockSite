@@ -4,7 +4,7 @@
 //   - 이미지/아이콘/폰트: 캐시 우선
 //   - /api/*: 네트워크만 (항상 최신)
 //   - 새 SW 는 waiting 대기 → 사용자가 '새로고침' 토스트 클릭 시에만 활성화
-const CACHE_NAME = 'stockai-v716';
+const CACHE_NAME = 'stockai-v717';
 
 const STATIC_ASSETS = [
   '/icon.svg',
@@ -12,9 +12,7 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', e => {
-  // skipWaiting() 제거 — 자동 활성화하면 '새로고침' 토스트가 반복 노출되는 버그 유발.
-  //   새 SW 는 waiting 상태로 대기 → 사용자가 토스트의 '새로고침' 클릭 시에만
-  //   SKIP_WAITING 메시지로 활성화 (표준 PWA 업데이트 플로우).
+  self.skipWaiting(); // 새 버전 즉시 활성화
   e.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS).catch(()=>{}))
   );
