@@ -15756,6 +15756,18 @@
         _setDdCheck('ddSplit34Check', localStorage.getItem('stockai_split_show_3_4') !== '0');
         _setDdCheck('ddSplit56Check', localStorage.getItem('stockai_split_show_5_6') !== '0');
 
+        // 수정 3: Smart Dip ON 시 분할매수 버튼 흐리게 + 안내 툴팁
+        const splitBtn = document.getElementById('ddSplitCheck')?.closest('.chart-dd-item');
+        if (splitBtn) {
+            if (sdOn) {
+                splitBtn.style.opacity = '0.4';
+                splitBtn.title = 'Smart Dip 활성 시 자동 비활성';
+            } else {
+                splitBtn.style.opacity = '';
+                splitBtn.title = '';
+            }
+        }
+
         // 지지저항 서브메뉴 표시/숨김 + 모드 체크 상태
         const srSub = document.getElementById('srSubMenu');
         if (srSub) srSub.style.display = srOn ? 'block' : 'none';
@@ -15771,6 +15783,18 @@
             lineBtn.style.borderColor = 'var(--border)';
         }
     }
+
+    // 수정 4: 페이지 로드 시 Smart Dip과 분할매수 동시 ON이면 Smart Dip 우선 적용
+    function _initLayerState() {
+        const sdOn    = localStorage.getItem('stockai_chart_smartdip_enabled') === '1';
+        const splitOn = localStorage.getItem('stockai_chart_split_enabled') !== '0';
+        if (sdOn && splitOn) {
+            _chartSplitEnabled = false;
+            localStorage.setItem('stockai_chart_split_enabled', '0');
+        }
+    }
+    _initLayerState();
+    _updateDdStates();
 
     // 외부 클릭 시 드롭다운 닫기
     document.addEventListener('click', _closeAllDds);
