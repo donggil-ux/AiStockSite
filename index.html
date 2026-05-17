@@ -13850,12 +13850,29 @@
                     price: +(lastClose - atr * SD_FIB_VALS[i] * 3).toFixed(2),
                 })).filter(e => e.price > 0);
             }
-            sdVisible.forEach(({ num, fib, price }) => {
+            // 지지선 연동 — sdVisible[0](첫 진입) 가격을 현재가 근접 지지선으로 교체
+            // 조건: 지지선이 현재가 -3% 이내 AND 기존 1차 계산가와 ±2% 이내
+            if (_srLevels?.supports?.length && sdVisible.length > 0) {
+                const nearSupport = _srLevels.supports
+                    .filter(s => s.price < lastClose && s.price > lastClose * 0.97)
+                    .sort((a, b) => b.price - a.price)[0]; // 현재가에 가장 가까운 지지선
+                if (nearSupport) {
+                    const firstEntry = sdVisible[0];
+                    const pctDiff = Math.abs(firstEntry.price - nearSupport.price) / firstEntry.price;
+                    if (pctDiff <= 0.02) {
+                        sdVisible[0] = { ...firstEntry, price: nearSupport.price, _supportSnapped: true };
+                    }
+                }
+            }
+
+            sdVisible.forEach(({ num, fib, price, _supportSnapped }) => {
                 const grp = num <= 2 ? '1_2' : num <= 4 ? '3_4' : '5_6';
                 if (localStorage.getItem(`stockai_sd_show_${grp}`) === '0') return;
                 const isGolden = fib === 0.618;
-                _sdAddLine(price, isGolden ? SD_AMBER : 'rgba(245,158,11,0.45)', isGolden ? 2 : 1, isGolden ? 0 : 2,
-                    `매수 ${num}차 ${(fib*100).toFixed(1)}%${isGolden?' ★':''}`);
+                const lineLabel = _supportSnapped
+                    ? `매수 ${num}차 🎯지지반등 ${fmtP(price)}`
+                    : `매수 ${num}차 ${(fib*100).toFixed(1)}%${isGolden?' ★':''}`;
+                _sdAddLine(price, isGolden ? SD_AMBER : 'rgba(245,158,11,0.45)', isGolden ? 2 : 1, isGolden ? 0 : 2, lineLabel);
             });
             _sdAddLine(stopLoss, '#EF4444', 1, 2, `손절라인 ${fmtP(stopLoss)}`);
             if (mode === 'reentry' && pos?.entryPrice) _sdAddLine(pos.entryPrice, '#94a3b8', 1, 2, `이전 진입 ${fmtP(pos.entryPrice)}`);
