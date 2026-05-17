@@ -2685,7 +2685,7 @@
         return `<div class="top100-row" onclick="quickSearch('${symbol}','US')">
             <button class="top100-fav ${faved?'on':''}" aria-label="즐겨찾기" onclick="_top100ToggleFav(event,'${symbol}','${market}','${safeName}')"><i class="${heartCls}"></i></button>
             <div class="top100-rank ${rankCls}">${i + 1}</div>
-            ${_tickerLogoHTML(symbol, market)}
+            ${_tickerLogoHTML(symbol, market, name)}
             <div class="top100-info">
                 <div class="top100-ticker-sym">${symbol}</div>
                 <div class="top100-reason" data-reason-for="${symbol}" data-fallback="${escHtml(name)}">${escHtml(name)}</div>
@@ -6493,7 +6493,7 @@
                      onclick="quickSearch('${symbol}','US')">
             <button class="earn-fav-btn ${faved?'on':''}" aria-label="즐겨찾기" onclick="_top100ToggleFav(event,'${symbol}','${market}','${safeName}')"><i class="${heartCls}"></i></button>
             <div class="earn-cell-stock">
-                ${_tickerLogoHTML(symbol, market)}
+                ${_tickerLogoHTML(symbol, market, name)}
                 <div class="earn-stock-id">
                     <span class="earn-ticker">${escHtml(symbol)}</span>
                     <span class="earn-stock-name" title="${escHtml(name)}">${escHtml(name)}</span>
@@ -11151,7 +11151,7 @@
             const _heroLogo = document.getElementById('stockHeroLogo');
             if (_heroLogo && typeof _tickerLogoHTML === 'function') {
                 const _logoSym = currentMarket === 'KR' ? (currentSymbol || meta.symbol) : meta.symbol;
-                _heroLogo.innerHTML = _tickerLogoHTML(_logoSym, currentMarket);
+                _heroLogo.innerHTML = _tickerLogoHTML(_logoSym, currentMarket, meta.shortName || meta.name || meta.longName);
             }
         } catch {}
         // 모바일 상단 바 종목명 — 스크롤 시 노출될 컴팩트 표시 (종목명+금액+퍼센트)
