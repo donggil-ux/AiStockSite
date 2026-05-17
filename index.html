@@ -10359,6 +10359,9 @@
 
     function renderSmTop10() {
         const sorted = [...SM_HOT].sort((a, b) => b.ret1y - a.ret1y);
+        // 탭 배지 업데이트
+        const _t10c = document.getElementById('smTabTop10Count');
+        if (_t10c) _t10c.textContent = sorted.length;
         const panel = document.getElementById('smPanelTop10');
         panel.innerHTML = sorted.map((inst, i) => {
             const rank = i + 1;
@@ -10393,6 +10396,9 @@
 
     function renderSmGuru() {
         const sorted = [...SM_KINGDOM].sort((a, b) => b.aum - a.aum);
+        // 탭 배지 업데이트
+        const _kgc = document.getElementById('smTabGuruCount');
+        if (_kgc) _kgc.textContent = sorted.length;
         const panel = document.getElementById('smPanelGuru');
         const fmtAum = v => v >= 1000 ? `$${(v/1000).toFixed(1)}T` : `$${v}B`;
         panel.innerHTML = sorted.map((inst, i) => {
@@ -10933,6 +10939,11 @@
     async function renderGuruReal() {
         const panel = document.getElementById('smPanelReal');
         if (!panel) return;
+        // 캐시 히트 시에도 배지 즉시 업데이트
+        if (_guruCache.list) {
+            const _rc = document.getElementById('smTabRealCount');
+            if (_rc) _rc.textContent = _guruCache.list.length;
+        }
         const now = Date.now();
         if (!_guruCache.list || now - _guruCache.ts > _GURU_TTL) {
             // 스켈레톤 카드 — 실제 카드 레이아웃과 동일 (아바타 36px / 이름·매니저 / AUM / 홀딩 칩)
@@ -10959,6 +10970,9 @@
                 if (!r.ok) throw new Error('HTTP ' + r.status);
                 _guruCache.list = await r.json();
                 _guruCache.ts = now;
+                // 탭 배지 업데이트
+                const _rc = document.getElementById('smTabRealCount');
+                if (_rc && _guruCache.list) _rc.textContent = _guruCache.list.length;
             } catch (e) {
                 panel.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-secondary)">
                     ⚠️ 부자 포트폴리오 데이터를 불러올 수 없습니다.<br><small>${escHtml(e.message)}</small>
