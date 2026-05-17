@@ -4,7 +4,7 @@
 //   - 이미지/아이콘/폰트: 캐시 우선
 //   - /api/*: 네트워크만 (항상 최신)
 //   - 새 SW 는 waiting 대기 → 사용자가 '새로고침' 토스트 클릭 시에만 활성화
-const CACHE_NAME = 'stockai-v717';
+const CACHE_NAME = 'stockai-v718';
 
 const STATIC_ASSETS = [
   '/icon.svg',
@@ -12,7 +12,7 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', e => {
-  self.skipWaiting(); // 새 버전 즉시 활성화
+  // skipWaiting은 여기서 호출하지 않음 — 사용자가 토스트 클릭 시 SKIP_WAITING 메시지로만 활성화
   e.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS).catch(()=>{}))
   );
@@ -24,9 +24,6 @@ self.addEventListener('activate', e => {
     const keys = await caches.keys();
     await Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)));
     await self.clients.claim();
-    // 모든 클라이언트에 새 버전 알림 → 필요 시 자동 리로드 가능
-    const clients = await self.clients.matchAll({type:'window'});
-    clients.forEach(c => c.postMessage({type:'SW_UPDATED', version: CACHE_NAME}));
   })());
 });
 
