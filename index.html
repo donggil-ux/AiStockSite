@@ -13915,8 +13915,23 @@
     }
 
     function toggleSmartDipLayer() {
-        _chartSmartDipEnabled = !_chartSmartDipEnabled;
-        localStorage.setItem('stockai_chart_smartdip_enabled', _chartSmartDipEnabled ? '1' : '0');
+        const newState = !_chartSmartDipEnabled;
+        // 라디오 방식: ON 시 다른 분석 자동 OFF
+        if (newState) {
+            if (_chartKullamagiEnabled) {
+                _chartKullamagiEnabled = false;
+                localStorage.setItem('stockai_chart_kull', '0');
+                _updateKullagBtnUi();
+            }
+            if (_chartSepaEnabled) {
+                _chartSepaEnabled = false;
+                localStorage.setItem('stockai_chart_sepa', '0');
+                const sepaEl = document.getElementById('sepaAnalysis');
+                if (sepaEl) sepaEl.classList.add('sepa-hidden');
+            }
+        }
+        _chartSmartDipEnabled = newState;
+        localStorage.setItem('stockai_chart_smartdip_enabled', newState ? '1' : '0');
         if (_lastSigArgs) {
             try { renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); } catch(e) {}
         } else {
@@ -13935,15 +13950,34 @@
     })();
 
     function toggleSepaLayer() {
-        _chartSepaEnabled = !_chartSepaEnabled;
-        localStorage.setItem('stockai_chart_sepa', _chartSepaEnabled ? '1' : '0');
+        const newState = !_chartSepaEnabled;
+        // 라디오 방식: ON 시 다른 분석 자동 OFF
+        if (newState) {
+            if (_chartKullamagiEnabled) {
+                _chartKullamagiEnabled = false;
+                localStorage.setItem('stockai_chart_kull', '0');
+                _updateKullagBtnUi();
+            }
+            if (_chartSmartDipEnabled) {
+                _chartSmartDipEnabled = false;
+                localStorage.setItem('stockai_chart_smartdip_enabled', '0');
+            }
+        }
+        _chartSepaEnabled = newState;
+        localStorage.setItem('stockai_chart_sepa', newState ? '1' : '0');
         const el = document.getElementById('sepaAnalysis');
-        if (!el) return;
-        if (_chartSepaEnabled) {
-            el.classList.remove('sepa-hidden');
-            try { renderMinerviniSEPA(); } catch(e) {}
-        } else {
-            el.classList.add('sepa-hidden');
+        if (el) {
+            if (_chartSepaEnabled) {
+                el.classList.remove('sepa-hidden');
+                try { renderMinerviniSEPA(); } catch(e) {}
+            } else {
+                el.classList.add('sepa-hidden');
+            }
+        }
+        // 차트 라인 갱신 (꺼진 레이어 잔류 라인 즉시 제거)
+        if (_lastSigArgs) {
+            try { renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
+            catch(e) {}
         }
     }
 
@@ -13975,6 +14009,19 @@
 
     function toggleKullamagiLayer() {
         const newState = !_chartKullamagiEnabled;
+        // 라디오 방식: ON 시 다른 분석 자동 OFF
+        if (newState) {
+            if (_chartSepaEnabled) {
+                _chartSepaEnabled = false;
+                localStorage.setItem('stockai_chart_sepa', '0');
+                const sepaEl = document.getElementById('sepaAnalysis');
+                if (sepaEl) sepaEl.classList.add('sepa-hidden');
+            }
+            if (_chartSmartDipEnabled) {
+                _chartSmartDipEnabled = false;
+                localStorage.setItem('stockai_chart_smartdip_enabled', '0');
+            }
+        }
         _chartKullamagiEnabled = newState;
         localStorage.setItem('stockai_chart_kull', newState ? '1' : '0');
         _updateKullagBtnUi();
