@@ -1692,8 +1692,7 @@
             const flag = r.market === 'KR' ? '🇰🇷' : '🇺🇸';
             const sym = String(r.symbol || '').replace(/[<>"']/g, '');
             const name = String(r.name || sym).replace(/[<>"']/g, '');
-            const leftStyle = i === 0 ? ' style="margin-left:16px;"' : '';
-            return `<div class="mob-recent-chip" data-idx="${i}" data-symbol="${sym}" data-market="${r.market||'US'}"${leftStyle} onclick="_clickRecentChip(event, '${sym}', '${r.market||'US'}')">
+            return `<div class="mob-recent-chip" data-idx="${i}" data-symbol="${sym}" data-market="${r.market||'US'}" onclick="_clickRecentChip(event, '${sym}', '${r.market||'US'}')">
                 <span class="mrc-flag">${flag}</span>
                 <span class="mrc-sym">${sym}</span>
                 <button class="mrc-del" onclick="event.stopPropagation();_deleteRecentSearch('${sym}','${r.market||'US'}')" aria-label="삭제">×</button>

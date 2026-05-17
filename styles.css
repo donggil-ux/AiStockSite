@@ -6472,13 +6472,13 @@
    최근 검색 (모바일 검색 모달 내 스와이프 strip)
    ═══════════════════════════════════════════════════════ */
 .mob-recent-wrap{
-    padding:14px 0 12px;
+    padding:14px 0 12px 16px; /* 왼쪽 16px — 헤더·스트립 공통 기준선 */
     border-bottom:1px solid var(--border);
     flex-shrink:0;
 }
 .mob-recent-header{
     display:flex;align-items:center;justify-content:space-between;
-    padding:0 16px 8px;
+    padding:0 16px 8px 0; /* wrap이 left 16px 담당 */
 }
 .mob-recent-title{
     font-size:13px;font-weight:700;color:var(--text2);
