@@ -4,7 +4,7 @@
 //   - 이미지/아이콘/폰트: 캐시 우선
 //   - /api/*: 네트워크만 (항상 최신)
 //   - 새 SW 는 waiting 대기 → 사용자가 '새로고침' 토스트 클릭 시에만 활성화
-const CACHE_NAME = 'stockai-v740';
+const CACHE_NAME = 'stockai-v741';
 
 const STATIC_ASSETS = [
   '/icon.svg',

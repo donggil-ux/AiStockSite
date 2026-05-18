@@ -17362,9 +17362,8 @@
     function _toggleAnalysisDd(e) {
         e.stopPropagation();
         const isMobile = window.innerWidth <= 768;
-        const isFull   = document.getElementById('tvChartCard')?.classList.contains('fullscreen');
-        // 모바일 전체화면 → 바텀시트
-        if (isMobile && isFull) {
+        // 모바일(768px 이하)이면 항상 바텀시트 사용
+        if (isMobile) {
             _openChartBottomSheet('분석', 'analysisDdMenu');
             return;
         }
@@ -17379,9 +17378,8 @@
     function _toggleLineDd(e) {
         e.stopPropagation();
         const isMobile = window.innerWidth <= 768;
-        const isFull   = document.getElementById('tvChartCard')?.classList.contains('fullscreen');
-        // 모바일 전체화면 → 바텀시트
-        if (isMobile && isFull) {
+        // 모바일(768px 이하)이면 항상 바텀시트 사용
+        if (isMobile) {
             _openChartBottomSheet('라인', 'lineDdMenu');
             return;
         }
@@ -17417,8 +17415,11 @@
             bodyEl.appendChild(clone);
         });
 
-        sheet.style.display = 'block';
-        requestAnimationFrame(() => { content.style.transform = 'translateY(0)'; });
+        sheet.style.display = 'flex';
+        sheet.style.alignItems = 'flex-end';
+        // iOS Safari에서 requestAnimationFrame이 즉시 실행돼 슬라이드 애니메이션이
+        // 생략되는 버그 방지 → setTimeout으로 다음 프레임 보장
+        setTimeout(() => { content.style.transform = 'translateY(0)'; }, 20);
     }
 
     function _closeChartBottomSheet() {
@@ -26394,7 +26395,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         display:none;
         position:fixed;
         inset:0;
-        z-index:10000;
+        z-index:99999;
         background:rgba(0,0,0,0.5);"
         onclick="_closeChartBottomSheet()">
         <div id="chartBottomSheetContent" style="
