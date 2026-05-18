@@ -7574,7 +7574,7 @@
         const shares1Base = hasManualShares
             ? shares1Val
             : (maxBudget && entry1 && ratios[0] > 0
-                ? +(maxBudget * ratios[0] / entry1).toFixed(4)
+                ? Math.round(maxBudget * ratios[0] / entry1)
                 : 0);
 
         // 전체 차수 합산 총 수량 역산
@@ -7587,10 +7587,10 @@
             const price  = nth === 1
                 ? entry1
                 : +(entry1 * (1 - dropPct * i)).toFixed(isKR ? 0 : 2);
-            // 수량: 1차 수량 기준으로 비율 적용
+            // 수량: 1차 수량 기준으로 비율 적용 (정수 — 소수점 제거)
             const shares = nth === 1
-                ? +(shares1Base).toFixed(4)
-                : +(totalShares1 * ratio).toFixed(4);
+                ? Math.round(shares1Base)
+                : Math.round(totalShares1 * ratio);
             // 투자금 = 수량 × 진입가 (자동 계산)
             const amount = (shares > 0 && price > 0) ? Math.round(shares * price) : 0;
             const riskPct = (stop && price) ? ((price - stop) / price * 100).toFixed(1) : '—';
@@ -7604,8 +7604,8 @@
         if (isOverBudget && totalAmount > 0) {
             const scale = maxBudget / totalAmount;   // 0 나누기 방지: totalAmount > 0 확인됨
             finalRows = planRows.map(r => {
-                const shares = +(r.shares * scale).toFixed(4);
-                const amount = (shares > 0 && r.price > 0) ? Math.floor(shares * r.price) : 0;
+                const shares = Math.round(r.shares * scale);   // 정수 — 소수점 제거
+                const amount = (shares > 0 && r.price > 0) ? Math.round(shares * r.price) : 0;
                 return { ...r, shares, amount };
             });
         }
@@ -7632,7 +7632,7 @@
                 <!-- 수량: 직접 입력 가능 -->
                 <div class="pos-split-amount">
                     <input type="number" id="posSplitShares${r.nth}" value="${r.shares}"
-                        step="0.0001" placeholder="수량"
+                        step="1" min="0" placeholder="수량"
                         oninput="_posUpdateSplitRowShares(${r.nth})">
                 </div>
                 <!-- 투자금: 수량×진입가 자동 계산 (표시 전용) -->
