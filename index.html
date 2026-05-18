@@ -7454,9 +7454,21 @@
             const r = document.querySelector(`input[name="splitMode"][value="${s.splitMode}"]`);
             if (r) r.checked = true;
         }
-        // 모달 새로 열 때 posAmount1 edited 플래그 리셋 (기존 입력값 오염 방지)
+        // posAmount1 = 1차 매수 수량 — 편집 모드면 저장된 1차 수량 복원
         const _amt1Init = document.getElementById('posAmount1');
-        if (_amt1Init) { _amt1Init.value = ''; _amt1Init.dataset.edited = ''; }
+        if (_amt1Init) {
+            const _s0 = s.splits?.[0];
+            // 하위 호환: shares 없으면 amount/price 로 수량 역산
+            let _sh0 = _s0?.shares;
+            if (_sh0 == null && _s0?.amount > 0 && _s0?.price > 0) _sh0 = _s0.amount / _s0.price;
+            if (_sh0 > 0) {
+                _amt1Init.value = +Number(_sh0).toFixed(4);
+                _amt1Init.dataset.edited = '1';
+            } else {
+                _amt1Init.value = '';
+                _amt1Init.dataset.edited = '';
+            }
+        }
         _posCalcSplitPlan();
     }
     function _posSheetSet(k, v) {
@@ -7823,12 +7835,19 @@
             return;
         }
 
-        // 분할매수 행 수집
+        // 분할매수 행 수집 — 수량(주) 기준, 투자금은 수량×진입가 자동 계산
         const splits = [];
         for (let i = 1; i <= _posSplitCount; i++) {
-            const price  = parseFloat(document.getElementById(`posSplitPrice${i}`)?.value);
-            const amount = _getAmountVal(`posSplitAmount${i}`);
-            if (price && amount) splits.push({ nth: i, price, amount, shares: +(amount / price).toFixed(4) });
+            const price     = parseFloat(document.getElementById(`posSplitPrice${i}`)?.value) || 0;
+            const sharesVal = parseFloat(document.getElementById(`posSplitShares${i}`)?.value) || 0;
+            if (price && sharesVal) {
+                splits.push({
+                    nth:    i,
+                    price,
+                    shares: +sharesVal.toFixed(4),
+                    amount: Math.round(sharesVal * price),
+                });
+            }
         }
 
         const arr  = _posLoad();
