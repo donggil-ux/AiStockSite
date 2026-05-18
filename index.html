@@ -7438,6 +7438,9 @@
             const r = document.querySelector(`input[name="splitMode"][value="${s.splitMode}"]`);
             if (r) r.checked = true;
         }
+        // 모달 새로 열 때 posAmount1 edited 플래그 리셋 (기존 입력값 오염 방지)
+        const _amt1Init = document.getElementById('posAmount1');
+        if (_amt1Init) { _amt1Init.value = ''; _amt1Init.dataset.edited = ''; }
         _posCalcSplitPlan();
     }
     function _posSheetSet(k, v) {
@@ -7530,12 +7533,32 @@
         }
 
         // 차수별 진입가 (1차 기준 -3%씩)
-        const dropPct  = 0.03;
+        const dropPct = 0.03;
+
+        // posAmount1 직접 입력 여부 확인
+        const amt1El     = document.getElementById('posAmount1');
+        const amt1Edited = amt1El?.dataset?.edited === '1';
+        const amt1Val    = parseFloat((amt1El?.value || '0').replace(/,/g, '')) || 0;
+
+        // 1차 금액 기준값 — 직접 입력했으면 그 값, 아니면 maxBudget * ratio[0] 자동계산
+        const amt1Base = (amt1Edited && amt1Val > 0)
+            ? amt1Val
+            : +(maxBudget * ratios[0]).toFixed(0);
+
+        // 1차 금액 기준으로 유효 총 예산 역산 → 나머지 차수에 적용
+        const effectiveBudget = (amt1Edited && amt1Val > 0 && ratios[0] > 0)
+            ? amt1Val / ratios[0]
+            : maxBudget;
+
         const planRows = ratios.map((ratio, i) => {
-            const nth    = i + 1;
-            const price  = nth === 1 ? entry1 : +(entry1 * (1 - dropPct * i)).toFixed(isKR ? 0 : 2);
-            const amount = +(maxBudget * ratio).toFixed(isKR ? 0 : 0);
-            const shares = price > 0 ? (amount / price).toFixed(isKR ? 0 : 2) : '—';
+            const nth     = i + 1;
+            const price   = nth === 1
+                ? entry1
+                : +(entry1 * (1 - dropPct * i)).toFixed(isKR ? 0 : 2);
+            const amount  = nth === 1
+                ? amt1Base
+                : +(effectiveBudget * ratio).toFixed(0);
+            const shares  = price > 0 ? (amount / price).toFixed(isKR ? 0 : 2) : '—';
             const riskPct = (stop && price) ? ((price - stop) / price * 100).toFixed(1) : '—';
             return { nth, price, amount, shares, riskPct };
         });
@@ -7567,7 +7590,7 @@
         }
 
         // 1차 금액 동기화 (사용자가 직접 지운 경우 덮어쓰지 않음)
-        const amt1El = document.getElementById('posAmount1');
+        // amt1El은 위 planRows 블록에서 이미 선언됨
         if (amt1El && !amt1El.value && !amt1El.dataset.edited) {
             const _a = planRows[0]?.amount;
             amt1El.value = (_a > 0) ? Number(_a).toLocaleString('en-US') : '';
