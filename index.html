@@ -10472,16 +10472,15 @@
                         const positions = posData.positions || [];
 
                         // API 포지션 → holdings 형식 변환
+                        // ticker 없는 포지션(CUSIP 미매핑)은 제외 — UI에 "null" 노출 방지
                         const apiHoldings = positions
-                            .filter(p => p.ticker || p.name)
+                            .filter(p => p.ticker)
                             .map(p => ({
-                                ticker:    p.ticker || null,
+                                ticker:    p.ticker,
                                 name:      p.name || '',
                                 wt:        Number(p.weight || 0),
-                                wtChg:     p.prev_shares && p.shares
-                                    ? ((p.shares - p.prev_shares) / Math.max(Number(p.prev_shares), 1))
-                                        * Number(p.weight || 0)
-                                    : 0,
+                                // wtChg: 직전 비중(%p) 없으므로 0 표기 (sec 13F에 prev_weight 없음)
+                                wtChg:     0,
                                 avgPrice:  0,
                                 action:    (p.action || 'hold').toLowerCase()
                                     .replace(/^new$/,    'new')
@@ -10500,7 +10499,7 @@
                             .map(h => ({
                                 ticker:   h.ticker,
                                 name:     h.name,
-                                wtChg:    +(h.wtChg || 0).toFixed(2),
+                                wtChg:    0,
                                 avgPrice: 0,
                                 theme:    h.action === 'new' ? '신규 편입' : '추가 매수',
                             }));
@@ -10512,16 +10511,9 @@
                             _fromApi: true,
                             _quarter: posData.quarter || '',
                         };
-
-                        // 유효 티커 필터 (상장폐지 제거)
-                        const tickers = apiHoldings.map(h => h.ticker).filter(Boolean);
-                        const validSet = await _filterValidTickers(tickers);
-                        const filtered = {
-                            ...instWithApi,
-                            holdings: apiHoldings.filter(
-                                h => !h.ticker || validSet.has(h.ticker)
-                            ),
-                        };
+                        // SEC 13F는 현재 상장 종목만 포함 → _filterValidTickers 불필요
+                        // (5000+ 티커로 Yahoo API 100+ 병렬 호출 방지)
+                        const filtered = instWithApi;
 
                         document.getElementById('smDeep').innerHTML = _renderDeepKingdom(filtered);
                         return;
@@ -10631,11 +10623,12 @@
         const fmtAum = v => v >= 1000 ? `$${(v/1000).toFixed(1)}T` : `$${v}B`;
 
         // ── 분기 배지: 실데이터 vs 추정 ──────────────────────────────
-        const quarterBadge = inst._fromApi && inst._quarter
+        const _safeQ = escHtml(inst._quarter || '');
+        const quarterBadge = inst._fromApi && _safeQ
             ? `<span style="font-size:10px;padding:2px 7px;border-radius:8px;
                            background:rgba(34,197,94,0.12);color:#22C55E;
                            margin-left:6px;font-weight:600;vertical-align:middle">
-                   📊 ${inst._quarter} 실데이터
+                   📊 ${_safeQ} 실데이터
                </span>`
             : `<span style="font-size:10px;padding:2px 7px;border-radius:8px;
                            background:rgba(245,158,11,0.12);color:#F59E0B;
@@ -10659,11 +10652,14 @@
                 ${f.label}<span class="sm-hf-cnt">${f.cnt}</span>
              </button>`
         ).join('');
-        // 트리맵: 전체 표시 (필터와 무관)
-        const treemapHtml = _renderTreemap(inst.holdings);
-        const visibleCount = smCurrentFilter === 'all' ? inst.holdings.length
-            : inst.holdings.filter(h => h.action === smCurrentFilter).length;
-        const rows = inst.holdings.map(h => {
+        // 트리맵: 상위 30개만 렌더링 (5000+ SVG element 생성 방지)
+        const treemapHtml = _renderTreemap(inst.holdings.slice(0, 30));
+        // 메인 테이블: 최대 100행 (large institution 브라우저 freeze 방지)
+        const ROW_LIMIT = 100;
+        const rowHoldings = inst.holdings.slice(0, ROW_LIMIT);
+        const visibleCount = smCurrentFilter === 'all' ? rowHoldings.length
+            : rowHoldings.filter(h => h.action === smCurrentFilter).length;
+        const rows = rowHoldings.map(h => {
             const wtChgStr = h.wtChg > 0 ? `+${h.wtChg.toFixed(1)}%p` : h.wtChg < 0 ? `${h.wtChg.toFixed(1)}%p` : '±0';
             const wtChgCls = h.wtChg > 0 ? 'pos' : h.wtChg < 0 ? 'neg' : 'zero';
             const hidden = smCurrentFilter !== 'all' && h.action !== smCurrentFilter ? ' hidden' : '';
@@ -10702,6 +10698,10 @@
         }).join('');
         const emptyState = visibleCount === 0
             ? `<div class="sm-holdings-empty">이번 분기에 해당 변동 종목이 없습니다.<br><span style="font-size:11px;opacity:.7">대형 패시브 기관은 신규 편입이 드뭅니다.</span></div>` : '';
+        const moreNote = inst.holdings.length > ROW_LIMIT
+            ? `<div style="text-align:center;padding:10px;font-size:11px;color:var(--text-secondary)">
+                   상위 ${ROW_LIMIT}개 표시 중 (전체 ${inst.holdings.length.toLocaleString()}개 포지션)
+               </div>` : '';
 
         // ── 신규/추가 섹션 ─────────────────────────────────────────
         const newAdd = inst.holdings.filter(h => h.action === 'new' || h.action === 'add');
@@ -10798,8 +10798,8 @@
                 <button class="sm-back-btn" onclick="smDeepBack()">← 뒤로</button>
                 <span class="sm-deep-emoji">${inst.emoji}</span>
                 <div>
-                    <div class="sm-deep-title">${inst.name}${quarterBadge}</div>
-                    <div class="sm-deep-subtitle">${inst.manager} · <span class="sm-quarter-badge">${inst._quarter || 'Q1 2026'}</span>${inst.aum ? ` · AUM ${fmtAum(inst.aum)}` : ''}</div>
+                    <div class="sm-deep-title">${escHtml(inst.name)}${quarterBadge}</div>
+                    <div class="sm-deep-subtitle">${escHtml(inst.manager)} · <span class="sm-quarter-badge">${_safeQ || 'Q1 2026'}</span>${inst.aum ? ` · AUM ${fmtAum(inst.aum)}` : ''}</div>
                 </div>
             </div>
             <div style="margin:12px 0 6px;font-size:12px;font-weight:600;color:var(--text-secondary)">📊 포트폴리오 트리맵</div>
@@ -10813,6 +10813,7 @@
                 </div>
                 ${rows}${emptyState}
             </div>
+            ${moreNote}
             ${midSection}
             ${smallSection}
             <div class="sm-deep-insight" style="margin-top:16px">
