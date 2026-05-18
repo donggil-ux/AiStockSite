@@ -14828,7 +14828,9 @@
         // 1) 지표 계산
         const rsi = calcRSI(closes);
         const { macdLine, signalLine, histogram } = calcMACD(closes);
-        const lastClose = lastVal(closes);
+        // 실시간 현재가 우선 사용 (프리마켓/애프터마켓 포함)
+        const _livePx = (typeof _posCurrentPrice === 'function') ? _posCurrentPrice() : null;
+        const lastClose = (_livePx != null && _livePx > 0) ? _livePx : lastVal(closes);
         const lastRSI = lastVal(rsi);
         const lastMACD = lastVal(macdLine);
         const lastSig  = lastVal(signalLine);
