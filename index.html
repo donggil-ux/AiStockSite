@@ -26397,13 +26397,13 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         inset:0;
         z-index:99999;
         background:rgba(0,0,0,0.5);"
-        onclick="_closeChartBottomSheet()">
+        onclick="_cancelChartBottomSheet()">
         <div id="chartBottomSheetContent" style="
             position:absolute;
             bottom:0; left:0; right:0;
             background:var(--bg2);
             border-radius:16px 16px 0 0;
-            padding:0 0 env(safe-area-inset-bottom,16px);
+            padding:0;
             max-height:80dvh;
             overflow-y:auto;
             transform:translateY(100%);
@@ -26420,8 +26420,27 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
                        border-bottom:1px solid var(--border)">
             </div>
             <!-- 내용 -->
-            <div id="chartBottomSheetBody"
-                style="padding:8px 0 16px">
+            <div id="chartBottomSheetBody" style="padding:8px 0 0"></div>
+            <!-- 확인/취소 버튼 -->
+            <div style="display:flex;gap:8px;
+                padding:12px 16px;
+                padding-bottom:max(16px,env(safe-area-inset-bottom));
+                border-top:1px solid var(--border);
+                background:var(--bg2);
+                position:sticky;bottom:0;">
+                <button onclick="_cancelChartBottomSheet()"
+                    style="flex:1;padding:13px;border-radius:10px;
+                           border:1px solid var(--border);
+                           background:var(--bg3);color:var(--text2);
+                           font-size:14px;font-weight:600;cursor:pointer;">
+                    취소
+                </button>
+                <button onclick="_confirmChartBottomSheet()"
+                    style="flex:2;padding:13px;border-radius:10px;
+                           border:none;background:var(--blue);color:#fff;
+                           font-size:14px;font-weight:700;cursor:pointer;">
+                    확인
+                </button>
             </div>
         </div>
     </div>
