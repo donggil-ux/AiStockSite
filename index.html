@@ -6955,23 +6955,10 @@
     function _posCurrentPrice() {
         try {
             const m = stockData?.meta;
-            if (!m) {
-                const cl = (stockData?.indicators?.quote?.[0]?.close || [])
-                    .filter(v => v != null);
-                return cl.length ? cl[cl.length - 1] : null;
-            }
-            const reg   = m.regularMarketPrice;
-            const preP  = m.preMarketPrice;
-            const postP = m.postMarketPrice;
-            const state = m.marketState || '';
-
-            // 프리마켓
-            if (state === 'PRE' && preP != null) return preP;
-            // 애프터마켓 / 장 마감
-            if ((state === 'POST' || state === 'POSTPOST' || state === 'CLOSED')
-                    && postP != null) return postP;
-            // 정규장
-            if (reg != null) return reg;
+            // 프리/애프터 포함 세션 가격 — fetchMarketSession 이 v7 quote 기준으로 갱신
+            if (m && m._sessionPrice != null) return m._sessionPrice;
+            // 정규장 가격 (startLiveUpdate 가 라이브 갱신)
+            if (m && m.regularMarketPrice != null) return m.regularMarketPrice;
             // fallback: 마지막 캔들 종가
             const cl = (stockData?.indicators?.quote?.[0]?.close || [])
                 .filter(v => v != null);
@@ -7094,10 +7081,10 @@
             const statusCls = pos.status === 'holding' ? 'mypos-holding' : 'mypos-watching';
             const qtyTxt = pos.quantity ? `${pos.quantity}주` : '';
             const entryTxt = _posFmtP(pos.entryPrice, currentMarket);
-            // 프리마켓 / 애프터마켓 배지
-            const _mktState   = stockData?.meta?.marketState || '';
-            const _isPreMkt   = _mktState === 'PRE';
-            const _isPostMkt  = _mktState === 'POST' || _mktState === 'POSTPOST' || _mktState === 'CLOSED';
+            // 프리마켓 / 애프터마켓 배지 (_sessionState — fetchMarketSession 이 갱신)
+            const _mktState   = stockData?.meta?._sessionState || '';
+            const _isPreMkt   = _mktState === 'PRE' || _mktState === 'PREPRE';
+            const _isPostMkt  = _mktState === 'POST' || _mktState === 'POSTPOST';
             const _mktBadge   = _isPreMkt
                 ? `<span style="font-size:9px;padding:1px 4px;border-radius:3px;background:rgba(245,158,11,0.15);color:#F59E0B;margin-left:4px;font-weight:600">프리</span>`
                 : _isPostMkt
@@ -12841,6 +12828,12 @@
                 livePrev = regPrice;
             }
 
+            // 포지션 P&L용 — 프리/애프터 포함 세션 가격을 meta에 저장
+            if (stockData?.meta && livePrice != null) {
+                stockData.meta._sessionPrice = livePrice;
+                stockData.meta._sessionState = state || '';
+            }
+
             if (livePrice != null) {
                 const priceEl = document.getElementById('stockPrice');
                 const changeEl = document.getElementById('stockChange');
@@ -12857,6 +12850,9 @@
 
             // 일·주봉 차트 위 배너 — 분석 기준가(정규장 종가) vs 라이브(프리/애프터) 갭 안내 (v649)
             try { _updateChartPreBanner(q); } catch(_) {}
+
+            // 세션 가격 반영 후 포지션 카드 갱신 (프리/애프터 P&L 즉시 표시)
+            try { renderMyPosition(); } catch(_) {}
         } catch(e) {
             // 실패해도 무시 - 메인 기능에 영향 없음
         }
