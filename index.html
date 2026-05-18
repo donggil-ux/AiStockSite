@@ -915,8 +915,8 @@
                                 style="border-color:var(--border);color:var(--text3);">소리
                             </button>
                             <button class="chart-tb-btn" id="sigHistoryBtn"
-                                onclick="toggleSigHistoryPanel()" title="알림 기록"
-                                style="display:none;border-color:var(--border);color:var(--text3);position:relative;">🔔
+                                onclick="toggleSigHistoryPanel()" title="알림내역"
+                                style="border-color:var(--border);color:var(--text3);position:relative;">🔔<span style="font-size:11px;margin-left:3px;">알림내역</span>
                                 <span id="sigHistoryBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:#EF4444;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;line-height:14px;text-align:center;padding:0 2px;"></span>
                             </button>
                             <button class="chart-tb-btn" id="chartAiClearBtn"
@@ -14979,10 +14979,12 @@
         if (!panel) {
             panel = document.createElement('div');
             panel.id = 'sigHistoryPanel';
-            panel.style.cssText = `position:fixed;top:52px;right:10px;z-index:8500;
-                width:min(360px,calc(100vw - 20px));max-height:70vh;overflow-y:auto;
-                background:var(--bg2);border:1px solid var(--border);border-radius:14px;
-                box-shadow:0 8px 32px rgba(0,0,0,.45);font-size:13px;`;
+            // 모달 백드롭 오버레이 (화면 중앙 정렬)
+            panel.style.cssText = `position:fixed;inset:0;z-index:9500;
+                background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;
+                padding:20px;font-size:13px;`;
+            // 백드롭(모달 바깥) 클릭 시 닫기
+            panel.addEventListener('click', e => { if (e.target === panel) toggleSigHistoryPanel(); });
             document.body.appendChild(panel);
         }
         // 필터 상태
@@ -15002,17 +15004,23 @@
         const bgSell = _flt==='sell' ? 'rgba(59,130,246,.18)' : 'var(--bg)';
         const clBuy  = _flt==='buy'  ? '#ef4444' : 'var(--text)';
         const clSell = _flt==='sell' ? '#3b82f6' : 'var(--text)';
-        let html = '<div style="display:flex;align-items:center;gap:6px;padding:10px 14px 8px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg2);z-index:1;">'
-            + '<span style="font-weight:700;font-size:13px;flex:1;">🔔 알림 기록</span>'
+        // 모달 박스 (헤더 고정 + 목록 스크롤)
+        let html = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;'
+            + 'width:min(420px,100%);max-height:80vh;display:flex;flex-direction:column;overflow:hidden;'
+            + 'box-shadow:0 12px 48px rgba(0,0,0,.5);">';
+        // 헤더
+        html += '<div style="display:flex;align-items:center;gap:6px;padding:12px 14px;border-bottom:1px solid var(--border);">'
+            + '<span style="font-weight:700;font-size:14px;flex:1;">🔔 알림내역</span>'
             + '<button onclick="document.getElementById(\'sigHistoryPanel\')._filter=\'all\';_renderSigHistoryPanel();" style="font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:' + bgAll + ';color:var(--text);cursor:pointer;">전체</button>'
             + '<button onclick="document.getElementById(\'sigHistoryPanel\')._filter=\'buy\';_renderSigHistoryPanel();" style="font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:' + bgBuy + ';color:' + clBuy + ';cursor:pointer;">매수</button>'
             + '<button onclick="document.getElementById(\'sigHistoryPanel\')._filter=\'sell\';_renderSigHistoryPanel();" style="font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:' + bgSell + ';color:' + clSell + ';cursor:pointer;">매도</button>'
             + '<button onclick="_sigHistory=[];localStorage.removeItem(\'stockai_sig_history\');_renderSigHistoryPanel();" style="font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text3);cursor:pointer;">지우기</button>'
-            + '<button onclick="toggleSigHistoryPanel()" style="font-size:14px;padding:2px 6px;border:none;background:transparent;color:var(--text3);cursor:pointer;">✕</button>'
+            + '<button onclick="toggleSigHistoryPanel()" style="font-size:16px;padding:2px 6px;border:none;background:transparent;color:var(--text3);cursor:pointer;">✕</button>'
             + '</div>';
-        // 목록
+        // 목록 (스크롤 영역)
+        html += '<div style="overflow-y:auto;flex:1;">';
         if (filtered.length === 0) {
-            html += '<div style="padding:24px;text-align:center;color:var(--text3);">알림 기록이 없습니다</div>';
+            html += '<div style="padding:32px 24px;text-align:center;color:var(--text3);">알림내역이 없습니다</div>';
         } else {
             filtered.forEach(function(h) {
                 const isBuyH  = h.dir === 'buy';
@@ -15031,6 +15039,8 @@
                     + '</div>';
             });
         }
+        html += '</div>'; // 목록 스크롤 영역 닫기
+        html += '</div>'; // 모달 박스 닫기
         panel.innerHTML = html;
     }
 
