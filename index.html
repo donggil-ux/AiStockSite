@@ -17352,6 +17352,13 @@
 
     function _toggleAnalysisDd(e) {
         e.stopPropagation();
+        const isMobile = window.innerWidth <= 768;
+        const isFull   = document.getElementById('tvChartCard')?.classList.contains('fullscreen');
+        // 모바일 전체화면 → 바텀시트
+        if (isMobile && isFull) {
+            _openChartBottomSheet('분석', 'analysisDdMenu');
+            return;
+        }
         const menu = document.getElementById('analysisDdMenu');
         const btn  = document.getElementById('analysisDdBtn');
         if (!menu) return;
@@ -17362,12 +17369,55 @@
 
     function _toggleLineDd(e) {
         e.stopPropagation();
+        const isMobile = window.innerWidth <= 768;
+        const isFull   = document.getElementById('tvChartCard')?.classList.contains('fullscreen');
+        // 모바일 전체화면 → 바텀시트
+        if (isMobile && isFull) {
+            _openChartBottomSheet('라인', 'lineDdMenu');
+            return;
+        }
         const menu = document.getElementById('lineDdMenu');
         const btn  = document.getElementById('lineDdBtn');
         if (!menu) return;
         const open = menu.style.display !== 'none';
         _closeAllDds();
         if (!open) { _ddOpenMenu(menu, btn); btn.dataset.open = '1'; }
+    }
+
+    // ── 차트 모바일 바텀시트 ─────────────────────────────────────
+    function _openChartBottomSheet(title, menuId) {
+        const sheet   = document.getElementById('chartBottomSheet');
+        const content = document.getElementById('chartBottomSheetContent');
+        const titleEl = document.getElementById('chartBottomSheetTitle');
+        const bodyEl  = document.getElementById('chartBottomSheetBody');
+        const menu    = document.getElementById(menuId);
+        if (!sheet || !menu) return;
+
+        titleEl.textContent = title;
+        bodyEl.innerHTML = '';
+
+        // 메뉴 아이템을 바텀시트 형태로 복제
+        const items = menu.querySelectorAll('.chart-dd-item, .chart-dd-sub-item');
+        items.forEach(item => {
+            const clone = item.cloneNode(true);
+            clone.style.cssText += ';padding:12px 20px;font-size:14px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:8px;';
+            const originalOnclick = item.getAttribute('onclick');
+            if (originalOnclick) {
+                clone.setAttribute('onclick', originalOnclick + '; _closeChartBottomSheet();');
+            }
+            bodyEl.appendChild(clone);
+        });
+
+        sheet.style.display = 'block';
+        requestAnimationFrame(() => { content.style.transform = 'translateY(0)'; });
+    }
+
+    function _closeChartBottomSheet() {
+        const sheet   = document.getElementById('chartBottomSheet');
+        const content = document.getElementById('chartBottomSheetContent');
+        if (!sheet) return;
+        content.style.transform = 'translateY(100%)';
+        setTimeout(() => { sheet.style.display = 'none'; }, 300);
     }
 
     function _closeAllDds() {
@@ -26184,6 +26234,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         toggleChartSigLines, toggleKullamagiLayer, toggleSplitBuyLayer, toggleSplitGroup, _toggleSplitGroup, getSplitBuyCoeff, togglePullbackLayer, toggleTpLevel, toggleSrLayer, toggleSrMode,
         toggleSmartDipLayer, toggleSmartDipGroup, toggleSepaLayer, getSmartDipMode, _scrollToGroup,
         _toggleAnalysisDd, _toggleLineDd, _closeAllDds, _updateDdStates, _setDdCheck,
+        _openChartBottomSheet, _closeChartBottomSheet,
         handleSearchKeydown, openSearchDropdown, closeSearchDropdown, searchSuggest, levenshtein,
         renderDayUnified, renderDanteAnalysis, runDanteBacktest,
         renderRRAnalysis, renderMinerviniSEPA, renderSwingAnalysis, _runSwingAi, renderRSIMomentum, analyzeRSIDynamic,
@@ -26328,5 +26379,42 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
             <div class="fab-body" id="calcFabBody"></div>
         </div>
     </div>
+
+    <!-- 차트 모바일 바텀시트 -->
+    <div id="chartBottomSheet" style="
+        display:none;
+        position:fixed;
+        inset:0;
+        z-index:10000;
+        background:rgba(0,0,0,0.5);"
+        onclick="_closeChartBottomSheet()">
+        <div id="chartBottomSheetContent" style="
+            position:absolute;
+            bottom:0; left:0; right:0;
+            background:var(--bg2);
+            border-radius:16px 16px 0 0;
+            padding:0 0 env(safe-area-inset-bottom,16px);
+            max-height:80dvh;
+            overflow-y:auto;
+            transform:translateY(100%);
+            transition:transform 0.3s ease;"
+            onclick="event.stopPropagation()">
+            <!-- 핸들 바 -->
+            <div style="display:flex;justify-content:center;padding:12px 0 4px">
+                <div style="width:40px;height:4px;border-radius:2px;background:var(--border)"></div>
+            </div>
+            <!-- 타이틀 -->
+            <div id="chartBottomSheetTitle"
+                style="font-size:14px;font-weight:700;
+                       color:var(--text1);padding:8px 16px 12px;
+                       border-bottom:1px solid var(--border)">
+            </div>
+            <!-- 내용 -->
+            <div id="chartBottomSheetBody"
+                style="padding:8px 0 16px">
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
