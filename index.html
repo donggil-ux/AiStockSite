@@ -7086,6 +7086,9 @@
             const statusCls = pos.status === 'holding' ? 'mypos-holding' : 'mypos-watching';
             const qtyTxt = pos.quantity ? `${pos.quantity}주` : '';
             const entryTxt = _posFmtP(pos.entryPrice, currentMarket);
+            const _holdDays = pos.createdAt
+                ? Math.floor((Date.now() - new Date(pos.createdAt).getTime()) / 86400000)
+                : null;
             // 프리마켓 / 애프터마켓 배지 (_sessionState — fetchMarketSession 이 갱신)
             const _mktState   = stockData?.meta?._sessionState || '';
             const _isPreMkt   = _mktState === 'PRE' || _mktState === 'PREPRE';
@@ -7114,6 +7117,7 @@
                     <div class="mypos-card-left">
                         <span class="mypos-status-badge">${statusTxt}</span>
                         ${qtyTxt ? `<span class="mypos-qty">${qtyTxt}</span>` : ''}
+                        ${_holdDays !== null ? `<span id="posHoldDays" style="font-size:10px;color:var(--text3);font-weight:500;padding:1px 5px;border-radius:4px;background:var(--bg3);">D+${_holdDays}</span>` : ''}
                     </div>
                     <button class="mypos-edit-btn" onclick="_posOpenSheet('${currentSymbol}')">편집</button>
                 </div>

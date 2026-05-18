@@ -1578,17 +1578,23 @@
         }
         /* 전체화면 — 카드가 이미 safe-area-top 패딩을 가지므로 툴바는 8px만 (이중 패딩 방지) */
         /* + 툴바를 차트 위로 올려 버튼이 항상 클릭되도록 */
-        .tv-chart-card.fullscreen .chart-toolbar{
+        .tv-chart-card.fullscreen .chart-toolbar,
+        .tv-chart-card.fullscreen .tv-toolbar-row,
+        .tv-chart-card.fullscreen #tvChartToolbar{
             padding-top:8px;
             position:relative !important;
             z-index:9100 !important;
         }
         /* 전체화면 툴바 버튼/드롭다운 — 항상 클릭 가능 */
         .tv-chart-card.fullscreen .chart-tb-btn,
+        .tv-chart-card.fullscreen .tv-toolbar-row .chart-tb-btn,
+        .tv-chart-card.fullscreen #tvChartToolbar .chart-tb-btn,
         .tv-chart-card.fullscreen .chart-dd-wrap,
         .tv-chart-card.fullscreen .interval-dropdown,
         .tv-chart-card.fullscreen .tv-fullscreen-btn{
-            pointer-events:auto !important;
+            pointer-events:all !important;
+            position:relative !important;
+            z-index:9100 !important;
         }
         .tv-chart-card.fullscreen .tv-chart-wrap{flex:1;height:auto!important;border-radius:0;}
         /* 전체화면 차트 영역만 overflow 클립 */
