@@ -14837,6 +14837,19 @@
         // ── EMA 눌림목(매수) / 이탈(매도) 마커 ──────────────────────
         {
             const opens = q.open || [];
+
+            // ── EMA 매수 쿨다운 변수 (봉 인덱스 기준) ──
+            let lastBuy1Bar = -999;
+            let lastBuy2Bar = -999;
+            let lastBuy3Bar = -999;
+            const BUY_COOLDOWN = 5;  // 5봉 이내 재발생 금지
+
+            // ── EMA 매도 쿨다운 변수 ──
+            let lastSell1Bar = -999;
+            let lastSell2Bar = -999;
+            let lastSell3Bar = -999;
+            const SELL_COOLDOWN = 3;  // 3봉 이내 재발생 금지
+
             for (let i = 5; i < closes.length - 1; i++) {
                 const c = closes[i], l = lows[i], h = highs[i], o = opens[i];
                 const rsiVal = rsi[i] != null ? rsi[i] : 50;
@@ -14847,23 +14860,45 @@
                 const e20 = emaC20[i], e60 = emaC60[i], e120 = emaC120[i], e240 = emaC240[i];
                 const isAligned = e20 && e60 && e120 && e20 > e60 && e60 > e120;
 
-                // 매수 마커 — else-if 로 동일 봉 중복 방지
-                if (e20 && l <= e20 * 1.002 && isBullCandle && isRsiSafe && isAligned)
-                    markers.push({ time: t, position: 'belowBar', color: '#06B6D4', shape: 'arrowUp', text: '매수 1' });
-                else if (e60 && l <= e60 * 1.002 && isBullCandle && isRsiSafe && e60 > (e120 || 0))
-                    markers.push({ time: t, position: 'belowBar', color: '#3B82F6', shape: 'arrowUp', text: '매수 2' });
-                else if (e120 && l <= e120 * 1.002 && isBullCandle && isRsiSafe && e120 > (e240 || 0))
-                    markers.push({ time: t, position: 'belowBar', color: '#8B5CF6', shape: 'arrowUp', text: '매수 3' });
+                // SuperTrend 대체: EMA 정배열 = 상승 추세
+                const stUp = e20 && e60 && e120
+                    ? (e20 > e60 && e60 > e120)
+                    : true;
 
-                // 매도 마커 — EMA 하향 이탈
+                // ── 매수 마커 — 정배열 + 쿨다운 ──
+                if (e20 && l <= e20 * 1.002 && isBullCandle && isRsiSafe
+                    && isAligned && stUp
+                    && (i - lastBuy1Bar) >= BUY_COOLDOWN) {
+                    markers.push({ time: t, position: 'belowBar', color: '#06B6D4', shape: 'arrowUp', text: '매수 1' });
+                    lastBuy1Bar = i;
+                } else if (e60 && l <= e60 * 1.002 && isBullCandle && isRsiSafe
+                    && e60 > (e120 || 0) && stUp
+                    && (i - lastBuy2Bar) >= BUY_COOLDOWN) {
+                    markers.push({ time: t, position: 'belowBar', color: '#3B82F6', shape: 'arrowUp', text: '매수 2' });
+                    lastBuy2Bar = i;
+                } else if (e120 && l <= e120 * 1.002 && isBullCandle && isRsiSafe
+                    && e120 > (e240 || 0) && stUp
+                    && (i - lastBuy3Bar) >= BUY_COOLDOWN) {
+                    markers.push({ time: t, position: 'belowBar', color: '#8B5CF6', shape: 'arrowUp', text: '매수 3' });
+                    lastBuy3Bar = i;
+                }
+
+                // ── 매도 마커 — EMA 하향 이탈 + 쿨다운 ──
                 const prevC = closes[i-1];
                 const prevE20 = emaC20[i-1], prevE60 = emaC60[i-1], prevE120 = emaC120[i-1];
-                if (prevC != null && e20 && prevE20 && prevC > prevE20 && c < e20)
+                if (prevC != null && e20 && prevE20 && prevC > prevE20 && c < e20
+                    && (i - lastSell1Bar) >= SELL_COOLDOWN) {
                     markers.push({ time: t, position: 'aboveBar', color: '#F97316', shape: 'arrowDown', text: '매도 1' });
-                else if (prevC != null && e60 && prevE60 && prevC > prevE60 && c < e60)
+                    lastSell1Bar = i;
+                } else if (prevC != null && e60 && prevE60 && prevC > prevE60 && c < e60
+                    && (i - lastSell2Bar) >= SELL_COOLDOWN) {
                     markers.push({ time: t, position: 'aboveBar', color: '#EF4444', shape: 'arrowDown', text: '매도 2' });
-                else if (prevC != null && e120 && prevE120 && prevC > prevE120 && c < e120)
+                    lastSell2Bar = i;
+                } else if (prevC != null && e120 && prevE120 && prevC > prevE120 && c < e120
+                    && (i - lastSell3Bar) >= SELL_COOLDOWN) {
                     markers.push({ time: t, position: 'aboveBar', color: '#DC2626', shape: 'arrowDown', text: '매도 3' });
+                    lastSell3Bar = i;
+                }
             }
         }
 
