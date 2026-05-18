@@ -7267,8 +7267,8 @@
                 </div>
                 <div class="pos-field">
                   <label>1차 매수금액 (${cur})<span class="pos-hint" id="posEntry1Shares"></span></label>
-                  <input type="number" id="posAmount1" placeholder="자동계산"
-                    oninput="this.dataset.edited='1';_posCalcSplitPlan()" style="width:100%">
+                  <input type="text" id="posAmount1" inputmode="numeric" placeholder="자동계산"
+                    oninput="this.dataset.edited='1';_fmtAmountInput(this)" style="width:100%">
                 </div>
               </div>
 
@@ -7555,8 +7555,9 @@
                         oninput="_posUpdateSplitRow(${r.nth})" placeholder="진입가">
                 </div>
                 <div class="pos-split-amount">
-                    <input type="number" id="posSplitAmount${r.nth}" value="${r.amount}"
-                        oninput="_posUpdateSplitRow(${r.nth})" placeholder="금액">
+                    <input type="text" inputmode="numeric" id="posSplitAmount${r.nth}"
+                        value="${r.amount.toLocaleString('en-US')}"
+                        oninput="_fmtAmountInput(this);_posUpdateSplitRow(${r.nth})" placeholder="금액">
                 </div>
                 <div class="pos-split-shares">
                     <span id="posSplitShares${r.nth}">${r.shares}${isKR?'주':'주'}</span>
@@ -7567,7 +7568,10 @@
 
         // 1차 금액 동기화 (사용자가 직접 지운 경우 덮어쓰지 않음)
         const amt1El = document.getElementById('posAmount1');
-        if (amt1El && !amt1El.value && !amt1El.dataset.edited) amt1El.value = planRows[0]?.amount ?? '';
+        if (amt1El && !amt1El.value && !amt1El.dataset.edited) {
+            const _a = planRows[0]?.amount;
+            amt1El.value = (_a > 0) ? Number(_a).toLocaleString('en-US') : '';
+        }
 
         // 1차 주수 힌트
         const sharesHint = document.getElementById('posEntry1Shares');
@@ -7578,9 +7582,32 @@
         _posUpdateSummary(maxBudget, ratios, entry1, stop);
     }
 
+    // 금액 입력 필드 콤마 포맷 (posAmount1 / posSplitAmount*)
+    function _fmtAmountInput(el) {
+        const raw = el.value.replace(/[^0-9]/g, '');
+        const num = parseInt(raw, 10);
+        if (!isNaN(num) && num > 0) {
+            const pos     = el.selectionStart;
+            const prevLen = el.value.length;
+            el.value = num.toLocaleString('en-US');
+            const diff = el.value.length - prevLen;
+            try { el.setSelectionRange(pos + diff, pos + diff); } catch(e) {}
+        } else if (raw === '') {
+            el.value = '';
+        }
+        _posCalcSplitPlan();
+    }
+
+    // 콤마 포함 금액 input에서 숫자값 반환
+    function _getAmountVal(id) {
+        const el = document.getElementById(id);
+        if (!el) return 0;
+        return parseFloat(el.value.replace(/,/g, '')) || 0;
+    }
+
     function _posUpdateSplitRow(nth) {
         const price  = parseFloat(document.getElementById(`posSplitPrice${nth}`)?.value)  || 0;
-        const amount = parseFloat(document.getElementById(`posSplitAmount${nth}`)?.value) || 0;
+        const amount = _getAmountVal(`posSplitAmount${nth}`);
         const el     = document.getElementById(`posSplitShares${nth}`);
         if (el && price > 0) {
             const isKR = currentMarket === 'KR';
@@ -7740,7 +7767,7 @@
         const splits = [];
         for (let i = 1; i <= _posSplitCount; i++) {
             const price  = parseFloat(document.getElementById(`posSplitPrice${i}`)?.value);
-            const amount = parseFloat(document.getElementById(`posSplitAmount${i}`)?.value);
+            const amount = _getAmountVal(`posSplitAmount${i}`);
             if (price && amount) splits.push({ nth: i, price, amount, shares: +(amount / price).toFixed(4) });
         }
 
@@ -26351,6 +26378,7 @@
         goMyPosition, renderMyPosition, _posOpenSheet, _posCloseSheet, _posSheetSet, _posSave,
         _posOnEntryPriceInput, _posAddWatching,
         _posSetStatus, _posChangeSplitCount, _posCalcSplitPlan, _posUpdateSplitRow,
+        _fmtAmountInput, _getAmountVal,
         _posSetEntryToCurrent, _posSetEntryOffset, _posSetStopPct, _posSetStopToEma, _posTpPct,
         _posStopTab, _posOnStopPrice, _posOnStopPct, _posStopQuickPct, _posStopSetPct,
         _posDelete, _posQuickClose, _posSetFilter, _posExport, _posImportPick, _posImportFile,
