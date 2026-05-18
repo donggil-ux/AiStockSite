@@ -15846,7 +15846,7 @@
             if (mode === 'reentry' && pos?.entryPrice) _sdAddLine(pos.entryPrice, '#94a3b8', 1, 2, `이전 진입 ${fmtP(pos.entryPrice)}`);
             if (mode === 'reentry' && pos?.closedPrice) _sdAddLine(pos.closedPrice, '#64748b', 1, 2, `이전 매도 ${fmtP(pos.closedPrice)}`);
         } else if (mode === 'loss') {
-            if (pos?.entryPrice) _sdAddLine(pos.entryPrice, '#9D4EDD', 2, 0, `내 진입 ${fmtP(pos.entryPrice)}`);
+            // 내 진입 라인은 포지션 카드(_addPosLine)에서 표시 — Smart Dip 중복 제거
             const done = pos?.splitCount || 1;
             // 현재가 아래 남은 레벨만 표시
             entryLevels.slice(done).filter(e => e.price < lastClose).forEach(({ num, fib, price }) => {
@@ -15856,7 +15856,7 @@
             });
             _sdAddLine(pos?.stopLoss || stopLoss, '#EF4444', 2, 0, `손절 ${fmtP(pos?.stopLoss || stopLoss)}`);
         } else if (mode === 'profit') {
-            if (pos?.entryPrice) _sdAddLine(pos.entryPrice, '#9D4EDD', 2, 0, `내 진입 ${fmtP(pos.entryPrice)}`);
+            // 내 진입 라인은 포지션 카드(_addPosLine)에서 표시 — Smart Dip 중복 제거
             const t1 = pos?.tp1 || tp1Price, t2 = pos?.tp2 || tp2Price;
             _sdAddLine(t1, '#22C55E', 2, 0, `SD 익절1 (40%) ${fmtP(t1)}`);
             _sdAddLine(t2, '#86EFAC', 1, 2, `SD 익절2 (35%) ${fmtP(t2)}`);
