@@ -914,6 +914,11 @@
                                 onclick="toggleChartSound()" title="시그널 사운드 켜기 — 매수·매도 시그널 발생 시 소리 알림"
                                 style="border-color:var(--border);color:var(--text3);">소리
                             </button>
+                            <button class="chart-tb-btn" id="sigHistoryBtn"
+                                onclick="toggleSigHistoryPanel()" title="알림 기록"
+                                style="border-color:var(--border);color:var(--text3);position:relative;">🔔
+                                <span id="sigHistoryBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:#EF4444;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;line-height:14px;text-align:center;padding:0 2px;"></span>
+                            </button>
                             <button class="chart-tb-btn" id="chartAiClearBtn"
                                 onclick="clearAiChartLines()" title="AI 라인 지우기"
                                 style="display:none;border-color:var(--border);color:var(--text3);">🗑 AI 라인</button>
@@ -1325,6 +1330,10 @@
     let analysisRefreshTimer = null;  // 분석 자동 갱신 타이머 (5분)
     let chartSigPollTimer    = null;  // 차트 시그널 폴링 타이머 (60초)
     let _lastSigKey          = null;  // 마지막 시그널 식별자 (symbol:time:pos:text)
+    let _lastPosAlertKey     = '';    // 중복 포지션 알림 억제 (headline 기준 5분 쿨다운)
+    let _lastPosAlertTime    = 0;
+    const _SIG_HISTORY_MAX   = 100;
+    let _sigHistory          = JSON.parse(localStorage.getItem('stockai_sig_history') || '[]');
     let rsiChart = null;
     let macdChart = null;
     let adxChart = null;
@@ -14794,6 +14803,71 @@
         if (_lastSigArgs) renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb);
         try { _posDrawChartLine(); } catch(e) {}
     }
+    // ── 알림 기록 패널 ───────────────────────────────────────────
+    let _sigHistoryOpen = false;
+    function toggleSigHistoryPanel() {
+        _sigHistoryOpen = !_sigHistoryOpen;
+        const btn = document.getElementById('sigHistoryBtn');
+        if (btn) { btn.style.color = _sigHistoryOpen ? '#F59E0B' : 'var(--text3)'; btn.style.background = _sigHistoryOpen ? 'var(--bg3)' : 'transparent'; }
+        _renderSigHistoryPanel();
+    }
+    function _renderSigHistoryPanel() {
+        // 배지 업데이트
+        const badge = document.getElementById('sigHistoryBadge');
+        const unread = _sigHistory.length;
+        if (badge) { badge.style.display = unread > 0 ? '' : 'none'; badge.textContent = unread > 9 ? '9+' : String(unread); }
+
+        let panel = document.getElementById('sigHistoryPanel');
+        if (!_sigHistoryOpen) { if (panel) panel.remove(); return; }
+        if (!panel) {
+            panel = document.createElement('div');
+            panel.id = 'sigHistoryPanel';
+            panel.style.cssText = `position:fixed;top:52px;right:10px;z-index:8500;
+                width:min(360px,calc(100vw - 20px));max-height:70vh;overflow-y:auto;
+                background:var(--bg2);border:1px solid var(--border);border-radius:14px;
+                box-shadow:0 8px 32px rgba(0,0,0,.45);font-size:13px;`;
+            document.body.appendChild(panel);
+        }
+        // 필터 상태
+        const _flt = panel._filter || 'all';
+        const filtered = _flt === 'all' ? _sigHistory : _sigHistory.filter(h => h.dir === _flt);
+        const fmtTime = ts => {
+            const d = new Date(ts);
+            const today = new Date();
+            const isToday = d.toDateString() === today.toDateString();
+            return isToday
+                ? d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                : d.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' }) + ' ' + d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+        };
+        panel.innerHTML = `
+        <div style="display:flex;align-items:center;gap:6px;padding:10px 14px 8px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg2);z-index:1;">
+            <span style="font-weight:700;font-size:13px;flex:1;">🔔 알림 기록</span>
+            <button onclick="document.getElementById('sigHistoryPanel')._filter='all';_renderSigHistoryPanel();"
+                style="font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:${_flt==='all'?'var(--bg4)':'var(--bg)'};color:var(--text);cursor:pointer;">전체</button>
+            <button onclick="document.getElementById('sigHistoryPanel')._filter='buy';_renderSigHistoryPanel();"
+                style="font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:${_flt==='buy'?'rgba(239,68,68,.18)':'var(--bg)'};color:${_flt==='buy'?'#ef4444':'var(--text)'};cursor:pointer;">매수</button>
+            <button onclick="document.getElementById('sigHistoryPanel')._filter='sell';_renderSigHistoryPanel();"
+                style="font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:${_flt==='sell'?'rgba(59,130,246,.18)':'var(--bg)'};color:${_flt==='sell'?'#3b82f6':'var(--text)'};cursor:pointer;">매도</button>
+            <button onclick="if(confirm('알림 기록을 모두 삭제할까요?')){_sigHistory=[];localStorage.removeItem('stockai_sig_history');_renderSigHistoryPanel();}"
+                style="font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text3);cursor:pointer;">지우기</button>
+            <button onclick="toggleSigHistoryPanel()"
+                style="font-size:14px;padding:2px 6px;border:none;background:transparent;color:var(--text3);cursor:pointer;">✕</button>
+        </div>
+        ${filtered.length === 0
+            ? `<div style="padding:24px;text-align:center;color:var(--text3);">알림 기록이 없습니다</div>`
+            : filtered.map(h => `
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border);background:${h.dir==='buy'?'rgba(239,68,68,.04)':'rgba(59,130,246,.04)'};">
+                <div style="width:34px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;margin-top:1px;
+                    background:${h.dir==='buy'?'rgba(239,68,68,.18)':'rgba(59,130,246,.18)'};
+                    color:${h.dir==='buy'?'#ef4444':'#3b82f6'};">${h.dir==='buy'?'매수':'매도'}</div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(h.headline)}</div>
+                    ${h.subText ? `<div style="font-size:11px;color:var(--text3);margin-top:2px;">${escHtml(h.subText)}</div>` : ''}
+                </div>
+                <div style="font-size:10px;color:var(--text3);white-space:nowrap;flex-shrink:0;margin-top:2px;">${fmtTime(h.ts)}</div>
+            </div>`).join('')}`;
+    }
+
     function _updateTpBtnUi() {
         const btn = document.getElementById('chartTpLevelBtn');
         if (!btn) return;
@@ -15291,16 +15365,38 @@
                             }
                         }
                     } catch(e) {}
-                    // 10초 프로그레스바 시그널 알림 — 종목명 + 매수·매도가 (v695·v699·v700)
-                    try { _showSignalAlert(`${emoji} ${currentSymbol} · ${headline}`, effectiveBuy, (typeof subText !== 'undefined' && subText) ? subText : subStr); } catch(e) {}
-                    // 매수·매도 시그널 사운드 + 음성 안내 (v694·v699)
-                    try {
-                        if (_chartSoundEnabled) {
-                            _playSignalSound(effectiveBuy ? 'buy' : 'sell');
-                            setTimeout(() => _speakSignal(currentSymbol, effectiveBuy ? '매수' : '매도'), 380);
-                        }
-                    } catch(e) {}
-                }
+                    // ── 포지션 알림 중복 억제 (동일 headline 5분 쿨다운) ──
+                    const _posAlertKey = `${currentSymbol}:${headline}`;
+                    const _now = Date.now();
+                    if (_lastPosAlertKey === _posAlertKey && _now - _lastPosAlertTime < 5 * 60 * 1000) {
+                        // 5분 이내 동일 알림 → skip
+                    } else {
+                        _lastPosAlertKey  = _posAlertKey;
+                        _lastPosAlertTime = _now;
+                        const _finalSub = (typeof subText !== 'undefined' && subText) ? subText : subStr;
+                        // ── 알림 히스토리 저장 ──
+                        try {
+                            _sigHistory.unshift({
+                                ts:       _now,
+                                symbol:   currentSymbol,
+                                dir:      effectiveBuy ? 'buy' : 'sell',
+                                headline: headline,
+                                subText:  _finalSub,
+                            });
+                            if (_sigHistory.length > _SIG_HISTORY_MAX) _sigHistory.length = _SIG_HISTORY_MAX;
+                            localStorage.setItem('stockai_sig_history', JSON.stringify(_sigHistory));
+                            _renderSigHistoryPanel();
+                        } catch(e) {}
+                        // 10초 프로그레스바 시그널 알림
+                        try { _showSignalAlert(`${emoji} ${currentSymbol} · ${headline}`, effectiveBuy, _finalSub); } catch(e) {}
+                        // 매수·매도 시그널 사운드 + 음성 안내
+                        try {
+                            if (_chartSoundEnabled) {
+                                _playSignalSound(effectiveBuy ? 'buy' : 'sell');
+                                setTimeout(() => _speakSignal(currentSymbol, effectiveBuy ? '매수' : '매도'), 380);
+                            }
+                        } catch(e) {}
+                    }
             }
             _lastSigKey = newKey;
             // 내 포지션 진입가 라인 재그리기 (차트 갱신 시)
@@ -27158,7 +27254,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         loadOptionsDate, setOptionsFilter,
         setOptionsStrikeRange, toggleOptionsVolFilter, sortOptionsBy,
         manualAnalysisRefresh, pwaInstall,
-        toggleChartSigLines, toggleKullamagiLayer, toggleSplitBuyLayer, toggleSplitGroup, _toggleSplitGroup, getSplitBuyCoeff, togglePullbackLayer, toggleTpLevel, toggleSrLayer, toggleSrMode,
+        toggleChartSigLines, toggleKullamagiLayer, toggleSplitBuyLayer, toggleSplitGroup, _toggleSplitGroup, getSplitBuyCoeff, togglePullbackLayer, toggleTpLevel, toggleSrLayer, toggleSrMode, toggleSigHistoryPanel, _renderSigHistoryPanel,
         toggleSmartDipLayer, toggleSmartDipGroup, toggleSepaLayer, getSmartDipMode, _scrollToGroup,
         _runBacktest, _openBacktest,
         startAlpacaWS, stopAlpacaWS,
