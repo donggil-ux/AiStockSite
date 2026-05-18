@@ -14919,64 +14919,84 @@
                                 const _pnlPct  = _entry
                                     ? (lastClose - _entry) / _entry * 100
                                     : null;
+                                let subText = '';
+
+                                // ── 손절 ──────────────────────────────────
+                                // 손절 이탈 (손절가 아래)
+                                if (_sl && lastClose < _sl) {
+                                    emoji = '🔴';
+                                    headline = `🚨 손절 — 현재가 ${_fmtP(lastClose)} · 손절가 ${_fmtP(_sl)}`;
+                                    subText  = '손절가 이탈 · 즉시 손절 검토';
 
                                 // 손절 근접 (손절가 대비 2% 이내)
-                                if (_sl && lastClose <= _sl * 1.02 && lastClose >= _sl * 0.98) {
+                                } else if (_sl && lastClose <= _sl * 1.02 && lastClose >= _sl) {
                                     emoji = '🔴';
-                                    headline = `⚠️ 손절선 근접 — 현재가 ${_fmtP(lastClose)} · 손절 ${_fmtP(_sl)}`;
+                                    headline = `⚠️ 손절 근접 — 현재가 ${_fmtP(lastClose)} · 손절가 ${_fmtP(_sl)}`;
+                                    subText  = '손절가까지 ' + (((lastClose - _sl) / _sl) * 100).toFixed(1) + '% 남음';
 
-                                // 손절 이탈
-                                } else if (_sl && lastClose < _sl) {
-                                    emoji = '🔴';
-                                    headline = `🚨 손절선 이탈 — 현재가 ${_fmtP(lastClose)} · 손절 ${_fmtP(_sl)} · 매도 검토`;
-
+                                // ── 익절 ──────────────────────────────────
                                 // 3차 익절 근접 (2% 이내)
                                 } else if (_tp3 && Math.abs(lastClose - _tp3) / _tp3 <= 0.02) {
                                     emoji = '🎉';
-                                    headline = `🎉 3차 익절 근접 ${_fmtP(_tp3)} — 전량 매도 검토`;
+                                    headline = `🎉 익절 — 3차 목표가 ${_fmtP(_tp3)} 근접`;
+                                    subText  = '30% 익절 검토';
+
+                                // 3차 익절 달성
+                                } else if (_tp3 && lastClose >= _tp3) {
+                                    emoji = '🎉';
+                                    headline = `🎉 익절 달성 — 3차 ${_fmtP(_tp3)} 돌파`;
+                                    subText  = '전량 익절 검토';
 
                                 // 2차 익절 근접 (2% 이내)
                                 } else if (_tp2 && Math.abs(lastClose - _tp2) / _tp2 <= 0.02) {
                                     emoji = '💰';
-                                    headline = `💰 2차 익절 근접 ${_fmtP(_tp2)} — 40% 매도 검토`;
+                                    headline = `💰 익절 — 2차 목표가 ${_fmtP(_tp2)} 근접`;
+                                    subText  = '40% 익절 검토';
+
+                                // 2차 익절 달성
+                                } else if (_tp2 && lastClose >= _tp2) {
+                                    emoji = '💰';
+                                    headline = `💰 익절 달성 — 2차 ${_fmtP(_tp2)} 돌파`;
+                                    subText  = `3차 목표가 ${_fmtP(_tp3 || _tp2)}까지 보유`;
 
                                 // 1차 익절 근접 (2% 이내)
                                 } else if (_tp1 && Math.abs(lastClose - _tp1) / _tp1 <= 0.02) {
                                     emoji = '✅';
-                                    headline = `✅ 1차 익절 근접 ${_fmtP(_tp1)} — 30% 매도 검토`;
+                                    headline = `✅ 익절 — 1차 목표가 ${_fmtP(_tp1)} 근접`;
+                                    subText  = '30% 익절 검토';
 
-                                // 1차 익절 달성 후 보유
-                                } else if (_tp1 && lastClose > _tp1) {
+                                // 1차 익절 달성
+                                } else if (_tp1 && lastClose >= _tp1) {
+                                    emoji = '✅';
+                                    headline = `✅ 익절 달성 — 1차 ${_fmtP(_tp1)} 돌파`;
                                     const nextTarget = _tp2 || _tp3;
-                                    headline = nextTarget
-                                        ? `1차 익절 달성 · ${_pnlPct > 0 ? '+' : ''}${_pnlPct?.toFixed(1)}% — 다음 목표 ${_fmtP(nextTarget)}`
-                                        : `1차 익절 달성 · ${_pnlPct > 0 ? '+' : ''}${_pnlPct?.toFixed(1)}% — 익절 고려`;
+                                    subText  = nextTarget
+                                        ? `다음 목표 ${_fmtP(nextTarget)}`
+                                        : '익절 고려';
 
-                                // 수익 중 (진입가 + 1% 이상)
-                                } else if (_pnlPct !== null && _pnlPct >= 1) {
-                                    headline = `수익 중 +${_pnlPct.toFixed(1)}% · 보유 유지 — 익절가 ${_tp1 ? _fmtP(_tp1) : '미설정'}`;
-
-                                // 손실 중 — 분할매수 계획 있으면 다음 진입가 표시
+                                // ── 매수 (분할매수) ────────────────────────
                                 } else if (_pnlPct !== null && _pnlPct <= -1) {
-                                    // 분할매수 계획 확인
                                     const _splits = _pa.splits || [];
-                                    // 현재가보다 아래에 있는 다음 분할매수 진입가 (현재가에 가장 가까운 것)
                                     const _nextSplit = _splits
                                         .filter(sp => sp.price < lastClose && sp.nth > 1)
                                         .sort((a, b) => b.price - a.price)[0];
                                     if (_splits.length > 1 && _nextSplit) {
-                                        // 분할매수 계획 있음 — 다음 진입가/금액 표시
-                                        const _completedSplits = _splits.filter(sp => sp.price >= lastClose).length;
                                         emoji = '📊';
-                                        headline = `손실 ${_pnlPct.toFixed(1)}% · ${_completedSplits + 1}차 분할매수 진입가 ${_fmtP(_nextSplit.price)} — $${(_nextSplit.amount || 0).toLocaleString()}`;
+                                        headline = `📊 매수 — ${_nextSplit.nth}차 분할매수 진입가 ${_fmtP(_nextSplit.price)}`;
+                                        subText  = `손실 ${_pnlPct.toFixed(1)}% · 추가 매수 검토`;
                                     } else if (_splits.length > 1) {
-                                        // 분할매수 있지만 아직 진입가 미도달
                                         emoji = '📊';
-                                        headline = `손실 ${_pnlPct.toFixed(1)}% · 분할매수 대기 중 — ${_splits.length}차 계획 설정됨`;
+                                        headline = `📊 매수 대기 — ${_splits.length}차 분할매수 계획 설정됨`;
+                                        subText  = `손실 ${_pnlPct.toFixed(1)}%`;
                                     } else {
-                                        // 분할매수 없음 — 기존 메시지
-                                        headline = `손실 ${_pnlPct.toFixed(1)}% · 분할매수 검토 — 손절 ${_sl ? _fmtP(_sl) : '미설정'}`;
+                                        emoji = '💰';
+                                        headline = `보유 중 (${_pnlPct.toFixed(1)}%) · 분할매수 검토`;
+                                        subText  = `손절 ${_sl ? _fmtP(_sl) : '미설정'}`;
                                     }
+
+                                // 수익 중 (진입가 + 1% 이상)
+                                } else if (_pnlPct !== null && _pnlPct >= 1) {
+                                    headline = `수익 중 +${_pnlPct.toFixed(1)}% · 보유 유지 — 익절가 ${_tp1 ? _fmtP(_tp1) : '미설정'}`;
 
                                 // 진입가 근처 (±1%)
                                 } else {
@@ -15027,7 +15047,7 @@
                         }
                     } catch(e) {}
                     // 10초 프로그레스바 시그널 알림 — 종목명 + 매수·매도가 (v695·v699·v700)
-                    try { _showSignalAlert(`${emoji} ${currentSymbol} · ${headline}`, isBuy, subStr); } catch(e) {}
+                    try { _showSignalAlert(`${emoji} ${currentSymbol} · ${headline}`, isBuy, (typeof subText !== 'undefined' && subText) ? subText : subStr); } catch(e) {}
                     // 매수·매도 시그널 사운드 + 음성 안내 (v694·v699)
                     try {
                         if (_chartSoundEnabled) {
