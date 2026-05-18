@@ -3391,6 +3391,7 @@
         stopLiveUpdate();
         stopAnalysisRefresh();
         stopChartSigPoll();
+        stopAlpacaWS();
         // top100은 메뉴에서만 로드 (홈에서 제거)
         loadRecentStocks();
         loadSwingRadar();
@@ -12343,6 +12344,8 @@
             startAnalysisRefresh();
             // 차트 시그널 폴링 시작 (60초 간격, RSI/MACD 신규 시그널 토스트)
             startChartSigPoll();
+            // Alpaca WebSocket 실시간 캔들 (로컬 + US 종목만)
+            startAlpacaWS(symbol);
 
         } catch(err) {
             showToast(err.message || '데이터를 불러오는데 실패했습니다.');
@@ -13021,6 +13024,152 @@
     // ========================================
     function stopLiveUpdate() {
         if (liveUpdateTimer) { clearInterval(liveUpdateTimer); liveUpdateTimer = null; }
+    }
+
+    // ========================================
+    // Alpaca WebSocket 실시간 캔들 (로컬 전용)
+    // ========================================
+    function stopAlpacaWS() {
+        if (_alpacaWs) {
+            try { _alpacaWs.close(); } catch(e) {}
+            _alpacaWs = null;
+        }
+        _wsLiveCandle = null;
+        // 연결 상태 뱃지 제거
+        const badge = document.getElementById('alpacaWsBadge');
+        if (badge) badge.remove();
+    }
+
+    function _wsShowBadge(connected) {
+        let badge = document.getElementById('alpacaWsBadge');
+        if (!badge) {
+            badge = document.createElement('div');
+            badge.id = 'alpacaWsBadge';
+            badge.style.cssText = `position:fixed;bottom:72px;right:14px;z-index:8000;
+                font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;
+                pointer-events:none;transition:opacity .3s;`;
+            document.body.appendChild(badge);
+        }
+        if (connected) {
+            badge.textContent = '⚡ Alpaca 실시간';
+            badge.style.background = 'rgba(34,197,94,0.18)';
+            badge.style.color = '#22C55E';
+            badge.style.border = '1px solid rgba(34,197,94,0.4)';
+            badge.style.opacity = '1';
+        } else {
+            badge.textContent = '🔴 WS 끊김';
+            badge.style.background = 'rgba(239,68,68,0.15)';
+            badge.style.color = '#EF4444';
+            badge.style.border = '1px solid rgba(239,68,68,0.3)';
+            // 3초 후 숨김
+            setTimeout(() => { if (badge) badge.style.opacity = '0'; }, 3000);
+        }
+    }
+
+    function _handleAlpacaTrade(trade) {
+        if (!lwCandleSeries) return;
+        const price  = trade.p;
+        const size   = trade.s || 0;
+        const now    = Math.floor(Date.now() / 1000);
+
+        // 타임프레임에 맞춰 봉 시작 시간 정렬
+        const tfSec  = (_lastSigArgs?.ts?.length >= 2)
+            ? (_lastSigArgs.ts[1] - _lastSigArgs.ts[0])
+            : 60;
+        const barTime = now - (now % tfSec);
+
+        if (!_wsLiveCandle || _wsLiveCandle.time !== barTime) {
+            // 새 봉 시작
+            _wsLiveCandle = {
+                time: barTime, open: price,
+                high: price, low: price,
+                close: price, volume: size,
+            };
+        } else {
+            if (price > _wsLiveCandle.high) _wsLiveCandle.high = price;
+            if (price < _wsLiveCandle.low)  _wsLiveCandle.low  = price;
+            _wsLiveCandle.close   = price;
+            _wsLiveCandle.volume += size;
+        }
+
+        // 스로틀: 200ms 이내 중복 업데이트 방지
+        const now2 = Date.now();
+        if (now2 - _wsTradeThrottle < 200) return;
+        _wsTradeThrottle = now2;
+
+        try { lwCandleSeries.update({ ..._wsLiveCandle }); } catch(e) {}
+
+        // 헤더 가격도 실시간 업데이트
+        try {
+            const fmtP = v => currentMarket === 'KR'
+                ? Math.round(v).toLocaleString() + '원'
+                : '$' + v.toFixed(2);
+            const priceEl = document.getElementById('stockPrice');
+            if (priceEl) priceEl.textContent = fmtP(price);
+        } catch(e) {}
+    }
+
+    function startAlpacaWS(symbol) {
+        stopAlpacaWS();
+        // KR 종목 / 로컬 이외 환경 제외
+        if (currentMarket === 'KR') return;
+        const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
+        const wsUrl   = `${wsProto}://${location.host}/ws/alpaca`;
+
+        // 연결 가능 여부 확인 (로컬 전용)
+        if (!location.hostname.includes('localhost') &&
+            !location.hostname.includes('127.0.0.1')) return;
+
+        try {
+            _alpacaWs = new WebSocket(wsUrl);
+
+            _alpacaWs.onopen = () => {
+                _alpacaWs.send(JSON.stringify({
+                    action: 'subscribe',
+                    symbols: [symbol.replace(/\.(KS|KQ)$/i, '').toUpperCase()],
+                }));
+                _wsShowBadge(true);
+                console.log('[alpaca-ws] connected:', symbol);
+            };
+
+            _alpacaWs.onmessage = (event) => {
+                try {
+                    const m = JSON.parse(event.data);
+                    if (m.T === 'b') {
+                        // 1분봉 확정 bar
+                        const barTime = Math.floor(new Date(m.t).getTime() / 1000);
+                        const bar = {
+                            time: barTime,
+                            open: m.o, high: m.h,
+                            low:  m.l, close: m.c,
+                        };
+                        try { lwCandleSeries.update(bar); } catch(e) {}
+                        _wsLiveCandle = null; // 확정 봉 이후 새 봉 시작
+                    } else if (m.T === 't') {
+                        // 틱 단위 트레이드 → 현재 봉 실시간 업데이트
+                        _handleAlpacaTrade(m);
+                    }
+                } catch(e) {}
+            };
+
+            _alpacaWs.onerror = () => {
+                _wsShowBadge(false);
+                console.warn('[alpaca-ws] error');
+            };
+
+            _alpacaWs.onclose = () => {
+                _wsShowBadge(false);
+                _alpacaWs = null;
+                // 5초 후 자동 재연결 (페이지가 살아있고 같은 심볼이면)
+                setTimeout(() => {
+                    if (currentSymbol === symbol && currentMarket !== 'KR') {
+                        startAlpacaWS(symbol);
+                    }
+                }, 5000);
+            };
+        } catch(e) {
+            console.warn('[alpaca-ws] init failed:', e.message);
+        }
     }
 
     // ========================================
@@ -14381,6 +14530,9 @@
     let _chartTpLevel = parseInt(localStorage.getItem('stockai_chart_tp_level') || '1'); // 익절 단계: 1=1차만 2=1~2차 3=전체
     let _priceLabelRegistry = []; // 우측 가격 라벨 중복 방지 — ±0.8% 이내 중복 시 낮은 우선순위 라벨 숨김
     let _lastSigArgs = null;  // 토글 시 즉시 재렌더용 캐시
+    let _alpacaWs        = null;   // Alpaca WebSocket 연결
+    let _wsLiveCandle    = null;   // 현재 형성 중인 실시간 캔들
+    let _wsTradeThrottle = 0;      // 캔들 업데이트 스로틀 (ms)
     let _isMobileView = window.innerWidth <= 768; // 모바일 뷰 여부 (라인 개수 자동 제한)
 
     function _updateChartLinesBtnUi() {
@@ -26946,6 +27098,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         toggleChartSigLines, toggleKullamagiLayer, toggleSplitBuyLayer, toggleSplitGroup, _toggleSplitGroup, getSplitBuyCoeff, togglePullbackLayer, toggleTpLevel, toggleSrLayer, toggleSrMode,
         toggleSmartDipLayer, toggleSmartDipGroup, toggleSepaLayer, getSmartDipMode, _scrollToGroup,
         _runBacktest, _openBacktest,
+        startAlpacaWS, stopAlpacaWS,
         _toggleAnalysisDd, _toggleLineDd, _closeAllDds, _updateDdStates, _setDdCheck,
         _openChartBottomSheet, _closeChartBottomSheet, _confirmChartBottomSheet,
         _cancelChartBottomSheet, _bsRenderBody,

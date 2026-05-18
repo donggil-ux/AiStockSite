@@ -17,6 +17,7 @@ const { createClient } = require('@supabase/supabase-js');
 const Anthropic = require('@anthropic-ai/sdk');
 const { SYSTEM_ROLE, OUTPUT_CONTRACT, buildUserPrompt, buildSystemRole } = require('./chartReaderPrompt');
 const webpush = require('web-push');
+const { WebSocketServer } = require('ws');
 
 // ── Web Push (VAPID) 초기화 ──────────────────────────────────────
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
@@ -7786,8 +7787,79 @@ function logEnvStatus() {
 
 
 if (require.main === module) {
-    // 로컬 실행
-    app.listen(PORT, () => {
+    // ── 로컬 실행: HTTP + WebSocket 서버 ──────────────────────────
+    const httpServer = http.createServer(app);
+
+    // ── Alpaca WebSocket 프록시 (/ws/alpaca) ─────────────────────
+    // 브라우저 → ws://localhost:3000/ws/alpaca
+    // 서버     → wss://stream.data.alpaca.markets/v2/iex (Alpaca IEX)
+    if (_alpacaEnabled()) {
+        const { WebSocket: WS } = require('ws');
+        const wss = new WebSocketServer({ server: httpServer, path: '/ws/alpaca' });
+
+        wss.on('connection', (clientWs) => {
+            let alpacaWs = null;
+
+            const cleanup = () => {
+                if (alpacaWs) { try { alpacaWs.close(); } catch(e) {} alpacaWs = null; }
+            };
+
+            clientWs.on('message', (raw) => {
+                try {
+                    const msg = JSON.parse(raw.toString());
+                    if (msg.action !== 'subscribe' || !msg.symbols?.length) return;
+
+                    cleanup(); // 기존 연결 정리
+
+                    const ALPACA_WS = 'wss://stream.data.alpaca.markets/v2/iex';
+                    alpacaWs = new WS(ALPACA_WS);
+
+                    alpacaWs.on('open', () => {
+                        // 1) 인증
+                        alpacaWs.send(JSON.stringify({
+                            action: 'auth',
+                            key:    process.env.ALPACA_KEY_ID,
+                            secret: process.env.ALPACA_SECRET_KEY,
+                        }));
+                    });
+
+                    alpacaWs.on('message', (data) => {
+                        try {
+                            const frames = JSON.parse(data.toString());
+                            for (const f of frames) {
+                                // 인증 성공 → 구독 요청
+                                if (f.T === 'success' && f.msg === 'authenticated') {
+                                    alpacaWs.send(JSON.stringify({
+                                        action: 'subscribe',
+                                        bars:   msg.symbols,   // 1분봉 확정 봉
+                                        trades: msg.symbols,   // 틱 단위 가격
+                                    }));
+                                    console.log(`[alpaca-ws] subscribed: ${msg.symbols}`);
+                                }
+                                // 바·트레이드 → 클라이언트로 포워딩
+                                if ((f.T === 'b' || f.T === 't') && clientWs.readyState === 1) {
+                                    clientWs.send(JSON.stringify(f));
+                                }
+                            }
+                        } catch(e) {}
+                    });
+
+                    alpacaWs.on('error', (e) => console.warn('[alpaca-ws]', e.message));
+                    alpacaWs.on('close', () => { alpacaWs = null; });
+
+                } catch(e) { console.warn('[ws-proxy] parse error', e.message); }
+            });
+
+            clientWs.on('close', cleanup);
+            clientWs.on('error', cleanup);
+        });
+
+        console.log('🔌 Alpaca WebSocket 프록시 활성화 (/ws/alpaca)');
+    } else {
+        console.log('ℹ️  Alpaca 키 미설정 — WebSocket 프록시 비활성화');
+    }
+
+    httpServer.listen(PORT, () => {
         console.log(`\n🚀 StockAI Server  →  http://localhost:${PORT}`);
         console.log(`📡 Health check    →  http://localhost:${PORT}/health`);
         logEnvStatus();
