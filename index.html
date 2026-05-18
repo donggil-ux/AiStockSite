@@ -13254,14 +13254,9 @@
                                         badge.style.display = '';
                                         badge.textContent = '🟢 실시간 (Alpaca)';
                                         badge.style.color = '#22C55E';
-                                    } else if (dataSource === 'yfinance_delayed') {
-                                        if (d.isMarketHours) {
-                                            badge.style.display = '';
-                                            badge.textContent = '🟡 yfinance 지연 데이터';
-                                            badge.style.color = '#F59E0B';
-                                        } else {
-                                            badge.style.display = 'none'; // 장외는 뱃지 숨김
-                                        }
+                                    } else {
+                                        // yfinance 폴백 / 장외 — 뱃지 숨김 (노이즈 제거)
+                                        badge.style.display = 'none';
                                     }
                                 }
 
