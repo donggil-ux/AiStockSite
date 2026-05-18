@@ -7166,24 +7166,55 @@
                     _addPosLine(pos.stopLoss, '#EF4444', 1, 2,
                         `손절 ${_posFmtP(pos.stopLoss,currentMarket)}${slPct!=null?` (${slPct.toFixed(1)}%)`:''}`)
                 }
+                // ── 익절가: 포지션 설정값 우선, 미설정 시 타임프레임 기반 자동 계산 ──
+                //   기존 pos.tp1/2/3 값이 있으면 절대 덮어쓰지 않음 (설정값 우선)
+                let _tp1 = pos.tp1, _tp2 = pos.tp2, _tp3 = pos.tp3;
+                let _autoTp = null;
+                if ((!_tp1 || !_tp2 || !_tp3) && _lastSigArgs && _lastSigArgs.candleData) {
+                    _autoTp = _calcAutoTpLevels(_lastSigArgs.candleData, _lastSigArgs.ts, pos.entryPrice);
+                    if (_autoTp) {
+                        _tp1 = _tp1 || _autoTp.tp1;
+                        _tp2 = _tp2 || _autoTp.tp2;
+                        _tp3 = _tp3 || _autoTp.tp3;
+                    }
+                }
+                // 자동 계산된 차수는 🤖 표시 (설정값이면 마크 없음)
+                const _autoMk = saved => saved ? '' : '🤖 ';
                 // 1차 익절가
-                if (pos.tp1) {
-                    const tp1Pct = _posPnlPct(pos.entryPrice, pos.tp1);
-                    _addPosLine(pos.tp1, '#22C55E', 1, 2,
-                        `익절1 ${_posFmtP(pos.tp1,currentMarket)}${tp1Pct!=null?` (+${tp1Pct.toFixed(1)}%)`:''}`)
+                if (_tp1) {
+                    const tp1Pct = _posPnlPct(pos.entryPrice, _tp1);
+                    _addPosLine(_tp1, '#22C55E', 1, 2,
+                        `${_autoMk(pos.tp1)}익절1 ${_posFmtP(_tp1,currentMarket)}${tp1Pct!=null?` (+${tp1Pct.toFixed(1)}%)`:''}`)
                 }
                 // 2차 익절가 (_chartTpLevel >= 2 일 때만)
-                if (pos.tp2 && _chartTpLevel >= 2) {
-                    const tp2Pct = _posPnlPct(pos.entryPrice, pos.tp2);
-                    _addPosLine(pos.tp2, '#86EFAC', 1, 2,
-                        `익절2 ${_posFmtP(pos.tp2,currentMarket)}${tp2Pct!=null?` (+${tp2Pct.toFixed(1)}%)`:''}`)
+                if (_tp2 && _chartTpLevel >= 2) {
+                    const tp2Pct = _posPnlPct(pos.entryPrice, _tp2);
+                    _addPosLine(_tp2, '#86EFAC', 1, 2,
+                        `${_autoMk(pos.tp2)}익절2 ${_posFmtP(_tp2,currentMarket)}${tp2Pct!=null?` (+${tp2Pct.toFixed(1)}%)`:''}`)
                 }
                 // 3차 익절가 (_chartTpLevel >= 3 일 때만)
-                if (pos.tp3 && _chartTpLevel >= 3) {
-                    const tp3Pct = _posPnlPct(pos.entryPrice, pos.tp3);
-                    _addPosLine(pos.tp3, '#9D4EDD', 2, 2,
-                        `익절3 ${_posFmtP(pos.tp3,currentMarket)}${tp3Pct!=null?` (+${tp3Pct.toFixed(1)}%)`:''}`)
+                if (_tp3 && _chartTpLevel >= 3) {
+                    const tp3Pct = _posPnlPct(pos.entryPrice, _tp3);
+                    _addPosLine(_tp3, '#9D4EDD', 2, 2,
+                        `${_autoMk(pos.tp3)}익절3 ${_posFmtP(_tp3,currentMarket)}${tp3Pct!=null?` (+${tp3Pct.toFixed(1)}%)`:''}`)
                 }
+                // 차트 시그널 바에 자동 계산 근거 배지 (이전 배지는 항상 제거 후 갱신)
+                try {
+                    const _bar = document.getElementById('chartSigBar');
+                    if (_bar) {
+                        const _old = document.getElementById('tpAutoPill');
+                        if (_old) _old.remove();
+                        if (_autoTp && (!pos.tp1 || !pos.tp2 || !pos.tp3)) {
+                            const _ml  = _autoTp.method === 'pivot'
+                                ? '피봇 고점 기반' : `ATR ${_autoTp.risk.toFixed(2)} 기반`;
+                            const _tfL = _autoTp.tfMin >= 1440 ? '일봉'
+                                : _autoTp.tfMin >= 60 ? `${_autoTp.tfMin / 60}시간봉`
+                                : `${_autoTp.tfMin}분봉`;
+                            _bar.insertAdjacentHTML('beforeend',
+                                `<span id="tpAutoPill" class="chart-sig-pill" style="background:rgba(34,197,94,0.1);color:#22C55E;border-color:rgba(34,197,94,0.3);">🤖 익절 자동계산 (${_ml}) · ${_tfL} 기준</span>`);
+                        }
+                    }
+                } catch(e){}
             }
         } catch(e){}
     }
