@@ -7037,14 +7037,14 @@
                     _addPosLine(pos.tp1, '#22C55E', 1, 2,
                         `익절1 ${_posFmtP(pos.tp1,currentMarket)}${tp1Pct!=null?` (+${tp1Pct.toFixed(1)}%)`:''}`)
                 }
-                // 2차 익절가
-                if (pos.tp2) {
+                // 2차 익절가 (_chartTpLevel >= 2 일 때만)
+                if (pos.tp2 && _chartTpLevel >= 2) {
                     const tp2Pct = _posPnlPct(pos.entryPrice, pos.tp2);
                     _addPosLine(pos.tp2, '#86EFAC', 1, 2,
                         `익절2 ${_posFmtP(pos.tp2,currentMarket)}${tp2Pct!=null?` (+${tp2Pct.toFixed(1)}%)`:''}`)
                 }
-                // 3차 익절가
-                if (pos.tp3) {
+                // 3차 익절가 (_chartTpLevel >= 3 일 때만)
+                if (pos.tp3 && _chartTpLevel >= 3) {
                     const tp3Pct = _posPnlPct(pos.entryPrice, pos.tp3);
                     _addPosLine(pos.tp3, '#9D4EDD', 2, 2,
                         `익절3 ${_posFmtP(pos.tp3,currentMarket)}${tp3Pct!=null?` (+${tp3Pct.toFixed(1)}%)`:''}`)
@@ -14756,6 +14756,7 @@
         localStorage.setItem('stockai_chart_tp_level', String(_chartTpLevel));
         _updateTpBtnUi();
         if (_lastSigArgs) renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb);
+        try { _posDrawChartLine(); } catch(e) {}
     }
     function _updateTpBtnUi() {
         const btn = document.getElementById('chartTpLevelBtn');
@@ -15872,10 +15873,23 @@
             // ── Yahoo Finance API 호출 ──
             let btCandles = (_lastSigArgs && _lastSigArgs.candleData) || [];
             let btTs      = _ts;
+            let dataSource = `현재 차트 (${btCandles.length}봉)`;
 
             try {
                 const url = `/api/chart?symbol=${encodeURIComponent(currentSymbol)}&interval=${interval}&start=${startStr}&end=${endStr}`;
-                const r = await fetch(url);
+
+                // 재시도 1회 (429 시 1.5초 지연)
+                const fetchWithRetry = async (u, retries = 1) => {
+                    const res = await fetch(u);
+                    if (res.status === 429 && retries > 0) {
+                        await new Promise(ok => setTimeout(ok, 1500));
+                        return fetchWithRetry(u, retries - 1);
+                    }
+                    return res;
+                };
+
+                const r = await fetchWithRetry(url);
+
                 if (r.ok) {
                     const raw = await r.json();
                     const quotes = raw?.chart?.result?.[0];
@@ -15893,10 +15907,14 @@
                         if (parsed.length >= 120) {
                             btCandles = parsed;
                             btTs      = parsed.map(c => c.time);
+                            dataSource = `API (${parsed.length}봉)`;
                         }
                     }
+                } else if (r.status === 429) {
+                    showToast('⚠️ API 요청 한도 초과 — 현재 차트 데이터로 백테스팅해요');
+                    dataSource = `현재 차트 (${btCandles.length}봉)`;
                 }
-            } catch(fetchErr) { /* 폴백: 기존 candleData 사용 */ }
+            } catch(fetchErr) { /* 네트워크 오류 → 폴백: 기존 candleData 사용 */ }
 
             const tfLabel = tfMin < 60
                 ? `${tfMin}분봉`
@@ -15980,7 +15998,7 @@
                             📊 EMA 백테스팅
                         </div>
                         <div style="font-size:11px;color:var(--text3);margin-top:2px">
-                            ${currentFullSymbol} · ${tfLabel} · ${btCandles.length}봉 기준
+                            ${currentFullSymbol} · ${tfLabel} · ${dataSource} 기준
                             (${startDays}일치)
                         </div>
                     </div>
