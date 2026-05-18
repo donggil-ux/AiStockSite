@@ -489,8 +489,11 @@ app.get('/api/summary/:symbol', async (req, res) => {
         const data = await yfRequest(url);
         res.json(data);
     } catch (err) {
-        console.error(`[summary] ${symbol}:`, err.message);
-        res.status(500).json({ error: err.message });
+        // Yahoo 실패 시 500 대신 200 + 빈 구조 반환 → 프론트에서 "데이터 없음"으로 graceful 처리
+        // (500 반복 시 콘솔 에러 스팸 + 무한 로딩 유발 방지)
+        const status = err.response?.status;
+        console.warn(`[summary] ${symbol} 실패 (${status || err.message}) — 빈 응답 반환`);
+        res.json({ quoteSummary: { result: [], error: null }, _unavailable: true });
     }
 });
 
