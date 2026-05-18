@@ -7282,9 +7282,9 @@
                   </div>
                 </div>
                 <div class="pos-field">
-                  <label>1차 매수금액 (${cur})<span class="pos-hint" id="posEntry1Shares"></span></label>
-                  <input type="text" id="posAmount1" inputmode="numeric" placeholder="자동계산"
-                    oninput="this.dataset.edited='1';_fmtAmountInput(this)" style="width:100%">
+                  <label>1차 매수 수량 (주)<span class="pos-hint" id="posEntry1Amount"></span></label>
+                  <input type="number" id="posAmount1" step="0.0001" placeholder="실제 보유 수량 입력"
+                    oninput="this.dataset.edited='1';_posCalcSplitPlan()" style="width:100%">
                 </div>
               </div>
 
@@ -7531,10 +7531,17 @@
         const fmtAmt    = v => isKR ? Math.round(v).toLocaleString() + '원' : '$' + v.toFixed(0);
         const fmtPrc    = v => isKR ? Math.round(v).toLocaleString()       : v.toFixed(2);
 
-        if (!maxBudget || !entry1) {
+        // posAmount1 = 1차 매수 수량(주) 입력
+        const amt1El     = document.getElementById('posAmount1');
+        const amt1Edited = amt1El?.dataset?.edited === '1';
+        const shares1Val = parseFloat(amt1El?.value || '0') || 0;
+        const hasManualShares = amt1Edited && shares1Val > 0;
+
+        // entry1 필수 · (maxBudget 또는 1차 수량 직접입력) 중 하나는 있어야 계산
+        if (!entry1 || (!maxBudget && !hasManualShares)) {
             const rows = document.getElementById('posSplitPlanRows');
             if (rows) rows.innerHTML = '';
-            _posUpdateSummary(maxBudget, [], entry1, stop);
+            _posUpdateSummary(0, [], entry1, stop);
             return;
         }
 
@@ -7551,74 +7558,81 @@
         // 차수별 진입가 (1차 기준 -3%씩)
         const dropPct = 0.03;
 
-        // posAmount1 직접 입력 여부 확인
-        const amt1El     = document.getElementById('posAmount1');
-        const amt1Edited = amt1El?.dataset?.edited === '1';
-        const amt1Val    = parseFloat((amt1El?.value || '0').replace(/,/g, '')) || 0;
+        // 1차 수량 기준값 — 직접 입력했으면 그 수량, 아니면 maxBudget/entry1/ratio[0] 자동계산
+        const shares1Base = hasManualShares
+            ? shares1Val
+            : (maxBudget && entry1 && ratios[0] > 0
+                ? +(maxBudget * ratios[0] / entry1).toFixed(4)
+                : 0);
 
-        // 1차 금액 기준값 — 직접 입력했으면 그 값, 아니면 maxBudget * ratio[0] 자동계산
-        const amt1Base = (amt1Edited && amt1Val > 0)
-            ? amt1Val
-            : +(maxBudget * ratios[0]).toFixed(0);
-
-        // 1차 금액 기준으로 유효 총 예산 역산 → 나머지 차수에 적용
-        const effectiveBudget = (amt1Edited && amt1Val > 0 && ratios[0] > 0)
-            ? amt1Val / ratios[0]
-            : maxBudget;
+        // 전체 차수 합산 총 수량 역산
+        const totalShares1 = (hasManualShares && ratios[0] > 0)
+            ? shares1Val / ratios[0]
+            : (maxBudget && entry1 ? maxBudget / entry1 : 0);
 
         const planRows = ratios.map((ratio, i) => {
-            const nth     = i + 1;
-            const price   = nth === 1
+            const nth    = i + 1;
+            const price  = nth === 1
                 ? entry1
                 : +(entry1 * (1 - dropPct * i)).toFixed(isKR ? 0 : 2);
-            const amount  = nth === 1
-                ? amt1Base
-                : +(effectiveBudget * ratio).toFixed(0);
-            const shares  = price > 0 ? (amount / price).toFixed(isKR ? 0 : 2) : '—';
+            // 수량: 1차 수량 기준으로 비율 적용
+            const shares = nth === 1
+                ? +(shares1Base).toFixed(4)
+                : +(totalShares1 * ratio).toFixed(4);
+            // 투자금 = 수량 × 진입가 (자동 계산)
+            const amount = (shares > 0 && price > 0) ? Math.round(shares * price) : 0;
             const riskPct = (stop && price) ? ((price - stop) / price * 100).toFixed(1) : '—';
-            return { nth, price, amount, shares, riskPct };
+            return { nth, price, shares, amount, riskPct };
         });
 
         const rows = document.getElementById('posSplitPlanRows');
         if (rows) {
             rows.innerHTML = `
             <div class="pos-split-header">
-                <span>차수</span><span>진입가</span><span>투자금</span>
-                <span style="text-align:center">수량</span><span style="text-align:right">리스크</span>
+                <span>차수</span><span>진입가</span><span>수량(주)</span>
+                <span style="text-align:center">투자금</span><span style="text-align:right">리스크</span>
             </div>
             ${planRows.map(r => `
             <div class="pos-split-row ${r.nth===1?'pos-split-row-1st':''}">
                 <div class="pos-split-nth">${r.nth}차</div>
                 <div class="pos-split-price">
                     <input type="number" id="posSplitPrice${r.nth}" value="${r.price}"
-                        oninput="_posUpdateSplitRow(${r.nth})" placeholder="진입가">
+                        oninput="_posUpdateSplitRowShares(${r.nth})" placeholder="진입가">
                 </div>
+                <!-- 수량: 직접 입력 가능 -->
                 <div class="pos-split-amount">
-                    <input type="text" inputmode="numeric" id="posSplitAmount${r.nth}"
-                        value="${r.amount.toLocaleString('en-US')}"
-                        oninput="_fmtAmountInput(this);_posUpdateSplitRow(${r.nth})" placeholder="금액">
+                    <input type="number" id="posSplitShares${r.nth}" value="${r.shares}"
+                        step="0.0001" placeholder="수량"
+                        oninput="_posUpdateSplitRowShares(${r.nth})">
                 </div>
+                <!-- 투자금: 수량×진입가 자동 계산 (표시 전용) -->
                 <div class="pos-split-shares">
-                    <span id="posSplitShares${r.nth}">${r.shares}${isKR?'주':'주'}</span>
+                    <span id="posSplitAmount${r.nth}" style="font-size:11px;color:var(--text3)">${r.amount > 0 ? (isKR?'₩':'$')+r.amount.toLocaleString() : '—'}</span>
                 </div>
                 <div class="pos-split-risk">손절 ${r.riskPct}%</div>
             </div>`).join('')}`;
         }
 
-        // 1차 금액 동기화 (사용자가 직접 지운 경우 덮어쓰지 않음)
-        // amt1El은 위 planRows 블록에서 이미 선언됨
+        // 1차 수량 자동 표시 (사용자가 직접 입력/지운 경우 덮어쓰지 않음)
+        // amt1El은 위에서 이미 선언됨
         if (amt1El && !amt1El.value && !amt1El.dataset.edited) {
-            const _a = planRows[0]?.amount;
-            amt1El.value = (_a > 0) ? Number(_a).toLocaleString('en-US') : '';
+            amt1El.value = (shares1Base > 0) ? +(shares1Base).toFixed(4) : '';
         }
 
-        // 1차 주수 힌트
-        const sharesHint = document.getElementById('posEntry1Shares');
-        if (sharesHint && entry1 > 0 && planRows[0]) {
-            sharesHint.textContent = `≈ ${planRows[0].shares}주`;
+        // 1차 수량 → 투자금 힌트 (≈ $XX,XXX)
+        const hintEl = document.getElementById('posEntry1Amount');
+        if (hintEl) {
+            if (shares1Base > 0 && entry1 > 0) {
+                const investAmt = Math.round(shares1Base * entry1);
+                hintEl.textContent = ` ≈ ${isKR ? '₩' : '$'}${investAmt.toLocaleString('en-US')}`;
+            } else {
+                hintEl.textContent = '';
+            }
         }
 
-        _posUpdateSummary(maxBudget, ratios, entry1, stop);
+        // 투자 요약 — 총 투자금 = 차수별 투자금 합산
+        const totalInvest = planRows.reduce((sum, r) => sum + (r.amount || 0), 0);
+        _posUpdateSummary(totalInvest, ratios, entry1, stop);
     }
 
     // 금액 입력 필드 콤마 포맷 (posAmount1 / posSplitAmount*)
@@ -7644,13 +7658,20 @@
         return parseFloat(el.value.replace(/,/g, '')) || 0;
     }
 
-    function _posUpdateSplitRow(nth) {
-        const price  = parseFloat(document.getElementById(`posSplitPrice${nth}`)?.value)  || 0;
-        const amount = _getAmountVal(`posSplitAmount${nth}`);
-        const el     = document.getElementById(`posSplitShares${nth}`);
-        if (el && price > 0) {
+    // 수량/진입가 변경 시 투자금(수량×진입가) 자동 재계산
+    function _posUpdateSplitRowShares(nth) {
+        const sharesEl = document.getElementById(`posSplitShares${nth}`);
+        const priceEl  = document.getElementById(`posSplitPrice${nth}`);
+        const amountEl = document.getElementById(`posSplitAmount${nth}`);
+        const shares = parseFloat(sharesEl?.value || '0') || 0;
+        const price  = parseFloat(priceEl?.value  || '0') || 0;
+        if (!amountEl) return;
+        if (shares > 0 && price > 0) {
             const isKR = currentMarket === 'KR';
-            el.textContent = (amount / price).toFixed(isKR ? 0 : 2) + '주';
+            const amount = Math.round(shares * price);
+            amountEl.textContent = (isKR ? '₩' : '$') + amount.toLocaleString('en-US');
+        } else {
+            amountEl.textContent = '—';
         }
     }
 
@@ -26425,7 +26446,7 @@
         _earnWeekNav, _earnToggleDay,
         goMyPosition, renderMyPosition, _posOpenSheet, _posCloseSheet, _posSheetSet, _posSave,
         _posOnEntryPriceInput, _posAddWatching,
-        _posSetStatus, _posChangeSplitCount, _posCalcSplitPlan, _posUpdateSplitRow,
+        _posSetStatus, _posChangeSplitCount, _posCalcSplitPlan, _posUpdateSplitRowShares,
         _fmtAmountInput, _getAmountVal,
         _posSetEntryToCurrent, _posSetEntryOffset, _posSetStopPct, _posSetStopToEma, _posTpPct,
         _posStopTab, _posOnStopPrice, _posOnStopPct, _posStopQuickPct, _posStopSetPct,
