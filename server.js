@@ -2009,7 +2009,10 @@ const EDGAR_UA = 'StockAI stockai-site contact@example.com';
 
 // ── Alpaca Markets 실시간 데이터 헬퍼 (v658) ────────────────────────
 // 무료 IEX 피드 기준. 카탈리스트 스캐너 전용 (다른 엔드포인트는 yfinance 유지).
+// Alpaca 401 발생 시 5분간 재시도 차단 (반복 에러 로그 방지)
+let _alpacaAuthFailedUntil = 0;
 function _alpacaEnabled() {
+    if (Date.now() < _alpacaAuthFailedUntil) return false;
     return !!(process.env.ALPACA_KEY_ID && process.env.ALPACA_SECRET_KEY);
 }
 function _alpacaHeaders() {
@@ -2018,6 +2021,15 @@ function _alpacaHeaders() {
         'APCA-API-SECRET-KEY': process.env.ALPACA_SECRET_KEY,
         'Accept': 'application/json',
     };
+}
+function _alpacaHandleError(e, tag) {
+    const status = e.response?.status;
+    if (status === 401 || status === 403) {
+        _alpacaAuthFailedUntil = Date.now() + 5 * 60 * 1000; // 5분 차단
+        console.warn(`[${tag}] Alpaca 인증 실패 (${status}) — 5분간 재시도 중단`);
+    } else {
+        console.warn(`[${tag}]`, e.message, status || '');
+    }
 }
 // 배치 snapshots — 종목별 latestTrade/latestQuote/dailyBar/prevDailyBar 한 번에
 // 유효한 보통주 티커만 필터 (Alpaca는 SPAC unit·warrant·OTC 거부할 수 있음)
@@ -2033,7 +2045,7 @@ async function _alpacaSnapshots(symbols) {
         const r = await axios.get(url, { headers: _alpacaHeaders(), timeout: 8000, httpAgent, httpsAgent });
         return r.data || {};
     } catch (e) {
-        console.warn('[alpaca-snapshots]', e.message, e.response?.status);
+        _alpacaHandleError(e, 'alpaca-snapshots');
         return {};
     }
 }
@@ -2048,7 +2060,7 @@ async function _alpacaDailyBars(symbols) {
         const r = await axios.get(url, { headers: _alpacaHeaders(), timeout: 10000, httpAgent, httpsAgent });
         return r.data?.bars || {};
     } catch (e) {
-        console.warn('[alpaca-bars]', e.message, e.response?.status);
+        _alpacaHandleError(e, 'alpaca-bars');
         return {};
     }
 }

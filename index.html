@@ -13257,12 +13257,10 @@
                                     } else if (dataSource === 'yfinance_delayed') {
                                         if (d.isMarketHours) {
                                             badge.style.display = '';
-                                            badge.textContent = '⚠️ 15분 지연 데이터 (실시간 연결 실패)';
+                                            badge.textContent = '🟡 yfinance 지연 데이터';
                                             badge.style.color = '#F59E0B';
                                         } else {
-                                            badge.style.display = '';
-                                            badge.textContent = '⚪ 장 외 시간';
-                                            badge.style.color = 'var(--text3)';
+                                            badge.style.display = 'none'; // 장외는 뱃지 숨김
                                         }
                                     }
                                 }
