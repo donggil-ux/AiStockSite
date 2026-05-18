@@ -6955,10 +6955,28 @@
     function _posCurrentPrice() {
         try {
             const m = stockData?.meta;
-            if (m && m.regularMarketPrice != null) return m.regularMarketPrice;
-            const cl = (stockData?.indicators?.quote?.[0]?.close || []).filter(v=>v!=null);
-            if (cl.length) return cl[cl.length-1];
-        } catch(e){}
+            if (!m) {
+                const cl = (stockData?.indicators?.quote?.[0]?.close || [])
+                    .filter(v => v != null);
+                return cl.length ? cl[cl.length - 1] : null;
+            }
+            const reg   = m.regularMarketPrice;
+            const preP  = m.preMarketPrice;
+            const postP = m.postMarketPrice;
+            const state = m.marketState || '';
+
+            // 프리마켓
+            if (state === 'PRE' && preP != null) return preP;
+            // 애프터마켓 / 장 마감
+            if ((state === 'POST' || state === 'POSTPOST' || state === 'CLOSED')
+                    && postP != null) return postP;
+            // 정규장
+            if (reg != null) return reg;
+            // fallback: 마지막 캔들 종가
+            const cl = (stockData?.indicators?.quote?.[0]?.close || [])
+                .filter(v => v != null);
+            return cl.length ? cl[cl.length - 1] : null;
+        } catch(e) {}
         return null;
     }
     function _posFmtP(v, market) {
@@ -7076,7 +7094,18 @@
             const statusCls = pos.status === 'holding' ? 'mypos-holding' : 'mypos-watching';
             const qtyTxt = pos.quantity ? `${pos.quantity}주` : '';
             const entryTxt = _posFmtP(pos.entryPrice, currentMarket);
-            const curTxt = _posFmtP(cur, currentMarket);
+            // 프리마켓 / 애프터마켓 배지
+            const _mktState   = stockData?.meta?.marketState || '';
+            const _isPreMkt   = _mktState === 'PRE';
+            const _isPostMkt  = _mktState === 'POST' || _mktState === 'POSTPOST' || _mktState === 'CLOSED';
+            const _mktBadge   = _isPreMkt
+                ? `<span style="font-size:9px;padding:1px 4px;border-radius:3px;background:rgba(245,158,11,0.15);color:#F59E0B;margin-left:4px;font-weight:600">프리</span>`
+                : _isPostMkt
+                    ? `<span style="font-size:9px;padding:1px 4px;border-radius:3px;background:rgba(139,92,246,0.15);color:#8B5CF6;margin-left:4px;font-weight:600">애프터</span>`
+                    : '';
+            const curTxt = cur != null
+                ? `${_posFmtP(cur, pos.market || currentMarket)}${_mktBadge}`
+                : '—';
             // 손절/익절 행 (holding 상태만)
             const slTxt = (pos.status === 'holding' && pos.stopLoss)
                 ? (() => { const p = _posPnlPct(pos.entryPrice, pos.stopLoss); return `${_posFmtP(pos.stopLoss,currentMarket)}${p!=null?` (${p.toFixed(1)}%)`:''}` })()
