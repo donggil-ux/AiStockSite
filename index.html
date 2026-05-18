@@ -743,7 +743,7 @@
                 <div class="stock-code" id="stockCode">-</div>
             </div>
             <button class="fav-star-btn" id="favStarBtn" onclick="toggleFavorite()"><span class="star">&#9734;</span><span id="favStarText">즐겨찾기</span></button>
-            <button class="fav-star-btn" id="priceAlertBtn" onclick="_openCurrentPriceAlert()" title="가격 알림 설정" style="display:none;">🔔<span style="font-size:12px;margin-left:3px;">알림</span></button>
+            <button class="fav-star-btn" id="priceAlertBtn" onclick="_openCurrentPriceAlert()" title="가격 알림 설정" style="display:none;">알림</button>
         </div>
         <div class="stock-price" id="stockPrice">-</div>
         <div class="stock-change" id="stockChange">-</div>
@@ -908,7 +908,7 @@
 
                             <button class="chart-tb-btn" id="backtestBtn"
                                 onclick="_openBacktest()" title="EMA 눌림목 백테스팅"
-                                style="border-color:var(--border);color:var(--text3);">📊 백테스트
+                                style="border-color:var(--border);color:var(--text3);">백테스트
                             </button>
                             <button class="chart-tb-btn" id="chartSoundBtn"
                                 onclick="toggleChartSound()" title="시그널 사운드 켜기 — 매수·매도 시그널 발생 시 소리 알림"
@@ -916,12 +916,12 @@
                             </button>
                             <button class="chart-tb-btn" id="sigHistoryBtn"
                                 onclick="toggleSigHistoryPanel()" title="알림내역"
-                                style="border-color:var(--border);color:var(--text3);position:relative;">🔔<span style="font-size:11px;margin-left:3px;">알림내역</span>
+                                style="border-color:var(--border);color:var(--text3);position:relative;">알림내역
                                 <span id="sigHistoryBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:#EF4444;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;line-height:14px;text-align:center;padding:0 2px;"></span>
                             </button>
                             <button class="chart-tb-btn" id="chartAiClearBtn"
                                 onclick="clearAiChartLines()" title="AI 라인 지우기"
-                                style="display:none;border-color:var(--border);color:var(--text3);">🗑 AI 라인</button>
+                                style="display:none;border-color:var(--border);color:var(--text3);">AI 라인</button>
                             <button class="tv-fullscreen-btn" id="tvFullscreenBtn" onclick="toggleChartFullscreen()" title="전체화면" style="position:sticky;right:0;z-index:6;border:none;background:var(--bg2);flex-shrink:0;box-shadow:-12px 0 10px 5px var(--bg2);">
                                 <svg id="tvFsIconExpand" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
                                 <svg id="tvFsIconShrink" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
@@ -1008,11 +1008,11 @@
 
                 <!-- ═══ 빠른 이동 네비게이션 ═══ -->
                 <div class="group-nav" id="groupNav">
-                    <button onclick="_scrollToGroup('groupAi')">🤖 AI</button>
-                    <button onclick="_scrollToGroup('groupTradePlan')">📊 매매</button>
-                    <button onclick="_scrollToGroup('groupSystem')">⭐ 시스템</button>
-                    <button onclick="_scrollToGroup('groupDayTrade')">⚡ 단타</button>
-                    <button onclick="_scrollToGroup('groupBasicInfo')">📋 종목</button>
+                    <button onclick="_scrollToGroup('groupAi')">AI</button>
+                    <button onclick="_scrollToGroup('groupTradePlan')">매매</button>
+                    <button onclick="_scrollToGroup('groupSystem')">시스템</button>
+                    <button onclick="_scrollToGroup('groupDayTrade')">단타</button>
+                    <button onclick="_scrollToGroup('groupBasicInfo')">종목</button>
                 </div>
 
 
