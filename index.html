@@ -17392,33 +17392,107 @@
     }
 
     // ── 차트 모바일 바텀시트 ─────────────────────────────────────
+    let _bsSnapshot = null;   // 열 때 상태 스냅샷 (취소 시 복원)
+    let _bsMenuId   = null;   // 현재 시트가 미러링 중인 드롭다운 메뉴 id
+
+    // onclick 문자열에서 시트 닫기 호출 제거 (확인 버튼으로만 닫힘)
+    function _bsStripClose(oc) {
+        return (oc || '')
+            .replace(/;?\s*_closeChartBottomSheet\(\)\s*;?/g, '')
+            .replace(/;?\s*_cancelChartBottomSheet\(\)\s*;?/g, '');
+    }
+
+    // 바텀시트 body 렌더 — 항목 토글 후에도 재호출되어 체크 상태 반영
+    function _bsRenderBody() {
+        const bodyEl = document.getElementById('chartBottomSheetBody');
+        const menu   = document.getElementById(_bsMenuId);
+        if (!bodyEl || !menu) return;
+        bodyEl.innerHTML = '';
+
+        Array.from(menu.children).forEach(child => {
+            // ── 하위 그룹 div (chart-dd-sub) — 부모 표시 중일 때만 ──
+            if (child.classList.contains('chart-dd-sub')) {
+                if (child.style.display === 'none') return;
+                Array.from(child.children).forEach(subItem => {
+                    const clone = subItem.cloneNode(true);
+                    // 중복 id 제거 (원본 메뉴와 충돌 방지)
+                    clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+                    clone.removeAttribute('id');
+                    clone.removeAttribute('style');
+                    clone.style.cssText = [
+                        'display:flex','align-items:center','gap:10px',
+                        'padding:11px 20px 11px 48px','font-size:13px',
+                        'color:var(--text2)','border-bottom:1px solid var(--border)',
+                        'cursor:pointer','background:rgba(0,0,0,0.06)',
+                        'position:relative','width:100%','box-sizing:border-box',
+                    ].join(';');
+                    // 세로 연결선
+                    const line = document.createElement('div');
+                    line.style.cssText = 'position:absolute;left:32px;top:0;bottom:0;width:2px;background:var(--border);';
+                    clone.insertBefore(line, clone.firstChild);
+                    const oc = _bsStripClose(subItem.getAttribute('onclick'));
+                    if (oc) clone.setAttribute('onclick', oc + ';_bsRenderBody();');
+                    bodyEl.appendChild(clone);
+                });
+                return;
+            }
+            // ── 일반 항목 (chart-dd-item / button) ──
+            if (child.classList.contains('chart-dd-item') || child.tagName === 'BUTTON') {
+                const clone = child.cloneNode(true);
+                clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+                clone.removeAttribute('id');
+                clone.removeAttribute('style');
+                clone.style.cssText = [
+                    'display:flex','align-items:center','gap:10px',
+                    'padding:14px 20px','font-size:14px',
+                    'color:var(--text1)','border-bottom:1px solid var(--border)',
+                    'cursor:pointer','width:100%','box-sizing:border-box',
+                    'background:var(--bg2)',
+                ].join(';');
+                const oc = _bsStripClose(child.getAttribute('onclick'));
+                if (oc) clone.setAttribute('onclick', oc + ';_bsRenderBody();');
+                bodyEl.appendChild(clone);
+            }
+        });
+    }
+
     function _openChartBottomSheet(title, menuId) {
         const sheet   = document.getElementById('chartBottomSheet');
         const content = document.getElementById('chartBottomSheetContent');
         const titleEl = document.getElementById('chartBottomSheetTitle');
-        const bodyEl  = document.getElementById('chartBottomSheetBody');
         const menu    = document.getElementById(menuId);
         if (!sheet || !menu) return;
 
+        _bsMenuId = menuId;
+
+        // 현재 상태 스냅샷 저장 (취소 시 복원)
+        _bsSnapshot = {
+            vars: {
+                kull:     _chartKullamagiEnabled,
+                sepa:     _chartSepaEnabled,
+                smartDip: _chartSmartDipEnabled,
+                split:    _chartSplitEnabled,
+                pullback: _chartPullbackEnabled,
+                sr:       _chartSrEnabled,
+                srMode:   _chartSrMode,
+            },
+            ls: {},
+        };
+        [
+            'stockai_chart_kull','stockai_chart_sepa','stockai_chart_smartdip_enabled',
+            'stockai_chart_split_enabled','stockai_chart_pullback_enabled',
+            'stockai_chart_sr_enabled','stockai_chart_sr_mode',
+            'stockai_sd_show_1_2','stockai_sd_show_3_4','stockai_sd_show_5_6',
+            'stockai_split_show_1_2','stockai_split_show_3_4','stockai_split_show_5_6',
+        ].forEach(k => { _bsSnapshot.ls[k] = localStorage.getItem(k); });
+
         titleEl.textContent = title;
-        bodyEl.innerHTML = '';
+        _bsRenderBody();
 
-        // 메뉴 아이템을 바텀시트 형태로 복제
-        const items = menu.querySelectorAll('.chart-dd-item, .chart-dd-sub-item');
-        items.forEach(item => {
-            const clone = item.cloneNode(true);
-            clone.style.cssText += ';padding:12px 20px;font-size:14px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:8px;';
-            const originalOnclick = item.getAttribute('onclick');
-            if (originalOnclick) {
-                clone.setAttribute('onclick', originalOnclick + '; _closeChartBottomSheet();');
-            }
-            bodyEl.appendChild(clone);
-        });
-
+        // 바텀시트 열기
         sheet.style.display = 'flex';
         sheet.style.alignItems = 'flex-end';
-        // iOS Safari에서 requestAnimationFrame이 즉시 실행돼 슬라이드 애니메이션이
-        // 생략되는 버그 방지 → setTimeout으로 다음 프레임 보장
+        // iOS Safari rAF 즉시 실행 버그 방지 → setTimeout으로 다음 프레임 보장
         setTimeout(() => { content.style.transform = 'translateY(0)'; }, 20);
     }
 
@@ -17428,6 +17502,44 @@
         if (!sheet) return;
         content.style.transform = 'translateY(100%)';
         setTimeout(() => { sheet.style.display = 'none'; }, 300);
+    }
+
+    // 확인 — 현재 상태 확정 (스냅샷 폐기) 후 닫기
+    function _confirmChartBottomSheet() {
+        _bsSnapshot = null;
+        _closeChartBottomSheet();
+        if (_lastSigArgs) {
+            try {
+                renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb);
+            } catch(e) {}
+        }
+        _updateDdStates();
+    }
+
+    // 취소 — 열 때 스냅샷으로 변수/localStorage 복원 후 닫기
+    function _cancelChartBottomSheet() {
+        if (_bsSnapshot) {
+            const v = _bsSnapshot.vars;
+            _chartKullamagiEnabled = v.kull;
+            _chartSepaEnabled      = v.sepa;
+            _chartSmartDipEnabled  = v.smartDip;
+            _chartSplitEnabled     = v.split;
+            _chartPullbackEnabled  = v.pullback;
+            _chartSrEnabled        = v.sr;
+            _chartSrMode           = v.srMode;
+            Object.entries(_bsSnapshot.ls).forEach(([k, val]) => {
+                if (val === null) localStorage.removeItem(k);
+                else              localStorage.setItem(k, val);
+            });
+            _bsSnapshot = null;
+        }
+        _closeChartBottomSheet();
+        if (_lastSigArgs) {
+            try {
+                renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb);
+            } catch(e) {}
+        }
+        _updateDdStates();
     }
 
     function _closeAllDds() {
@@ -26244,7 +26356,8 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         toggleChartSigLines, toggleKullamagiLayer, toggleSplitBuyLayer, toggleSplitGroup, _toggleSplitGroup, getSplitBuyCoeff, togglePullbackLayer, toggleTpLevel, toggleSrLayer, toggleSrMode,
         toggleSmartDipLayer, toggleSmartDipGroup, toggleSepaLayer, getSmartDipMode, _scrollToGroup,
         _toggleAnalysisDd, _toggleLineDd, _closeAllDds, _updateDdStates, _setDdCheck,
-        _openChartBottomSheet, _closeChartBottomSheet,
+        _openChartBottomSheet, _closeChartBottomSheet, _confirmChartBottomSheet,
+        _cancelChartBottomSheet, _bsRenderBody,
         handleSearchKeydown, openSearchDropdown, closeSearchDropdown, searchSuggest, levenshtein,
         renderDayUnified, renderDanteAnalysis, runDanteBacktest,
         renderRRAnalysis, renderMinerviniSEPA, renderSwingAnalysis, _runSwingAi, renderRSIMomentum, analyzeRSIDynamic,
