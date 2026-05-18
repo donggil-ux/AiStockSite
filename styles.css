@@ -4385,16 +4385,19 @@
     display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;
     transition:opacity .25s;}
 .pos-sheet-overlay.open{opacity:1;pointer-events:auto;}
-.pos-sheet{width:100%;max-width:480px;max-height:88vh;overflow-y:auto;background:var(--bg2);
+.pos-sheet{width:100%;max-width:480px;max-height:88vh;background:var(--bg2);
     border-radius:20px 20px 0 0;padding:8px 18px calc(22px + env(safe-area-inset-bottom));
-    transform:translateY(100%);transition:transform .3s cubic-bezier(.16,1,.3,1);}
+    transform:translateY(100%);transition:transform .3s cubic-bezier(.16,1,.3,1);
+    display:flex;flex-direction:column;overflow:hidden;}
+/* 시트 내부 — 헤더/버튼 고정, 컨텐츠만 스크롤 */
+#posSheetBody{display:flex;flex-direction:column;flex:1;min-height:0;}
 .pos-sheet-overlay.open .pos-sheet{transform:translateY(0);}
 @media(min-width:768px){
     .pos-sheet-overlay{align-items:center;}
     .pos-sheet{border-radius:18px;max-height:90vh;}
 }
-.pos-sheet-handle{width:38px;height:4px;border-radius:100px;background:var(--border);margin:6px auto 10px;}
-.pos-sheet-hd{font-size:16px;font-weight:900;color:var(--text);margin-bottom:14px;}
+.pos-sheet-handle{width:38px;height:4px;border-radius:100px;background:var(--border);margin:6px auto 10px;flex-shrink:0;}
+.pos-sheet-hd{font-size:16px;font-weight:900;color:var(--text);margin-bottom:14px;flex-shrink:0;}
 .pos-field{margin-bottom:13px;}
 .pos-field label{display:block;font-size:11.5px;font-weight:700;color:var(--text3);margin-bottom:6px;}
 .pos-field input{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid var(--border);
@@ -4408,7 +4411,8 @@
 .pos-quick button{flex:1;padding:7px 4px;border:1px solid var(--border);border-radius:8px;
     background:var(--bg3);color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;}
 .pos-quick button:hover{border-color:#9D4EDD;color:var(--text);}
-.pos-sheet-actions{display:flex;gap:8px;margin-top:18px;}
+.pos-sheet-actions{display:flex;gap:8px;flex-shrink:0;
+    margin-top:0;padding-top:14px;border-top:1px solid var(--border);background:var(--bg2);}
 .pos-sheet-actions button{padding:12px;border:none;border-radius:11px;font-size:14px;font-weight:800;
     cursor:pointer;font-family:inherit;}
 .pos-save-btn{flex:1;background:linear-gradient(135deg,#9D4EDD,#6366f1);color:#fff;}
@@ -4416,7 +4420,8 @@
 .pos-del-btn{flex:0 0 72px;background:rgba(239,68,68,.14);color:var(--red);}
 
 /* ── 분할매수 모달 ──────────────────────────────────────── */
-.pos-modal-body{padding:0;}
+/* 컨텐츠 영역만 스크롤 (헤더/버튼은 고정) */
+.pos-modal-body{padding:0 0 4px;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .pos-status-tabs{display:flex;gap:6px;margin-bottom:16px;}
 .pos-tab{flex:1;padding:9px 4px;border:1px solid var(--border);border-radius:10px;background:var(--bg3);
     color:var(--text2);font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .12s;}
