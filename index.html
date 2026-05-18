@@ -15678,7 +15678,7 @@
 
         // 7) 6번 역피라미딩 분할매수 레이어 — _chartSplitEnabled 자체 플래그 (독립 모듈)
         // Smart Dip 활성 시 SD 레이어가 분할매수를 대신 처리하므로 중복 방지
-        if (!_chartSmartDipEnabled) {
+        if (_chartSplitEnabled && !_chartSmartDipEnabled) {
             try { _renderSplitBuyLayer(q, ts); } catch (e) { console.warn('[split] render fail', e); }
         }
 
@@ -16893,7 +16893,14 @@
     function toggleSplitBuyLayer() {
         _chartSplitEnabled = !_chartSplitEnabled;
         localStorage.setItem('stockai_chart_split_enabled', _chartSplitEnabled ? '1' : '0');
+        // 분할매수 ON 시 Smart Dip 자동 OFF (두 레이어 동시 활성 방지)
+        if (_chartSplitEnabled && _chartSmartDipEnabled) {
+            _chartSmartDipEnabled = false;
+            localStorage.setItem('stockai_chart_smartdip_enabled', '0');
+            _updateDdStates();
+        }
         _updateSplitBuyBtnUi();
+        _updateDdStates();
         if (_lastSigArgs) {
             try { renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
             catch(e) {}
