@@ -13212,7 +13212,7 @@
 
     function startChartSigPoll() {
         stopChartSigPoll();
-        chartSigPollTimer = window.setInterval(pollChartSignals, 15 * 1000); // 15초 (빠른 폴링)
+        chartSigPollTimer = window.setInterval(pollChartSignals, 30 * 1000); // 30초
     }
 
     function startLiveUpdate() {
@@ -13339,7 +13339,7 @@
                 // 세션 뱃지 갱신
                 fetchMarketSession(currentFullSymbol);
             } catch(e) {}
-        }, 5000);
+        }, 10000);
     }
 
     // ========================================
