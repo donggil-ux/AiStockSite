@@ -13150,14 +13150,14 @@
 
     function startAlpacaWS(symbol) {
         stopAlpacaWS();
-        // KR 종목 / 로컬 이외 환경 제외
+        // Vercel(서버리스) 환경에서는 WebSocket 프록시(/ws/alpaca)가 없으므로 비활성화
+        const isVercel = window.location.hostname !== 'localhost'
+            && window.location.hostname !== '127.0.0.1';
+        if (isVercel) return;
+        // KR 종목 제외
         if (currentMarket === 'KR') return;
         const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
         const wsUrl   = `${wsProto}://${location.host}/ws/alpaca`;
-
-        // 연결 가능 여부 확인 (로컬 전용)
-        if (!location.hostname.includes('localhost') &&
-            !location.hostname.includes('127.0.0.1')) return;
 
         try {
             _alpacaWs = new WebSocket(wsUrl);
