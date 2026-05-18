@@ -15127,6 +15127,7 @@
             if (prevSameSymbol && _lastSigKey !== newKey) {
                 const isBuy = latest.position === 'belowBar';
                 const dir   = isBuy ? '매수' : '매도';
+                let effectiveBuy = isBuy; // 포지션 로직으로 방향 바뀔 때 사운드·음성에 사용
                 let emoji = isBuy ? '🔴' : '🔵';
                 let headline = `${latest.text} ${dir} 시그널`;
                 let subText = ''; // 포지션 전용 서브텍스트 (스코프 상위 선언)
@@ -15226,6 +15227,7 @@
 
                                 // ── 매수 (분할매수) ────────────────────────
                                 } else if (_pnlPct !== null && _pnlPct <= -1) {
+                                    effectiveBuy = true; // 매도→매수 전환 — 사운드·음성 방향 보정
                                     const _splits = _pa.splits || [];
                                     const _nextSplit = _splits
                                         .filter(sp => sp.price < _rtPrice && sp.nth > 1)
@@ -15290,12 +15292,12 @@
                         }
                     } catch(e) {}
                     // 10초 프로그레스바 시그널 알림 — 종목명 + 매수·매도가 (v695·v699·v700)
-                    try { _showSignalAlert(`${emoji} ${currentSymbol} · ${headline}`, isBuy, (typeof subText !== 'undefined' && subText) ? subText : subStr); } catch(e) {}
+                    try { _showSignalAlert(`${emoji} ${currentSymbol} · ${headline}`, effectiveBuy, (typeof subText !== 'undefined' && subText) ? subText : subStr); } catch(e) {}
                     // 매수·매도 시그널 사운드 + 음성 안내 (v694·v699)
                     try {
                         if (_chartSoundEnabled) {
-                            _playSignalSound(isBuy ? 'buy' : 'sell');
-                            setTimeout(() => _speakSignal(currentSymbol, dir), 380); // 비프음 후 음성
+                            _playSignalSound(effectiveBuy ? 'buy' : 'sell');
+                            setTimeout(() => _speakSignal(currentSymbol, effectiveBuy ? '매수' : '매도'), 380);
                         }
                     } catch(e) {}
                 }
