@@ -5282,6 +5282,10 @@
         return '';
     }
 
+    // 알파 스캐너 탭별 렌더 결과 캐시 (3분) — 탭 재클릭 시 API 재호출 방지
+    const _alphaTabCache = {};
+    const ALPHA_TAB_TTL = 3 * 60 * 1000;
+
     async function _alphaSwitchTab(tab) {
         _alphaTab = tab;
         document.querySelectorAll('.alpha-tab').forEach(b => {
@@ -5291,6 +5295,12 @@
         if (descEl) descEl.textContent = _ALPHA_DESC[tab] || '';
         const el = document.getElementById('alphaResults');
         if (!el) return;
+        // ── 캐시 확인: 3분 이내 로드된 탭이면 재렌더링 없이 즉시 복원 ──
+        const _cachedTab = _alphaTabCache[tab];
+        if (_cachedTab && Date.now() - _cachedTab.ts < ALPHA_TAB_TTL) {
+            el.innerHTML = _cachedTab.html;
+            return;
+        }
         el.innerHTML = _alphaTimingGuide(tab) + '<div class="sniper-loading">' + Array(6).fill('<div class="sniper-skel"></div>').join('') + '</div>';
         try {
             if (tab === 'bounce') {
@@ -5340,9 +5350,25 @@
             } else if (tab === 'social') {
                 await _alphaRenderSocialScanner(el);
             }
+            // ── 렌더 성공 시 결과 HTML 스냅샷 캐시 (3분) ──
+            // 로딩 스켈레톤·에러 메시지 상태는 캐시하지 않음 (API 복구 후에도 에러 고착 방지)
+            const _h = el.innerHTML || '';
+            if (_alphaTab === tab && _h
+                && !_h.includes('sniper-loading')
+                && !_h.includes('데이터 로드 실패')
+                && !_h.includes('불러올 수 없습니다')) {
+                _alphaTabCache[tab] = { ts: Date.now(), html: _h };
+            }
         } catch (e) {
             console.error('[alphaSwitchTab]', e);
-            if (_alphaTab === tab) el.innerHTML = _alphaTimingGuide(tab) + '<div class="sniper-empty">데이터 로드 실패 — 잠시 후 다시 시도하세요</div>';
+            if (_alphaTab === tab) {
+                el.innerHTML = _alphaTimingGuide(tab)
+                    + '<div class="sniper-empty">⚠️ 데이터를 불러올 수 없습니다 — 잠시 후 다시 시도해주세요'
+                    + '<button onclick="_alphaSwitchTab(\'' + tab + '\')" '
+                    + 'style="margin-top:10px;display:block;margin-inline:auto;padding:6px 18px;'
+                    + 'border-radius:8px;border:1px solid var(--border);background:var(--bg2);'
+                    + 'color:var(--text1);cursor:pointer;font-size:13px;">🔄 다시 시도</button></div>';
+            }
         }
     }
 
