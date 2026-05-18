@@ -7597,6 +7597,24 @@
             return { nth, price, shares, amount, riskPct };
         });
 
+        // ── 총 투자금 검증 — maxBudget 초과 시 수량 자동 스케일 다운 ──
+        const totalAmount  = planRows.reduce((sum, r) => sum + (r.amount || 0), 0);
+        const isOverBudget = maxBudget > 0 && totalAmount > maxBudget * 1.01;
+        let finalRows = planRows;
+        if (isOverBudget && totalAmount > 0) {
+            const scale = maxBudget / totalAmount;   // 0 나누기 방지: totalAmount > 0 확인됨
+            finalRows = planRows.map(r => {
+                const shares = +(r.shares * scale).toFixed(4);
+                const amount = (shares > 0 && r.price > 0) ? Math.floor(shares * r.price) : 0;
+                return { ...r, shares, amount };
+            });
+        }
+
+        // 총액 요약
+        const _cur       = isKR ? '₩' : '$';
+        const totalFinal = finalRows.reduce((s, r) => s + (r.amount || 0), 0);
+        const budgetDiff = maxBudget > 0 ? totalFinal - maxBudget : 0;
+
         const rows = document.getElementById('posSplitPlanRows');
         if (rows) {
             rows.innerHTML = `
@@ -7604,7 +7622,7 @@
                 <span>차수</span><span>진입가</span><span>수량(주)</span>
                 <span style="text-align:center">투자금</span><span style="text-align:right">리스크</span>
             </div>
-            ${planRows.map(r => `
+            ${finalRows.map(r => `
             <div class="pos-split-row ${r.nth===1?'pos-split-row-1st':''}">
                 <div class="pos-split-nth">${r.nth}차</div>
                 <div class="pos-split-price">
@@ -7619,10 +7637,14 @@
                 </div>
                 <!-- 투자금: 수량×진입가 자동 계산 (표시 전용) -->
                 <div class="pos-split-shares">
-                    <span id="posSplitAmount${r.nth}" style="font-size:11px;color:var(--text3)">${r.amount > 0 ? (isKR?'₩':'$')+r.amount.toLocaleString() : '—'}</span>
+                    <span id="posSplitAmount${r.nth}" style="font-size:11px;color:var(--text3)">${r.amount > 0 ? _cur+r.amount.toLocaleString() : '—'}</span>
                 </div>
                 <div class="pos-split-risk">손절 ${r.riskPct}%</div>
-            </div>`).join('')}`;
+            </div>`).join('')}
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-top:2px solid var(--border);margin-top:4px;font-size:12px;font-weight:700;">
+                <span style="color:var(--text2)">총 투자금</span>
+                <span style="color:${budgetDiff > 0 ? '#EF4444' : '#22C55E'}">${_cur}${totalFinal.toLocaleString()}${maxBudget > 0 ? ` / ${_cur}${maxBudget.toLocaleString()}` : ''}${budgetDiff > 0 ? ` <span style="font-size:10px">⚠️ ${_cur}${budgetDiff.toLocaleString()} 초과</span>` : budgetDiff < 0 ? ` <span style="font-size:10px;color:var(--text3)">(${_cur}${Math.abs(budgetDiff).toLocaleString()} 여유)</span>` : ''}</span>
+            </div>`;
         }
 
         // 1차 수량 자동 표시 (사용자가 직접 입력/지운 경우 덮어쓰지 않음)
@@ -7631,20 +7653,27 @@
             amt1El.value = (shares1Base > 0) ? +(shares1Base).toFixed(4) : '';
         }
 
-        // 1차 수량 → 투자금 힌트 (≈ $XX,XXX)
+        // 1차 수량 → 투자금 힌트 (예산 대비 % / 초과 경고)
         const hintEl = document.getElementById('posEntry1Amount');
         if (hintEl) {
             if (shares1Base > 0 && entry1 > 0) {
                 const investAmt = Math.round(shares1Base * entry1);
-                hintEl.textContent = ` ≈ ${isKR ? '₩' : '$'}${investAmt.toLocaleString('en-US')}`;
+                const budgetPct = maxBudget > 0 ? Math.round((investAmt / maxBudget) * 100) : null;
+                if (maxBudget > 0 && investAmt > maxBudget) {
+                    // 1차만으로도 예산 초과
+                    hintEl.innerHTML = ` <span style="color:#EF4444;font-weight:600">≈ ${_cur}${investAmt.toLocaleString()} (예산 초과 ⚠️)</span>`;
+                } else if (budgetPct != null) {
+                    hintEl.innerHTML = ` <span style="color:var(--text3)">≈ ${_cur}${investAmt.toLocaleString()} (예산의 ${budgetPct}%)</span>`;
+                } else {
+                    hintEl.textContent = ` ≈ ${_cur}${investAmt.toLocaleString()}`;
+                }
             } else {
                 hintEl.textContent = '';
             }
         }
 
-        // 투자 요약 — 총 투자금 = 차수별 투자금 합산
-        const totalInvest = planRows.reduce((sum, r) => sum + (r.amount || 0), 0);
-        _posUpdateSummary(totalInvest, ratios, entry1, stop);
+        // 투자 요약 — 총 투자금 = 스케일 적용된 차수별 투자금 합산
+        _posUpdateSummary(totalFinal, ratios, entry1, stop);
     }
 
     // 금액 입력 필드 콤마 포맷 (posAmount1 / posSplitAmount*)
