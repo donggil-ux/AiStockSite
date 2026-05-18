@@ -2146,11 +2146,11 @@
             .ai-summary,.ai-detail-text,.entry-subtitle,.entry-check-desc,.warning-box .text,.entry-strategy-label{overflow-wrap:break-word;word-break:keep-all;}
             .ai-detail-title{flex-wrap:wrap;gap:4px;}
 
-            /* ----- MOBILE: Top100 reason 표시 (2줄까지) ----- */
+            /* ----- MOBILE: Top100 reason 표시 (1줄, .. 처리) ----- */
             .top100-reason{
                 display:-webkit-box !important;
                 -webkit-box-orient:vertical;
-                -webkit-line-clamp:2;
+                -webkit-line-clamp:1;
                 white-space:normal !important;
                 overflow:hidden !important;
                 text-overflow:clip !important;
@@ -3498,6 +3498,7 @@
         .side-nav-item:hover{background:var(--bg3)!important;color:var(--text)!important;}
         .side-nav-item.active{background:var(--text)!important;color:var(--bg)!important;}
         .theme-toggle-btn{border-radius:var(--r-pill)!important;font-weight:500!important;}
+        .side-nav-footer-row .theme-toggle-btn{border-radius:var(--r3)!important;}
 
         /* ---- 4-D: Header 로고 Revolut 무게감 ---- */
         .logo{font-weight:500!important;letter-spacing:-0.02em!important;}

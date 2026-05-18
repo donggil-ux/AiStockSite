@@ -7268,7 +7268,7 @@
                 <div class="pos-field">
                   <label>1차 매수금액 (${cur})<span class="pos-hint" id="posEntry1Shares"></span></label>
                   <input type="number" id="posAmount1" placeholder="자동계산"
-                    oninput="_posCalcSplitPlan()" style="width:100%">
+                    oninput="this.dataset.edited='1';_posCalcSplitPlan()" style="width:100%">
                 </div>
               </div>
 
@@ -7565,9 +7565,9 @@
             </div>`).join('')}`;
         }
 
-        // 1차 금액 동기화
+        // 1차 금액 동기화 (사용자가 직접 지운 경우 덮어쓰지 않음)
         const amt1El = document.getElementById('posAmount1');
-        if (amt1El && !amt1El.value) amt1El.value = planRows[0]?.amount || '';
+        if (amt1El && !amt1El.value && !amt1El.dataset.edited) amt1El.value = planRows[0]?.amount ?? '';
 
         // 1차 주수 힌트
         const sharesHint = document.getElementById('posEntry1Shares');
