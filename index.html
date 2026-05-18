@@ -13103,6 +13103,19 @@
 
         try { lwCandleSeries.update({ ..._wsLiveCandle }); } catch(e) {}
 
+        // _lastSigArgs 마지막 봉 close 실시간 반영 (신호 lastClose 갱신용)
+        try {
+            if (_lastSigArgs?.q?.close?.length) {
+                _lastSigArgs.q.close[_lastSigArgs.q.close.length - 1] = price;
+                if (_lastSigArgs.q.high?.length)
+                    _lastSigArgs.q.high[_lastSigArgs.q.high.length - 1] =
+                        Math.max(_lastSigArgs.q.high[_lastSigArgs.q.high.length - 1], price);
+                if (_lastSigArgs.q.low?.length)
+                    _lastSigArgs.q.low[_lastSigArgs.q.low.length - 1] =
+                        Math.min(_lastSigArgs.q.low[_lastSigArgs.q.low.length - 1], price);
+            }
+        } catch(e) {}
+
         // 헤더 가격도 실시간 업데이트
         try {
             const fmtP = v => currentMarket === 'KR'
@@ -13140,7 +13153,7 @@
                 try {
                     const m = JSON.parse(event.data);
                     if (m.T === 'b') {
-                        // 1분봉 확정 bar
+                        // 1분봉 확정 bar — 차트 캔들 + 신호 동시 갱신
                         const barTime = Math.floor(new Date(m.t).getTime() / 1000);
                         const bar = {
                             time: barTime,
@@ -13149,6 +13162,32 @@
                         };
                         try { lwCandleSeries.update(bar); } catch(e) {}
                         _wsLiveCandle = null; // 확정 봉 이후 새 봉 시작
+
+                        // ── _lastSigArgs 배열에 확정봉 반영 → 매수/매도/손절 신호 재계산 ──
+                        if (_lastSigArgs) {
+                            try {
+                                const cd = _lastSigArgs.candleData;
+                                const ts = _lastSigArgs.ts;
+                                const q  = _lastSigArgs.q;
+                                // 마지막 봉 교체 또는 새 봉 추가
+                                if (ts.length && ts[ts.length - 1] === barTime) {
+                                    const i = ts.length - 1;
+                                    cd[i] = { ...cd[i], ...bar };
+                                    q.open[i]  = m.o; q.high[i] = m.h;
+                                    q.low[i]   = m.l; q.close[i] = m.c;
+                                    if (q.volume) q.volume[i] = m.v || q.volume[i];
+                                } else {
+                                    cd.push(bar);
+                                    ts.push(barTime);
+                                    q.open.push(m.o);  q.high.push(m.h);
+                                    q.low.push(m.l);   q.close.push(m.c);
+                                    if (q.volume) q.volume.push(m.v || 0);
+                                }
+                                // Bollinger 재계산 후 신호 즉시 갱신
+                                const bb = calcBollingerBands(q.close, 4, 2);
+                                renderChartLiveSignals(cd, ts, q, bb);
+                            } catch(e) {}
+                        }
                     } else if (m.T === 't') {
                         // 틱 단위 트레이드 → 현재 봉 실시간 업데이트
                         _handleAlpacaTrade(m);
