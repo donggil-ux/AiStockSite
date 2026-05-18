@@ -15122,57 +15122,61 @@
                                 const _tp1     = _pa.tp1;
                                 const _tp2     = _pa.tp2;
                                 const _tp3     = _pa.tp3;
+                                // 실시간 가격 우선 (Alpaca) — 없으면 Yahoo Finance 최근 종가 폴백
+                                const _rtPrice = (typeof _posCurrentPrice === 'function')
+                                    ? (_posCurrentPrice() || lastClose)
+                                    : lastClose;
                                 const _pnlPct  = _entry
-                                    ? (lastClose - _entry) / _entry * 100
+                                    ? (_rtPrice - _entry) / _entry * 100
                                     : null;
                                 let subText = '';
 
                                 // ── 손절 ──────────────────────────────────
                                 // 손절 이탈 (손절가 아래)
-                                if (_sl && lastClose < _sl) {
+                                if (_sl && _rtPrice < _sl) {
                                     emoji = '🔴';
-                                    headline = `🚨 손절 — 현재가 ${_fmtP(lastClose)} · 손절가 ${_fmtP(_sl)}`;
+                                    headline = `🚨 손절 — 현재가 ${_fmtP(_rtPrice)} · 손절가 ${_fmtP(_sl)}`;
                                     subText  = '손절가 이탈 · 즉시 손절 검토';
 
                                 // 손절 근접 (손절가 대비 2% 이내)
-                                } else if (_sl && lastClose <= _sl * 1.02 && lastClose >= _sl) {
+                                } else if (_sl && _rtPrice <= _sl * 1.02 && _rtPrice >= _sl) {
                                     emoji = '🔴';
-                                    headline = `⚠️ 손절 근접 — 현재가 ${_fmtP(lastClose)} · 손절가 ${_fmtP(_sl)}`;
-                                    subText  = '손절가까지 ' + (((lastClose - _sl) / _sl) * 100).toFixed(1) + '% 남음';
+                                    headline = `⚠️ 손절 근접 — 현재가 ${_fmtP(_rtPrice)} · 손절가 ${_fmtP(_sl)}`;
+                                    subText  = '손절가까지 ' + (((_rtPrice - _sl) / _sl) * 100).toFixed(1) + '% 남음';
 
                                 // ── 익절 ──────────────────────────────────
                                 // 3차 익절 근접 (2% 이내)
-                                } else if (_tp3 && Math.abs(lastClose - _tp3) / _tp3 <= 0.02) {
+                                } else if (_tp3 && Math.abs(_rtPrice - _tp3) / _tp3 <= 0.02) {
                                     emoji = '🎉';
                                     headline = `🎉 익절 — 3차 목표가 ${_fmtP(_tp3)} 근접`;
                                     subText  = '30% 익절 검토';
 
                                 // 3차 익절 달성
-                                } else if (_tp3 && lastClose >= _tp3) {
+                                } else if (_tp3 && _rtPrice >= _tp3) {
                                     emoji = '🎉';
                                     headline = `🎉 익절 달성 — 3차 ${_fmtP(_tp3)} 돌파`;
                                     subText  = '전량 익절 검토';
 
                                 // 2차 익절 근접 (2% 이내)
-                                } else if (_tp2 && Math.abs(lastClose - _tp2) / _tp2 <= 0.02) {
+                                } else if (_tp2 && Math.abs(_rtPrice - _tp2) / _tp2 <= 0.02) {
                                     emoji = '💰';
                                     headline = `💰 익절 — 2차 목표가 ${_fmtP(_tp2)} 근접`;
                                     subText  = '40% 익절 검토';
 
                                 // 2차 익절 달성
-                                } else if (_tp2 && lastClose >= _tp2) {
+                                } else if (_tp2 && _rtPrice >= _tp2) {
                                     emoji = '💰';
                                     headline = `💰 익절 달성 — 2차 ${_fmtP(_tp2)} 돌파`;
                                     subText  = `3차 목표가 ${_fmtP(_tp3 || _tp2)}까지 보유`;
 
                                 // 1차 익절 근접 (2% 이내)
-                                } else if (_tp1 && Math.abs(lastClose - _tp1) / _tp1 <= 0.02) {
+                                } else if (_tp1 && Math.abs(_rtPrice - _tp1) / _tp1 <= 0.02) {
                                     emoji = '✅';
                                     headline = `✅ 익절 — 1차 목표가 ${_fmtP(_tp1)} 근접`;
                                     subText  = '30% 익절 검토';
 
                                 // 1차 익절 달성
-                                } else if (_tp1 && lastClose >= _tp1) {
+                                } else if (_tp1 && _rtPrice >= _tp1) {
                                     emoji = '✅';
                                     headline = `✅ 익절 달성 — 1차 ${_fmtP(_tp1)} 돌파`;
                                     const nextTarget = _tp2 || _tp3;
@@ -15184,7 +15188,7 @@
                                 } else if (_pnlPct !== null && _pnlPct <= -1) {
                                     const _splits = _pa.splits || [];
                                     const _nextSplit = _splits
-                                        .filter(sp => sp.price < lastClose && sp.nth > 1)
+                                        .filter(sp => sp.price < _rtPrice && sp.nth > 1)
                                         .sort((a, b) => b.price - a.price)[0];
                                     if (_splits.length > 1 && _nextSplit) {
                                         emoji = '📊';
