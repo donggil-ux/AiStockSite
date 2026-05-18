@@ -7602,12 +7602,29 @@
         const isOverBudget = maxBudget > 0 && totalAmount > maxBudget * 1.01;
         let finalRows = planRows;
         if (isOverBudget && totalAmount > 0) {
-            const scale = maxBudget / totalAmount;   // 0 나누기 방지: totalAmount > 0 확인됨
-            finalRows = planRows.map(r => {
+            const _scaleRow = (r, scale) => {
                 const shares = Math.round(r.shares * scale);   // 정수 — 소수점 제거
                 const amount = (shares > 0 && r.price > 0) ? Math.round(shares * r.price) : 0;
                 return { ...r, shares, amount };
-            });
+            };
+            if (hasManualShares) {
+                // 1차 수량은 사용자가 직접 입력한 값 — 절대 변경하지 않음
+                // 2차~ 만 남은 예산(maxBudget − 1차 투자금)에 맞춰 축소
+                const amount1    = planRows[0]?.amount || 0;
+                const restBudget = maxBudget - amount1;
+                const restTotal  = totalAmount - amount1;
+                if (restBudget > 0 && restTotal > 0) {
+                    const scale = restBudget / restTotal;
+                    finalRows = planRows.map((r, i) => i === 0 ? r : _scaleRow(r, scale));
+                } else {
+                    // 1차만으로 예산 소진/초과 → 2차~ 0 (1차는 그대로 유지)
+                    finalRows = planRows.map((r, i) => i === 0 ? r : { ...r, shares: 0, amount: 0 });
+                }
+            } else {
+                // 자동 계산 모드 — 전체 비례 축소
+                const scale = maxBudget / totalAmount;
+                finalRows = planRows.map(r => _scaleRow(r, scale));
+            }
         }
 
         // 총액 요약
