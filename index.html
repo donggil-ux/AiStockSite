@@ -906,6 +906,10 @@
                                 style="border-color:var(--border);color:var(--text3);font-size:10px;padding:0 7px;letter-spacing:-.3px;">익절1
                             </button>
 
+                            <button class="chart-tb-btn" id="backtestBtn"
+                                onclick="_openBacktest()" title="EMA 눌림목 백테스팅"
+                                style="border-color:var(--border);color:var(--text3);">📊 백테스트
+                            </button>
                             <button class="chart-tb-btn" id="chartSoundBtn"
                                 onclick="toggleChartSound()" title="시그널 사운드 켜기 — 매수·매도 시그널 발생 시 소리 알림"
                                 style="border-color:var(--border);color:var(--text3);">소리
@@ -15570,6 +15574,256 @@
         if (el && !_chartSepaEnabled) el.classList.add('sepa-hidden');
     })();
 
+    // ── EMA 눌림목 백테스팅 ────────────────────────────────────────
+    function _runBacktest(candleData, ts, cooldown) {
+        if (!candleData || candleData.length < 120) return null;
+
+        const closes  = candleData.map(c => c.close);
+        const highs   = candleData.map(c => c.high);
+        const lows    = candleData.map(c => c.low);
+        const opens   = candleData.map(c => c.open);
+
+        const emaC20  = calcEMA(closes, 20);
+        const emaC60  = calcEMA(closes, 60);
+        const emaC120 = calcEMA(closes, 120);
+        const emaC240 = calcEMA(closes, 240);
+
+        const trades = [];
+        let lastBuy1 = -999, lastBuy2 = -999, lastBuy3 = -999;
+        let inTrade = false;
+        let entryPrice = 0;
+        let entryBar = 0;
+
+        for (let i = 5; i < closes.length - 1; i++) {
+            const c = closes[i], o = opens[i];
+            const l = lows[i];
+            const isBull = c > o;
+
+            const e20  = emaC20[i],  e60  = emaC60[i];
+            const e120 = emaC120[i], e240 = emaC240[i];
+
+            const stUp = e20 && e60 && e120
+                ? (e20 > e60 && e60 > e120) : false;
+
+            // ── 매수 신호 ──
+            if (!inTrade) {
+                let buySignal = false;
+                if (e20 && l <= e20 * 1.002 && isBull && stUp
+                    && (i - lastBuy1) >= cooldown) {
+                    buySignal = true; lastBuy1 = i;
+                } else if (e60 && l <= e60 * 1.002 && isBull
+                    && e60 > (e120||0) && stUp
+                    && (i - lastBuy2) >= cooldown) {
+                    buySignal = true; lastBuy2 = i;
+                } else if (e120 && l <= e120 * 1.002 && isBull
+                    && e120 > (e240||0) && stUp
+                    && (i - lastBuy3) >= cooldown) {
+                    buySignal = true; lastBuy3 = i;
+                }
+                if (buySignal) {
+                    inTrade = true;
+                    entryPrice = closes[i];
+                    entryBar = i;
+                }
+            }
+
+            // ── 매도 신호 (EMA20 이탈 또는 20봉 타임아웃) ──
+            if (inTrade && i > entryBar) {
+                const prevC   = closes[i-1];
+                const prevE20 = emaC20[i-1];
+                const sellSignal = e20 && prevE20 && prevC > prevE20 && c < e20;
+                const timeout = (i - entryBar) >= 20;
+                if (sellSignal || timeout) {
+                    const pnl = (closes[i] - entryPrice) / entryPrice * 100;
+                    trades.push({
+                        entryBar, exitBar: i,
+                        entryPrice, exitPrice: closes[i],
+                        pnl: +pnl.toFixed(2),
+                        win: pnl > 0,
+                        timeout,
+                    });
+                    inTrade = false;
+                }
+            }
+        }
+
+        if (trades.length === 0) return null;
+
+        const wins    = trades.filter(t => t.win).length;
+        const losses  = trades.length - wins;
+        const winRate = (wins / trades.length * 100).toFixed(1);
+        const avgPnl  = (trades.reduce((s,t) => s + t.pnl, 0) / trades.length).toFixed(2);
+        const avgWin  = wins > 0
+            ? (trades.filter(t=>t.win).reduce((s,t)=>s+t.pnl,0)/wins).toFixed(2) : '0';
+        const avgLoss = losses > 0
+            ? (trades.filter(t=>!t.win).reduce((s,t)=>s+t.pnl,0)/losses).toFixed(2) : '0';
+        const maxWin  = Math.max(...trades.map(t=>t.pnl)).toFixed(2);
+        const maxLoss = Math.min(...trades.map(t=>t.pnl)).toFixed(2);
+
+        return { trades, total: trades.length, wins, losses, winRate,
+                 avgPnl, avgWin, avgLoss, maxWin, maxLoss, cooldown };
+    }
+
+    function _openBacktest() {
+        if (!_lastSigArgs || !_lastSigArgs.candleData || _lastSigArgs.candleData.length < 120) {
+            showToast('⚠️ 데이터가 부족해요 (최소 120봉 필요)');
+            return;
+        }
+        const { candleData, ts } = _lastSigArgs;
+
+        const cooldowns = [10, 15, 24];
+        const results = cooldowns.map(cd => _runBacktest(candleData, ts, cd));
+
+        const tfSec = ts.length >= 2 ? (ts[1] - ts[0]) : 300;
+        const tfMin = tfSec / 60;
+        const tfLabel = tfMin < 60
+            ? `${tfMin}분봉`
+            : tfMin === 60 ? '1시간봉' : '일봉';
+
+        let modal = document.getElementById('backtestModal');
+        if (modal) modal.remove();
+
+        modal = document.createElement('div');
+        modal.id = 'backtestModal';
+        modal.style.cssText = `position:fixed;inset:0;z-index:9999;
+            background:rgba(0,0,0,0.7);display:flex;align-items:center;
+            justify-content:center;padding:16px;`;
+        modal.onclick = e => { if (e.target === modal) modal.remove(); };
+
+        const cooldownLabels = { 10:'10봉 (50분)', 15:'15봉 (75분)', 24:'24봉 (2시간)' };
+
+        const rows = results.map((r, idx) => {
+            if (!r) return `<tr><td>${cooldownLabels[cooldowns[idx]]}</td>
+                <td colspan="6" style="color:var(--text3);text-align:center">신호 없음</td></tr>`;
+            const isTop = results.filter(x=>x)
+                .sort((a,b)=>parseFloat(b.winRate)-parseFloat(a.winRate))[0]
+                ?.cooldown === r.cooldown;
+            return `<tr style="${isTop?'background:rgba(34,197,94,0.08);':''}">
+                <td style="padding:6px 8px;font-weight:${isTop?'700':'400'}">
+                    ${cooldownLabels[r.cooldown]}${isTop?' 🏆':''}
+                </td>
+                <td style="padding:6px 8px;text-align:center;color:${parseFloat(r.winRate)>=55?'#22C55E':parseFloat(r.winRate)>=45?'#F59E0B':'#EF4444'};font-weight:700">
+                    ${r.winRate}%
+                </td>
+                <td style="padding:6px 8px;text-align:center">${r.total}회</td>
+                <td style="padding:6px 8px;text-align:center;color:${parseFloat(r.avgPnl)>0?'#22C55E':'#EF4444'}">
+                    ${r.avgPnl > 0 ? '+' : ''}${r.avgPnl}%
+                </td>
+                <td style="padding:6px 8px;text-align:center;color:#22C55E">+${r.avgWin}%</td>
+                <td style="padding:6px 8px;text-align:center;color:#EF4444">${r.avgLoss}%</td>
+                <td style="padding:6px 8px;text-align:center;font-size:10px;color:var(--text3)">
+                    +${r.maxWin}% / ${r.maxLoss}%
+                </td>
+            </tr>`;
+        }).join('');
+
+        const bestResult = results.filter(x=>x)
+            .sort((a,b)=>parseFloat(b.winRate)-parseFloat(a.winRate))[0];
+
+        const tradeRows = bestResult
+            ? bestResult.trades.slice(-10).reverse().map(t => `
+                <tr>
+                    <td style="padding:5px 8px;color:${t.win?'#22C55E':'#EF4444'}">
+                        ${t.win?'✅ 수익':'❌ 손실'}
+                    </td>
+                    <td style="padding:5px 8px;text-align:center">$${t.entryPrice.toFixed(2)}</td>
+                    <td style="padding:5px 8px;text-align:center">$${t.exitPrice.toFixed(2)}</td>
+                    <td style="padding:5px 8px;text-align:center;color:${t.pnl>0?'#22C55E':'#EF4444'};font-weight:700">
+                        ${t.pnl>0?'+':''}${t.pnl}%
+                    </td>
+                    <td style="padding:5px 8px;text-align:center;font-size:10px;color:var(--text3)">
+                        ${t.timeout?'⏱️ 타임아웃':'📉 매도'}
+                    </td>
+                </tr>`).join('')
+            : '';
+
+        modal.innerHTML = `
+        <div style="background:var(--bg2);border-radius:16px;width:100%;
+                    max-width:700px;max-height:85dvh;overflow-y:auto;padding:20px;">
+            <div style="display:flex;justify-content:space-between;
+                        align-items:center;margin-bottom:16px">
+                <div>
+                    <div style="font-size:16px;font-weight:700;color:var(--text1)">
+                        📊 EMA 백테스팅
+                    </div>
+                    <div style="font-size:11px;color:var(--text3);margin-top:2px">
+                        ${currentFullSymbol} · ${tfLabel} · 최근 ${candleData.length}봉 기준
+                    </div>
+                </div>
+                <button onclick="document.getElementById('backtestModal').remove()"
+                    style="background:none;border:none;color:var(--text3);
+                           font-size:20px;cursor:pointer;line-height:1">✕</button>
+            </div>
+
+            <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">
+                🏆 쿨다운별 승률 비교
+            </div>
+            <div style="overflow-x:auto;margin-bottom:16px">
+                <table style="width:100%;border-collapse:collapse;font-size:12px">
+                    <thead>
+                        <tr style="border-bottom:2px solid var(--border)">
+                            <th style="padding:6px 8px;text-align:left;color:var(--text3)">쿨다운</th>
+                            <th style="padding:6px 8px;text-align:center;color:var(--text3)">승률</th>
+                            <th style="padding:6px 8px;text-align:center;color:var(--text3)">거래수</th>
+                            <th style="padding:6px 8px;text-align:center;color:var(--text3)">평균손익</th>
+                            <th style="padding:6px 8px;text-align:center;color:var(--text3)">평균수익</th>
+                            <th style="padding:6px 8px;text-align:center;color:var(--text3)">평균손실</th>
+                            <th style="padding:6px 8px;text-align:center;color:var(--text3)">최대</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+
+            ${bestResult ? `
+            <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);
+                        border-radius:10px;padding:12px;margin-bottom:16px">
+                <div style="font-size:11px;color:#22C55E;font-weight:700;margin-bottom:4px">
+                    🏆 최적 쿨다운: ${cooldownLabels[bestResult.cooldown]}
+                </div>
+                <div style="display:flex;gap:16px;flex-wrap:wrap">
+                    <span style="font-size:13px;font-weight:700;color:var(--text1)">
+                        승률 ${bestResult.winRate}%
+                    </span>
+                    <span style="font-size:13px;color:${parseFloat(bestResult.avgPnl)>0?'#22C55E':'#EF4444'}">
+                        평균 ${bestResult.avgPnl>0?'+':''}${bestResult.avgPnl}%
+                    </span>
+                    <span style="font-size:13px;color:var(--text2)">
+                        총 ${bestResult.total}회 거래
+                    </span>
+                </div>
+            </div>` : ''}
+
+            ${tradeRows ? `
+            <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">
+                📋 최근 거래 내역 (최적 쿨다운 기준 10개)
+            </div>
+            <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;font-size:12px">
+                    <thead>
+                        <tr style="border-bottom:1px solid var(--border)">
+                            <th style="padding:5px 8px;text-align:left;color:var(--text3)">결과</th>
+                            <th style="padding:5px 8px;text-align:center;color:var(--text3)">매수가</th>
+                            <th style="padding:5px 8px;text-align:center;color:var(--text3)">매도가</th>
+                            <th style="padding:5px 8px;text-align:center;color:var(--text3)">손익</th>
+                            <th style="padding:5px 8px;text-align:center;color:var(--text3)">사유</th>
+                        </tr>
+                    </thead>
+                    <tbody>${tradeRows}</tbody>
+                </table>
+            </div>` : ''}
+
+            <div style="margin-top:16px;padding:10px;background:rgba(245,158,11,0.08);
+                        border-radius:8px;font-size:10px;color:var(--text3);line-height:1.5">
+                ⚠️ 백테스팅은 과거 데이터 기반 참고 지표예요.
+                실제 매매 결과와 다를 수 있으며, 수수료·슬리피지 미반영.
+                투자 판단의 보조 도구로만 활용해주세요.
+            </div>
+        </div>`;
+
+        document.body.appendChild(modal);
+    }
+
     function toggleSepaLayer() {
         const newState = !_chartSepaEnabled;
         // 라디오 방식: ON 시 다른 분석 자동 OFF
@@ -26605,6 +26859,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         manualAnalysisRefresh, pwaInstall,
         toggleChartSigLines, toggleKullamagiLayer, toggleSplitBuyLayer, toggleSplitGroup, _toggleSplitGroup, getSplitBuyCoeff, togglePullbackLayer, toggleTpLevel, toggleSrLayer, toggleSrMode,
         toggleSmartDipLayer, toggleSmartDipGroup, toggleSepaLayer, getSmartDipMode, _scrollToGroup,
+        _runBacktest, _openBacktest,
         _toggleAnalysisDd, _toggleLineDd, _closeAllDds, _updateDdStates, _setDdCheck,
         _openChartBottomSheet, _closeChartBottomSheet, _confirmChartBottomSheet,
         _cancelChartBottomSheet, _bsRenderBody,
