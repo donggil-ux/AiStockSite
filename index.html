@@ -13749,12 +13749,21 @@
         iconExpand.style.display = isFull ? 'none' : '';
         iconShrink.style.display = isFull ? '' : 'none';
         document.body.style.overflow = isFull ? 'hidden' : '';
-        // 전체화면 전환 시 차트 리사이즈 (iOS safe-area 레이아웃 적용 대기)
+        // 전체화면 전환 시 차트 리사이즈 (iOS safe-area / CSS transition 적용 대기)
         if (lwChart) {
+            // 200ms → 350ms: 레이아웃 정착 후 리사이즈
             setTimeout(() => {
                 const wrap = document.getElementById('tvChartWrap');
-                if (wrap) lwChart.applyOptions({ width: wrap.clientWidth, height: wrap.clientHeight });
-            }, 200);
+                if (!wrap || !lwChart) return;
+                let h = wrap.clientHeight;
+                const fsCard = wrap.closest('.fullscreen');
+                if (fsCard && h < 200) {
+                    // flex 레이아웃 미정착 시 폴백: 카드 높이 − 툴바 높이
+                    const toolbar = document.getElementById('chartToolbar');
+                    h = Math.max(200, fsCard.clientHeight - (toolbar ? toolbar.offsetHeight : 0));
+                }
+                lwChart.applyOptions({ width: wrap.clientWidth, height: h });
+            }, 350);
         }
     }
 
