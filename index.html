@@ -7532,7 +7532,7 @@
     let _posSplitCount = 3;
 
     function _posChangeSplitCount(delta) {
-        _posSplitCount = Math.max(2, Math.min(12, _posSplitCount + delta));
+        _posSplitCount = Math.max(1, Math.min(12, _posSplitCount + delta));
         const el = document.getElementById('posSplitCount');
         if (el) el.textContent = _posSplitCount;
         _posCalcSplitPlan();
