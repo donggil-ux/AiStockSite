@@ -478,21 +478,35 @@ app.get('/api/price/:symbol', async (req, res) => {
 /**
  * 기업 요약 정보 (PER, PBR, EPS, 재무 등)
  * GET /api/summary/:symbol?modules=defaultKeyStatistics,financialData,summaryDetail,price
+ * 5분 인메모리 캐시 — Yahoo Finance 429 Rate Limit 방지
  */
+const _summaryCache = new Map(); // key: `${symbol}|${modules}` → { ts, data }
+const SUMMARY_TTL   = 5 * 60 * 1000; // 5분
 app.get('/api/summary/:symbol', async (req, res) => {
     const { symbol } = req.params;
     const { modules = 'defaultKeyStatistics,financialData,summaryDetail,price' } = req.query;
     // [Fix-F] 입력 검증
     if (!validSymbol(symbol)) return res.status(400).json({ error: 'invalid symbol' });
+
+    const cacheKey = `${symbol}|${modules}`;
+    const cached   = _summaryCache.get(cacheKey);
+    // 캐시 신선하면 즉시 반환 (Yahoo 호출 생략)
+    if (cached && Date.now() - cached.ts < SUMMARY_TTL) {
+        return res.json(cached.data);
+    }
     try {
         const url  = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${encodeURIComponent(modules)}`;
         const data = await yfRequest(url);
+        // 캐시 저장 (메모리 누수 방지 — 200개 초과 시 가장 오래된 항목 제거)
+        _summaryCache.set(cacheKey, { ts: Date.now(), data });
+        if (_summaryCache.size > 200) _summaryCache.delete(_summaryCache.keys().next().value);
         res.json(data);
     } catch (err) {
-        // Yahoo 실패 시 500 대신 200 + 빈 구조 반환 → 프론트에서 "데이터 없음"으로 graceful 처리
+        // Yahoo 실패 시: 오래된 캐시라도 있으면 반환, 없으면 200 + 빈 구조
         // (500 반복 시 콘솔 에러 스팸 + 무한 로딩 유발 방지)
         const status = err.response?.status;
-        console.warn(`[summary] ${symbol} 실패 (${status || err.message}) — 빈 응답 반환`);
+        console.warn(`[summary] ${symbol} 실패 (${status || err.message}) — ${cached ? '오래된 캐시 반환' : '빈 응답 반환'}`);
+        if (cached) return res.json(cached.data);
         res.json({ quoteSummary: { result: [], error: null }, _unavailable: true });
     }
 });
@@ -647,11 +661,20 @@ app.get('/api/options-popular', async (req, res) => {
  * GET /api/screener/:filter?count=100
  * filter: day_gainers | day_losers | most_actives
  */
+// 3분 인메모리 캐시 — Yahoo Finance 429 Rate Limit 방지
+const _screenerCache = new Map(); // key: `${filter}|${count}` → { ts, data }
+const SCREENER_TTL   = 3 * 60 * 1000; // 3분
 app.get('/api/screener/:filter', async (req, res) => {
     const { filter } = req.params;
     const count = Math.min(parseInt(req.query.count, 10) || 100, 250);
     // [Fix-F] 화이트리스트 필터 검증
     if (!validFilter(filter)) return res.status(400).json({ error: 'invalid filter' });
+
+    const cacheKey = `${filter}|${count}`;
+    const cached   = _screenerCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < SCREENER_TTL) {
+        return res.json(cached.data);
+    }
     try {
         const url  = `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&lang=en-US&region=US&scrIds=${filter}&count=${count}`;
         const data = await yfRequest(url);
@@ -664,9 +687,13 @@ app.get('/api/screener/:filter', async (req, res) => {
         } catch (e) {
             console.warn('[screener] filter fail:', e.message);
         }
+        _screenerCache.set(cacheKey, { ts: Date.now(), data });
+        if (_screenerCache.size > 50) _screenerCache.delete(_screenerCache.keys().next().value);
         res.json(data);
     } catch (err) {
+        // Yahoo 실패 시 오래된 캐시라도 있으면 반환
         console.error(`[screener] ${filter}:`, err.message);
+        if (cached) return res.json(cached.data);
         res.status(500).json({ error: err.message });
     }
 });
