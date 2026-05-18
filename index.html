@@ -14765,9 +14765,9 @@
         for (let i = 14; i < rsi.length - 1; i++) {
             if (rsi[i] == null || rsi[i+1] == null) continue;
             if (rsi[i] <= 30 && rsi[i+1] > 30 && closes[i+1] > closes[i]) {
-                markers.push({ time: ts[i+1], position: 'belowBar', color: '#ef4444', shape: 'arrowUp', text: '' });
+                markers.push({ time: ts[i+1], position: 'belowBar', color: '#ef4444', shape: 'arrowUp', text: 'RSI 매수' });
             } else if (rsi[i] >= 70 && rsi[i+1] < 70 && closes[i+1] < closes[i]) {
-                markers.push({ time: ts[i+1], position: 'aboveBar', color: '#3b82f6', shape: 'arrowDown', text: '' });
+                markers.push({ time: ts[i+1], position: 'aboveBar', color: '#3b82f6', shape: 'arrowDown', text: 'RSI 매도' });
             }
         }
         // MACD 골든/데드 크로스 마커
@@ -14775,8 +14775,8 @@
             if (macdLine[i] == null || signalLine[i] == null || macdLine[i-1] == null || signalLine[i-1] == null) continue;
             const prev = macdLine[i-1] - signalLine[i-1];
             const cur = macdLine[i] - signalLine[i];
-            if (prev <= 0 && cur > 0) markers.push({ time: ts[i], position: 'belowBar', color: '#ef4444', shape: 'arrowUp', text: '' });
-            else if (prev >= 0 && cur < 0) markers.push({ time: ts[i], position: 'aboveBar', color: '#3b82f6', shape: 'arrowDown', text: '' });
+            if (prev <= 0 && cur > 0) markers.push({ time: ts[i], position: 'belowBar', color: '#ef4444', shape: 'arrowUp', text: 'MACD 매수' });
+            else if (prev >= 0 && cur < 0) markers.push({ time: ts[i], position: 'aboveBar', color: '#3b82f6', shape: 'arrowDown', text: 'MACD 매도' });
         }
         // Rayner 진입 마커 (풀백/브레이크아웃/반전)
         const raynerEntries = _detectRaynerEntries(stageInfo, closes, q.volume || [], ema20Data, ema50Data, ema200Data, ts);
