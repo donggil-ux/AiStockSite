@@ -14842,7 +14842,22 @@
             let lastBuy1Bar = -999;
             let lastBuy2Bar = -999;
             let lastBuy3Bar = -999;
-            const BUY_COOLDOWN = 5;  // 5봉 이내 재발생 금지
+            // 타임프레임 → 분 단위 변환
+            const _tfMin = (() => {
+                const iv = currentInterval || '1d';
+                if (iv === '1h' || iv === '60m') return 60;
+                if (iv === '1d' || iv === '1wk') return 1440;
+                const m = iv.match(/^(\d+)m$/);
+                return m ? parseInt(m[1], 10) : 1440;
+            })();
+            const BUY_COOLDOWN = _tfMin <= 1  ? 30   // 1분봉:  30봉 = 30분
+                              : _tfMin <= 3  ? 15   // 3분봉:  15봉 = 45분
+                              : _tfMin <= 5  ? 24   // 5분봉:  24봉 = 2시간
+                              : _tfMin <= 10 ? 12   // 10분봉: 12봉 = 2시간
+                              : _tfMin <= 15 ? 8    // 15분봉:  8봉 = 2시간
+                              : _tfMin <= 30 ? 4    // 30분봉:  4봉 = 2시간
+                              : _tfMin <= 60 ? 2    // 60분봉:  2봉 = 2시간
+                              : 1;                  // 일봉+:   1봉 = 1일
 
             // ── EMA 매도 쿨다운 변수 ──
             let lastSell1Bar = -999;
