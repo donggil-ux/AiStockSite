@@ -15904,14 +15904,21 @@
                 return;
             }
 
-            // ── 3가지 쿨다운 비교 ──
-            const cooldowns = [10, 15, 24];
+            // ── 6가지 쿨다운 비교 ──
+            const cooldowns = [5, 10, 15, 24, 30, 60];
             const results   = cooldowns.map(cd => _runBacktest(btCandles, btTs, cd));
 
             const minTrades  = Math.min(...results.filter(r => r).map(r => r.total));
             const hasWarning = minTrades < 20;
 
-            const cooldownLabels = { 10:'10봉 (50분)', 15:'15봉 (75분)', 24:'24봉 (2시간)' };
+            // 타임프레임 기반 동적 라벨 (봉수 × 분 = 실제 시간)
+            const _cdLabel = cd => {
+                const mins = cd * tfMin;
+                if (mins < 60) return `${cd}봉 (${mins}분)`;
+                const h = Math.floor(mins / 60), m = mins % 60;
+                return m > 0 ? `${cd}봉 (${h}시간 ${m}분)` : `${cd}봉 (${h}시간)`;
+            };
+            const cooldownLabels = Object.fromEntries(cooldowns.map(cd => [cd, _cdLabel(cd)]));
 
             const rows = results.map((r, idx) => {
                 if (!r) return `<tr><td style="padding:6px 8px">${cooldownLabels[cooldowns[idx]]}</td>
