@@ -15243,16 +15243,9 @@
                                         subText  = `손절 ${_sl ? _fmtP(_sl) : '미설정'}`;
                                     }
 
-                                // 수익 중 (진입가 + 1% 이상)
-                                } else if (_pnlPct !== null && _pnlPct >= 1) {
-                                    headline = `수익 중 +${_pnlPct.toFixed(1)}% · 보유 유지 — 익절가 ${_tp1 ? _fmtP(_tp1) : '미설정'}`;
-
-                                // 진입가 근처 (±1%)
+                                // 수익 중 / 진입가 근처 — 포지션 유지 중이므로 매도 시그널 억제
                                 } else {
-                                    const pnlStr = _pnlPct !== null
-                                        ? ` (${_pnlPct > 0 ? '+' : ''}${_pnlPct.toFixed(1)}%)`
-                                        : '';
-                                    headline = `보유 중${pnlStr} · 익절 ${_tp1 ? _fmtP(_tp1) : '미설정'} · 손절 ${_sl ? _fmtP(_sl) : '미설정'}`;
+                                    posSkip = true; // 손절·익절 조건 미해당 → 일반 매도 알림 억제
                                 }
                             }
                         } else if (_pa.status === 'watching') {
