@@ -1412,7 +1412,8 @@
         /* ===== TAB NAVIGATION - 토스 스타일 ===== */
         /* tab-nav: 헤더 바로 아래에 스택 고정. 불투명 배경 + backdrop-filter 제거
            — Safari 의 position:sticky + backdrop-filter compositing 버그(겹침) 방지 (v707) */
-        .tab-nav{display:none;position:sticky;top:var(--hdr-h, 56px);z-index:1001;background:var(--bg);border-bottom:1px solid var(--border);padding:8px 16px;gap:6px;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+        .tab-nav{display:none;position:sticky;top:var(--hdr-h, 56px);z-index:1001;background:var(--bg);border-bottom:1px solid var(--border);padding:8px 16px;gap:6px;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;cursor:grab;}
+        .tab-nav.is-dragging{cursor:grabbing;user-select:none;}
         .tab-nav::-webkit-scrollbar{display:none;}
         .tab-nav.show{display:flex;}
         .tab-item{padding:6px 14px;border-radius:var(--radius-full);font-size:13.5px;font-weight:600;color:var(--text3);cursor:pointer;border:none;background:transparent;transition:all .18s;font-family:inherit;white-space:nowrap;flex-shrink:0;line-height:1.4;}
