@@ -1541,7 +1541,7 @@
         .tv-chart-card{border-radius:var(--r2);border:1px solid var(--border);position:relative;display:flex;flex-direction:column;}
         /* 차트 위 실시간 지표 시그널 배지 바 */
         .chart-sig-bar{
-            display:flex;flex-wrap:wrap;gap:6px;
+            display:none;flex-wrap:wrap;gap:6px;
             padding:8px 14px;
             background:var(--bg2);
             border-bottom:1px solid var(--border);
