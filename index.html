@@ -844,8 +844,7 @@
                         <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
                             <!-- 등급 필터 -->
                             <div style="display:flex;gap:3px;align-items:center;padding:3px 6px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;flex-shrink:0;">
-                                <button class="grade-btn active" data-grade="C" onclick="_setMinGrade('C')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text2);cursor:pointer;white-space:nowrap;">C+</button>
-                                <button class="grade-btn" data-grade="B" onclick="_setMinGrade('B')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text2);cursor:pointer;white-space:nowrap;">B+</button>
+                                <button class="grade-btn active" data-grade="B" onclick="_setMinGrade('B')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text2);cursor:pointer;white-space:nowrap;">B+</button>
                                 <button class="grade-btn" data-grade="A" onclick="_setMinGrade('A')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text2);cursor:pointer;white-space:nowrap;">A+</button>
                                 <button class="grade-btn" data-grade="S" onclick="_setMinGrade('S')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:#FFD700;cursor:pointer;white-space:nowrap;">S</button>
                             </div>
@@ -15206,12 +15205,12 @@
     let _priceLabelRegistry = []; // 우측 가격 라벨 중복 방지 — ±0.8% 이내 중복 시 낮은 우선순위 라벨 숨김
     let _lastSigArgs = null;  // 토글 시 즉시 재렌더용 캐시
     let _signalGrades = {};
-    // 디폴트: C (모든 신호 표시, D 제거됨)
-    let _minGradeFilter = localStorage.getItem('stockai_min_grade') || 'C';
-    // 'all'/'D' 잔존값 마이그레이션
-    if (_minGradeFilter === 'all' || _minGradeFilter === 'D') {
-        _minGradeFilter = 'C';
-        localStorage.setItem('stockai_min_grade', 'C');
+    // 디폴트: B (C 제거됨 — B/A/S 3단계)
+    let _minGradeFilter = localStorage.getItem('stockai_min_grade') || 'B';
+    // 'all'/'D'/'C' 잔존값 마이그레이션
+    if (_minGradeFilter === 'all' || _minGradeFilter === 'D' || _minGradeFilter === 'C') {
+        _minGradeFilter = 'B';
+        localStorage.setItem('stockai_min_grade', 'B');
     }
     let _alpacaWs        = null;   // Alpaca WebSocket 연결
     let _wsLiveCandle    = null;   // 현재 형성 중인 실시간 캔들
