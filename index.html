@@ -18487,19 +18487,12 @@
     // ═══════════════════════════════════════════════════════════
     function _ddOpenMenu(menu, btn) {
         if (!menu || !btn) return;
-        // 모바일: chart-toolbar의 overflow:auto가 드롭다운을 clipping → position:fixed로 탈출
-        if (window.innerWidth <= 768) {
-            const r = btn.getBoundingClientRect();
-            menu.style.position = 'fixed';
-            menu.style.top  = (r.bottom + 5) + 'px';
-            menu.style.left = Math.min(r.left, window.innerWidth - 170) + 'px';
-            menu.style.zIndex = '99999';
-        } else {
-            menu.style.position = '';
-            menu.style.top  = '';
-            menu.style.left = '';
-            menu.style.zIndex = '';
-        }
+        // position:fixed to escape chart-toolbar overflow:auto clipping on all viewports
+        const r = btn.getBoundingClientRect();
+        menu.style.position = 'fixed';
+        menu.style.top  = (r.bottom + 5) + 'px';
+        menu.style.left = Math.min(r.left, window.innerWidth - 190) + 'px';
+        menu.style.zIndex = '99999';
         menu.style.display = 'block';
     }
 

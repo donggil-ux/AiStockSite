@@ -7293,10 +7293,13 @@
 .chart-dd-menu{
     position:absolute;top:calc(100% + 5px);left:0;
     min-width:160px;
-    background:var(--bg2);
+    background:var(--bg2)!important;
     border:1px solid var(--border);
-    border-radius:var(--radius-sm);
-    box-shadow:0 6px 20px rgba(0,0,0,.18);
+    border-radius:12px!important;
+    overflow:hidden!important;
+    box-shadow:0 8px 24px rgba(0,0,0,.3);
+    backdrop-filter:blur(20px);
+    -webkit-backdrop-filter:blur(20px);
     z-index:9999;
     padding:4px 0;
     white-space:nowrap;
@@ -7348,7 +7351,10 @@
 .chart-dd-tag-long{background:rgba(59,130,246,.15);color:#3B82F6;}
 .chart-dd-tag-day{background:rgba(245,158,11,.15);color:#F59E0B;}
 /* SD 차수 그룹 하위 메뉴 */
+.chart-dd-menu>*:first-child{border-top-left-radius:12px;border-top-right-radius:12px;}
+.chart-dd-menu>*:last-child{border-bottom-left-radius:12px;border-bottom-right-radius:12px;}
 .chart-dd-sub{
+    overflow:hidden;
     padding-left:12px;
     border-left:2px solid var(--border);
     margin:2px 8px 4px;
