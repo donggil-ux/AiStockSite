@@ -15766,9 +15766,13 @@
                     let subStr = '';
                     try {
                         const sIdx = ts.indexOf(latest.time);
-                        const sp = (sIdx >= 0 && q.close[sIdx] != null)
-                            ? q.close[sIdx]
-                            : candleData[candleData.length - 1]?.close;
+                        // 실시간 현재가 우선, 마커 봉 종가는 폴백
+                        const _livePx = _posCurrentPrice();
+                        const sp = (_livePx != null && _livePx > 0)
+                            ? _livePx
+                            : (sIdx >= 0 && q.close[sIdx] != null)
+                                ? q.close[sIdx]
+                                : candleData[candleData.length - 1]?.close;
                         const atr = calcATR(q.high, q.low, q.close).filter(v => v != null).pop();
                         const fmtP = p => currentMarket === 'KR'
                             ? Math.round(p).toLocaleString() + '원'
