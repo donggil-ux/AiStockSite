@@ -12524,7 +12524,40 @@
             startAlpacaWS(symbol);
 
         } catch(err) {
-            showToast(err.message || '데이터를 불러오는데 실패했습니다.');
+            const isNotFound = err.message === '종목을 찾을 수 없습니다.'
+                || (err.message && (err.message.includes('404') || err.message.includes('not found') || err.message.includes('No data')));
+            if (isNotFound) {
+                // 헤더 검색창에 "검색 없음" 표시
+                const inp = document.getElementById('searchInput');
+                const box = inp?.closest('.search-box');
+                if (inp && box) {
+                    inp.value = '검색 없음';
+                    box.classList.add('search-error');
+                    const clearError = () => {
+                        inp.value = '';
+                        box.classList.remove('search-error');
+                        inp.removeEventListener('input', clearError);
+                    };
+                    inp.addEventListener('input', clearError, { once: true });
+                    setTimeout(clearError, 2500);
+                }
+                // 모바일 검색 모달이 열려있으면 모바일 입력창에도 표시
+                const mobInp = document.getElementById('mobSearchInput');
+                const mobBox = mobInp?.closest('.mob-search-box');
+                if (mobInp && mobBox && document.getElementById('mobSearchModal')?.style.display !== 'none') {
+                    mobInp.value = '검색 없음';
+                    mobBox.classList.add('search-error');
+                    const clearMob = () => {
+                        mobInp.value = '';
+                        mobBox.classList.remove('search-error');
+                        mobInp.removeEventListener('input', clearMob);
+                    };
+                    mobInp.addEventListener('input', clearMob, { once: true });
+                    setTimeout(clearMob, 2500);
+                }
+            } else {
+                showToast(err.message || '데이터를 불러오는데 실패했습니다.');
+            }
         } finally {
             hideLoading();
         }
