@@ -1949,29 +1949,28 @@
 
         // 바텀 내비는 항상 고정 표시 (스크롤 숨김 없음)
 
-        // 모바일 검색 모달 입력 이벤트
         // 차트 툴바 마우스 드래그 스크롤
+        // 모바일 검색 모달 입력 이벤트
         (function() {
             const tb = document.getElementById('chartToolbar');
             if (!tb) return;
             let dragging = false, startX = 0, scrollLeft = 0, moved = false;
             tb.addEventListener('mousedown', e => {
-                if (e.button !== 0 || e.target.closest('button,input,select')) return;
+                if (e.button !== 0) return;
                 dragging = true; moved = false;
-                startX = e.pageX - tb.getBoundingClientRect().left;
+                startX = e.pageX;
                 scrollLeft = tb.scrollLeft;
                 tb.classList.add('is-dragging');
+                e.preventDefault();
             });
             document.addEventListener('mouseup', () => { dragging = false; tb.classList.remove('is-dragging'); });
             document.addEventListener('mousemove', e => {
                 if (!dragging) return;
-                e.preventDefault();
-                const x = e.pageX - tb.getBoundingClientRect().left;
-                const dx = x - startX;
-                if (Math.abs(dx) > 3) moved = true;
+                const dx = e.pageX - startX;
+                if (Math.abs(dx) > 4) moved = true;
                 tb.scrollLeft = scrollLeft - dx;
             });
-            // 드래그 중엔 클릭 이벤트 차단
+            // 드래그였으면 버튼 클릭 차단
             tb.addEventListener('click', e => { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
         })();
 
