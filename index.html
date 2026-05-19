@@ -15994,7 +15994,24 @@
         const uniqMarkers = markers
             .sort((a,b) => a.time - b.time)
             .filter(m => { const k = m.time + ':' + m.position; if (seen.has(k)) return false; seen.add(k); return true; });
-        try { lwCandleSeries.setMarkers(uniqMarkers.slice(-50)); } catch(e) {}
+        // 마커 우선순위 (매수1/매도1 > 매수2/매도2 > 매수3/매도3 > 크로스/브레이크 > RSI/MACD > 기타)
+        const _mPri = m => {
+            const t = m.text || '';
+            if (t.startsWith('매수1') || t.startsWith('매도1')) return 5;
+            if (t.startsWith('매수2') || t.startsWith('매도2')) return 4;
+            if (t.startsWith('매수3') || t.startsWith('매도3')) return 3;
+            if (t.startsWith('골든크로스') || t.startsWith('데드크로스') || t.startsWith('브레이크')) return 3;
+            if (t.startsWith('RSI') || t.startsWith('MACD')) return 2;
+            return 1;
+        };
+        // 500개 초과 시 우선순위 낮은 것부터 제거, 최종 time 순 재정렬
+        const _finalMarkers = uniqMarkers.length <= 500
+            ? uniqMarkers
+            : [...uniqMarkers]
+                .sort((a, b) => _mPri(b) - _mPri(a) || b.time - a.time)
+                .slice(0, 500)
+                .sort((a, b) => a.time - b.time);
+        try { lwCandleSeries.setMarkers(_finalMarkers); } catch(e) {}
 
         // 3.5) 새 시그널 감지 → 토스트 (폴링으로 신규 마커 도착 시)
         const latest = uniqMarkers[uniqMarkers.length - 1];
