@@ -12810,7 +12810,8 @@
             renderAIAnalysis();
             renderRRAnalysis();
             try { _renderMultiFactorCard(); } catch (e) { console.warn('[mf] render fail', e); }
-            try { renderMinerviniSEPA(); } catch (e) { console.warn('[sepa] render fail', e); }
+            try { _renderSEPACard(); } catch (e) { console.warn('[sepa-card] render fail', e); }
+            try { renderMinerviniSEPA(); } catch (e) { console.warn('[sepa-chart] render fail', e); }
             try { // SEPA 토글 상태 적용
                 const _sepaEl = document.getElementById('sepaAnalysis');
                 if (_sepaEl) { if (typeof _chartSepaEnabled !== 'undefined' && !_chartSepaEnabled) _sepaEl.classList.add('sepa-hidden'); else _sepaEl.classList.remove('sepa-hidden'); }
@@ -13516,7 +13517,8 @@
             renderAIAnalysis();
             renderRRAnalysis();
             try { _renderMultiFactorCard(); } catch (e) { console.warn('[mf] render fail', e); }
-            try { renderMinerviniSEPA(); } catch (e) { console.warn('[sepa] render fail', e); }
+            try { _renderSEPACard(); } catch (e) { console.warn('[sepa-card] render fail', e); }
+            try { renderMinerviniSEPA(); } catch (e) { console.warn('[sepa-chart] render fail', e); }
             try { // SEPA 토글 상태 적용
                 const _sepaEl = document.getElementById('sepaAnalysis');
                 if (_sepaEl) { if (typeof _chartSepaEnabled !== 'undefined' && !_chartSepaEnabled) _sepaEl.classList.add('sepa-hidden'); else _sepaEl.classList.remove('sepa-hidden'); }
@@ -21951,7 +21953,8 @@
         } catch (e) { return null; }
     }
 
-    async function renderMinerviniSEPA() {
+    // ── Minervini SEPA 분석 카드 렌더링 (분석 탭 #sepaAnalysis 전용) ──────
+    async function _renderSEPACard() {
         const el = document.getElementById('sepaAnalysis');
         if (!el) return;
         if (!currentFullSymbol) { el.innerHTML = ''; return; }
@@ -21980,53 +21983,6 @@
             lastClose: validCloses[validCloses.length - 1],
         };
 
-        // ── _detectMinerviniSetup 연동 — 차트 배지 + 가격 라인 ─────
-        _clearMinerviniChartLines(); // 이전 라인 제거
-        try {
-            // 일봉 데이터를 candleData 형식으로 변환
-            const mvCandles = (data.closes || []).map((c, i) => ({
-                time:   i,
-                open:   c,
-                high:   (data.highs  || [])[i] ?? c,
-                low:    (data.lows   || [])[i] ?? c,
-                close:  c,
-                volume: (data.volume || [])[i] ?? 0,
-            })).filter(d => d.close != null);
-
-            const setup = typeof _detectMinerviniSetup === 'function'
-                ? _detectMinerviniSetup(mvCandles) : null;
-
-            if (setup) {
-                // ── SigBar 배지 ──
-                const bar = document.getElementById('chartSigBar');
-                if (bar) {
-                    const stageLabel = setup.stage2 ? 'Stage 2 OK' : 'Stage 2 X';
-                    const vcpLabel   = setup.vcp    ? 'VCP OK'     : 'VCP X';
-                    const stageColor = setup.stage2
-                        ? 'background:rgba(255,215,0,0.12);color:#FFD700;border-color:rgba(255,215,0,0.4)'
-                        : 'background:rgba(107,114,128,0.12);color:#9CA3AF;border-color:rgba(107,114,128,0.3)';
-                    bar.insertAdjacentHTML('beforeend',
-                        `<span class="chart-sig-pill minervini-badge" style="${stageColor};font-weight:700">` +
-                        `Minervini ${stageLabel} · ${vcpLabel} · RS ${setup.rsScore} · Trend ${setup.trendTemplateScore}/8</span>`);
-
-                    if (setup.signal) {
-                        bar.insertAdjacentHTML('beforeend',
-                            `<span class="chart-sig-pill minervini-badge" style="background:rgba(34,197,94,0.12);color:#22C55E;border-color:rgba(34,197,94,0.4);font-weight:700">` +
-                            `SEPA 진입 신호 · 거래량 ${setup.volRatio}배 · 손절 $${setup.stopLoss} · 익절1 $${setup.tp1Price}</span>`);
-                    }
-                }
-
-                // ── 차트 가격 라인 ──
-                if (setup.pivot)     _mvAddLine(setup.pivot,    '#FFD700', 1, 2, `Pivot $${setup.pivot}`);
-                if (setup.signal) {
-                    _mvAddLine(setup.stopLoss, '#EF4444', 1, 2, `손절 -7.5%`);
-                    _mvAddLine(setup.tp1Price, '#22C55E', 1, 2, `익절1 +10%`);
-                    _mvAddLine(setup.tp2Price, '#86EFAC', 1, 2, `익절2 +25%`);
-                }
-            }
-        } catch(mvErr) { console.warn('[minervini chart]', mvErr.message); }
-        // ───────────────────────────────────────────────────────────
-
         // 1차 렌더 (RS 제외) + 비동기 RS 후속 갱신
         el.innerHTML = _buildSEPAHtml({ ...baseArgs, rs: null });
         _getSPXCloses().then(spx => {
@@ -22035,6 +21991,49 @@
             const elNow = document.getElementById('sepaAnalysis');
             if (elNow) elNow.innerHTML = _buildSEPAHtml({ ...baseArgs, rs });
         });
+    }
+
+    // ── Minervini SEPA 차트 오버레이 (드롭다운 토글 전용) ─────────────────
+    // _detectMinerviniSetup 결과를 SigBar 배지 + 차트 가격 라인으로 표시
+    // 일봉 200개 이상 필요 — 5분봉 등 단봉에서는 데이터 부족으로 자동 스킵
+    function renderMinerviniSEPA() {
+        if (!_chartSepaEnabled) return;
+        const cd = _lastSigArgs?.candleData;
+        if (!cd || cd.length < 200) return;
+
+        _clearMinerviniChartLines();
+
+        let setup = null;
+        try { setup = _detectMinerviniSetup(cd); } catch(e) { console.warn('[mv setup]', e.message); }
+        if (!setup) return;
+
+        // ── SigBar 배지 ─────────────────────────────────────────────
+        const bar = document.getElementById('chartSigBar');
+        if (bar) {
+            bar.querySelectorAll('.minervini-badge').forEach(el => el.remove());
+            const stageColor = setup.stage2 ? '#FFD700' : '#6B7280';
+            bar.insertAdjacentHTML('beforeend',
+                `<span class="chart-sig-pill minervini-badge" style="background:rgba(255,215,0,0.12);color:${stageColor};border-color:rgba(255,215,0,0.4);font-weight:700">` +
+                `🏆 Stage 2: ${setup.stage2 ? '✅' : '❌'} · VCP: ${setup.vcp ? '✅' : '❌'} · RS: ${setup.rsScore}점 · Trend: ${setup.trendTemplateScore}/8</span>`);
+            if (setup.signal) {
+                const sl  = typeof setup.stopLoss === 'number' ? setup.stopLoss.toFixed(2)  : setup.stopLoss;
+                const tp1 = typeof setup.tp1Price === 'number' ? setup.tp1Price.toFixed(2)  : setup.tp1Price;
+                bar.insertAdjacentHTML('beforeend',
+                    `<span class="chart-sig-pill minervini-badge" style="background:rgba(34,197,94,0.12);color:#22C55E;border-color:rgba(34,197,94,0.4);font-weight:700">` +
+                    `✅ SEPA 진입 신호 · 거래량 ${setup.volRatio}배 · 손절 $${sl} · 익절1 $${tp1}</span>`);
+            }
+        }
+
+        // ── 차트 가격 라인 ───────────────────────────────────────────
+        if (setup.pivot) {
+            const pvLabel = typeof setup.pivot === 'number' ? setup.pivot.toFixed(2) : setup.pivot;
+            _mvAddLine(setup.pivot, '#FFD700', 1, 2, `🏆 Pivot $${pvLabel}`);
+        }
+        if (setup.signal) {
+            _mvAddLine(setup.stopLoss, '#EF4444', 1, 2, '🔴 손절 -7.5%');
+            _mvAddLine(setup.tp1Price, '#22C55E', 1, 2, '✅ 익절1 +10%');
+            _mvAddLine(setup.tp2Price, '#86EFAC', 1, 2, '💰 익절2 +25%');
+        }
     }
 
     function _buildSEPAHtml({ trend, vcp, vol, rs, lastClose }) {
@@ -28074,7 +28073,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         _cancelChartBottomSheet, _bsRenderBody,
         handleSearchKeydown, openSearchDropdown, closeSearchDropdown, searchSuggest, levenshtein,
         renderDayUnified, renderDanteAnalysis, runDanteBacktest,
-        renderRRAnalysis, renderMinerviniSEPA, renderSwingAnalysis, _runSwingAi, renderRSIMomentum, analyzeRSIDynamic,
+        renderRRAnalysis, renderMinerviniSEPA, _renderSEPACard, renderSwingAnalysis, _runSwingAi, renderRSIMomentum, analyzeRSIDynamic,
         renderMACDSignal, analyzeMACDRayner, _applyRRGate, _isFallingKnife,
         toggleChecklist,
         detectBullishDivergence, _detectOBVPanic,
