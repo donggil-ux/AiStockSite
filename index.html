@@ -485,27 +485,41 @@
                 </div>
                 <div class="catalyst-meta">
                     <span class="catalyst-updated" id="catalystUpdated"></span>
-                    <button class="catalyst-refresh" onclick="loadCatalyst(true)" title="새로고침">🔄</button>
+                    <button class="catalyst-refresh" id="catalystRefreshBtn" onclick="loadCatalyst(true)" title="새로고침">🔄</button>
                 </div>
             </div>
-            <div class="catalyst-warn">
-                ⚠️ EDGAR 공시는 감지 후 수분 지연이 있고, 가격 데이터는 🟢 Alpaca 실시간(IEX 피드) 또는 🟡 yfinance 15분 지연.
-                뉴스 발표 후 첫 1~2시간에 수익이 집중되므로 진입 타이밍 관리 필수.
-                <strong>이미 당일 +10% 이상 오른 종목·프리장 +15% 이상 갭업 종목은 자동 제외</strong>되어
-                사전 진입 가능한 종목만 표시됩니다.
+            <div class="catalyst-tabs">
+                <button class="catalyst-tab active" data-ctab="edgar" onclick="switchCatalystTab('edgar')">📄 EDGAR 공시</button>
+                <button class="catalyst-tab"        data-ctab="volume" onclick="switchCatalystTab('volume')">🔥 거래량 급증</button>
             </div>
-            <div class="catalyst-filter-bar">
-                <button class="catalyst-filter active" data-filter="all"          onclick="_catalystSetFilter('all')">전체 <span class="catalyst-filter-cnt" id="cfCntAll">0</span></button>
-                <button class="catalyst-filter"        data-filter="urgent"       onclick="_catalystSetFilter('urgent')">🚨 긴급 <span class="catalyst-filter-cnt" id="cfCntUrgent">0</span></button>
-                <button class="catalyst-filter"        data-filter="strong"       onclick="_catalystSetFilter('strong')">🔴 강한 <span class="catalyst-filter-cnt" id="cfCntStrong">0</span></button>
-                <button class="catalyst-filter"        data-filter="watch"        onclick="_catalystSetFilter('watch')">🟠 관심 <span class="catalyst-filter-cnt" id="cfCntWatch">0</span></button>
-                <button class="catalyst-filter catalyst-filter--acc" data-filter="accumulation" onclick="_catalystSetFilter('accumulation')">🕵️ 매집 의심 <span class="catalyst-filter-cnt" id="cfCntAcc">0</span></button>
+            <div id="catalystEdgarTab">
+                <div class="catalyst-warn">
+                    ⚠️ EDGAR 공시는 감지 후 수분 지연이 있고, 가격 데이터는 🟢 Alpaca 실시간(IEX 피드) 또는 🟡 yfinance 15분 지연.
+                    뉴스 발표 후 첫 1~2시간에 수익이 집중되므로 진입 타이밍 관리 필수.
+                    <strong>이미 당일 +10% 이상 오른 종목·프리장 +15% 이상 갭업 종목은 자동 제외</strong>되어
+                    사전 진입 가능한 종목만 표시됩니다.
+                </div>
+                <div class="catalyst-filter-bar">
+                    <button class="catalyst-filter active" data-filter="all"          onclick="_catalystSetFilter('all')">전체 <span class="catalyst-filter-cnt" id="cfCntAll">0</span></button>
+                    <button class="catalyst-filter"        data-filter="urgent"       onclick="_catalystSetFilter('urgent')">🚨 긴급 <span class="catalyst-filter-cnt" id="cfCntUrgent">0</span></button>
+                    <button class="catalyst-filter"        data-filter="strong"       onclick="_catalystSetFilter('strong')">🔴 강한 <span class="catalyst-filter-cnt" id="cfCntStrong">0</span></button>
+                    <button class="catalyst-filter"        data-filter="watch"        onclick="_catalystSetFilter('watch')">🟠 관심 <span class="catalyst-filter-cnt" id="cfCntWatch">0</span></button>
+                    <button class="catalyst-filter catalyst-filter--acc" data-filter="accumulation" onclick="_catalystSetFilter('accumulation')">🕵️ 매집 의심 <span class="catalyst-filter-cnt" id="cfCntAcc">0</span></button>
+                </div>
+                <div class="catalyst-acc-warn" id="catalystAccWarn" style="display:none;">
+                    ⚠️ 매집 의심은 통계적 패턴 감지입니다. 실제 내부자 거래 증거가 아니며 오탐 가능성이 높습니다. 반드시 직접 검증 후 참고용으로만 활용하세요.
+                </div>
+                <div class="catalyst-list" id="catalystList">
+                    <div class="catalyst-loading">EDGAR 공시 스캔 중...</div>
+                </div>
             </div>
-            <div class="catalyst-acc-warn" id="catalystAccWarn" style="display:none;">
-                ⚠️ 매집 의심은 통계적 패턴 감지입니다. 실제 내부자 거래 증거가 아니며 오탐 가능성이 높습니다. 반드시 직접 검증 후 참고용으로만 활용하세요.
-            </div>
-            <div class="catalyst-list" id="catalystList">
-                <div class="catalyst-loading">EDGAR 공시 스캔 중...</div>
+            <div id="catalystVolumeTab" style="display:none;">
+                <div class="catalyst-warn">
+                    ⚡ 평균 거래량 대비 3배 이상 급증 종목. Pre-Pump 신호 가능성 — 반드시 뉴스·공시 확인 후 진입 판단.
+                </div>
+                <div class="catalyst-list" id="catalystVolList">
+                    <div class="catalyst-loading">거래량 급증 스캔 중...</div>
+                </div>
             </div>
         </div>
     </div>
@@ -8798,6 +8812,101 @@
         _catalystFilter = f;
         document.querySelectorAll('.catalyst-filter').forEach(b => b.classList.toggle('active', b.dataset.filter === f));
         _renderCatalyst(_catalystData);
+    }
+
+    let _volSurgeCatLoaded = false;
+
+    function switchCatalystTab(tab) {
+        document.querySelectorAll('.catalyst-tab').forEach(b => b.classList.toggle('active', b.dataset.ctab === tab));
+        const edgarTab  = document.getElementById('catalystEdgarTab');
+        const volumeTab = document.getElementById('catalystVolumeTab');
+        const refreshBtn = document.getElementById('catalystRefreshBtn');
+        if (tab === 'edgar') {
+            edgarTab.style.display  = '';
+            volumeTab.style.display = 'none';
+            if (refreshBtn) { refreshBtn.onclick = () => loadCatalyst(true); refreshBtn.style.display = ''; }
+        } else {
+            edgarTab.style.display  = 'none';
+            volumeTab.style.display = '';
+            if (refreshBtn) { refreshBtn.onclick = () => loadVolumeSurge(true); refreshBtn.style.display = ''; }
+            if (!_volSurgeCatLoaded) loadVolumeSurge(false);
+        }
+    }
+
+    async function loadVolumeSurge(forceRefresh) {
+        const listEl = document.getElementById('catalystVolList');
+        if (!listEl) return;
+        if (!_volSurgeCatLoaded || forceRefresh) {
+            listEl.innerHTML = '<div class="catalyst-loading">거래량 급증 스캔 중... (최대 10초)</div>';
+        }
+        try {
+            const url = '/api/scanner/volume-surge' + (forceRefresh ? '?t=' + Date.now() : '');
+            const r = await fetch(url);
+            if (!r.ok) throw new Error('http ' + r.status);
+            const d = await r.json();
+            _volSurgeCatLoaded = true;
+            if (!d.stocks || d.stocks.length === 0) {
+                listEl.innerHTML = '<div class="catalyst-loading">급증 종목 없음 (장 마감 후에는 데이터가 제한될 수 있습니다)</div>';
+                return;
+            }
+            const scannedLabel = d.scannedAt ? (() => {
+                const dt = new Date(d.scannedAt);
+                return dt.getHours().toString().padStart(2,'0') + ':' + dt.getMinutes().toString().padStart(2,'0');
+            })() : '';
+            listEl.innerHTML = d.stocks.map(s => {
+                const chg = s.changePct || 0;
+                const chgStr = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+                const chgCls = chg >= 0 ? 'pos' : 'neg';
+                const volRatio = s.volRatio || 0;
+                const surgeScore = s.surgeScore || 0;
+                const capTier = s.marketCapTier || 'unknown';
+                const tierLabelMap = { micro:'MICRO CAP', small:'SMALL CAP', mid:'MID CAP', large:'LARGE CAP' };
+                const tierClsMap   = { micro:'purple',    small:'blue',      mid:'cyan',    large:'gray' };
+                const capLabel = tierLabelMap[capTier] || capTier.toUpperCase();
+                const capCls   = tierClsMap[capTier]  || 'purple';
+                const surgeBadge = volRatio >= 5
+                    ? `<span class="alpha-signal orange">거래량 ${volRatio}x 폭증</span>`
+                    : volRatio >= 3
+                    ? `<span class="alpha-signal amber">거래량 ${volRatio}x 급증</span>`
+                    : `<span class="alpha-signal blue">거래량 ${volRatio}x 증가</span>`;
+                const chgBadge = Math.abs(chg) >= 5
+                    ? `<span class="alpha-signal ${chg >= 0 ? 'emerald' : 'red'}">${chgStr}</span>`
+                    : Math.abs(chg) >= 2
+                    ? `<span class="alpha-signal cyan">${chgStr}</span>`
+                    : '';
+                const timingBadge = surgeScore >= 70
+                    ? `<span class="alpha-signal orange">즉시 주목</span>`
+                    : surgeScore >= 50
+                    ? `<span class="alpha-signal amber">관찰 중</span>`
+                    : `<span class="alpha-signal cyan">모니터링</span>`;
+                const score = surgeScore >= 70 ? 6 : surgeScore >= 55 ? 5 : surgeScore >= 40 ? 4 : surgeScore >= 25 ? 3 : 2;
+                const stars = '★'.repeat(score) + '☆'.repeat(Math.max(0, 6 - score));
+                return `<div class="catalyst-card" onclick="quickSearch('${s.symbol}','US')">
+                    <div class="catalyst-card-top">
+                        <div class="catalyst-card-left">
+                            <span class="catalyst-ticker">${s.symbol}</span>
+                            <span class="catalyst-name">${s.name || ''}</span>
+                        </div>
+                        <div class="catalyst-card-right">
+                            <span class="catalyst-price">$${(s.price || 0).toFixed(2)}</span>
+                            <span class="catalyst-chg ${chgCls}">${chgStr}</span>
+                        </div>
+                    </div>
+                    <div class="catalyst-card-signals">
+                        ${surgeBadge}${chgBadge}
+                        <span class="alpha-signal ${capCls}">${capLabel}</span>
+                        ${timingBadge}
+                    </div>
+                    <div class="catalyst-card-footer">
+                        <span class="catalyst-score">${stars}</span>
+                        <span class="catalyst-reason">평균 대비 ${volRatio}배 거래량 급증 — 뉴스·공시 확인 필수</span>
+                    </div>
+                </div>`;
+            }).join('');
+        } catch (e) {
+            console.error('[loadVolumeSurge]', e);
+            listEl.innerHTML = `<div class="catalyst-loading">오류: ${e.message}</div>`;
+        }
     }
 
     async function loadCatalyst(forceRefresh) {
@@ -27559,7 +27668,7 @@
         _applyGuruFilter, _guruFilterPos, _guruRefreshLatest,
         setMarket, searchStock, setChartInterval, setPeriod, _toggleIntervalDropdown,
         quickSearch, toggleFavorite, switchTab, toggleChartFullscreen,
-        favSearch, removeFavorite, setTop100Filter, goTop100, goCatalyst, loadCatalyst, _catalystSetFilter,
+        favSearch, removeFavorite, setTop100Filter, goTop100, goCatalyst, loadCatalyst, _catalystSetFilter, switchCatalystTab, loadVolumeSurge,
         _runCatalystAi, _renderCatalystAiExpanded,
         _runScannerAi, _renderScannerAiResult, _alphaAutoBatchAi, _renderAlphaAiMini,
         _alphaRenderSocialScanner, _runSocialAi, _renderSocialAiResult,
