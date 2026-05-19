@@ -5639,6 +5639,29 @@
 
     async function _alphaRenderSEPAScanner(el) {
         el.innerHTML = _alphaTimingGuide('sepa') + '<div class="sniper-loading">' + Array(6).fill('<div class="sniper-skel"></div>').join('') + '</div>';
+
+        // ── Polygon VCP 셋업 배너 (비동기 병렬 — 실패해도 메인 스캔에 영향 없음) ──
+        fetch('/api/scanner/minervini').then(async pr => {
+            if (!pr.ok || _alphaTab !== 'sepa') return;
+            const pd = await pr.json().catch(() => null);
+            if (!pd || !pd.stocks || !pd.stocks.length) return;
+            if (_alphaTab !== 'sepa') return;
+            const alphaEl = document.getElementById('alphaResults');
+            if (!alphaEl) return;
+            const top = pd.stocks.slice(0, 5);
+            const chips = top.map(s =>
+                `<span onclick="selectStock('${s.ticker}')" style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;background:rgba(255,215,0,0.12);border:1px solid rgba(255,215,0,0.35);font-size:11px;font-weight:700;color:#FFD700;cursor:pointer;">${s.ticker} <span style="font-size:10px;font-weight:400;color:var(--text3)">RS${s.rsScore}</span></span>`
+            ).join(' ');
+            const banner = `<div id="_mvBanner" style="margin:0 0 10px;padding:10px 12px;border-radius:10px;background:rgba(255,215,0,0.06);border:1px solid rgba(255,215,0,0.25);">
+                <div style="font-size:11px;font-weight:700;color:#FFD700;margin-bottom:6px">Polygon VCP 셋업 — ${pd.total}개 (스캔: ${new Date(pd.scannedAt).toLocaleTimeString('ko-KR')})</div>
+                <div style="display:flex;flex-wrap:wrap;gap:5px">${chips}</div>
+            </div>`;
+            // timing guide 뒤, 기존 컨텐츠 앞에 삽입
+            const existing = alphaEl.innerHTML;
+            const guide = _alphaTimingGuide('sepa');
+            alphaEl.innerHTML = existing.replace(guide, guide + banner);
+        }).catch(() => {});
+
         try {
             const r = await fetch('/api/sepa-scan');
             if (!r.ok) throw new Error('http ' + r.status);
