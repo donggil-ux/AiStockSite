@@ -1110,6 +1110,8 @@
                 <div class="group-body" id="groupSystem-body">
                     <!-- 🎯 Minervini SEPA 분석 카드 -->
                     <div id="sepaAnalysis"></div>
+                    <!-- 📊 Smart Dip v3 진입 품질 카드 -->
+                    <div id="smartDipQualityCard"></div>
                     <!-- 스윙 분석 카드 -->
                     <div id="swingAnalysis"></div>
                 </div><!-- /group-body groupSystem -->
@@ -15784,7 +15786,21 @@
 
         // ── EMA 눌림목(매수) / 이탈(매도) 마커 ──────────────────────
         {
-            const opens = q.open || [];
+            const opens   = q.open    || [];
+            const volumes = q.volume  || [];
+            // Smart Dip v3: 사전 계산 (루프 밖, 성능 최적화)
+            const _v3AtrArr = calcATR(q.high, q.low, q.close, 14);
+            const { adx: _v3AdxArr } = calcADX(q.high, q.low, q.close, 14);
+            // SPX EMA 추세 (1회 계산)
+            const _v3SpxUp = (() => {
+                const sd = window._spxCache;
+                if (!sd || sd.length <= 20) return null;
+                const sc = sd.map(d => d.close);
+                const se = calcEMA(sc, 20);
+                const sl = sc[sc.length - 1], se20 = se[se.length - 1];
+                return (sl != null && se20 != null) ? sl > se20 : null;
+            })();
+            if (!window._smartDipAnalysis) window._smartDipAnalysis = {};
 
             // ── EMA 매수 쿨다운 변수 (봉 인덱스 기준) ──
             let lastBuy1Bar = -999;
@@ -15828,22 +15844,61 @@
                     ? (e20 > e60 && e60 > e120)
                     : true;
 
-                // ── 매수 마커 — 정배열 + 쿨다운 ──
+                // ── 매수 마커 — Smart Dip v3 필터 적용 ──
                 if (e20 && l <= e20 * 1.002 && isBullCandle && isRsiSafe
                     && isAligned && stUp
                     && (i - lastBuy1Bar) >= BUY_COOLDOWN) {
-                    markers.push({ time: t, position: 'belowBar', color: '#06B6D4', shape: 'arrowUp', text: '매수 1' });
-                    lastBuy1Bar = i;
+                    const v3 = _smartDipV3Filter({
+                        i, closes, highs, lows, opens, volumes,
+                        ema20: emaC20, ema60: emaC60, ema120: emaC120, ema240: emaC240,
+                        rsi, atrArr: _v3AtrArr, adxArr: _v3AdxArr, _spxTrendUp: _v3SpxUp,
+                        currentInterval, ts,
+                    });
+                    if (v3.pass) {
+                        const [ge, gc] = v3.grade === 'S' ? ['🏆','#FFD700']
+                            : v3.grade === 'A' ? ['⭐','#22C55E']
+                            : v3.grade === 'B' ? ['✅','#3B82F6']
+                            : ['🔵','#9CA3AF'];
+                        markers.push({ time: t, position: 'belowBar', color: gc, shape: 'arrowUp', text: `${ge} 매수1 [${v3.grade}]` });
+                        window._smartDipAnalysis[t] = { ...v3, num: 1 };
+                        lastBuy1Bar = i;
+                    }
                 } else if (e60 && l <= e60 * 1.002 && isBullCandle && isRsiSafe
                     && e60 > (e120 || 0) && stUp
                     && (i - lastBuy2Bar) >= BUY_COOLDOWN) {
-                    markers.push({ time: t, position: 'belowBar', color: '#3B82F6', shape: 'arrowUp', text: '매수 2' });
-                    lastBuy2Bar = i;
+                    const v3 = _smartDipV3Filter({
+                        i, closes, highs, lows, opens, volumes,
+                        ema20: emaC20, ema60: emaC60, ema120: emaC120, ema240: emaC240,
+                        rsi, atrArr: _v3AtrArr, adxArr: _v3AdxArr, _spxTrendUp: _v3SpxUp,
+                        currentInterval, ts,
+                    });
+                    if (v3.pass) {
+                        const [ge, gc] = v3.grade === 'S' ? ['🏆','#FFD700']
+                            : v3.grade === 'A' ? ['⭐','#22C55E']
+                            : v3.grade === 'B' ? ['✅','#3B82F6']
+                            : ['🔵','#9CA3AF'];
+                        markers.push({ time: t, position: 'belowBar', color: gc, shape: 'arrowUp', text: `${ge} 매수2 [${v3.grade}]` });
+                        window._smartDipAnalysis[t] = { ...v3, num: 2 };
+                        lastBuy2Bar = i;
+                    }
                 } else if (e120 && l <= e120 * 1.002 && isBullCandle && isRsiSafe
                     && e120 > (e240 || 0) && stUp
                     && (i - lastBuy3Bar) >= BUY_COOLDOWN) {
-                    markers.push({ time: t, position: 'belowBar', color: '#8B5CF6', shape: 'arrowUp', text: '매수 3' });
-                    lastBuy3Bar = i;
+                    const v3 = _smartDipV3Filter({
+                        i, closes, highs, lows, opens, volumes,
+                        ema20: emaC20, ema60: emaC60, ema120: emaC120, ema240: emaC240,
+                        rsi, atrArr: _v3AtrArr, adxArr: _v3AdxArr, _spxTrendUp: _v3SpxUp,
+                        currentInterval, ts,
+                    });
+                    if (v3.pass) {
+                        const [ge, gc] = v3.grade === 'S' ? ['🏆','#FFD700']
+                            : v3.grade === 'A' ? ['⭐','#22C55E']
+                            : v3.grade === 'B' ? ['✅','#3B82F6']
+                            : ['🔵','#9CA3AF'];
+                        markers.push({ time: t, position: 'belowBar', color: gc, shape: 'arrowUp', text: `${ge} 매수3 [${v3.grade}]` });
+                        window._smartDipAnalysis[t] = { ...v3, num: 3 };
+                        lastBuy3Bar = i;
+                    }
                 }
 
                 // ── 매도 마커 — EMA 하향 이탈 + 쿨다운 ──
@@ -16308,6 +16363,196 @@
                 price, color, lineWidth: width, lineStyle: style, axisLabelVisible: true, title,
             }));
         } catch(e) {}
+    }
+
+    // ── Smart Dip v3 진입 품질 필터 ─────────────────────────────────
+    function _smartDipV3Filter(opts) {
+        const {
+            i, closes, highs, lows, opens, volumes,
+            ema20, ema60, ema120, ema240,
+            rsi, atrArr, adxArr, _spxTrendUp,
+            currentInterval, ts,
+        } = opts;
+        const c = closes[i];
+        const reasons = [];
+        let qualityScore = 0;
+
+        // 필터 1: ADX 추세 강도 (Linda Raschke Holy Grail)
+        const adxVal = adxArr[i] || 0;
+        if (adxVal < 25) {
+            reasons.push(`❌ ADX ${adxVal.toFixed(0)} (추세 약함)`);
+            return { pass: false, reasons, qualityScore };
+        }
+        qualityScore += adxVal >= 35 ? 2 : 1;
+        reasons.push(`✅ ADX ${adxVal.toFixed(0)} (추세 강함)`);
+
+        // 필터 2: HTF 추세 정렬 (다중 시간 프레임)
+        const htfLag = currentInterval === '1m' ? 15
+                     : currentInterval === '5m'  ? 6
+                     : currentInterval === '15m' ? 4
+                     : currentInterval === '30m' ? 2 : 1;
+        const _e60prev  = ema60[Math.max(0, i - htfLag * 5)];
+        const _e120prev = ema120[Math.max(0, i - htfLag * 10)];
+        const htfTrendUp = ema60[i] != null && _e60prev != null
+                        && ema60[i] > _e60prev
+                        && ema120[i] != null && _e120prev != null
+                        && ema120[i] > _e120prev;
+        if (!htfTrendUp) {
+            reasons.push('❌ HTF 추세 약함');
+            return { pass: false, reasons, qualityScore };
+        }
+        qualityScore += 2;
+        reasons.push('✅ HTF 상승 추세');
+
+        // 필터 3: 거래량 확인 (Wyckoff)
+        const volSlice = volumes.slice(Math.max(0, i - 20), i).filter(v => v != null);
+        const volAvg20 = volSlice.length ? volSlice.reduce((s, v) => s + v, 0) / volSlice.length : 0;
+        const volRatio  = volAvg20 > 0 ? (volumes[i]   || 0) / volAvg20 : 1;
+        const volPrevR  = volAvg20 > 0 ? (volumes[i-1] || 0) / volAvg20 : 1;
+        const volRecovery = volPrevR < 1.0 && volRatio > 1.2;
+        if (volRatio < 0.8) {
+            reasons.push(`❌ 거래량 부족 ${volRatio.toFixed(1)}x`);
+            return { pass: false, reasons, qualityScore };
+        }
+        if (volRecovery)        { qualityScore += 2; reasons.push(`✅ 거래량 회복 ${volRatio.toFixed(1)}x`); }
+        else if (volRatio >= 1.2) { qualityScore += 1; reasons.push(`✅ 거래량 ${volRatio.toFixed(1)}x`); }
+
+        // 필터 4: 직전 봉 급락 방지 + 양봉 확인 (Al Brooks)
+        if (i > 0 && opens[i-1] != null && opens[i-1] > 0) {
+            const prevDrop = ((closes[i-1] - opens[i-1]) / opens[i-1]) * 100;
+            if (prevDrop < -3) {
+                reasons.push(`❌ 직전 봉 급락 ${prevDrop.toFixed(1)}%`);
+                return { pass: false, reasons, qualityScore };
+            }
+        }
+        if (opens[i] != null && closes[i] > opens[i]) {
+            qualityScore += 1;
+            reasons.push('✅ 양봉 반등 확인');
+        } else {
+            reasons.push('❌ 현재 봉 음봉 (반등 미확인)');
+            return { pass: false, reasons, qualityScore };
+        }
+
+        // 필터 5: ATR 변동성 (과다 시 차단)
+        const curAtr = atrArr[i] || 0;
+        const atrPct = c > 0 ? (curAtr / c) * 100 : 0;
+        if (atrPct > 5.0) {
+            reasons.push(`❌ ATR ${atrPct.toFixed(1)}% (변동성 과다)`);
+            return { pass: false, reasons, qualityScore };
+        }
+        if (atrPct >= 1.0 && atrPct <= 3.0) { qualityScore += 1; reasons.push(`✅ ATR ${atrPct.toFixed(1)}% (적정)`); }
+
+        // 필터 6: S&P 500 시장 환경
+        if (_spxTrendUp === true)       { qualityScore += 1; reasons.push('✅ S&P 500 상승 추세'); }
+        else if (_spxTrendUp === false)  { qualityScore -= 1; reasons.push('❌ S&P 500 하락 추세 (시장 약세)'); }
+
+        // 필터 7: RSI 위치 (과매수 차단)
+        const rsiVal = rsi[i] != null ? rsi[i] : 50;
+        if (rsiVal > 75) {
+            reasons.push(`❌ RSI ${rsiVal.toFixed(0)} (과매수)`);
+            return { pass: false, reasons, qualityScore };
+        }
+        if (rsiVal >= 40 && rsiVal <= 65) { qualityScore += 1; reasons.push(`✅ RSI ${rsiVal.toFixed(0)} (적정)`); }
+
+        // 필터 8: 장 시작 30분 노이즈 회피 (미국 장)
+        if (ts && ts[i]) {
+            const d = new Date(ts[i] * 1000);
+            const h = d.getUTCHours(), m = d.getUTCMinutes();
+            if ((h === 13 && m >= 30) || (h === 14 && m === 0)) {
+                qualityScore -= 1;
+                reasons.push('❌ 장 시작 30분 (노이즈 회피)');
+            }
+        }
+
+        const pass  = qualityScore >= 5;
+        const grade = qualityScore >= 8 ? 'S' : qualityScore >= 6 ? 'A' : qualityScore >= 4 ? 'B' : 'C';
+        return {
+            pass,
+            qualityScore: +qualityScore.toFixed(1),
+            grade,
+            reasons,
+            adx:      +adxVal.toFixed(1),
+            volRatio: +volRatio.toFixed(2),
+            atrPct:   +atrPct.toFixed(2),
+            rsiVal:   +rsiVal.toFixed(0),
+        };
+    }
+
+    // ── S&P 500(SPY) 시장 환경 캐시 ─────────────────────────────────
+    async function _loadSpxData() {
+        try {
+            const to   = new Date().toISOString().split('T')[0];
+            const from = new Date(Date.now() - 60 * 86400000).toISOString().split('T')[0];
+            const r = await fetch(`/api/polygon/candles?ticker=SPY&timespan=day&multiplier=1&from=${from}&to=${to}`);
+            if (!r.ok) return;
+            const d = await r.json();
+            if (d?.candles?.length) window._spxCache = d.candles;
+        } catch(e) { console.warn('[spx cache]', e.message); }
+    }
+
+    // ── Smart Dip v3 진입 품질 카드 렌더링 ─────────────────────────
+    function renderSmartDipQuality() {
+        const el = document.getElementById('smartDipQualityCard');
+        if (!el) return;
+        const ts2 = _lastSigArgs?.ts;
+        if (!ts2 || !ts2.length) { el.innerHTML = ''; return; }
+        const lastT = ts2[ts2.length - 1];
+        const v3 = window._smartDipAnalysis?.[lastT];
+        if (!v3) { el.innerHTML = ''; return; }
+
+        const gradeColor = v3.grade === 'S' ? '#FFD700'
+            : v3.grade === 'A' ? '#22C55E'
+            : v3.grade === 'B' ? '#3B82F6'
+            : '#9CA3AF';
+        el.innerHTML = `
+            <div style="padding:14px;background:rgba(34,197,94,0.05);border:1px solid rgba(34,197,94,0.2);border-radius:10px">
+                <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">
+                    Smart Dip v3 진입 품질
+                    <span style="float:right;color:${gradeColor};font-weight:800">[${v3.grade}] ${v3.qualityScore}점</span>
+                </div>
+                <div style="font-size:11px;color:var(--text2);line-height:1.8">
+                    ADX ${v3.adx} · 거래량 ${v3.volRatio}x · ATR ${v3.atrPct}% · RSI ${v3.rsiVal}
+                </div>
+                <div id="smartDipWinRate" style="font-size:11px;color:var(--text3);margin-top:4px"></div>
+                <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:11px;line-height:1.7">
+                    ${v3.reasons.map(r => `<div>${r}</div>`).join('')}
+                </div>
+            </div>`;
+
+        // 승률 표시
+        try {
+            const history = JSON.parse(localStorage.getItem('stockai_sd_history') || '[]');
+            const last100 = history.slice(-100);
+            if (last100.length >= 10) {
+                const wins = last100.filter(h => h.win).length;
+                const wr = document.getElementById('smartDipWinRate');
+                if (wr) wr.textContent = `최근 ${last100.length}건 승률 ${((wins / last100.length) * 100).toFixed(0)}%`;
+            }
+        } catch(_) {}
+    }
+
+    // ── Smart Dip 진입 후 N봉 결과 추적 ────────────────────────────
+    function _trackSmartDipResult(entryT, entryPx) {
+        setTimeout(() => {
+            try {
+                const tsArr = _lastSigArgs?.ts;
+                const clArr = _lastSigArgs?.q?.close;
+                if (!tsArr || !clArr) return;
+                const lastIdx = clArr.length - 1;
+                let exitPx = null;
+                for (let i = lastIdx; i >= 0; i--) { if (clArr[i] != null) { exitPx = clArr[i]; break; } }
+                if (!exitPx) return;
+                const pnlPct = ((exitPx - entryPx) / entryPx) * 100;
+                const history = JSON.parse(localStorage.getItem('stockai_sd_history') || '[]');
+                history.push({
+                    entryT, entryPx, exitPx, pnlPct,
+                    grade: window._smartDipAnalysis?.[entryT]?.grade,
+                    win: pnlPct > 0,
+                });
+                if (history.length > 500) history.shift();
+                localStorage.setItem('stockai_sd_history', JSON.stringify(history));
+            } catch(_) {}
+        }, 60 * 1000);
     }
 
     function _renderSmartDipLayer(q) {
@@ -27535,6 +27780,11 @@
         document.querySelectorAll('.trade-mode-toggle .tm-btn').forEach(b =>
             b.classList.toggle('active', b.dataset.mode === currentTestaMode)
         );
+        // Smart Dip v3: S&P 500 시장 환경 로드
+        if (typeof _loadSpxData === 'function') {
+            _loadSpxData();
+            setInterval(_loadSpxData, 60 * 60 * 1000);
+        }
     });
 
     // ── 5분봉 돌파 단타 컨텍스트 추출 (전일 고점, 당일 박스 상단, 장 시작 후 경과 분 등) ──
@@ -28066,6 +28316,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         manualAnalysisRefresh, pwaInstall,
         toggleChartSigLines, toggleKullamagiLayer, toggleSplitBuyLayer, toggleSplitGroup, _toggleSplitGroup, getSplitBuyCoeff, togglePullbackLayer, toggleTpLevel, toggleSrLayer, toggleSrMode, toggleSigHistoryPanel, _renderSigHistoryPanel, _updateSigHistoryBadge,
         toggleSmartDipLayer, toggleSmartDipGroup, toggleSepaLayer, getSmartDipMode, _scrollToGroup,
+        _smartDipV3Filter, renderSmartDipQuality, _trackSmartDipResult, _loadSpxData,
         _runBacktest, _openBacktest,
         startAlpacaWS, stopAlpacaWS,
         _toggleAnalysisDd, _toggleLineDd, _closeAllDds, _updateDdStates, _setDdCheck,
