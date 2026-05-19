@@ -3481,6 +3481,10 @@
         // (loadAIRecommend / loadHotStocks — v530 완전 제거)
         loadGuruHome();
         loadEarnHome();
+        // 홈 화면 진입 시 알파 스캐너 로드
+        if (typeof loadAlphaHomePreview === 'function') {
+            loadAlphaHomePreview();
+        }
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -5877,35 +5881,40 @@
         if (cached && (Date.now() - cached.ts) < _ALPHA_HOME_TTL) return cached.items;
 
         let items = [];
-        if (tab === 'bounce') {
-            const r = await _alphaFetch('/api/oversold-radar?tab=oversold');
-            if (!r.ok) throw new Error('http ' + r.status);
-            const d = await r.json();
-            const raw = (d.items || []);
-            items = raw
-                .filter(item => _isClearlyOversold(item))
-                .map(item => ({ item, signals: _calcBounceScore(item) }))
-                .sort((a, b) => b.signals.length - a.signals.length)
-                .map(({ item, signals }) => ({ ...item, _alphaKind: 'bounce', _bounceSignals: signals }));
-        } else if (tab === 'swing') {
-            let raw = (top100Cache?.['day_gainers']?.items) || [];
-            if (!raw.length) {
-                const r = await _alphaFetch('/api/screener/day_gainers?count=100');
-                if (r.ok) {
-                    const d = await r.json();
-                    raw = d?.finance?.result?.[0]?.quotes || [];
-                    if (raw.length) top100Cache['day_gainers'] = { items: raw, ts: Date.now() };
+        try {
+            if (tab === 'bounce') {
+                const r = await _alphaFetch('/api/oversold-radar?tab=oversold');
+                if (!r.ok) throw new Error('http ' + r.status);
+                const d = await r.json();
+                const raw = (d.items || []);
+                items = raw
+                    .filter(item => _isClearlyOversold(item))
+                    .map(item => ({ item, signals: _calcBounceScore(item) }))
+                    .sort((a, b) => b.signals.length - a.signals.length)
+                    .map(({ item, signals }) => ({ ...item, _alphaKind: 'bounce', _bounceSignals: signals }));
+            } else if (tab === 'swing') {
+                let raw = (top100Cache?.['day_gainers']?.items) || [];
+                if (!raw.length) {
+                    const r = await _alphaFetch('/api/screener/day_gainers?count=100');
+                    if (r.ok) {
+                        const d = await r.json();
+                        raw = d?.finance?.result?.[0]?.quotes || [];
+                        if (raw.length) top100Cache['day_gainers'] = { items: raw, ts: Date.now() };
+                    }
                 }
+                items = raw.map(q => {
+                    const p = q.regularMarketPrice, h = q.fiftyTwoWeekHigh;
+                    if (!p || !h || h <= p) return null;
+                    const rr = (h - p) / (p * 0.05);
+                    return rr >= 1.5 ? { ...q, _rr: rr, _alphaKind: 'swing' } : null;
+                }).filter(Boolean).sort((a, b) => b._rr - a._rr);
             }
-            items = raw.map(q => {
-                const p = q.regularMarketPrice, h = q.fiftyTwoWeekHigh;
-                if (!p || !h || h <= p) return null;
-                const rr = (h - p) / (p * 0.05);
-                return rr >= 1.5 ? { ...q, _rr: rr, _alphaKind: 'swing' } : null;
-            }).filter(Boolean).sort((a, b) => b._rr - a._rr);
+            _alphaHomeCache[tab] = { items, ts: Date.now() };
+            return items;
+        } catch(e) {
+            console.warn('[alphaHomeFetch]', tab, e.message);
+            return []; // 실패 시 빈 배열 반환 (로딩 무한 방지)
         }
-        _alphaHomeCache[tab] = { items, ts: Date.now() };
-        return items;
     }
 
     async function _alphaHomeSwitch(tab) {
@@ -5928,15 +5937,10 @@
             el.innerHTML = cards;
             _alphaHomeRetry[tab] = 0; // 성공 시 재시도 카운터 리셋
         } catch (e) {
-            if (_alphaHomeTab !== tab) return;
-            // 실패 시 5초 후 1회만 자동 재시도 — 재시도 후에도 실패하면 에러 표시
-            _alphaHomeRetry[tab] = (_alphaHomeRetry[tab] || 0) + 1;
-            if (_alphaHomeRetry[tab] <= 1) {
-                el.innerHTML = '<div class="sniper-empty" style="opacity:.5">데이터 로드 중...</div>';
-                setTimeout(() => { if (_alphaHomeTab === tab) _alphaHomeSwitch(tab); }, 5000);
-            } else {
-                _alphaHomeRetry[tab] = 0; // 다음 수동 클릭 시 다시 시도 가능
-                el.innerHTML = '<div class="sniper-empty">데이터를 불러올 수 없습니다 — 탭을 다시 눌러 재시도</div>';
+            console.warn('[alphaHome] 로드 실패:', e.message);
+            // 에러 시 로딩 상태 즉시 해제 (다시 시도 버튼 표시)
+            if (el && _alphaHomeTab === tab) {
+                el.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text3);font-size:13px;">데이터를 불러올 수 없습니다.<button onclick="_alphaHomeSwitch('${tab}')" style="margin-left:8px;padding:4px 10px;font-size:12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text);">🔄 다시 시도</button></div>`;
             }
         }
     }
