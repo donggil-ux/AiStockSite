@@ -2656,7 +2656,7 @@
         [data-theme="dark"] #alertFab{box-shadow:0 4px 20px rgba(0,0,0,.4);}
         @media(max-width:640px){#alertFab{bottom:calc(126px + env(safe-area-inset-bottom));right:14px;}}
         #calcFab{position:fixed;bottom:12px;right:16px;height:44px;padding:0 16px 0 12px;border-radius:var(--radius-lg);background:var(--yellow);color:#000;border:none;cursor:pointer;box-shadow:0 4px 20px rgba(234,179,8,.5);z-index:900;display:none;align-items:center;gap:7px;font-size:13px;font-weight:800;font-family:inherit;white-space:nowrap;transition:transform .15s,box-shadow .15s;}
-        .stock-loaded ~ * #calcFab, body:has(#mainHeader.stock-loaded) #calcFab{display:flex;}
+        .stock-loaded ~ * #calcFab, body:has(#mainHeader.stock-loaded) #calcFab{display:none!important;}
         #calcFab:hover{transform:scale(1.05);box-shadow:0 6px 28px rgba(234,179,8,.65);}
         @media(max-width:640px){#calcFab{bottom:calc(72px + env(safe-area-inset-bottom));right:14px;}}
         /* 종목 상세 진입 시 바텀내비가 숨겨지므로 FAB 위치도 화면 하단 가깝게 */
