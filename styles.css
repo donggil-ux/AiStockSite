@@ -1412,15 +1412,16 @@
         /* ===== TAB NAVIGATION - 토스 스타일 ===== */
         /* tab-nav: 헤더 바로 아래에 스택 고정. 불투명 배경 + backdrop-filter 제거
            — Safari 의 position:sticky + backdrop-filter compositing 버그(겹침) 방지 (v707) */
-        .tab-nav{display:none;position:sticky;top:var(--hdr-h, 56px);z-index:1001;background:var(--bg);border-bottom:1px solid var(--border);padding:8px 16px;gap:6px;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;cursor:grab;}
+        .tab-nav{display:none;position:sticky;top:var(--hdr-h, 56px);z-index:1001;background:var(--bg);border-bottom:1px solid var(--border);padding:8px 0 8px 16px;gap:6px;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;cursor:grab;}
         .tab-nav.is-dragging{cursor:grabbing;user-select:none;}
         .tab-nav::-webkit-scrollbar{display:none;}
         .tab-nav.show{display:flex;}
         .tab-item{padding:6px 14px;border-radius:var(--radius-full);font-size:13.5px;font-weight:600;color:var(--text3);cursor:pointer;border:none;background:transparent;transition:all .18s;font-family:inherit;white-space:nowrap;flex-shrink:0;line-height:1.4;}
         .tab-item.active{background:var(--text);color:var(--bg);}
         .tab-item:hover:not(.active){background:var(--border);color:var(--text2);}
-        .tab-order-btn{position:sticky;right:0;padding:6px 10px;border-radius:var(--radius-full);font-size:14px;color:var(--text3);cursor:pointer;background:color-mix(in srgb, var(--bg) 96%, transparent);backdrop-filter:blur(10px);border:none;flex-shrink:0;transition:all .15s;font-family:inherit;margin-left:2px;}
-        .tab-order-btn:hover{background:var(--border);color:var(--blue);}
+        .tab-order-btn{position:sticky;right:0;z-index:3;padding:6px 16px 6px 10px;border-radius:var(--radius-full);font-size:14px;color:var(--text3);cursor:pointer;background:var(--bg);border:none;flex-shrink:0;transition:all .15s;font-family:inherit;}
+        .tab-order-btn::before{content:'';position:absolute;right:100%;top:0;width:48px;height:100%;background:linear-gradient(to right,transparent,var(--bg));pointer-events:none;}
+        .tab-order-btn:hover{background:var(--bg);color:var(--blue);}
         /* 탭 순서 모달 */
         /* z-index: tab-nav(1001), header(1100), ai-rec-modal(1151) 보다 위로 */
         .tab-order-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1200;backdrop-filter:blur(2px);}
@@ -1565,6 +1566,9 @@
         .chart-ind-overlay{position:absolute;top:8px;left:8px;z-index:5;pointer-events:none;font-size:11px;font-weight:500;color:var(--text2);background:rgba(17,22,32,.55);backdrop-filter:blur(4px);padding:3px 8px;border-radius:var(--radius-xs);line-height:1.5;letter-spacing:.02em;}
         .tv-fullscreen-btn{position:absolute;top:10px;right:10px;z-index:15;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);background:rgba(17,22,32,.85);backdrop-filter:blur(8px);color:var(--text2);border-radius:var(--radius-xs);cursor:pointer;transition:all .15s;}
         .tv-fullscreen-btn:hover{background:var(--bg4);color:var(--text);}
+        /* 툴바 내 sticky 전체화면 버튼 — 왼쪽 페이드 */
+        #tvFullscreenBtn{background:var(--bg2)!important;border:none!important;z-index:7!important;}
+        #tvFullscreenBtn::before{content:'';position:absolute;right:100%;top:0;width:48px;height:100%;background:linear-gradient(to right,transparent,var(--bg2));pointer-events:none;}
         /* tv-chart-card 는 .card 의 padding 을 0 으로 (인라인 style 제거 → 전체화면 safe-area 패딩이 동작) */
         .card.tv-chart-card{padding:0;}
         .tv-chart-card.fullscreen{
@@ -2169,7 +2173,7 @@
             .session-change{font-size:11px;}
 
             /* ----- Tab nav ----- */
-            .tab-nav{padding:6px 16px;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+            .tab-nav{padding:6px 0 6px 16px;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
             .tab-nav::-webkit-scrollbar{display:none;}
             .tab-item{padding:5px 12px;font-size:13px;white-space:nowrap;flex-shrink:0;}
 
@@ -3840,7 +3844,7 @@
             .hqnav-item.active::after{left:6px;right:6px;}
 
             /* Tab nav (종목 상세) — safe-area 반영 */
-            .tab-nav{padding:5px 16px;}
+            .tab-nav{padding:5px 0 5px 16px;}
             .tab-item{padding:5px 11px;font-size:12.5px;}
 
             /* R/R 타점 세로 바 — 100px → 78px */
@@ -3917,7 +3921,7 @@
             .session-change{font-size:10.5px;}
 
             /* Tab nav */
-            .tab-nav{padding:4px 16px;}
+            .tab-nav{padding:4px 0 4px 16px;}
             .tab-item{padding:4px 10px;font-size:12px;}
 
             /* Header qnav — 더 축소 */
