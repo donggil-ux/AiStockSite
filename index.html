@@ -15548,7 +15548,7 @@
             let lastSell3Bar = -999;
             const SELL_COOLDOWN = 3;  // 3봉 이내 재발생 금지
 
-            for (let i = 5; i < closes.length - 1; i++) {
+            for (let i = 5; i < closes.length; i++) {
                 const c = closes[i], l = lows[i], h = highs[i], o = opens[i];
                 const rsiVal = rsi[i] != null ? rsi[i] : 50;
                 const t = ts[i];
@@ -16296,7 +16296,7 @@
         let entryPrice = 0;
         let entryBar = 0;
 
-        for (let i = 5; i < closes.length - 1; i++) {
+        for (let i = 5; i < closes.length; i++) {
             const c = closes[i], o = opens[i];
             const l = lows[i];
             const isBull = c > o;
