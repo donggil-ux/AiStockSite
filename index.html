@@ -931,7 +931,7 @@
                             </button>
                             <button class="chart-tb-btn" id="sigHistoryBtn"
                                 onclick="toggleSigHistoryPanel()" title="알림내역"
-                                style="border-color:var(--border);color:var(--text3);position:relative;">알림내역
+                                style="display:none;border-color:var(--border);color:var(--text3);position:relative;">알림내역
                                 <span id="sigHistoryBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:#EF4444;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;line-height:14px;text-align:center;padding:0 2px;"></span>
                             </button>
                             <button class="chart-tb-btn" id="chartAiClearBtn"
@@ -1132,7 +1132,21 @@
                             <div class="card-title"><span class="dot" style="background:var(--green)"></span>단타 기술적 지표</div>
                             <div class="indicator-grid" id="dayIndicatorGrid"></div>
                         </div>
-                        <div id="splitCalcWrap"></div>
+                        <div id="splitCalcWrap" style="display:none"></div>
+
+                        <!-- 알림내역 패널 진입 버튼 -->
+                        <div style="padding:8px 0 4px">
+                            <button onclick="toggleSigHistoryPanel()"
+                                style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;cursor:pointer;color:var(--text1);">
+                                <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;">
+                                    🔔 알림 내역
+                                </span>
+                                <span id="splitCalcAlertBadge"
+                                    style="display:none;background:var(--accent,#6366f1);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;min-width:18px;text-align:center;">
+                                    0
+                                </span>
+                            </button>
+                        </div>
                     </div>
                 </div><!-- /group-body groupDayTrade -->
             </div><!-- /analysis-group groupDayTrade -->
@@ -15204,6 +15218,14 @@
         if (fab) fab.classList.toggle('active', _sigHistoryOpen);
         _renderSigHistoryPanel();
     }
+    function _updateSigHistoryBadge() {
+        const count = _sigHistory.length;
+        const badge = document.getElementById('splitCalcAlertBadge');
+        if (badge) {
+            badge.style.display = count > 0 ? 'inline-block' : 'none';
+            badge.textContent = count > 99 ? '99+' : String(count);
+        }
+    }
     function _renderSigHistoryPanel() {
         // 배지 업데이트
         const badge = document.getElementById('sigHistoryBadge');
@@ -15212,6 +15234,8 @@
         // alertFab 배지 동기화
         const fabBadge = document.getElementById('alertFabBadge');
         if (fabBadge) { fabBadge.style.display = unread > 0 ? '' : 'none'; fabBadge.textContent = unread > 9 ? '9+' : String(unread); }
+        // splitCalc 알림 버튼 배지 동기화
+        _updateSigHistoryBadge();
 
         let panel = document.getElementById('sigHistoryPanel');
         if (!_sigHistoryOpen) { if (panel) panel.remove(); return; }
@@ -27687,7 +27711,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         loadOptionsDate, setOptionsFilter,
         setOptionsStrikeRange, toggleOptionsVolFilter, sortOptionsBy,
         manualAnalysisRefresh, pwaInstall,
-        toggleChartSigLines, toggleKullamagiLayer, toggleSplitBuyLayer, toggleSplitGroup, _toggleSplitGroup, getSplitBuyCoeff, togglePullbackLayer, toggleTpLevel, toggleSrLayer, toggleSrMode, toggleSigHistoryPanel, _renderSigHistoryPanel,
+        toggleChartSigLines, toggleKullamagiLayer, toggleSplitBuyLayer, toggleSplitGroup, _toggleSplitGroup, getSplitBuyCoeff, togglePullbackLayer, toggleTpLevel, toggleSrLayer, toggleSrMode, toggleSigHistoryPanel, _renderSigHistoryPanel, _updateSigHistoryBadge,
         toggleSmartDipLayer, toggleSmartDipGroup, toggleSepaLayer, getSmartDipMode, _scrollToGroup,
         _runBacktest, _openBacktest,
         startAlpacaWS, stopAlpacaWS,
