@@ -12819,6 +12819,7 @@
                 if (_sepaEl) { if (typeof _chartSepaEnabled !== 'undefined' && !_chartSepaEnabled) _sepaEl.classList.add('sepa-hidden'); else _sepaEl.classList.remove('sepa-hidden'); }
             } catch(_) {}
             try { renderSwingAnalysis(); } catch (e) { console.warn('[swing] render fail', e); }
+            try { renderSmartDipQuality(); } catch (e) { console.warn('[sdq] render fail', e); }
 
             try { renderMyPosition(); } catch (e) { console.warn("[mypos] render fail", e); }
             try { if (typeof renderGuruHolders === 'function' && typeof currentSymbol !== 'undefined') renderGuruHolders(currentSymbol); } catch {}
@@ -13526,6 +13527,7 @@
                 if (_sepaEl) { if (typeof _chartSepaEnabled !== 'undefined' && !_chartSepaEnabled) _sepaEl.classList.add('sepa-hidden'); else _sepaEl.classList.remove('sepa-hidden'); }
             } catch(_) {}
             try { renderSwingAnalysis(); } catch (e) { console.warn('[swing] render fail', e); }
+            try { renderSmartDipQuality(); } catch (e) { console.warn('[sdq] render fail', e); }
 
             try { renderMyPosition(); } catch (e) { console.warn("[mypos] render fail", e); }
             try { if (typeof renderGuruHolders === 'function' && typeof currentSymbol !== 'undefined') renderGuruHolders(currentSymbol); } catch {}
@@ -16495,10 +16497,15 @@
         const el = document.getElementById('smartDipQualityCard');
         if (!el) return;
         const ts2 = _lastSigArgs?.ts;
-        if (!ts2 || !ts2.length) { el.innerHTML = ''; return; }
-        const lastT = ts2[ts2.length - 1];
-        const v3 = window._smartDipAnalysis?.[lastT];
+        if (!ts2 || !ts2.length || !window._smartDipAnalysis) { el.innerHTML = ''; return; }
+        // 가장 최근 v3 매수 신호 역방향 탐색 (마지막 캔들 한정 X)
+        let v3 = null, sigT = null;
+        for (let i = ts2.length - 1; i >= 0; i--) {
+            const t = ts2[i];
+            if (window._smartDipAnalysis[t]) { v3 = window._smartDipAnalysis[t]; sigT = t; break; }
+        }
         if (!v3) { el.innerHTML = ''; return; }
+        const sigDate = sigT ? new Date(sigT * 1000).toLocaleString('ko-KR', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
 
         const gradeColor = v3.grade === 'S' ? '#FFD700'
             : v3.grade === 'A' ? '#22C55E'
@@ -16506,9 +16513,12 @@
             : '#9CA3AF';
         el.innerHTML = `
             <div style="padding:14px;background:rgba(34,197,94,0.05);border:1px solid rgba(34,197,94,0.2);border-radius:10px">
-                <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">
+                <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px">
                     Smart Dip v3 진입 품질
                     <span style="float:right;color:${gradeColor};font-weight:800">[${v3.grade}] ${v3.qualityScore}점</span>
+                </div>
+                <div style="font-size:11px;color:var(--text3);margin-bottom:6px">
+                    매수${v3.num || '?'}차 신호 · ${sigDate}
                 </div>
                 <div style="font-size:11px;color:var(--text2);line-height:1.8">
                     ADX ${v3.adx} · 거래량 ${v3.volRatio}x · ATR ${v3.atrPct}% · RSI ${v3.rsiVal}
