@@ -13642,6 +13642,53 @@
         // 탭이 백그라운드면 스킵 (네트워크/배터리 절약)
         if (document.hidden) return;
         try {
+            // ── Polygon.io 우선 시도 (미국 종목만) ──────────────────
+            const isKR = /\.(KS|KQ)$/i.test(currentFullSymbol);
+            if (!isKR) {
+                const tfToTimespan = {
+                    '1m':'minute','2m':'minute','5m':'minute','15m':'minute',
+                    '30m':'minute','60m':'hour','90m':'hour',
+                    '1d':'day','1wk':'week','1mo':'month'
+                };
+                const tfToMult = {
+                    '1m':1,'2m':2,'5m':5,'15m':15,
+                    '30m':30,'60m':60,'90m':90,
+                    '1d':1,'1wk':1,'1mo':1
+                };
+                const pTimespan = tfToTimespan[currentInterval] || 'minute';
+                const pMult     = tfToMult[currentInterval]     || 5;
+                const pFrom     = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+                const pTo       = new Date().toISOString().split('T')[0];
+                const polygonTicker = currentFullSymbol.replace(/\.(KS|KQ)$/i, '');
+                try {
+                    const pr = await fetch(
+                        `/api/polygon/candles?ticker=${polygonTicker}`
+                        + `&timespan=${pTimespan}&multiplier=${pMult}`
+                        + `&from=${pFrom}&to=${pTo}`
+                    );
+                    if (pr.ok) {
+                        const pd = await pr.json();
+                        if (pd.candles && pd.candles.length > 10) {
+                            const candleData = pd.candles;
+                            const ts = pd.candles.map(c => c.time);
+                            try { lwCandleSeries.update(candleData[candleData.length - 1]); } catch(e) {}
+                            const fakeQ = {
+                                open:   candleData.map(c => c.open),
+                                high:   candleData.map(c => c.high),
+                                low:    candleData.map(c => c.low),
+                                close:  candleData.map(c => c.close),
+                                volume: candleData.map(c => c.volume),
+                            };
+                            const bb = calcBollingerBands(fakeQ.close, 4, 2);
+                            renderChartLiveSignals(candleData, ts, fakeQ, bb);
+                            return;
+                        }
+                    }
+                } catch(pe) {
+                    console.warn('[polygon] fallback to yahoo:', pe.message);
+                }
+            }
+            // ── Yahoo Finance 폴백 ───────────────────────────────────
             const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${currentFullSymbol}` +
                 `?range=${currentPeriod}&interval=${currentInterval}&includePrePost=true`;
             const data = await fetchWithProxy(chartUrl);
@@ -13669,7 +13716,7 @@
 
     function startChartSigPoll() {
         stopChartSigPoll();
-        chartSigPollTimer = window.setInterval(pollChartSignals, 30 * 1000); // 30초
+        chartSigPollTimer = window.setInterval(pollChartSignals, 15000); // 15초
     }
 
     function startLiveUpdate() {

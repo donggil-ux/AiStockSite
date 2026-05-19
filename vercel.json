@@ -10,6 +10,14 @@
       "use": "@vercel/node"
     },
     {
+      "src": "api/polygon/candles.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/polygon/quote.js",
+      "use": "@vercel/node"
+    },
+    {
       "src": "manifest.json",
       "use": "@vercel/static"
     },
@@ -64,6 +72,14 @@
       "src": "/(.*\\.ico)",
       "headers": { "Cache-Control": "public, max-age=86400" },
       "dest": "/$1"
+    },
+    {
+      "src": "/api/polygon/candles",
+      "dest": "api/polygon/candles.js"
+    },
+    {
+      "src": "/api/polygon/quote",
+      "dest": "api/polygon/quote.js"
     },
     {
       "src": "/api/(.*)",
