@@ -742,13 +742,13 @@
         .top100-fav:hover{color:var(--text);transform:scale(1.08);}
         .top100-fav.on{color:var(--red);}
         /* Circle logo + flag overlay */
-        .tlogo-wrap{position:relative;width:40px;height:40px;flex-shrink:0;}
+        .tlogo-wrap{position:relative!important;display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;flex-shrink:0;}
         .tlogo{width:40px;height:40px;border-radius:50%;object-fit:cover;background:#fff;display:block;border:1px solid #DBDBE0;}
         .tlogo-fb{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;color:#fff;font-weight:600;font-size:13px;letter-spacing:-.01em;line-height:1;}
-        .tlogo-flag{position:absolute;right:-4px;bottom:-2px;font-size:14px;line-height:1;z-index:2;pointer-events:none;display:block!important;visibility:visible!important;opacity:1!important;}
+        .tlogo-flag{position:absolute!important;bottom:-2px!important;right:-4px!important;font-size:10px!important;line-height:1!important;z-index:3!important;pointer-events:none;display:block!important;visibility:visible!important;opacity:1!important;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif!important;}
         /* Row 안에서 국기 배지가 잘리지 않도록 로고 래퍼는 overflow visible 유지 */
         .top100-row .tlogo-wrap, .swing-row .tlogo-wrap, .hot-card .tlogo-wrap{overflow:visible;}
-        [data-theme="dark"] .tlogo{border-color:rgba(255,255,255,0.2);}
+        [data-theme="dark"] .tlogo,[data-theme="dark"] .tlogo-wrap .tlogo,body.dark .tlogo,.dark-mode .tlogo{border:1px solid rgba(255,255,255,0.2)!important;}
         .top100-info{display:flex;flex-direction:column;gap:2px;min-width:0;max-width:200px;}
         .top100-symbol{display:none;}
         .top100-name{font-size:14px;font-weight:500;color:var(--text);letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;max-width:180px;}
