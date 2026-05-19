@@ -16034,6 +16034,65 @@
 
     const SD_FIB = [0.236, 0.382, 0.500, 0.618, 0.786, 0.886];
 
+    // ── Smart Dip 분봉 최적화 헬퍼 ────────────────────────────────
+    // 타임프레임별 룩백 봉 수
+    //   1m  → 200봉 (≈반 거래일)   5m  → 100봉 (≈1 거래일)
+    //   15m → 60봉  (≈2 거래일)    30m → 50봉  (기존)
+    //   1h  → 40봉                 1d  → 20봉
+    function _sdLookback(iv) {
+        const m = { '1m':200,'2m':150,'5m':100,'15m':60,'30m':50,
+                    '60m':40,'90m':40,'1h':40,'1d':20,'1wk':15,'1mo':12 };
+        return m[iv] || 50;
+    }
+    // 타임프레임별 ATR 기간 — 분봉은 변동성에 더 민감하게
+    function _sdAtrPeriod(iv) {
+        if (!iv) return 14;
+        if (/^(1m|2m|5m)$/.test(iv))   return 20;
+        if (/^(15m|30m)$/.test(iv))     return 14;
+        return 10; // 60m, 1d, 1wk+
+    }
+    // 타임프레임별 Pivot 윈도우 — 0이면 단순 max/min 사용
+    function _sdPivotWin(iv) {
+        if (!iv) return 0;
+        if (/^(1m|2m|5m|15m)$/.test(iv)) return 5;
+        if (/^(30m|60m|90m|1h)$/.test(iv)) return 3;
+        return 0; // 일봉 이상 → 단순 max/min (넓은 레인지가 적합)
+    }
+    // Pivot 방식 Swing High/Low 탐지 (폴백: 단순 max/min)
+    function _sdSwingPoints(highs, lows, N, lb, pivotWin) {
+        let swHigh = -Infinity, swLow = Infinity;
+        if (pivotWin > 0) {
+            const start = N - lb + pivotWin;
+            const end   = N - pivotWin;
+            for (let i = start; i < end; i++) {
+                if (highs[i] != null) {
+                    let isPH = true;
+                    for (let j = 1; j <= pivotWin && isPH; j++) {
+                        if ((i-j >= 0 && highs[i-j] != null && highs[i-j] >= highs[i]) ||
+                            (i+j <  N && highs[i+j] != null && highs[i+j] >= highs[i])) isPH = false;
+                    }
+                    if (isPH && highs[i] > swHigh) swHigh = highs[i];
+                }
+                if (lows[i] != null) {
+                    let isPL = true;
+                    for (let j = 1; j <= pivotWin && isPL; j++) {
+                        if ((i-j >= 0 && lows[i-j] != null && lows[i-j] <= lows[i]) ||
+                            (i+j <  N && lows[i+j] != null && lows[i+j] <= lows[i]))  isPL = false;
+                    }
+                    if (isPL && lows[i] < swLow) swLow = lows[i];
+                }
+            }
+        }
+        // 폴백: pivot 미발견 또는 pivotWin=0 → 단순 최대/최솟값
+        if (!isFinite(swHigh) || !isFinite(swLow) || swHigh <= swLow) {
+            for (let i = N - lb; i < N; i++) {
+                if (highs[i] != null && highs[i] > swHigh) swHigh = highs[i];
+                if (lows[i]  != null && lows[i]  < swLow)  swLow  = lows[i];
+            }
+        }
+        return { swHigh, swLow };
+    }
+
     function getSmartDipMode(ticker) {
         const pos = _posActiveForTicker(ticker);
         const cur = _posCurrentPrice();
@@ -16079,17 +16138,14 @@
         const fmtP = p => currentMarket === 'KR' ? Math.round(p).toLocaleString()+'원' : '$'+p.toFixed(2);
         const fmtPct = v => v != null ? (v >= 0 ? '+' : '') + v.toFixed(1) + '%' : '';
 
-        // Swing high/low — 최근 50봉
-        const lb = Math.min(50, N);
-        let swHigh = -Infinity, swLow = Infinity;
-        for (let i = N - lb; i < N; i++) {
-            if (highs[i] != null && highs[i] > swHigh) swHigh = highs[i];
-            if (lows[i]  != null && lows[i]  < swLow)  swLow  = lows[i];
-        }
+        // Swing high/low — 분봉 최적화: 타임프레임별 룩백 + Pivot 방식 감지
+        const lb = Math.min(_sdLookback(currentInterval), N);
+        const pivotWin = _sdPivotWin(currentInterval);
+        const { swHigh, swLow } = _sdSwingPoints(highs, lows, N, lb, pivotWin);
         if (!isFinite(swHigh) || !isFinite(swLow) || swHigh <= swLow) { if (el) el.style.display = 'none'; return; }
 
         const range = swHigh - swLow;
-        const atrArr = calcATR(q.high, q.low, q.close, 14);
+        const atrArr = calcATR(q.high, q.low, q.close, _sdAtrPeriod(currentInterval));
         const atr = lastVal(atrArr) || range * 0.02;
         const ema20 = lastVal(calcEMA(closes, 20));
 
