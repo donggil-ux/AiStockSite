@@ -7519,7 +7519,12 @@
 @media(max-width:640px){
     .sd-v2-row{font-size:11px;}
 }
-.grade-btn.active { background: var(--accent) !important; color: #fff !important; border-color: var(--accent) !important; }
+.grade-btn { transition: all 0.2s ease; }
+.grade-btn.active { background: var(--accent) !important; color: #fff !important; border-color: var(--accent) !important; font-weight:700; }
+.grade-btn[data-grade="C"].active  { background:#9CA3AF !important; color:#fff !important; border-color:#9CA3AF !important; }
+.grade-btn[data-grade="B"].active  { background:#3B82F6 !important; color:#fff !important; border-color:#3B82F6 !important; }
+.grade-btn[data-grade="A"].active  { background:#22C55E !important; color:#fff !important; border-color:#22C55E !important; }
+.grade-btn[data-grade="S"].active  { background:#FFD700 !important; color:#000 !important; border-color:#FFD700 !important; }
 
 /* 모바일 터치 타깃 보정 — 최소 44px 확보 */
 @media(max-width:600px){

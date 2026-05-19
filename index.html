@@ -844,10 +844,10 @@
                         <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
                             <!-- 등급 필터 -->
                             <div style="display:flex;gap:3px;align-items:center;padding:3px 6px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;flex-shrink:0;">
-                                <button class="grade-btn active" data-grade="all" onclick="_setMinGrade('all')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text2);cursor:pointer;white-space:nowrap;">전체</button>
-                                <button class="grade-btn" data-grade="B" onclick="_setMinGrade('B')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:#3B82F6;cursor:pointer;white-space:nowrap;">B+</button>
-                                <button class="grade-btn" data-grade="A" onclick="_setMinGrade('A')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:#22C55E;cursor:pointer;white-space:nowrap;">A+</button>
-                                <button class="grade-btn" data-grade="S" onclick="_setMinGrade('S')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:#FFD700;cursor:pointer;white-space:nowrap;">S+</button>
+                                <button class="grade-btn active" data-grade="C" onclick="_setMinGrade('C')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text2);cursor:pointer;white-space:nowrap;">C+</button>
+                                <button class="grade-btn" data-grade="B" onclick="_setMinGrade('B')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text2);cursor:pointer;white-space:nowrap;">B+</button>
+                                <button class="grade-btn" data-grade="A" onclick="_setMinGrade('A')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text2);cursor:pointer;white-space:nowrap;">A+</button>
+                                <button class="grade-btn" data-grade="S" onclick="_setMinGrade('S')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:#FFD700;cursor:pointer;white-space:nowrap;">S</button>
                             </div>
                             <!-- 그리기 도구 — 임시 숨김 (v639) -->
                             <button class="chart-tb-btn" id="chartDrawToggleBtn"
@@ -15176,7 +15176,10 @@
     let _priceLabelRegistry = []; // 우측 가격 라벨 중복 방지 — ±0.8% 이내 중복 시 낮은 우선순위 라벨 숨김
     let _lastSigArgs = null;  // 토글 시 즉시 재렌더용 캐시
     let _signalGrades = {};
-    let _minGradeFilter = localStorage.getItem('stockai_min_grade') || 'all';
+    // 디폴트: C+ (D만 제거, 나머지 전부 표시)
+    let _minGradeFilter = localStorage.getItem('stockai_min_grade') || 'C';
+    // 이전 'all' 값 마이그레이션
+    if (_minGradeFilter === 'all') { _minGradeFilter = 'C'; localStorage.setItem('stockai_min_grade', 'C'); }
     let _alpacaWs        = null;   // Alpaca WebSocket 연결
     let _wsLiveCandle    = null;   // 현재 형성 중인 실시간 캔들
     let _wsTradeThrottle = 0;      // 캔들 업데이트 스로틀 (ms)
@@ -15970,10 +15973,9 @@
                         currentInterval, ts,
                     });
                     if (v3.pass) {
-                        const sg = _calcSignalGrade(_gradeOpts);
+                        let sg; try { sg = _calcSignalGrade(_gradeOpts); if (!sg?.grade) throw new Error('no grade'); } catch(e) { console.warn('[grade] buy1', e.message); sg = { grade: 'C', score: 0, winRate: 50 }; }
                         if (_passesGradeFilter(sg.grade)) {
-                            const gc = sg.grade === 'S' ? '#FFD700' : sg.grade === 'A' ? '#22C55E' : sg.grade === 'B' ? '#3B82F6' : '#9CA3AF';
-                            markers.push({ time: t, position: 'belowBar', color: gc, shape: 'arrowUp', text: `매수1 [${sg.grade}] ${sg.winRate}%` });
+                            markers.push({ time: t, position: 'belowBar', color: _gc(sg.grade), shape: 'arrowUp', text: `매수1 [${sg.grade}] ${sg.winRate}%` });
                             window._smartDipAnalysis[t] = { ...v3, num: 1 };
                             _signalGrades[`${t}_buy1`] = sg;
                             lastBuy1Bar = i;
@@ -15989,10 +15991,9 @@
                         currentInterval, ts,
                     });
                     if (v3.pass) {
-                        const sg = _calcSignalGrade({ ..._gradeOpts });
+                        let sg; try { sg = _calcSignalGrade({ ..._gradeOpts }); if (!sg?.grade) throw new Error('no grade'); } catch(e) { console.warn('[grade] buy2', e.message); sg = { grade: 'C', score: 0, winRate: 50 }; }
                         if (_passesGradeFilter(sg.grade)) {
-                            const gc = sg.grade === 'S' ? '#FFD700' : sg.grade === 'A' ? '#22C55E' : sg.grade === 'B' ? '#3B82F6' : '#9CA3AF';
-                            markers.push({ time: t, position: 'belowBar', color: gc, shape: 'arrowUp', text: `매수2 [${sg.grade}] ${sg.winRate}%` });
+                            markers.push({ time: t, position: 'belowBar', color: _gc(sg.grade), shape: 'arrowUp', text: `매수2 [${sg.grade}] ${sg.winRate}%` });
                             window._smartDipAnalysis[t] = { ...v3, num: 2 };
                             _signalGrades[`${t}_buy2`] = sg;
                             lastBuy2Bar = i;
@@ -16008,10 +16009,9 @@
                         currentInterval, ts,
                     });
                     if (v3.pass) {
-                        const sg = _calcSignalGrade({ ..._gradeOpts });
+                        let sg; try { sg = _calcSignalGrade({ ..._gradeOpts }); if (!sg?.grade) throw new Error('no grade'); } catch(e) { console.warn('[grade] buy3', e.message); sg = { grade: 'C', score: 0, winRate: 50 }; }
                         if (_passesGradeFilter(sg.grade)) {
-                            const gc = sg.grade === 'S' ? '#FFD700' : sg.grade === 'A' ? '#22C55E' : sg.grade === 'B' ? '#3B82F6' : '#9CA3AF';
-                            markers.push({ time: t, position: 'belowBar', color: gc, shape: 'arrowUp', text: `매수3 [${sg.grade}] ${sg.winRate}%` });
+                            markers.push({ time: t, position: 'belowBar', color: _gc(sg.grade), shape: 'arrowUp', text: `매수3 [${sg.grade}] ${sg.winRate}%` });
                             window._smartDipAnalysis[t] = { ...v3, num: 3 };
                             _signalGrades[`${t}_buy3`] = sg;
                             lastBuy3Bar = i;
@@ -16031,7 +16031,7 @@
                 };
                 if (prevC != null && e20 && prevE20 && prevC > prevE20 && c < e20
                     && (i - lastSell1Bar) >= SELL_COOLDOWN) {
-                    const sg = _calcSignalGrade(_sellGradeOpts);
+                    let sg; try { sg = _calcSignalGrade(_sellGradeOpts); if (!sg?.grade) throw new Error('no grade'); } catch(e) { console.warn('[grade] sell1', e.message); sg = { grade: 'C', score: 0, winRate: 50 }; }
                     if (_passesGradeFilter(sg.grade)) {
                         const sc = sg.grade === 'S' ? '#FFD700' : sg.grade === 'A' ? '#22C55E' : '#EF4444';
                         markers.push({ time: t, position: 'aboveBar', color: sc, shape: 'arrowDown', text: `매도1 [${sg.grade}] ${sg.winRate}%` });
@@ -16040,7 +16040,7 @@
                     }
                 } else if (prevC != null && e60 && prevE60 && prevC > prevE60 && c < e60
                     && (i - lastSell2Bar) >= SELL_COOLDOWN) {
-                    const sg = _calcSignalGrade(_sellGradeOpts);
+                    let sg; try { sg = _calcSignalGrade(_sellGradeOpts); if (!sg?.grade) throw new Error('no grade'); } catch(e) { console.warn('[grade] sell2', e.message); sg = { grade: 'C', score: 0, winRate: 50 }; }
                     if (_passesGradeFilter(sg.grade)) {
                         const sc = sg.grade === 'S' ? '#FFD700' : sg.grade === 'A' ? '#22C55E' : '#EF4444';
                         markers.push({ time: t, position: 'aboveBar', color: sc, shape: 'arrowDown', text: `매도2 [${sg.grade}] ${sg.winRate}%` });
@@ -16049,7 +16049,7 @@
                     }
                 } else if (prevC != null && e120 && prevE120 && prevC > prevE120 && c < e120
                     && (i - lastSell3Bar) >= SELL_COOLDOWN) {
-                    const sg = _calcSignalGrade(_sellGradeOpts);
+                    let sg; try { sg = _calcSignalGrade(_sellGradeOpts); if (!sg?.grade) throw new Error('no grade'); } catch(e) { console.warn('[grade] sell3', e.message); sg = { grade: 'C', score: 0, winRate: 50 }; }
                     if (_passesGradeFilter(sg.grade)) {
                         const sc = sg.grade === 'S' ? '#FFD700' : sg.grade === 'A' ? '#22C55E' : '#EF4444';
                         markers.push({ time: t, position: 'aboveBar', color: sc, shape: 'arrowDown', text: `매도3 [${sg.grade}] ${sg.winRate}%` });
@@ -16651,19 +16651,32 @@
 
     // ── 등급 필터 함수 ──────────────────────────────────────────────
     function _setMinGrade(grade) {
+        console.log('[grade] filter changed:', grade);
         _minGradeFilter = grade;
         localStorage.setItem('stockai_min_grade', grade);
+        // 버튼 활성화 UI
         document.querySelectorAll('.grade-btn').forEach(b =>
             b.classList.toggle('active', b.dataset.grade === grade));
+        // 시그널 캐시 초기화 (재계산 강제)
+        _signalGrades = {};
+        // 마커 클리어 후 재렌더링
+        try { if (lwCandleSeries) lwCandleSeries.setMarkers([]); } catch(e) {}
         if (_lastSigArgs) {
-            try { renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); } catch(e) {}
+            try {
+                renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb);
+            } catch(e) {
+                console.error('[grade] render fail', e);
+            }
+        } else {
+            console.warn('[grade] _lastSigArgs is null — open a stock first');
         }
     }
 
     function _passesGradeFilter(grade) {
-        if (_minGradeFilter === 'all') return true;
         const order = { D: 0, C: 1, B: 2, A: 3, S: 4 };
-        return (order[grade] || 0) >= (order[_minGradeFilter] || 0);
+        const min = order[_minGradeFilter] !== undefined ? order[_minGradeFilter] : 1;
+        const cur = order[grade]           !== undefined ? order[grade]           : 0;
+        return cur >= min;
     }
 
     // ── Smart Dip v3 진입 품질 필터 ─────────────────────────────────
