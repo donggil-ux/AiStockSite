@@ -13805,6 +13805,41 @@
                     console.warn('[polygon] fallback to yahoo:', pe.message);
                 }
             }
+            // ── Kiwoom 우선 시도 (국내 종목만) ─────────────────────────
+            if (isKR) {
+                const krTicker = currentFullSymbol.replace(/\.(KS|KQ)$/i, '');
+                const krType = currentInterval === '1d' ? 'D'
+                             : currentInterval === '1wk' ? 'W' : 'M';
+                const krUnit = {'1m':'1','2m':'2','3m':'3','5m':'5','10m':'10',
+                                '15m':'15','30m':'30','60m':'60','90m':'90'}[currentInterval] || '5';
+                try {
+                    const kr = await fetch(
+                        `/api/kiwoom/candles?ticker=${krTicker}&type=${krType}&timeUnit=${krUnit}`
+                    );
+                    if (kr.ok) {
+                        const kd = await kr.json();
+                        if (kd.candles && kd.candles.length > 10) {
+                            const candleData = kd.candles;
+                            const ts = kd.candles.map(c => c.time);
+                            try { lwCandleSeries.update(candleData[candleData.length - 1]); } catch(e) {}
+                            const fakeQ = {
+                                open:   candleData.map(c => c.open),
+                                high:   candleData.map(c => c.high),
+                                low:    candleData.map(c => c.low),
+                                close:  candleData.map(c => c.close),
+                                volume: candleData.map(c => c.volume),
+                            };
+                            const bb = calcBollingerBands(fakeQ.close, 4, 2);
+                            renderChartLiveSignals(candleData, ts, fakeQ, bb);
+                            // 헤더 현재가도 키움으로 업데이트
+                            _updateKrPrice(currentFullSymbol);
+                            return;
+                        }
+                    }
+                } catch(ke) {
+                    console.warn('[kiwoom] fallback to yahoo:', ke.message);
+                }
+            }
             // ── Yahoo Finance 폴백 ───────────────────────────────────
             const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${currentFullSymbol}` +
                 `?range=${currentPeriod}&interval=${currentInterval}&includePrePost=true`;
@@ -13829,6 +13864,26 @@
             const bb = calcBollingerBands(q.close, 4, 2);
             renderChartLiveSignals(candleData, ts, q, bb);
         } catch(e) { /* 폴링 실패는 조용히 무시 */ }
+    }
+
+    async function _updateKrPrice(ticker) {
+        try {
+            const krTicker = ticker.replace(/\.(KS|KQ)$/i, '');
+            const r = await fetch(`/api/kiwoom/quote?ticker=${krTicker}`);
+            if (!r.ok) return;
+            const d = await r.json();
+            if (!d.price || d.price <= 0 || d.error) return;
+            const priceEl = document.getElementById('stockPrice');
+            if (priceEl) priceEl.textContent = d.price.toLocaleString('ko-KR') + '원';
+            const changeEl = document.getElementById('headerChange');
+            if (changeEl) {
+                const sign = d.changePct >= 0 ? '+' : '';
+                changeEl.textContent = `${sign}${d.changePct.toFixed(2)}%`;
+                changeEl.style.color = d.changePct >= 0 ? '#22C55E' : '#EF4444';
+            }
+        } catch(e) {
+            console.warn('[kiwoom price]', e.message);
+        }
     }
 
     function startChartSigPoll() {
