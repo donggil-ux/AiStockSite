@@ -1950,13 +1950,35 @@
         // 바텀 내비는 항상 고정 표시 (스크롤 숨김 없음)
 
         // 모바일 검색 모달 입력 이벤트
+        // 차트 툴바 마우스 드래그 스크롤
+        (function() {
+            const tb = document.getElementById('chartToolbar');
+            if (!tb) return;
+            let dragging = false, startX = 0, scrollLeft = 0, moved = false;
+            tb.addEventListener('mousedown', e => {
+                if (e.button !== 0 || e.target.closest('button,input,select')) return;
+                dragging = true; moved = false;
+                startX = e.pageX - tb.getBoundingClientRect().left;
+                scrollLeft = tb.scrollLeft;
+                tb.classList.add('is-dragging');
+            });
+            document.addEventListener('mouseup', () => { dragging = false; tb.classList.remove('is-dragging'); });
+            document.addEventListener('mousemove', e => {
+                if (!dragging) return;
+                e.preventDefault();
+                const x = e.pageX - tb.getBoundingClientRect().left;
+                const dx = x - startX;
+                if (Math.abs(dx) > 3) moved = true;
+                tb.scrollLeft = scrollLeft - dx;
+            });
+            // 드래그 중엔 클릭 이벤트 차단
+            tb.addEventListener('click', e => { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
+        })();
+
         const mobInp = document.getElementById('mobSearchInput');
         if (mobInp) {
             mobInp.addEventListener('input', () => {
                 _debMobSearch(mobInp.value);
-                // 입력 시 최근 검색 strip 숨김, 비우면 다시 표시
-                const wrap = document.getElementById('mobRecentSearches');
-                if (wrap) wrap.style.display = mobInp.value.trim() ? 'none' : '';
             });
             mobInp.addEventListener('keydown', e => {
                 if (e.key === 'Enter') {
