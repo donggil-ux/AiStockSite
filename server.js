@@ -381,6 +381,85 @@ app.get('/api/chart/:symbol', async (req, res) => {
 });
 
 /**
+ * Polygon.io 캔들 데이터 프록시
+ * GET /api/polygon/candles?ticker=AAPL&timespan=minute&multiplier=5&from=2025-05-12&to=2025-05-19
+ * - 미국 종목 전용 (KR 종목은 클라이언트에서 Yahoo로 처리)
+ * - 1분 인메모리 캐시 (intraday) / 5분 (daily 이상)
+ */
+const _polygonCache = new Map(); // key → { ts, data }
+const POLYGON_TTL_INTRADAY = 60 * 1000;        // 1분
+const POLYGON_TTL_DAILY    = 5 * 60 * 1000;    // 5분
+const VALID_TIMESPANS = new Set(['minute','hour','day','week','month']);
+
+app.get('/api/polygon/candles', async (req, res) => {
+    const { ticker, timespan = 'minute', multiplier = '5', from, to } = req.query;
+
+    // 입력 검증
+    if (!ticker || !validSymbol(ticker))
+        return res.status(400).json({ error: 'invalid ticker' });
+    if (!VALID_TIMESPANS.has(timespan))
+        return res.status(400).json({ error: 'invalid timespan' });
+    const mult = parseInt(multiplier, 10);
+    if (!mult || mult < 1 || mult > 1440)
+        return res.status(400).json({ error: 'invalid multiplier' });
+    const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+    if (!from || !to || !DATE_RE.test(from) || !DATE_RE.test(to))
+        return res.status(400).json({ error: 'from/to must be YYYY-MM-DD' });
+
+    const POLYGON_API = process.env.POLYGON_API;
+    if (!POLYGON_API)
+        return res.status(503).json({ error: 'Polygon API key not configured' });
+
+    const cacheKey = `${ticker}|${timespan}|${mult}|${from}|${to}`;
+    const ttl = (timespan === 'day' || timespan === 'week' || timespan === 'month')
+        ? POLYGON_TTL_DAILY : POLYGON_TTL_INTRADAY;
+    const cached = _polygonCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < ttl)
+        return res.json(cached.data);
+
+    try {
+        const url = `https://api.polygon.io/v2/aggs/ticker/${encodeURIComponent(ticker.toUpperCase())}`
+            + `/range/${mult}/${timespan}/${from}/${to}`
+            + `?adjusted=true&sort=asc&limit=50000&apiKey=${POLYGON_API}`;
+
+        const resp = await axios.get(url, {
+            timeout: 8000,
+            headers: { 'User-Agent': 'StockAI/1.0' }
+        });
+
+        const raw = resp.data;
+        if (!raw || (raw.status !== 'OK' && raw.status !== 'DELAYED') || !Array.isArray(raw.results)) {
+            return res.status(502).json({ error: `Polygon error: ${raw?.status || 'no results'}` });
+        }
+
+        // Polygon 결과 → LightweightCharts candle 포맷
+        // t: Unix ms → LWC는 Unix seconds (또는 ISO string)
+        const candles = raw.results.map(r => ({
+            time:   Math.floor(r.t / 1000), // ms → seconds
+            open:   r.o,
+            high:   r.h,
+            low:    r.l,
+            close:  r.c,
+            volume: r.v,
+        }));
+
+        const result = { ticker: ticker.toUpperCase(), candles, count: candles.length };
+
+        // 캐시 저장 (최대 500개)
+        _polygonCache.set(cacheKey, { ts: Date.now(), data: result });
+        if (_polygonCache.size > 500) _polygonCache.delete(_polygonCache.keys().next().value);
+
+        res.json(result);
+    } catch (err) {
+        const status = err.response?.status;
+        console.error(`[polygon] ${ticker} 실패 (${status || err.message})`);
+        if (status === 403) return res.status(403).json({ error: 'Polygon API key invalid or plan limit' });
+        if (status === 429) return res.status(429).json({ error: 'Polygon rate limit' });
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
  * 실시간 시세 (여러 종목 동시)
  * GET /api/quote?symbols=AAPL,MSFT,NVDA
  */
