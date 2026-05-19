@@ -15209,10 +15209,8 @@
         const badge = document.getElementById('sigHistoryBadge');
         const unread = _sigHistory.length;
         if (badge) { badge.style.display = unread > 0 ? '' : 'none'; badge.textContent = unread > 9 ? '9+' : String(unread); }
-        // alertFab 동기화
-        const fab = document.getElementById('alertFab');
+        // alertFab 배지 동기화
         const fabBadge = document.getElementById('alertFabBadge');
-        if (fab) fab.style.display = unread > 0 ? 'flex' : 'none';
         if (fabBadge) { fabBadge.style.display = unread > 0 ? '' : 'none'; fabBadge.textContent = unread > 9 ? '9+' : String(unread); }
 
         let panel = document.getElementById('sigHistoryPanel');
@@ -27804,7 +27802,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
     </div>
 
     <!-- ===== 알림내역 FAB ===== -->
-    <button id="alertFab" onclick="toggleSigHistoryPanel()" title="알림내역" aria-label="알림내역" style="display:none;">
+    <button id="alertFab" onclick="toggleSigHistoryPanel()" title="알림내역" aria-label="알림내역">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
