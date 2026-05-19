@@ -257,8 +257,10 @@ async function yfRequest(url) {
         });
         return res.data;
     } catch (err) {
-        // 401/403이면 crumb 만료 → 재발급 후 1회 재시도
-        if (err.response?.status === 401 || err.response?.status === 403) {
+        const st = err.response?.status;
+        // 401/403/604 → crumb 만료 또는 세션 차단 → 재발급 후 1회 재시도
+        // 604: Yahoo Finance 비표준 코드 (세션 만료 / 소프트 차단)
+        if (st === 401 || st === 403 || st === 604) {
             _crumb = null;
             const { crumb: c2, cookies: k2 } = await getCrumb();
             const url2 = `${url}${sep}crumb=${encodeURIComponent(c2)}`;
