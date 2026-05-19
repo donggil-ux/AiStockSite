@@ -346,6 +346,7 @@
             <button class="alpha-tab"        data-tab="daytrade" onclick="_alphaSwitchTab('daytrade')">단타 진입</button>
             <button class="alpha-tab"        data-tab="swing"    onclick="_alphaSwitchTab('swing')">스윙 진입</button>
             <button class="alpha-tab"        data-tab="sepa"     onclick="_alphaSwitchTab('sepa')">Minervini SEPA</button>
+            <button class="alpha-tab"        data-tab="volSurge" onclick="_alphaSwitchTab('volSurge')">🔥 거래량 급증</button>
             <button class="alpha-tab"        data-tab="social"   onclick="_alphaSwitchTab('social')">소셜 트렌드</button>
         </div>
         <!-- 탭별 설명 -->
@@ -5235,6 +5236,7 @@
         daytrade: '단타 진입 (당일~5일) — Volume Profile (POC/VAH/VAL) + 모멘텀 기반. 레버리지 ETF·소형주 위주. VAL 반등 / VAH 돌파 신호 포착.',
         swing:    '52주 고점까지 충분한 상승 여력(R/R ≥ 1.5)이 있고 추세가 살아있는 종목 — 며칠~몇 주 단위 스윙에 적합합니다.',
         sepa:     'Mark Minervini SEPA — 트렌드 템플릿 8조건 + VCP + RS + 거래량 4박자 종합점수 70+ 종목 발굴.',
+        volSurge: '비정상 거래량 급증 — 평균 대비 5배+ 거래량 폭증 종목. "누가 알고 사고 있다" 신호. Micro/Small Cap 위주로 급등 전 조기 포착.',
         social:   '소셜 트렌드 — Reddit(ApeWisdom) 멘션 급증 + StockTwits 트렌딩 + 거래량 폭증 통합 점수. AI 심층 분석으로 펌프앤덤프 의심도 검증 필수.',
     };
 
@@ -5366,6 +5368,8 @@
                 }
             } else if (tab === 'sepa') {
                 await _alphaRenderSEPAScanner(el);
+            } else if (tab === 'volSurge') {
+                await _alphaRenderVolSurge(el);
             } else if (tab === 'social') {
                 await _alphaRenderSocialScanner(el);
             }
@@ -5388,6 +5392,57 @@
                     + 'border-radius:8px;border:1px solid var(--border);background:var(--bg2);'
                     + 'color:var(--text1);cursor:pointer;font-size:13px;">🔄 다시 시도</button></div>';
             }
+        }
+    }
+
+    // ── 거래량 급증 스캐너 — Pre-Pump 감지 ──────────────────────────
+    async function _alphaRenderVolSurge(el) {
+        el.innerHTML = '<div class="sniper-loading">' + Array(6).fill('<div class="sniper-skel"></div>').join('') + '</div>';
+        try {
+            const r = await fetch('/api/scanner/volume-surge');
+            if (!r.ok) throw new Error('http ' + r.status);
+            const d = await r.json();
+
+            if (!d.stocks || d.stocks.length === 0) {
+                el.innerHTML = '<div class="sniper-empty">현재 거래량 급증 종목 없음</div>';
+                return;
+            }
+
+            const tierColor = { micro: '#A855F7', small: '#3B82F6', mid: '#6B7280', large: '#6B7280', unknown: '#6B7280' };
+            const borderColor = s => s.surgeScore >= 70 ? '#FF3B30' : s.surgeScore >= 50 ? '#FF9500' : '#FFCC00';
+
+            el.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:4px 0 8px;">
+                ${d.total}종목 스캔 · ${new Date(d.scannedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})} 기준 · 5분 캐시
+            </div>` + d.stocks.map(s => `
+                <div class="sniper-card" onclick="quickSearch('${s.symbol}','US')"
+                    style="border-left:4px solid ${borderColor(s)};cursor:pointer;margin-bottom:8px;padding:10px 12px;">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                        <div>
+                            <span class="sniper-symbol">${s.symbol}</span>
+                            <span style="font-size:11px;color:var(--text3);margin-left:6px;">${s.name || ''}</span>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-weight:700;font-size:14px;">$${s.price != null ? s.price.toFixed(2) : '-'}</div>
+                            <div style="font-size:12px;color:${(s.changePct||0) >= 0 ? '#22C55E' : '#EF4444'}">
+                                ${(s.changePct||0) >= 0 ? '+' : ''}${(s.changePct||0).toFixed(2)}%
+                            </div>
+                        </div>
+                    </div>
+                    <div style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <span style="color:#FF3B30;font-weight:700;font-size:12px;">🔥 ${s.volRatio}배 급증</span>
+                        <span style="font-size:11px;color:var(--text3);">점수 ${Math.round(s.surgeScore)}</span>
+                        <span style="font-size:11px;font-weight:600;color:${tierColor[s.marketCapTier] || '#6B7280'};">
+                            ${s.marketCapTier.toUpperCase()}
+                        </span>
+                    </div>
+                </div>
+            `).join('');
+        } catch(e) {
+            el.innerHTML = `<div class="sniper-empty">⚠️ 데이터를 불러올 수 없어요
+                <button onclick="_alphaSwitchTab('volSurge')"
+                    style="margin-top:10px;display:block;margin-inline:auto;padding:6px 18px;
+                    border-radius:8px;border:1px solid var(--border);background:var(--bg2);
+                    color:var(--text1);cursor:pointer;font-size:13px;">🔄 다시 시도</button></div>`;
         }
     }
 

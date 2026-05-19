@@ -701,6 +701,90 @@ app.get('/api/screener/:filter', async (req, res) => {
 });
 
 // ───────────────────────────────────────────────────────────────────────
+// 비정상 거래량 스캐너 — Pre-Pump 감지
+//   - most_actives(50) + day_gainers(50) 유니버스
+//   - 평균 대비 3배+ (또는 2배+·변동 5%+) → surgeScore 정렬 → 상위 30개
+//   - 5분 인메모리 캐시
+// ───────────────────────────────────────────────────────────────────────
+const VOL_SURGE_TTL = 5 * 60 * 1000;
+let _volSurgeCache = { ts: 0, data: null };
+
+app.get('/api/scanner/volume-surge', async (req, res) => {
+    if (_volSurgeCache.data && Date.now() - _volSurgeCache.ts < VOL_SURGE_TTL) {
+        return res.json(_volSurgeCache.data);
+    }
+    try {
+        const baseUrl = 'https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved'
+            + '?formatted=false&lang=en-US&region=US&count=50&scrIds=';
+        const [actData, gainData] = await Promise.allSettled([
+            yfRequest(baseUrl + 'most_actives'),
+            yfRequest(baseUrl + 'day_gainers'),
+        ]);
+        const allQuotes = [
+            ...(actData.status  === 'fulfilled' ? actData.value?.finance?.result?.[0]?.quotes  || [] : []),
+            ...(gainData.status === 'fulfilled' ? gainData.value?.finance?.result?.[0]?.quotes || [] : []),
+        ];
+        // 중복 제거
+        const seen = new Set();
+        const quotes = allQuotes.filter(q => {
+            if (!q.symbol || seen.has(q.symbol)) return false;
+            seen.add(q.symbol);
+            return true;
+        });
+
+        const candidates = [];
+        for (const q of quotes) {
+            if (_isExcludedStock(q)) continue;
+            const price     = q.regularMarketPrice;
+            const changePct = q.regularMarketChangePercent;
+            const volume    = q.regularMarketVolume;
+            const avgVolume = q.averageDailyVolume3Month || q.averageDailyVolume10Day;
+            const marketCap = q.marketCap;
+
+            if (!volume || !avgVolume || avgVolume < 100000) continue;
+            const volRatio = volume / avgVolume;
+            const isSurge = volRatio >= 3 || (volRatio >= 2 && Math.abs(changePct || 0) >= 5);
+            if (!isSurge) continue;
+
+            candidates.push({
+                symbol:    q.symbol,
+                name:      q.shortName || q.longName || '',
+                price,
+                changePct,
+                volume,
+                avgVolume,
+                volRatio:  +volRatio.toFixed(1),
+                marketCap: marketCap || null,
+                marketCapTier: !marketCap ? 'unknown'
+                    : marketCap > 10_000_000_000 ? 'large'
+                    : marketCap >  2_000_000_000 ? 'mid'
+                    : marketCap >    300_000_000 ? 'small'
+                    : 'micro',
+                surgeScore: Math.min(100,
+                    (volRatio * 10) +
+                    (Math.abs(changePct || 0) * 2) +
+                    (marketCap && marketCap < 500_000_000 ? 20 : 0)
+                ),
+            });
+        }
+
+        candidates.sort((a, b) => b.surgeScore - a.surgeScore);
+        const result = {
+            scannedAt: new Date().toISOString(),
+            total: candidates.length,
+            stocks: candidates.slice(0, 30),
+        };
+
+        _volSurgeCache = { ts: Date.now(), data: result };
+        res.json(result);
+    } catch (e) {
+        console.error('[volume-surge]', e.message);
+        if (_volSurgeCache.data) return res.json(_volSurgeCache.data);
+        res.status(200).json({ error: e.message, stocks: [] });
+    }
+});
+
+// ───────────────────────────────────────────────────────────────────────
 // Rayner Teo 기반 스캐너
 //   - universe: most_actives + day_gainers 상위 ~80
 //   - 각 종목 1년 일봉 → EMA20/50/200, Stage(1~4), 진입 시그널(풀백/돌파/반전)
