@@ -346,7 +346,7 @@
             <button class="alpha-tab"        data-tab="daytrade" onclick="_alphaSwitchTab('daytrade')">단타 진입</button>
             <button class="alpha-tab"        data-tab="swing"    onclick="_alphaSwitchTab('swing')">스윙 진입</button>
             <button class="alpha-tab"        data-tab="sepa"     onclick="_alphaSwitchTab('sepa')">Minervini SEPA</button>
-            <button class="alpha-tab"        data-tab="volSurge" onclick="_alphaSwitchTab('volSurge')">🔥 거래량 급증</button>
+            <button class="alpha-tab"        data-tab="volSurge" onclick="_alphaSwitchTab('volSurge')">거래량 급증</button>
             <button class="alpha-tab"        data-tab="social"   onclick="_alphaSwitchTab('social')">소셜 트렌드</button>
         </div>
         <!-- 탭별 설명 -->
@@ -5408,35 +5408,26 @@
                 return;
             }
 
-            const tierColor = { micro: '#A855F7', small: '#3B82F6', mid: '#6B7280', large: '#6B7280', unknown: '#6B7280' };
-            const borderColor = s => s.surgeScore >= 70 ? '#FF3B30' : s.surgeScore >= 50 ? '#FF9500' : '#FFCC00';
-
-            el.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:4px 0 8px;">
+            const scannedLabel = `<div style="font-size:11px;color:var(--text3);padding:2px 0 6px;">
                 ${d.total}종목 스캔 · ${new Date(d.scannedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})} 기준 · 5분 캐시
-            </div>` + d.stocks.map(s => `
-                <div class="sniper-card" onclick="quickSearch('${s.symbol}','US')"
-                    style="border-left:4px solid ${borderColor(s)};cursor:pointer;margin-bottom:8px;padding:10px 12px;">
-                    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-                        <div>
-                            <span class="sniper-symbol">${s.symbol}</span>
-                            <span style="font-size:11px;color:var(--text3);margin-left:6px;">${s.name || ''}</span>
-                        </div>
-                        <div style="text-align:right;">
-                            <div style="font-weight:700;font-size:14px;">$${s.price != null ? s.price.toFixed(2) : '-'}</div>
-                            <div style="font-size:12px;color:${(s.changePct||0) >= 0 ? '#22C55E' : '#EF4444'}">
-                                ${(s.changePct||0) >= 0 ? '+' : ''}${(s.changePct||0).toFixed(2)}%
-                            </div>
-                        </div>
-                    </div>
-                    <div style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                        <span style="color:#FF3B30;font-weight:700;font-size:12px;">🔥 ${s.volRatio}배 급증</span>
-                        <span style="font-size:11px;color:var(--text3);">점수 ${Math.round(s.surgeScore)}</span>
-                        <span style="font-size:11px;font-weight:600;color:${tierColor[s.marketCapTier] || '#6B7280'};">
-                            ${s.marketCapTier.toUpperCase()}
-                        </span>
-                    </div>
-                </div>
-            `).join('');
+            </div>`;
+
+            // API 데이터를 _alphaRenderCard 포맷으로 변환
+            const items = d.stocks.map(s => ({
+                symbol:                     s.symbol,
+                name:                       s.name || s.symbol,
+                price:                      s.price,
+                regularMarketPrice:         s.price,
+                changePct:                  s.changePct || 0,
+                regularMarketChangePercent: s.changePct || 0,
+                marketCap:                  s.marketCap,
+                _alphaKind:                 'volSurge',
+                _volRatio:                  s.volRatio,
+                _surgeScore:                s.surgeScore,
+                _marketCapTier:             s.marketCapTier,
+            }));
+
+            _alphaRender(items, 'volSurge', scannedLabel);
         } catch(e) {
             el.innerHTML = `<div class="sniper-empty">⚠️ 데이터를 불러올 수 없어요
                 <button onclick="_alphaSwitchTab('volSurge')"
@@ -6135,6 +6126,29 @@
             reason = `단테 기법 ${sigs.length}개 시그널 발동 — ${sigs.map(s=>s.label).join(' · ')}.`;
             timingBadge = q._danteScore >= 7 ? {label:'⚡ 즉시 단타', cls:'emerald'} : {label:'📅 분할 진입', cls:'amber'};
             expectedMove = Math.round(3 + sigs.length * 1.5);
+        } else if (kind === 'volSurge') {
+            const volRatio   = q._volRatio   || 0;
+            const surgeScore = q._surgeScore || 0;
+            const capTier    = q._marketCapTier || 'unknown';
+            // 거래량 신호
+            if (volRatio >= 5)      signals.push({ label: `거래량 ${volRatio}x 폭증`, cls: 'orange' });
+            else if (volRatio >= 3) signals.push({ label: `거래량 ${volRatio}x 급증`, cls: 'amber'  });
+            else                    signals.push({ label: `거래량 ${volRatio}x 증가`, cls: 'blue'   });
+            // 가격 변동
+            if (Math.abs(chg) >= 5) signals.push({ label: `${chg >= 0 ? '+' : ''}${chg.toFixed(1)}% 급변동`, cls: chg >= 0 ? 'emerald' : 'red' });
+            else if (Math.abs(chg) >= 2) signals.push({ label: `${chg >= 0 ? '+' : ''}${chg.toFixed(1)}% 변동`, cls: 'cyan' });
+            // 시총 티어
+            const tierLabelMap = { micro: 'MICRO CAP', small: 'SMALL CAP', mid: 'MID CAP', large: 'LARGE CAP' };
+            const tierClsMap   = { micro: 'purple', small: 'blue', mid: 'cyan', large: 'gray' };
+            signals.push({ label: tierLabelMap[capTier] || capTier.toUpperCase(), cls: tierClsMap[capTier] || 'purple' });
+            // 점수 (0~6)
+            score = surgeScore >= 70 ? 6 : surgeScore >= 55 ? 5 : surgeScore >= 40 ? 4 : surgeScore >= 25 ? 3 : 2;
+            reason = `평균 대비 ${volRatio}배 거래량 급증${Math.abs(chg) >= 1 ? ` · 가격 ${chg >= 0 ? '+' : ''}${chg.toFixed(1)}%` : ''}. Pre-Pump 신호 — 뉴스·공시 확인 필수.`;
+            timingBadge = surgeScore >= 70 ? { label: '⚡ 즉시 주목', cls: 'orange' }
+                        : surgeScore >= 50 ? { label: '👀 관찰 중',  cls: 'amber'  }
+                        :                    { label: '📋 모니터링', cls: 'cyan'   };
+            stopLoss = price * 0.95;
+            target   = price * 1.10;
         } else if (kind === 'sepa') {
             // Minervini SEPA — 트렌드템플릿 + VCP + RS + 거래량
             const sepaScore = q._sepaScore ?? q.score ?? 0;
