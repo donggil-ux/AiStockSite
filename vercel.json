@@ -18,6 +18,18 @@
       "use": "@vercel/node"
     },
     {
+      "src": "api/kiwoom/token.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/kiwoom/quote.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/kiwoom/candles.js",
+      "use": "@vercel/node"
+    },
+    {
       "src": "manifest.json",
       "use": "@vercel/static"
     },
@@ -80,6 +92,18 @@
     {
       "src": "/api/polygon/quote",
       "dest": "api/polygon/quote.js"
+    },
+    {
+      "src": "/api/kiwoom/token",
+      "dest": "api/kiwoom/token.js"
+    },
+    {
+      "src": "/api/kiwoom/quote",
+      "dest": "api/kiwoom/quote.js"
+    },
+    {
+      "src": "/api/kiwoom/candles",
+      "dest": "api/kiwoom/candles.js"
     },
     {
       "src": "/api/(.*)",
