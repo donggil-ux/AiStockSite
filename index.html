@@ -1530,7 +1530,7 @@
             const mkt = (f.market||'').replace(/'/g,'&#39;');
             const name = (f.name||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
             return `<div class="fav-item" data-sym="${sym}" data-mkt="${mkt}">
-                <span class="fav-item-market ${(f.market||'').toLowerCase()}">${f.market==='KR'?'🇰🇷':mkt}</span>
+                <span class="fav-item-market ${(f.market||'').toLowerCase()}">${_flagHTML(f.market==='KR'?'🇰🇷':'🇺🇸',12)}</span>
                 <div class="fav-item-info">
                     <div class="fav-item-name">${name}</div>
                     <div class="fav-item-code">${sym}</div>
@@ -1592,7 +1592,7 @@
             ? `<span class="sdrop-price">${_sdropFmtPrice(item._price, item.market)}</span>
                <span class="sdrop-change ${chg.cls}">${chg.text}</span>` : '';
         return `<div class="sdrop-item" role="option" data-ticker="${escHtml(item.ticker||'')}" data-market="${escHtml(item.market||'')}" data-idx="${idx}">
-            <span class="sdrop-flag">${flag}</span>
+            <span class="sdrop-flag">${_flagHTML(flag,16)}</span>
             <div class="sdrop-info">
                 <div class="sdrop-name">${escHtml(nameDisplay||'')}</div>
                 <div class="sdrop-ticker">${escHtml(item.ticker||'')}${item.sector?' · '+escHtml(item.sector):''}</div>
@@ -2624,6 +2624,23 @@
         return /^[A-Z0-9.\-^=]{1,15}$/i.test(s) ? s : null;
     }
 
+    // 국기 이모지 → Twemoji SVG 이미지 (Windows 등 이모지 미지원 환경 대응)
+    const _TWEMOJI_BASE = 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/';
+    const _TWEMOJI_MAP = {
+        '🇺🇸':'1f1fa-1f1f8','🇰🇷':'1f1f0-1f1f7','🇨🇳':'1f1e8-1f1f3','🇯🇵':'1f1ef-1f1f5',
+        '🇹🇼':'1f1f9-1f1fc','🇸🇬':'1f1f8-1f1ec','🇮🇳':'1f1ee-1f1f3','🇭🇰':'1f1ed-1f1f0',
+        '🇨🇭':'1f1e8-1f1ed','🇳🇱':'1f1f3-1f1f1','🇬🇧':'1f1ec-1f1e7','🇩🇪':'1f1e9-1f1ea',
+        '🇫🇷':'1f1eb-1f1f7','🇮🇹':'1f1ee-1f1f9','🇪🇸':'1f1ea-1f1f8','🇸🇪':'1f1f8-1f1ea',
+        '🇦🇺':'1f1e6-1f1fa','🇨🇦':'1f1e8-1f1e6','🇧🇷':'1f1e7-1f1f7','🇮🇱':'1f1ee-1f1f1',
+        '🇮🇪':'1f1ee-1f1ea','🇵🇹':'1f1f5-1f1f9','🇩🇰':'1f1e9-1f1f0','🇧🇪':'1f1e7-1f1ea',
+    };
+    function _flagHTML(emoji, size) {
+        const sz = size || 14;
+        const code = _TWEMOJI_MAP[emoji];
+        if (!code) return emoji; // 알 수 없는 이모지는 텍스트 폴백
+        return `<img src="${_TWEMOJI_BASE}${code}.svg" alt="${emoji}" width="${sz}" height="${sz}" style="display:block;border-radius:2px;object-fit:cover;" loading="lazy">`;
+    }
+
     // 티커 → 색상 (이니셜 아바타 폴백용, 결정적)
     function _tickerColor(sym) {
         const palette = ['#6366f1','#0ea5e9','#14b8a6','#f59e0b','#ef4444','#8b5cf6','#ec4899','#3b82f6','#3b82f6','var(--yellow)'];
@@ -2750,7 +2767,7 @@
                 : `this.outerHTML='${fallback}';`;
             return `<div class="tlogo-wrap">
                 <img class="tlogo" src="${primary}" alt="" loading="lazy" onerror="${onErr}">
-                <span class="tlogo-flag">${flag}</span>
+                <span class="tlogo-flag">${_flagHTML(flag)}</span>
             </div>`;
         }
 
@@ -2758,7 +2775,7 @@
         const logoUrl = `https://assets.parqet.com/logos/symbol/${encodeURIComponent(safe)}?format=png`;
         return `<div class="tlogo-wrap">
             <img class="tlogo" src="${logoUrl}" alt="" loading="lazy" onerror="this.outerHTML='${fallback}'">
-            <span class="tlogo-flag">${flag}</span>
+            <span class="tlogo-flag">${_flagHTML(flag)}</span>
         </div>`;
     }
 

@@ -745,7 +745,8 @@
         .tlogo-wrap{position:relative!important;display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;flex-shrink:0;}
         .tlogo{width:40px;height:40px;border-radius:50%;object-fit:cover;background:#fff;display:block;border:1px solid #DBDBE0;}
         .tlogo-fb{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;color:#fff;font-weight:600;font-size:13px;letter-spacing:-.01em;line-height:1;}
-        .tlogo-flag{position:absolute!important;bottom:-2px!important;right:-4px!important;font-size:10px!important;line-height:1!important;z-index:3!important;pointer-events:none;display:block!important;visibility:visible!important;opacity:1!important;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif!important;}
+        .tlogo-flag{position:absolute!important;bottom:-2px!important;right:-4px!important;line-height:0!important;z-index:3!important;pointer-events:none;display:block!important;visibility:visible!important;opacity:1!important;}
+        .tlogo-flag img{display:block!important;width:14px!important;height:14px!important;border-radius:2px;}
         /* Row 안에서 국기 배지가 잘리지 않도록 로고 래퍼는 overflow visible 유지 */
         .top100-row .tlogo-wrap, .swing-row .tlogo-wrap, .hot-card .tlogo-wrap{overflow:visible;}
         [data-theme="dark"] .tlogo,[data-theme="dark"] .tlogo-wrap .tlogo,body.dark .tlogo,.dark-mode .tlogo{border:1px solid rgba(255,255,255,0.2)!important;}
@@ -1309,7 +1310,8 @@
         .sh-logo .tlogo-wrap{width:56px;height:56px;}
         .sh-logo .tlogo, .sh-logo .tlogo-fb{width:56px;height:56px;font-size:22px;border-radius:50%;}
         .sh-logo .tlogo-fb{display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;}
-        .sh-logo .tlogo-flag{font-size:20px;bottom:-2px;right:-4px;}
+        .sh-logo .tlogo-flag{bottom:-2px;right:-4px;}
+        .sh-logo .tlogo-flag img{width:20px!important;height:20px!important;border-radius:3px;}
         .sh-id{display:flex;flex-direction:column;justify-content:center;min-width:0;flex:1;}
         .sh-id .stock-code{margin-top:1px;}
         .stock-hero-head .fav-star-btn{margin-left:auto;flex-shrink:0;}
