@@ -7625,3 +7625,4 @@
 @media(max-width:640px){
     .sd-v2-row{font-size:11px;}
 }
+.grade-btn.active { background: var(--accent) !important; color: #fff !important; border-color: var(--accent) !important; }
