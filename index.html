@@ -2748,7 +2748,12 @@
         // 6자리 숫자 또는 market=KR 이면 국내 종목으로 판단
         const isKr = /^\d{6}$/.test(safe) || market === 'KR';
         const color = _tickerColor(safe);
-        const flag  = _TICKER_COUNTRY[safe.toUpperCase()] || (isKr ? '🇰🇷' : '🇺🇸');
+        // 국기 이모지 매핑 (반드시 이모지여야 함)
+        let flag = _TICKER_COUNTRY[safe.toUpperCase()];
+        if (!flag) { flag = isKr ? '🇰🇷' : '🇺🇸'; }
+        // 혹시 텍스트가 들어왔으면 강제 교체
+        if (flag === 'us' || flag === 'US') flag = '🇺🇸';
+        if (flag === 'kr' || flag === 'KR') flag = '🇰🇷';
 
         // 이니셜: KR은 KR_STOCK_NAMES 한글명 첫 글자, US는 심볼 첫 알파벳
         const krStockName = isKr ? (typeof KR_STOCK_NAMES !== 'undefined' && KR_STOCK_NAMES[safe]) : null;

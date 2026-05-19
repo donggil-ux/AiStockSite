@@ -742,14 +742,17 @@
         .top100-fav:hover{color:var(--text);transform:scale(1.08);}
         .top100-fav.on{color:var(--red);}
         /* Circle logo + flag overlay */
-        .tlogo-wrap{position:relative!important;display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;flex-shrink:0;}
+        .tlogo-wrap{position:relative!important;display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;flex-shrink:0;overflow:visible!important;}
         .tlogo{width:40px;height:40px;border-radius:50%;object-fit:cover;background:#fff;display:block;border:1px solid #DBDBE0;}
         .tlogo-fb{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;color:#fff;font-weight:600;font-size:13px;letter-spacing:-.01em;line-height:1;}
-        .tlogo-flag{position:absolute!important;bottom:-2px!important;right:-4px!important;line-height:0!important;z-index:3!important;pointer-events:none;display:block!important;visibility:visible!important;opacity:1!important;}
-        .tlogo-flag img{display:block!important;width:14px!important;height:14px!important;border-radius:2px;}
+        /* 국기 배지 — 토스증권 스타일 (미니멀, 배경 없음, 그림자) */
+        .tlogo-flag{position:absolute!important;bottom:-3px!important;right:-3px!important;line-height:0!important;z-index:3!important;pointer-events:none;display:inline-block!important;visibility:visible!important;opacity:1!important;background:transparent!important;border:none!important;padding:0!important;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.18));}
+        .tlogo-flag img{display:block!important;width:14px!important;height:14px!important;border-radius:0!important;object-fit:cover;}
         /* Row 안에서 국기 배지가 잘리지 않도록 로고 래퍼는 overflow visible 유지 */
         .top100-row .tlogo-wrap, .swing-row .tlogo-wrap, .hot-card .tlogo-wrap{overflow:visible;}
         [data-theme="dark"] .tlogo,[data-theme="dark"] .tlogo-wrap .tlogo,body.dark .tlogo,.dark-mode .tlogo{border:1px solid rgba(255,255,255,0.2)!important;background:transparent!important;}
+        /* 다크모드 — 그림자 강화 */
+        [data-theme="dark"] .tlogo-flag,body.dark .tlogo-flag,.dark-mode .tlogo-flag{filter:drop-shadow(0 1px 3px rgba(0,0,0,0.55));}
         .top100-info{display:flex;flex-direction:column;gap:2px;min-width:0;max-width:200px;}
         .top100-symbol{display:none;}
         .top100-name{font-size:14px;font-weight:500;color:var(--text);letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;max-width:180px;}
@@ -1310,8 +1313,9 @@
         .sh-logo .tlogo-wrap{width:56px;height:56px;}
         .sh-logo .tlogo, .sh-logo .tlogo-fb{width:56px;height:56px;font-size:22px;border-radius:50%;}
         .sh-logo .tlogo-fb{display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;}
-        .sh-logo .tlogo-flag{bottom:-2px;right:-4px;}
-        .sh-logo .tlogo-flag img{width:20px!important;height:20px!important;border-radius:3px;}
+        /* Stock Hero — 대형 국기 (56px 로고) */
+        .sh-logo .tlogo-flag{bottom:-4px!important;right:-4px!important;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.22));}
+        .sh-logo .tlogo-flag img{width:20px!important;height:20px!important;border-radius:0!important;}
         .sh-id{display:flex;flex-direction:column;justify-content:center;min-width:0;flex:1;}
         .sh-id .stock-code{margin-top:1px;}
         .stock-hero-head .fav-star-btn{margin-left:auto;flex-shrink:0;}
@@ -1319,7 +1323,8 @@
             .stock-hero-head{gap:10px;}
             .sh-logo, .sh-logo .tlogo-wrap, .sh-logo .tlogo, .sh-logo .tlogo-fb{width:44px;height:44px;}
             .sh-logo .tlogo-fb{font-size:18px;}
-            .sh-logo .tlogo-flag{font-size:14px;}
+            .sh-logo .tlogo-flag{bottom:-3px!important;right:-3px!important;}
+            .sh-logo .tlogo-flag img{width:16px!important;height:16px!important;}
         }
         .stock-price{font-size:42px;font-weight:800;margin-top:12px;letter-spacing:-2px;font-variant-numeric:tabular-nums;line-height:1.1;}
         .stock-change{font-size:16px;font-weight:700;margin-top:6px;font-variant-numeric:tabular-nums;}
@@ -2152,7 +2157,8 @@
             .top100-vol{display:none;}
             .tlogo-wrap, .tlogo, .tlogo-fb{width:40px;height:40px;}
             .tlogo-fb{font-size:13px;}
-            .tlogo-flag{font-size:11px;right:-2px;bottom:-2px;}
+            .tlogo-flag{right:-2px!important;bottom:-2px!important;}
+            .tlogo-flag img{width:12px!important;height:12px!important;}
             .top100-name{font-size:12.5px;}
             .top100-price{font-size:12.5px;}
             .top100-change{font-size:11.5px;padding:4px 0;}
@@ -3905,7 +3911,7 @@
             .top100-row > .top100-rank{font-size:12px;text-align:center;overflow:hidden;}
             .top100-row > .tlogo-wrap{justify-self:start;}
             .tlogo-fb{font-size:13px;}
-            .tlogo-flag{font-size:11px;}
+            .tlogo-flag img{width:12px!important;height:12px!important;}
             .top100-name{font-size:11.5px;}
             .top100-symbol{font-size:12px;}
             .top100-price{font-size:12px;}
@@ -4665,7 +4671,8 @@
 .earn-cell-stock .tlogo-wrap .tlogo,
 .earn-cell-stock .tlogo-wrap .tlogo-fb{ width:32px; height:32px; font-size:12px; }
 .earn-cell-stock .tlogo-wrap img{ width:32px; height:32px; border-radius:50%; }
-.earn-cell-stock .tlogo-wrap .tlogo-flag{ font-size:9px; right:-1px; bottom:-1px; }
+.earn-cell-stock .tlogo-wrap .tlogo-flag{ right:-2px!important; bottom:-2px!important; }
+.earn-cell-stock .tlogo-wrap .tlogo-flag img{ width:11px!important; height:11px!important; }
 .earn-stock-id{ min-width:0; display:flex; flex-direction:column; line-height:1.25; }
 .earn-ticker{
     font-size:13px; font-weight:800; color:var(--text);
@@ -4954,7 +4961,8 @@
 .lev-group-logo .tlogo,
 .lev-group-logo .tlogo-fb{width:32px;height:32px;}
 .lev-group-logo .tlogo-fb{font-size:13px;font-weight:700;}
-.lev-group-logo .tlogo-flag{font-size:9px;}
+.lev-group-logo .tlogo-flag{right:-2px!important;bottom:-2px!important;}
+.lev-group-logo .tlogo-flag img{width:11px!important;height:11px!important;}
 .lev-group-name{
     font-size:15px;font-weight:700;color:var(--text);
     letter-spacing:-0.02em;
@@ -6097,7 +6105,8 @@
 .earn-home-card .tlogo-wrap{ width:32px; height:32px; flex-shrink:0; overflow:visible; }
 .earn-home-card .tlogo,
 .earn-home-card .tlogo-fb{ width:32px; height:32px; font-size:12px; border-radius:50%; }
-.earn-home-card .tlogo-flag{ font-size:8px; right:-1px; bottom:-1px; }
+.earn-home-card .tlogo-flag{ right:-2px!important; bottom:-2px!important; }
+.earn-home-card .tlogo-flag img{ width:10px!important; height:10px!important; }
 .earn-hc-ticker{font-size:14px; font-weight:700; color:var(--text); flex-shrink:0;}
 .earn-hc-name{font-size:11px; color:var(--text2); flex:1; min-width:0;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
@@ -6450,7 +6459,8 @@
     .dp-home-card{padding:10px 10px;}
     /* 로고 32px */
     .dp-home-card .tlogo-wrap,.dp-home-card .tlogo,.dp-home-card .tlogo-fb{width:32px;height:32px;}
-    .dp-home-card .tlogo-flag{font-size:9px;right:-1px;bottom:-1px;}
+    .dp-home-card .tlogo-flag{right:-2px!important;bottom:-2px!important;}
+    .dp-home-card .tlogo-flag img{width:11px!important;height:11px!important;}
     .dp-home-card .tlogo-fb{font-size:11px;}
     /* 가격 영역 */
     .dp-home-card .dp-hc-price{min-width:40px;}
@@ -6465,7 +6475,7 @@
     .dp-cat-cards{gap:5px;}
     .dp-home-card{padding:9px 9px;}
     .dp-home-card .tlogo-wrap,.dp-home-card .tlogo,.dp-home-card .tlogo-fb{width:28px;height:28px;}
-    .dp-home-card .tlogo-flag{font-size:8px;}
+    .dp-home-card .tlogo-flag img{width:9px!important;height:9px!important;}
     .dp-home-card .dp-hc-price{min-width:36px;}
     .dp-home-card .dp-hc-px{font-size:11px;}
     .dp-home-card .dp-hc-chg{font-size:9px;}
@@ -6479,7 +6489,7 @@
     .dp-home-card{padding:8px 8px;}
     .dp-hc-top{gap:10px;}
     .dp-home-card .tlogo-wrap,.dp-home-card .tlogo,.dp-home-card .tlogo-fb{width:26px;height:26px;}
-    .dp-home-card .tlogo-flag{font-size:7px;}
+    .dp-home-card .tlogo-flag img{width:8px!important;height:8px!important;}
     .dp-home-card .dp-hc-price{min-width:34px;}
     .dp-home-card .dp-hc-px{font-size:10.5px;}
     .dp-bounce-tag,.dp-bounce-rsi{padding:2px 5px;font-size:9.5px;}
