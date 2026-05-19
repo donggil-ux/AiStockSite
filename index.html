@@ -14678,22 +14678,52 @@
         iconExpand.style.display = isFull ? 'none' : '';
         iconShrink.style.display = isFull ? '' : 'none';
         document.body.style.overflow = isFull ? 'hidden' : '';
+        // 전체화면 상태 저장
+        localStorage.setItem('stockai_chart_fullscreen', isFull ? '1' : '0');
         // 전체화면 전환 시 차트 리사이즈 (iOS safe-area / CSS transition 적용 대기)
         if (lwChart) {
-            // 200ms → 350ms: 레이아웃 정착 후 리사이즈
             setTimeout(() => {
                 const wrap = document.getElementById('tvChartWrap');
                 if (!wrap || !lwChart) return;
                 let h = wrap.clientHeight;
                 const fsCard = wrap.closest('.fullscreen');
                 if (fsCard && h < 200) {
-                    // flex 레이아웃 미정착 시 폴백: 카드 높이 − 툴바 높이
                     const toolbar = document.getElementById('chartToolbar');
                     h = Math.max(200, fsCard.clientHeight - (toolbar ? toolbar.offsetHeight : 0));
                 }
                 lwChart.applyOptions({ width: wrap.clientWidth, height: h });
             }, 350);
         }
+    }
+
+    // ── 새로고침 후 전체화면 상태 복원 ─────────────────────────────
+    function _restoreFullscreenState() {
+        if (localStorage.getItem('stockai_chart_fullscreen') !== '1') return;
+        const card = document.getElementById('tvChartCard');
+        if (!card) return;
+        const tryRestore = (attempt) => {
+            if (!lwChart) {
+                if (attempt < 20) setTimeout(() => tryRestore(attempt + 1), 200);
+                return;
+            }
+            const iconExpand = document.getElementById('tvFsIconExpand');
+            const iconShrink = document.getElementById('tvFsIconShrink');
+            card.classList.add('fullscreen');
+            if (iconExpand) iconExpand.style.display = 'none';
+            if (iconShrink) iconShrink.style.display = '';
+            document.body.style.overflow = 'hidden';
+            setTimeout(() => {
+                const wrap = document.getElementById('tvChartWrap');
+                if (!wrap || !lwChart) return;
+                let h = wrap.clientHeight;
+                if (h < 200) {
+                    const toolbar = document.getElementById('chartToolbar');
+                    h = Math.max(200, card.clientHeight - (toolbar ? toolbar.offsetHeight : 0));
+                }
+                lwChart.applyOptions({ width: wrap.clientWidth, height: h });
+            }, 400);
+        };
+        setTimeout(() => tryRestore(0), 500);
     }
 
     // ESC 키 처리 → 통합 keydown 핸들러로 이동 (하단 참고)
@@ -28136,6 +28166,9 @@
             _loadSpxData();
             setInterval(_loadSpxData, 60 * 60 * 1000);
         }
+
+        // 새로고침 후 전체화면 상태 복원
+        if (typeof _restoreFullscreenState === 'function') _restoreFullscreenState();
     });
 
     // ── 5분봉 돌파 단타 컨텍스트 추출 (전일 고점, 당일 박스 상단, 장 시작 후 경과 분 등) ──
@@ -28636,7 +28669,7 @@
         loadGuruHome, goSmartMoneyAndOpenReal, guruRefresh, _guruImgErr, _searchGuruByTicker,
         _applyGuruFilter, _guruFilterPos, _guruRefreshLatest,
         setMarket, searchStock, setChartInterval, setPeriod, _toggleIntervalDropdown,
-        quickSearch, toggleFavorite, switchTab, toggleChartFullscreen,
+        quickSearch, toggleFavorite, switchTab, toggleChartFullscreen, _restoreFullscreenState,
         favSearch, removeFavorite, setTop100Filter, goTop100, goCatalyst, loadCatalyst, _catalystSetFilter, switchCatalystTab, loadVolumeSurge, loadMinervini,
         _runCatalystAi, _renderCatalystAiExpanded,
         _runScannerAi, _renderScannerAiResult, _alphaAutoBatchAi, _renderAlphaAiMini,
