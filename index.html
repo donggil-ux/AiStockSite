@@ -80,11 +80,6 @@
                     <span class="side-nav-item-text">카탈리스트</span>
                     <span class="side-nav-item-sub">SEC EDGAR</span>
                 </button>
-                <button class="side-nav-item" id="sideNavPreviewBtn" onclick="closeSideNav();openMobilePreview();">
-                    <span class="side-nav-item-icon"><i class="ri-smartphone-line"></i></span>
-                    <span class="side-nav-item-text">미리보기</span>
-                    <span class="side-nav-item-sub">모바일</span>
-                </button>
             </div>
         </div>
         <div class="side-nav-divider"></div>
@@ -848,12 +843,11 @@
                         </div>
                         <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
                             <!-- 등급 필터 -->
-                            <div style="display:flex;gap:3px;align-items:center;padding:3px 6px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;">
-                                <span style="font-size:10px;color:var(--text3);margin-right:2px">등급</span>
-                                <button class="grade-btn active" data-grade="all" onclick="_setMinGrade('all')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text2);cursor:pointer;">전체</button>
-                                <button class="grade-btn" data-grade="B" onclick="_setMinGrade('B')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:#3B82F6;cursor:pointer;">B+</button>
-                                <button class="grade-btn" data-grade="A" onclick="_setMinGrade('A')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:#22C55E;cursor:pointer;">A+</button>
-                                <button class="grade-btn" data-grade="S" onclick="_setMinGrade('S')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:#FFD700;cursor:pointer;">S만</button>
+                            <div style="display:flex;gap:3px;align-items:center;padding:3px 6px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;flex-shrink:0;">
+                                <button class="grade-btn active" data-grade="all" onclick="_setMinGrade('all')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text2);cursor:pointer;white-space:nowrap;">전체</button>
+                                <button class="grade-btn" data-grade="B" onclick="_setMinGrade('B')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:#3B82F6;cursor:pointer;white-space:nowrap;">B+</button>
+                                <button class="grade-btn" data-grade="A" onclick="_setMinGrade('A')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:#22C55E;cursor:pointer;white-space:nowrap;">A+</button>
+                                <button class="grade-btn" data-grade="S" onclick="_setMinGrade('S')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:#FFD700;cursor:pointer;white-space:nowrap;">S+</button>
                             </div>
                             <!-- 그리기 도구 — 임시 숨김 (v639) -->
                             <button class="chart-tb-btn" id="chartDrawToggleBtn"
@@ -28490,24 +28484,6 @@
         document.querySelectorAll('.side-nav-search-input').forEach(el => { if (el.value !== val) el.value = val; });
     }
 
-    // ── 모바일 미리보기 ──────────────────────────────────────────
-    function openMobilePreview() {
-        const modal = document.getElementById('mobilePreviewModal');
-        const frame = document.getElementById('mpFrame');
-        modal.classList.add('open');
-        document.body.style.overflow = 'hidden';
-        // iframe에 현재 URL 로드 (쿼리 파라미터 없이 clean URL)
-        const url = window.location.origin + window.location.pathname;
-        frame.src = url;
-    }
-    function closeMobilePreview() {
-        const modal = document.getElementById('mobilePreviewModal');
-        const frame = document.getElementById('mpFrame');
-        modal.classList.remove('open');
-        document.body.style.overflow = '';
-        // 메모리 해제
-        frame.src = 'about:blank';
-    }
 
 
     function _scrollToGroup(groupId) {
@@ -28595,7 +28571,6 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         subscribePush, unsubscribePush, getPushState,
         openPriceAlertModal, _setPaDir, _savePriceAlert, _deletePriceAlert,
         _togglePushBell, _openCurrentPriceAlert, _showNotifSettingsModal, _saveNotifPref, _confirmUnsubPush,
-        openMobilePreview, closeMobilePreview,
         _sideNavSearchKey, _sideNavSearchInput,
         _renderRecentSearchStrip, _clickRecentChip, _deleteRecentSearch, _clearAllRecentSearches,
         loadOptionsPopular, _optPopSwitch, _renderOptionsPopular,
@@ -28649,23 +28624,6 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
     })();
     </script>
 
-    <!-- ===== 모바일 미리보기 모달 ===== -->
-    <div id="mobilePreviewModal" class="mp-modal" role="dialog" aria-modal="true" aria-label="모바일 미리보기">
-        <div class="mp-backdrop" onclick="closeMobilePreview()" style="position:absolute;inset:0;z-index:-1;"></div>
-        <div class="mp-phone-wrap">
-            <div class="mp-phone">
-                <div class="mp-dynamic-island"></div>
-                <iframe id="mpFrame" class="mp-frame" src="about:blank" title="모바일 미리보기" allowfullscreen></iframe>
-                <div class="mp-home-bar"></div>
-            </div>
-            <div class="mp-controls">
-                <span class="mp-label">iPhone 15 Pro · 393×852</span>
-                <button class="mp-close-btn" onclick="closeMobilePreview()">
-                    ✕ 닫기
-                </button>
-            </div>
-        </div>
-    </div>
 
     <!-- ===== 알림내역 FAB ===== -->
     <button id="alertFab" onclick="toggleSigHistoryPanel()" title="분석 알림" aria-label="분석 알림">

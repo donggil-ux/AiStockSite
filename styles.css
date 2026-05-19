@@ -6484,112 +6484,6 @@
 }
 
 /* ═══════════════════════════════════════════════════════
-   모바일 미리보기 모달 (iPhone frame)
-   ═══════════════════════════════════════════════════════ */
-.mp-modal{
-    position:fixed;inset:0;z-index:99999;
-    display:none;align-items:center;justify-content:center;
-    background:rgba(0,0,0,0.82);
-    backdrop-filter:blur(8px);
-    -webkit-backdrop-filter:blur(8px);
-}
-.mp-modal.open{display:flex;}
-.mp-phone-wrap{
-    position:relative;
-    display:flex;flex-direction:column;align-items:center;
-    gap:16px;
-}
-.mp-phone{
-    position:relative;
-    width:393px;
-    height:852px;
-    border-radius:54px;
-    background:#1c1c1e;
-    box-shadow:
-        0 0 0 1px rgba(255,255,255,0.18),
-        0 0 0 9px #1c1c1e,
-        0 0 0 10px rgba(255,255,255,0.22),
-        0 40px 120px rgba(0,0,0,0.9),
-        inset 0 0 0 1px rgba(255,255,255,0.06);
-    overflow:hidden;
-    flex-shrink:0;
-}
-/* Dynamic Island */
-.mp-dynamic-island{
-    position:absolute;top:12px;left:50%;transform:translateX(-50%);
-    width:120px;height:34px;
-    background:#000;
-    border-radius:var(--radius-lg);
-    z-index:10;
-    box-shadow:0 0 0 1px rgba(255,255,255,0.08);
-}
-/* Home bar */
-.mp-home-bar{
-    position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
-    width:130px;height:5px;
-    background:rgba(255,255,255,0.55);
-    border-radius:3px;
-    z-index:10;
-}
-/* Status bar spacer at top */
-.mp-phone::before{
-    content:'';
-    position:absolute;top:0;left:0;right:0;
-    height:59px;
-    background:#1c1c1e;
-    z-index:5;
-    border-radius:54px 54px 0 0;
-}
-/* Bottom home bar cover */
-.mp-phone::after{
-    content:'';
-    position:absolute;bottom:0;left:0;right:0;
-    height:34px;
-    background:#1c1c1e;
-    z-index:5;
-    border-radius:0 0 54px 54px;
-}
-.mp-frame{
-    position:absolute;
-    top:59px;left:0;right:0;
-    bottom:34px;
-    width:100%;
-    height:calc(100% - 93px);
-    border:none;
-    background:#fff;
-}
-/* Close & label row */
-.mp-controls{
-    display:flex;align-items:center;gap:12px;
-}
-.mp-label{
-    font-size:13px;font-weight:500;
-    color:rgba(255,255,255,0.5);
-    letter-spacing:0.02em;
-}
-.mp-close-btn{
-    display:flex;align-items:center;gap:6px;
-    padding:8px 18px;
-    background:rgba(255,255,255,0.1);
-    border:1px solid rgba(255,255,255,0.18);
-    border-radius:var(--radius-lg);
-    color:#fff;font-size:13px;font-weight:500;
-    cursor:pointer;
-    transition:background .15s;
-}
-.mp-close-btn:hover{background:rgba(255,255,255,0.18);}
-/* Scale down for smaller screens */
-@media(max-height:960px){
-    .mp-phone{transform:scale(0.88);transform-origin:center center;margin:-55px 0;}
-}
-@media(max-height:820px){
-    .mp-phone{transform:scale(0.76);transform-origin:center center;margin:-103px 0;}
-}
-@media(max-height:700px){
-    .mp-phone{transform:scale(0.64);transform-origin:center center;margin:-155px 0;}
-}
-
-/* ═══════════════════════════════════════════════════════
    최근 검색 (모바일 검색 모달 내 스와이프 strip)
    ═══════════════════════════════════════════════════════ */
 .mob-recent-wrap{
@@ -7626,3 +7520,14 @@
     .sd-v2-row{font-size:11px;}
 }
 .grade-btn.active { background: var(--accent) !important; color: #fff !important; border-color: var(--accent) !important; }
+
+/* 모바일 터치 타깃 보정 — 최소 44px 확보 */
+@media(max-width:600px){
+    .grade-btn{
+        padding:10px 12px !important;
+        font-size:12px !important;
+        min-height:40px !important;
+        min-width:36px !important;
+        border-radius:8px !important;
+    }
+}
