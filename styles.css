@@ -1607,6 +1607,7 @@
             position:relative !important;
             z-index:9100 !important;
         }
+        .tv-chart-card.fullscreen #tvFullscreenBtn{position:sticky!important;right:0!important;}
         .tv-chart-card.fullscreen .tv-chart-wrap{flex:1;height:auto!important;border-radius:0;}
         /* 전체화면 차트 영역만 overflow 클립 */
         .tv-chart-card.fullscreen #tvChartWrap{overflow:hidden !important;}
