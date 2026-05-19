@@ -6778,6 +6778,12 @@
 .catalyst-filter--acc.active{background:#a855f7;color:#fff;}
 [data-theme="dark"] .catalyst-filter--acc.active{background:rgba(168,85,247,0.6);}
 
+.catalyst-tabs{display:flex;gap:4px;padding:0 0 12px;}
+.catalyst-tab{flex:1;padding:9px 0;border:1px solid var(--border);background:var(--bg2);border-radius:var(--radius-sm);font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent;}
+.catalyst-tab:hover{background:var(--bg3);}
+.catalyst-tab.active{background:var(--accent,#6366f1);border-color:var(--accent,#6366f1);color:#fff;}
+[data-theme="dark"] .catalyst-tab.active{background:rgba(99,102,241,0.5);border-color:rgba(99,102,241,0.6);}
+
 /* 매집 의심 경고문 + 카드 + 푸터 (v666) */
 .catalyst-acc-warn{padding:10px 14px;margin-bottom:14px;background:rgba(168,85,247,0.10);border:1px solid rgba(168,85,247,0.35);border-radius:var(--radius-sm);font-size:12px;color:#7e22ce;line-height:1.6;}
 [data-theme="dark"] .catalyst-acc-warn{color:#d8b4fe;}
