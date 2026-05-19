@@ -1530,7 +1530,7 @@
             const mkt = (f.market||'').replace(/'/g,'&#39;');
             const name = (f.name||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
             return `<div class="fav-item" data-sym="${sym}" data-mkt="${mkt}">
-                <span class="fav-item-market ${(f.market||'').toLowerCase()}">${f.market==='KR'?'🇰🇷':f.market==='US'?'🇺🇸':mkt}</span>
+                <span class="fav-item-market ${(f.market||'').toLowerCase()}">${f.market==='KR'?'🇰🇷':mkt}</span>
                 <div class="fav-item-info">
                     <div class="fav-item-name">${name}</div>
                     <div class="fav-item-code">${sym}</div>
@@ -1597,7 +1597,7 @@
                 <div class="sdrop-name">${escHtml(nameDisplay||'')}</div>
                 <div class="sdrop-ticker">${escHtml(item.ticker||'')}${item.sector?' · '+escHtml(item.sector):''}</div>
             </div>
-            <span class="sdrop-badge ${mktCls}">${item.market==='KR'?'🇰🇷':item.market==='US'?'🇺🇸':escHtml(item.market||'')}</span>
+            <span class="sdrop-badge ${mktCls}">${item.market==='KR'?'🇰🇷':escHtml(item.market||'')}</span>
             <span class="sdrop-badge ${badgeCls}">${badgeTxt}</span>
             ${priceHTML}
         </div>`;
