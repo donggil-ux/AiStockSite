@@ -2649,12 +2649,11 @@
         }
 
         /* ===== SPLIT CALC FAB ===== */
-        #alertFab{position:fixed;bottom:calc(70px + env(safe-area-inset-bottom));right:16px;height:44px;padding:0 14px 0 10px;border-radius:var(--radius-lg);background:var(--bg2);color:var(--text);border:1px solid var(--border);cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.15);z-index:9200;display:none;align-items:center;gap:7px;font-size:13px;font-weight:700;font-family:inherit;white-space:nowrap;transition:transform .15s,box-shadow .15s;}
+        #alertFab{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom));right:16px;height:44px;padding:0 14px 0 10px;border-radius:var(--radius-lg);background:#DC2626;color:#fff;border:none;cursor:pointer;box-shadow:0 4px 20px rgba(220,38,38,.45);z-index:9200;display:none;align-items:center;gap:7px;font-size:13px;font-weight:700;font-family:inherit;white-space:nowrap;transition:transform .15s,box-shadow .15s;}
         .stock-loaded ~ * #alertFab, body:has(#mainHeader.stock-loaded) #alertFab{display:flex;}
-        #alertFab:hover{transform:scale(1.05);box-shadow:0 6px 24px rgba(0,0,0,.22);}
-        #alertFab.active{background:var(--bg3);border-color:var(--accent,#6366f1);color:var(--accent,#6366f1);}
-        [data-theme="dark"] #alertFab{box-shadow:0 4px 20px rgba(0,0,0,.4);}
-        @media(max-width:640px){#alertFab{bottom:calc(126px + env(safe-area-inset-bottom));right:14px;}}
+        #alertFab:hover{transform:scale(1.05);box-shadow:0 6px 28px rgba(220,38,38,.6);}
+        #alertFab.active{background:#B91C1C;box-shadow:0 4px 20px rgba(185,28,28,.5);}
+        @media(max-width:640px){#alertFab{bottom:calc(72px + env(safe-area-inset-bottom));right:14px;}}
         #calcFab{position:fixed;bottom:12px;right:16px;height:44px;padding:0 16px 0 12px;border-radius:var(--radius-lg);background:var(--yellow);color:#000;border:none;cursor:pointer;box-shadow:0 4px 20px rgba(234,179,8,.5);z-index:900;display:none;align-items:center;gap:7px;font-size:13px;font-weight:800;font-family:inherit;white-space:nowrap;transition:transform .15s,box-shadow .15s;}
         .stock-loaded ~ * #calcFab, body:has(#mainHeader.stock-loaded) #calcFab{display:none!important;}
         #calcFab:hover{transform:scale(1.05);box-shadow:0 6px 28px rgba(234,179,8,.65);}
