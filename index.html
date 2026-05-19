@@ -15176,10 +15176,13 @@
     let _priceLabelRegistry = []; // 우측 가격 라벨 중복 방지 — ±0.8% 이내 중복 시 낮은 우선순위 라벨 숨김
     let _lastSigArgs = null;  // 토글 시 즉시 재렌더용 캐시
     let _signalGrades = {};
-    // 디폴트: C+ (D만 제거, 나머지 전부 표시)
+    // 디폴트: C (모든 신호 표시, D 제거됨)
     let _minGradeFilter = localStorage.getItem('stockai_min_grade') || 'C';
-    // 이전 'all' 값 마이그레이션
-    if (_minGradeFilter === 'all') { _minGradeFilter = 'C'; localStorage.setItem('stockai_min_grade', 'C'); }
+    // 'all'/'D' 잔존값 마이그레이션
+    if (_minGradeFilter === 'all' || _minGradeFilter === 'D') {
+        _minGradeFilter = 'C';
+        localStorage.setItem('stockai_min_grade', 'C');
+    }
     let _alpacaWs        = null;   // Alpaca WebSocket 연결
     let _wsLiveCandle    = null;   // 현재 형성 중인 실시간 캔들
     let _wsTradeThrottle = 0;      // 캔들 업데이트 스로틀 (ms)
@@ -15771,14 +15774,14 @@
             if (rsi[i] <= 30 && rsi[i+1] > 30 && closes[i+1] > closes[i]) {
                 let sg = { grade: 'C', score: 3, winRate: 52, stars: '⭐⭐', factors: [], recommendation: '관망 권장' };
                 try { sg = _calcSignalGrade({ ..._gradeBase, i: i+1, signalType: 'buy' }); } catch(e) { console.warn('[grade] rsi_buy', e.message); }
-                if (_passesGradeFilter(sg.grade)) {
+                if (_passesGradeFilter(sg.grade, sg.fallback)) {
                     markers.push({ time: ts[i+1], position: 'belowBar', color: _gc(sg.grade), shape: 'arrowUp', text: `RSI매수 [${sg.grade}]` });
                     _signalGrades[`${ts[i+1]}_rsi_buy`] = sg;
                 }
             } else if (rsi[i] >= 70 && rsi[i+1] < 70 && closes[i+1] < closes[i]) {
                 let sg = { grade: 'C', score: 3, winRate: 52, stars: '⭐⭐', factors: [], recommendation: '관망 권장' };
                 try { sg = _calcSignalGrade({ ..._gradeBase, i: i+1, signalType: 'sell' }); } catch(e) { console.warn('[grade] rsi_sell', e.message); }
-                if (_passesGradeFilter(sg.grade)) {
+                if (_passesGradeFilter(sg.grade, sg.fallback)) {
                     markers.push({ time: ts[i+1], position: 'aboveBar', color: _gc(sg.grade), shape: 'arrowDown', text: `RSI매도 [${sg.grade}]` });
                     _signalGrades[`${ts[i+1]}_rsi_sell`] = sg;
                 }
@@ -15792,14 +15795,14 @@
             if (prev <= 0 && cur > 0) {
                 let sg = { grade: 'C', score: 3, winRate: 52, stars: '⭐⭐', factors: [], recommendation: '관망 권장' };
                 try { sg = _calcSignalGrade({ ..._gradeBase, i, signalType: 'buy' }); } catch(e) { console.warn('[grade] macd_buy', e.message); }
-                if (_passesGradeFilter(sg.grade)) {
+                if (_passesGradeFilter(sg.grade, sg.fallback)) {
                     markers.push({ time: ts[i], position: 'belowBar', color: _gc(sg.grade), shape: 'arrowUp', text: `MACD매수 [${sg.grade}]` });
                     _signalGrades[`${ts[i]}_macd_buy`] = sg;
                 }
             } else if (prev >= 0 && cur < 0) {
                 let sg = { grade: 'C', score: 3, winRate: 52, stars: '⭐⭐', factors: [], recommendation: '관망 권장' };
                 try { sg = _calcSignalGrade({ ..._gradeBase, i, signalType: 'sell' }); } catch(e) { console.warn('[grade] macd_sell', e.message); }
-                if (_passesGradeFilter(sg.grade)) {
+                if (_passesGradeFilter(sg.grade, sg.fallback)) {
                     markers.push({ time: ts[i], position: 'aboveBar', color: _gc(sg.grade), shape: 'arrowDown', text: `MACD매도 [${sg.grade}]` });
                     _signalGrades[`${ts[i]}_macd_sell`] = sg;
                 }
@@ -15810,7 +15813,7 @@
         raynerEntries.forEach(e => {
             let sg = { grade: 'C', score: 3, winRate: 52, stars: '⭐⭐', factors: [], recommendation: '관망 권장' };
             try { sg = _calcSignalGrade({ ..._gradeBase, i: e.idx, signalType: 'buy' }); } catch(err) { console.warn('[grade] rayner', err.message); }
-            if (_passesGradeFilter(sg.grade)) {
+            if (_passesGradeFilter(sg.grade, sg.fallback)) {
                 markers.push({ time: e.time, position: 'belowBar', color: e.color, shape: 'arrowUp', text: `${e.label} [${sg.grade}]` });
                 _signalGrades[`${e.time}_rayner_buy`] = sg;
             }
@@ -15825,7 +15828,7 @@
             const sigT = isBull ? 'buy' : isBear ? 'sell' : 'buy';
             let sg = { grade: 'C', score: 3, winRate: 52, stars: '⭐⭐', factors: [], recommendation: '관망 권장' };
             try { sg = _calcSignalGrade({ ..._gradeBase, i: p.idx, signalType: sigT }); } catch(err) { console.warn('[grade] candle', err.message); }
-            if (_passesGradeFilter(sg.grade)) {
+            if (_passesGradeFilter(sg.grade, sg.fallback)) {
                 markers.push({
                     time: t,
                     position: isBull ? 'belowBar' : isBear ? 'aboveBar' : 'inBar',
@@ -15844,14 +15847,14 @@
             if (p50 <= p200 && c50 > c200) {
                 let sg = { grade: 'C', score: 3, winRate: 52, stars: '⭐⭐', factors: [], recommendation: '관망 권장' };
                 try { sg = _calcSignalGrade({ ..._gradeBase, i, signalType: 'buy' }); } catch(err) { console.warn('[grade] golden', err.message); }
-                if (_passesGradeFilter(sg.grade)) {
+                if (_passesGradeFilter(sg.grade, sg.fallback)) {
                     markers.push({ time: ts[i], position: 'belowBar', color: '#ef4444', shape: 'arrowUp', text: `골든크로스 [${sg.grade}]` });
                     _signalGrades[`${ts[i]}_golden`] = sg;
                 }
             } else if (p50 >= p200 && c50 < c200) {
                 let sg = { grade: 'C', score: 3, winRate: 52, stars: '⭐⭐', factors: [], recommendation: '관망 권장' };
                 try { sg = _calcSignalGrade({ ..._gradeBase, i, signalType: 'sell' }); } catch(err) { console.warn('[grade] dead', err.message); }
-                if (_passesGradeFilter(sg.grade)) {
+                if (_passesGradeFilter(sg.grade, sg.fallback)) {
                     markers.push({ time: ts[i], position: 'aboveBar', color: '#3b82f6', shape: 'arrowDown', text: `데드크로스 [${sg.grade}]` });
                     _signalGrades[`${ts[i]}_dead`] = sg;
                 }
@@ -15868,7 +15871,7 @@
                 if (avg > 0 && vols[i] >= avg * 2.5 && closes[i] > closes[i-1]) {
                     let sg = { grade: 'C', score: 3, winRate: 52, stars: '⭐⭐', factors: [], recommendation: '관망 권장' };
                     try { sg = _calcSignalGrade({ ..._gradeBase, i, signalType: 'buy' }); } catch(err) { console.warn('[grade] volSurge', err.message); }
-                    if (_passesGradeFilter(sg.grade)) {
+                    if (_passesGradeFilter(sg.grade, sg.fallback)) {
                         markers.push({ time: ts[i], position: 'belowBar', color: '#f97316', shape: 'arrowUp', text: `거래량급증 [${sg.grade}]` });
                         _signalGrades[`${ts[i]}_vol`] = sg;
                     }
@@ -15883,14 +15886,14 @@
                 if (pu != null && cu != null && closes[i-1] <= pu && closes[i] > cu) {
                     let sg = { grade: 'C', score: 3, winRate: 52, stars: '⭐⭐', factors: [], recommendation: '관망 권장' };
                     try { sg = _calcSignalGrade({ ..._gradeBase, i, signalType: 'buy' }); } catch(err) { console.warn('[grade] bb_up', err.message); }
-                    if (_passesGradeFilter(sg.grade)) {
+                    if (_passesGradeFilter(sg.grade, sg.fallback)) {
                         markers.push({ time: ts[i], position: 'belowBar', color: '#ef4444', shape: 'arrowUp', text: `BB돌파 [${sg.grade}]` });
                         _signalGrades[`${ts[i]}_bb_buy`] = sg;
                     }
                 } else if (pl != null && cl != null && closes[i-1] >= pl && closes[i] < cl) {
                     let sg = { grade: 'C', score: 3, winRate: 52, stars: '⭐⭐', factors: [], recommendation: '관망 권장' };
                     try { sg = _calcSignalGrade({ ..._gradeBase, i, signalType: 'sell' }); } catch(err) { console.warn('[grade] bb_dn', err.message); }
-                    if (_passesGradeFilter(sg.grade)) {
+                    if (_passesGradeFilter(sg.grade, sg.fallback)) {
                         markers.push({ time: ts[i], position: 'aboveBar', color: '#3b82f6', shape: 'arrowDown', text: `BB이탈 [${sg.grade}]` });
                         _signalGrades[`${ts[i]}_bb_sell`] = sg;
                     }
@@ -15974,7 +15977,7 @@
                     });
                     if (v3.pass) {
                         let sg; try { sg = _calcSignalGrade(_gradeOpts); if (!sg?.grade) throw new Error('no grade'); } catch(e) { console.warn('[grade] buy1', e.message); sg = { grade: 'C', score: 0, winRate: 50 }; }
-                        if (_passesGradeFilter(sg.grade)) {
+                        if (_passesGradeFilter(sg.grade, sg.fallback)) {
                             markers.push({ time: t, position: 'belowBar', color: _gc(sg.grade), shape: 'arrowUp', text: `매수1 [${sg.grade}] ${sg.winRate}%` });
                             window._smartDipAnalysis[t] = { ...v3, num: 1 };
                             _signalGrades[`${t}_buy1`] = sg;
@@ -15992,7 +15995,7 @@
                     });
                     if (v3.pass) {
                         let sg; try { sg = _calcSignalGrade({ ..._gradeOpts }); if (!sg?.grade) throw new Error('no grade'); } catch(e) { console.warn('[grade] buy2', e.message); sg = { grade: 'C', score: 0, winRate: 50 }; }
-                        if (_passesGradeFilter(sg.grade)) {
+                        if (_passesGradeFilter(sg.grade, sg.fallback)) {
                             markers.push({ time: t, position: 'belowBar', color: _gc(sg.grade), shape: 'arrowUp', text: `매수2 [${sg.grade}] ${sg.winRate}%` });
                             window._smartDipAnalysis[t] = { ...v3, num: 2 };
                             _signalGrades[`${t}_buy2`] = sg;
@@ -16010,7 +16013,7 @@
                     });
                     if (v3.pass) {
                         let sg; try { sg = _calcSignalGrade({ ..._gradeOpts }); if (!sg?.grade) throw new Error('no grade'); } catch(e) { console.warn('[grade] buy3', e.message); sg = { grade: 'C', score: 0, winRate: 50 }; }
-                        if (_passesGradeFilter(sg.grade)) {
+                        if (_passesGradeFilter(sg.grade, sg.fallback)) {
                             markers.push({ time: t, position: 'belowBar', color: _gc(sg.grade), shape: 'arrowUp', text: `매수3 [${sg.grade}] ${sg.winRate}%` });
                             window._smartDipAnalysis[t] = { ...v3, num: 3 };
                             _signalGrades[`${t}_buy3`] = sg;
@@ -16032,7 +16035,7 @@
                 if (prevC != null && e20 && prevE20 && prevC > prevE20 && c < e20
                     && (i - lastSell1Bar) >= SELL_COOLDOWN) {
                     let sg; try { sg = _calcSignalGrade(_sellGradeOpts); if (!sg?.grade) throw new Error('no grade'); } catch(e) { console.warn('[grade] sell1', e.message); sg = { grade: 'C', score: 0, winRate: 50 }; }
-                    if (_passesGradeFilter(sg.grade)) {
+                    if (_passesGradeFilter(sg.grade, sg.fallback)) {
                         const sc = sg.grade === 'S' ? '#FFD700' : sg.grade === 'A' ? '#22C55E' : '#EF4444';
                         markers.push({ time: t, position: 'aboveBar', color: sc, shape: 'arrowDown', text: `매도1 [${sg.grade}] ${sg.winRate}%` });
                         _signalGrades[`${t}_sell1`] = sg;
@@ -16041,7 +16044,7 @@
                 } else if (prevC != null && e60 && prevE60 && prevC > prevE60 && c < e60
                     && (i - lastSell2Bar) >= SELL_COOLDOWN) {
                     let sg; try { sg = _calcSignalGrade(_sellGradeOpts); if (!sg?.grade) throw new Error('no grade'); } catch(e) { console.warn('[grade] sell2', e.message); sg = { grade: 'C', score: 0, winRate: 50 }; }
-                    if (_passesGradeFilter(sg.grade)) {
+                    if (_passesGradeFilter(sg.grade, sg.fallback)) {
                         const sc = sg.grade === 'S' ? '#FFD700' : sg.grade === 'A' ? '#22C55E' : '#EF4444';
                         markers.push({ time: t, position: 'aboveBar', color: sc, shape: 'arrowDown', text: `매도2 [${sg.grade}] ${sg.winRate}%` });
                         _signalGrades[`${t}_sell2`] = sg;
@@ -16050,7 +16053,7 @@
                 } else if (prevC != null && e120 && prevE120 && prevC > prevE120 && c < e120
                     && (i - lastSell3Bar) >= SELL_COOLDOWN) {
                     let sg; try { sg = _calcSignalGrade(_sellGradeOpts); if (!sg?.grade) throw new Error('no grade'); } catch(e) { console.warn('[grade] sell3', e.message); sg = { grade: 'C', score: 0, winRate: 50 }; }
-                    if (_passesGradeFilter(sg.grade)) {
+                    if (_passesGradeFilter(sg.grade, sg.fallback)) {
                         const sc = sg.grade === 'S' ? '#FFD700' : sg.grade === 'A' ? '#22C55E' : '#EF4444';
                         markers.push({ time: t, position: 'aboveBar', color: sc, shape: 'arrowDown', text: `매도3 [${sg.grade}] ${sg.winRate}%` });
                         _signalGrades[`${t}_sell3`] = sg;
@@ -16542,49 +16545,65 @@
             rsi, ma20, ma60, ma120, ma240,
             macd, macdSignal,
             atr, bb,
-        } = opts;
-        if (i < 5 || closes[i] == null) return { grade: 'C', score: 3, winRate: 52, stars: '⭐⭐', factors: [], recommendation: '관망 권장' };
+        } = opts || {};
+
+        // 폴백 (데이터 부족 시 B → 대부분 필터 통과)
+        const _fb = () => ({
+            grade: 'B', score: 5, winRate: 60,
+            stars: '⭐⭐⭐', factors: ['데이터 부족'],
+            recommendation: '신중 진입', fallback: true,
+        });
+
+        if (!closes || !Array.isArray(closes) || closes.length === 0) return _fb();
+        if (i == null || i < 5 || closes[i] == null) return _fb();
+
+        // null-safe 배열 접근
+        const sg = (arr, idx) =>
+            arr && Array.isArray(arr) && arr[idx] != null ? arr[idx] : null;
+
         let score = 0;
         const factors = [];
         const c = closes[i];
 
         // 1. 추세 방향 일치 (HTF) — 2점
-        const trendUp = ma20[i] != null && ma60[i] != null && ma120[i] != null && ma20[i] > ma60[i] && ma60[i] > ma120[i];
-        const trendDn = ma20[i] != null && ma60[i] != null && ma120[i] != null && ma20[i] < ma60[i] && ma60[i] < ma120[i];
+        const ma20i = sg(ma20, i), ma60i = sg(ma60, i), ma120i = sg(ma120, i);
+        const trendUp = ma20i != null && ma60i != null && ma120i != null && ma20i > ma60i && ma60i > ma120i;
+        const trendDn = ma20i != null && ma60i != null && ma120i != null && ma20i < ma60i && ma60i < ma120i;
         if (signalType === 'buy' && trendUp)       { score += 2; factors.push('✅ 추세 정배열'); }
         else if (signalType === 'sell' && trendDn) { score += 2; factors.push('✅ 추세 역배열'); }
         else if (signalType === 'buy' && trendDn)  { score -= 1; factors.push('❌ 하락 추세 역방향 매수'); }
 
         // 2. EMA20 위치 — 1점
-        if (ma20[i] != null) {
-            if (signalType === 'buy'  && c > ma20[i]) { score += 1; factors.push('✅ EMA20 위'); }
-            else if (signalType === 'sell' && c < ma20[i]) { score += 1; factors.push('✅ EMA20 아래'); }
+        if (ma20i != null) {
+            if (signalType === 'buy'  && c > ma20i) { score += 1; factors.push('✅ EMA20 위'); }
+            else if (signalType === 'sell' && c < ma20i) { score += 1; factors.push('✅ EMA20 아래'); }
         }
 
-        // 3. 거래량 — 최대 1.5점
-        const vSlice = volumes.slice(Math.max(0, i-20), i).filter(v => v != null);
+        // 3. 거래량 — 1.5점
+        const vols = (volumes && Array.isArray(volumes)) ? volumes : [];
+        const vSlice = vols.slice(Math.max(0, i-20), i).filter(v => v != null);
         const vAvg = vSlice.length ? vSlice.reduce((s,v) => s+v, 0) / vSlice.length : 0;
-        const vRatio = vAvg > 0 ? (volumes[i] || 0) / vAvg : 1;
-        if (vRatio >= 2.0)       { score += 1.5; factors.push(`✅ 거래량 ${vRatio.toFixed(1)}배`); }
-        else if (vRatio >= 1.5)  { score += 1;   factors.push(`✅ 거래량 ${vRatio.toFixed(1)}배`); }
-        else if (vRatio >= 1.2)  { score += 0.5; factors.push(`🟡 거래량 ${vRatio.toFixed(1)}배`); }
-        else                     { factors.push(`❌ 거래량 부족 ${vRatio.toFixed(1)}배`); }
+        const vRatio = vAvg > 0 ? (vols[i] || 0) / vAvg : 1;
+        if (vRatio >= 2.0)      { score += 1.5; factors.push(`✅ 거래량 ${vRatio.toFixed(1)}x`); }
+        else if (vRatio >= 1.5) { score += 1;   factors.push(`✅ 거래량 ${vRatio.toFixed(1)}x`); }
+        else if (vRatio >= 1.2) { score += 0.5; factors.push(`🟡 거래량 ${vRatio.toFixed(1)}x`); }
 
-        // 4. RSI — 최대 1.5점
-        const rsiVal = rsi[i] != null ? rsi[i] : 50;
+        // 4. RSI — 1.5점
+        const rsiVal = sg(rsi, i) ?? 50;
         if (signalType === 'buy') {
-            if (rsiVal < 30)                        { score += 1.5; factors.push(`✅ RSI ${rsiVal.toFixed(0)} (과매도 반등)`); }
-            else if (rsiVal >= 40 && rsiVal <= 60)  { score += 1;   factors.push(`✅ RSI ${rsiVal.toFixed(0)} (중립)`); }
-            else if (rsiVal > 70)                   { score -= 1;   factors.push(`❌ RSI ${rsiVal.toFixed(0)} (과매수)`); }
+            if (rsiVal < 30)                       { score += 1.5; factors.push(`✅ RSI ${rsiVal.toFixed(0)} (과매도)`); }
+            else if (rsiVal >= 40 && rsiVal <= 60) { score += 1;   factors.push(`✅ RSI ${rsiVal.toFixed(0)} (중립)`); }
+            else if (rsiVal > 70)                  { score -= 1;   factors.push(`❌ RSI ${rsiVal.toFixed(0)} (과매수)`); }
         } else {
-            if (rsiVal > 70)    { score += 1.5; factors.push(`✅ RSI ${rsiVal.toFixed(0)} (과매수)`); }
+            if (rsiVal > 70)  { score += 1.5; factors.push(`✅ RSI ${rsiVal.toFixed(0)} (과매수)`); }
             else if (rsiVal < 30) { score -= 1; factors.push(`❌ RSI ${rsiVal.toFixed(0)} (과매도)`); }
         }
 
-        // 5. MACD — 최대 1.5점
-        if (macd[i] != null && macdSignal[i] != null && macd[i-1] != null && macdSignal[i-1] != null) {
-            const diff  = macd[i] - macdSignal[i];
-            const diffP = macd[i-1] - macdSignal[i-1];
+        // 5. MACD — 1.5점
+        const macdi = sg(macd, i), macdSi = sg(macdSignal, i);
+        const macdPi = sg(macd, i-1), macdPS = sg(macdSignal, i-1);
+        if (macdi != null && macdSi != null && macdPi != null && macdPS != null) {
+            const diff = macdi - macdSi, diffP = macdPi - macdPS;
             if (signalType === 'buy'  && diff > 0 && diffP <= 0) { score += 1.5; factors.push('✅ MACD 골든크로스'); }
             else if (signalType === 'buy'  && diff > 0)           { score += 0.5; factors.push('🟡 MACD 양수'); }
             else if (signalType === 'sell' && diff < 0 && diffP >= 0) { score += 1.5; factors.push('✅ MACD 데드크로스'); }
@@ -16592,29 +16611,30 @@
         }
 
         // 6. 캔들 패턴 — 1점
-        if (opens[i] != null && highs[i] != null && lows[i] != null && opens[i-1] != null && closes[i-1] != null) {
-            const body  = Math.abs(closes[i] - opens[i]);
-            const upper = highs[i]  - Math.max(opens[i], closes[i]);
-            const lower = Math.min(opens[i], closes[i]) - lows[i];
+        const op = opens && Array.isArray(opens) ? opens : [];
+        if (sg(op, i) != null && sg(highs, i) != null && sg(lows, i) != null && i > 0) {
+            const body  = Math.abs(c - op[i]);
+            const upper = highs[i] - Math.max(op[i], c);
+            const lower = Math.min(op[i], c) - lows[i];
             if (signalType === 'buy') {
-                if (lower >= body * 2 && upper < body)       { score += 1; factors.push('✅ 해머 패턴'); }
-                else if (closes[i] > opens[i] && closes[i-1] < opens[i-1]
-                         && closes[i] > opens[i-1] && opens[i] < closes[i-1]) { score += 1; factors.push('✅ Bullish Engulfing'); }
+                if (lower >= body * 2 && upper < body) { score += 1; factors.push('✅ 해머 패턴'); }
+                else if (c > op[i] && closes[i-1] < op[i-1] && c > op[i-1] && op[i] < closes[i-1]) { score += 1; factors.push('✅ Bullish Engulfing'); }
             } else {
-                if (upper >= body * 2 && lower < body)       { score += 1; factors.push('✅ Shooting Star'); }
-                else if (closes[i] < opens[i] && closes[i-1] > opens[i-1]
-                         && closes[i] < opens[i-1] && opens[i] > closes[i-1]) { score += 1; factors.push('✅ Bearish Engulfing'); }
+                if (upper >= body * 2 && lower < body) { score += 1; factors.push('✅ Shooting Star'); }
+                else if (c < op[i] && closes[i-1] > op[i-1] && c < op[i-1] && op[i] > closes[i-1]) { score += 1; factors.push('✅ Bearish Engulfing'); }
             }
         }
 
         // 7. ATR 적정 범위 — 0.5점
-        const curAtr = atr[i] || 0;
-        const atrPct = c > 0 ? (curAtr / c) * 100 : 0;
-        if (atrPct >= 0.5 && atrPct <= 3.0)  { score += 0.5; factors.push(`✅ ATR ${atrPct.toFixed(1)}% (적정)`); }
-        else if (atrPct > 5.0)               { score -= 0.5; factors.push(`⚠️ ATR ${atrPct.toFixed(1)}% (변동성 과다)`); }
+        const atri = sg(atr, i);
+        if (atri != null && c > 0) {
+            const atrPct = (atri / c) * 100;
+            if (atrPct >= 0.5 && atrPct <= 3.0) { score += 0.5; factors.push(`✅ ATR ${atrPct.toFixed(1)}%`); }
+            else if (atrPct > 5.0)              { score -= 0.5; factors.push(`⚠️ ATR ${atrPct.toFixed(1)}% (과다)`); }
+        }
 
         // 8. Bollinger Band 위치 — 0.5점
-        if (bb && bb.upper && bb.lower && bb.upper[i] != null && bb.lower[i] != null) {
+        if (bb && bb.upper && bb.lower && sg(bb.upper, i) != null && sg(bb.lower, i) != null) {
             const bbRange = bb.upper[i] - bb.lower[i];
             if (bbRange > 0) {
                 const bbPos = (c - bb.lower[i]) / bbRange;
@@ -16627,26 +16647,26 @@
         const prevC5 = closes[Math.max(0, i-5)];
         if (prevC5 != null && prevC5 > 0) {
             const mom5 = ((c - prevC5) / prevC5) * 100;
-            if (signalType === 'buy'  && mom5 > 0 && mom5 < 5)   { score += 0.5; factors.push(`✅ 5봉 모멘텀 +${mom5.toFixed(1)}%`); }
-            else if (signalType === 'sell' && mom5 < 0 && mom5 > -5) { score += 0.5; factors.push(`✅ 5봉 모멘텀 ${mom5.toFixed(1)}%`); }
-            else if (Math.abs(mom5) > 7) { score -= 0.5; factors.push(`⚠️ 과도한 변동 ${mom5.toFixed(1)}%`); }
+            if (signalType === 'buy'  && mom5 > 0 && mom5 < 5)   { score += 0.5; factors.push(`✅ 모멘텀 +${mom5.toFixed(1)}%`); }
+            else if (signalType === 'sell' && mom5 < 0 && mom5 > -5) { score += 0.5; factors.push(`✅ 모멘텀 ${mom5.toFixed(1)}%`); }
         }
 
-        // 10. 지지/저항 컨플루언스 — 1점
+        // 10. 지지/저항 — 1점
         const lb = Math.min(50, i);
-        const rHighs = highs.slice(Math.max(0, i-lb), i).filter(v => v != null);
-        const rLows  = lows.slice(Math.max(0, i-lb), i).filter(v => v != null);
-        if (rHighs.length && rLows.length) {
-            const maxH = Math.max(...rHighs), minL = Math.min(...rLows);
+        const rH = (highs || []).slice(Math.max(0, i-lb), i).filter(v => v != null);
+        const rL = (lows  || []).slice(Math.max(0, i-lb), i).filter(v => v != null);
+        if (rH.length && rL.length) {
+            const maxH = Math.max(...rH), minL = Math.min(...rL);
             if (signalType === 'buy'  && minL > 0 && Math.abs(c - minL) / minL < 0.02) { score += 1; factors.push('✅ 지지선 근접'); }
             else if (signalType === 'sell' && maxH > 0 && Math.abs(c - maxH) / maxH < 0.02) { score += 1; factors.push('✅ 저항선 근접'); }
         }
 
-        const grade      = score >= 9 ? 'S' : score >= 7 ? 'A' : score >= 5 ? 'B' : score >= 3 ? 'C' : 'D';
-        const winRate    = score >= 9 ? 90 : score >= 7 ? 78 : score >= 5 ? 65 : score >= 3 ? 52 : 40;
-        const stars      = score >= 9 ? '⭐⭐⭐⭐⭐' : score >= 7 ? '⭐⭐⭐⭐' : score >= 5 ? '⭐⭐⭐' : score >= 3 ? '⭐⭐' : '⭐';
-        const recommendation = grade === 'S' ? '강력 진입' : grade === 'A' ? '진입 권장' : grade === 'B' ? '신중 진입' : grade === 'C' ? '관망 권장' : '진입 비권장';
-        return { grade, score: +score.toFixed(1), winRate, stars, factors, recommendation };
+        // 최종 등급 (D 제거 — C/B/A/S 4단계)
+        const grade    = score >= 9 ? 'S' : score >= 7 ? 'A' : score >= 5 ? 'B' : 'C';
+        const winRate  = score >= 9 ? 85  : score >= 7 ? 72  : score >= 5 ? 60  : 50;
+        const stars    = score >= 9 ? '⭐⭐⭐⭐⭐' : score >= 7 ? '⭐⭐⭐⭐' : score >= 5 ? '⭐⭐⭐' : '⭐⭐';
+        const recommendation = grade === 'S' ? '강력 진입' : grade === 'A' ? '진입 권장' : grade === 'B' ? '신중 진입' : '관망 권장';
+        return { grade, score: +score.toFixed(1), winRate, stars, factors, recommendation, fallback: false };
     }
 
     // ── 등급 필터 함수 ──────────────────────────────────────────────
@@ -16672,10 +16692,13 @@
         }
     }
 
-    function _passesGradeFilter(grade) {
-        const order = { D: 0, C: 1, B: 2, A: 3, S: 4 };
-        const min = order[_minGradeFilter] !== undefined ? order[_minGradeFilter] : 1;
-        const cur = order[grade]           !== undefined ? order[grade]           : 0;
+    function _passesGradeFilter(grade, isFallback) {
+        if (isFallback) return true;           // 폴백 마커는 무조건 통과
+        const order = { C: 0, B: 1, A: 2, S: 3 };
+        const min = order[_minGradeFilter];
+        const cur = order[grade];
+        if (min === undefined) return true;    // 알 수 없는 필터값 → 통과
+        if (cur === undefined) return true;    // 알 수 없는 등급 → 통과
         return cur >= min;
     }
 
