@@ -15200,6 +15200,8 @@
         _sigHistoryOpen = !_sigHistoryOpen;
         const btn = document.getElementById('sigHistoryBtn');
         if (btn) { btn.style.color = _sigHistoryOpen ? '#F59E0B' : 'var(--text3)'; btn.style.background = _sigHistoryOpen ? 'var(--bg3)' : 'transparent'; }
+        const fab = document.getElementById('alertFab');
+        if (fab) fab.classList.toggle('active', _sigHistoryOpen);
         _renderSigHistoryPanel();
     }
     function _renderSigHistoryPanel() {
@@ -15207,6 +15209,11 @@
         const badge = document.getElementById('sigHistoryBadge');
         const unread = _sigHistory.length;
         if (badge) { badge.style.display = unread > 0 ? '' : 'none'; badge.textContent = unread > 9 ? '9+' : String(unread); }
+        // alertFab 동기화
+        const fab = document.getElementById('alertFab');
+        const fabBadge = document.getElementById('alertFabBadge');
+        if (fab) fab.style.display = unread > 0 ? 'flex' : 'none';
+        if (fabBadge) { fabBadge.style.display = unread > 0 ? '' : 'none'; fabBadge.textContent = unread > 9 ? '9+' : String(unread); }
 
         let panel = document.getElementById('sigHistoryPanel');
         if (!_sigHistoryOpen) { if (panel) panel.remove(); return; }
@@ -27795,6 +27802,16 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
             </div>
         </div>
     </div>
+
+    <!-- ===== 알림내역 FAB ===== -->
+    <button id="alertFab" onclick="toggleSigHistoryPanel()" title="알림내역" aria-label="알림내역" style="display:none;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+        알림
+        <span id="alertFabBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:#EF4444;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;line-height:14px;text-align:center;padding:0 2px;"></span>
+    </button>
 
     <!-- ===== 분할 매수 FAB ===== -->
     <button id="calcFab" onclick="openCalcFab()" title="분할 매수 계산기" aria-label="분할 매수 계산기">
