@@ -491,6 +491,7 @@
             <div class="catalyst-tabs">
                 <button class="catalyst-tab active" data-ctab="edgar" onclick="switchCatalystTab('edgar')">📄 EDGAR 공시</button>
                 <button class="catalyst-tab"        data-ctab="volume" onclick="switchCatalystTab('volume')">🔥 거래량 급증</button>
+                <button class="catalyst-tab" onclick="switchCatalystTab('minervini')" data-ctab="minervini">미너비니 SEPA</button>
             </div>
             <div id="catalystEdgarTab">
                 <div class="catalyst-warn">
@@ -520,6 +521,9 @@
                 <div class="catalyst-list" id="catalystVolList">
                     <div class="catalyst-loading">거래량 급증 스캔 중...</div>
                 </div>
+            </div>
+            <div id="catalystMinerviniTab" class="catalyst-tab-content" style="display:none">
+                <div class="catalyst-list" id="minerviniList"></div>
             </div>
         </div>
     </div>
@@ -2017,6 +2021,7 @@
                 if (e.key === 'Escape') closeSearch();
             });
         }
+        _setupMinerviniSchedule();
     });
 
     // 백엔드 API 베이스 URL (같은 도메인 서빙 시 빈 문자열)
@@ -8829,21 +8834,28 @@
     }
 
     let _volSurgeCatLoaded = false;
+    let _minerviniLoaded = false;
 
     function switchCatalystTab(tab) {
         document.querySelectorAll('.catalyst-tab').forEach(b => b.classList.toggle('active', b.dataset.ctab === tab));
-        const edgarTab  = document.getElementById('catalystEdgarTab');
-        const volumeTab = document.getElementById('catalystVolumeTab');
-        const refreshBtn = document.getElementById('catalystRefreshBtn');
+        const edgarTab     = document.getElementById('catalystEdgarTab');
+        const volumeTab    = document.getElementById('catalystVolumeTab');
+        const minerviniTab = document.getElementById('catalystMinerviniTab');
+        const refreshBtn   = document.getElementById('catalystRefreshBtn');
+        if (edgarTab)     edgarTab.style.display     = 'none';
+        if (volumeTab)    volumeTab.style.display    = 'none';
+        if (minerviniTab) minerviniTab.style.display = 'none';
         if (tab === 'edgar') {
-            edgarTab.style.display  = '';
-            volumeTab.style.display = 'none';
+            if (edgarTab) edgarTab.style.display = '';
             if (refreshBtn) { refreshBtn.onclick = () => loadCatalyst(true); refreshBtn.style.display = ''; }
-        } else {
-            edgarTab.style.display  = 'none';
-            volumeTab.style.display = '';
+        } else if (tab === 'volume') {
+            if (volumeTab) volumeTab.style.display = '';
             if (refreshBtn) { refreshBtn.onclick = () => loadVolumeSurge(true); refreshBtn.style.display = ''; }
             if (!_volSurgeCatLoaded) loadVolumeSurge(false);
+        } else if (tab === 'minervini') {
+            if (minerviniTab) minerviniTab.style.display = '';
+            if (refreshBtn) { refreshBtn.onclick = () => loadMinervini(); refreshBtn.style.display = ''; }
+            if (!_minerviniLoaded) loadMinervini();
         }
     }
 
@@ -8921,6 +8933,81 @@
             console.error('[loadVolumeSurge]', e);
             listEl.innerHTML = `<div class="catalyst-loading">오류: ${e.message}</div>`;
         }
+    }
+
+    async function loadMinervini() {
+        _minerviniLoaded = true;
+        const listEl = document.getElementById('minerviniList');
+        if (!listEl) return;
+        listEl.innerHTML = '<div class="catalyst-loading">SEPA 셋업 스캔 중... (1~2분 소요)</div>';
+        try {
+            const r = await fetch('/api/scanner/minervini');
+            const d = await r.json();
+            if (d.error) throw new Error(d.error);
+            if (!d.stocks || d.stocks.length === 0) {
+                listEl.innerHTML = '<div class="catalyst-empty">오늘은 미너비니 SEPA 셋업 없음<br><span style="font-size:11px;color:var(--text3)">시장 상황상 진입 기회가 없을 수 있어요</span></div>';
+                return;
+            }
+            const guideHtml = `<div style="background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.25);border-radius:8px;padding:12px;margin-bottom:12px;font-size:11px;color:var(--text2);line-height:1.8">
+                <strong style="color:#FFD700">Mark Minervini SEPA 매매 룰</strong><br>
+                진입: 장 마감 30분 전 피벗 돌파 종가 매수 &nbsp;|&nbsp; 손절: -7.5% 절대 사수<br>
+                익절: +10%(30%) → +25%(40%) → +50%(30%) &nbsp;|&nbsp; 보유: 1~5일</div>`;
+            const cards = d.stocks.map(s => `
+                <div class="catalyst-card" onclick="selectStock('${s.ticker}')" style="cursor:pointer;border-left:3px solid #FFD700;margin-bottom:8px;padding:12px">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+                        <div>
+                            <div style="font-size:14px;font-weight:800;color:var(--text1)">${s.ticker}</div>
+                            <div style="font-size:10px;color:var(--text3);margin-top:2px">RS ${s.rsScore} &middot; Trend ${s.trendTemplateScore}/8 &middot; VCP ${s.vcp?'O':'X'}</div>
+                        </div>
+                        <div style="text-align:right">
+                            <div style="font-size:13px;font-weight:700;color:var(--text1)">$${s.currentPrice.toFixed(2)}</div>
+                            <div style="font-size:10px;color:#FFD700">거래량 ${s.volRatio}배</div>
+                        </div>
+                    </div>
+                    <div style="background:rgba(255,215,0,0.05);border-radius:6px;padding:8px;font-size:11px;line-height:1.7">
+                        <div><span style="color:var(--text3)">진입:</span> <strong style="color:var(--text1)">$${s.entryPrice.toFixed(2)}</strong> (피벗 $${s.pivot})</div>
+                        <div><span style="color:#EF4444">손절:</span> <strong style="color:#EF4444">$${s.stopLoss}</strong> (-7.5%)</div>
+                        <div><span style="color:#22C55E">익절:</span> <strong style="color:#22C55E">$${s.tp1Price}</strong> / $${s.tp2Price} / $${s.tp3Price}</div>
+                    </div>
+                    <div style="display:flex;gap:8px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);font-size:10px;color:var(--text3)">
+                        <span>1M ${s.rs1m>0?'+':''}${s.rs1m}%</span>
+                        <span>3M ${s.rs3m>0?'+':''}${s.rs3m}%</span>
+                        <span>6M ${s.rs6m>0?'+':''}${s.rs6m}%</span>
+                    </div>
+                </div>`).join('');
+            listEl.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:4px 0 10px">스캔: ${new Date(d.scannedAt).toLocaleString('ko-KR')} &middot; ${d.total}개 셋업</div>${guideHtml}${cards}`;
+        } catch(e) {
+            listEl.innerHTML = `<div class="catalyst-empty">스캔 실패: ${e.message}<br><button onclick="loadMinervini()" style="margin-top:8px;padding:4px 12px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer">다시 시도</button></div>`;
+        }
+    }
+
+    async function _runMinerviniAlert() {
+        try {
+            const r = await fetch('/api/scanner/minervini');
+            const d = await r.json();
+            if (d.stocks && d.stocks.length > 0) {
+                const top3 = d.stocks.slice(0, 3);
+                const tickers = top3.map(s => s.ticker).join(', ');
+                if (typeof _showSignalAlert === 'function') {
+                    _showSignalAlert(`미너비니 SEPA 셋업 발견 — ${tickers}`, true, `${d.stocks.length}개 종목 · 장 마감 30분 전`);
+                }
+                if (typeof _sigHistory !== 'undefined') {
+                    _sigHistory.unshift({ ts: Date.now(), symbol: tickers, dir: 'buy',
+                        headline: `미너비니 SEPA — ${d.stocks.length}개 셋업`,
+                        subText: `Top: ${top3.map(s=>`${s.ticker} $${s.entryPrice.toFixed(2)}`).join(' · ')}`, type: 'minervini_sepa' });
+                    try { localStorage.setItem('stockai_sig_history', JSON.stringify(_sigHistory.slice(0,100))); } catch(e){}
+                }
+            }
+        } catch(e) { console.warn('[minervini schedule]', e.message); }
+    }
+
+    function _setupMinerviniSchedule() {
+        setInterval(() => {
+            const now = new Date();
+            const krH = new Date(now.getTime() + 9*60*60*1000).getUTCHours();
+            const krM = new Date(now.getTime() + 9*60*60*1000).getUTCMinutes();
+            if (krH === 4 && krM === 30) _runMinerviniAlert();
+        }, 60000);
     }
 
     async function loadCatalyst(forceRefresh) {
@@ -15411,6 +15498,83 @@
             return out;
         };
         return { peaks: dedupe(peaks), troughs: dedupe(troughs) };
+    }
+
+    function _detectMinerviniSetup(candleData) {
+        if (!candleData || candleData.length < 200) return null;
+        const closes  = candleData.map(c => c.close);
+        const highs   = candleData.map(c => c.high);
+        const lows    = candleData.map(c => c.low);
+        const volumes = candleData.map(c => c.volume);
+        const n = closes.length;
+        const cur = closes[n - 1];
+
+        const ma50  = calcSMA(closes, 50);
+        const ma150 = calcSMA(closes, 150);
+        const ma200 = calcSMA(closes, 200);
+        const lastMa50 = ma50[n-1], lastMa150 = ma150[n-1], lastMa200 = ma200[n-1];
+        if (!lastMa50 || !lastMa150 || !lastMa200) return null;
+
+        const cond1 = cur > lastMa150 && cur > lastMa200;
+        const cond2 = lastMa150 > lastMa200;
+        const ma200_20ago = ma200[n - 21];
+        const cond3 = ma200_20ago != null && lastMa200 > ma200_20ago;
+        const cond4 = lastMa50 > lastMa150 && lastMa150 > lastMa200;
+        const cond5 = cur > lastMa50;
+        const low52w  = Math.min(...lows.slice(-252));
+        const high52w = Math.max(...highs.slice(-252));
+        const cond6 = (cur - low52w) / low52w >= 0.30;
+        const cond7 = (high52w - cur) / high52w <= 0.25;
+        const rs1m = n > 21  ? (cur / closes[n-21]  - 1) * 100 : 0;
+        const rs3m = n > 63  ? (cur / closes[n-63]  - 1) * 100 : 0;
+        const rs6m = n > 126 ? (cur / closes[n-126] - 1) * 100 : 0;
+        const rsScore = rs1m * 0.4 + rs3m * 0.3 + rs6m * 0.3;
+        const cond8 = rsScore >= 15;
+
+        const trendTemplateScore = [cond1,cond2,cond3,cond4,cond5,cond6,cond7,cond8].filter(Boolean).length;
+        const isStage2 = trendTemplateScore >= 7;
+
+        if (!isStage2) return { signal: false, reason: 'Stage 2 미충족', trendTemplateScore, conds:{cond1,cond2,cond3,cond4,cond5,cond6,cond7,cond8} };
+
+        // VCP
+        const vcpWindow = 40;
+        const s1 = closes.slice(-vcpWindow, -Math.floor(vcpWindow*2/3));
+        const s2 = closes.slice(-Math.floor(vcpWindow*2/3), -Math.floor(vcpWindow/3));
+        const s3 = closes.slice(-Math.floor(vcpWindow/3));
+        const rng = arr => arr.length < 2 ? 0 : (Math.max(...arr) - Math.min(...arr)) / Math.min(...arr) * 100;
+        const range1 = rng(s1), range2 = rng(s2), range3 = rng(s3);
+        const isVCP = range1 > range2 && range2 > range3 && range3 < range1 * 0.6;
+
+        // Pivot
+        const pivot = s3.length > 0 ? Math.max(...s3) : cur;
+        const pivotBroken = cur > pivot * 0.998;
+
+        // Volume
+        const vols = volumes.slice(-50).filter(v => v != null);
+        const avgVol50 = vols.length > 0 ? vols.reduce((a,b)=>a+b,0)/vols.length : 0;
+        const curVol = volumes[n-1] || 0;
+        const volRatio = avgVol50 > 0 ? curVol / avgVol50 : 0;
+        const volConfirm = volRatio >= 1.5;
+
+        const entrySignal = isStage2 && isVCP && pivotBroken && volConfirm;
+
+        const atrArr = calcATR(highs, lows, closes, 14);
+        const atr = atrArr[atrArr.length-1] || 0;
+
+        const entryPrice = cur;
+        const stopLoss   = +(entryPrice * 0.925).toFixed(2);
+        const tp1Price   = +(entryPrice * 1.10).toFixed(2);
+        const tp2Price   = +(entryPrice * 1.25).toFixed(2);
+        const tp3Price   = +(entryPrice * 1.50).toFixed(2);
+
+        return {
+            signal: entrySignal, stage2: isStage2, vcp: isVCP,
+            pivot: +pivot.toFixed(2), pivotBroken, volRatio: +volRatio.toFixed(2), volConfirm,
+            rsScore: +rsScore.toFixed(1), trendTemplateScore, atr,
+            entryPrice, stopLoss, tp1Price, tp2Price, tp3Price,
+            rs1m: +rs1m.toFixed(1), rs3m: +rs3m.toFixed(1), rs6m: +rs6m.toFixed(1),
+            ranges: { range1: +range1.toFixed(1), range2: +range2.toFixed(1), range3: +range3.toFixed(1) },
+        };
     }
 
     function renderChartLiveSignals(candleData, ts, q, bb) {
@@ -27804,7 +27968,7 @@
         _applyGuruFilter, _guruFilterPos, _guruRefreshLatest,
         setMarket, searchStock, setChartInterval, setPeriod, _toggleIntervalDropdown,
         quickSearch, toggleFavorite, switchTab, toggleChartFullscreen,
-        favSearch, removeFavorite, setTop100Filter, goTop100, goCatalyst, loadCatalyst, _catalystSetFilter, switchCatalystTab, loadVolumeSurge,
+        favSearch, removeFavorite, setTop100Filter, goTop100, goCatalyst, loadCatalyst, _catalystSetFilter, switchCatalystTab, loadVolumeSurge, loadMinervini,
         _runCatalystAi, _renderCatalystAiExpanded,
         _runScannerAi, _renderScannerAiResult, _alphaAutoBatchAi, _renderAlphaAiMini,
         _alphaRenderSocialScanner, _runSocialAi, _renderSocialAiResult,

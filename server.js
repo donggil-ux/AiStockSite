@@ -780,6 +780,135 @@ app.get('/api/screener/:filter', async (req, res) => {
 });
 
 // ───────────────────────────────────────────────────────────────────────
+// Mark Minervini SEPA 스캐너
+//   - Trend Template 8조건 + VCP + Pivot 돌파 + 거래량 확인
+//   - Polygon.io 일봉 기반 24h 캐시
+// ───────────────────────────────────────────────────────────────────────
+const _minerviniCache = { ts: 0, data: null };
+const MINERVINI_CACHE_TTL = 24 * 60 * 60 * 1000;
+
+const MINERVINI_UNIVERSE = [
+    'NVDA','AAPL','MSFT','AMZN','GOOGL','META','TSLA','AVGO','JPM','V',
+    'PLTR','CRWD','NET','SHOP','SNOW','COIN','MSTR','OKLO','IREN',
+    'TQQQ','SOXL','NVDL',
+];
+
+function _mvSMA(arr, period) {
+    const result = new Array(arr.length).fill(null);
+    for (let i = period - 1; i < arr.length; i++) {
+        let sum = 0; for (let j = 0; j < period; j++) sum += (arr[i-j] || 0);
+        result[i] = sum / period;
+    }
+    return result;
+}
+function _mvATR(highs, lows, closes, period) {
+    const tr = [];
+    for (let i = 0; i < closes.length; i++) {
+        if (i === 0) { tr.push(highs[i] - lows[i]); continue; }
+        tr.push(Math.max(highs[i]-lows[i], Math.abs(highs[i]-(closes[i-1]||0)), Math.abs(lows[i]-(closes[i-1]||0))));
+    }
+    const result = new Array(closes.length).fill(null);
+    let sum = 0;
+    for (let i = 0; i < period && i < tr.length; i++) sum += tr[i];
+    if (period <= tr.length) result[period-1] = sum / period;
+    for (let i = period; i < tr.length; i++) {
+        result[i] = (result[i-1] * (period-1) + tr[i]) / period;
+    }
+    return result;
+}
+function _mvDetectSetup(candleData) {
+    if (!candleData || candleData.length < 200) return null;
+    const closes = candleData.map(c => c.close);
+    const highs  = candleData.map(c => c.high);
+    const lows   = candleData.map(c => c.low);
+    const volumes= candleData.map(c => c.volume);
+    const n = closes.length, cur = closes[n-1];
+
+    const ma50 = _mvSMA(closes,50), ma150 = _mvSMA(closes,150), ma200 = _mvSMA(closes,200);
+    const lm50 = ma50[n-1], lm150 = ma150[n-1], lm200 = ma200[n-1];
+    if (!lm50 || !lm150 || !lm200) return null;
+
+    const cond1 = cur > lm150 && cur > lm200;
+    const cond2 = lm150 > lm200;
+    const cond3 = ma200[n-21] != null && lm200 > ma200[n-21];
+    const cond4 = lm50 > lm150 && lm150 > lm200;
+    const cond5 = cur > lm50;
+    const low52w  = Math.min(...lows.slice(-252));
+    const high52w = Math.max(...highs.slice(-252));
+    const cond6 = (cur - low52w) / low52w >= 0.30;
+    const cond7 = (high52w - cur) / high52w <= 0.25;
+    const rs1m = n > 21  ? (cur/closes[n-21]-1)*100  : 0;
+    const rs3m = n > 63  ? (cur/closes[n-63]-1)*100  : 0;
+    const rs6m = n > 126 ? (cur/closes[n-126]-1)*100 : 0;
+    const rsScore = rs1m*0.4 + rs3m*0.3 + rs6m*0.3;
+    const cond8 = rsScore >= 15;
+    const trendTemplateScore = [cond1,cond2,cond3,cond4,cond5,cond6,cond7,cond8].filter(Boolean).length;
+    if (trendTemplateScore < 7) return null;
+
+    const vcpWindow = 40;
+    const s1 = closes.slice(-vcpWindow, -Math.floor(vcpWindow*2/3));
+    const s2 = closes.slice(-Math.floor(vcpWindow*2/3), -Math.floor(vcpWindow/3));
+    const s3 = closes.slice(-Math.floor(vcpWindow/3));
+    const rng = arr => arr.length < 2 ? 0 : (Math.max(...arr)-Math.min(...arr))/Math.min(...arr)*100;
+    const range1=rng(s1), range2=rng(s2), range3=rng(s3);
+    const isVCP = range1>range2 && range2>range3 && range3<range1*0.6;
+    const pivot = s3.length>0 ? Math.max(...s3) : cur;
+    const pivotBroken = cur > pivot*0.998;
+    const vols = volumes.slice(-50).filter(v=>v!=null);
+    const avgVol50 = vols.length>0 ? vols.reduce((a,b)=>a+b,0)/vols.length : 0;
+    const volRatio = avgVol50>0 ? (volumes[n-1]||0)/avgVol50 : 0;
+    const volConfirm = volRatio >= 1.5;
+    if (!isVCP || !pivotBroken || !volConfirm) return null;
+
+    return {
+        signal: true, stage2: true, vcp: isVCP,
+        pivot: +pivot.toFixed(2), pivotBroken, volRatio: +volRatio.toFixed(2),
+        rsScore: +rsScore.toFixed(1), trendTemplateScore,
+        entryPrice: cur, stopLoss: +(cur*0.925).toFixed(2),
+        tp1Price: +(cur*1.10).toFixed(2), tp2Price: +(cur*1.25).toFixed(2), tp3Price: +(cur*1.50).toFixed(2),
+        rs1m: +rs1m.toFixed(1), rs3m: +rs3m.toFixed(1), rs6m: +rs6m.toFixed(1),
+        ranges: { range1: +range1.toFixed(1), range2: +range2.toFixed(1), range3: +range3.toFixed(1) },
+    };
+}
+
+app.get('/api/scanner/minervini', async (req, res) => {
+    if (_minerviniCache.data && Date.now() - _minerviniCache.ts < MINERVINI_CACHE_TTL)
+        return res.json(_minerviniCache.data);
+
+    const POLYGON_API = process.env.POLYGON_API;
+    if (!POLYGON_API) return res.status(503).json({ error: 'POLYGON_API not configured' });
+
+    try {
+        const candidates = [];
+        const to   = new Date().toISOString().split('T')[0];
+        const from = new Date(Date.now() - 290*86400000).toISOString().split('T')[0];
+
+        for (const ticker of MINERVINI_UNIVERSE) {
+            try {
+                const url = `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${from}/${to}`
+                    + `?adjusted=true&sort=asc&limit=300&apiKey=${POLYGON_API}`;
+                const r = await axios.get(url, { timeout: 8000 });
+                const d = r.data;
+                if (!d.results || d.results.length < 200) continue;
+                const candleData = d.results.map(c => ({ time: Math.floor(c.t/1000), open:c.o, high:c.h, low:c.l, close:c.c, volume:c.v }));
+                const setup = _mvDetectSetup(candleData);
+                if (setup) candidates.push({ ticker, ...setup, currentPrice: candleData[candleData.length-1].close });
+                await new Promise(r => setTimeout(r, 300));
+            } catch(e) { console.warn(`[minervini] ${ticker} skip:`, e.message); }
+        }
+
+        candidates.sort((a,b) => b.rsScore - a.rsScore);
+        const result = { scannedAt: new Date().toISOString(), scanType: 'Mark Minervini SEPA', total: candidates.length, stocks: candidates };
+        _minerviniCache.data = result;
+        _minerviniCache.ts   = Date.now();
+        res.json(result);
+    } catch(e) {
+        console.error('[minervini]', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ───────────────────────────────────────────────────────────────────────
 // 비정상 거래량 스캐너 — Pre-Pump 감지
 //   - most_actives(50) + day_gainers(50) 유니버스
 //   - 평균 대비 3배+ (또는 2배+·변동 5%+) → surgeScore 정렬 → 상위 30개
