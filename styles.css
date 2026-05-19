@@ -6653,6 +6653,37 @@
 .mob-recent-chip .mrc-del:active{transform:scale(0.85);}
 
 /* ═══════════════════════════════════════════════════════
+   토스증권 스타일 모바일 검색 UI
+   ═══════════════════════════════════════════════════════ */
+.mob-toss-section{padding:20px 16px 4px;}
+.mob-toss-section+.mob-toss-section{padding-top:16px;}
+.mob-toss-section-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.mob-toss-section-title{font-size:13px;font-weight:700;color:var(--text2);letter-spacing:-0.01em;}
+.mob-toss-section-clear{background:none;border:none;font-size:12px;color:var(--text3);cursor:pointer;padding:0;font-family:inherit;transition:color .15s;-webkit-tap-highlight-color:transparent;}
+.mob-toss-section-clear:hover{color:var(--text);}
+.mob-toss-section-clear:active{opacity:.5;}
+.mob-toss-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px;}
+.mob-toss-chip{display:inline-flex;align-items:center;gap:6px;padding:7px 10px 7px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-full);cursor:pointer;font-size:13px;font-weight:600;color:var(--text);-webkit-tap-highlight-color:transparent;transition:background .15s,transform .1s;}
+.mob-toss-chip:hover{background:var(--bg4);}
+.mob-toss-chip:active{transform:scale(0.96);}
+.mob-toss-chip .mrc-del{display:flex;align-items:center;justify-content:center;width:17px;height:17px;background:var(--bg4);border:none;border-radius:50%;color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;line-height:1;transition:all .15s;-webkit-tap-highlight-color:transparent;padding:0;}
+.mob-toss-chip .mrc-del:hover{background:var(--red,#ef4444);color:#fff;}
+.mob-toss-chip .mrc-del:active{transform:scale(0.85);}
+.mob-toss-trending-list{display:flex;flex-direction:column;}
+.mob-toss-trending-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .1s;}
+.mob-toss-trending-item:last-child{border-bottom:none;}
+.mob-toss-trending-item:active{background:var(--bg2);}
+.mob-toss-rank{width:22px;text-align:center;font-size:13px;font-weight:800;color:var(--text3);flex-shrink:0;}
+.mob-toss-rank.rank-top{color:var(--blue);}
+.mob-toss-trending-info{flex:1;min-width:0;}
+.mob-toss-trending-name{display:block;font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mob-toss-trending-ticker{display:block;font-size:11px;color:var(--text3);margin-top:2px;}
+.mob-toss-chg-badge{font-size:12px;font-weight:700;padding:3px 7px;border-radius:6px;flex-shrink:0;white-space:nowrap;}
+.mob-toss-chg-badge.up{background:rgba(52,199,89,.12);color:var(--green);}
+.mob-toss-chg-badge.down{background:rgba(255,69,58,.12);color:var(--red);}
+.mob-toss-chg-badge.flat{background:var(--bg3);color:var(--text3);}
+
+/* ═══════════════════════════════════════════════════════
    알파 스캐너 홈 프리뷰 (v624)
    ═══════════════════════════════════════════════════════ */
 #alphaHomeSection{padding-top:8px;}

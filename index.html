@@ -1702,17 +1702,22 @@
         if (!el) return;
         let html = '';
         if (mode === 'empty') {
-            const favs = getFavorites();
-            if (favs.length) {
-                html += `<div class="sdrop-section-title">즐겨찾기</div>`;
-                html += favs.slice(0, 5).map((f, i) => {
-                    const meta = ASSET_META[f.symbol] || {};
-                    return _sdropItemHTML({ ticker: f.symbol, name: f.name, koreanName: f.name, market: f.market, type: meta.type || 'stock', sector: '', score: 0 }, i);
+            // 최근 검색 칩
+            let recent = [];
+            try { recent = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch(e) {}
+            if (recent.length) {
+                html += '<div class="mob-toss-section"><div class="mob-toss-section-hdr"><span class="mob-toss-section-title">최근 검색</span><button class="mob-toss-section-clear" onclick="_clearAllRecentSearches()">전체 삭제</button></div><div class="mob-toss-chips">';
+                html += recent.map(r => {
+                    const sym = String(r.symbol || '').replace(/[<>"']/g, '');
+                    const mkt = r.market || 'US';
+                    return `<div class="mob-toss-chip" onclick="_clickRecentChip(event,'${sym}','${mkt}')">${sym}<button class="mrc-del" onclick="event.stopPropagation();_deleteRecentSearch('${sym}','${mkt}')" aria-label="삭제">×</button></div>`;
                 }).join('');
+                html += '</div></div>';
             }
-            html += `<div class="sdrop-section-title">인기 종목</div>`;
+            // 인기 검색 (순위 리스트)
+            html += '<div class="mob-toss-section"><div class="mob-toss-section-hdr"><span class="mob-toss-section-title">인기 검색</span></div>';
             if (_searchTrending === null) {
-                html += _sdropSkeletonHTML(5);
+                html += '<div class="mob-toss-trending-list">' + _sdropSkeletonHTML(5) + '</div></div>';
                 el.innerHTML = html;
                 if (!_searchTrendingLoading) {
                     _searchTrendingLoading = true;
@@ -1724,18 +1729,23 @@
                 }
                 return;
             } else {
-                html += _searchTrending.slice(0, 8).map((item, i) => _sdropItemHTML(item, i)).join('');
+                html += '<div class="mob-toss-trending-list">';
+                html += _searchTrending.slice(0, 8).map((item, i) => {
+                    const rankCls = i < 3 ? ' rank-top' : '';
+                    const nameDisplay = (item.koreanName && item.koreanName !== item.ticker) ? item.koreanName : (item.name || item.ticker);
+                    const chg = _sdropFmtChg(item._changePct);
+                    const chgBadge = item._changePct != null ? `<span class="mob-toss-chg-badge ${chg.cls}">${chg.text}</span>` : '';
+                    return `<div class="mob-toss-trending-item sdrop-item" role="option" data-ticker="${escHtml(item.ticker||'')}" data-market="${escHtml(item.market||'')}"><span class="mob-toss-rank${rankCls}">${i+1}</span><div class="mob-toss-trending-info"><span class="mob-toss-trending-name">${escHtml(nameDisplay||'')}</span><span class="mob-toss-trending-ticker">${escHtml(item.ticker||'')}</span></div>${chgBadge}</div>`;
+                }).join('');
+                html += '</div></div>';
             }
         } else if (mode === 'results') {
             if (!data?.length) {
-                html = `<div style="padding:24px 16px;text-align:center;">
-                    <div style="font-size:22px;margin-bottom:8px;">🔍</div>
-                    <div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:5px;">검색 결과가 없습니다.</div>
-                    <div style="font-size:12px;color:var(--text3);line-height:1.6;">티커 심볼로 검색해 주세요<br><span style="color:var(--blue);font-weight:600;">예: AAPL, TSLA, 005930</span></div>
-                </div>`;
+                html = '<div style="padding:24px 16px;text-align:center;"><div style="font-size:22px;margin-bottom:8px;">🔍</div><div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:5px;">검색 결과가 없습니다.</div><div style="font-size:12px;color:var(--text3);line-height:1.6;">티커 심볼로 검색해 주세요<br><span style="color:var(--blue);font-weight:600;">예: AAPL, TSLA, 005930</span></div></div>';
             } else {
-                html += `<div class="sdrop-section-title">검색 결과</div>`;
+                html += '<div class="mob-toss-section"><div class="mob-toss-section-hdr"><span class="mob-toss-section-title">검색 결과</span></div><div class="mob-toss-trending-list">';
                 html += data.map((item, i) => _sdropItemHTML(item, i)).join('');
+                html += '</div></div>';
             }
         }
         el.innerHTML = html;
@@ -1750,32 +1760,18 @@
     function goSearch() {
         document.getElementById('mobSearchModal').style.display = '';
         updateBnActive('search');
-        _renderRecentSearchStrip();
         setTimeout(() => {
             const inp = document.getElementById('mobSearchInput');
             if (inp) { inp.focus(); _renderMobDropdown('empty', null); }
         }, 100);
     }
 
-    // ── 최근 검색 (스와이프 strip) ───────────────────────────────
+    // ── 최근 검색 strip (재렌더 시 _renderMobDropdown으로 위임) ──
     function _renderRecentSearchStrip() {
-        const wrap = document.getElementById('mobRecentSearches');
-        const strip = document.getElementById('mobRecentStrip');
-        if (!wrap || !strip) return;
-        let recent = [];
-        try { recent = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch(e) {}
-        if (!recent.length) { wrap.style.display = 'none'; return; }
-        wrap.style.display = '';
-        strip.innerHTML = recent.map((r, i) => {
-            const flag = r.market === 'KR' ? '🇰🇷' : '🇺🇸';
-            const sym = String(r.symbol || '').replace(/[<>"']/g, '');
-            const name = String(r.name || sym).replace(/[<>"']/g, '');
-            return `<div class="mob-recent-chip" data-idx="${i}" data-symbol="${sym}" data-market="${r.market||'US'}" onclick="_clickRecentChip(event, '${sym}', '${r.market||'US'}')">
-                <span class="mrc-flag">${flag}</span>
-                <span class="mrc-sym">${sym}</span>
-                <button class="mrc-del" onclick="event.stopPropagation();_deleteRecentSearch('${sym}','${r.market||'US'}')" aria-label="삭제">×</button>
-            </div>`;
-        }).join('');
+        if (document.getElementById('mobSearchModal')?.style.display !== 'none') {
+            const inp = document.getElementById('mobSearchInput');
+            if (inp?.value.trim() === '') _renderMobDropdown('empty', null);
+        }
     }
     function _clickRecentChip(e, symbol, market) {
         if (e.target.closest('.mrc-del')) return;
@@ -27547,18 +27543,10 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
             </button>
             <div class="mob-search-box">
                 <i class="ri-search-2-line" style="color:var(--text3);font-size:16px;flex-shrink:0;"></i>
-                <input type="text" id="mobSearchInput" placeholder="종목 입력 (예: 삼성전자, AAPL)" autocomplete="off" inputmode="search">
+                <input type="text" id="mobSearchInput" placeholder="종목명, 티커 검색" autocomplete="off" inputmode="search">
             </div>
         </div>
-        <!-- 최근 검색 (스와이프 형식) -->
-        <div id="mobRecentSearches" class="mob-recent-wrap" style="display:none;">
-            <div class="mob-recent-header">
-                <span class="mob-recent-title">최근 검색</span>
-                <button class="mob-recent-clear" onclick="_clearAllRecentSearches()">전체 삭제</button>
-            </div>
-            <div class="mob-recent-strip" id="mobRecentStrip"></div>
-        </div>
-        <div id="mobSearchResults"></div>
+        <div id="mobSearchResults" style="flex:1;overflow-y:auto;"></div>
     </div>
 
     <!-- ===== 바텀 내비게이션 (BN_TABS 설정으로 관리, 최대 MAX_BN_TABS=5개) ===== -->
