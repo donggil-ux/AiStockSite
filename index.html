@@ -18567,8 +18567,9 @@
 
     function _toggleAnalysisDd(e) {
         e.stopPropagation();
-        const isMobile = window.innerWidth <= 768;
-        // 모바일(768px 이하)이면 항상 바텀시트 사용
+        const isMobile = window.innerWidth <= 768
+            || document.querySelector('.tv-chart-card.fullscreen') !== null;
+        // 모바일(768px 이하) 또는 전체화면이면 바텀시트 사용
         if (isMobile) {
             _openChartBottomSheet('분석', 'analysisDdMenu');
             return;
@@ -18583,8 +18584,9 @@
 
     function _toggleLineDd(e) {
         e.stopPropagation();
-        const isMobile = window.innerWidth <= 768;
-        // 모바일(768px 이하)이면 항상 바텀시트 사용
+        const isMobile = window.innerWidth <= 768
+            || document.querySelector('.tv-chart-card.fullscreen') !== null;
+        // 모바일(768px 이하) 또는 전체화면이면 바텀시트 사용
         if (isMobile) {
             _openChartBottomSheet('라인', 'lineDdMenu');
             return;
@@ -18668,6 +18670,11 @@
         const titleEl = document.getElementById('chartBottomSheetTitle');
         const menu    = document.getElementById(menuId);
         if (!sheet || !menu) return;
+
+        // 전체화면 stacking context 회피 — body 최상위로 이동
+        if (sheet.parentElement !== document.body) {
+            document.body.appendChild(sheet);
+        }
 
         _bsMenuId = menuId;
 
@@ -27711,7 +27718,8 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         display:none;
         position:fixed;
         inset:0;
-        z-index:99999;
+        z-index:2147483647;
+        pointer-events:auto;
         background:rgba(0,0,0,0.5);"
         onclick="_cancelChartBottomSheet()">
         <div id="chartBottomSheetContent" style="
