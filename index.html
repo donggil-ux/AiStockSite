@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=726">
+    <link rel="stylesheet" href="/styles.css?v=727">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -842,11 +842,11 @@
                             <button class="chart-tb-btn range-btn" data-range="max" onclick="setPeriod('max')">전체</button>
                         </div>
                         <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
-                            <!-- 등급 필터 -->
-                            <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
-                                <button class="chart-tb-btn grade-btn active" data-grade="B" onclick="_setMinGrade('B')">B+</button>
-                                <button class="chart-tb-btn grade-btn" data-grade="A" onclick="_setMinGrade('A')">A+</button>
-                                <button class="chart-tb-btn grade-btn" data-grade="S" onclick="_setMinGrade('S')">S</button>
+                            <!-- 등급 필터 — Segmented Control -->
+                            <div class="grade-seg-group" id="gradeSegGroup">
+                                <button class="grade-seg-btn active" data-grade="B" onclick="_setMinGrade('B')">B+</button>
+                                <button class="grade-seg-btn" data-grade="A" onclick="_setMinGrade('A')">A+</button>
+                                <button class="grade-seg-btn" data-grade="S" onclick="_setMinGrade('S')">S</button>
                             </div>
                             <!-- 그리기 도구 — 임시 숨김 (v639) -->
                             <button class="chart-tb-btn" id="chartDrawToggleBtn"
@@ -16871,8 +16871,8 @@
         console.log('[grade] filter changed:', grade);
         _minGradeFilter = grade;
         localStorage.setItem('stockai_min_grade', grade);
-        // 버튼 활성화 UI
-        document.querySelectorAll('.grade-btn').forEach(b =>
+        // 버튼 활성화 UI (grade-btn 레거시 + grade-seg-btn 모두 지원)
+        document.querySelectorAll('.grade-btn, .grade-seg-btn').forEach(b =>
             b.classList.toggle('active', b.dataset.grade === grade));
         // 시그널 캐시 초기화 (재계산 강제)
         _signalGrades = {};
@@ -28324,7 +28324,7 @@
         );
         // 등급 필터 버튼 초기 상태 동기화
         if (typeof _minGradeFilter !== 'undefined') {
-            document.querySelectorAll('.grade-btn').forEach(b =>
+            document.querySelectorAll('.grade-btn, .grade-seg-btn').forEach(b =>
                 b.classList.toggle('active', b.dataset.grade === _minGradeFilter));
         }
 
