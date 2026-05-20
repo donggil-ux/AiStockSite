@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=728">
+    <link rel="stylesheet" href="/styles.css?v=729">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -1022,6 +1022,23 @@
                     </div>
                 </div>
 
+
+                <!-- 📱 모바일 인라인 종목 전환 바 (차트 바로 아래 sticky) -->
+                <div id="chartPagerInline" class="chart-pager-inline" style="display:none;">
+                    <button class="cpi-btn cpi-prev" onclick="navigateStock(-1)" aria-label="이전 종목">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                    </button>
+                    <div class="cpi-center" onclick="openStockPagerList()">
+                        <div class="cpi-ticker-row">
+                            <span class="cpi-ticker">—</span>
+                            <span class="cpi-page">— / —</span>
+                        </div>
+                        <div class="cpi-name"></div>
+                    </div>
+                    <button class="cpi-btn cpi-next" onclick="navigateStock(1)" aria-label="다음 종목">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                    </button>
+                </div>
 
                 <!-- 💼 내 포지션 요약/등록 카드 — 차트 바로 아래 -->
                 <div id="myPositionSlot"></div>
@@ -15994,12 +16011,12 @@
             if (rsi[i] <= 30 && rsi[i+1] > 30 && closes[i+1] > closes[i]) {
                 const sg = _gradeForBar(`${ts[i+1]}_rsi_buy`, { ..._gradeBase, i: i+1, signalType: 'buy' }, i+1 === _lastBarIdx);
                 if (_passesGradeFilter(sg.grade, sg.fallback)) {
-                    markers.push({ time: ts[i+1], position: 'belowBar', color: _gc(sg.grade), shape: 'arrowUp', text: `RSI매수 [${sg.grade}]` });
+                    markers.push({ time: ts[i+1], position: 'belowBar', color: _gc(sg.grade), shape: 'arrowUp', _label: `RSI매수 [${sg.grade}]` });
                 }
             } else if (rsi[i] >= 70 && rsi[i+1] < 70 && closes[i+1] < closes[i]) {
                 const sg = _gradeForBar(`${ts[i+1]}_rsi_sell`, { ..._gradeBase, i: i+1, signalType: 'sell' }, i+1 === _lastBarIdx);
                 if (_passesGradeFilter(sg.grade, sg.fallback)) {
-                    markers.push({ time: ts[i+1], position: 'aboveBar', color: _gc(sg.grade), shape: 'arrowDown', text: `RSI매도 [${sg.grade}]` });
+                    markers.push({ time: ts[i+1], position: 'aboveBar', color: _gc(sg.grade), shape: 'arrowDown', _label: `RSI매도 [${sg.grade}]` });
                 }
             }
         }
@@ -16011,12 +16028,12 @@
             if (prev <= 0 && cur > 0) {
                 const sg = _gradeForBar(`${ts[i]}_macd_buy`, { ..._gradeBase, i, signalType: 'buy' }, i === _lastBarIdx);
                 if (_passesGradeFilter(sg.grade, sg.fallback)) {
-                    markers.push({ time: ts[i], position: 'belowBar', color: _gc(sg.grade), shape: 'arrowUp', text: `MACD매수 [${sg.grade}]` });
+                    markers.push({ time: ts[i], position: 'belowBar', color: _gc(sg.grade), shape: 'arrowUp', _label: `MACD매수 [${sg.grade}]` });
                 }
             } else if (prev >= 0 && cur < 0) {
                 const sg = _gradeForBar(`${ts[i]}_macd_sell`, { ..._gradeBase, i, signalType: 'sell' }, i === _lastBarIdx);
                 if (_passesGradeFilter(sg.grade, sg.fallback)) {
-                    markers.push({ time: ts[i], position: 'aboveBar', color: _gc(sg.grade), shape: 'arrowDown', text: `MACD매도 [${sg.grade}]` });
+                    markers.push({ time: ts[i], position: 'aboveBar', color: _gc(sg.grade), shape: 'arrowDown', _label: `MACD매도 [${sg.grade}]` });
                 }
             }
         }
@@ -16025,7 +16042,7 @@
         raynerEntries.forEach(e => {
             const sg = _gradeForBar(`${e.time}_rayner_buy`, { ..._gradeBase, i: e.idx, signalType: 'buy' }, e.idx === _lastBarIdx);
             if (_passesGradeFilter(sg.grade, sg.fallback)) {
-                markers.push({ time: e.time, position: 'belowBar', color: e.color, shape: 'arrowUp', text: `${e.label} [${sg.grade}]` });
+                markers.push({ time: e.time, position: 'belowBar', color: e.color, shape: 'arrowUp', _label: `${e.label} [${sg.grade}]` });
             }
         });
         // 캔들 패턴 마커 (최근 5봉)
@@ -16043,7 +16060,7 @@
                     position: isBull ? 'belowBar' : isBear ? 'aboveBar' : 'inBar',
                     color: isBull ? '#ef4444' : isBear ? '#3b82f6' : '#94a3b8',
                     shape: isBull ? 'arrowUp' : isBear ? 'arrowDown' : 'circle',
-                    text: `${p.label} [${sg.grade}]`,
+                    _label: `${p.label} [${sg.grade}]`,
                 });
             }
         });
@@ -16055,12 +16072,12 @@
             if (p50 <= p200 && c50 > c200) {
                 const sg = _gradeForBar(`${ts[i]}_golden`, { ..._gradeBase, i, signalType: 'buy' }, i === _lastBarIdx);
                 if (_passesGradeFilter(sg.grade, sg.fallback)) {
-                    markers.push({ time: ts[i], position: 'belowBar', color: '#ef4444', shape: 'arrowUp', text: `골든크로스 [${sg.grade}]` });
+                    markers.push({ time: ts[i], position: 'belowBar', color: '#ef4444', shape: 'arrowUp', _label: `골든크로스 [${sg.grade}]` });
                 }
             } else if (p50 >= p200 && c50 < c200) {
                 const sg = _gradeForBar(`${ts[i]}_dead`, { ..._gradeBase, i, signalType: 'sell' }, i === _lastBarIdx);
                 if (_passesGradeFilter(sg.grade, sg.fallback)) {
-                    markers.push({ time: ts[i], position: 'aboveBar', color: '#3b82f6', shape: 'arrowDown', text: `데드크로스 [${sg.grade}]` });
+                    markers.push({ time: ts[i], position: 'aboveBar', color: '#3b82f6', shape: 'arrowDown', _label: `데드크로스 [${sg.grade}]` });
                 }
             }
         }
@@ -16075,7 +16092,7 @@
                 if (avg > 0 && vols[i] >= avg * 2.5 && closes[i] > closes[i-1]) {
                     const sg = _gradeForBar(`${ts[i]}_vol`, { ..._gradeBase, i, signalType: 'buy' }, i === _lastBarIdx);
                     if (_passesGradeFilter(sg.grade, sg.fallback)) {
-                        markers.push({ time: ts[i], position: 'belowBar', color: '#f97316', shape: 'arrowUp', text: `거래량급증 [${sg.grade}]` });
+                        markers.push({ time: ts[i], position: 'belowBar', color: '#f97316', shape: 'arrowUp', _label: `거래량급증 [${sg.grade}]` });
                     }
                 }
             }
@@ -16088,12 +16105,12 @@
                 if (pu != null && cu != null && closes[i-1] <= pu && closes[i] > cu) {
                     const sg = _gradeForBar(`${ts[i]}_bb_buy`, { ..._gradeBase, i, signalType: 'buy' }, i === _lastBarIdx);
                     if (_passesGradeFilter(sg.grade, sg.fallback)) {
-                        markers.push({ time: ts[i], position: 'belowBar', color: '#ef4444', shape: 'arrowUp', text: `BB돌파 [${sg.grade}]` });
+                        markers.push({ time: ts[i], position: 'belowBar', color: '#ef4444', shape: 'arrowUp', _label: `BB돌파 [${sg.grade}]` });
                     }
                 } else if (pl != null && cl != null && closes[i-1] >= pl && closes[i] < cl) {
                     const sg = _gradeForBar(`${ts[i]}_bb_sell`, { ..._gradeBase, i, signalType: 'sell' }, i === _lastBarIdx);
                     if (_passesGradeFilter(sg.grade, sg.fallback)) {
-                        markers.push({ time: ts[i], position: 'aboveBar', color: '#3b82f6', shape: 'arrowDown', text: `BB이탈 [${sg.grade}]` });
+                        markers.push({ time: ts[i], position: 'aboveBar', color: '#3b82f6', shape: 'arrowDown', _label: `BB이탈 [${sg.grade}]` });
                     }
                 }
             }
@@ -16176,7 +16193,7 @@
                     if (v3.pass) {
                         const sg = _gradeForBar(`${t}_buy1`, _gradeOpts, i === _lastBarIdx);
                         if (_passesGradeFilter(sg.grade, sg.fallback)) {
-                            markers.push({ time: t, position: 'belowBar', color: _gc(sg.grade), shape: 'arrowUp', text: `매수1 [${sg.grade}] ${sg.winRate}%` });
+                            markers.push({ time: t, position: 'belowBar', color: _gc(sg.grade), shape: 'arrowUp', _label: `매수1 [${sg.grade}] ${sg.winRate}%` });
                             window._smartDipAnalysis[t] = { ...v3, num: 1 };
                             lastBuy1Bar = i;
                         }
@@ -16193,7 +16210,7 @@
                     if (v3.pass) {
                         const sg = _gradeForBar(`${t}_buy2`, { ..._gradeOpts }, i === _lastBarIdx);
                         if (_passesGradeFilter(sg.grade, sg.fallback)) {
-                            markers.push({ time: t, position: 'belowBar', color: _gc(sg.grade), shape: 'arrowUp', text: `매수2 [${sg.grade}] ${sg.winRate}%` });
+                            markers.push({ time: t, position: 'belowBar', color: _gc(sg.grade), shape: 'arrowUp', _label: `매수2 [${sg.grade}] ${sg.winRate}%` });
                             window._smartDipAnalysis[t] = { ...v3, num: 2 };
                             lastBuy2Bar = i;
                         }
@@ -16232,7 +16249,7 @@
                     const sg = _gradeForBar(`${t}_sell1`, _sellGradeOpts, i === _lastBarIdx);
                     if (_passesGradeFilter(sg.grade, sg.fallback)) {
                         const sc = sg.grade === 'S' ? '#FFD700' : sg.grade === 'A' ? '#22C55E' : '#EF4444';
-                        markers.push({ time: t, position: 'aboveBar', color: sc, shape: 'arrowDown', text: `매도1 [${sg.grade}] ${sg.winRate}%` });
+                        markers.push({ time: t, position: 'aboveBar', color: sc, shape: 'arrowDown', _label: `매도1 [${sg.grade}] ${sg.winRate}%` });
                         lastSell1Bar = i;
                     }
                 } else if (prevC != null && e60 && prevE60 && prevC > prevE60 && c < e60
@@ -16240,7 +16257,7 @@
                     const sg = _gradeForBar(`${t}_sell2`, _sellGradeOpts, i === _lastBarIdx);
                     if (_passesGradeFilter(sg.grade, sg.fallback)) {
                         const sc = sg.grade === 'S' ? '#FFD700' : sg.grade === 'A' ? '#22C55E' : '#EF4444';
-                        markers.push({ time: t, position: 'aboveBar', color: sc, shape: 'arrowDown', text: `매도2 [${sg.grade}] ${sg.winRate}%` });
+                        markers.push({ time: t, position: 'aboveBar', color: sc, shape: 'arrowDown', _label: `매도2 [${sg.grade}] ${sg.winRate}%` });
                         lastSell2Bar = i;
                     }
                 } else if (prevC != null && e120 && prevE120 && prevC > prevE120 && c < e120
@@ -16248,7 +16265,7 @@
                     const sg = _gradeForBar(`${t}_sell3`, _sellGradeOpts, i === _lastBarIdx);
                     if (_passesGradeFilter(sg.grade, sg.fallback)) {
                         const sc = sg.grade === 'S' ? '#FFD700' : sg.grade === 'A' ? '#22C55E' : '#EF4444';
-                        markers.push({ time: t, position: 'aboveBar', color: sc, shape: 'arrowDown', text: `매도3 [${sg.grade}] ${sg.winRate}%` });
+                        markers.push({ time: t, position: 'aboveBar', color: sc, shape: 'arrowDown', _label: `매도3 [${sg.grade}] ${sg.winRate}%` });
                         lastSell3Bar = i;
                     }
                 }
@@ -16262,7 +16279,7 @@
             .filter(m => { const k = m.time + ':' + m.position; if (seen.has(k)) return false; seen.add(k); return true; });
         // 마커 우선순위 (매수1/매도1 > 매수2/매도2 > 매수3/매도3 > 크로스/브레이크 > RSI/MACD > 기타)
         const _mPri = m => {
-            const t = m.text || '';
+            const t = m._label || '';
             if (t.startsWith('매수1') || t.startsWith('매도1')) return 5;
             if (t.startsWith('매수2') || t.startsWith('매도2')) return 4;
             if (t.startsWith('매수3') || t.startsWith('매도3')) return 3;
@@ -16287,14 +16304,14 @@
         // 3.5) 새 시그널 감지 → 토스트 (폴링으로 신규 마커 도착 시)
         const latest = uniqMarkers[uniqMarkers.length - 1];
         if (latest && currentSymbol) {
-            const newKey = `${currentSymbol}:${latest.time}:${latest.position}:${latest.text}`;
+            const newKey = `${currentSymbol}:${latest.time}:${latest.position}:${latest._label||''}`;
             const prevSameSymbol = _lastSigKey && _lastSigKey.startsWith(currentSymbol + ':');
             if (prevSameSymbol && _lastSigKey !== newKey) {
                 const isBuy = latest.position === 'belowBar';
                 const dir   = isBuy ? '매수' : '매도';
                 let effectiveBuy = isBuy; // 포지션 로직으로 방향 바뀔 때 사운드·음성에 사용
                 let emoji = isBuy ? '🔴' : '🔵';
-                let headline = `${latest.text} ${dir} 시그널`;
+                let headline = `${latest._label||dir} 시그널`;
                 let subText = ''; // 포지션 전용 서브텍스트 (스코프 상위 선언)
                 // ── 내 포지션 상태 연동 (v716 3단계) ──
                 let posSkip = false;
@@ -16542,7 +16559,12 @@
         }
         const addLine = (price, color, label, style, priority = 4) => {
             try {
-                const axisLabelVisible = _claimPriceLabel(price, priority);
+                // 모바일: 돌파 라인만 축 라벨 표시, 저항/지지는 라인만 유지
+                const _isMob = window.innerWidth <= 600;
+                const _baseVisible = _claimPriceLabel(price, priority);
+                const axisLabelVisible = _isMob
+                    ? (_baseVisible && !!(label && label.includes('돌파')))
+                    : _baseVisible;
                 const pl = lwCandleSeries.createPriceLine({
                     price, color, lineWidth: 2, lineStyle: style != null ? style : 0,
                     axisLabelVisible,
@@ -16727,9 +16749,14 @@
 
     function _sdAddLine(price, color, width, style, title) {
         if (!price || !isFinite(price) || price <= 0 || !lwCandleSeries) return;
+        // 모바일: 손절라인·골든존(★) 두 종류만 축 라벨 노출, 나머지 숨김
+        const _isMob = window.innerWidth <= 600;
+        const axisLabelVisible = _isMob
+            ? !!(title && (title.includes('손절') || title.includes('★')))
+            : true;
         try {
             _smartDipLines.push(lwCandleSeries.createPriceLine({
-                price, color, lineWidth: width, lineStyle: style, axisLabelVisible: true, title,
+                price, color, lineWidth: width, lineStyle: style, axisLabelVisible, title,
             }));
         } catch(e) {}
     }
@@ -17392,9 +17419,11 @@
     }
     function _mvAddLine(price, color, width, style, title) {
         if (!lwCandleSeries || price == null || isNaN(price)) return;
+        const _isMob = window.innerWidth <= 600;
+        const axisLabelVisible = _isMob ? !!(title && title.includes('손절')) : true;
         try {
             _minerviniChartLines.push(lwCandleSeries.createPriceLine({
-                price, color, lineWidth: width, lineStyle: style, axisLabelVisible: true, title,
+                price, color, lineWidth: width, lineStyle: style, axisLabelVisible, title,
             }));
         } catch(e) {}
     }
@@ -28863,6 +28892,27 @@
         const next = bar.querySelector('.spb-next');
         if (prev) prev.disabled = _stockPagerIndex <= 0;
         if (next) next.disabled = _stockPagerIndex >= _stockPagerList.length - 1;
+        // 인라인 바 동기화 (모바일 전용)
+        _syncChartPagerInline(cur);
+    }
+
+    /** 인라인 종목 전환 바(모바일) 업데이트 */
+    function _syncChartPagerInline(cur) {
+        const el = document.getElementById('chartPagerInline');
+        if (!el) return;
+        if (!_stockPagerList.length) { el.style.display = 'none'; return; }
+        el.style.display = 'flex';
+        const c = cur || _stockPagerList[_stockPagerIndex] || {};
+        const tickerEl = el.querySelector('.cpi-ticker');
+        const pageEl   = el.querySelector('.cpi-page');
+        const nameEl   = el.querySelector('.cpi-name');
+        if (tickerEl) tickerEl.textContent = c.symbol || '';
+        if (pageEl)   pageEl.textContent   = `${_stockPagerIndex + 1} / ${_stockPagerList.length}`;
+        if (nameEl)   { nameEl.textContent = c.name || ''; nameEl.style.display = c.name ? '' : 'none'; }
+        const prevBtn = el.querySelector('.cpi-prev');
+        const nextBtn = el.querySelector('.cpi-next');
+        if (prevBtn) prevBtn.disabled = _stockPagerIndex <= 0;
+        if (nextBtn) nextBtn.disabled = _stockPagerIndex >= _stockPagerList.length - 1;
     }
 
     function hideStockPager() {
@@ -28872,6 +28922,9 @@
         // 바텀 네비 복원 (홈 진입 시 다시 보이도록)
         const bn = document.getElementById('bottomNav');
         if (bn) bn.style.display = '';
+        // 인라인 바 숨김
+        const inl = document.getElementById('chartPagerInline');
+        if (inl) inl.style.display = 'none';
         _stockPagerList  = [];
         _stockPagerIndex = -1;
     }
