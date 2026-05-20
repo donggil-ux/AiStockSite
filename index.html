@@ -1047,7 +1047,7 @@
                 <div class="group-nav" id="groupNav">
                     <button onclick="_scrollToGroup('groupAi')">AI</button>
                     <button onclick="_scrollToGroup('groupTradePlan')">매매</button>
-                    <button onclick="_scrollToGroup('groupSystem')">시스템</button>
+                    <button onclick="_scrollToGroup('groupSystem')">Smart Dip</button>
                     <button onclick="_scrollToGroup('groupDayTrade')">단타</button>
                 </div>
 
@@ -1112,19 +1112,18 @@
             <!-- Kullamägi 분석 카드 — 그룹 외 독립 카드 -->
             <div id="kullamagiAnalysis"></div>
 
-            <!-- Smart Dip 분석 카드 -->
-            <div id="smartDipCard" style="display:none"></div>
-
             <!-- 💎 보유 Guru (SEC EDGAR 13F 실데이터) -->
             <div id="guruHolders" style="display:none"></div>
 
-            <!-- ═══ 그룹 3: 트레이더 시스템 ═══ -->
+            <!-- ═══ Smart Dip (구 트레이더 시스템 + smartDipCard 통합) ═══ -->
             <div class="analysis-group" id="groupSystem">
                 <div class="group-header">
-                    <span class="group-icon">⭐</span>
-                    <span class="group-title">트레이더 시스템</span>
+                    <span class="group-icon">⚡</span>
+                    <span class="group-title">Smart Dip</span>
                 </div>
                 <div class="group-body" id="groupSystem-body">
+                    <!-- Smart Dip 모드/포지션 분석 카드 -->
+                    <div id="smartDipCard" style="display:none"></div>
                     <!-- 🎯 Minervini SEPA 분석 카드 -->
                     <div id="sepaAnalysis"></div>
                     <!-- 📊 Smart Dip v3 진입 품질 카드 -->
