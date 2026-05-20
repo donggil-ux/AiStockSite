@@ -2138,7 +2138,7 @@
             .top100-title{font-size:20px;}
             /* 필터 바: justify-content:center 가 overflow 시 첫 버튼 왼쪽을 영구 클리핑 → flex-start로 수정 */
             .top100-filters{justify-content:flex-start;}
-            .top100-row{grid-template-columns:22px 26px 38px 1fr 74px 64px;grid-template-areas:"fav rank logo info pricewrap tv";padding:9px 6px;gap:4px 6px;align-items:center;}
+            .top100-row{grid-template-columns:22px 26px 38px 1fr 74px 64px;grid-template-areas:"fav rank logo info pricewrap tv";padding:9px 6px;gap:4px 10px;align-items:center;}
             /* rank: 두~세 자리수("10"~"100") 까지 자기 영역 안에 정렬, 로고 침범 방지 */
             .top100-row > .top100-rank{min-width:0;text-align:center;overflow:hidden;font-variant-numeric:tabular-nums;font-size:13px;}
             /* 로고 + 국기 배지가 옆 컬럼을 침범하지 않도록 컬럼 안쪽으로 정렬 */
@@ -3865,7 +3865,7 @@
             .rr-vtag{max-width:74px;font-size:10.5px;}
 
             /* Swing radar AI버튼/RR 배지 숨겨진 상태 + 이름 영역 확장 */
-            .swing-row{grid-template-columns:32px 1fr 66px 64px;gap:6px;padding:10px 12px;}
+            .swing-row{grid-template-columns:32px 1fr 66px 64px;gap:8px;padding:10px 12px;}
             .swing-symbol{font-size:13px;}
             .swing-name{font-size:11.5px;}
             .swing-price{font-size:13px;}
@@ -3902,7 +3902,7 @@
             .top100-section{padding:0;}
 
             /* TOP100 grid — rank 22px, logo 40px, 로고-info 간격 10px (아바타-티커 붙음 방지) */
-            .top100-row{grid-template-columns:20px 22px 40px 1fr 70px 62px;grid-template-areas:"fav rank logo info pricewrap tv";gap:3px 6px;padding:8px 4px;}
+            .top100-row{grid-template-columns:20px 22px 40px 1fr 70px 62px;grid-template-areas:"fav rank logo info pricewrap tv";gap:3px 10px;padding:8px 4px;}
             .top100-row > .top100-tv-wrap{grid-area:tv;align-self:center;min-width:0;margin-left:2px;overflow:hidden;}
             .top100-row > .top100-info{margin-left:10px;}
             .skel-row{grid-template-columns:20px 22px 40px 1fr 72px;padding:6px 4px;}
@@ -3919,7 +3919,7 @@
             .top100-fav{width:20px;height:20px;font-size:14px;}
 
             /* Swing radar — 32/1fr/66/64 → 30/1fr/58/56 */
-            .swing-row{grid-template-columns:30px 1fr 58px 56px;gap:5px;padding:9px 10px;}
+            .swing-row{grid-template-columns:30px 1fr 58px 56px;gap:8px;padding:9px 10px;}
             .swing-row .tlogo-wrap,.swing-row .tlogo,.swing-row .tlogo-fb{width:30px;height:30px;}
 
             /* Stock hero — 40px → 32px */
@@ -7073,7 +7073,7 @@
 .ahr-row{
     display:grid;
     grid-template-columns:22px 36px minmax(0,1fr) auto 68px;
-    column-gap:10px;
+    column-gap:12px;
     align-items:center;
     padding:11px 4px;
     border-bottom:1px solid rgba(0,0,0,0.04);
@@ -7149,7 +7149,7 @@
 
 /* 모바일 압축 */
 @media(max-width:480px){
-    .ahr-row{grid-template-columns:18px 32px minmax(0,1fr) auto 58px;column-gap:7px;padding:9px 2px;}
+    .ahr-row{grid-template-columns:18px 32px minmax(0,1fr) auto 58px;column-gap:10px;padding:9px 2px;}
     .ahr-sym{font-size:13px;}
     .ahr-px{font-size:12px;}
     .ahr-pill{font-size:9px;padding:2px 5px;}
