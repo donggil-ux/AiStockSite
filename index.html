@@ -8941,6 +8941,18 @@
         _renderCatalyst(_catalystData);
     }
 
+    // 거래량 급증 필터 (전체/상승/하락 등)
+    let _surgeFilter = 'all';
+    function _setSurgeFilter(filter) {
+        _surgeFilter = filter || 'all';
+        document.querySelectorAll('.surge-filter-btn, [data-surge-filter]').forEach(b => {
+            const bf = b.dataset.filter || b.dataset.surgeFilter;
+            b.classList.toggle('active', bf === _surgeFilter);
+        });
+        _volSurgeCatLoaded = false;
+        loadVolumeSurge(true);
+    }
+
     let _volSurgeCatLoaded = false;
     let _minerviniLoaded = false;
 
