@@ -7605,6 +7605,93 @@
 }
 
 /* ═══════════════════════════════════════
+   OHLC Hover Tooltip (Phase C-2)
+   ═══════════════════════════════════════ */
+
+.chart-ohlc-tooltip {
+    position: absolute;
+    top: 8px;
+    left: 12px;
+    z-index: 6;
+    width: 240px;
+    padding: 10px 12px;
+    background: rgba(20, 22, 30, 0.88);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 12px;
+    line-height: 1.55;
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+}
+[data-theme="light"] .chart-ohlc-tooltip {
+    background: rgba(255, 255, 255, 0.92);
+    border-color: rgba(0,0,0,0.08);
+    color: #111;
+}
+
+.cot-date {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text2);
+    margin-bottom: 6px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+[data-theme="light"] .cot-date { border-bottom-color: rgba(0,0,0,0.08); }
+
+.cot-row { display: flex; align-items: center; gap: 4px 8px; flex-wrap: wrap; }
+.cot-lbl { color: var(--text3); font-size: 11px; min-width: 18px; }
+.cot-v   { color: var(--text); font-weight: 600; min-width: 50px; }
+.cot-chg { font-weight: 700; margin-left: auto; font-size: 11px; }
+.cot-vol-row {
+    display: flex; align-items: center; gap: 4px 8px;
+    margin-top: 4px; padding-top: 4px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+[data-theme="light"] .cot-vol-row { border-top-color: rgba(0,0,0,0.08); }
+.cot-vol-chg { font-size: 11px; color: var(--text3); margin-left: auto; }
+
+.tv-chart-card.fullscreen .chart-ohlc-tooltip { z-index: 9100; }
+
+/* 모바일 — tooltip 숨김 (touch 환경) */
+@media (max-width: 768px) {
+    .chart-ohlc-tooltip { display: none !important; }
+}
+
+/* ═══════════════════════════════════════
+   Shift+Drag 영역 줌 선택박스 (Phase C-3)
+   ═══════════════════════════════════════ */
+
+.chart-zoom-selection {
+    position: absolute;
+    top: 0; bottom: 0;
+    z-index: 8;
+    background: rgba(0, 128, 251, 0.16);
+    border-left:  1px solid rgba(0, 128, 251, 0.8);
+    border-right: 1px solid rgba(0, 128, 251, 0.8);
+    pointer-events: none;
+}
+.chart-zoom-info {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 2px 8px;
+    background: #0080FB;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 99px;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.tv-chart-card.fullscreen .chart-zoom-selection { z-index: 9100; }
+
+/* ═══════════════════════════════════════
    기간 프리셋 바 (Phase B-1, 데스크탑 전용)
    ═══════════════════════════════════════ */
 
@@ -7670,7 +7757,7 @@
     right: 76px;          /* 가격축 옆 (price scale 안쪽 끝) */
     top: 50%;
     transform: translateY(-50%);
-    z-index: 7;
+    z-index: 20;          /* 십자선/zoom selection 위로 떠있도록 */
     display: inline-flex;
     align-items: center;
     gap: 6px;

@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=734">
+    <link rel="stylesheet" href="/styles.css?v=735">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -1019,6 +1019,29 @@
                         <canvas class="draw-canvas" id="drawCanvas"></canvas>
                         <div class="ai-trendline-del" id="aiTrendDeleteBtn" onclick="deleteSelectedAiTrendline()">✕ 추세선 삭제</div>
                         <div class="chart-ind-overlay" id="chartIndOverlay"></div>
+
+                        <!-- 🖥️ OHLC Hover Tooltip (Phase C-2, 좌상단 고정) -->
+                        <div class="chart-ohlc-tooltip" id="chartOhlcTooltip" style="display:none;">
+                            <div class="cot-date">—</div>
+                            <div class="cot-row">
+                                <span class="cot-lbl">시</span><span class="cot-o cot-v">—</span>
+                                <span class="cot-lbl">고</span><span class="cot-h cot-v">—</span>
+                            </div>
+                            <div class="cot-row">
+                                <span class="cot-lbl">저</span><span class="cot-l cot-v">—</span>
+                                <span class="cot-lbl">종</span><span class="cot-c cot-v">—</span>
+                                <span class="cot-chg">—</span>
+                            </div>
+                            <div class="cot-vol-row">
+                                <span class="cot-lbl">거래량</span><span class="cot-vol cot-v">—</span>
+                                <span class="cot-vol-chg"></span>
+                            </div>
+                        </div>
+
+                        <!-- 🖥️ Shift+Drag 영역 줌 선택박스 (Phase C-3) -->
+                        <div class="chart-zoom-selection" id="chartZoomSelection" style="display:none;">
+                            <span class="chart-zoom-info">—</span>
+                        </div>
 
                         <!-- 🖥️ 데스크탑 차트 우상단 floating toolbar (영역 1) -->
                         <div class="chart-tr-toolbar" id="chartTrToolbar" aria-label="차트 도구">
@@ -15297,6 +15320,249 @@
         } catch(e) { console.warn('[jumpLatest]', e); }
     }
 
+    // ══════════════════════════════════════════════════════════
+    // Phase C-2: OHLC Hover Tooltip
+    // ══════════════════════════════════════════════════════════
+
+    let _ohlcTooltipHooked = false;
+
+    function _initOhlcTooltip() {
+        if (!window.lwChart) return;
+        try {
+            lwChart.subscribeCrosshairMove(_onCrosshairMoveOhlc);
+            _ohlcTooltipHooked = true;
+        } catch(_) {}
+    }
+
+    function _ohlcFmtPrice(p) {
+        if (p == null || !isFinite(p)) return '—';
+        return (window.currentMarket === 'KR')
+            ? Math.round(p).toLocaleString()
+            : Number(p).toFixed(2);
+    }
+    function _ohlcFmtVol(n) {
+        if (n == null || !isFinite(n)) return '—';
+        if (n >= 1e9) return (n/1e9).toFixed(1) + 'B';
+        if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
+        if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+        return String(Math.round(n));
+    }
+
+    function _onCrosshairMoveOhlc(param) {
+        const t = document.getElementById('chartOhlcTooltip');
+        if (!t) return;
+        if (!param || !param.point || param.time == null) {
+            t.style.display = 'none';
+            return;
+        }
+        const tsArr = window._lastSigArgs?.ts || [];
+        const q = window._lastSigArgs?.q || {};
+        const idx = tsArr.indexOf(param.time);
+        if (idx < 0) { t.style.display = 'none'; return; }
+
+        const o = q.open?.[idx], h = q.high?.[idx], l = q.low?.[idx], c = q.close?.[idx];
+        const v = q.volume?.[idx];
+        if (c == null) { t.style.display = 'none'; return; }
+        const prevC = q.close?.[idx-1];
+        const prevV = q.volume?.[idx-1];
+        const chg = (prevC != null) ? (c - prevC) : 0;
+        const chgPct = (prevC != null && prevC) ? (chg / prevC * 100) : 0;
+        const isUp = chg >= 0;
+        const upColor = '#EF4444';   // 한국 관례: 상승 빨강
+        const dnColor = '#3B82F6';   // 하락 파랑
+        const sigColor = isUp ? upColor : dnColor;
+
+        const date = new Date(param.time * 1000);
+        const weekdays = ['일','월','화','수','목','금','토'];
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')} (${weekdays[date.getDay()]})`;
+
+        t.querySelector('.cot-date').textContent = dateStr;
+        t.querySelector('.cot-o').textContent = _ohlcFmtPrice(o);
+        t.querySelector('.cot-h').textContent = _ohlcFmtPrice(h);
+        t.querySelector('.cot-l').textContent = _ohlcFmtPrice(l);
+        const cEl = t.querySelector('.cot-c');
+        cEl.textContent = _ohlcFmtPrice(c);
+        cEl.style.color = sigColor;
+
+        const chgEl = t.querySelector('.cot-chg');
+        if (prevC != null) {
+            const sign = isUp ? '+' : '';
+            chgEl.textContent = `${isUp?'▲':'▼'} ${sign}${chg.toFixed(2)} (${sign}${chgPct.toFixed(2)}%)`;
+            chgEl.style.color = sigColor;
+            chgEl.style.display = '';
+        } else {
+            chgEl.style.display = 'none';
+        }
+
+        const volRow = t.querySelector('.cot-vol-row');
+        if (v != null) {
+            t.querySelector('.cot-vol').textContent = _ohlcFmtVol(v);
+            const volChgEl = t.querySelector('.cot-vol-chg');
+            if (prevV != null && prevV) {
+                const vChgPct = (v - prevV) / prevV * 100;
+                const vUp = vChgPct >= 0;
+                volChgEl.textContent = `(전일 대비 ${vUp?'+':''}${vChgPct.toFixed(0)}%)`;
+                volChgEl.style.color = vUp ? '#22C55E' : '#94A3B8';
+            } else {
+                volChgEl.textContent = '';
+            }
+            volRow.style.display = '';
+        } else {
+            volRow.style.display = 'none';
+        }
+
+        t.style.display = 'block';
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // Phase C-3: Shift + Drag 영역 줌
+    // ══════════════════════════════════════════════════════════
+
+    let _shiftDragHooked = false;
+    let _zoomDragState   = null;
+
+    function _initShiftDragZoom() {
+        if (_shiftDragHooked) return;
+        const wrap = document.getElementById('tvChartWrap');
+        if (!wrap) return;
+        _shiftDragHooked = true;
+
+        // mousedown: shift 키 누른 상태 → 영역 선택 시작 (capture phase로 차트 pan 차단)
+        wrap.addEventListener('mousedown', (e) => {
+            if (!e.shiftKey || e.button !== 0) return;
+            const rect = wrap.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            if (x < 0 || x > rect.width) return;
+            e.preventDefault();
+            e.stopPropagation();
+            // 차트 native pan 차단을 위해 handleScroll 임시 비활성
+            try { window.lwChart?.applyOptions?.({ handleScroll: false, handleScale: false }); } catch(_) {}
+            const sel = document.getElementById('chartZoomSelection');
+            if (!sel) return;
+            _zoomDragState = { startX: x, currentX: x, wrapRect: rect };
+            sel.style.display = 'block';
+            sel.style.left  = x + 'px';
+            sel.style.width = '0px';
+            const info = sel.querySelector('.chart-zoom-info');
+            if (info) info.textContent = '';
+        }, true);
+
+        document.addEventListener('mousemove', (e) => {
+            if (!_zoomDragState) return;
+            const r = _zoomDragState.wrapRect;
+            const x = Math.max(0, Math.min(r.width, e.clientX - r.left));
+            _zoomDragState.currentX = x;
+            const sel = document.getElementById('chartZoomSelection');
+            if (!sel) return;
+            const left = Math.min(_zoomDragState.startX, x);
+            const w = Math.abs(x - _zoomDragState.startX);
+            sel.style.left  = left + 'px';
+            sel.style.width = w + 'px';
+            // 봉 수 표시
+            try {
+                const ts = window.lwChart?.timeScale?.();
+                const info = sel.querySelector('.chart-zoom-info');
+                if (ts && info) {
+                    const fromL = ts.coordinateToLogical(left);
+                    const toL   = ts.coordinateToLogical(left + w);
+                    if (fromL != null && toL != null) {
+                        const bars = Math.max(0, Math.round(toL - fromL));
+                        info.textContent = `${bars}봉`;
+                    }
+                }
+            } catch(_) {}
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (!_zoomDragState) return;
+            const { startX, currentX } = _zoomDragState;
+            const sel = document.getElementById('chartZoomSelection');
+            const width = Math.abs(currentX - startX);
+            try { window.lwChart?.applyOptions?.({ handleScroll: true, handleScale: true }); } catch(_) {}
+            if (width < 5) {
+                if (sel) sel.style.display = 'none';
+                _zoomDragState = null;
+                return;
+            }
+            const left  = Math.min(startX, currentX);
+            const right = Math.max(startX, currentX);
+            try {
+                const ts = window.lwChart.timeScale();
+                const fromL = ts.coordinateToLogical(left);
+                const toL   = ts.coordinateToLogical(right);
+                if (fromL != null && toL != null && toL - fromL >= 1) {
+                    if (typeof _cnbDeactivatePreset === 'function') _cnbDeactivatePreset();
+                    _cnbProgrammaticRangeChange = true;
+                    ts.setVisibleLogicalRange({ from: fromL, to: toL });
+                    setTimeout(() => { _cnbProgrammaticRangeChange = false; }, 200);
+                }
+            } catch(e) { console.warn('[shiftZoom]', e); }
+            if (sel) sel.style.display = 'none';
+            _zoomDragState = null;
+        });
+
+        // Shift 떼면 즉시 취소
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'Shift' && _zoomDragState) {
+                try { window.lwChart?.applyOptions?.({ handleScroll: true, handleScale: true }); } catch(_) {}
+                const sel = document.getElementById('chartZoomSelection');
+                if (sel) sel.style.display = 'none';
+                _zoomDragState = null;
+            }
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // Phase C-4: 키보드 단축키
+    // ══════════════════════════════════════════════════════════
+
+    let _chartKbdHooked = false;
+    const _PRESET_BY_KEY = { '1':'1D', '2':'5D', '3':'1M', '4':'3M', '5':'6M', '6':'1Y', '7':'ALL' };
+
+    function _initChartKeyboardShortcuts() {
+        if (_chartKbdHooked) return;
+        _chartKbdHooked = true;
+        window.addEventListener('keydown', (e) => {
+            // 입력 컴포넌트 포커스 시 비활성
+            const ae = document.activeElement;
+            const tag = (ae?.tagName || '').toLowerCase();
+            if (['input','textarea','select'].includes(tag) || ae?.isContentEditable) return;
+            // 차트 카드가 보이지 않으면 무시 (다른 화면 우선)
+            const card = document.getElementById('tvChartCard');
+            if (!card || card.offsetParent === null) return;
+            // 모달/사이드시트 열려있으면 무시
+            if (document.querySelector('.gh-sheet.show, #ghSheet')) return;
+            // 메타키 조합은 무시 (브라우저 기본 동작 보호)
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+            switch (e.key) {
+                case 'ArrowLeft':  _cnbPan?.(-10);            e.preventDefault(); break;
+                case 'ArrowRight': _cnbPan?.(10);             e.preventDefault(); break;
+                case '+': case '=': _cnbZoom?.(0.8);          e.preventDefault(); break;
+                case '-': case '_': _cnbZoom?.(1.25);         e.preventDefault(); break;
+                case 'End':       _chartJumpToLatest?.();     e.preventDefault(); break;
+                case 'Home':      _cnbReset?.();              e.preventDefault(); break;
+                case 'Escape':    {
+                    // 십자선 강제 숨김 + 진행중 드래그 취소
+                    const t = document.getElementById('chartOhlcTooltip');
+                    if (t) t.style.display = 'none';
+                    if (_zoomDragState) {
+                        try { window.lwChart?.applyOptions?.({ handleScroll: true, handleScale: true }); } catch(_) {}
+                        const sel = document.getElementById('chartZoomSelection');
+                        if (sel) sel.style.display = 'none';
+                        _zoomDragState = null;
+                    }
+                    break;
+                }
+                default:
+                    if (_PRESET_BY_KEY[e.key] != null) {
+                        _cnbSetPreset?.(_PRESET_BY_KEY[e.key]);
+                        e.preventDefault();
+                    }
+            }
+        });
+    }
+
     // ── 새로고침 후 전체화면 상태 복원 ─────────────────────────────
     function _restoreFullscreenState() {
         if (localStorage.getItem('stockai_chart_fullscreen') !== '1') return;
@@ -15413,6 +15679,9 @@
 
         // Phase B: 최신가 점프 버튼 + 프리셋 자동 해제 옵저버
         try { _jumpBtnHooked = false; _initJumpBtnObserver(); } catch(_) {}
+        // Phase C: OHLC tooltip + shift+drag zoom + 키보드 단축키
+        try { _ohlcTooltipHooked = false; _initOhlcTooltip(); } catch(_) {}
+        try { _initShiftDragZoom(); _initChartKeyboardShortcuts(); } catch(_) {}
 
         // 캔들스틱 시리즈
         lwCandleSeries = lwChart.addCandlestickSeries({
@@ -29430,6 +29699,8 @@
         _ctrOpenAnalysis, _ctrOpenLine, _ctrCapturePng, _ctrSettings,
         _cnbZoom, _cnbPan, _cnbReset, _cnbSetPreset, _cnbUpdatePresetUi, _cnbDeactivatePreset,
         _chartJumpToLatest, _updateJumpBtnVisibility, _initJumpBtnObserver,
+        _initOhlcTooltip, _onCrosshairMoveOhlc,
+        _initShiftDragZoom, _initChartKeyboardShortcuts,
         favSearch, removeFavorite, setTop100Filter, goTop100, goCatalyst, loadCatalyst, _catalystSetFilter, switchCatalystTab, loadVolumeSurge, loadMinervini,
         _runCatalystAi, _renderCatalystAiExpanded,
         _runScannerAi, _renderScannerAiResult, _alphaAutoBatchAi, _renderAlphaAiMini,
