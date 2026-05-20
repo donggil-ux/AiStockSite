@@ -3366,7 +3366,8 @@
         .history-tab, .options-exp-btn, .options-filter-btn,
         .rr-tab, .scanner-preset-btn, .sm-back-btn, .sm-hf-btn,
         .sm-holdings-tab, .trade-style-tab, .draw-color-btn,
-        .draw-tb-btn, .draw-width-btn, .mob-back-btn {
+        .draw-tb-btn, .draw-width-btn, .mob-back-btn,
+        .grade-seg-group {
             border-radius:var(--r-pill)!important;
             font-weight:500!important;
         }
@@ -3438,8 +3439,10 @@
             font-size:12px!important;
         }
         /* 등급 Segmented Control — chart-tb-btn과 동일 높이 */
+        .grade-seg-group { height:32px!important; }
         .grade-seg-btn {
-            padding:8px 12px!important;
+            padding:0 12px!important;
+            height:100%!important;
             font-size:12px!important;
         }
 
@@ -7661,15 +7664,17 @@
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
+    height: 32px;
     border: 1px solid var(--border);
-    border-radius: var(--radius-xs);
+    border-radius: var(--r-pill);   /* pill 기본값, Revolut 오버라이드도 동일 */
     overflow: hidden;
     background: transparent;
 }
 
 /* 개별 버튼 — chart-tb-btn과 동일 사이즈 */
 .grade-seg-btn {
-    padding: 5px 10px;
+    padding: 0 10px;
+    height: 100%;           /* 그룹 높이(32px) 꽉 채움 */
     font-size: 12px;
     font-weight: 600;
     font-family: inherit;
