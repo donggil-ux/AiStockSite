@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=719">
+    <link rel="stylesheet" href="/styles.css?v=720">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -28909,10 +28909,8 @@
     function closeStockPagerList() {
         const sheet = document.getElementById('stockPagerSheet');
         if (!sheet) return;
-        const content = sheet.querySelector('.sps-content');
-        if (content) content.style.transform = ''; // 스와이프 드래그 리셋
         sheet.classList.remove('show');
-        setTimeout(() => { sheet.style.display = 'none'; }, 310);
+        setTimeout(() => { sheet.style.display = 'none'; }, 260);
     }
 
     function jumpToStock(idx) {
@@ -28936,35 +28934,8 @@
         else if (e.key === 'ArrowRight' || e.key === 'PageDown') { e.preventDefault(); navigateStock(1); }
     });
 
-    // ── 바텀시트 스와이프 다운으로 닫기 ──
-    (function() {
-        let startY = 0, curY = 0, dragging = false;
-        // 이벤트는 DOMContentLoaded 이후 등록 (sheet 엘리먼트가 아직 없을 수 있으므로 delegate)
-        document.addEventListener('touchstart', e => {
-            const sheet = document.getElementById('stockPagerSheet');
-            if (!sheet?.classList.contains('show')) return;
-            // 헤더 or 핸들(::before) 영역에서만 드래그 허용
-            if (!e.target.closest('.sps-header') && !e.target.closest('.sps-content > :first-child')) return;
-            startY = e.touches[0].clientY; curY = startY; dragging = true;
-        }, { passive: true });
-        document.addEventListener('touchmove', e => {
-            if (!dragging) return;
-            curY = e.touches[0].clientY;
-            const dy = curY - startY;
-            if (dy <= 0) return;
-            const content = document.querySelector('#stockPagerSheet .sps-content');
-            if (content) content.style.transform = `translateY(${dy}px)`;
-        }, { passive: true });
-        document.addEventListener('touchend', () => {
-            if (!dragging) return; dragging = false;
-            const dy = curY - startY;
-            if (dy > 100) closeStockPagerList();
-            else {
-                const content = document.querySelector('#stockPagerSheet .sps-content');
-                if (content) content.style.transform = '';
-            }
-        }, { passive: true });
-    })();
+    // ── 바텀 네비 밖 클릭으로 닫기 (센터 모달 전용) ──
+    // 스와이프 다운 닫기 제거 — 센터 팝업은 백드롭 탭으로만 닫힘
 
     // ── 본문 좌우 스와이프 (페이저 이동) ──
     (function() {
