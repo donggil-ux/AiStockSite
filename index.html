@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=733">
+    <link rel="stylesheet" href="/styles.css?v=734">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -1038,6 +1038,24 @@
                                 <svg id="ctrFsExpand" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
                             </button>
                         </div>
+
+                        <!-- 🖥️ 데스크탑 차트 하단 좌측 기간 프리셋 (Phase B-1) -->
+                        <div class="chart-preset-bar" id="chartPresetBar" aria-label="기간 프리셋">
+                            <button class="cpb-btn" data-preset="1D"  onclick="_cnbSetPreset('1D')">1D</button>
+                            <button class="cpb-btn" data-preset="5D"  onclick="_cnbSetPreset('5D')">5D</button>
+                            <button class="cpb-btn" data-preset="1M"  onclick="_cnbSetPreset('1M')">1M</button>
+                            <button class="cpb-btn active" data-preset="3M" onclick="_cnbSetPreset('3M')">3M</button>
+                            <button class="cpb-btn" data-preset="6M"  onclick="_cnbSetPreset('6M')">6M</button>
+                            <button class="cpb-btn" data-preset="1Y"  onclick="_cnbSetPreset('1Y')">1Y</button>
+                            <button class="cpb-btn" data-preset="ALL" onclick="_cnbSetPreset('ALL')">ALL</button>
+                        </div>
+
+                        <!-- 🖥️ 최신가 점프 버튼 (Phase B-2) -->
+                        <button class="chart-jump-latest" id="chartJumpLatest" onclick="_chartJumpToLatest()" style="display:none;" aria-label="최신가로 이동">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                            <span class="cjl-label">최신</span>
+                            <span class="cjl-price">—</span>
+                        </button>
 
                         <!-- 🖥️ 데스크탑 차트 하단 우측 zoom/pan/reset (영역 3) -->
                         <div class="chart-nav-bar" id="chartNavBar" aria-label="차트 탐색">
@@ -2248,6 +2266,11 @@
     }
 
     function setChartInterval(interval) {
+        // Phase B-3: 프리셋 적용 중이 아니라면 사용자 수동 변경 → 프리셋 해제
+        if (typeof _cnbPresetApplying !== 'undefined' && !_cnbPresetApplying) {
+            if (typeof _userTfChangeAt !== 'undefined') _userTfChangeAt = Date.now();
+            if (typeof _cnbDeactivatePreset === 'function') _cnbDeactivatePreset();
+        }
         const prevInterval = currentInterval;
         currentInterval = interval;
         try { localStorage.setItem('stockai_chart_interval', interval); } catch(e) {}
@@ -15100,7 +15123,10 @@
             const mid = (r.from + r.to) / 2;
             const halfWidth = (r.to - r.from) / 2 * factor;
             const newWidth = Math.max(5, halfWidth); // 최소 10봉
+            if (typeof _cnbDeactivatePreset === 'function') _cnbDeactivatePreset();
+            _cnbProgrammaticRangeChange = true;
             ts.setVisibleLogicalRange({ from: mid - newWidth, to: mid + newWidth });
+            setTimeout(() => { _cnbProgrammaticRangeChange = false; }, 200);
         } catch(e) { console.warn('[cnbZoom]', e); }
     }
 
@@ -15111,15 +15137,164 @@
         try {
             const r = ts.getVisibleLogicalRange();
             if (!r) return;
+            if (typeof _cnbDeactivatePreset === 'function') _cnbDeactivatePreset();
+            _cnbProgrammaticRangeChange = true;
             ts.setVisibleLogicalRange({ from: r.from + delta, to: r.to + delta });
+            setTimeout(() => { _cnbProgrammaticRangeChange = false; }, 200);
         } catch(e) { console.warn('[cnbPan]', e); }
     }
 
-    /** 줌·스크롤 리셋 — 전체 데이터 fit */
+    /** 줌·스크롤 리셋 — 활성 프리셋 있으면 그 범위로, 없으면 fitContent */
     function _cnbReset() {
+        if (_activePreset && _CHART_PRESETS[_activePreset]) {
+            _cnbSetPreset(_activePreset);
+            return;
+        }
         const ts = _cnbGetTimeScale();
         if (!ts) return;
         try { ts.fitContent(); } catch(e) { console.warn('[cnbReset]', e); }
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // Phase B-1: 기간 프리셋 + B-3 시간프레임 연동
+    // ══════════════════════════════════════════════════════════
+
+    const _CHART_PRESETS = {
+        '1D':  { tf: '5m',   period: '1d'  },
+        '5D':  { tf: '30m',  period: '5d'  },
+        '1M':  { tf: '60m',  period: '1mo' },
+        '3M':  { tf: '60m',  period: '3mo' },   // 1d 는 3mo 허용범위 밖 → 60m
+        '6M':  { tf: '1d',   period: '6mo' },
+        '1Y':  { tf: '1d',   period: '1y'  },
+        'ALL': { tf: '1wk',  period: 'max' },
+    };
+
+    let _activePreset      = localStorage.getItem('stockai_chart_preset') || '3M';
+    let _userTfChangeAt    = 0;     // 사용자 수동 TF 변경 시점 (5초 동안 자동 매핑 차단)
+    let _cnbPresetApplying = false; // 프리셋 적용 중 (setChartInterval 호출이 자동인지 수동인지 판별)
+    let _cnbProgrammaticRangeChange = false;
+
+    function _cnbUpdatePresetUi() {
+        document.querySelectorAll('.cpb-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.preset === _activePreset);
+        });
+    }
+
+    function _cnbDeactivatePreset() {
+        if (_activePreset == null) return;
+        _activePreset = null;
+        document.querySelectorAll('.cpb-btn').forEach(b => b.classList.remove('active'));
+    }
+
+    /** 프리셋 클릭 → TF/Period 적용 후 데이터 재로드 */
+    function _cnbSetPreset(preset) {
+        const cfg = _CHART_PRESETS[preset];
+        if (!cfg) return;
+        _activePreset = preset;
+        try { localStorage.setItem('stockai_chart_preset', preset); } catch(_) {}
+        _cnbUpdatePresetUi();
+
+        // 사용자가 5초 이내에 TF를 수동 변경했으면 TF는 그대로 유지
+        const skipTf = (Date.now() - _userTfChangeAt) < 5000;
+        const newTf  = skipTf ? currentInterval : cfg.tf;
+
+        _cnbPresetApplying = true;
+        try {
+            currentInterval = newTf;
+            currentPeriod   = cfg.period;
+            try {
+                localStorage.setItem('stockai_chart_interval', newTf);
+                localStorage.setItem('stockai_chart_period',  cfg.period);
+            } catch(_) {}
+
+            // UI 동기화 — interval/range 버튼·드롭다운
+            document.querySelectorAll('.interval-btn').forEach(b => b.classList.toggle('active', b.dataset.interval === newTf));
+            document.querySelectorAll('.interval-dd-item').forEach(b => b.classList.toggle('active', b.dataset.interval === newTf));
+            document.querySelectorAll('.range-btn').forEach(b => b.classList.toggle('active', b.dataset.range === cfg.period));
+            // 드롭다운 라벨
+            const ddLabel = document.getElementById('intervalDdLabel');
+            if (ddLabel) {
+                const isMin = /m$/.test(newTf) || newTf === '1h';
+                ddLabel.textContent = isMin ? (window.INTERVAL_LABELS?.[newTf] || newTf) : '분봉';
+            }
+
+            if (currentSymbol) searchStock();
+        } finally {
+            setTimeout(() => { _cnbPresetApplying = false; }, 400);
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // Phase B-2: 최신가 점프 버튼
+    // ══════════════════════════════════════════════════════════
+
+    let _jumpBtnHooked = false;
+
+    function _initJumpBtnObserver() {
+        try {
+            if (!window.lwChart) return;
+            const ts = window.lwChart.timeScale();
+            if (!ts || !ts.subscribeVisibleLogicalRangeChange) return;
+            // 매번 새 차트마다 hook
+            ts.subscribeVisibleLogicalRangeChange(_onChartVisRangeChange);
+            _jumpBtnHooked = true;
+            _updateJumpBtnVisibility();
+        } catch(_) {}
+    }
+
+    function _onChartVisRangeChange() {
+        // 사용자 드래그/휠 → 프리셋 해제 (프로그램 변경 제외)
+        if (!_cnbProgrammaticRangeChange && _activePreset) {
+            _cnbDeactivatePreset();
+        }
+        _updateJumpBtnVisibility();
+    }
+
+    function _updateJumpBtnVisibility() {
+        const btn = document.getElementById('chartJumpLatest');
+        if (!btn || !window.lwChart) return;
+        try {
+            const r = window.lwChart.timeScale().getVisibleLogicalRange();
+            const tsLen = (window._lastSigArgs?.ts?.length) || 0;
+            if (!r || !tsLen) { btn.style.display = 'none'; return; }
+            const lastIdx = tsLen - 1;
+            const outOfView = r.to < lastIdx - 1;
+            if (outOfView) {
+                const closes = window._lastSigArgs?.q?.close || [];
+                const lastClose = closes[closes.length - 1];
+                if (lastClose != null) {
+                    const sym = (window.currentMarket === 'KR') ? '₩' : '$';
+                    const pricEl = btn.querySelector('.cjl-price');
+                    if (pricEl) pricEl.textContent = sym + (window.currentMarket === 'KR'
+                        ? Math.round(lastClose).toLocaleString()
+                        : Number(lastClose).toFixed(2));
+                }
+                btn.style.display = '';
+            } else {
+                btn.style.display = 'none';
+            }
+        } catch(_) {}
+    }
+
+    /** 최신 캔들이 우측에서 20% 안쪽에 오도록 smooth scroll (줌 폭 유지) */
+    function _chartJumpToLatest() {
+        if (!window.lwChart) return;
+        try {
+            const ts = window.lwChart.timeScale();
+            const r  = ts.getVisibleLogicalRange();
+            const tsLen = (window._lastSigArgs?.ts?.length) || 0;
+            if (!tsLen) { ts.scrollToRealTime?.(); return; }
+            const lastIdx = tsLen - 1;
+            if (!r) { ts.scrollToPosition?.(0, true); return; }
+            const width = r.to - r.from;
+            const rightMargin = Math.max(3, width * 0.2);
+            _cnbProgrammaticRangeChange = true;
+            ts.setVisibleLogicalRange({
+                from: lastIdx - width + rightMargin,
+                to:   lastIdx + rightMargin,
+            });
+            setTimeout(() => { _cnbProgrammaticRangeChange = false; }, 300);
+        } catch(e) { console.warn('[jumpLatest]', e); }
     }
 
     // ── 새로고침 후 전체화면 상태 복원 ─────────────────────────────
@@ -15235,6 +15410,9 @@
                 },
             },
         });
+
+        // Phase B: 최신가 점프 버튼 + 프리셋 자동 해제 옵저버
+        try { _jumpBtnHooked = false; _initJumpBtnObserver(); } catch(_) {}
 
         // 캔들스틱 시리즈
         lwCandleSeries = lwChart.addCandlestickSeries({
@@ -16138,6 +16316,7 @@
         const bar = document.getElementById('chartSigBar');
         if (!bar || !lwCandleSeries || !candleData?.length) return;
         _lastSigArgs = { candleData, ts, q, bb }; // 토글 시 즉시 재렌더용
+        try { window._lastSigArgs = _lastSigArgs; _updateJumpBtnVisibility?.(); _cnbUpdatePresetUi?.(); } catch(_) {}
         _updateChartLinesBtnUi();
         _updateChartSoundBtnUi();
         _updateTpBtnUi();
@@ -29249,7 +29428,8 @@
         setMarket, searchStock, setChartInterval, setPeriod, _toggleIntervalDropdown,
         quickSearch, toggleFavorite, switchTab, toggleChartFullscreen, _restoreFullscreenState,
         _ctrOpenAnalysis, _ctrOpenLine, _ctrCapturePng, _ctrSettings,
-        _cnbZoom, _cnbPan, _cnbReset,
+        _cnbZoom, _cnbPan, _cnbReset, _cnbSetPreset, _cnbUpdatePresetUi, _cnbDeactivatePreset,
+        _chartJumpToLatest, _updateJumpBtnVisibility, _initJumpBtnObserver,
         favSearch, removeFavorite, setTop100Filter, goTop100, goCatalyst, loadCatalyst, _catalystSetFilter, switchCatalystTab, loadVolumeSurge, loadMinervini,
         _runCatalystAi, _renderCatalystAiExpanded,
         _runScannerAi, _renderScannerAiResult, _alphaAutoBatchAi, _renderAlphaAiMini,

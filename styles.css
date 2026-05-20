@@ -7605,6 +7605,114 @@
 }
 
 /* ═══════════════════════════════════════
+   기간 프리셋 바 (Phase B-1, 데스크탑 전용)
+   ═══════════════════════════════════════ */
+
+.chart-preset-bar {
+    position: absolute;
+    bottom: 8px;
+    left: 12px;
+    z-index: 6;
+    display: none;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 6px;
+    background: rgba(20, 22, 30, 0.55);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 8px;
+    pointer-events: auto;
+}
+[data-theme="light"] .chart-preset-bar {
+    background: rgba(255, 255, 255, 0.82);
+    border-color: rgba(0,0,0,0.08);
+}
+
+@media (min-width: 769px) {
+    .chart-preset-bar { display: inline-flex; }
+}
+
+.cpb-btn {
+    height: 24px;
+    min-width: 30px;
+    padding: 0 8px;
+    background: transparent;
+    border: none;
+    color: var(--text3);
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: color 0.12s ease, background 0.12s ease;
+    -webkit-tap-highlight-color: transparent;
+    letter-spacing: 0;
+}
+.cpb-btn:hover:not(.active) { color: var(--text2); background: var(--bg3); }
+.cpb-btn.active {
+    color: #FF424D;
+    background: rgba(255, 66, 77, 0.12);
+}
+.cpb-btn:disabled {
+    opacity: 0.32;
+    cursor: not-allowed;
+}
+
+.tv-chart-card.fullscreen .chart-preset-bar { z-index: 9100; }
+
+/* ═══════════════════════════════════════
+   최신가 점프 버튼 (Phase B-2)
+   ═══════════════════════════════════════ */
+
+.chart-jump-latest {
+    position: absolute;
+    right: 76px;          /* 가격축 옆 (price scale 안쪽 끝) */
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 7;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 14px;
+    background: rgba(255, 66, 77, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: #fff;
+    border: none;
+    border-radius: 99px;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(255,66,77,.35);
+    transition: transform 0.15s cubic-bezier(.34,1.56,.64,1), opacity 0.2s ease, box-shadow 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+.chart-jump-latest:hover {
+    transform: translateY(-50%) scale(1.06);
+    box-shadow: 0 6px 18px rgba(255,66,77,.5);
+}
+.chart-jump-latest:active {
+    transform: translateY(-50%) scale(0.97);
+}
+.cjl-label { opacity: 0.92; }
+.cjl-price { font-variant-numeric: tabular-nums; }
+
+.tv-chart-card.fullscreen .chart-jump-latest { z-index: 9100; }
+
+/* 모바일 — 같이 활성 (단 우측 margin 줄임) */
+@media (max-width: 768px) {
+    .chart-jump-latest {
+        right: 12px;
+        height: 28px;
+        padding: 0 12px;
+        font-size: 12px;
+    }
+}
+
+/* ═══════════════════════════════════════
    차트 하단 nav bar (영역 3, 데스크탑 전용 zoom/pan/reset)
    ═══════════════════════════════════════ */
 
