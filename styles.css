@@ -7530,23 +7530,17 @@
 @media(max-width:640px){
     .sd-v2-row{font-size:11px;}
 }
-.grade-btn { transition: all 0.2s ease; }
-.grade-btn.active { background: var(--accent) !important; color: #fff !important; border-color: var(--accent) !important; font-weight:700; }
-.grade-btn[data-grade="C"].active  { background:#9CA3AF !important; color:#fff !important; border-color:#9CA3AF !important; }
-.grade-btn[data-grade="B"].active  { background:#3B82F6 !important; color:#fff !important; border-color:#3B82F6 !important; }
-.grade-btn[data-grade="A"].active  { background:#22C55E !important; color:#fff !important; border-color:#22C55E !important; }
-.grade-btn[data-grade="S"].active  { background:#FFD700 !important; color:#000 !important; border-color:#FFD700 !important; }
+/* grade-btn: chart-tb-btn 위에 색상 레이어만 얹음 */
+.grade-btn { transition: all 0.15s ease; }
 
-/* 모바일 터치 타깃 보정 — 최소 44px 확보 */
-@media(max-width:600px){
-    .grade-btn{
-        padding:10px 12px !important;
-        font-size:12px !important;
-        min-height:40px !important;
-        min-width:36px !important;
-        border-radius:8px !important;
-    }
-}
+/* S 버튼 기본 색 (비활성) */
+.grade-btn[data-grade="S"] { color: #FFD700; border-color: rgba(251,191,36,.4); }
+
+/* 등급별 활성 색상 */
+.grade-btn[data-grade="C"].active { background:#9CA3AF !important; color:#fff !important; border-color:#9CA3AF !important; }
+.grade-btn[data-grade="B"].active { background:#3B82F6 !important; color:#fff !important; border-color:#3B82F6 !important; }
+.grade-btn[data-grade="A"].active { background:#22C55E !important; color:#fff !important; border-color:#22C55E !important; }
+.grade-btn[data-grade="S"].active { background:#FFD700 !important; color:#000 !important; border-color:#FFD700 !important; }
 
 /* ═══════════════════════════════════════
    종목 페이저 바 — 콘텐츠 폭 내 하단 고정

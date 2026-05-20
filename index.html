@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=723">
+    <link rel="stylesheet" href="/styles.css?v=724">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -843,10 +843,10 @@
                         </div>
                         <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
                             <!-- 등급 필터 -->
-                            <div style="display:flex;gap:3px;align-items:center;padding:3px 6px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;flex-shrink:0;">
-                                <button class="grade-btn active" data-grade="B" onclick="_setMinGrade('B')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text2);cursor:pointer;white-space:nowrap;">B+</button>
-                                <button class="grade-btn" data-grade="A" onclick="_setMinGrade('A')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text2);cursor:pointer;white-space:nowrap;">A+</button>
-                                <button class="grade-btn" data-grade="S" onclick="_setMinGrade('S')" style="padding:2px 6px;font-size:10px;background:transparent;border:1px solid var(--border);border-radius:5px;color:#FFD700;cursor:pointer;white-space:nowrap;">S</button>
+                            <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
+                                <button class="chart-tb-btn grade-btn active" data-grade="B" onclick="_setMinGrade('B')">B+</button>
+                                <button class="chart-tb-btn grade-btn" data-grade="A" onclick="_setMinGrade('A')">A+</button>
+                                <button class="chart-tb-btn grade-btn" data-grade="S" onclick="_setMinGrade('S')">S</button>
                             </div>
                             <!-- 그리기 도구 — 임시 숨김 (v639) -->
                             <button class="chart-tb-btn" id="chartDrawToggleBtn"
