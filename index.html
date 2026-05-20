@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=717">
+    <link rel="stylesheet" href="/styles.css?v=718">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -1553,6 +1553,12 @@
     }
 
     function favSearch(symbol, market) {
+        // 전체 즐겨찾기 목록을 페이저에 전달
+        try {
+            window._pendingPagerList = getFavorites()
+                .map(f => ({ symbol: f.symbol || '', name: f.name || '', market: f.market || '' }))
+                .filter(x => x.symbol);
+        } catch(e) { window._pendingPagerList = null; }
         closeSideNav();
         document.getElementById('favScreen').style.display = 'none';
         setMarket(market);
@@ -3477,6 +3483,7 @@
         stopChartSigPoll();
         stopAlpacaWS();
         // top100은 메뉴에서만 로드 (홈에서 제거)
+        if (typeof hideStockPager === 'function') hideStockPager();
         loadRecentStocks();
         loadSwingRadar();
         loadSocialHot();
@@ -12929,6 +12936,12 @@
             startChartSigPoll();
             // Alpaca WebSocket 실시간 캔들 (로컬 + US 종목만)
             startAlpacaWS(symbol);
+
+            // 종목 페이저 초기화 (페이저 이동 중에는 건너뜀)
+            if (!window._stockPagerNavigating && typeof initStockPager === 'function') {
+                initStockPager(currentSymbol, window._pendingPagerList || null);
+                window._pendingPagerList = null;
+            }
 
         } catch(err) {
             const isNotFound = err.message === '종목을 찾을 수 없습니다.'
@@ -28802,6 +28815,144 @@
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // 종목 페이저 (하단 고정 바) — 키움증권 스타일
+    // ═══════════════════════════════════════════════════════════
+
+    let _stockPagerList  = [];   // [{ symbol, name, market }]
+    let _stockPagerIndex = -1;
+
+    /** 페이저 초기화 — 워치리스트 또는 외부 리스트 */
+    function initStockPager(sym, externalList) {
+        let list = externalList;
+        if (!list || !list.length) {
+            try {
+                list = getFavorites()
+                    .map(f => ({ symbol: f.symbol || '', name: f.name || '', market: f.market || '' }))
+                    .filter(x => x.symbol);
+            } catch(e) { list = []; }
+        }
+        if (!list || list.length < 2) { hideStockPager(); return; }
+        _stockPagerList  = list;
+        _stockPagerIndex = list.findIndex(x => (x.symbol||'').toUpperCase() === (sym||'').toUpperCase());
+        if (_stockPagerIndex === -1) {
+            _stockPagerList  = [{ symbol: sym, name: '', market: currentMarket || '' }, ...list];
+            _stockPagerIndex = 0;
+        }
+        _showStockPager();
+    }
+
+    function _showStockPager() {
+        const bar = document.getElementById('stockPagerBar');
+        if (!bar) return;
+        bar.style.display = '';
+        bar.classList.remove('hidden');
+        document.body.classList.add('stock-pager-active');
+        const cur = _stockPagerList[_stockPagerIndex] || {};
+        bar.querySelector('.spb-symbol').textContent    = cur.symbol || '';
+        bar.querySelector('.spb-name').textContent      = cur.name   || ' ';
+        bar.querySelector('.spb-page-info').textContent = `${_stockPagerIndex + 1} / ${_stockPagerList.length}`;
+        const prev = bar.querySelector('.spb-prev');
+        const next = bar.querySelector('.spb-next');
+        if (prev) prev.disabled = _stockPagerIndex <= 0;
+        if (next) next.disabled = _stockPagerIndex >= _stockPagerList.length - 1;
+    }
+
+    function hideStockPager() {
+        const bar = document.getElementById('stockPagerBar');
+        if (bar) { bar.classList.add('hidden'); setTimeout(() => { bar.style.display = 'none'; }, 260); }
+        document.body.classList.remove('stock-pager-active');
+        _stockPagerList  = [];
+        _stockPagerIndex = -1;
+    }
+
+    /** 이전/다음 종목 이동 (delta: -1 | +1 | any) */
+    function navigateStock(delta) {
+        if (!_stockPagerList.length) return;
+        const newIdx = _stockPagerIndex + delta;
+        if (newIdx < 0 || newIdx >= _stockPagerList.length) {
+            if (navigator.vibrate) navigator.vibrate(20);
+            return;
+        }
+        const item = _stockPagerList[newIdx];
+        _stockPagerIndex = newIdx;
+        _showStockPager();
+        // 종목 로드
+        try { closeSideNav(); } catch(e) {}
+        const _fav = document.getElementById('favScreen'); if (_fav) _fav.style.display = 'none';
+        if (item.market) setMarket(item.market);
+        const inp = document.getElementById('searchInput'); if (inp) inp.value = item.symbol;
+        window._stockPagerNavigating = true;
+        searchStock().finally(() => { window._stockPagerNavigating = false; });
+        if (navigator.vibrate) navigator.vibrate(10);
+    }
+
+    /** 종목 리스트 바텀시트 */
+    function openStockPagerList() {
+        const sheet = document.getElementById('stockPagerSheet');
+        const list  = document.getElementById('stockPagerSheetList');
+        if (!sheet || !list) return;
+        list.innerHTML = _stockPagerList.map((item, idx) => `
+            <div class="sps-item${idx === _stockPagerIndex ? ' active' : ''}" onclick="jumpToStock(${idx})">
+                <span class="sps-item-idx">${idx + 1}</span>
+                <span class="sps-item-symbol">${item.symbol || ''}</span>
+                <span class="sps-item-name">${(item.name || '').replace(/</g,'&lt;')}</span>
+            </div>`).join('');
+        sheet.style.display = '';
+        requestAnimationFrame(() => sheet.classList.add('show'));
+        setTimeout(() => {
+            const active = list.querySelector('.sps-item.active');
+            if (active) active.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }, 100);
+    }
+
+    function closeStockPagerList() {
+        const sheet = document.getElementById('stockPagerSheet');
+        if (!sheet) return;
+        sheet.classList.remove('show');
+        setTimeout(() => { sheet.style.display = 'none'; }, 260);
+    }
+
+    function jumpToStock(idx) {
+        if (idx < 0 || idx >= _stockPagerList.length) return;
+        closeStockPagerList();
+        const delta = idx - _stockPagerIndex;
+        if (delta !== 0) navigateStock(delta);
+    }
+
+    // ── 키보드 이벤트 (← →) ──
+    document.addEventListener('keydown', e => {
+        const heroVisible = document.getElementById('stockHero')?.classList.contains('show');
+        if (!heroVisible || !_stockPagerList.length) return;
+        const active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return;
+        if (e.key === 'ArrowLeft'  || e.key === 'PageUp')   { e.preventDefault(); navigateStock(-1); }
+        else if (e.key === 'ArrowRight' || e.key === 'PageDown') { e.preventDefault(); navigateStock(1); }
+        else if (e.key === 'Escape') { closeStockPagerList(); }
+    });
+
+    // ── 모바일 스와이프 ──
+    (function() {
+        let sx = 0, sy = 0, ex = 0, ey = 0, ing = false;
+        const THRESH = 80, VLIM = 60;
+        document.body.addEventListener('touchstart', e => {
+            const heroVisible = document.getElementById('stockHero')?.classList.contains('show');
+            if (!heroVisible || !_stockPagerList.length) return;
+            if (e.target.closest('.tv-lightweight-charts,.lwchart-wrap,.scroll-x,table,.alpha-card-list,.top100-row,input,textarea,button,.stock-pager-sheet,.chart-dd,.side-nav')) return;
+            sx = e.touches[0].clientX; sy = e.touches[0].clientY; ing = true;
+        }, { passive: true });
+        document.body.addEventListener('touchmove', e => {
+            if (!ing) return;
+            ex = e.touches[0].clientX; ey = e.touches[0].clientY;
+        }, { passive: true });
+        document.body.addEventListener('touchend', () => {
+            if (!ing) return; ing = false;
+            const dx = ex - sx, dy = ey - sy;
+            if (Math.abs(dy) > VLIM || Math.abs(dx) < THRESH) return;
+            navigateStock(dx > 0 ? -1 : 1);
+        }, { passive: true });
+    })();
+
     Object.assign(window, {
         _loadStockEarningsBadge, _calcDaysUntil,
         goLeverage, loadLeverageETFs, renderLeverageGrid, _levSetFilter, _levSetSearch, _levClearSearch, _renderLevCard, _levFormatVol,
@@ -28867,6 +29018,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         loadShortTab, reloadShortTab, renderShortTab, _buildGaugeSVG,
         loadYouTubeTab, reloadYouTubeTab, renderYouTubeCards, _ytLogClick,
         renderAnalystTargets,
+        initStockPager, hideStockPager, navigateStock, openStockPagerList, closeStockPagerList, jumpToStock,
         goScanner, goFav, goSearch, closeSearch, bnGo, updateBnActive,
         goVisionScanner, vsReset, vsClickUpload, vsHandleFileInput,
         vsDragEnter, vsDragOver, vsDragLeave, vsDrop,
@@ -29023,6 +29175,35 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
             </div>
         </div>
     </div>
+
+<!-- ── 종목 페이저 바 (하단 고정, 키움증권 스타일) ── -->
+<div id="stockPagerBar" class="stock-pager-bar" style="display:none">
+    <button class="spb-btn spb-prev" onclick="navigateStock(-1)" aria-label="이전 종목">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+    <div class="spb-center" onclick="openStockPagerList()">
+        <div class="spb-symbol-row">
+            <span class="spb-symbol">—</span>
+            <span class="spb-page-info">— / —</span>
+        </div>
+        <div class="spb-name"> </div>
+    </div>
+    <button class="spb-btn spb-next" onclick="navigateStock(1)" aria-label="다음 종목">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    </button>
+</div>
+
+<!-- ── 종목 리스트 바텀시트 ── -->
+<div id="stockPagerSheet" class="stock-pager-sheet" style="display:none">
+    <div class="sps-backdrop" onclick="closeStockPagerList()"></div>
+    <div class="sps-content">
+        <div class="sps-header">
+            <span class="sps-title">종목 리스트</span>
+            <button class="sps-close" onclick="closeStockPagerList()">✕</button>
+        </div>
+        <div class="sps-list" id="stockPagerSheetList"></div>
+    </div>
+</div>
 
 </body>
 </html>
