@@ -486,7 +486,7 @@
             <div class="catalyst-tabs">
                 <button class="catalyst-tab active" data-ctab="edgar" onclick="switchCatalystTab('edgar')">📄 EDGAR 공시</button>
                 <button class="catalyst-tab"        data-ctab="volume" onclick="switchCatalystTab('volume')">🔥 거래량 급증</button>
-                <button class="catalyst-tab" onclick="switchCatalystTab('minervini')" data-ctab="minervini">미너비니 SEPA</button>
+                <button class="catalyst-tab" onclick="switchCatalystTab('minervini')" data-ctab="minervini">🌙 종가 매매</button>
             </div>
             <div id="catalystEdgarTab">
                 <div class="catalyst-warn">
@@ -9047,42 +9047,53 @@
         _minerviniLoaded = true;
         const listEl = document.getElementById('minerviniList');
         if (!listEl) return;
-        listEl.innerHTML = '<div class="catalyst-loading">SEPA 셋업 스캔 중... (1~2분 소요)</div>';
+        listEl.innerHTML = '<div class="catalyst-loading">🌙 종가 매매 종목 스캔 중... (최대 2분)</div>';
         try {
             const r = await fetch('/api/scanner/minervini');
             const d = await r.json();
             if (d.error) throw new Error(d.error);
             if (!d.stocks || d.stocks.length === 0) {
-                listEl.innerHTML = '<div class="catalyst-empty">오늘은 미너비니 SEPA 셋업 없음<br><span style="font-size:11px;color:var(--text3)">시장 상황상 진입 기회가 없을 수 있어요</span></div>';
+                listEl.innerHTML = '<div class="catalyst-empty">오늘은 종가 매매 셋업 없음<br><span style="font-size:11px;color:var(--text3)">시장 상황상 진입 기회가 없을 수 있어요</span></div>';
                 return;
             }
-            const guideHtml = `<div style="background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.25);border-radius:8px;padding:12px;margin-bottom:12px;font-size:11px;color:var(--text2);line-height:1.8">
-                <strong style="color:#FFD700">Mark Minervini SEPA 매매 룰</strong><br>
-                진입: 장 마감 30분 전 피벗 돌파 종가 매수 &nbsp;|&nbsp; 손절: -7.5% 절대 사수<br>
-                익절: +10%(30%) → +25%(40%) → +50%(30%) &nbsp;|&nbsp; 보유: 1~5일</div>`;
-            const cards = d.stocks.map(s => `
-                <div class="catalyst-card" onclick="selectStock('${s.ticker}')" style="cursor:pointer;border-left:3px solid #FFD700;margin-bottom:8px;padding:12px">
+            const guideHtml = `<div style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.25);border-radius:8px;padding:12px;margin-bottom:12px;font-size:11px;color:var(--text2);line-height:1.8">
+                <strong style="color:#A855F7">🌙 종가 매매 룰</strong><br>
+                진입: 장 마감 30분 전 확인 후 종가 매수 &nbsp;|&nbsp; 손절: -7% (다음날 장 시작 즉시 확인)<br>
+                익절: +8%(30%) → +15%(40%) → +25%(30%) &nbsp;|&nbsp; 보유: 1~3일<br>
+                <span style="color:var(--text3)">★ S/A 등급 우선 진입 &middot; B 등급은 소량 &middot; C 등급은 관망</span></div>`;
+            const _gc = g => g === 'S' ? '#FFD700' : g === 'A' ? '#22C55E' : g === 'B' ? '#3B82F6' : '#9CA3AF';
+            const _gl = g => g === 'S' ? '최우선' : g === 'A' ? '진입 가능' : g === 'B' ? '소량 진입' : '관망';
+            const cards = d.stocks.map(s => {
+                const gc = _gc(s.grade || 'C');
+                const gl = _gl(s.grade || 'C');
+                const bgAlpha = s.grade === 'S' ? '0.08' : s.grade === 'A' ? '0.06' : '0.04';
+                return `
+                <div class="catalyst-card" onclick="selectStock('${s.ticker}')" style="cursor:pointer;border-left:3px solid ${gc};margin-bottom:8px;padding:12px">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
                         <div>
-                            <div style="font-size:14px;font-weight:800;color:var(--text1)">${s.ticker}</div>
-                            <div style="font-size:10px;color:var(--text3);margin-top:2px">RS ${s.rsScore} &middot; Trend ${s.trendTemplateScore}/8 &middot; VCP ${s.vcp?'O':'X'}</div>
+                            <div style="display:flex;align-items:center;gap:6px">
+                                <span style="font-size:14px;font-weight:800;color:var(--text1)">${s.ticker}</span>
+                                <span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;background:${gc}22;color:${gc};border:1px solid ${gc}44">${s.grade || 'C'} ${gl}</span>
+                            </div>
+                            <div style="font-size:10px;color:var(--text3);margin-top:3px">RS ${s.rsScore} &middot; 트렌드 ${s.trendTemplateScore}/8 &middot; VCP ${s.vcp?'✓':'✗'} &middot; 점수 ${s.totalScore}</div>
                         </div>
                         <div style="text-align:right">
-                            <div style="font-size:13px;font-weight:700;color:var(--text1)">$${s.currentPrice.toFixed(2)}</div>
-                            <div style="font-size:10px;color:#FFD700">거래량 ${s.volRatio}배</div>
+                            <div style="font-size:13px;font-weight:700;color:var(--text1)">$${(s.currentPrice||s.entryPrice).toFixed(2)}</div>
+                            <div style="font-size:10px;color:${s.volRatio>=2?'#F59E0B':s.volRatio>=1.2?'#22C55E':'var(--text3)'}">거래량 ${s.volRatio}배</div>
                         </div>
                     </div>
-                    <div style="background:rgba(255,215,0,0.05);border-radius:6px;padding:8px;font-size:11px;line-height:1.7">
-                        <div><span style="color:var(--text3)">진입:</span> <strong style="color:var(--text1)">$${s.entryPrice.toFixed(2)}</strong> (피벗 $${s.pivot})</div>
-                        <div><span style="color:#EF4444">손절:</span> <strong style="color:#EF4444">$${s.stopLoss}</strong> (-7.5%)</div>
-                        <div><span style="color:#22C55E">익절:</span> <strong style="color:#22C55E">$${s.tp1Price}</strong> / $${s.tp2Price} / $${s.tp3Price}</div>
+                    <div style="background:${gc}${bgAlpha.replace('0.','')};border-radius:6px;padding:8px;font-size:11px;line-height:1.7">
+                        <div><span style="color:var(--text3)">진입:</span> <strong style="color:var(--text1)">$${s.entryPrice.toFixed(2)}</strong> <span style="color:var(--text3)">(피벗 $${s.pivot})</span></div>
+                        <div><span style="color:#EF4444">손절:</span> <strong style="color:#EF4444">$${s.stopLoss}</strong> <span style="color:var(--text3)">(-7%)</span></div>
+                        <div><span style="color:#22C55E">익절:</span> <strong style="color:#22C55E">$${s.tp1Price}</strong> <span style="color:var(--text3)">/ $${s.tp2Price} / $${s.tp3Price}</span></div>
                     </div>
                     <div style="display:flex;gap:8px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);font-size:10px;color:var(--text3)">
-                        <span>1M ${s.rs1m>0?'+':''}${s.rs1m}%</span>
-                        <span>3M ${s.rs3m>0?'+':''}${s.rs3m}%</span>
-                        <span>6M ${s.rs6m>0?'+':''}${s.rs6m}%</span>
+                        <span>1M <span style="color:${s.rs1m>0?'#22C55E':'#EF4444'}">${s.rs1m>0?'+':''}${s.rs1m}%</span></span>
+                        <span>3M <span style="color:${s.rs3m>0?'#22C55E':'#EF4444'}">${s.rs3m>0?'+':''}${s.rs3m}%</span></span>
+                        <span>6M <span style="color:${s.rs6m>0?'#22C55E':'#EF4444'}">${s.rs6m>0?'+':''}${s.rs6m}%</span></span>
                     </div>
-                </div>`).join('');
+                </div>`;
+            }).join('');
             listEl.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:4px 0 10px">스캔: ${new Date(d.scannedAt).toLocaleString('ko-KR')} &middot; ${d.total}개 셋업</div>${guideHtml}${cards}`;
         } catch(e) {
             listEl.innerHTML = `<div class="catalyst-empty">스캔 실패: ${e.message}<br><button onclick="loadMinervini()" style="margin-top:8px;padding:4px 12px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer">다시 시도</button></div>`;
@@ -9097,11 +9108,11 @@
                 const top3 = d.stocks.slice(0, 3);
                 const tickers = top3.map(s => s.ticker).join(', ');
                 if (typeof _showSignalAlert === 'function') {
-                    _showSignalAlert(`미너비니 SEPA 셋업 발견 — ${tickers}`, true, `${d.stocks.length}개 종목 · 장 마감 30분 전`);
+                    _showSignalAlert(`🌙 종가 매매 셋업 발견 — ${tickers}`, true, `${d.stocks.length}개 종목 · 장 마감 30분 전 확인`);
                 }
                 if (typeof _sigHistory !== 'undefined') {
                     _sigHistory.unshift({ ts: Date.now(), symbol: tickers, dir: 'buy',
-                        headline: `미너비니 SEPA — ${d.stocks.length}개 셋업`,
+                        headline: `🌙 종가 매매 — ${d.stocks.length}개 셋업`,
                         subText: `Top: ${top3.map(s=>`${s.ticker} $${s.entryPrice.toFixed(2)}`).join(' · ')}`, type: 'minervini_sepa' });
                     try { localStorage.setItem('stockai_sig_history', JSON.stringify(_sigHistory.slice(0,100))); } catch(e){}
                 }
@@ -13972,6 +13983,15 @@
             const bb = calcBollingerBands(q.close, 4, 2);
             renderChartLiveSignals(candleData, ts, q, bb);
         } catch(e) { /* 폴링 실패는 조용히 무시 */ }
+        // [디버그] 등급 캐시 안정성 모니터링 (확인 후 제거)
+        try {
+            console.log('[poll]', {
+                symbol: currentSymbol,
+                candleCount: _lastSigArgs?.candleData?.length || 0,
+                gradesCached: Object.keys(_signalGrades).length,
+                minGrade: _minGradeFilter,
+            });
+        } catch(_) {}
     }
 
     async function _updateKrPrice(ticker) {
@@ -15368,6 +15388,7 @@
     let _priceLabelRegistry = []; // 우측 가격 라벨 중복 방지 — ±0.8% 이내 중복 시 낮은 우선순위 라벨 숨김
     let _lastSigArgs = null;  // 토글 시 즉시 재렌더용 캐시
     let _signalGrades = {};
+    let _lastSymbolForGrades = null; // 종목 변경 감지용 (캐시 무효화)
     // 디폴트: B (C 제거됨 — B/A/S 3단계)
     let _minGradeFilter = localStorage.getItem('stockai_min_grade') || 'B';
     // 'all'/'D'/'C' 잔존값 마이그레이션
@@ -15838,6 +15859,35 @@
         };
     }
 
+    // ── 등급 캐시 무효화 (종목 변경 시만) ─────────────────────────────
+    function _maybeInvalidateGradesCache() {
+        if (_lastSymbolForGrades !== currentSymbol) {
+            _signalGrades = {};
+            _lastSymbolForGrades = currentSymbol;
+            console.log('[grade] cache invalidated for', currentSymbol);
+        }
+    }
+
+    // ── 등급 캐시 우선 조회 헬퍼 ──────────────────────────────────────
+    // isLastBar=true: 실시간 봉 → 항상 재계산 (마지막 봉 close가 계속 변동)
+    // isLastBar=false: 확정된 과거 봉 → 캐시 우선 사용 (등급 안정)
+    function _gradeForBar(cacheKey, opts, isLastBar) {
+        if (isLastBar) {
+            try {
+                const sg = _calcSignalGrade(opts);
+                if (sg && sg.grade) { _signalGrades[cacheKey] = sg; return sg; }
+            } catch(e) {}
+            return { grade: 'B', fallback: true, winRate: 60, score: 5 };
+        }
+        const cached = _signalGrades[cacheKey];
+        if (cached) return cached;
+        try {
+            const sg = _calcSignalGrade(opts);
+            if (sg && sg.grade) { _signalGrades[cacheKey] = sg; return sg; }
+        } catch(e) {}
+        return { grade: 'B', fallback: true, winRate: 60, score: 5 };
+    }
+
     function renderChartLiveSignals(candleData, ts, q, bb) {
         _isMobileView = window.innerWidth <= 768; // 렌더 시마다 갱신
         _clearChartLiveSignals();
@@ -15948,7 +15998,8 @@
         const emaC120   = calcEMA(closes, 120);
         const emaC240   = calcEMA(closes, 240);
         const _v3AtrArr = calcATR(q.high, q.low, q.close, 14);
-        _signalGrades = {};
+        _maybeInvalidateGradesCache(); // 종목 변경 시만 초기화, 폴링 시는 캐시 유지
+        const _lastBarIdx = closes.length - 1; // 마지막 봉 인덱스 (실시간 봉)
         if (!window._smartDipAnalysis) window._smartDipAnalysis = {};
         // 모든 마커에 공유되는 _calcSignalGrade 기본 opts
         const _gradeBase = {
@@ -15964,18 +16015,14 @@
         for (let i = 14; i < rsi.length - 1; i++) {
             if (rsi[i] == null || rsi[i+1] == null) continue;
             if (rsi[i] <= 30 && rsi[i+1] > 30 && closes[i+1] > closes[i]) {
-                let sg = { grade: 'C', score: 3, winRate: 52, stars: '⭐⭐', factors: [], recommendation: '관망 권장' };
-                try { sg = _calcSignalGrade({ ..._gradeBase, i: i+1, signalType: 'buy' }); } catch(e) { console.warn('[grade] rsi_buy', e.message); }
+                const sg = _gradeForBar(`${ts[i+1]}_rsi_buy`, { ..._gradeBase, i: i+1, signalType: 'buy' }, i+1 === _lastBarIdx);
                 if (_passesGradeFilter(sg.grade, sg.fallback)) {
                     markers.push({ time: ts[i+1], position: 'belowBar', color: _gc(sg.grade), shape: 'arrowUp', text: `RSI매수 [${sg.grade}]` });
-                    _signalGrades[`${ts[i+1]}_rsi_buy`] = sg;
                 }
             } else if (rsi[i] >= 70 && rsi[i+1] < 70 && closes[i+1] < closes[i]) {
-                let sg = { grade: 'C', score: 3, winRate: 52, stars: '⭐⭐', factors: [], recommendation: '관망 권장' };
-                try { sg = _calcSignalGrade({ ..._gradeBase, i: i+1, signalType: 'sell' }); } catch(e) { console.warn('[grade] rsi_sell', e.message); }
+                const sg = _gradeForBar(`${ts[i+1]}_rsi_sell`, { ..._gradeBase, i: i+1, signalType: 'sell' }, i+1 === _lastBarIdx);
                 if (_passesGradeFilter(sg.grade, sg.fallback)) {
                     markers.push({ time: ts[i+1], position: 'aboveBar', color: _gc(sg.grade), shape: 'arrowDown', text: `RSI매도 [${sg.grade}]` });
-                    _signalGrades[`${ts[i+1]}_rsi_sell`] = sg;
                 }
             }
         }
@@ -15985,29 +16032,23 @@
             const prev = macdLine[i-1] - signalLine[i-1];
             const cur  = macdLine[i]   - signalLine[i];
             if (prev <= 0 && cur > 0) {
-                let sg = { grade: 'C', score: 3, winRate: 52, stars: '⭐⭐', factors: [], recommendation: '관망 권장' };
-                try { sg = _calcSignalGrade({ ..._gradeBase, i, signalType: 'buy' }); } catch(e) { console.warn('[grade] macd_buy', e.message); }
+                const sg = _gradeForBar(`${ts[i]}_macd_buy`, { ..._gradeBase, i, signalType: 'buy' }, i === _lastBarIdx);
                 if (_passesGradeFilter(sg.grade, sg.fallback)) {
                     markers.push({ time: ts[i], position: 'belowBar', color: _gc(sg.grade), shape: 'arrowUp', text: `MACD매수 [${sg.grade}]` });
-                    _signalGrades[`${ts[i]}_macd_buy`] = sg;
                 }
             } else if (prev >= 0 && cur < 0) {
-                let sg = { grade: 'C', score: 3, winRate: 52, stars: '⭐⭐', factors: [], recommendation: '관망 권장' };
-                try { sg = _calcSignalGrade({ ..._gradeBase, i, signalType: 'sell' }); } catch(e) { console.warn('[grade] macd_sell', e.message); }
+                const sg = _gradeForBar(`${ts[i]}_macd_sell`, { ..._gradeBase, i, signalType: 'sell' }, i === _lastBarIdx);
                 if (_passesGradeFilter(sg.grade, sg.fallback)) {
                     markers.push({ time: ts[i], position: 'aboveBar', color: _gc(sg.grade), shape: 'arrowDown', text: `MACD매도 [${sg.grade}]` });
-                    _signalGrades[`${ts[i]}_macd_sell`] = sg;
                 }
             }
         }
         // Rayner 진입 마커 (풀백/브레이크아웃/반전)
         const raynerEntries = _detectRaynerEntries(stageInfo, closes, q.volume || [], ema20Data, ema50Data, ema200Data, ts);
         raynerEntries.forEach(e => {
-            let sg = { grade: 'C', score: 3, winRate: 52, stars: '⭐⭐', factors: [], recommendation: '관망 권장' };
-            try { sg = _calcSignalGrade({ ..._gradeBase, i: e.idx, signalType: 'buy' }); } catch(err) { console.warn('[grade] rayner', err.message); }
+            const sg = _gradeForBar(`${e.time}_rayner_buy`, { ..._gradeBase, i: e.idx, signalType: 'buy' }, e.idx === _lastBarIdx);
             if (_passesGradeFilter(sg.grade, sg.fallback)) {
                 markers.push({ time: e.time, position: 'belowBar', color: e.color, shape: 'arrowUp', text: `${e.label} [${sg.grade}]` });
-                _signalGrades[`${e.time}_rayner_buy`] = sg;
             }
         });
         // 캔들 패턴 마커 (최근 5봉)
@@ -16018,8 +16059,7 @@
             const isBull = p.dir === 'bull';
             const isBear = p.dir === 'bear';
             const sigT = isBull ? 'buy' : isBear ? 'sell' : 'buy';
-            let sg = { grade: 'C', score: 3, winRate: 52, stars: '⭐⭐', factors: [], recommendation: '관망 권장' };
-            try { sg = _calcSignalGrade({ ..._gradeBase, i: p.idx, signalType: sigT }); } catch(err) { console.warn('[grade] candle', err.message); }
+            const sg = _gradeForBar(`${t}_candle_${sigT}`, { ..._gradeBase, i: p.idx, signalType: sigT }, p.idx === _lastBarIdx);
             if (_passesGradeFilter(sg.grade, sg.fallback)) {
                 markers.push({
                     time: t,
@@ -16028,7 +16068,6 @@
                     shape: isBull ? 'arrowUp' : isBear ? 'arrowDown' : 'circle',
                     text: `${p.label} [${sg.grade}]`,
                 });
-                _signalGrades[`${t}_candle_${sigT}`] = sg;
             }
         });
         // ── 확장 시그널 (v699) — 미국 데이트레이딩 핵심 시그널 ──
@@ -16037,18 +16076,14 @@
             const p50 = ema50Data[i-1], p200 = ema200Data[i-1], c50 = ema50Data[i], c200 = ema200Data[i];
             if (p50 == null || p200 == null || c50 == null || c200 == null) continue;
             if (p50 <= p200 && c50 > c200) {
-                let sg = { grade: 'C', score: 3, winRate: 52, stars: '⭐⭐', factors: [], recommendation: '관망 권장' };
-                try { sg = _calcSignalGrade({ ..._gradeBase, i, signalType: 'buy' }); } catch(err) { console.warn('[grade] golden', err.message); }
+                const sg = _gradeForBar(`${ts[i]}_golden`, { ..._gradeBase, i, signalType: 'buy' }, i === _lastBarIdx);
                 if (_passesGradeFilter(sg.grade, sg.fallback)) {
                     markers.push({ time: ts[i], position: 'belowBar', color: '#ef4444', shape: 'arrowUp', text: `골든크로스 [${sg.grade}]` });
-                    _signalGrades[`${ts[i]}_golden`] = sg;
                 }
             } else if (p50 >= p200 && c50 < c200) {
-                let sg = { grade: 'C', score: 3, winRate: 52, stars: '⭐⭐', factors: [], recommendation: '관망 권장' };
-                try { sg = _calcSignalGrade({ ..._gradeBase, i, signalType: 'sell' }); } catch(err) { console.warn('[grade] dead', err.message); }
+                const sg = _gradeForBar(`${ts[i]}_dead`, { ..._gradeBase, i, signalType: 'sell' }, i === _lastBarIdx);
                 if (_passesGradeFilter(sg.grade, sg.fallback)) {
                     markers.push({ time: ts[i], position: 'aboveBar', color: '#3b82f6', shape: 'arrowDown', text: `데드크로스 [${sg.grade}]` });
-                    _signalGrades[`${ts[i]}_dead`] = sg;
                 }
             }
         }
@@ -16061,11 +16096,9 @@
                 for (let j = i-20; j < i; j++) { if (vols[j] != null) { sum += vols[j]; cnt++; } }
                 const avg = cnt ? sum / cnt : 0;
                 if (avg > 0 && vols[i] >= avg * 2.5 && closes[i] > closes[i-1]) {
-                    let sg = { grade: 'C', score: 3, winRate: 52, stars: '⭐⭐', factors: [], recommendation: '관망 권장' };
-                    try { sg = _calcSignalGrade({ ..._gradeBase, i, signalType: 'buy' }); } catch(err) { console.warn('[grade] volSurge', err.message); }
+                    const sg = _gradeForBar(`${ts[i]}_vol`, { ..._gradeBase, i, signalType: 'buy' }, i === _lastBarIdx);
                     if (_passesGradeFilter(sg.grade, sg.fallback)) {
                         markers.push({ time: ts[i], position: 'belowBar', color: '#f97316', shape: 'arrowUp', text: `거래량급증 [${sg.grade}]` });
-                        _signalGrades[`${ts[i]}_vol`] = sg;
                     }
                 }
             }
@@ -16076,18 +16109,14 @@
                 if (closes[i] == null || closes[i-1] == null) continue;
                 const cu = bb.upper[i], pu = bb.upper[i-1], cl = bb.lower[i], pl = bb.lower[i-1];
                 if (pu != null && cu != null && closes[i-1] <= pu && closes[i] > cu) {
-                    let sg = { grade: 'C', score: 3, winRate: 52, stars: '⭐⭐', factors: [], recommendation: '관망 권장' };
-                    try { sg = _calcSignalGrade({ ..._gradeBase, i, signalType: 'buy' }); } catch(err) { console.warn('[grade] bb_up', err.message); }
+                    const sg = _gradeForBar(`${ts[i]}_bb_buy`, { ..._gradeBase, i, signalType: 'buy' }, i === _lastBarIdx);
                     if (_passesGradeFilter(sg.grade, sg.fallback)) {
                         markers.push({ time: ts[i], position: 'belowBar', color: '#ef4444', shape: 'arrowUp', text: `BB돌파 [${sg.grade}]` });
-                        _signalGrades[`${ts[i]}_bb_buy`] = sg;
                     }
                 } else if (pl != null && cl != null && closes[i-1] >= pl && closes[i] < cl) {
-                    let sg = { grade: 'C', score: 3, winRate: 52, stars: '⭐⭐', factors: [], recommendation: '관망 권장' };
-                    try { sg = _calcSignalGrade({ ..._gradeBase, i, signalType: 'sell' }); } catch(err) { console.warn('[grade] bb_dn', err.message); }
+                    const sg = _gradeForBar(`${ts[i]}_bb_sell`, { ..._gradeBase, i, signalType: 'sell' }, i === _lastBarIdx);
                     if (_passesGradeFilter(sg.grade, sg.fallback)) {
                         markers.push({ time: ts[i], position: 'aboveBar', color: '#3b82f6', shape: 'arrowDown', text: `BB이탈 [${sg.grade}]` });
-                        _signalGrades[`${ts[i]}_bb_sell`] = sg;
                     }
                 }
             }
@@ -16168,11 +16197,10 @@
                         currentInterval, ts,
                     });
                     if (v3.pass) {
-                        let sg; try { sg = _calcSignalGrade(_gradeOpts); if (!sg?.grade) throw new Error('no grade'); } catch(e) { console.warn('[grade] buy1', e.message); sg = { grade: 'C', score: 0, winRate: 50 }; }
+                        const sg = _gradeForBar(`${t}_buy1`, _gradeOpts, i === _lastBarIdx);
                         if (_passesGradeFilter(sg.grade, sg.fallback)) {
                             markers.push({ time: t, position: 'belowBar', color: _gc(sg.grade), shape: 'arrowUp', text: `매수1 [${sg.grade}] ${sg.winRate}%` });
                             window._smartDipAnalysis[t] = { ...v3, num: 1 };
-                            _signalGrades[`${t}_buy1`] = sg;
                             lastBuy1Bar = i;
                         }
                     }
@@ -16186,11 +16214,10 @@
                         currentInterval, ts,
                     });
                     if (v3.pass) {
-                        let sg; try { sg = _calcSignalGrade({ ..._gradeOpts }); if (!sg?.grade) throw new Error('no grade'); } catch(e) { console.warn('[grade] buy2', e.message); sg = { grade: 'C', score: 0, winRate: 50 }; }
+                        const sg = _gradeForBar(`${t}_buy2`, { ..._gradeOpts }, i === _lastBarIdx);
                         if (_passesGradeFilter(sg.grade, sg.fallback)) {
                             markers.push({ time: t, position: 'belowBar', color: _gc(sg.grade), shape: 'arrowUp', text: `매수2 [${sg.grade}] ${sg.winRate}%` });
                             window._smartDipAnalysis[t] = { ...v3, num: 2 };
-                            _signalGrades[`${t}_buy2`] = sg;
                             lastBuy2Bar = i;
                         }
                     }
@@ -16204,11 +16231,10 @@
                         currentInterval, ts,
                     });
                     if (v3.pass) {
-                        let sg; try { sg = _calcSignalGrade({ ..._gradeOpts }); if (!sg?.grade) throw new Error('no grade'); } catch(e) { console.warn('[grade] buy3', e.message); sg = { grade: 'C', score: 0, winRate: 50 }; }
+                        const sg = _gradeForBar(`${t}_buy3`, { ..._gradeOpts }, i === _lastBarIdx);
                         if (_passesGradeFilter(sg.grade, sg.fallback)) {
                             markers.push({ time: t, position: 'belowBar', color: _gc(sg.grade), shape: 'arrowUp', text: `매수3 [${sg.grade}] ${sg.winRate}%` });
                             window._smartDipAnalysis[t] = { ...v3, num: 3 };
-                            _signalGrades[`${t}_buy3`] = sg;
                             lastBuy3Bar = i;
                         }
                     }
@@ -16226,29 +16252,26 @@
                 };
                 if (prevC != null && e20 && prevE20 && prevC > prevE20 && c < e20
                     && (i - lastSell1Bar) >= SELL_COOLDOWN) {
-                    let sg; try { sg = _calcSignalGrade(_sellGradeOpts); if (!sg?.grade) throw new Error('no grade'); } catch(e) { console.warn('[grade] sell1', e.message); sg = { grade: 'C', score: 0, winRate: 50 }; }
+                    const sg = _gradeForBar(`${t}_sell1`, _sellGradeOpts, i === _lastBarIdx);
                     if (_passesGradeFilter(sg.grade, sg.fallback)) {
                         const sc = sg.grade === 'S' ? '#FFD700' : sg.grade === 'A' ? '#22C55E' : '#EF4444';
                         markers.push({ time: t, position: 'aboveBar', color: sc, shape: 'arrowDown', text: `매도1 [${sg.grade}] ${sg.winRate}%` });
-                        _signalGrades[`${t}_sell1`] = sg;
                         lastSell1Bar = i;
                     }
                 } else if (prevC != null && e60 && prevE60 && prevC > prevE60 && c < e60
                     && (i - lastSell2Bar) >= SELL_COOLDOWN) {
-                    let sg; try { sg = _calcSignalGrade(_sellGradeOpts); if (!sg?.grade) throw new Error('no grade'); } catch(e) { console.warn('[grade] sell2', e.message); sg = { grade: 'C', score: 0, winRate: 50 }; }
+                    const sg = _gradeForBar(`${t}_sell2`, _sellGradeOpts, i === _lastBarIdx);
                     if (_passesGradeFilter(sg.grade, sg.fallback)) {
                         const sc = sg.grade === 'S' ? '#FFD700' : sg.grade === 'A' ? '#22C55E' : '#EF4444';
                         markers.push({ time: t, position: 'aboveBar', color: sc, shape: 'arrowDown', text: `매도2 [${sg.grade}] ${sg.winRate}%` });
-                        _signalGrades[`${t}_sell2`] = sg;
                         lastSell2Bar = i;
                     }
                 } else if (prevC != null && e120 && prevE120 && prevC > prevE120 && c < e120
                     && (i - lastSell3Bar) >= SELL_COOLDOWN) {
-                    let sg; try { sg = _calcSignalGrade(_sellGradeOpts); if (!sg?.grade) throw new Error('no grade'); } catch(e) { console.warn('[grade] sell3', e.message); sg = { grade: 'C', score: 0, winRate: 50 }; }
+                    const sg = _gradeForBar(`${t}_sell3`, _sellGradeOpts, i === _lastBarIdx);
                     if (_passesGradeFilter(sg.grade, sg.fallback)) {
                         const sc = sg.grade === 'S' ? '#FFD700' : sg.grade === 'A' ? '#22C55E' : '#EF4444';
                         markers.push({ time: t, position: 'aboveBar', color: sc, shape: 'arrowDown', text: `매도3 [${sg.grade}] ${sg.winRate}%` });
-                        _signalGrades[`${t}_sell3`] = sg;
                         lastSell3Bar = i;
                     }
                 }
@@ -16277,7 +16300,12 @@
                 .sort((a, b) => _mPri(b) - _mPri(a) || b.time - a.time)
                 .slice(0, 500)
                 .sort((a, b) => a.time - b.time);
-        try { lwCandleSeries.setMarkers(_finalMarkers); } catch(e) {}
+        // 마커 부드럽게 교체 — 빈 배열일 때는 생략해서 깜빡임 방지
+        try {
+            if (_finalMarkers && _finalMarkers.length > 0) {
+                lwCandleSeries.setMarkers(_finalMarkers);
+            }
+        } catch(e) { console.warn('[markers]', e.message); }
 
         // 3.5) 새 시그널 감지 → 토스트 (폴링으로 신규 마커 도착 시)
         const latest = uniqMarkers[uniqMarkers.length - 1];
