@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=720">
+    <link rel="stylesheet" href="/styles.css?v=721">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -28850,7 +28850,8 @@
         document.body.classList.add('stock-pager-active');
         const cur = _stockPagerList[_stockPagerIndex] || {};
         bar.querySelector('.spb-symbol').textContent    = cur.symbol || '';
-        bar.querySelector('.spb-name').textContent      = cur.name   || ' ';
+        const nameEl = bar.querySelector('.spb-name');
+        if (nameEl) { nameEl.textContent = cur.name || ''; nameEl.style.display = cur.name ? '' : 'none'; }
         bar.querySelector('.spb-page-info').textContent = `${_stockPagerIndex + 1} / ${_stockPagerList.length}`;
         const prev = bar.querySelector('.spb-prev');
         const next = bar.querySelector('.spb-next');
