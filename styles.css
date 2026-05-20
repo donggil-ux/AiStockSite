@@ -7549,40 +7549,45 @@
 }
 
 /* ═══════════════════════════════════════
-   종목 페이저 바 (하단 고정) — 키움 스타일
+   종목 페이저 바 — 콘텐츠 폭 내 하단 고정
    ═══════════════════════════════════════ */
 
 .stock-pager-bar {
     position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 64px;
+    bottom: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 32px);
+    max-width: 802px; /* .app(834px) - 양쪽 padding(16px×2) */
+    height: 60px;
     background: var(--bg2);
-    border-top: 1px solid var(--border);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 8px 32px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.2);
     display: flex;
     align-items: center;
     padding: 8px 12px;
     gap: 8px;
     z-index: 100;
-    padding-bottom: calc(8px + env(safe-area-inset-bottom));
-    height: calc(64px + env(safe-area-inset-bottom));
-    transform: translateY(0);
-    transition: transform 0.25s ease;
+    transition: transform 0.28s cubic-bezier(.4,0,.2,1), opacity 0.28s ease;
+    opacity: 1;
 }
 
 .stock-pager-bar.hidden {
-    transform: translateY(100%);
+    transform: translateX(-50%) translateY(calc(100% + 32px));
+    opacity: 0;
 }
 
+/* 좌우 버튼 */
 .spb-btn {
     background: var(--bg3);
     border: 1px solid var(--border);
     color: var(--text1);
-    width: 44px;
-    height: 44px;
+    width: 42px;
+    height: 42px;
     border-radius: 50%;
     cursor: pointer;
     display: inline-flex;
@@ -7600,16 +7605,15 @@
 }
 
 .spb-btn:active:not(:disabled) {
-    transform: scale(0.92);
-    background: var(--accent);
-    color: #fff;
+    transform: scale(0.90);
 }
 
 .spb-btn:disabled {
-    opacity: 0.25;
+    opacity: 0.22;
     cursor: not-allowed;
 }
 
+/* 가운데 정보 */
 .spb-center {
     flex: 1;
     display: flex;
@@ -7617,7 +7621,7 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    padding: 6px 8px;
+    padding: 5px 10px;
     border-radius: 10px;
     transition: background 0.15s ease;
     overflow: hidden;
@@ -7626,15 +7630,14 @@
 }
 
 .spb-center:hover,
-.spb-center:active {
-    background: var(--bg3);
-}
+.spb-center:active { background: var(--bg3); }
 
 .spb-symbol-row {
     display: flex;
     align-items: baseline;
     gap: 8px;
     line-height: 1;
+    max-width: 100%;
 }
 
 .spb-symbol {
@@ -7646,12 +7649,13 @@
 
 .spb-page-info {
     font-size: 11px;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--text3);
     background: var(--bg3);
     padding: 2px 7px;
     border-radius: 8px;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .spb-name {
@@ -7666,67 +7670,78 @@
 
 @media (max-width: 600px) {
     .stock-pager-bar {
+        bottom: 12px;
+        bottom: calc(12px + env(safe-area-inset-bottom));
+        width: calc(100% - 20px);
+        height: 56px;
+        border-radius: 14px;
         padding: 6px 10px;
-        padding-bottom: calc(6px + env(safe-area-inset-bottom));
-        height: calc(60px + env(safe-area-inset-bottom));
     }
-    .spb-btn { width: 40px; height: 40px; }
+    .spb-btn { width: 38px; height: 38px; }
     .spb-symbol { font-size: 15px; }
     .spb-page-info { font-size: 10px; padding: 2px 6px; }
     .spb-name { font-size: 11px; }
 }
 
-body.stock-pager-active .tab-content,
-body.stock-pager-active #mainContent {
-    padding-bottom: 72px;
+/* 본문 하단 패딩 (페이저에 안 가리도록) */
+body.stock-pager-active #mainContent,
+body.stock-pager-active .stock-content-wrap {
+    padding-bottom: 90px;
 }
 
 @media (max-width: 600px) {
-    body.stock-pager-active .tab-content,
-    body.stock-pager-active #mainContent {
-        padding-bottom: 68px;
+    body.stock-pager-active #mainContent,
+    body.stock-pager-active .stock-content-wrap {
+        padding-bottom: 80px;
     }
 }
 
 /* ═══════════════════════════════════════
-   종목 리스트 바텀시트
+   종목 리스트 바텀시트 — 하단 슬라이드업
    ═══════════════════════════════════════ */
 
 .stock-pager-sheet {
     position: fixed;
     inset: 0;
-    z-index: 200;
+    z-index: 9999;
+    pointer-events: none;
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    pointer-events: none;
 }
 
 .stock-pager-sheet.show {
     pointer-events: auto;
 }
 
+/* 불투명 검은 백드롭 */
 .sps-backdrop {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     opacity: 0;
-    transition: opacity 0.25s ease;
+    transition: opacity 0.3s ease;
+    cursor: pointer;
 }
 
 .stock-pager-sheet.show .sps-backdrop {
     opacity: 1;
 }
 
+/* 바텀시트 본체 */
 .sps-content {
     position: relative;
     width: 100%;
-    max-width: 480px;
-    max-height: 70vh;
+    max-width: 600px;
+    max-height: 75vh;
     background: var(--bg1);
     border-radius: 20px 20px 0 0;
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
     transform: translateY(100%);
-    transition: transform 0.25s ease;
+    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -7737,26 +7752,41 @@ body.stock-pager-active #mainContent {
     transform: translateY(0);
 }
 
+/* 드래그 핸들 */
+.sps-content::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 36px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    z-index: 1;
+}
+
+/* 헤더 */
 .sps-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 20px;
+    padding: 22px 20px 14px;
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
 }
 
 .sps-title {
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 700;
     color: var(--text1);
 }
 
 .sps-close {
-    background: transparent;
+    background: var(--bg3);
     border: none;
     color: var(--text2);
-    font-size: 18px;
+    font-size: 16px;
     cursor: pointer;
     width: 32px;
     height: 32px;
@@ -7764,45 +7794,64 @@ body.stock-pager-active #mainContent {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    transition: all 0.15s ease;
 }
 
-.sps-close:hover { background: var(--bg3); }
+.sps-close:hover {
+    background: var(--accent);
+    color: #fff;
+}
 
+/* 리스트 */
 .sps-list {
     overflow-y: auto;
     padding: 8px 0;
     flex: 1;
+    -webkit-overflow-scrolling: touch;
 }
 
 .sps-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 20px;
+    gap: 14px;
+    padding: 13px 20px;
     cursor: pointer;
     transition: background 0.15s ease;
-    border-left: 3px solid transparent;
+    position: relative;
 }
 
-.sps-item:hover { background: var(--bg3); }
+.sps-item:hover { background: var(--bg2); }
 
 .sps-item.active {
-    background: var(--bg3);
-    border-left-color: var(--accent);
+    background: rgba(59,130,246,.08);
 }
+
+.sps-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 8px;
+    bottom: 8px;
+    width: 3px;
+    background: var(--accent);
+    border-radius: 0 2px 2px 0;
+}
+
+.sps-item.active .sps-item-symbol { color: var(--accent); }
 
 .sps-item-idx {
     font-size: 12px;
     color: var(--text3);
     min-width: 24px;
+    font-weight: 600;
     text-align: right;
 }
 
 .sps-item-symbol {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 700;
     color: var(--text1);
-    min-width: 60px;
+    min-width: 70px;
 }
 
 .sps-item-name {
@@ -7812,4 +7861,12 @@ body.stock-pager-active #mainContent {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+    .sps-content { max-width: 100%; max-height: 80vh; }
+    .sps-header  { padding: 22px 16px 12px; }
+    .sps-item    { padding: 12px 16px; gap: 10px; }
+    .sps-item-symbol { font-size: 14px; min-width: 60px; }
+    .sps-item-name   { font-size: 12px; }
 }
