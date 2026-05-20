@@ -5862,6 +5862,14 @@
     const _alphaHomeCache = {};
     const _alphaHomeRetry = {}; // 탭별 자동 재시도 횟수 (무한 재시도 방지)
     const _ALPHA_HOME_TTL = 5 * 60 * 1000;
+    // 캐시 버전 — 변경 시 sessionStorage 캐시 무효화
+    const _ALPHA_CACHE_VERSION = 'v3';
+    try {
+        if (sessionStorage.getItem('_alphaCacheVersion') !== _ALPHA_CACHE_VERSION) {
+            sessionStorage.setItem('_alphaCacheVersion', _ALPHA_CACHE_VERSION);
+            console.log('[alphaHome] 캐시 버전 변경 →', _ALPHA_CACHE_VERSION, '(메모리 캐시 클리어)');
+        }
+    } catch(e) {}
 
     // 10초 타임아웃 fetch — 응답 없으면 자동 abort
     function _alphaFetch(url) {
@@ -5869,25 +5877,64 @@
     }
 
     async function _alphaHomeFetchItems(tab) {
+        console.log('[alphaHome] 시작:', tab);
+
         const cached = _alphaHomeCache[tab];
-        if (cached && (Date.now() - cached.ts) < _ALPHA_HOME_TTL) return cached.items;
+        if (cached && (Date.now() - cached.ts) < _ALPHA_HOME_TTL) {
+            console.log('[alphaHome] 캐시 사용:', tab, cached.items.length + '개');
+            return cached.items;
+        }
 
         let items = [];
         try {
             if (tab === 'bounce') {
+                console.log('[alphaHome] API 호출: /api/oversold-radar?tab=oversold');
                 const r = await _alphaFetch('/api/oversold-radar?tab=oversold');
+                console.log('[alphaHome] API 응답:', r.status, r.ok ? 'OK' : 'FAIL');
                 if (!r.ok) throw new Error('http ' + r.status);
+
                 const d = await r.json();
                 const raw = (d.items || []);
-                items = raw
-                    .filter(item => _isClearlyOversold(item))
-                    .map(item => ({ item, signals: _calcBounceScore(item) }))
+                console.log('[alphaHome] raw 데이터:', raw.length + '개', '| d.error:', d.error || '없음');
+
+                // 필터 단계
+                let filtered = [];
+                try {
+                    filtered = raw.filter(item => {
+                        try { return _isClearlyOversold(item); }
+                        catch(e) { console.warn('[isClearlyOversold 에러]', item?.symbol, e.message); return false; }
+                    });
+                    console.log('[alphaHome] 필터 후:', filtered.length + '개');
+                } catch(e) {
+                    console.error('[alphaHome] 필터 단계 실패:', e);
+                    throw e;
+                }
+
+                // 점수 계산 단계
+                let scored = [];
+                try {
+                    scored = filtered.map(item => {
+                        try { return { item, signals: _calcBounceScore(item) }; }
+                        catch(e) { console.warn('[calcBounceScore 에러]', item?.symbol, e.message); return { item, signals: [] }; }
+                    });
+                    console.log('[alphaHome] 점수 계산 후:', scored.length + '개');
+                } catch(e) {
+                    console.error('[alphaHome] 점수 단계 실패:', e);
+                    throw e;
+                }
+
+                items = scored
                     .sort((a, b) => b.signals.length - a.signals.length)
                     .map(({ item, signals }) => ({ ...item, _alphaKind: 'bounce', _bounceSignals: signals }));
+                console.log('[alphaHome] bounce 최종:', items.length + '개');
+
             } else if (tab === 'swing') {
+                console.log('[alphaHome] swing 탭 처리');
                 let raw = (top100Cache?.['day_gainers']?.items) || [];
                 if (!raw.length) {
+                    console.log('[alphaHome] swing API 호출');
                     const r = await _alphaFetch('/api/screener/day_gainers?count=100');
+                    console.log('[alphaHome] swing 응답:', r.status);
                     if (r.ok) {
                         const d = await r.json();
                         raw = d?.finance?.result?.[0]?.quotes || [];
@@ -5900,11 +5947,15 @@
                     const rr = (h - p) / (p * 0.05);
                     return rr >= 1.5 ? { ...q, _rr: rr, _alphaKind: 'swing' } : null;
                 }).filter(Boolean).sort((a, b) => b._rr - a._rr);
+                console.log('[alphaHome] swing 최종:', items.length + '개');
+            } else {
+                console.log('[alphaHome] 알 수 없는 탭:', tab);
             }
+
             _alphaHomeCache[tab] = { items, ts: Date.now() };
             return items;
         } catch(e) {
-            console.warn('[alphaHomeFetch]', tab, e.message);
+            console.error('[alphaHomeFetch ❌]', tab, { message: e.message, name: e.name, stack: e.stack });
             return []; // 실패 시 빈 배열 반환 (로딩 무한 방지)
         }
     }
