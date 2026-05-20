@@ -7151,22 +7151,32 @@ app.get('/api/guru/by-ticker/:ticker', async (req, res) => {
         // 2) Guru 메타 별도 조회
         const { data: gurus } = await supabase
             .from('guru')
-            .select('cik,name,manager,emoji')
+            .select('cik,name,manager,emoji,aum_usd')
             .in('cik', latestPos.map(r => r.cik));
         const guruMap = {};
         (gurus || []).forEach(g => { guruMap[g.cik] = g; });
 
-        const out = latestPos.map(r => ({
-            cik:       r.cik,
-            quarter:   r.quarter,
-            name:      guruMap[r.cik]?.name    || null,
-            manager:   guruMap[r.cik]?.manager || null,
-            emoji:     guruMap[r.cik]?.emoji   || '💎',
-            weight:    r.weight,
-            value_usd: r.value_usd,
-            shares:    r.shares,
-            action:    r.action,
-        })).sort((a, b) => (b.weight || 0) - (a.weight || 0));
+        // 시그널 우선순위: NEW>ADD>HOLD>REDUCE (SOLD 제외)
+        const _sigOrd = { NEW:0, ADD:1, HOLD:2, REDUCE:3, SOLD:99 };
+        const out = latestPos
+            .filter(r => r.action !== 'SOLD')
+            .map(r => ({
+                cik:       r.cik,
+                quarter:   r.quarter,
+                name:      guruMap[r.cik]?.name    || null,
+                manager:   guruMap[r.cik]?.manager || null,
+                emoji:     guruMap[r.cik]?.emoji   || null,
+                aum_usd:   guruMap[r.cik]?.aum_usd || null,
+                weight:    r.weight,
+                value_usd: r.value_usd,
+                shares:    r.shares,
+                action:    r.action || 'HOLD',
+            }))
+            .sort((a, b) => {
+                const sa = _sigOrd[a.action] ?? 2, sb = _sigOrd[b.action] ?? 2;
+                if (sa !== sb) return sa - sb;
+                return (b.aum_usd || 0) - (a.aum_usd || 0);
+            });
 
         res.json(out);
     } catch (e) {

@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=730">
+    <link rel="stylesheet" href="/styles.css?v=731">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -12117,6 +12117,45 @@
     }
 
     // 종목 상세: 보유 Guru 칩
+    // ── 투자 대가 포지션 시그널 매핑 ────────────────────────────────
+    function _ghSignal(action, wtChg) {
+        if (action === 'NEW')    return { cls: 'gh-sig-new',    label: '신규 매수' };
+        if (action === 'ADD')    return { cls: 'gh-sig-add',    label: wtChg != null ? `▲ +${Number(wtChg).toFixed(1)}%p` : '▲ 증가' };
+        if (action === 'REDUCE') return { cls: 'gh-sig-reduce', label: wtChg != null ? `▼ ${Number(wtChg).toFixed(1)}%p` : '▼ 감소' };
+        return { cls: 'gh-sig-hold', label: '─ 유지' };
+    }
+
+    // 펀드명 첫 글자 + 결정적 배경색 아바타 (이미지 없을 때)
+    function _ghInitialAvatar(name) {
+        const ch = (name || '?').replace(/[^A-Za-z0-9가-힣]/g, '').charAt(0).toUpperCase() || '?';
+        const PALETTE = ['#3B82F6','#8B5CF6','#10B981','#F59E0B','#EF4444','#06B6D4','#F97316','#6366F1'];
+        let hash = 0;
+        for (let i = 0; i < (name||'').length; i++) hash = (hash * 31 + (name||'').charCodeAt(i)) & 0xffff;
+        const bg = PALETTE[hash % PALETTE.length];
+        return `<div class="gh-avatar gh-avatar-init" style="background:${bg}">${escHtml(ch)}</div>`;
+    }
+
+    function _ghAvatarEl(g) {
+        const imgMeta = _GURU_IMG_MAP[g.cik] || {};
+        const imgUrl  = imgMeta.photo_url || imgMeta.logo_url || g.photo_url || g.logo_url;
+        if (!imgUrl) return _ghInitialAvatar(g.name || g.manager);
+        const isLogo = !!(imgMeta.logo_url && !imgMeta.photo_url);
+        const style  = isLogo ? 'object-fit:contain;background:#fff;padding:3px;' : 'object-fit:cover;';
+        const alt    = escHtml(g.manager || g.name || '');
+        const fallback = escHtml((g.name || g.manager || '?').replace(/[^A-Za-z0-9가-힣]/g,'').charAt(0).toUpperCase() || '?');
+        return `<img src="${escHtml(imgUrl)}" class="gh-avatar gh-avatar-img" alt="${alt}" style="${style}"
+            onerror="this.outerHTML=_ghInitialAvatar(${JSON.stringify(g.name||g.manager||'')})"/>`;
+    }
+
+    function _ghFmtAUM(v) {
+        if (!v) return null;
+        const n = Number(v);
+        if (n >= 1e12) return `$${(n/1e12).toFixed(1)}T`;
+        if (n >= 1e9)  return `$${(n/1e9).toFixed(0)}B`;
+        if (n >= 1e6)  return `$${(n/1e6).toFixed(0)}M`;
+        return null;
+    }
+
     async function renderGuruHolders(ticker) {
         const box = document.getElementById('guruHolders');
         if (!box || !ticker) return;
@@ -12127,22 +12166,95 @@
             if (!r.ok) return;
             const list = await r.json();
             if (!Array.isArray(list) || !list.length) return;
-            const chips = list.map(g => {
-                const badge = _guruBadge(g.action);
-                return `<button class="chip" onclick="goSmartMoneyAndOpen('${g.cik}')" style="display:inline-flex;align-items:center;gap:6px;margin:3px">
-                    <span>${g.emoji || '💎'}</span>
-                    <span>${escHtml(g.name || g.manager || g.cik)}</span>
-                    <span style="opacity:.75;font-size:11px">${Number(g.weight||0).toFixed(1)}%</span>
-                    ${badge}
-                </button>`;
+
+            const rows = list.map(g => {
+                const sig     = _ghSignal(g.action, g.wtChg);
+                const avatar  = _ghAvatarEl(g);
+                const fundName = escHtml((g.name || g.manager || g.cik || '').substring(0, 28));
+                const aum     = _ghFmtAUM(g.aum_usd);
+                const weightStr = g.action === 'NEW'
+                    ? '신규 매수'
+                    : (g.weight != null ? Number(g.weight).toFixed(2) + '%' : '—');
+                const meta = aum
+                    ? `AUM ${aum} · ${weightStr}`
+                    : weightStr;
+                const cikSafe = escHtml(g.cik || '');
+                return `<div class="gh-row" onclick="_ghOpenSheet(${JSON.stringify({
+                    cik: g.cik, name: g.name, manager: g.manager,
+                    action: g.action, weight: g.weight, aum_usd: g.aum_usd,
+                    quarter: g.quarter, value_usd: g.value_usd
+                })})">
+                    <div class="gh-row-left">
+                        ${avatar}
+                        <div class="gh-row-info">
+                            <div class="gh-row-name">${fundName}</div>
+                            <div class="gh-row-meta">${escHtml(meta)}</div>
+                        </div>
+                    </div>
+                    <div class="gh-row-right">
+                        <span class="gh-sig ${sig.cls}">${escHtml(sig.label)}</span>
+                        <span class="gh-chevron">›</span>
+                    </div>
+                </div>`;
             }).join('');
-            box.innerHTML = `<div class="card">
-                <div style="font-size:14px;font-weight:600;margin-bottom:8px;letter-spacing:-0.01em;"><i class="ri-vip-diamond-line"></i> 이 종목을 보유 중인 투자 대가 (${list.length}명)</div>
-                <div>${chips}</div>
-                <div style="font-size:10px;color:var(--text-secondary);margin-top:8px">※ 분기 기준, 최대 45일 지연</div>
+
+            box.innerHTML = `<div class="card gh-card">
+                <div class="gh-header">
+                    <span class="gh-title">투자 대가 포지션 <span class="gh-count">(${list.length})</span></span>
+                    <button class="gh-info-btn" onclick="event.stopPropagation();_ghShowInfo(this)" aria-label="데이터 안내">ⓘ</button>
+                </div>
+                <div class="gh-list">${rows}</div>
             </div>`;
             box.style.display = '';
         } catch {}
+    }
+
+    function _ghShowInfo(btn) {
+        const tip = document.getElementById('ghInfoTip');
+        if (tip) { tip.remove(); return; }
+        const t = document.createElement('div');
+        t.id = 'ghInfoTip';
+        t.className = 'gh-info-tip';
+        t.textContent = '13F 공시 기준 · 분기 단위 · 최대 45일 지연';
+        btn.parentNode.appendChild(t);
+        setTimeout(() => { document.addEventListener('click', () => t.remove(), { once: true }); }, 0);
+    }
+
+    // Bottom Sheet — row 탭 시
+    function _ghOpenSheet(g) {
+        const sig     = _ghSignal(g.action, g.wtChg);
+        const aum     = _ghFmtAUM(g.aum_usd) || '—';
+        const valStr  = g.value_usd ? _guruFmtUSD(g.value_usd) : '—';
+        const wtStr   = g.action === 'NEW' ? '신규 매수' : (g.weight != null ? Number(g.weight).toFixed(2) + '%' : '—');
+        const fundName = escHtml(g.name || g.manager || g.cik || '—');
+        const cikSafe = escHtml(g.cik || '');
+        let existing = document.getElementById('ghSheet');
+        if (existing) existing.remove();
+
+        const sheet = document.createElement('div');
+        sheet.id = 'ghSheet';
+        sheet.className = 'gh-sheet';
+        sheet.innerHTML = `
+            <div class="gh-sheet-backdrop" onclick="document.getElementById('ghSheet')?.remove()"></div>
+            <div class="gh-sheet-content">
+                <div class="gh-sheet-handle"></div>
+                <div class="gh-sheet-header">
+                    <span class="gh-sheet-title">${fundName}</span>
+                    <button class="gh-sheet-close" onclick="document.getElementById('ghSheet')?.remove()">✕</button>
+                </div>
+                <div class="gh-sheet-body">
+                    <div class="gh-sheet-row"><span>AUM</span><span>${escHtml(aum)}</span></div>
+                    <div class="gh-sheet-row"><span>비중</span><span>${escHtml(wtStr)}</span></div>
+                    <div class="gh-sheet-row"><span>보유 가치</span><span>${escHtml(valStr)}</span></div>
+                    <div class="gh-sheet-row"><span>기준 분기</span><span>${escHtml(g.quarter || '—')}</span></div>
+                    <div class="gh-sheet-row"><span>시그널</span><span class="gh-sig ${sig.cls}" style="font-size:12px">${escHtml(sig.label)}</span></div>
+                </div>
+                <button class="gh-sheet-deepbtn" onclick="document.getElementById('ghSheet')?.remove();goSmartMoneyAndOpen('${cikSafe}')">
+                    포트폴리오 전체 보기 →
+                </button>
+            </div>`;
+        document.body.appendChild(sheet);
+        requestAnimationFrame(() => sheet.classList.add('show'));
     }
 
     // ── 종목 역검색: 어떤 기관이 보유 중인지 ─────────────────────
