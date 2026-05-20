@@ -3064,6 +3064,19 @@
         .bottom-nav.hidden{transform:translateY(110%);}
         /* 종목 상세 진입 시(헤더에 .stock-loaded) 바텀 내비 숨김 */
         body:has(#mainHeader.stock-loaded) .bottom-nav{display:none !important;}
+        /* 종목 상세에서 페이저 바는 반드시 표시 */
+        body:has(#mainHeader.stock-loaded) #stockPagerBar:not(.hidden){display:flex !important;}
+        /* 바텀 네비 없는 상태에서 페이저 bottom 위치 */
+        body:has(#mainHeader.stock-loaded) .stock-pager-bar{
+            bottom:16px;
+            bottom:calc(16px + env(safe-area-inset-bottom));
+        }
+        @media(max-width:600px){
+            body:has(#mainHeader.stock-loaded) .stock-pager-bar{
+                bottom:12px;
+                bottom:calc(12px + env(safe-area-inset-bottom));
+            }
+        }
 
         /* 필 컨테이너 */
         .bn-pill{
@@ -7679,15 +7692,20 @@
 }
 
 /* 본문 하단 패딩 (페이저에 안 가리도록) */
-body.stock-pager-active #mainContent,
-body.stock-pager-active .stock-content-wrap {
-    padding-bottom: 90px;
+body.stock-pager-active #mainContent {
+    padding-bottom: 96px;
 }
 
 @media (max-width: 600px) {
-    body.stock-pager-active #mainContent,
-    body.stock-pager-active .stock-content-wrap {
-        padding-bottom: 80px;
+    body.stock-pager-active #mainContent {
+        padding-bottom: 84px;
+    }
+}
+
+/* iOS safe-area 추가 대응 */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+    body.stock-pager-active #mainContent {
+        padding-bottom: calc(96px + env(safe-area-inset-bottom));
     }
 }
 
