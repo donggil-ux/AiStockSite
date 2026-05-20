@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=722">
+    <link rel="stylesheet" href="/styles.css?v=723">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -28848,6 +28848,9 @@
         bar.style.display = '';
         bar.classList.remove('hidden');
         document.body.classList.add('stock-pager-active');
+        // `:has()` 미지원 브라우저 폴백 — 바텀 네비 직접 숨김
+        const bn = document.getElementById('bottomNav');
+        if (bn) bn.style.display = 'none';
         const cur = _stockPagerList[_stockPagerIndex] || {};
         bar.querySelector('.spb-symbol').textContent    = cur.symbol || '';
         const nameEl = bar.querySelector('.spb-name');
@@ -28863,6 +28866,9 @@
         const bar = document.getElementById('stockPagerBar');
         if (bar) { bar.classList.add('hidden'); setTimeout(() => { bar.style.display = 'none'; }, 260); }
         document.body.classList.remove('stock-pager-active');
+        // 바텀 네비 복원 (홈 진입 시 다시 보이도록)
+        const bn = document.getElementById('bottomNav');
+        if (bn) bn.style.display = '';
         _stockPagerList  = [];
         _stockPagerIndex = -1;
     }
