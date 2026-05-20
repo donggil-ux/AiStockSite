@@ -3437,6 +3437,11 @@
             padding:8px 16px!important;
             font-size:12px!important;
         }
+        /* 등급 Segmented Control — chart-tb-btn과 동일 높이 */
+        .grade-seg-btn {
+            padding:8px 12px!important;
+            font-size:12px!important;
+        }
 
         /* Home 섹션 간격 — 32px 고정 */
         .home-section{margin-bottom:32px!important;}
