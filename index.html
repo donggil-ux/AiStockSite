@@ -5995,6 +5995,18 @@
         _alphaHomeSwitch(_alphaHomeTab || 'bounce');
     }
 
+
+    // ── 거래량 급증 스캐너 필터 ──────────────────────────────────────
+    function _setSurgeFilter(filter) {
+        _surgeFilter = filter;
+        try { localStorage.setItem('surgeFilter', filter); } catch(e) {}
+        document.querySelectorAll('.surge-filter-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.filter === filter);
+        });
+        if (typeof loadVolumeSurge === 'function') {
+            loadVolumeSurge(false);
+        }
+    }
     // ── 홈 알파스캐너 compact row 렌더러 ─────────────────────────────
     function _alphaHomeRow(q, idx) {
         const sym   = q.symbol || q.ticker || '';
