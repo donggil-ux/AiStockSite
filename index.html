@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=731">
+    <link rel="stylesheet" href="/styles.css?v=732">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -12137,11 +12137,23 @@
         const imgUrl  = imgMeta.photo_url || imgMeta.logo_url || g.photo_url || g.logo_url;
         if (!imgUrl) return _ghInitialAvatar(g.name || g.manager);
         const isLogo = !!(imgMeta.logo_url && !imgMeta.photo_url);
-        const style  = isLogo ? 'object-fit:contain;background:#fff;padding:3px;' : 'object-fit:cover;';
+        // padding은 CSS로 처리 (img에 padding 적용 시 box-model 이슈 회피)
+        const cls    = 'gh-avatar gh-avatar-img' + (isLogo ? ' gh-avatar-logo' : '');
         const alt    = escHtml(g.manager || g.name || '');
-        const fallback = escHtml((g.name || g.manager || '?').replace(/[^A-Za-z0-9가-힣]/g,'').charAt(0).toUpperCase() || '?');
-        return `<img src="${escHtml(imgUrl)}" class="gh-avatar gh-avatar-img" alt="${alt}" style="${style}"
-            onerror="this.outerHTML=_ghInitialAvatar(${JSON.stringify(g.name||g.manager||'')})"/>`;
+        const nameAttr = escHtml(g.name || g.manager || '?');
+        // onerror: data-name 기반 폴백 (인라인 JSON 파싱 따옴표 충돌 회피)
+        return `<img src="${escHtml(imgUrl)}" class="${cls}" alt="${alt}" data-name="${nameAttr}" onerror="_ghAvatarFallback(this)" loading="lazy"/>`;
+    }
+
+    // img onerror → 이니셜 아바타 교체 (인라인 JSON 우회용)
+    function _ghAvatarFallback(img) {
+        try {
+            const name = img.dataset.name || '?';
+            const tmp = document.createElement('div');
+            tmp.innerHTML = _ghInitialAvatar(name);
+            const newEl = tmp.firstElementChild;
+            if (newEl && img.parentNode) img.parentNode.replaceChild(newEl, img);
+        } catch(_) {}
     }
 
     function _ghFmtAUM(v) {
@@ -12153,34 +12165,36 @@
         return null;
     }
 
+    // 전역 캐시 — 종목별 최신 list 보관 (click 핸들러에서 참조)
+    window._ghDataCache = window._ghDataCache || {};
+
     async function renderGuruHolders(ticker) {
         const box = document.getElementById('guruHolders');
         if (!box || !ticker) return;
+        // 종목 전환 시 stale 콘텐츠/이벤트 제거
         box.innerHTML = '';
         box.style.display = 'none';
+        const tkU = ticker.toUpperCase();
         try {
-            const r = await fetch(`/api/guru/by-ticker/${encodeURIComponent(ticker.toUpperCase())}`);
+            const r = await fetch(`/api/guru/by-ticker/${encodeURIComponent(tkU)}`);
             if (!r.ok) return;
             const list = await r.json();
             if (!Array.isArray(list) || !list.length) return;
 
-            const rows = list.map(g => {
+            // 빈 데이터 = 섹션 hide (placeholder 노출 X)
+            // 캐시에 저장 (click 핸들러에서 idx로 조회)
+            window._ghDataCache[tkU] = list;
+
+            const rows = list.map((g, idx) => {
                 const sig     = _ghSignal(g.action, g.wtChg);
                 const avatar  = _ghAvatarEl(g);
-                const fundName = escHtml((g.name || g.manager || g.cik || '').substring(0, 28));
+                const fundName = escHtml(g.name || g.manager || g.cik || '');
                 const aum     = _ghFmtAUM(g.aum_usd);
                 const weightStr = g.action === 'NEW'
                     ? '신규 매수'
                     : (g.weight != null ? Number(g.weight).toFixed(2) + '%' : '—');
-                const meta = aum
-                    ? `AUM ${aum} · ${weightStr}`
-                    : weightStr;
-                const cikSafe = escHtml(g.cik || '');
-                return `<div class="gh-row" onclick="_ghOpenSheet(${JSON.stringify({
-                    cik: g.cik, name: g.name, manager: g.manager,
-                    action: g.action, weight: g.weight, aum_usd: g.aum_usd,
-                    quarter: g.quarter, value_usd: g.value_usd
-                })})">
+                const meta = aum ? `AUM ${aum} · ${weightStr}` : weightStr;
+                return `<div class="gh-row" data-gh-idx="${idx}" data-gh-ticker="${escHtml(tkU)}">
                     <div class="gh-row-left">
                         ${avatar}
                         <div class="gh-row-info">
@@ -12203,7 +12217,20 @@
                 <div class="gh-list">${rows}</div>
             </div>`;
             box.style.display = '';
-        } catch {}
+
+            // 클릭 핸들러 — 인라인 onclick에 JSON 임베드 시 따옴표 충돌 → addEventListener로 분리
+            box.querySelectorAll('.gh-row[data-gh-idx]').forEach(el => {
+                el.addEventListener('click', () => {
+                    const i = parseInt(el.dataset.ghIdx, 10);
+                    const tk = el.dataset.ghTicker;
+                    const arr = (window._ghDataCache || {})[tk];
+                    const g = arr && arr[i];
+                    if (g) _ghOpenSheet(g);
+                });
+            });
+        } catch (e) {
+            console.warn('[guruHolders] render fail', e);
+        }
     }
 
     function _ghShowInfo(btn) {
@@ -29077,6 +29104,7 @@
         closeSideNav, toggleSideNav, openSideNav, goHome, goBack, goSmartMoney,
         switchSmTab, smDeepDive, smDeepBack, filterSmHoldings, smChartLink,
         renderGuruReal, guruDeepDiveReal, guruDeepBack, renderGuruHolders, goSmartMoneyAndOpen,
+        _ghAvatarFallback, _ghInitialAvatar, _ghShowInfo, _ghOpenSheet,
         loadGuruHome, goSmartMoneyAndOpenReal, guruRefresh, _guruImgErr, _searchGuruByTicker,
         _applyGuruFilter, _guruFilterPos, _guruRefreshLatest,
         setMarket, searchStock, setChartInterval, setPeriod, _toggleIntervalDropdown,

@@ -7683,50 +7683,84 @@
 /* 리스트 */
 .gh-list { display: flex; flex-direction: column; }
 
-/* 데스크탑 2열 */
+/* 데스크탑 2열 (>=760px) */
 @media (min-width: 760px) {
     .gh-list { flex-direction: row; flex-wrap: wrap; }
-    .gh-row  { width: 50%; border-right: 1px solid var(--border); }
+    .gh-row  {
+        width: 50%;
+        box-sizing: border-box;
+        border-right: 1px solid var(--border);
+    }
     .gh-row:nth-child(even) { border-right: none; }
 }
 
 /* Row */
 .gh-row {
+    position: relative;          /* 자식 absolute 방지 안전망 */
+    overflow: hidden;            /* 자식 흘러넘침 방지 */
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 56px;
-    padding: 0 16px;
+    min-height: 56px;
+    padding: 8px 16px;
     border-bottom: 1px solid var(--border);
     cursor: pointer;
     transition: background 0.1s ease;
     -webkit-tap-highlight-color: transparent;
+    gap: 8px;
+    box-sizing: border-box;
 }
 .gh-row:last-child { border-bottom: none; }
 .gh-row:active { background: var(--bg3); }
 
-.gh-row-left  { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
-.gh-row-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.gh-row-left  {
+    display: flex; align-items: center; gap: 10px;
+    flex: 1 1 auto; min-width: 0;
+}
+.gh-row-right {
+    display: flex; align-items: center; gap: 6px;
+    flex: 0 0 auto;
+}
 
 /* 아바타 */
 .gh-avatar {
-    width: 32px; height: 32px; border-radius: 50%;
-    flex-shrink: 0; overflow: hidden;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    overflow: hidden;
+    display: block;
+    box-sizing: border-box;
 }
-.gh-avatar-img { display: block; width: 100%; height: 100%; }
+.gh-avatar-img {
+    display: block;
+    width: 100%; height: 100%;
+    object-fit: cover;
+}
+.gh-avatar-logo {
+    object-fit: contain;
+    background: #fff;
+    /* padding은 box-sizing:border-box 로 안전 처리 */
+    padding: 3px;
+}
 .gh-avatar-init {
     display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px;
     font-size: 13px; font-weight: 700; color: #fff;
+    border-radius: 50%;
+    flex-shrink: 0;
 }
 
 /* 텍스트 */
-.gh-row-info { flex: 1; min-width: 0; }
+.gh-row-info { flex: 1 1 auto; min-width: 0; }
 .gh-row-name {
     font-size: 14px; font-weight: 600; color: var(--text);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    max-width: 180px;
 }
-.gh-row-meta { font-size: 11px; color: var(--text3); margin-top: 1px; white-space: nowrap; }
+.gh-row-meta {
+    font-size: 11px; color: var(--text3);
+    margin-top: 1px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 
 /* 시그널 태그 */
 .gh-sig {
