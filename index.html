@@ -2356,6 +2356,17 @@
     let scannerLoading = false;
     let _scannerDebounceTimer = null;
     let _alphaHomeTab = 'bounce'; // ← 상단 선언 (loadAlphaHomePreview TDZ 방지)
+    // 알파 홈 캐시 — loadAlphaHomePreview 호출 전에 반드시 선언 (TDZ 방지)
+    const _alphaHomeCache = {};
+    const _alphaHomeRetry = {};
+    const _ALPHA_HOME_TTL = 5 * 60 * 1000;
+    const _ALPHA_CACHE_VERSION = 'v3';
+    try {
+        if (sessionStorage.getItem('_alphaCacheVersion') !== _ALPHA_CACHE_VERSION) {
+            sessionStorage.setItem('_alphaCacheVersion', _ALPHA_CACHE_VERSION);
+            console.log('[alphaHome] 캐시 버전 변경 →', _ALPHA_CACHE_VERSION);
+        }
+    } catch(e) {}
     // 상장폐지 필터용 캐시: { ticker → { valid: bool, ts: number } }
     const _scannerTickerValid = {};
     const _TICKER_VALID_TTL = 60 * 60 * 1000; // 1시간
@@ -5857,19 +5868,7 @@
     // ═══════════════════════════════════════════════════════════
     // 알파 스캐너 홈 프리뷰 — 탭별 상위 10개 + 더보기 (v624)
     // ═══════════════════════════════════════════════════════════
-    // ※ _alphaHomeTab 은 상단(loadAlphaHomePreview 호출 전)에 선언됨 — TDZ 방지
-    // 탭별 결과 캐시 (5분) — 홈 ↔ 스캐너 탭 전환 시 재호출 줄임
-    const _alphaHomeCache = {};
-    const _alphaHomeRetry = {}; // 탭별 자동 재시도 횟수 (무한 재시도 방지)
-    const _ALPHA_HOME_TTL = 5 * 60 * 1000;
-    // 캐시 버전 — 변경 시 sessionStorage 캐시 무효화
-    const _ALPHA_CACHE_VERSION = 'v3';
-    try {
-        if (sessionStorage.getItem('_alphaCacheVersion') !== _ALPHA_CACHE_VERSION) {
-            sessionStorage.setItem('_alphaCacheVersion', _ALPHA_CACHE_VERSION);
-            console.log('[alphaHome] 캐시 버전 변경 →', _ALPHA_CACHE_VERSION, '(메모리 캐시 클리어)');
-        }
-    } catch(e) {}
+    // ※ _alphaHomeTab / _alphaHomeCache 등은 상단에서 선언됨 — TDZ 방지
 
     // 10초 타임아웃 fetch — 응답 없으면 자동 abort
     function _alphaFetch(url) {
