@@ -1075,6 +1075,20 @@
                     <!-- ═══ Phase X1: 멀티 차트 그리드 wrapper ═══ -->
                     <div class="chart-grid-wrap" id="chartGridWrap" data-layout="1">
                     <div class="chart-cell chart-cell-1 active" id="chartCell1" style="position:relative;">
+                        <!-- cell1 헤더: 분할 모드에서만 표시 -->
+                        <div class="cell-header" id="cell1Header" style="display:none;">
+                            <span class="cell-symbol" id="cell1Symbol">—</span>
+                            <span class="cell-sep">·</span>
+                            <span class="cell-tf" id="cell1Tf">—</span>
+                        </div>
+                        <div class="cell-ohlc" id="cell1OhlcBar" style="display:none;">
+                            <span class="co-item"><span class="co-lbl">시작</span> <span id="cell1O" class="co-val">—</span></span>
+                            <span class="co-item"><span class="co-lbl">고가</span> <span id="cell1H" class="co-val co-bull">—</span></span>
+                            <span class="co-item"><span class="co-lbl">저가</span> <span id="cell1L" class="co-val co-bear">—</span></span>
+                            <span class="co-item"><span class="co-lbl">종가</span> <span id="cell1C" class="co-val">—</span><span id="cell1Chg" class="co-chg">—</span></span>
+                            <button class="co-toggle" id="cell1LegendBtn" onclick="event.stopPropagation();_xcToggleLegend('cell1')">∧</button>
+                        </div>
+                        <div class="cell-legend" id="cell1Legend"></div>
                     <!-- 📊 종목비교 검색 시트 (chart 위 absolute 오버레이, tvChartWrap 바깥에 위치해야 innerHTML 초기화에 살아남음) -->
                     <!-- 📊 종목비교 모달 (full-screen overlay) -->
                     <div id="cmpModal" class="cmp-modal-overlay" style="display:none;" onclick="_cmpModalBgClick(event)">
@@ -17297,6 +17311,17 @@
         const activeEl  = document.querySelector('.chart-cell-' + activeNum);
         if (activeEl) activeEl.classList.add('active');
 
+        // cell1 헤더 (분할 모드에서만 표시)
+        const c1   = _xcCells['cell1'];
+        const sym1El = document.getElementById('cell1Symbol');
+        const tf1El  = document.getElementById('cell1Tf');
+        const hdr1El = document.getElementById('cell1Header');
+        const isMultiCell = Object.keys(_xcCells).length > 1;
+        if (sym1El) sym1El.textContent = c1?.symbol || '—';
+        if (tf1El)  tf1El.textContent  = c1?.tf     || '—';
+        if (hdr1El) hdr1El.style.display = isMultiCell ? 'flex' : 'none';
+        _xcUpdateCellOhlc('cell1');
+
         // cell2 헤더
         const c2 = _xcCells['cell2'];
         const sym2El = document.getElementById('cell2Symbol');
@@ -18245,6 +18270,7 @@
             fullSymbol:    currentFullSymbol,
             market:        currentMarket,
             tf:            currentInterval,
+            el:            document.getElementById('chartCell1'),
             resizeObserver: lwResizeObserver,
             pollTimer:     null,
             stockData:     stockData,
@@ -18984,6 +19010,7 @@
         // Phase X1-b: 활성 셀 캐시 갱신 (셀 전환 시 재빌드에 사용)
         const _xcAc = _xcCells[_xcActiveCellId];
         if (_xcAc) { _xcAc._lastCandleData = candleData; _xcAc._lastTs = ts; _xcAc._lastQ = q; }
+        if (_xcActiveCellId === 'cell1') { try { _xcUpdateCellOhlc('cell1'); } catch(_){} }
         _updateChartLinesBtnUi();
         _updateChartSoundBtnUi();
         _updateTpBtnUi();
