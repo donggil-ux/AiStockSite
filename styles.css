@@ -7605,6 +7605,142 @@
 }
 
 /* ═══════════════════════════════════════
+   Phase A2 — 가로 도구 toolbar (차트 plot area 바로 위)
+   ═══════════════════════════════════════ */
+
+.chart-x-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+.chart-x-toolbar::-webkit-scrollbar { display: none; }
+
+.cxt-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 10px;
+    background: transparent;
+    border: none;
+    color: var(--text3);
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.12s ease, color 0.12s ease;
+    -webkit-tap-highlight-color: transparent;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.cxt-btn:hover  { background: var(--bg3); color: var(--text); }
+.cxt-btn:active { transform: scale(0.96); }
+.cxt-btn.active {
+    background: rgba(0,128,251,0.12);
+    color: #0080FB;
+}
+.cxt-flex { flex: 1 1 auto; }
+
+/* 모바일 (좁은 화면) — 라벨 숨기고 아이콘만 */
+@media (max-width: 640px) {
+    .cxt-btn span { display: none; }
+    .cxt-btn { padding: 0 8px; height: 28px; }
+}
+
+/* Phase A 우상단 floating toolbar 폐기 — CSS로 숨김 (HTML 호환 유지) */
+.chart-tr-toolbar { display: none !important; }
+
+/* Phase C-2 OHLC tooltip — chart-header 로 통합되어 더 이상 사용 안 함 */
+.chart-ohlc-tooltip { display: none !important; }
+
+/* ═══════════════════════════════════════
+   Phase A2 — Chart Header (좌상단 항상 노출)
+   ═══════════════════════════════════════ */
+
+.chart-header {
+    position: absolute;
+    top: 8px;
+    left: 12px;
+    z-index: 6;
+    padding: 8px 12px;
+    background: rgba(20, 22, 30, 0.78);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 12px;
+    line-height: 1.5;
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+    min-width: 240px;
+    max-width: 460px;
+}
+[data-theme="light"] .chart-header {
+    background: rgba(255, 255, 255, 0.88);
+    border-color: rgba(0,0,0,0.06);
+    color: #111;
+}
+
+.ch-row1 {
+    display: flex; align-items: baseline; gap: 6px;
+    font-size: 13px; font-weight: 700;
+    margin-bottom: 4px;
+}
+.ch-symbol { color: var(--text); }
+.ch-sep    { color: var(--text3); }
+.ch-tf     { color: var(--text2); font-weight: 600; }
+
+.ch-row2 {
+    display: flex; align-items: center; gap: 4px 8px; flex-wrap: wrap;
+    margin-bottom: 2px;
+}
+.ch-pair { display: inline-flex; align-items: baseline; gap: 3px; }
+.ch-lbl  { color: var(--text3); font-size: 11px; }
+.ch-v    { color: var(--text); font-weight: 600; }
+.ch-chg  { font-weight: 700; font-size: 11px; }
+
+.ch-row3 {
+    display: flex; align-items: center; gap: 4px 8px; flex-wrap: wrap;
+    padding-top: 4px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    font-size: 11px;
+}
+[data-theme="light"] .ch-row3 { border-top-color: rgba(0,0,0,0.06); }
+
+.ch-ma-title { color: var(--text3); font-weight: 600; }
+.ch-ma-pair  { display: inline-flex; align-items: baseline; gap: 3px; }
+.ch-ma-num   { color: var(--text3); }
+.ch-ma-val   { color: var(--text2); font-weight: 600; }
+.ch-ma20  { color: #7dd3fc; }   /* 차트 EMA20 라인 색과 동일 */
+.ch-ma50  { color: #eab308; }
+.ch-ma200 { color: var(--text); }
+
+.tv-chart-card.fullscreen .chart-header { z-index: 9100; }
+
+/* 모바일 — chart-header 컴팩트 */
+@media (max-width: 768px) {
+    .chart-header {
+        top: 4px;
+        left: 6px;
+        padding: 5px 8px;
+        font-size: 11px;
+        min-width: 180px;
+        max-width: calc(100% - 80px);
+    }
+    .ch-row1 { font-size: 12px; }
+    .ch-row3 { display: none; }   /* 모바일은 OHLC 까지만 */
+}
+
+/* ═══════════════════════════════════════
    OHLC Hover Tooltip (Phase C-2)
    ═══════════════════════════════════════ */
 
