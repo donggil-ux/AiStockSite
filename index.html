@@ -802,6 +802,20 @@
             <div class="chart-full-col">
                 <!-- Lightweight Charts -->
                 <div class="card tv-chart-card" style="overflow:hidden;" id="tvChartCard">
+                    <!-- 📱 M6: 모바일 전용 차트 헤더 (≤600px) -->
+                    <div id="mobileChartHeader">
+                        <div class="mch-left">
+                            <button class="mch-tf-btn" id="mchTfBtn" onclick="_toggleIntervalDropdown(event)" type="button">
+                                <span id="mchTfLabel">—</span>
+                                <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="2 4 6 8 10 4"/></svg>
+                            </button>
+                        </div>
+                        <div class="mch-price" id="mchPrice">—</div>
+                        <div class="mch-chg" id="mchChg"></div>
+                        <button class="mch-gear" id="mchGear" onclick="_mchOpenGear(event)" aria-label="차트 설정">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                        </button>
+                    </div>
                     <div class="chart-toolbar" id="chartToolbar">
                         <div class="chart-toolbar-group" style="position:relative;">
                             <!-- 분봉 드롭다운 (1, 3, 5, 10, 15, 30, 60, 120, 240) -->
@@ -942,10 +956,6 @@
                             <button class="chart-tb-btn" id="chartAiClearBtn"
                                 onclick="clearAiChartLines()" title="AI 라인 지우기"
                                 style="display:none;border-color:var(--border);color:var(--text3);">AI 라인</button>
-                            <button class="tv-fullscreen-btn" id="tvFullscreenBtn" onclick="toggleChartFullscreen()" title="전체화면" style="position:sticky;right:0;z-index:6;border:none;background:var(--bg2);flex-shrink:0;box-shadow:-12px 0 10px 5px var(--bg2);">
-                                <svg id="tvFsIconExpand" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-                                <svg id="tvFsIconShrink" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-                            </button>
                         </div>
                     </div>
                     <!-- 데이터 소스 배지 -->
@@ -960,63 +970,14 @@
                             <div class="ai-progress-fill" id="aiProgressFill"></div>
                         </div>
                     </div>
-                    <div class="draw-toolbar" id="drawToolbar" style="display:none;">
-                        <span class="draw-tb-label">그리기</span>
-                        <!-- 도구 선택 -->
-                        <button class="draw-tb-btn" id="drawBtnNone" onclick="setDrawTool('none')" title="선택 (그리기 끄기)">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>
-                        </button>
-                        <button class="draw-tb-btn" id="drawBtnLine" onclick="setDrawTool('line')" title="추세선">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="20" x2="20" y2="4"/></svg>
-                        </button>
-                        <button class="draw-tb-btn" id="drawBtnHline" onclick="setDrawTool('hline')" title="수평선">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="2" y1="12" x2="22" y2="12"/></svg>
-                        </button>
-                        <button class="draw-tb-btn" id="drawBtnRay" onclick="setDrawTool('ray')" title="반직선 (레이)">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="18" x2="20" y2="6"/><circle cx="4" cy="18" r="2" fill="currentColor"/></svg>
-                        </button>
-                        <button class="draw-tb-btn" id="drawBtnRect" onclick="setDrawTool('rect')" title="사각형 영역">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>
-                        </button>
-                        <button class="draw-tb-btn" id="drawBtnFib" onclick="setDrawTool('fib')" title="피보나치 되돌림">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="2" y1="4" x2="22" y2="4" stroke-dasharray="2 2"/><line x1="2" y1="9" x2="22" y2="9"/><line x1="2" y1="14" x2="22" y2="14" stroke-dasharray="4 2"/><line x1="2" y1="20" x2="22" y2="20"/><text x="1" y="3" fill="currentColor" font-size="5" font-weight="700">F</text></svg>
-                        </button>
-                        <button class="draw-tb-btn" id="drawBtnAngle" onclick="setDrawTool('angle')" title="각도자 (수동: 두 점 드래그)">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="20" x2="21" y2="20"/><line x1="3" y1="20" x2="19" y2="6"/><path d="M10 20 A7 7 0 0 0 8 15.5" stroke-width="1.4"/><text x="11" y="18" fill="currentColor" font-size="5.5" font-weight="700" stroke="none">°</text></svg>
-                        </button>
-                        <button class="draw-tb-btn" id="drawBtnAutoAngle" onclick="addAutoTrendAngle()" title="자동 추세각도 — 최근 40봉 선형회귀로 각도 자동 표시">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="3"/></svg>
-                        </button>
-                        <div class="draw-tb-divider"></div>
-                        <!-- 색상 -->
-                        <span class="draw-tb-label">색상</span>
-                        <button class="draw-color-btn active" style="background:var(--red);color:var(--red)" onclick="setDrawColor('#ef4444')" title="빨강"></button>
-                        <button class="draw-color-btn" style="background:var(--blue);color:var(--blue)" onclick="setDrawColor('#3b82f6')" title="파랑"></button>
-                        <button class="draw-color-btn" style="background:var(--blue);color:var(--blue)" onclick="setDrawColor('#3b82f6')" title="초록"></button>
-                        <button class="draw-color-btn" style="background:#eab308;color:#eab308" onclick="setDrawColor('#eab308')" title="노랑"></button>
-                        <button class="draw-color-btn" style="background:var(--purple);color:#a78bfa" onclick="setDrawColor('#a78bfa')" title="보라"></button>
-                        <button class="draw-color-btn" style="background:#ffffff;color:#ffffff" onclick="setDrawColor('#ffffff')" title="흰색"></button>
-                        <div class="draw-tb-divider"></div>
-                        <!-- 두께 -->
-                        <button class="draw-width-btn active" data-w="1" onclick="setDrawWidth(1)">1</button>
-                        <button class="draw-width-btn" data-w="2" onclick="setDrawWidth(2)">2</button>
-                        <button class="draw-width-btn" data-w="3" onclick="setDrawWidth(3)">3</button>
-                        <div class="draw-tb-divider"></div>
-                        <!-- 되돌리기/전체삭제 -->
-                        <button class="draw-tb-btn" onclick="undoDraw()" title="되돌리기 (Ctrl+Z)">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-                        </button>
-                        <button class="draw-tb-btn" onclick="clearAllDrawings()" title="전체 삭제">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-                        </button>
-                        <span class="draw-count-badge" id="drawCountBadge">0</span>
-                    </div>
+                    <!-- #drawMenu: 그리기 도구 메뉴 → chartCell1 내부 absolute 패널로 이동 -->
                     <!-- 일봉 분석 기준가 vs 프리마켓 갭 배너 (v649) -->
                     <div class="chart-pre-banner" id="chartPreBanner" style="display:none;"></div>
                     <!-- 실시간 지표 시그널 배지 (차트 위 자동 표시) -->
                     <div class="chart-sig-bar" id="chartSigBar"></div>
 
-                    <!-- ═══ Phase A2: 가로 도구 toolbar (차트 plot area 바로 위) ═══ -->
+                    <!-- ═══ Phase A2: 가로 도구 toolbar + 보조지표 dropdown wrapper ═══ -->
+                    <div class="chart-xtb-wrap">
                     <div class="chart-x-toolbar" id="chartXToolbar">
                         <button class="cxt-btn" id="cxtIndicators" onclick="_cxtOpenIndicators(event)" title="보조지표">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -1025,10 +986,6 @@
                         <button class="cxt-btn" id="cxtDraw" onclick="_cxtDraw()" title="그리기">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
                             <span>그리기</span>
-                        </button>
-                        <button class="cxt-btn" id="cxtRuler" onclick="_cxtRuler()" title="자">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l18-18-3-3L0 18l3 3z"/><path d="M6 18l3-3M9 15l2-2M12 12l3-3M15 9l2-2"/></svg>
-                            <span>자</span>
                         </button>
                         <button class="cxt-btn" id="cxtCompare" onclick="_cxtCompare()" title="종목 비교">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
@@ -1039,15 +996,222 @@
                             <span>차트 분할</span>
                         </button>
                         <div class="cxt-flex"></div>
+                        <button class="cxt-btn" id="cxtSync" onclick="event.stopPropagation();_xcOpenSyncPopover(event)" title="차트 동기화 설정">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                            <span>동기화</span>
+                        </button>
                         <button class="cxt-btn" id="cxtFullscreen" onclick="toggleChartFullscreen()" title="크게보기">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
                             <span>크게보기</span>
                         </button>
                     </div>
 
+                    <!-- ═══ Phase A2: 보조지표 640px Split Dropdown (wrapper 내부 absolute) ═══ -->
+                    <div class="cid-panel" id="indDropdown" style="display:none;">
+                        <div class="cid-left" id="cidLeft">
+                            <!-- ── 상단 지표 ── -->
+                            <div class="cid-section-label">상단 지표</div>
+                            <button class="cid-item" id="cidItemEma"         onclick="event.stopPropagation();_indSelect('ema')">
+                                <span class="dd-ios-check checked" id="cidCheckEma"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>이동평균선
+                            </button>
+                            <button class="cid-item" id="cidItemBb"          onclick="event.stopPropagation();_indSelect('bb')">
+                                <span class="dd-ios-check checked" id="cidCheckBb"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>볼린저 밴드
+                            </button>
+                            <button class="cid-item" id="cidItemVwap"        onclick="event.stopPropagation();_indSelect('vwap')">
+                                <span class="dd-ios-check checked" id="cidCheckVwap"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>VWAP<span class="cid-tag">5분봉</span>
+                            </button>
+                            <button class="cid-item" id="cidItemIchimoku"    onclick="event.stopPropagation();_indSelect('ichimoku')">
+                                <span class="dd-ios-check" id="cidCheckIchimoku"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>일목균형표<span class="cid-tag cid-soon">준비중</span>
+                            </button>
+                            <button class="cid-item" id="cidItemSupertrend"  onclick="event.stopPropagation();_indSelect('supertrend')">
+                                <span class="dd-ios-check" id="cidCheckSupertrend"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>슈퍼트렌드<span class="cid-tag cid-soon">준비중</span>
+                            </button>
+                            <button class="cid-item" id="cidItemEnvelope"    onclick="event.stopPropagation();_indSelect('envelope')">
+                                <span class="dd-ios-check" id="cidCheckEnvelope"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>엔벨로프<span class="cid-tag cid-soon">준비중</span>
+                            </button>
+                            <div class="cid-divider"></div>
+                            <!-- ── 하단 지표 ── -->
+                            <div class="cid-section-label">하단 지표</div>
+                            <button class="cid-item" id="cidItemVolume"      onclick="event.stopPropagation();_indSelect('volume')">
+                                <span class="dd-ios-check checked" id="cidCheckVolume"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>볼륨
+                            </button>
+                            <button class="cid-item" id="cidItemRsi"         onclick="event.stopPropagation();_indSelect('rsi')">
+                                <span class="dd-ios-check" id="cidCheckRsi"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>RSI<span class="cid-tag cid-soon">준비중</span>
+                            </button>
+                            <button class="cid-item" id="cidItemMacd"        onclick="event.stopPropagation();_indSelect('macd')">
+                                <span class="dd-ios-check" id="cidCheckMacd"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>MACD<span class="cid-tag cid-soon">준비중</span>
+                            </button>
+                            <div class="cid-divider"></div>
+                            <!-- ── 가격 라인 ── -->
+                            <div class="cid-section-label">가격 라인</div>
+                            <button class="cid-item" id="cidItemPlSig"       onclick="event.stopPropagation();_indSelect('pl_sig')">
+                                <span class="dd-ios-check checked" id="cidCheckPlSig"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>시그널 라인
+                            </button>
+                            <button class="cid-item" id="cidItemPlSr"        onclick="event.stopPropagation();_indSelect('pl_sr')">
+                                <span class="dd-ios-check checked" id="cidCheckPlSr"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>돌파/저항
+                            </button>
+                            <button class="cid-item" id="cidItemPlPb"        onclick="event.stopPropagation();_indSelect('pl_pb')">
+                                <span class="dd-ios-check checked" id="cidCheckPlPb"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>지지반등
+                            </button>
+                            <button class="cid-item" id="cidItemPlSd"        onclick="event.stopPropagation();_indSelect('pl_sd')">
+                                <span class="dd-ios-check" id="cidCheckPlSd"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>눌림 (피보)
+                            </button>
+                            <button class="cid-item" id="cidItemPlSb"        onclick="event.stopPropagation();_indSelect('pl_sb')">
+                                <span class="dd-ios-check checked" id="cidCheckPlSb"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>분할매수
+                            </button>
+                            <button class="cid-item" id="cidItemPlKl"        onclick="event.stopPropagation();_indSelect('pl_kl')">
+                                <span class="dd-ios-check checked" id="cidCheckPlKl"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Kullamägi
+                            </button>
+                            <button class="cid-item" id="cidItemPlSepa"      onclick="event.stopPropagation();_indSelect('pl_sepa')">
+                                <span class="dd-ios-check checked" id="cidCheckPlSepa"><svg class="dd-check-icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" class="dd-check-circle"/><path d="M7 12.5l3.5 3.5 6-7" class="dd-check-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>SEPA
+                            </button>
+                        </div>
+                        <div class="cid-right" id="cidRight">
+                            <div class="cid-note" style="display:flex;align-items:center;justify-content:center;min-height:100px;color:var(--text3)">← 지표를 선택하세요</div>
+                        </div>
+                    </div>
+                    </div><!-- /chart-xtb-wrap -->
+
                     <!-- ═══ Phase X1: 멀티 차트 그리드 wrapper ═══ -->
                     <div class="chart-grid-wrap" id="chartGridWrap" data-layout="1">
-                    <div class="chart-cell chart-cell-1 active" id="chartCell1">
+                    <div class="chart-cell chart-cell-1 active" id="chartCell1" style="position:relative;">
+                    <!-- 📊 종목비교 검색 시트 (chart 위 absolute 오버레이, tvChartWrap 바깥에 위치해야 innerHTML 초기화에 살아남음) -->
+                    <!-- 📊 종목비교 모달 (full-screen overlay) -->
+                    <div id="cmpModal" class="cmp-modal-overlay" style="display:none;" onclick="_cmpModalBgClick(event)">
+                        <div class="cmp-modal-card" onclick="event.stopPropagation()">
+                            <!-- 검색창 -->
+                            <div class="cmp-modal-header">
+                                <svg class="cmp-modal-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                <input id="cmpInput" class="cmp-modal-input" type="text"
+                                    placeholder="종목을 검색해보세요"
+                                    autocomplete="off" autocapitalize="characters"
+                                    oninput="_cmpModalSearch(this.value)"
+                                    onkeydown="if(event.key==='Enter'){event.preventDefault();_cmpSubmit();}else if(event.key==='Escape')_cmpCloseSheet();">
+                                <button class="cmp-modal-close-btn" onclick="_cmpCloseSheet()">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                </button>
+                            </div>
+                            <!-- 최근 검색 -->
+                            <div id="cmpRecentSection" class="cmp-modal-section" style="display:none;">
+                                <div class="cmp-modal-sec-head">
+                                    <span class="cmp-modal-sec-title">최근 검색</span>
+                                    <span class="cmp-modal-sec-sub" id="cmpRecentTime"></span>
+                                </div>
+                                <div class="cmp-recent-chips" id="cmpRecentChips"></div>
+                            </div>
+                            <!-- 같은 카테고리 -->
+                            <div id="cmpCategorySection" class="cmp-modal-section">
+                                <div class="cmp-modal-sec-head">
+                                    <span class="cmp-modal-sec-title" id="cmpCatTitle">유사 종목에서 비교하기</span>
+                                    <span class="cmp-modal-sec-sub">시가총액 높은 순서</span>
+                                </div>
+                                <div class="cmp-peer-list" id="cmpPeerList"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 📊 종목비교 레전드 칩 (차트 위 좌상단 오버레이) -->
+                    <div id="cmpLegend" style="display:none;">
+                        <div class="cmp-dot"></div>
+                        <span class="cmp-legend-sym">—</span>
+                        <span class="cmp-legend-chg"></span>
+                        <button class="cmp-legend-x" onclick="_cmpRemove()">✕</button>
+                    </div>
+                    <!-- ════ 그리기 도구 메뉴 (TradingView style floating panel) ════ -->
+                    <div id="drawMenu" class="draw-menu" style="display:none;">
+                        <!-- 도구 목록 -->
+                        <button class="draw-menu-item" id="dmBtnLine" onclick="setDrawTool('line')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="20" x2="20" y2="4"/></svg>
+                            <span>추세선</span>
+                        </button>
+                        <button class="draw-menu-item" id="dmBtnRay" onclick="setDrawTool('ray')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="18" x2="20" y2="6"/><circle cx="4" cy="18" r="2.5" fill="currentColor" stroke="none"/></svg>
+                            <span>빛</span>
+                        </button>
+                        <button class="draw-menu-item" id="dmBtnHline" onclick="setDrawTool('hline')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="2" y1="12" x2="22" y2="12"/></svg>
+                            <span>수평선</span>
+                        </button>
+                        <button class="draw-menu-item" id="dmBtnVline" onclick="setDrawTool('vline')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="2" x2="12" y2="22"/></svg>
+                            <span>수직선</span>
+                        </button>
+                        <button class="draw-menu-item" id="dmBtnCross" onclick="setDrawTool('cross')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>
+                            <span>크로스</span>
+                        </button>
+                        <button class="draw-menu-item" id="dmBtnRect" onclick="setDrawTool('rect')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>
+                            <span>사각형</span>
+                        </button>
+                        <button class="draw-menu-item" id="dmBtnEllipse" onclick="setDrawTool('ellipse')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><ellipse cx="12" cy="12" rx="10" ry="6"/></svg>
+                            <span>타원</span>
+                        </button>
+                        <button class="draw-menu-item" id="dmBtnPitchfork" onclick="setDrawTool('pitchfork')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V8"/><path d="M5 8c0 5 2 8 7 8"/><path d="M19 8c0 5-2 8-7 8"/><path d="M5 3v5"/><path d="M12 3v5"/><path d="M19 3v5"/></svg>
+                            <span>피치포크</span>
+                        </button>
+                        <button class="draw-menu-item" id="dmBtnFib" onclick="setDrawTool('fib')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="2" y1="4" x2="22" y2="4" stroke-dasharray="2 2"/><line x1="2" y1="9" x2="22" y2="9"/><line x1="2" y1="14" x2="22" y2="14" stroke-dasharray="4 2"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
+                            <span>피보나치</span>
+                        </button>
+                        <button class="draw-menu-item" id="dmBtnFib_channel" onclick="setDrawTool('fib_channel')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="2" y1="8" x2="22" y2="4"/><line x1="2" y1="12" x2="22" y2="8" stroke-dasharray="3 2"/><line x1="2" y1="16" x2="22" y2="12" stroke-dasharray="3 2"/><line x1="2" y1="20" x2="22" y2="16"/></svg>
+                            <span>피보나치 채널</span>
+                        </button>
+                        <button class="draw-menu-item" id="dmBtnFib_fan" onclick="setDrawTool('fib_fan')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="21" x2="21" y2="3"/><line x1="3" y1="21" x2="21" y2="9" stroke-dasharray="3 2"/><line x1="3" y1="21" x2="21" y2="15" stroke-dasharray="3 2"/><line x1="3" y1="21" x2="21" y2="21"/></svg>
+                            <span>속도 저항 팬</span>
+                        </button>
+                        <button class="draw-menu-item" id="dmBtnText" onclick="setDrawTool('text')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+                            <span>텍스트</span>
+                        </button>
+                        <div class="draw-menu-sep"></div>
+                        <!-- 색상 팔레트 -->
+                        <div class="draw-menu-colors">
+                            <button class="draw-color-btn2 active" data-color="#ef4444" style="background:#ef4444" onclick="setDrawColor('#ef4444')" title="빨강"></button>
+                            <button class="draw-color-btn2" data-color="#3b82f6" style="background:#3b82f6" onclick="setDrawColor('#3b82f6')" title="파랑"></button>
+                            <button class="draw-color-btn2" data-color="#22c55e" style="background:#22c55e" onclick="setDrawColor('#22c55e')" title="초록"></button>
+                            <button class="draw-color-btn2" data-color="#eab308" style="background:#eab308" onclick="setDrawColor('#eab308')" title="노랑"></button>
+                            <button class="draw-color-btn2" data-color="#a78bfa" style="background:#a78bfa" onclick="setDrawColor('#a78bfa')" title="보라"></button>
+                            <button class="draw-color-btn2" data-color="#ffffff" style="background:#ffffff;border-color:rgba(150,150,150,.5);" onclick="setDrawColor('#ffffff')" title="흰색"></button>
+                        </div>
+                        <!-- 두께 -->
+                        <div class="draw-menu-widths">
+                            <button class="draw-width-btn2 active" data-w="1" onclick="setDrawWidth(1)">1px</button>
+                            <button class="draw-width-btn2" data-w="2" onclick="setDrawWidth(2)">2px</button>
+                            <button class="draw-width-btn2" data-w="3" onclick="setDrawWidth(3)">3px</button>
+                        </div>
+                        <div class="draw-menu-sep"></div>
+                        <!-- 자석 토글 -->
+                        <div class="draw-menu-item draw-menu-magnet-row" onclick="toggleDrawMagnet()">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15A6 6 0 0 0 18 15"/><line x1="6" y1="15" x2="6" y2="8"/><line x1="18" y1="15" x2="18" y2="8"/><line x1="3" y1="8" x2="9" y2="8"/><line x1="15" y1="8" x2="21" y2="8"/></svg>
+                            <span>자석</span>
+                            <div class="dm-toggle-wrap"><div class="dm-toggle" id="drawMagnetToggle"></div></div>
+                        </div>
+                        <div class="draw-menu-sep"></div>
+                        <!-- 되돌리기 / 전체 삭제 -->
+                        <div class="draw-menu-footer">
+                            <button class="draw-menu-act-btn" onclick="undoDraw()" title="되돌리기 (Ctrl+Z)">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                                <span>되돌리기</span>
+                            </button>
+                            <button class="draw-menu-act-btn" onclick="clearAllDrawings()" title="전체 삭제">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                                <span>전체 삭제</span>
+                            </button>
+                            <span class="draw-count-badge" id="drawCountBadge">0</span>
+                        </div>
+                    </div>
+                    <!-- 📱 M6: 모바일 기간 프리셋 (≤600px) — 차트 위 -->
+                    <div id="mobilePeriodBar">
+                        <button class="mpb-btn active" data-period="1d" onclick="_mpbSetPeriod('1d')">1D</button>
+                        <button class="mpb-btn" data-period="1mo" onclick="_mpbSetPeriod('1mo')">1M</button>
+                        <button class="mpb-btn" data-period="3mo" onclick="_mpbSetPeriod('3mo')">3M</button>
+                        <button class="mpb-btn" data-period="1y" onclick="_mpbSetPeriod('1y')">1Y</button>
+                        <button class="mpb-btn" data-period="max" onclick="_mpbSetPeriod('max')">ALL</button>
+                    </div>
                     <div class="tv-chart-wrap" id="tvChartWrap">
                         <canvas class="draw-canvas" id="drawCanvas"></canvas>
                         <div class="ai-trendline-del" id="aiTrendDeleteBtn" onclick="deleteSelectedAiTrendline()">✕ 추세선 삭제</div>
@@ -1098,24 +1262,7 @@
                             <span class="chart-zoom-info">—</span>
                         </div>
 
-                        <!-- 🖥️ 데스크탑 차트 우상단 floating toolbar (영역 1) -->
-                        <div class="chart-tr-toolbar" id="chartTrToolbar" aria-label="차트 도구">
-                            <button class="ctr-btn" title="인디케이터" onclick="_ctrOpenAnalysis(event)" aria-label="인디케이터 토글">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/></svg>
-                            </button>
-                            <button class="ctr-btn" title="가격 라인" onclick="_ctrOpenLine(event)" aria-label="가격 라인 토글">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="8" cy="6" r="2" fill="currentColor"/><circle cx="16" cy="12" r="2" fill="currentColor"/><circle cx="10" cy="18" r="2" fill="currentColor"/></svg>
-                            </button>
-                            <button class="ctr-btn" title="PNG 캡쳐" onclick="_ctrCapturePng()" aria-label="PNG 캡쳐">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                            </button>
-                            <button class="ctr-btn" title="설정" onclick="_ctrSettings()" aria-label="설정">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                            </button>
-                            <button class="ctr-btn" title="전체화면" onclick="toggleChartFullscreen()" aria-label="전체화면">
-                                <svg id="ctrFsExpand" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-                            </button>
-                        </div>
+                        <!-- Phase A2: 우상단 floating toolbar 완전 제거 (이미 A2 toolbar로 대체됨) -->
 
                         <!-- 🖥️ 데스크탑 차트 하단 좌측 기간 프리셋 (Phase B-1) -->
                         <div class="chart-preset-bar" id="chartPresetBar" aria-label="기간 프리셋">
@@ -1156,41 +1303,126 @@
                     </div>
                     </div><!-- /.chart-cell-1 -->
 
-                    <!-- Phase X1: 두 번째 셀 (placeholder, 2분할 시 노출) -->
+                    <!-- Phase X1-b: 두 번째 셀 (실제 차트 인스턴스) -->
                     <div class="chart-cell chart-cell-2" id="chartCell2" style="display:none;">
                         <div class="cell-header">
-                            <span class="cell-symbol">—</span>
+                            <span class="cell-symbol" id="cell2Symbol" onclick="event.stopPropagation();_xcPromptSymbol('cell2')" title="클릭하여 종목 변경">—</span>
                             <span class="cell-sep">·</span>
-                            <span class="cell-tf">—</span>
-                            <button class="cell-close" onclick="_xcSetLayout('1')" aria-label="셀 닫기">✕</button>
+                            <span class="cell-tf" id="cell2Tf">—</span>
+                            <button class="cell-close" onclick="event.stopPropagation();_xcCloseCell(2)" aria-label="셀 닫기">✕</button>
                         </div>
-                        <div class="cell-2-placeholder">
-                            <div class="c2p-icon">⊞</div>
-                            <div class="c2p-title">X1 멀티차트 — 두 번째 셀</div>
-                            <div class="c2p-sub">레이아웃이 적용되었습니다.<br>두 번째 차트 인스턴스는 다음 단계(X1-b)에서 활성화됩니다.</div>
+                        <div id="tvChartWrap2" class="xc-chart-wrap">
+                            <div class="xc-activate-overlay" onclick="_xcActivate('cell2')">
+                                <div class="xc-act-icon">⊞</div>
+                                <div>클릭하여 차트 활성화</div>
+                                <div class="xc-act-sub">심볼을 헤더에서 변경할 수 있습니다</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Phase X1-b: 세 번째 셀 (실제 차트 인스턴스) -->
+                    <div class="chart-cell chart-cell-3" id="chartCell3" style="display:none;">
+                        <div class="cell-header">
+                            <span class="cell-symbol" id="cell3Symbol" onclick="event.stopPropagation();_xcPromptSymbol('cell3')" title="클릭하여 종목 변경">—</span>
+                            <span class="cell-sep">·</span>
+                            <span class="cell-tf" id="cell3Tf">—</span>
+                            <button class="cell-close" onclick="event.stopPropagation();_xcCloseCell(3)" aria-label="셀 닫기">✕</button>
+                        </div>
+                        <div id="tvChartWrap3" class="xc-chart-wrap">
+                            <div class="xc-activate-overlay" onclick="_xcActivate('cell3')">
+                                <div class="xc-act-icon">⊟</div>
+                                <div>클릭하여 차트 활성화</div>
+                                <div class="xc-act-sub">심볼을 헤더에서 변경할 수 있습니다</div>
+                            </div>
                         </div>
                     </div>
                     </div><!-- /.chart-grid-wrap -->
 
-                    <!-- Phase X1: 레이아웃 선택 popover -->
+                    <!-- Phase X1+X2: 레이아웃 선택 popover -->
                     <div class="chart-layout-popover" id="chartLayoutPopover" style="display:none;">
                         <div class="clp-title">차트 분할</div>
+
+                        <!-- 1분할 -->
+                        <div class="clp-sep-label">1분할</div>
                         <div class="clp-options">
-                            <button class="clp-opt active" data-layout="1" onclick="_xcSetLayout('1')" title="1분할">
+                            <button class="clp-opt" data-layout="1" onclick="_xcSetLayout('1')" title="1분할">
                                 <div class="clp-preview"><div class="clp-c"></div></div>
-                                <span>1분할</span>
+                                <span>단일</span>
                             </button>
-                            <button class="clp-opt" data-layout="2h" onclick="_xcSetLayout('2h')" title="좌우 분할">
+                        </div>
+
+                        <!-- 2분할 -->
+                        <div class="clp-sep-label">2분할</div>
+                        <div class="clp-options">
+                            <button class="clp-opt" data-layout="2h" onclick="_xcSetLayout('2h')" title="좌우 2분할">
                                 <div class="clp-preview clp-preview-2h"><div class="clp-c"></div><div class="clp-c"></div></div>
                                 <span>좌우</span>
                             </button>
-                            <button class="clp-opt" data-layout="2v" onclick="_xcSetLayout('2v')" title="상하 분할">
+                            <button class="clp-opt" data-layout="2v" onclick="_xcSetLayout('2v')" title="상하 2분할">
                                 <div class="clp-preview clp-preview-2v"><div class="clp-c"></div><div class="clp-c"></div></div>
                                 <span>상하</span>
                             </button>
                         </div>
+
+                        <!-- 3분할 -->
+                        <div class="clp-sep-label">3분할</div>
+                        <div class="clp-options" id="clpRow3">
+                            <button class="clp-opt" data-layout="3h" onclick="_xcSetLayout('3h')" title="좌우 3등분">
+                                <div class="clp-preview clp-preview-3h"><div class="clp-c"></div><div class="clp-c"></div><div class="clp-c"></div></div>
+                                <span>3등분</span>
+                            </button>
+                            <button class="clp-opt" data-layout="3v" onclick="_xcSetLayout('3v')" title="상하 3등분">
+                                <div class="clp-preview clp-preview-3v"><div class="clp-c"></div><div class="clp-c"></div><div class="clp-c"></div></div>
+                                <span>상하</span>
+                            </button>
+                            <button class="clp-opt" data-layout="3lc" onclick="_xcSetLayout('3lc')" title="좌1+우상하">
+                                <div class="clp-preview clp-preview-3lc">
+                                    <div class="clp-c"></div>
+                                    <div class="clp-c-sub"><div class="clp-c"></div><div class="clp-c"></div></div>
+                                </div>
+                                <span>좌1+우</span>
+                            </button>
+                            <button class="clp-opt" data-layout="3tc" onclick="_xcSetLayout('3tc')" title="상1+하좌우">
+                                <div class="clp-preview clp-preview-3tc">
+                                    <div class="clp-c"></div>
+                                    <div class="clp-c-sub"><div class="clp-c"></div><div class="clp-c"></div></div>
+                                </div>
+                                <span>상1+하</span>
+                            </button>
+                        </div>
+                        <div class="clp-3-hint" id="clp3Hint">1440px 이상에서 사용 가능</div>
                     </div>
 
+                    <!-- Phase X3: 차트 동기화 popover -->
+                    <div class="xc-sync-popover" id="xcSyncPopover" style="display:none;">
+                        <div class="xcs-title">차트 동기화</div>
+                        <div id="xcSyncSection">
+                            <button class="xcs-row" onclick="event.stopPropagation();_xcToggleSync('timeScale')">
+                                <span class="xcs-dot" id="xcSync_timeScale">◯</span>
+                                <div class="xcs-info">
+                                    <span class="xcs-label">시간축 동기화</span>
+                                    <span class="xcs-sub">줌·팬을 모든 셀에 적용</span>
+                                </div>
+                            </button>
+                            <button class="xcs-row" onclick="event.stopPropagation();_xcToggleSync('crosshair')">
+                                <span class="xcs-dot" id="xcSync_crosshair">◯</span>
+                                <div class="xcs-info">
+                                    <span class="xcs-label">십자선 동기화</span>
+                                    <span class="xcs-sub">호버 시 모든 셀 동시 표시</span>
+                                </div>
+                            </button>
+                            <button class="xcs-row" onclick="event.stopPropagation();_xcToggleSync('symbol')">
+                                <span class="xcs-dot" id="xcSync_symbol">◯</span>
+                                <div class="xcs-info">
+                                    <span class="xcs-label">종목 동기화</span>
+                                    <span class="xcs-sub">종목 변경 시 모든 셀 적용</span>
+                                </div>
+                            </button>
+                        </div>
+                        <div class="xcs-hint" id="xcSyncHint">
+                            차트 분할 시 활성화됩니다
+                        </div>
+                    </div>
 
                 <!-- 📱 모바일 인라인 종목 전환 바 (차트 바로 아래 sticky) -->
                 <div id="chartPagerInline" class="chart-pager-inline" style="display:none;">
@@ -1333,6 +1565,7 @@
             <!-- 폴리마켓 예측 (차트 탭 하단) -->
 
         </div>
+        </div><!-- /tabChart -->
 
         <!-- Tab 3: 종목정보 -->
         <div class="tab-content" id="tabInfo" data-tab="info">
@@ -1525,6 +1758,21 @@
     let liveUpdateTimer      = null;  // 실시간 가격 업데이트 타이머 (30초)
     let analysisRefreshTimer = null;  // 분석 자동 갱신 타이머 (5분)
     let chartSigPollTimer    = null;  // 차트 시그널 폴링 타이머 (60초)
+    const _xcCells = {};              // Phase X1-b: 셀별 차트 인스턴스 레지스트리
+    let _xcActiveCellId = 'cell1';    // 현재 활성 셀 ID
+    // Phase X3: 멀티차트 동기화 설정 (localStorage에서 복원)
+    let _xcSyncTimeScale = false;     // X3a: 시간축 동기화
+    let _xcSyncCrosshair = false;     // X3b: 십자선 동기화
+    let _xcSyncSymbol    = false;     // X3c: 종목 동기화
+    let _xcCrosshairSyncLast = 0;    // X3b throttle
+    (function _xcLoadSyncPrefs() {
+        try {
+            const s = JSON.parse(localStorage.getItem('stockai_xc_sync') || '{}');
+            _xcSyncTimeScale = !!s.timeScale;
+            _xcSyncCrosshair = !!s.crosshair;
+            _xcSyncSymbol    = !!s.symbol;
+        } catch(_) {}
+    })();
     let _lastSigKey          = null;  // 마지막 시그널 식별자 (symbol:time:pos:text)
     let _lastPosAlertKey     = '';    // 중복 포지션 알림 억제 (headline 기준 5분 쿨다운)
     let _lastPosAlertTime    = 0;
@@ -1539,6 +1787,10 @@
     // Lightweight Charts 인스턴스
     let lwChart = null;
     let lwCandleSeries = null;
+    // 종목비교 오버레이 상태
+    let _cmpSeries  = null;   // LineSeries on lwChart
+    let _cmpSymbol  = null;   // 현재 비교 중인 심볼
+    let _cmpColor   = '#818CF8'; // 인디고 라인 색상
     let lwVolumeSeries = null;
     let lwMaSeries = {};       // { ma5, ma20, ma70 }
     let lwBbUpper = null;
@@ -1549,6 +1801,10 @@
     let lwVwapUpper = null;
     let lwVwapLower = null;
     let _chartVwapEnabled = localStorage.getItem('stockai_chart_vwap') === '1'; // 기본 OFF — 사용자가 켤 때만 '1' 저장
+    // Phase A2 — 보조지표 패널 state
+    let _indConfig        = null;   // 보조지표 설정 (localStorage: stockai_ind_config)
+    let _indSelectedKey   = null;   // 현재 선택된 지표 키 ('ema'|'bb'|'vwap'|'volume')
+    let _indDebounceTimer = null;   // 기간/색상 변경 debounce (200ms)
     let lwAiPriceLines = [];        // AI 지지/저항선 (createPriceLine refs)
     let lwAiTrendSeries = [];       // AI 추세선 legacy (사용 안함, 하위호환)
     let lwAiCanvasTrendlines = [];  // AI 추세선 (canvas Ray 방식, 1000×1000 좌표)
@@ -2522,6 +2778,45 @@
         // 선택된 탭이 항상 뷰포트 안에 보이도록 스크롤
         const activeTabBtn = document.querySelector(`.tab-item[data-tab="${tabName}"]`);
         if (activeTabBtn) activeTabBtn.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+    }
+
+    // ========================================
+    // Tab Isolation Helpers
+    // ========================================
+    /**
+     * 탭 렌더 함수를 안전하게 실행 — 에러가 다른 탭으로 전파되지 않도록 격리
+     * renderFn 은 동기 또는 async 모두 지원
+     */
+    function safeRenderTab(tabName, renderFn) {
+        try {
+            const result = renderFn();
+            // async 함수면 rejected promise도 잡아서 로그만 남김
+            if (result && typeof result.catch === 'function') {
+                result.catch(err => console.warn(`[탭:${tabName}] 비동기 렌더 실패:`, err));
+            }
+        } catch (err) {
+            console.warn(`[탭:${tabName}] 렌더 실패:`, err);
+            _renderTabError(tabName);
+        }
+    }
+
+    /** 탭 내 빈 컨테이너에 에러 상태 UI 삽입 */
+    function _renderTabError(tabName) {
+        const errorHtml = `<div style="text-align:center;padding:30px 0;color:var(--text3);font-size:13px;">
+            불러오기 실패
+            <br><button style="margin-top:8px;font-size:12px;color:#0080FB;background:none;border:none;cursor:pointer;text-decoration:underline;"
+                onclick="if(currentFullSymbol)switchTab('${tabName}')">재시도</button>
+        </div>`;
+        const idMap = {
+            'info':    ['financeGrid', 'statisticsGrid', 'stockEarnings', 'analystTargets'],
+            'company': ['companyOverview', 'companyExecutives', 'companyHolders', 'companyInsider'],
+            'options': ['optionsContent'],
+            'short':   ['shortContent'],
+        };
+        (idMap[tabName] || []).forEach(id => {
+            const el = document.getElementById(id);
+            if (el && !el.textContent.trim()) el.innerHTML = errorHtml;
+        });
     }
 
     // ========================================
@@ -13202,6 +13497,8 @@
             updateFavButton();
             renderPriceChart();
             hideLoading();
+            // 종목비교 오버레이 자동 갱신
+            try { _cmpRefreshIfActive?.(); } catch(_) {}
 
             // 로컬 계산 지표 (빠름)
             renderTechnicalIndicators();
@@ -13226,14 +13523,17 @@
             // RSI 모멘텀 / MACD / Volume 카드 — 종목 기본 정보 그룹 제거(v730)되어 target div 없음, 호출 생략
 
             // 추가 API 호출이 필요한 것들은 병렬로 실행 (await 안 함 → UI 블로킹 없음)
+            // safeRenderTab: 한 탭 에러가 다른 탭/화면에 전파되지 않도록 격리
             fetchMarketSession(symbol);
             render52WRange(symbol);
             renderLongTermStats(symbol);
-            renderFinancialInfo(symbol);
-            renderStatisticsInfo(symbol);
-            renderStockEarnings(symbol);
-            renderAnalystTargets(symbol);
-            renderCompanyProfile(symbol);
+            safeRenderTab('info', () => {
+                renderFinancialInfo(symbol);
+                renderStatisticsInfo(symbol);
+                renderStockEarnings(symbol);
+                renderAnalystTargets(symbol);
+            });
+            safeRenderTab('company', () => renderCompanyProfile(symbol));
 
             // 실시간 가격 업데이트 시작 (30초 간격)
             startLiveUpdate();
@@ -15378,9 +15678,9 @@
                 const closes = window._lastSigArgs?.q?.close || [];
                 const lastClose = closes[closes.length - 1];
                 if (lastClose != null) {
-                    const sym = (window.currentMarket === 'KR') ? '₩' : '$';
+                    const sym = (currentMarket === 'KR') ? '₩' : '$';
                     const pricEl = btn.querySelector('.cjl-price');
-                    if (pricEl) pricEl.textContent = sym + (window.currentMarket === 'KR'
+                    if (pricEl) pricEl.textContent = sym + (currentMarket === 'KR'
                         ? Math.round(lastClose).toLocaleString()
                         : Number(lastClose).toFixed(2));
                 }
@@ -15433,6 +15733,23 @@
     // ══════════════════════════════════════════════════════════
 
     function _renderChartHeaderAt(idx) {
+        // M6: always update mobile header TF + price (runs even if #chartHeader absent)
+        try {
+            const _sym = currentSymbol || '—';
+            const _tf  = (INTERVAL_LABELS && INTERVAL_LABELS[currentInterval]) || currentInterval || '—';
+            _mchUpdateTf(_sym, _tf);
+            // price update from _lastSigArgs
+            const _tsArr = window._lastSigArgs?.ts || [];
+            if (_tsArr.length) {
+                const _q = window._lastSigArgs?.q || {};
+                const _i = (idx == null || idx < 0 || idx >= _tsArr.length) ? _tsArr.length - 1 : idx;
+                const _c = _q.close?.[_i];
+                const _prev = _i > 0 ? _q.close?.[_i - 1] : null;
+                const _chgPct = (_c != null && _prev != null && _prev !== 0) ? (_c - _prev) / _prev * 100 : null;
+                _mchUpdatePrice(_c, _chgPct);
+            }
+        } catch(_) {}
+
         const el = document.getElementById('chartHeader');
         if (!el) return;
         const tsArr = window._lastSigArgs?.ts || [];
@@ -15441,14 +15758,14 @@
         if (idx == null || idx < 0 || idx >= tsArr.length) idx = tsArr.length - 1;
 
         // Row 1: 종목 · TF
-        const sym = window.currentSymbol || '—';
-        const tfLabel = (window.INTERVAL_LABELS && window.INTERVAL_LABELS[window.currentInterval])
-            || window.currentInterval || '—';
+        const sym = currentSymbol || '—';
+        const tfLabel = (INTERVAL_LABELS && INTERVAL_LABELS[currentInterval])
+            || currentInterval || '—';
         el.querySelector('.ch-symbol').textContent = sym;
         el.querySelector('.ch-tf').textContent     = tfLabel;
 
         const fmtP = p => (p == null || !isFinite(p)) ? '—' :
-            (window.currentMarket === 'KR' ? Math.round(p).toLocaleString() : Number(p).toFixed(2));
+            (currentMarket === 'KR' ? Math.round(p).toLocaleString() : Number(p).toFixed(2));
 
         // Row 2: OHLC + change
         const o = q.open?.[idx], h = q.high?.[idx], l = q.low?.[idx], c = q.close?.[idx];
@@ -15468,8 +15785,12 @@
             chgEl.textContent = `${isUp?'▲':'▼'} ${sign}${chg.toFixed(2)} (${sign}${chgPct.toFixed(2)}%)`;
             chgEl.style.color = col;
             el.querySelector('.ch-c').style.color = col;
+            // M6: update mobile header price + change
+            try { _mchUpdatePrice(c, chgPct); } catch(e) {}
         } else {
             chgEl.textContent = '';
+            // M6: update mobile header price (no change info)
+            try { _mchUpdatePrice(c, null); } catch(e) {}
         }
 
         // Row 3: MA values (EMA20 / EMA50 / EMA200)
@@ -15495,29 +15816,913 @@
     // Phase A2: 가로 toolbar 핸들러
     // ══════════════════════════════════════════════════════════
 
+    // ══════════════════════════════════════════════════════════
+    // Phase A2 — 보조지표 Split Dropdown
+    // ══════════════════════════════════════════════════════════
+
+    // ── 가격 라인 메타데이터 (localStorage 키 + 토글 함수명) ──
+    const _IND_PL_MAP = {
+        pl_sig:  { lsKey: 'stockai_chart_sig_lines',        neg: true,  fn: 'toggleChartSigLines',   name: '시그널 라인',
+                   desc: '차트 매수·매도 진입 라인 및 손절 기준선을 표시합니다.' },
+        pl_sr:   { lsKey: 'stockai_chart_sr_enabled',       neg: true,  fn: 'toggleSrLayer',         name: '돌파 / 저항',
+                   desc: '주요 수요공급 클러스터에서 형성된 지지·저항 레벨을 표시합니다.' },
+        pl_pb:   { lsKey: 'stockai_chart_pullback_enabled', neg: true,  fn: 'togglePullbackLayer',   name: '지지반등',
+                   desc: '추세 이동평균 근방의 눌림목 지지 반등 구간을 표시합니다.' },
+        pl_sd:   { lsKey: 'stockai_chart_smartdip_enabled', neg: false, fn: 'toggleSmartDipLayer',   name: '눌림 (피보)',
+                   desc: 'Smart Dip 피보나치 분할매수 진입 레벨을 1~6차로 표시합니다.' },
+        pl_sb:   { lsKey: 'stockai_chart_split_enabled',    neg: true,  fn: 'toggleSplitBuyLayer',   name: '분할매수',
+                   desc: '분할매수 기준가 라인을 ATR 기반으로 표시합니다.' },
+        pl_kl:   { lsKey: 'stockai_chart_kull',             neg: true,  fn: 'toggleKullamagiLayer',  name: 'Kullamägi',
+                   desc: 'Kristjan Kullamägi 모멘텀 셋업 — EMA 기반 박스 돌파 영역입니다.' },
+        pl_sepa: { lsKey: 'stockai_chart_sepa',             neg: true,  fn: 'toggleSepaLayer',       name: 'SEPA',
+                   desc: 'Mark Minervini SEPA 슈퍼퍼포먼스 — 추세 템플릿 기반 단계 분석입니다.' },
+    };
+
+    /** 가격라인 항목의 현재 ON/OFF 상태 읽기 */
+    function _indPlOn(key) {
+        const m = _IND_PL_MAP[key];
+        if (!m) return false;
+        const v = localStorage.getItem(m.lsKey);
+        return m.neg ? (v !== '0') : (v === '1');
+    }
+
+    // 16개 프리셋 색상 팔레트
+    const _IND_PRESET_COLORS = [
+        '#ef4444','#f97316','#f59e0b','#eab308',
+        '#84cc16','#22c55e','#10b981','#06b6d4',
+        '#3b82f6','#6366f1','#8b5cf6','#a855f7',
+        '#ec4899','#f43f5e','#94a3b8','#f1f5f9'
+    ];
+
+    /** localStorage에서 설정 로드 (기본값 포함) */
+    function _indGetConfig() {
+        if (!_indConfig) {
+            try { _indConfig = JSON.parse(localStorage.getItem('stockai_ind_config') || '{}'); }
+            catch(e) { _indConfig = {}; }
+        }
+        const c = _indConfig;
+        if (!c.ema) c.ema = { enabled: true, periods: [
+            { period: 5,   color: '#10b981', width: 1 },
+            { period: 20,  color: '#7dd3fc', width: 2 },
+            { period: 50,  color: '#eab308', width: 2 },
+            { period: 200, color: '#f1f5f9', width: 2 },
+        ]};
+        if (!c.bb)     c.bb     = { enabled: true,  color: '#f59e0b', width: 2, period: 4 };
+        if (!c.vwap)   c.vwap   = { enabled: true  };
+        if (!c.volume) c.volume = { enabled: true  };
+        return c;
+    }
+
+    function _indSaveConfig() {
+        if (!_indConfig) return;
+        try { localStorage.setItem('stockai_ind_config', JSON.stringify(_indConfig)); } catch(e) {}
+    }
+
+    /** 보조지표 버튼 클릭: 패널 토글 */
     function _cxtOpenIndicators(ev) {
         if (ev) ev.stopPropagation();
-        // 향후 640px split dropdown — 현재는 기존 analysis dd 위임
-        const btn = document.getElementById('analysisDdBtn');
-        if (btn) { btn.click(); return; }
-        if (typeof _toggleAnalysisDd === 'function') _toggleAnalysisDd(ev);
+        const panel = document.getElementById('indDropdown');
+        const btn   = document.getElementById('cxtIndicators');
+        if (!panel) return;
+        if (panel.style.display !== 'none') {
+            panel.style.display = 'none';
+            btn?.classList.remove('active');
+            return;
+        }
+        panel.style.display = 'flex';
+        btn?.classList.add('active');
+        _indRefreshPanel();
+        // 외부 클릭 닫기
+        setTimeout(() => {
+            document.addEventListener('click', _indDocClose, { once: true, capture: true });
+        }, 0);
+    }
+
+    function _indDocClose(e) {
+        const panel = document.getElementById('indDropdown');
+        const btn   = document.getElementById('cxtIndicators');
+        if (!panel) return;
+        // 패널 내부 또는 컬러피커 클릭 시 → 리스너 재등록
+        const picker = document.getElementById('cidColorPicker');
+        if (panel.contains(e.target) || btn?.contains(e.target) || picker?.contains(e.target)) {
+            document.addEventListener('click', _indDocClose, { once: true, capture: true });
+            return;
+        }
+        panel.style.display = 'none';
+        btn?.classList.remove('active');
+        _indCloseColorPicker();
+    }
+
+    /** 왼쪽 패널 체크 상태 + 선택 상태 갱신 */
+    function _indRefreshPanel() {
+        const cfg = _indGetConfig();
+        // 상단 지표
+        _indSetCheck('Ema',         cfg.ema.enabled);
+        _indSetCheck('Bb',          cfg.bb.enabled);
+        _indSetCheck('Vwap',        cfg.vwap.enabled);
+        _indSetCheck('Ichimoku',    false);   // placeholder — always OFF
+        _indSetCheck('Supertrend',  false);
+        _indSetCheck('Envelope',    false);
+        // 하단 지표
+        _indSetCheck('Volume',      cfg.volume.enabled);
+        _indSetCheck('Rsi',         false);   // placeholder
+        _indSetCheck('Macd',        false);   // placeholder
+        // 가격 라인 — key: 'pl_sig' → capKey: 'PlSig' → id: 'cidCheckPlSig'
+        Object.keys(_IND_PL_MAP).forEach(key => {
+            const ck = 'Pl' + key.slice(3).charAt(0).toUpperCase() + key.slice(4);
+            _indSetCheck(ck, _indPlOn(key));
+        });
+        if (!_indSelectedKey) _indSelectedKey = 'ema';
+        _indHighlightItem(_indSelectedKey);
+        _indRenderRight(_indSelectedKey);
+    }
+
+    function _indSetCheck(capKey, on) {
+        const el = document.getElementById('cidCheck' + capKey);
+        if (!el) return;
+        // iOS 체크 스타일: checked 클래스 토글 (SVG 내부 CSS로 색상 전환)
+        if (on) {
+            el.classList.add('checked');
+        } else {
+            el.classList.remove('checked');
+        }
+    }
+
+    function _indHighlightItem(key) {
+        document.querySelectorAll('.cid-item').forEach(b => b.classList.remove('active'));
+        let capKey;
+        if (key.startsWith('pl_')) {
+            // pl_sig → PlSig, pl_sr → PlSr, pl_pb → PlPb …
+            capKey = 'Pl' + key.slice(3).charAt(0).toUpperCase() + key.slice(4);
+        } else {
+            capKey = key.charAt(0).toUpperCase() + key.slice(1);
+        }
+        document.getElementById('cidItem' + capKey)?.classList.add('active');
+    }
+
+    /** 왼쪽 아이템 클릭 → 오른쪽 패널 렌더 */
+    function _indSelect(key) {
+        _indSelectedKey = key;
+        _indHighlightItem(key);
+        _indRenderRight(key);
+    }
+
+    /** 오른쪽 설정 패널 렌더 */
+    function _indRenderRight(key) {
+        const cfg   = _indGetConfig();
+        const right = document.getElementById('cidRight');
+        if (!right) return;
+
+        const PLACEHOLDER_KEYS = ['ichimoku','supertrend','envelope','rsi','macd'];
+        const NAMES = {
+            ema: '이동평균선', bb: '볼린저 밴드', vwap: 'VWAP', volume: '볼륨',
+            ichimoku: '일목균형표', supertrend: '슈퍼트렌드', envelope: '엔벨로프',
+            rsi: 'RSI', macd: 'MACD'
+        };
+
+        let on, name;
+        if (_IND_PL_MAP[key]) {
+            // 가격 라인: 실제 localStorage 상태 반영
+            on   = _indPlOn(key);
+            name = _IND_PL_MAP[key].name;
+        } else {
+            on   = cfg[key]?.enabled !== false;
+            name = NAMES[key] || key;
+        }
+
+        // 준비 중 항목은 타이틀에 토글 버튼 없이 표시
+        let html;
+        if (PLACEHOLDER_KEYS.includes(key)) {
+            html = `<div class="cid-r-title">${name}</div>`;
+        } else {
+            html = `<div class="cid-r-title">${name}
+                <button class="cid-r-toggle ${on ? 'on' : ''}"
+                    onclick="event.stopPropagation();_indToggleEnabled('${key}')">
+                    ${on ? '● ON' : '○ OFF'}
+                </button>
+            </div>`;
+        }
+
+        if (key === 'ema') {
+            const periods = cfg.ema.periods;
+            const canDel  = periods.length > 1;
+            periods.forEach((p, idx) => {
+                html += `<div class="cid-period-row">
+                    <span class="cid-period-label">기간${idx + 1}</span>
+                    <div class="cid-color-swatch" id="cidSwatch_ema_${idx}"
+                        style="background:${p.color || '#7dd3fc'}"
+                        onclick="event.stopPropagation();_indOpenColorPicker('ema',${idx},this)"
+                        title="색상 변경"></div>
+                    <select class="cid-width-select"
+                        onchange="event.stopPropagation();_indSetWidth('ema',${idx},+this.value)">
+                        <option value="1" ${(p.width||2)===1?'selected':''}>1px</option>
+                        <option value="2" ${(p.width||2)===2?'selected':''}>2px</option>
+                        <option value="3" ${(p.width||2)===3?'selected':''}>3px</option>
+                    </select>
+                    <select class="cid-src-select"
+                        onchange="event.stopPropagation();_indSetSource('ema',${idx},this.value)">
+                        <option value="close" ${(!p.source||p.source==='close')?'selected':''}>종가</option>
+                        <option value="open"  ${p.source==='open' ?'selected':''}>시가</option>
+                        <option value="high"  ${p.source==='high' ?'selected':''}>고가</option>
+                        <option value="low"   ${p.source==='low'  ?'selected':''}>저가</option>
+                    </select>
+                    <input class="cid-period-input" type="number" min="1" max="500"
+                        value="${p.period}"
+                        onchange="event.stopPropagation();_indSetPeriod('ema',${idx},+this.value)"
+                        onclick="event.stopPropagation()">
+                    <button class="cid-del-btn" ${canDel ? '' : 'disabled'}
+                        onclick="event.stopPropagation();_indRemovePeriod('ema',${idx})"
+                        title="삭제">✕</button>
+                </div>`;
+            });
+            const canAdd = periods.length < 6;
+            html += `<button class="cid-add-btn" ${canAdd ? '' : 'disabled'}
+                onclick="event.stopPropagation();_indAddPeriod('ema')">
+                ⊕ 기간 추가 <span style="color:var(--text3);font-size:11px">(최대 6개)</span>
+            </button>`;
+
+        } else if (key === 'bb') {
+            const b = cfg.bb;
+            html += `<div class="cid-period-row">
+                <span class="cid-period-label">기간</span>
+                <div class="cid-color-swatch" id="cidSwatch_bb_0"
+                    style="background:${b.color || '#f59e0b'}"
+                    onclick="event.stopPropagation();_indOpenColorPicker('bb',0,this)"
+                    title="색상 변경"></div>
+                <select class="cid-width-select"
+                    onchange="event.stopPropagation();_indSetWidth('bb',0,+this.value)">
+                    <option value="1" ${(b.width||2)===1?'selected':''}>1px</option>
+                    <option value="2" ${(b.width||2)===2?'selected':''}>2px</option>
+                    <option value="3" ${(b.width||2)===3?'selected':''}>3px</option>
+                </select>
+                <input class="cid-period-input" type="number" min="2" max="200"
+                    value="${b.period || 4}"
+                    onchange="event.stopPropagation();_indSetPeriodBb(+this.value)"
+                    onclick="event.stopPropagation()">
+            </div>
+            <div class="cid-note" style="margin-top:6px">2σ 볼린저 밴드 · 기본 기간: 4</div>`;
+
+        } else if (key === 'vwap') {
+            html += `<div class="cid-note">
+                VWAP은 <strong>5분봉</strong> 선택 시 자동 표시됩니다.<br>
+                세션 기준으로 계산되며 ±1σ 밴드와 함께 표시됩니다.
+            </div>`;
+
+        } else if (key === 'volume') {
+            html += `<div class="cid-note">
+                거래량 히스토그램은 차트 하단 20% 영역에 표시됩니다.<br>
+                상승 캔들: <span style="color:#ef4444">빨간색</span> &nbsp;/&nbsp;
+                하락 캔들: <span style="color:#3b82f6">파란색</span>
+            </div>`;
+
+        // ── 준비 중 placeholder ──
+        } else if (key === 'ichimoku') {
+            html += `<div class="cid-note">
+                <strong>일목균형표 (Ichimoku Kinko Hyo)</strong><br><br>
+                전환선·기준선·선행스팬·지연스팬 등 5선으로 구성된<br>
+                추세·모멘텀·지지저항 종합 지표입니다.<br><br>
+                <span style="color:var(--text3)">출시 예정</span>
+            </div>`;
+        } else if (key === 'supertrend') {
+            html += `<div class="cid-note">
+                <strong>슈퍼트렌드 (SuperTrend)</strong><br><br>
+                ATR 기반 추세 추종 지표로, 매수·매도 신호와<br>
+                현재 추세 방향을 단일 라인으로 표시합니다.<br><br>
+                <span style="color:var(--text3)">출시 예정</span>
+            </div>`;
+        } else if (key === 'envelope') {
+            html += `<div class="cid-note">
+                <strong>엔벨로프 (Envelope)</strong><br><br>
+                이동평균선에서 일정 비율(%) 떨어진 상·하단 밴드로<br>
+                과매수·과매도 영역을 시각화합니다.<br><br>
+                <span style="color:var(--text3)">출시 예정</span>
+            </div>`;
+        } else if (key === 'rsi') {
+            html += `<div class="cid-note">
+                <strong>RSI (Relative Strength Index)</strong><br><br>
+                0~100 스케일의 모멘텀 오실레이터. 70 이상 과매수,<br>
+                30 이하 과매도 구간으로 반전 시점을 포착합니다.<br><br>
+                <span style="color:var(--text3)">하단 패널 출시 예정</span>
+            </div>`;
+        } else if (key === 'macd') {
+            html += `<div class="cid-note">
+                <strong>MACD (Moving Average Convergence Divergence)</strong><br><br>
+                MACD선·시그널선·히스토그램으로 추세 전환과<br>
+                모멘텀 강도를 동시에 파악합니다.<br><br>
+                <span style="color:var(--text3)">하단 패널 출시 예정</span>
+            </div>`;
+
+        // ── 가격 라인 ──
+        } else if (_IND_PL_MAP[key]) {
+            html += `<div class="cid-note">${_IND_PL_MAP[key].desc}</div>`;
+        }
+
+        right.innerHTML = html;
+    }
+
+    /** 지표 ON/OFF 토글 */
+    function _indToggleEnabled(key) {
+        // ── 가격 라인 (pl_*): 매핑된 전역 함수 호출 ──
+        if (_IND_PL_MAP[key]) {
+            const fn = _IND_PL_MAP[key].fn;
+            if (typeof window[fn] === 'function') { window[fn](); _updateDdStates?.(); }
+            _indRefreshPanel();
+            _indRenderRight(key);
+            return;
+        }
+        // ── 준비 중 placeholder ──
+        if (['ichimoku','supertrend','envelope','rsi','macd'].includes(key)) {
+            if (typeof showToast === 'function') showToast('곧 출시 예정입니다 ✨');
+            return;
+        }
+        const cfg = _indGetConfig();
+        cfg[key].enabled = !(cfg[key].enabled !== false);
+        _indSaveConfig();
+        const on = cfg[key].enabled;
+        // 기존 시리즈에 바로 적용
+        if (key === 'ema') {
+            Object.keys(lwMaSeries).forEach(k => {
+                if (!k.endsWith('_data')) {
+                    try { lwMaSeries[k]?.applyOptions({ visible: on }); } catch(_) {}
+                }
+            });
+        } else if (key === 'bb') {
+            try { lwBbUpper?.applyOptions({ visible: on });  } catch(_) {}
+            try { lwBbLower?.applyOptions({ visible: on });  } catch(_) {}
+            try { lwBbMiddle?.applyOptions({ visible: on }); } catch(_) {}
+        } else if (key === 'vwap') {
+            try { lwVwap?.applyOptions({ visible: on });      } catch(_) {}
+            try { lwVwapUpper?.applyOptions({ visible: on }); } catch(_) {}
+            try { lwVwapLower?.applyOptions({ visible: on }); } catch(_) {}
+        } else if (key === 'volume') {
+            try { lwVolumeSeries?.applyOptions({ visible: on }); } catch(_) {}
+        }
+        _indRefreshPanel();
+    }
+
+    /** 선 두께 변경 (즉시 반영) */
+    function _indSetWidth(key, idx, width) {
+        const cfg = _indGetConfig();
+        if (key === 'ema') {
+            if (!cfg.ema.periods[idx]) return;
+            cfg.ema.periods[idx].width = width;
+            const period     = cfg.ema.periods[idx].period;
+            const seriesKey  = `ema${period}`;
+            try { lwMaSeries[seriesKey]?.applyOptions({ lineWidth: width }); } catch(_) {}
+        } else if (key === 'bb') {
+            cfg.bb.width = width;
+            try { lwBbUpper?.applyOptions({ lineWidth: width }); } catch(_) {}
+            try { lwBbLower?.applyOptions({ lineWidth: width }); } catch(_) {}
+        }
+        _indSaveConfig();
+    }
+
+    /** 소스(종가/시가/고가/저가) 변경 → 재계산 */
+    function _indSetSource(key, idx, source) {
+        const cfg = _indGetConfig();
+        if (key === 'ema') {
+            if (!cfg.ema.periods[idx]) return;
+            cfg.ema.periods[idx].source = source;
+            _indSaveConfig();
+            _indScheduleRebuild('ema');
+        }
+    }
+
+    /** EMA 기간값 변경 */
+    function _indSetPeriod(key, idx, period) {
+        if (!period || period < 1) return;
+        const cfg = _indGetConfig();
+        if (key === 'ema' && cfg.ema.periods[idx]) {
+            // 중복 방지
+            if (cfg.ema.periods.some((p, i) => i !== idx && p.period === period)) return;
+            cfg.ema.periods[idx].period = period;
+            _indSaveConfig();
+            _indScheduleRebuild('ema');
+        }
+    }
+
+    /** BB 기간값 변경 */
+    function _indSetPeriodBb(period) {
+        if (!period || period < 2) return;
+        const cfg   = _indGetConfig();
+        cfg.bb.period = period;
+        _indSaveConfig();
+        _indScheduleRebuild('bb');
+    }
+
+    /** 기간 추가 */
+    function _indAddPeriod(key) {
+        const cfg = _indGetConfig();
+        if (key === 'ema' && cfg.ema.periods.length < 6) {
+            const existing = cfg.ema.periods.map(p => p.period);
+            const defaults = [5, 10, 13, 20, 34, 50, 89, 100, 144, 200];
+            const newPeriod = defaults.find(p => !existing.includes(p)) || (Math.max(...existing) + 10);
+            cfg.ema.periods.push({
+                period:  newPeriod,
+                color:   _IND_PRESET_COLORS[cfg.ema.periods.length % _IND_PRESET_COLORS.length],
+                width:   1,
+                source: 'close',
+            });
+            _indSaveConfig();
+            _indRenderRight('ema');
+            _indScheduleRebuild('ema');
+        }
+    }
+
+    /** 기간 삭제 */
+    function _indRemovePeriod(key, idx) {
+        const cfg = _indGetConfig();
+        if (key === 'ema' && cfg.ema.periods.length > 1) {
+            const period    = cfg.ema.periods[idx].period;
+            const seriesKey = `ema${period}`;
+            cfg.ema.periods.splice(idx, 1);
+            _indSaveConfig();
+            // 시리즈 즉시 제거
+            if (lwMaSeries[seriesKey]) {
+                try { lwChart?.removeSeries(lwMaSeries[seriesKey]); } catch(_) {}
+                delete lwMaSeries[seriesKey];
+                delete lwMaSeries[seriesKey + '_data'];
+            }
+            _indRenderRight('ema');
+            _renderChartHeaderAt?.(null);
+        }
+    }
+
+    /** 재계산 debounce (200ms) */
+    function _indScheduleRebuild(key) {
+        clearTimeout(_indDebounceTimer);
+        _indDebounceTimer = setTimeout(() => _indRebuildSeries(key), 200);
+    }
+
+    /** 시리즈 재생성 (기간/소스 변경 시) */
+    function _indRebuildSeries(key) {
+        if (!lwChart || !_lastSigArgs) return;
+        const cfg = _indGetConfig();
+        const { ts, q } = _lastSigArgs;
+        if (!q || !ts) return;
+
+        if (key === 'ema') {
+            // 기존 EMA 시리즈 모두 제거
+            Object.keys(lwMaSeries).forEach(k => {
+                if (!k.endsWith('_data')) {
+                    try { lwChart.removeSeries(lwMaSeries[k]); } catch(_) {}
+                }
+            });
+            lwMaSeries = {};
+            // 설정 기반으로 재생성
+            cfg.ema.periods.forEach(({ period, color, width, source }) => {
+                const srcArr = source === 'open'  ? q.open  :
+                               source === 'high'  ? q.high  :
+                               source === 'low'   ? q.low   : q.close;
+                const ema    = calcEMA(srcArr, period);
+                const maData = [];
+                for (let i = 0; i < ts.length; i++) {
+                    if (ema[i] == null) continue;
+                    maData.push({ time: ts[i], value: ema[i] });
+                }
+                if (maData.length) {
+                    const series = lwChart.addLineSeries({
+                        color:               color  || '#7dd3fc',
+                        lineWidth:           width  || 2,
+                        priceLineVisible:    false,
+                        lastValueVisible:    true,
+                        title:               `EMA${period}`,
+                        crosshairMarkerVisible: false,
+                        visible:             cfg.ema.enabled !== false,
+                    });
+                    series.setData(maData);
+                    lwMaSeries[`ema${period}`]           = series;
+                    lwMaSeries[`ema${period}_data`]      = ema;
+                }
+            });
+            _renderChartHeaderAt?.(null);
+
+        } else if (key === 'bb') {
+            try { if (lwBbUpper)  lwChart.removeSeries(lwBbUpper);  } catch(_) {}
+            try { if (lwBbLower)  lwChart.removeSeries(lwBbLower);  } catch(_) {}
+            try { if (lwBbMiddle) lwChart.removeSeries(lwBbMiddle); } catch(_) {}
+            lwBbUpper = lwBbLower = lwBbMiddle = null;
+            const { color, width, period } = cfg.bb;
+            const bb = calcBollingerBands(q.close, period || 4, 2);
+            if (bb.upper.some(v => v != null)) {
+                const upperData = [], lowerData = [];
+                for (let i = 0; i < ts.length; i++) {
+                    if (bb.upper[i] != null) upperData.push({ time: ts[i], value: bb.upper[i] });
+                    if (bb.lower[i] != null) lowerData.push({ time: ts[i], value: bb.lower[i] });
+                }
+                lwBbUpper = lwChart.addLineSeries({
+                    color: color || '#f59e0b', lineWidth: width || 2, lineStyle: 0,
+                    priceLineVisible: false, lastValueVisible: true, title: 'BB+',
+                    crosshairMarkerVisible: false, visible: cfg.bb.enabled !== false,
+                });
+                lwBbLower = lwChart.addLineSeries({
+                    color: color || '#f59e0b', lineWidth: width || 2, lineStyle: 0,
+                    priceLineVisible: false, lastValueVisible: true, title: 'BB-',
+                    crosshairMarkerVisible: false, visible: cfg.bb.enabled !== false,
+                });
+                lwBbUpper.setData(upperData);
+                lwBbLower.setData(lowerData);
+            }
+        }
+    }
+
+    /** 컬러 피커 팝업 열기 */
+    function _indOpenColorPicker(key, idx, swatchEl) {
+        _indCloseColorPicker();
+        const cfg = _indGetConfig();
+        const current = key === 'ema'
+            ? (cfg.ema.periods[idx]?.color || '#7dd3fc')
+            : (cfg.bb.color || '#f59e0b');
+
+        const picker = document.createElement('div');
+        picker.className = 'cid-color-picker';
+        picker.id        = 'cidColorPicker';
+        picker.onclick   = e => e.stopPropagation();
+
+        const dots = _IND_PRESET_COLORS.map(c =>
+            `<div class="cid-color-dot${c === current ? ' sel' : ''}"
+                style="background:${c}"
+                onclick="event.stopPropagation();_indPickColor('${key}',${idx},'${c}')"></div>`
+        ).join('');
+
+        picker.innerHTML = `
+            <div class="cid-color-swatches">${dots}</div>
+            <input class="cid-color-hex" type="text" value="${current}"
+                maxlength="7" placeholder="#rrggbb"
+                oninput="event.stopPropagation();_indPickColor('${key}',${idx},this.value)"
+                onclick="event.stopPropagation()">
+        `;
+
+        // 팝업 위치: swatch 아래
+        const r = swatchEl.getBoundingClientRect();
+        picker.style.position = 'fixed';
+        picker.style.top  = (r.bottom + 6) + 'px';
+        picker.style.left = Math.max(8, r.left - 70) + 'px';
+        document.body.appendChild(picker);
+
+        setTimeout(() => {
+            document.addEventListener('click', e => {
+                if (!picker.contains(e.target) && !swatchEl.contains(e.target)) {
+                    _indCloseColorPicker();
+                }
+            }, { once: true, capture: true });
+        }, 0);
+    }
+
+    function _indCloseColorPicker() {
+        document.getElementById('cidColorPicker')?.remove();
+    }
+
+    /** 색상 선택 (즉시 반영) */
+    function _indPickColor(key, idx, color) {
+        if (!color || color.length < 4 || !color.startsWith('#')) return;
+        const cfg = _indGetConfig();
+        if (key === 'ema') {
+            if (!cfg.ema.periods[idx]) return;
+            cfg.ema.periods[idx].color = color;
+            const period    = cfg.ema.periods[idx].period;
+            const seriesKey = `ema${period}`;
+            try { lwMaSeries[seriesKey]?.applyOptions({ color }); } catch(_) {}
+            // Swatch 업데이트
+            const sw = document.getElementById(`cidSwatch_ema_${idx}`);
+            if (sw) sw.style.background = color;
+        } else if (key === 'bb') {
+            cfg.bb.color = color;
+            try { lwBbUpper?.applyOptions({ color }); } catch(_) {}
+            try { lwBbLower?.applyOptions({ color }); } catch(_) {}
+            const sw = document.getElementById('cidSwatch_bb_0');
+            if (sw) sw.style.background = color;
+        }
+        _indSaveConfig();
+        // 피커 내 선택된 dot 갱신
+        document.querySelectorAll('#cidColorPicker .cid-color-dot').forEach(d => {
+            const bg = d.style.backgroundColor;
+            // CSS rgb → hex 비교는 어려우므로 onclick에서 색상 직접 저장한 방식으로 처리
+            d.classList.toggle('sel', d.getAttribute('onclick')?.includes(`'${color}'`));
+        });
+        // hex input 업데이트
+        const hex = document.querySelector('#cidColorPicker .cid-color-hex');
+        if (hex && document.activeElement !== hex) hex.value = color;
     }
 
     function _cxtDraw() {
-        if (typeof toggleDrawToolbar === 'function') {
-            toggleDrawToolbar();
-            // 활성 상태 UI 반영
-            const drawBar = document.getElementById('drawToolbar');
-            const btn = document.getElementById('cxtDraw');
-            if (btn && drawBar) {
-                const active = drawBar.style.display !== 'none' && drawBar.style.display !== '';
-                btn.classList.toggle('active', active);
-            }
-        } else { showToast?.('그리기 도구 준비중'); }
+        const menu = document.getElementById('drawMenu');
+        const btn  = document.getElementById('cxtDraw');
+        if (!menu) { showToast?.('그리기 도구 준비중'); return; }
+        const isOpen = menu.style.display !== 'none' && menu.style.display !== '';
+        if (isOpen) {
+            menu.style.display = 'none';
+            btn?.classList.remove('active');
+            setDrawTool('none');
+        } else {
+            menu.style.display = 'block';
+            btn?.classList.add('active');
+        }
+    }
+    function _cxtDrawClose() {
+        const menu = document.getElementById('drawMenu');
+        if (menu) menu.style.display = 'none';
+        document.getElementById('cxtDraw')?.classList.remove('active');
+        setDrawTool('none');
     }
     function _cxtRuler()   { showToast?.('📐 자 기능 — 곧 출시'); }
-    function _cxtCompare() { showToast?.('⇌ 종목비교 — 곧 출시'); }
+    function _cxtCompare() {
+        if (_cmpSeries) { _cmpRemove(); return; }
+        _cmpOpenSheet();
+    }
     function _cxtSplit(ev) { _xcOpenLayoutPopover(ev); }
+
+    // ── 종목비교 ────────────────────────────────────────────────────
+
+    // 섹터별 피어 매핑
+    const _CMP_PEERS = {
+        NVDA:['TSM','AVGO','MU','AMD','QCOM','AMAT','ARM'],
+        TSM:['NVDA','AVGO','MU','INTC','QCOM','AMAT'],
+        AVGO:['NVDA','TSM','QCOM','TXN','ADI','MRVL'],
+        MU:['NVDA','WDC','STX','AMAT','KLAC'],
+        AMD:['NVDA','INTC','QCOM','AVGO','ARM'],
+        INTC:['NVDA','AMD','AVGO','QCOM','TSM'],
+        QCOM:['AVGO','INTC','AMD','TXN','ADI'],
+        ARM:['NVDA','AMD','QCOM','INTC','AVGO'],
+        AMAT:['KLAC','LRCX','ASML','TER','NVDA'],
+        KLAC:['AMAT','LRCX','ASML','TER','ONTO'],
+        AAPL:['MSFT','GOOGL','META','AMZN','NVDA'],
+        MSFT:['AAPL','GOOGL','META','AMZN','CRM'],
+        GOOGL:['MSFT','AAPL','META','AMZN','SNAP'],
+        GOOG:['MSFT','AAPL','META','AMZN','SNAP'],
+        META:['GOOGL','SNAP','AMZN','AAPL','PINS'],
+        AMZN:['MSFT','GOOGL','WMT','AAPL','SHOP'],
+        TSLA:['RIVN','LCID','F','GM','NIO'],
+        SPY:['QQQ','IWM','DIA','VOO','VTI'],
+        QQQ:['SPY','SOXX','VGT','XLK','TQQQ'],
+        SOXX:['SMH','QQQ','VGT','SOXL','XSD'],
+        SMH:['SOXX','QQQ','NVDA','AMD','TSM'],
+        SOXL:['SOXS','NVDA','AMD','AVGO','SOXX'],
+        TQQQ:['QQQ','SPY','SQQQ','SPXL','UPRO'],
+        SPXL:['TQQQ','SPY','UPRO','QQQ','SOXL'],
+    };
+    const _CMP_NAMES = {
+        NVDA:'엔비디아', TSM:'TSMC(ADR)', AVGO:'브로드컴', MU:'마이크론 테크놀로지',
+        AMD:'AMD', INTC:'인텔', QCOM:'퀄컴', ARM:'ARM 홀딩스', AMAT:'어플라이드 머티리얼즈',
+        KLAC:'KLA 코퍼레이션', LRCX:'램 리서치', ASML:'ASML 홀딩스',
+        AAPL:'애플', MSFT:'마이크로소프트', GOOGL:'알파벳(GOOGL)', GOOG:'알파벳(GOOG)',
+        META:'메타 플랫폼스', AMZN:'아마존', TSLA:'테슬라', RIVN:'리비안',
+        SNAP:'스냅', CRM:'세일즈포스', TXN:'텍사스 인스트루먼트', ADI:'아나로그 디바이스',
+        SPY:'SPDR S&P 500 ETF', QQQ:'인베스코 QQQ', IWM:'아이셰어스 러셀 2000',
+        SOXX:'아이셰어스 반도체 ETF', SMH:'반에크 반도체 ETF',
+        SOXL:'디렉시온 반도체 3× Bull', SOXS:'디렉시온 반도체 3× Bear',
+        TQQQ:'ProShares 3× QQQ', SPXL:'디렉시온 S&P 500 3× Bull',
+        VGT:'뱅가드 IT ETF', XLK:'테크 셀렉트 섹터 ETF',
+        WDC:'웨스턴 디지털', F:'포드 모터', GM:'제너럴 모터스', NIO:'니오', LCID:'루시드',
+        MRVL:'마벨 테크놀로지', PINS:'핀터레스트', SHOP:'쇼피파이',
+        WMT:'월마트', DIA:'SPDR 다우존스 ETF', VOO:'뱅가드 S&P 500', VTI:'뱅가드 미국 전체',
+    };
+    const _CMP_SECTOR_SEMI  = new Set(['NVDA','TSM','AVGO','MU','AMD','INTC','QCOM','ARM','AMAT','KLAC','LRCX','ASML','MRVL','TER']);
+    const _CMP_SECTOR_TECH  = new Set(['AAPL','MSFT','GOOGL','GOOG','META','AMZN','CRM','SNAP','SHOP','PINS']);
+    const _CMP_SECTOR_ETF   = new Set(['SPY','QQQ','IWM','VOO','VTI','DIA','SOXX','SMH','SOXL','SOXS','TQQQ','SPXL','VGT','XLK','UPRO','SQQQ']);
+    const _CMP_SECTOR_EV    = new Set(['TSLA','RIVN','LCID','NIO','F','GM']);
+
+    function _cmpGetPeers(sym) {
+        const s = (sym || '').toUpperCase();
+        if (_CMP_PEERS[s]) return _CMP_PEERS[s].slice(0, 5);
+        for (const [k, peers] of Object.entries(_CMP_PEERS)) {
+            if (peers.includes(s)) return [k, ...peers.filter(p => p !== s)].slice(0, 5);
+        }
+        return currentMarket === 'KR'
+            ? ['005930','000660','035420','051910','035720']
+            : ['AAPL','MSFT','NVDA','GOOGL','META'];
+    }
+
+    function _cmpGetSectorLabel(sym) {
+        const s = (sym || '').toUpperCase();
+        if (_CMP_SECTOR_SEMI.has(s))  return '반도체';
+        if (_CMP_SECTOR_TECH.has(s))  return '빅테크';
+        if (_CMP_SECTOR_ETF.has(s))   return 'ETF';
+        if (_CMP_SECTOR_EV.has(s))    return '전기차';
+        return '유사 종목';
+    }
+
+    function _cmpSymColor(sym) {
+        const PALETTE = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#06b6d4','#f97316','#84cc16'];
+        let h = 0;
+        for (let i = 0; i < sym.length; i++) h = (h * 31 + sym.charCodeAt(i)) & 0xffffff;
+        return PALETTE[Math.abs(h) % PALETTE.length];
+    }
+
+    function _cmpOpenSheet() {
+        const modal = document.getElementById('cmpModal');
+        if (!modal) return;
+        const inp = document.getElementById('cmpInput');
+        if (inp) inp.value = '';
+        _cmpRenderRecent();
+        _cmpRenderPeers(currentSymbol || '');
+        modal.style.display = 'flex';
+        setTimeout(() => inp?.focus(), 60);
+    }
+
+    function _cmpCloseSheet() {
+        const modal = document.getElementById('cmpModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function _cmpModalBgClick(e) {
+        if (e.target.id === 'cmpModal') _cmpCloseSheet();
+    }
+
+    function _cmpRenderRecent() {
+        const section = document.getElementById('cmpRecentSection');
+        const chips   = document.getElementById('cmpRecentChips');
+        const timeEl  = document.getElementById('cmpRecentTime');
+        const recent  = JSON.parse(localStorage.getItem('stockai_cmp_recent') || '[]');
+        if (!section) return;
+        if (!recent.length) { section.style.display = 'none'; return; }
+        section.style.display = '';
+        const now = new Date();
+        if (timeEl) timeEl.textContent = `오늘 ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} 기준`;
+        if (chips) chips.innerHTML = recent.map(sym => {
+            const name = _CMP_NAMES[sym] || sym;
+            return `<button class="cmp-recent-chip" onclick="_cmpSelectPeer('${sym}')">${name} <span class="cmp-chip-x" onclick="event.stopPropagation();_cmpRemoveRecent('${sym}')">×</span></button>`;
+        }).join('');
+    }
+
+    function _cmpAddRecent(sym) {
+        if (!sym) return;
+        let r = JSON.parse(localStorage.getItem('stockai_cmp_recent') || '[]');
+        r = [sym.toUpperCase(), ...r.filter(s => s !== sym.toUpperCase())].slice(0, 6);
+        localStorage.setItem('stockai_cmp_recent', JSON.stringify(r));
+    }
+
+    function _cmpRemoveRecent(sym) {
+        let r = JSON.parse(localStorage.getItem('stockai_cmp_recent') || '[]');
+        r = r.filter(s => s !== sym);
+        localStorage.setItem('stockai_cmp_recent', JSON.stringify(r));
+        _cmpRenderRecent();
+    }
+
+    function _cmpRenderPeers(sym) {
+        const listEl  = document.getElementById('cmpPeerList');
+        const titleEl = document.getElementById('cmpCatTitle');
+        const s = (sym || '').toUpperCase();
+        const sector  = _cmpGetSectorLabel(s);
+        if (titleEl) titleEl.textContent = s ? `${s}와 같은 카테고리에서 비교하기` : '유사 종목에서 비교하기';
+        if (!listEl) return;
+        const peers = _cmpGetPeers(s);
+        listEl.innerHTML = peers.map(p => {
+            const name  = _CMP_NAMES[p] || p;
+            const color = _cmpSymColor(p);
+            return `<button class="cmp-peer-row" onclick="_cmpSelectPeer('${p}')">
+                <div class="cmp-peer-avatar" style="background:${color}">${p.charAt(0)}</div>
+                <div class="cmp-peer-info">
+                    <span class="cmp-peer-name">${name}</span>
+                    <span class="cmp-peer-sym-label">${p}</span>
+                </div>
+                <span class="cmp-peer-chg" id="cmpChg_${p}">—</span>
+            </button>`;
+        }).join('');
+    }
+
+    function _cmpModalSearch(val) {
+        const v = (val || '').trim().toUpperCase();
+        const catSec = document.getElementById('cmpCategorySection');
+        const recSec = document.getElementById('cmpRecentSection');
+        if (!v) {
+            if (catSec) catSec.style.display = '';
+            _cmpRenderRecent();
+            return;
+        }
+        // 검색 중에는 카테고리 섹션 숨김, 최근 섹션도 숨김
+        if (catSec) catSec.style.display = 'none';
+        if (recSec) recSec.style.display = 'none';
+    }
+
+    function _cmpSelectPeer(sym) {
+        _cmpCloseSheet();
+        _cmpLoad(sym);
+    }
+
+    async function _cmpSubmit() {
+        const inp = document.getElementById('cmpInput');
+        const raw = (inp?.value || '').trim().toUpperCase();
+        if (!raw) return;
+        _cmpCloseSheet();
+        await _cmpLoad(raw);
+    }
+
+    async function _cmpLoad(rawSym) {
+        if (!lwChart) { showToast('차트를 먼저 불러주세요.'); return; }
+        const q = _lastSigArgs?.q;
+        const mainTs = _lastSigArgs?.ts;
+        if (!q || !mainTs?.length) { showToast('차트 데이터가 없습니다.'); return; }
+
+        // 심볼 해석
+        let fullSym;
+        if (/\.\w{2,3}$/.test(rawSym)) {
+            fullSym = rawSym;
+        } else if (autoDetectMarket(rawSym) === 'KR') {
+            const code = findKRCode(rawSym);
+            fullSym = code + '.KS';
+        } else {
+            fullSym = findUSTicker(rawSym) || rawSym;
+        }
+
+        showToast('📊 비교 데이터 로딩 중...');
+        try {
+            const url = '/api/chart/' + encodeURIComponent(fullSym)
+                + '?range=' + currentPeriod + '&interval=' + currentInterval + '&includePrePost=true';
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const data = await resp.json();
+
+            // /api/chart/ returns Yahoo Finance wrapped structure: { chart: { result: [{...}] } }
+            const result = data?.chart?.result?.[0];
+            if (!result) throw new Error('데이터 없음 (result)');
+            const cmpTs = result.timestamp;
+            const cmpQ  = result.indicators?.quote?.[0];
+            if (!cmpTs || !cmpQ) throw new Error('데이터 없음 (ts/q)');
+
+            // 비교 시작점 — 메인 차트 첫 번째 타임스탬프 기준 정렬
+            const mainFirst = mainTs[0];
+            let cmpStartIdx = cmpTs.findIndex(t => t >= mainFirst);
+            if (cmpStartIdx < 0) cmpStartIdx = 0;
+            const cmpFirstClose = cmpQ.close[cmpStartIdx];
+            if (!cmpFirstClose) throw new Error('비교 종목 시가 없음');
+
+            // 메인 주식 첫 종가 — 정규화 기준
+            const mainFirstClose = q.close.find(v => v != null);
+            if (!mainFirstClose) throw new Error('메인 종목 종가 없음');
+
+            // 정규화: cmp 가격을 메인 주식의 시작점과 맞춤 (같은 우축 스케일 사용)
+            const lineData = [];
+            for (let i = cmpStartIdx; i < cmpTs.length; i++) {
+                const c = cmpQ.close[i];
+                if (c == null) continue;
+                const normalized = c * (mainFirstClose / cmpFirstClose);
+                lineData.push({ time: cmpTs[i], value: normalized });
+            }
+            if (!lineData.length) throw new Error('겹치는 구간 없음');
+
+            // 기존 시리즈 제거
+            _cmpRemove(false);
+
+            // 라인 시리즈 추가
+            _cmpSeries = lwChart.addLineSeries({
+                color: _cmpColor,
+                lineWidth: 2,
+                priceLineVisible: false,
+                lastValueVisible: false,
+                crosshairMarkerVisible: true,
+                crosshairMarkerRadius: 4,
+                crosshairMarkerBorderColor: _cmpColor,
+                crosshairMarkerBackgroundColor: _cmpColor,
+            });
+            _cmpSeries.setData(lineData);
+            _cmpSymbol = rawSym;
+
+            // 레전드 계산 (시작 대비 현재 등락률)
+            const firstVal = lineData[0].value;
+            const lastVal  = lineData[lineData.length - 1].value;
+            const chgPct   = firstVal ? (lastVal / firstVal - 1) * 100 : 0;
+
+            _cmpUpdateLegend(rawSym, chgPct);
+            _cmpAddRecent(rawSym);
+            document.getElementById('cxtCompare')?.classList.add('active');
+            showToast(`${rawSym} 비교 추가됨`);
+        } catch(e) {
+            showToast('비교 실패: ' + e.message);
+            console.warn('[cmp] load fail:', e);
+        }
+    }
+
+    function _cmpRemove(doToast) {
+        if (_cmpSeries) {
+            try { lwChart?.removeSeries(_cmpSeries); } catch(_) {}
+            _cmpSeries = null;
+        }
+        _cmpSymbol = null;
+        const leg = document.getElementById('cmpLegend');
+        if (leg) leg.style.display = 'none';
+        document.getElementById('cxtCompare')?.classList.remove('active');
+        if (doToast !== false) showToast('비교 종목 제거됨');
+    }
+
+    function _cmpUpdateLegend(sym, chgPct) {
+        const leg = document.getElementById('cmpLegend');
+        if (!leg) return;
+        const symEl = leg.querySelector('.cmp-legend-sym');
+        const chgEl = leg.querySelector('.cmp-legend-chg');
+        if (symEl) symEl.textContent = sym;
+        if (chgEl) {
+            const sign = chgPct >= 0 ? '+' : '';
+            chgEl.textContent = `${sign}${chgPct.toFixed(2)}%`;
+            chgEl.style.color = chgPct > 0 ? '#EF4444' : chgPct < 0 ? '#3B82F6' : 'var(--text3)';
+        }
+        leg.style.display = 'flex';
+    }
+
+    /** 인터벌/기간 변경 시 비교 오버레이 자동 갱신 */
+    function _cmpRefreshIfActive() {
+        if (_cmpSymbol) _cmpLoad(_cmpSymbol);
+    }
 
     // ══════════════════════════════════════════════════════════
     // Phase X1: 멀티 차트 그리드 (UI 스캐폴딩)
@@ -15569,29 +16774,68 @@
     }
 
     function _xcUpdateLayoutUi() {
-        const cur = _xcCurrentLayout();
+        const cur       = _xcCurrentLayout();
+        const is3Ok     = window.innerWidth > 1280;
+        // Active state
         document.querySelectorAll('.clp-opt').forEach(b => {
             b.classList.toggle('active', b.dataset.layout === cur);
+            // 3분할 disabled guard
+            if (b.dataset.layout?.startsWith('3')) {
+                b.disabled = !is3Ok;
+                if (!b.dataset.titleSaved) b.dataset.titleSaved = b.title;
+                b.title = is3Ok ? b.dataset.titleSaved : '1440px 이상에서 사용 가능';
+            }
         });
+        // hint text below 3분할 row
+        const hint = document.getElementById('clp3Hint');
+        if (hint) hint.classList.toggle('visible', !is3Ok);
     }
 
-    /** 레이아웃 적용 — '1' | '2h' | '2v' */
+    /** 레이아웃 적용 — '1' | '2h' | '2v' | '3h' | '3v' | '3lc' | '3tc' */
     function _xcSetLayout(layout) {
         if (window.innerWidth <= 768 && layout !== '1') {
             showToast?.('모바일은 1분할만 지원');
             return;
         }
-        const grid = document.getElementById('chartGridWrap');
+        if (layout.startsWith('3') && window.innerWidth <= 1280) {
+            showToast?.('3분할은 1440px 이상 화면에서 사용 가능합니다');
+            return;
+        }
+        const grid  = document.getElementById('chartGridWrap');
         const cell2 = document.getElementById('chartCell2');
+        const cell3 = document.getElementById('chartCell3');
         if (!grid) return;
+
+        const is3 = layout.startsWith('3');
+        const is1 = layout === '1';
+
         grid.setAttribute('data-layout', layout);
-        if (cell2) cell2.style.display = (layout === '1') ? 'none' : '';
+        if (cell2) cell2.style.display = is1 ? 'none' : '';
+        if (cell3) cell3.style.display = is3 ? '' : 'none';
+
         try { localStorage.setItem('stockai_chart_layout', layout); } catch(_) {}
         _xcUpdateLayoutUi();
+
+        // Phase X1-b: 셀 차트 인스턴스 생성/삭제
+        // currentSymbol이 비어있을 때(페이지 첫 로드)는 인스턴스 생성 보류 → overlay 표시
+        if (is1) {
+            if (_xcCells['cell2']) _xcDestroyCell('cell2');
+            if (_xcCells['cell3']) _xcDestroyCell('cell3');
+        } else if (!is3) {
+            // 2분할: cell3 삭제, cell2 생성(없으면 + 심볼 있을 때)
+            if (_xcCells['cell3']) _xcDestroyCell('cell3');
+            if (!_xcCells['cell2'] && currentSymbol) _xcCreateCell('cell2');
+        } else {
+            // 3분할: cell2·cell3 모두 생성(없으면 + 심볼 있을 때)
+            if (!_xcCells['cell2'] && currentSymbol) _xcCreateCell('cell2');
+            if (!_xcCells['cell3'] && currentSymbol) _xcCreateCell('cell3');
+        }
+
         // popover 닫기
         const pop = document.getElementById('chartLayoutPopover');
         if (pop) pop.style.display = 'none';
-        // 차트 리사이즈 (cell-1 너비 변경됨)
+
+        // 차트 리사이즈 — 셀-1 크기 변경 반영 (lazy)
         setTimeout(() => {
             try {
                 const wrap = document.getElementById('tvChartWrap');
@@ -15600,16 +16844,653 @@
                 }
             } catch(_) {}
         }, 60);
+
         // cxtSplit 버튼 active 상태
         const splitBtn = document.getElementById('cxtSplit');
-        if (splitBtn) splitBtn.classList.toggle('active', layout !== '1');
+        if (splitBtn) splitBtn.classList.toggle('active', !is1);
     }
 
-    /** 새로고침 시 저장된 레이아웃 복원 (모바일은 강제 1분할) */
+    /**
+     * 셀 닫기 — 스마트 3→2 재배치
+     * cellNum: 닫히는 셀 번호 (2 or 3)
+     */
+    function _xcCloseCell(cellNum) {
+        // Phase X1-b: 닫히는 셀 인스턴스 먼저 정리
+        if (cellNum === 2 || cellNum === 3) {
+            _xcDestroyCell('cell' + cellNum);
+        }
+
+        const cur = _xcCurrentLayout();
+        const is3 = cur.startsWith('3');
+
+        if (!is3) {
+            // 2분할 → 1분할
+            _xcSetLayout('1');
+            return;
+        }
+
+        // 3분할 → 2분할 (자동 재배치)
+        let next;
+        switch (cur) {
+            case '3h':
+                // 좌우 3등분 → 좌우 2분할 (어느 셀 닫아도)
+                next = '2h';
+                break;
+            case '3v':
+                // 상하 3등분 → 상하 2분할
+                next = '2v';
+                break;
+            case '3lc':
+                // 좌1+우상하: 좌(1) 닫음 → 우상+우하가 상하 2분할로
+                //             우(2 or 3) 닫음 → 좌+나머지 우가 좌우 2분할로
+                next = (cellNum === 1) ? '2v' : '2h';
+                break;
+            case '3tc':
+                // 상1+하좌우: 상(1) 닫음 → 하좌+하우가 좌우 2분할로
+                //             하(2 or 3) 닫음 → 상+나머지 하가 상하 2분할로
+                next = (cellNum === 1) ? '2h' : '2v';
+                break;
+            default:
+                next = '2h';
+        }
+        _xcSetLayout(next);
+    }
+
+    /** 새로고침 시 저장된 레이아웃 복원 (모바일 강제 1분할 / 1280px↓ 3분할 fallback) */
     function _xcRestoreLayout() {
         if (window.innerWidth <= 768) { _xcSetLayout('1'); return; }
         const saved = _xcCurrentLayout();
-        if (saved !== '1') _xcSetLayout(saved);
+        if (saved === '1') return;
+        // 3분할이 저장돼 있지만 뷰포트가 좁은 경우 fallback
+        if (saved.startsWith('3') && window.innerWidth <= 1280) {
+            _xcSetLayout('2h');
+            return;
+        }
+        _xcSetLayout(saved);
+    }
+
+    // ── Phase X1-b: 셀별 차트 인스턴스 함수 ──────────────────────────
+
+    /** 프록시 전역 변수를 지정 셀로 동기화 */
+    function _xcSyncGlobals(cellId) {
+        const cell = _xcCells[cellId];
+        if (!cell) return;
+        lwChart           = cell.chart;
+        lwCandleSeries    = cell.candleSeries;
+        lwVolumeSeries    = cell.volSeries;
+        currentSymbol     = cell.symbol;
+        currentFullSymbol = cell.fullSymbol;
+        currentMarket     = cell.market;
+        currentInterval   = cell.tf;
+    }
+
+    /** 셀 활성화 — 클릭 or 심볼 로드 완료 후 호출 */
+    function _xcActivate(cellId) {
+        if (!_xcCells[cellId]) {
+            // 아직 생성 안 됨 → 생성 후 활성화
+            _xcCreateCell(cellId).then(() => _xcActivate(cellId));
+            return;
+        }
+        const prevId = _xcActiveCellId;
+        _xcActiveCellId = cellId;
+        try { localStorage.setItem('stockai_xc_active', cellId); } catch(_) {}
+
+        // 전역 변수 동기화
+        _xcSyncGlobals(cellId);
+
+        // 이전 활성 셀에 비활성 폴 시작
+        if (prevId !== cellId && _xcCells[prevId]) {
+            _xcStartCellPoll(prevId);
+        }
+        // 새 활성 셀은 전역 15s 폴로 커버 → 개별 폴 중지
+        _xcStopCellPoll(cellId);
+
+        // 활성 셀에 시그널 재빌드 (가격라인 + 배지)
+        const cell = _xcCells[cellId];
+        if (cell._lastCandleData && cell._lastCandleData.length) {
+            _layerDirty = true;
+            try {
+                const bb = calcBollingerBands(cell._lastQ?.close || [], 4, 2);
+                renderChartLiveSignals(cell._lastCandleData, cell._lastTs, cell._lastQ, bb);
+            } catch(e) {}
+        }
+
+        _xcUpdateCellHeaders();
+        _xcUpdateSyncUi();
+        _xcSaveState();
+    }
+
+    /** 셀에 새 LWChart 인스턴스 생성 + 데이터 로드 */
+    async function _xcCreateCell(cellId, opts) {
+        opts = opts || {};
+        const wrapId = cellId === 'cell2' ? 'tvChartWrap2' : 'tvChartWrap3';
+        const wrap = document.getElementById(wrapId);
+        if (!wrap) return;
+
+        // 기존 인스턴스 있으면 먼저 삭제
+        if (_xcCells[cellId]) _xcDestroyCell(cellId);
+
+        // 설정 결정 — opts > localStorage > 활성 셀
+        let symbol     = opts.symbol     || '';
+        let fullSymbol = opts.fullSymbol || '';
+        let market     = opts.market     || '';
+        let tf         = opts.tf         || '';
+
+        if (!symbol) {
+            try {
+                const saved = JSON.parse(localStorage.getItem('stockai_xc_' + cellId) || 'null');
+                if (saved) {
+                    symbol     = saved.symbol     || '';
+                    fullSymbol = saved.fullSymbol || '';
+                    market     = saved.market     || '';
+                    tf         = saved.tf         || '';
+                }
+            } catch(_) {}
+        }
+        // 그래도 없으면 활성 셀 값 사용
+        if (!symbol) symbol     = currentSymbol     || 'SPY';
+        if (!fullSymbol) fullSymbol = currentFullSymbol || 'SPY';
+        if (!market) market     = currentMarket     || 'US';
+        if (!tf)     tf         = currentInterval   || '1d';
+
+        // 차트 DOM 초기화
+        wrap.innerHTML = '';
+
+        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+        const chartBg   = isLight ? '#ffffff' : '#111620';
+        const chartText = isLight ? '#6C6C70' : '#8E8E93';
+        const chartGrid = isLight ? 'rgba(0,0,0,0.06)' : 'rgba(45,58,77,0.2)';
+
+        const chart = LightweightCharts.createChart(wrap, {
+            width:  wrap.clientWidth  || 300,
+            height: wrap.clientHeight || 300,
+            layout: {
+                background: { type: 'solid', color: chartBg },
+                textColor: chartText,
+                fontSize: 11,
+            },
+            grid: {
+                vertLines: { color: chartGrid },
+                horzLines: { color: chartGrid },
+            },
+            crosshair: {
+                mode: LightweightCharts.CrosshairMode.Normal,
+                vertLine: { color: 'rgba(0,128,251,0.3)', width: 1, style: 2 },
+                horzLine: { color: 'rgba(0,128,251,0.3)', width: 1, style: 2 },
+            },
+            rightPriceScale: {
+                borderColor: 'rgba(45,58,77,0.3)',
+                scaleMargins: { top: 0.05, bottom: 0.25 },
+            },
+            timeScale: {
+                borderColor: 'rgba(45,58,77,0.3)',
+                timeVisible: isIntraday(tf),
+                secondsVisible: false,
+                rightOffset: 5,
+                barSpacing: 8,
+            },
+            localization: {
+                locale: 'ko-KR',
+                priceFormatter: price =>
+                    (market === 'KR') ? Math.round(price).toLocaleString() : price.toFixed(2),
+            },
+        });
+
+        const candleSeries = chart.addCandlestickSeries({
+            upColor: '#ef4444', downColor: '#3b82f6',
+            borderUpColor: '#ef4444', borderDownColor: '#3b82f6',
+            wickUpColor: '#ef4444', wickDownColor: '#3b82f6',
+        });
+        const volSeries = chart.addHistogramSeries({
+            priceFormat: { type: 'volume' },
+            priceScaleId: 'volume',
+        });
+        chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+
+        // 클릭으로 활성화 (차트 캔버스 클릭 시)
+        chart.subscribeClick(() => {
+            if (_xcActiveCellId !== cellId) _xcActivate(cellId);
+        });
+
+        // 십자선 이동 시 OHLC tooltip + 차트 헤더 갱신 (활성 셀일 때만)
+        // X3b: 활성 셀일 때 다른 셀에도 십자선 브로드캐스트
+        try {
+            chart.subscribeCrosshairMove(param => {
+                if (_xcActiveCellId !== cellId) return;
+                try { _onCrosshairMoveOhlc(param); } catch(_) {}
+                try { _onCrosshairMoveHeader(param); } catch(_) {}
+                _xcBroadcastCrosshair(cellId, param?.time ?? null);
+            });
+        } catch(_) {}
+        // 가시 범위 변경 → 점프 버튼 갱신 + X3a: 시간축 브로드캐스트
+        try {
+            chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+                if (_xcActiveCellId !== cellId) return;
+                try { _onChartVisRangeChange(range); } catch(_) {}
+                if (range) _xcBroadcastTimeScale(cellId, range);
+            });
+        } catch(_) {}
+
+        // 리사이즈 옵저버
+        const ro = new ResizeObserver(entries => {
+            const c = _xcCells[cellId];
+            if (c?.chart && entries[0]) {
+                const { width, height } = entries[0].contentRect;
+                c.chart.applyOptions({ width, height });
+            }
+        });
+        ro.observe(wrap);
+
+        // 레지스트리 등록
+        _xcCells[cellId] = {
+            chart, candleSeries, volSeries,
+            symbol, fullSymbol, market, tf,
+            resizeObserver: ro,
+            pollTimer: null,
+            stockData: null,
+            _lastCandleData: [],
+            _lastTs: [],
+            _lastQ: null,
+        };
+
+        // 데이터 로드
+        await _xcLoadCellData(cellId);
+
+        // 비활성 셀은 30s 폴
+        if (cellId !== _xcActiveCellId) {
+            _xcStartCellPoll(cellId);
+        }
+
+        _xcUpdateCellHeaders();
+        _xcSaveState();
+    }
+
+    /** 셀 인스턴스 삭제 + DOM 정리 */
+    function _xcDestroyCell(cellId) {
+        const cell = _xcCells[cellId];
+        if (!cell) return;
+
+        _xcStopCellPoll(cellId);
+        if (cell.resizeObserver) { cell.resizeObserver.disconnect(); cell.resizeObserver = null; }
+        if (cell.chart) { try { cell.chart.remove(); } catch(e) {} cell.chart = null; }
+
+        const wrapId = cellId === 'cell2' ? 'tvChartWrap2' : 'tvChartWrap3';
+        const wrap = document.getElementById(wrapId);
+        if (wrap) {
+            wrap.innerHTML = '<div class="xc-activate-overlay" onclick="_xcActivate(\'' + cellId + '\')">'
+                + '<div class="xc-act-icon">' + (cellId === 'cell2' ? '⊞' : '⊟') + '</div>'
+                + '<div>클릭하여 차트 활성화</div>'
+                + '<div class="xc-act-sub">심볼을 헤더에서 변경할 수 있습니다</div>'
+                + '</div>';
+        }
+
+        // 이 셀이 활성이었으면 cell1 으로 복귀
+        if (_xcActiveCellId === cellId) {
+            _xcActiveCellId = 'cell1';
+            const c1 = _xcCells['cell1'];
+            if (c1) {
+                lwChart           = c1.chart;
+                lwCandleSeries    = c1.candleSeries;
+                lwVolumeSeries    = c1.volSeries;
+                currentSymbol     = c1.symbol;
+                currentFullSymbol = c1.fullSymbol;
+                currentMarket     = c1.market;
+                currentInterval   = c1.tf;
+            }
+        }
+
+        delete _xcCells[cellId];
+        _xcUpdateCellHeaders();
+        _xcUpdateSyncUi();
+        _xcSaveState();
+    }
+
+    /** 특정 셀의 Yahoo Finance 데이터 로드 + 차트 렌더 */
+    async function _xcLoadCellData(cellId) {
+        const cell = _xcCells[cellId];
+        if (!cell || !cell.fullSymbol) return;
+
+        // 로딩 상태 표시
+        const _cellEl = document.getElementById('chartCell' + cellId.slice(4)); // 'cell2' → 'chartCell2'
+        if (_cellEl) _cellEl.classList.add('xc-loading');
+
+        const { candleSeries, volSeries, fullSymbol, tf } = cell;
+        const period = '6mo';
+
+        try {
+            const url = '/api/chart/' + encodeURIComponent(fullSymbol)
+                + '?range=' + period + '&interval=' + tf + '&includePrePost=true';
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const data = await resp.json();
+
+            const ts = data.timestamp;
+            const q  = data.indicators?.quote?.[0];
+            if (!ts || !q) {
+                if (_cellEl) _cellEl.classList.remove('xc-loading');
+                return;
+            }
+
+            const candleData = [], volumeData = [];
+            for (let i = 0; i < ts.length; i++) {
+                const o = q.open[i], h = q.high[i], l = q.low[i], c = q.close[i], v = q.volume[i];
+                if (o == null || h == null || l == null || c == null) continue;
+                candleData.push({ time: ts[i], open: o, high: h, low: l, close: c });
+                volumeData.push({
+                    time: ts[i], value: v || 0,
+                    color: c >= o ? 'rgba(255,69,58,0.25)' : 'rgba(0,128,251,0.25)',
+                });
+            }
+
+            candleSeries.setData(candleData);
+            volSeries.setData(volumeData);
+            cell.chart.timeScale().fitContent();
+
+            cell.stockData       = data;
+            cell._lastCandleData = candleData;
+            cell._lastTs         = ts;
+            cell._lastQ          = q;
+            if (_cellEl) _cellEl.classList.remove('xc-loading');
+        } catch(e) {
+            if (_cellEl) _cellEl.classList.remove('xc-loading');
+            console.warn('[xc] loadCellData ' + cellId + ' fail:', e.message);
+        }
+    }
+
+    /** 비활성 셀 30s 폴링 — 최신 캔들만 업데이트 */
+    function _xcStartCellPoll(cellId) {
+        const cell = _xcCells[cellId];
+        if (!cell) return;
+        _xcStopCellPoll(cellId);
+        cell.pollTimer = setInterval(async () => {
+            if (cellId === _xcActiveCellId) return;
+            if (document.hidden) return;
+            const c = _xcCells[cellId];
+            if (!c || !c.candleSeries || !c.fullSymbol) return;
+            try {
+                const url = '/api/chart/' + encodeURIComponent(c.fullSymbol)
+                    + '?range=1d&interval=' + c.tf + '&includePrePost=true';
+                const resp = await fetch(url);
+                if (!resp.ok) return;
+                const data = await resp.json();
+                const ts2 = data.timestamp;
+                const q2  = data.indicators?.quote?.[0];
+                if (!ts2?.length || !q2) return;
+                const i = ts2.length - 1;
+                const bar = {
+                    time: ts2[i],
+                    open: q2.open[i], high: q2.high[i],
+                    low:  q2.low[i],  close: q2.close[i],
+                };
+                if (bar.close != null) c.candleSeries.update(bar);
+            } catch(_) {}
+        }, 30000);
+    }
+
+    /** 비활성 셀 폴 중지 */
+    function _xcStopCellPoll(cellId) {
+        const cell = _xcCells[cellId];
+        if (!cell || !cell.pollTimer) return;
+        clearInterval(cell.pollTimer);
+        cell.pollTimer = null;
+    }
+
+    /** 각 셀 헤더(심볼·TF)와 active 클래스 갱신 */
+    function _xcUpdateCellHeaders() {
+        // active 클래스
+        document.querySelectorAll('.chart-cell').forEach(el => el.classList.remove('active'));
+        const activeNum = _xcActiveCellId.replace('cell', '');
+        const activeEl  = document.querySelector('.chart-cell-' + activeNum);
+        if (activeEl) activeEl.classList.add('active');
+
+        // cell2 헤더
+        const c2 = _xcCells['cell2'];
+        const sym2El = document.getElementById('cell2Symbol');
+        const tf2El  = document.getElementById('cell2Tf');
+        if (sym2El) sym2El.textContent = c2?.symbol || '—';
+        if (tf2El)  tf2El.textContent  = c2?.tf     || '—';
+
+        // cell3 헤더
+        const c3 = _xcCells['cell3'];
+        const sym3El = document.getElementById('cell3Symbol');
+        const tf3El  = document.getElementById('cell3Tf');
+        if (sym3El) sym3El.textContent = c3?.symbol || '—';
+        if (tf3El)  tf3El.textContent  = c3?.tf     || '—';
+    }
+
+    /** 멀티차트 전체 상태 localStorage 저장 */
+    function _xcSaveState() {
+        try {
+            const cells = [];
+            ['cell1', 'cell2', 'cell3'].forEach(id => {
+                const c = _xcCells[id];
+                if (c) cells.push({ id, symbol: c.symbol, fullSymbol: c.fullSymbol, market: c.market, tf: c.tf });
+            });
+            localStorage.setItem('stockai_multichart_state', JSON.stringify({
+                layout:       _xcCurrentLayout(),
+                activeCellId: _xcActiveCellId,
+                cells,
+            }));
+        } catch(_) {}
+    }
+
+    // ── Phase X3: 멀티차트 동기화 ─────────────────────────────────────
+
+    /** 동기화 설정 localStorage 저장 */
+    function _xcSaveSyncState() {
+        try {
+            localStorage.setItem('stockai_xc_sync', JSON.stringify({
+                timeScale: _xcSyncTimeScale,
+                crosshair: _xcSyncCrosshair,
+                symbol:    _xcSyncSymbol,
+            }));
+        } catch(_) {}
+    }
+
+    /** 동기화 popover 열기/닫기 */
+    function _xcOpenSyncPopover(ev) {
+        ev?.stopPropagation();
+        const pop = document.getElementById('xcSyncPopover');
+        if (!pop) return;
+        const isOpen = pop.style.display !== 'none';
+        document.querySelectorAll('.xc-sync-popover, .chart-layout-popover').forEach(p => p.style.display = 'none');
+        if (!isOpen) {
+            _xcUpdateSyncUi();
+            pop.style.display = '';
+            // 외부 클릭 시 닫기
+            setTimeout(() => {
+                document.addEventListener('click', _xcSyncDocClose, { once: true, capture: true });
+            }, 0);
+        }
+    }
+
+    function _xcSyncDocClose(e) {
+        const pop = document.getElementById('xcSyncPopover');
+        const btn = document.getElementById('cxtSync');
+        if (!pop) return;
+        if (pop.contains(e.target) || btn?.contains(e.target)) {
+            document.addEventListener('click', _xcSyncDocClose, { once: true, capture: true });
+            return;
+        }
+        pop.style.display = 'none';
+    }
+
+    /** 동기화 토글 + 즉시 적용 */
+    function _xcToggleSync(type) {
+        if (type === 'timeScale') {
+            _xcSyncTimeScale = !_xcSyncTimeScale;
+            if (_xcSyncTimeScale) {
+                // ON → 활성 셀의 현재 범위를 모든 셀에 적용
+                try {
+                    const r = window.lwChart?.timeScale()?.getVisibleLogicalRange();
+                    if (r) _xcBroadcastTimeScale(_xcActiveCellId, r);
+                } catch(_) {}
+            }
+        } else if (type === 'crosshair') {
+            _xcSyncCrosshair = !_xcSyncCrosshair;
+            if (!_xcSyncCrosshair) {
+                // OFF → 모든 비활성 셀 십자선 클리어
+                Object.entries(_xcCells).forEach(([id, cell]) => {
+                    if (id !== _xcActiveCellId) try { cell.chart?.clearCrosshairPosition?.(); } catch(_) {}
+                });
+            }
+        } else if (type === 'symbol') {
+            _xcSyncSymbol = !_xcSyncSymbol;
+            if (_xcSyncSymbol) {
+                // ON → 활성 셀 종목으로 모든 셀 통일
+                _xcBroadcastSymbol(_xcActiveCellId);
+            }
+        }
+        _xcSaveSyncState();
+        _xcUpdateSyncUi();
+    }
+
+    /** 동기화 UI (dot + 힌트 섹션) 갱신 */
+    function _xcUpdateSyncUi() {
+        const cellCount = Object.keys(_xcCells).length;
+        const hasMulti  = cellCount > 1;
+        const sec  = document.getElementById('xcSyncSection');
+        const hint = document.getElementById('xcSyncHint');
+        if (sec)  sec.style.display  = hasMulti ? '' : 'none';
+        if (hint) hint.style.display = hasMulti ? 'none' : '';
+
+        const vals = { timeScale: _xcSyncTimeScale, crosshair: _xcSyncCrosshair, symbol: _xcSyncSymbol };
+        Object.entries(vals).forEach(([k, v]) => {
+            const el = document.getElementById('xcSync_' + k);
+            if (!el) return;
+            el.textContent = v ? '⬤' : '◯';
+            el.style.color = v ? '#0080FB' : '';
+        });
+        // toolbar 버튼 active 표시
+        const btn = document.getElementById('cxtSync');
+        if (btn) btn.classList.toggle('active', _xcSyncTimeScale || _xcSyncCrosshair || _xcSyncSymbol);
+    }
+
+    /** X3a: 활성 셀 → 모든 셀에 visibleLogicalRange 동기화 */
+    function _xcBroadcastTimeScale(sourceId, range) {
+        if (!_xcSyncTimeScale || !range) return;
+        requestAnimationFrame(() => {
+            Object.entries(_xcCells).forEach(([id, cell]) => {
+                if (id === sourceId || !cell.chart) return;
+                try { cell.chart.timeScale().setVisibleLogicalRange(range); } catch(_) {}
+            });
+        });
+    }
+
+    /** X3b: 활성 셀 crosshair 시간 → 다른 셀에 같은 시간 위치 setCrosshairPosition */
+    function _xcBroadcastCrosshair(sourceId, time) {
+        if (!_xcSyncCrosshair) return;
+        const now = Date.now();
+        if (now - _xcCrosshairSyncLast < 16) return; // 60fps throttle
+        _xcCrosshairSyncLast = now;
+
+        Object.entries(_xcCells).forEach(([id, cell]) => {
+            if (id === sourceId || !cell.chart || !cell.candleSeries) return;
+            try {
+                if (time == null) {
+                    cell.chart.clearCrosshairPosition?.();
+                    return;
+                }
+                const ts = cell._lastTs;
+                const q  = cell._lastQ;
+                if (!ts?.length || !q) return;
+                const idx = _xcFindClosestIdx(ts, time);
+                if (idx < 0) return;
+                const price = q.close?.[idx];
+                if (price == null) return;
+                cell.chart.setCrosshairPosition?.(price, ts[idx], cell.candleSeries);
+            } catch(_) {}
+        });
+    }
+
+    /** 가장 가까운 timestamp의 인덱스를 이진탐색으로 반환 */
+    function _xcFindClosestIdx(ts, targetTime) {
+        if (!ts?.length) return -1;
+        let lo = 0, hi = ts.length - 1;
+        while (lo < hi) {
+            const mid = (lo + hi) >> 1;
+            if (ts[mid] < targetTime) lo = mid + 1;
+            else hi = mid;
+        }
+        if (lo > 0 && Math.abs(ts[lo - 1] - targetTime) < Math.abs(ts[lo] - targetTime)) lo--;
+        return lo;
+    }
+
+    /** X3c: 활성 셀 종목 → 모든 셀에 동일 종목으로 데이터 재로드 */
+    async function _xcBroadcastSymbol(sourceId) {
+        const src = _xcCells[sourceId];
+        if (!src) return;
+        const { symbol, fullSymbol, market } = src;
+
+        const targets = Object.entries(_xcCells).filter(([id]) => id !== sourceId);
+        await Promise.all(targets.map(async ([id, cell]) => {
+            cell.symbol     = symbol;
+            cell.fullSymbol = fullSymbol;
+            cell.market     = market;
+            try {
+                cell.chart?.applyOptions({
+                    localization: {
+                        locale: 'ko-KR',
+                        priceFormatter: p => (market === 'KR') ? Math.round(p).toLocaleString() : p.toFixed(2),
+                    },
+                });
+            } catch(_) {}
+            await _xcLoadCellData(id);
+            try {
+                localStorage.setItem('stockai_xc_' + id,
+                    JSON.stringify({ symbol, fullSymbol, market, tf: cell.tf }));
+            } catch(_) {}
+        }));
+        _xcUpdateCellHeaders();
+        _xcSaveState();
+    }
+
+    /** 셀 심볼 변경 (prompt 다이얼로그) */
+    async function _xcPromptSymbol(cellId) {
+        const cell = _xcCells[cellId];
+        const cur  = cell?.symbol || '';
+        const input = window.prompt('종목 심볼 입력\n예: AAPL · NVDA · 005930.KS · 000660.KS', cur);
+        if (!input) return;
+        const raw  = input.trim();
+        if (!raw || raw.toUpperCase() === cur.toUpperCase()) return;
+
+        const isKR     = /\.(KS|KQ)$/i.test(raw);
+        const fullSym  = isKR ? raw.toUpperCase() : raw.toUpperCase();
+        const shortSym = fullSym.replace(/\.(KS|KQ)$/i, '');
+        const market   = isKR ? 'KR' : 'US';
+        const tf       = cell?.tf || currentInterval || '1d';
+
+        if (cell) {
+            cell.symbol     = shortSym;
+            cell.fullSymbol = fullSym;
+            cell.market     = market;
+            // locale formatter 갱신
+            try {
+                cell.chart.applyOptions({
+                    localization: {
+                        locale: 'ko-KR',
+                        priceFormatter: price =>
+                            (market === 'KR') ? Math.round(price).toLocaleString() : price.toFixed(2),
+                    },
+                });
+            } catch(_) {}
+            await _xcLoadCellData(cellId);
+        } else {
+            await _xcCreateCell(cellId, { symbol: shortSym, fullSymbol: fullSym, market, tf });
+        }
+
+        try {
+            localStorage.setItem('stockai_xc_' + cellId,
+                JSON.stringify({ symbol: shortSym, fullSymbol: fullSym, market, tf }));
+        } catch(_) {}
+
+        // X3c: 종목 동기화 ON이면 이 셀이 활성 셀일 때 모든 셀에 동일 종목 적용
+        if (_xcSyncSymbol && cellId === _xcActiveCellId) {
+            await _xcBroadcastSymbol(cellId);
+        }
+
+        _xcUpdateCellHeaders();
+        _xcSaveState();
     }
 
     // 모바일에서 그리드 트리거 버튼 hide
@@ -15901,13 +17782,21 @@
         lwVwapLower = null;
         // 자동 추세각도 시리즈 정리
         try { _autoTrendLineSeries = []; } catch(_) {}
+        // Phase X1-b: cell1 레지스트리 정리
+        if (_xcCells['cell1']) {
+            _xcCells['cell1'].chart        = null;
+            _xcCells['cell1'].candleSeries = null;
+            _xcCells['cell1'].volSeries    = null;
+            delete _xcCells['cell1'];
+        }
     }
 
     function renderPriceChart() {
         const wrap = document.getElementById('tvChartWrap');
         if (!wrap || !stockData) return;
 
-        // 기존 차트 정리
+        // 기존 차트 정리 (비교 오버레이 stale ref 초기화 포함)
+        _cmpSeries = null;
         destroyChart();
         wrap.innerHTML = '';
 
@@ -16007,18 +17896,14 @@
         lwCandleSeries.setData(candleData);
         lwVolumeSeries.setData(volumeData);
 
-        // 이동평균선 추가
+        // 이동평균선 추가 — Phase A2: _indGetConfig() 에서 기간/색상/두께 로드
         const closes = q.close;
-        // Rayner Teo 표준: EMA 20 / 50 / 200 (isLight 는 위에서 이미 선언됨)
-        const ema200Color = isLight ? '#1f2937' : '#ffffff';
-        const maConfigs = [
-            { period: 20,  color: '#7dd3fc',   key: 'ema20',  label: 'EMA20'  },
-            { period: 50,  color: '#eab308',   key: 'ema50',  label: 'EMA50'  },
-            { period: 200, color: ema200Color, key: 'ema200', label: 'EMA200' },
-        ];
-
-        maConfigs.forEach(({ period, color, key, label }) => {
-            const ema = calcEMA(closes, period);
+        const _emaCfg = _indGetConfig().ema;
+        const _emaOn  = _emaCfg.enabled !== false;
+        _emaCfg.periods.forEach(({ period, color, width }) => {
+            const key   = `ema${period}`;
+            const label = `EMA${period}`;
+            const ema   = calcEMA(closes, period);
             const maData = [];
             for (let i = 0; i < ts.length; i++) {
                 if (ema[i] == null) continue;
@@ -16026,38 +17911,42 @@
             }
             if (maData.length > 0) {
                 const series = lwChart.addLineSeries({
-                    color,
-                    lineWidth: key === 'ema200' ? 2 : 2,
-                    priceLineVisible: false,
-                    lastValueVisible: true,
-                    title: label,
+                    color:               color || '#7dd3fc',
+                    lineWidth:           width || 2,
+                    priceLineVisible:    false,
+                    lastValueVisible:    true,
+                    title:               label,
                     crosshairMarkerVisible: false,
+                    visible:             _emaOn,
                 });
                 series.setData(maData);
-                lwMaSeries[key] = series;
-                // 다른 함수(renderChartLiveSignals 등)에서 재사용 가능하도록 데이터 저장
+                lwMaSeries[key]          = series;
                 lwMaSeries[key + '_data'] = ema;
             }
         });
 
-        // 볼린저 밴드 (BB4, 2σ) — 주황 실선 (채움 제거 — 지지/저항선 가독성)
-        const bb = calcBollingerBands(closes, 4, 2);
+        // 볼린저 밴드 — Phase A2: _indGetConfig() 에서 색상/두께/기간 로드
+        const _bbCfg    = _indGetConfig().bb;
+        const _bbPeriod = _bbCfg.period  || 4;
+        const _bbColor  = _bbCfg.color   || '#f59e0b';
+        const _bbWidth  = _bbCfg.width   || 2;
+        const _bbOn     = _bbCfg.enabled !== false;
+        const bb = calcBollingerBands(closes, _bbPeriod, 2);
         if (bb.upper.some(v => v != null)) {
             const upperData = [], lowerData = [];
             for (let i = 0; i < ts.length; i++) {
                 if (bb.upper[i] != null) upperData.push({ time: ts[i], value: bb.upper[i] });
                 if (bb.lower[i] != null) lowerData.push({ time: ts[i], value: bb.lower[i] });
             }
-            const bbColor = '#f59e0b';   // amber-500
             lwBbUpper = lwChart.addLineSeries({
-                color: bbColor, lineWidth: 2, lineStyle: 0,
+                color: _bbColor, lineWidth: _bbWidth, lineStyle: 0,
                 priceLineVisible: false, lastValueVisible: true, title: 'BB+',
-                crosshairMarkerVisible: false,
+                crosshairMarkerVisible: false, visible: _bbOn,
             });
             lwBbLower = lwChart.addLineSeries({
-                color: bbColor, lineWidth: 2, lineStyle: 0,
+                color: _bbColor, lineWidth: _bbWidth, lineStyle: 0,
                 priceLineVisible: false, lastValueVisible: true, title: 'BB-',
-                crosshairMarkerVisible: false,
+                crosshairMarkerVisible: false, visible: _bbOn,
             });
             lwBbUpper.setData(upperData);
             lwBbLower.setData(lowerData);
@@ -16099,7 +17988,8 @@
             } catch (e) { console.warn('[vwap] fail', e); }
         }
 
-        // 실시간 지표 시그널 — 배지·마커·지지/저항선 자동 추가
+        // 실시간 지표 시그널 — 배지·마커·지지/저항선 자동 추가 (종목 변경 시 항상 완전 재빌드)
+        _layerDirty = true;
         try { renderChartLiveSignals(candleData, ts, q, bb); } catch (e) { console.warn('[chart-sig] fail', e); }
 
         // 차트 전체 보이게
@@ -16173,9 +18063,13 @@
             fetch('/api/ai-analysis/' + encodeURIComponent(_restoreSymbol))
                 .then(r => r.ok ? r.json() : null)
                 .then(serverData => {
-                    if (!serverData || currentSymbol !== _restoreSymbol) { _localFallback(); return; }
-                    drawAiChartLines(serverData, _restoreTs);
-                    _aiLsSave(_restoreSymbol, serverData); // 서버 데이터를 로컬에도 동기화
+                    // 200+null 응답({ symbol, data:null }) = 저장된 분석 없음 → 로컬 폴백
+                    if (!serverData || serverData.data === null) { _localFallback(); return; }
+                    if (currentSymbol !== _restoreSymbol) return;
+                    // 서버가 분석 객체를 직접 반환하는 경우와 { data: obj } 래핑 모두 지원
+                    const analysisData = (serverData.data !== undefined) ? serverData.data : serverData;
+                    drawAiChartLines(analysisData, _restoreTs);
+                    _aiLsSave(_restoreSymbol, analysisData); // 서버 데이터를 로컬에도 동기화
                 })
                 .catch(_localFallback);
         }
@@ -16193,6 +18087,61 @@
             }
         });
         lwResizeObserver.observe(wrap);
+
+        // Phase X1-b: cell1 레지스트리 등록 (프록시 전역과 동기 상태)
+        _xcCells['cell1'] = {
+            chart:         lwChart,
+            candleSeries:  lwCandleSeries,
+            volSeries:     lwVolumeSeries,
+            symbol:        currentSymbol,
+            fullSymbol:    currentFullSymbol,
+            market:        currentMarket,
+            tf:            currentInterval,
+            resizeObserver: lwResizeObserver,
+            pollTimer:     null,
+            stockData:     stockData,
+            _lastCandleData: [],
+            _lastTs:        [],
+            _lastQ:         null,
+        };
+        _xcActiveCellId = 'cell1';
+        _xcUpdateCellHeaders();
+
+        // Phase X1-b: 저장된 레이아웃이 2+분할이면 이제 심볼이 있으므로 보조 셀 생성
+        const _curLayout = _xcCurrentLayout();
+        if (_curLayout !== '1') {
+            if (!_xcCells['cell2']) _xcCreateCell('cell2');
+            if (_curLayout.startsWith('3') && !_xcCells['cell3']) _xcCreateCell('cell3');
+        }
+
+        // X3a: cell1 시간축 동기화 구독
+        try {
+            lwChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+                if (_xcActiveCellId !== 'cell1' || !range) return;
+                _xcBroadcastTimeScale('cell1', range);
+            });
+        } catch(_) {}
+        // X3b: cell1 십자선 동기화 구독
+        try {
+            lwChart.subscribeCrosshairMove(param => {
+                if (_xcActiveCellId !== 'cell1') return;
+                _xcBroadcastCrosshair('cell1', param?.time ?? null);
+            });
+        } catch(_) {}
+
+        // 저장된 활성 셀 복원 (보조 셀이 async 로드된 후)
+        try {
+            const _xcState = JSON.parse(localStorage.getItem('stockai_multichart_state') || 'null');
+            if (_xcState?.activeCellId && _xcState.activeCellId !== 'cell1') {
+                const _targetCell = _xcState.activeCellId;
+                setTimeout(() => {
+                    if (_xcCells[_targetCell]) _xcActivate(_targetCell);
+                }, 2500); // 보조 셀 데이터 로드 대기
+            }
+        } catch(_) {}
+
+        // X3: 동기화 UI 초기화
+        setTimeout(_xcUpdateSyncUi, 100);
     }
 
     function renderVolumeChart() {}
@@ -16208,20 +18157,16 @@
     let drawPreview = null;      // 미리보기 좌표
 
     function toggleDrawToolbar() {
-        const bar = document.getElementById('drawToolbar');
-        const btn = document.getElementById('chartDrawToggleBtn');
-        if (!bar) return;
-        const isOpen = bar.style.display !== 'none' && bar.style.display !== '';
-        if (isOpen) {
-            // 닫기 — 드로잉 모드 해제
-            bar.style.display = 'none';
-            if (btn) { btn.classList.remove('active'); btn.style.background = ''; btn.style.color = ''; }
-            setDrawTool('none');
-        } else {
-            // 열기 — 기본은 선택 모드(none), 사용자가 도구 선택
-            bar.style.display = 'flex';
-            if (btn) { btn.classList.add('active'); btn.style.background = 'var(--bg3)'; btn.style.color = 'var(--text)'; }
-        }
+        // 레거시 호출 → 새 drawMenu 토글로 위임
+        _cxtDraw?.();
+    }
+
+    // ── 자석 모드 (OHLC 스냅) ────────────────────────────────────────
+    let _drawMagnetOn = false;
+    function toggleDrawMagnet() {
+        _drawMagnetOn = !_drawMagnetOn;
+        const toggle = document.getElementById('drawMagnetToggle');
+        if (toggle) toggle.classList.toggle('on', _drawMagnetOn);
     }
 
     // 자동 추세각도 시리즈 추적 (재클릭 시 이전 라인 제거)
@@ -16306,22 +18251,30 @@
     }
 
     function setDrawTool(tool) {
+        // 미구현 도구 — 토스트 안내 후 무시
+        const _comingSoon = ['pitchfork', 'fib_channel', 'fib_fan', 'text'];
+        if (_comingSoon.includes(tool)) {
+            const labels = { pitchfork:'피치포크', fib_channel:'피보나치 채널', fib_fan:'속도 저항 팬', text:'텍스트' };
+            showToast?.(`🚧 ${labels[tool]} — 준비중`);
+            return;
+        }
+
         drawTool = tool;
         drawState = null;
         drawPreview = null;
-        // 버튼 활성화 표시
-        document.querySelectorAll('#drawToolbar .draw-tb-btn[id^="drawBtn"]').forEach(b => b.classList.remove('active'));
-        const btn = document.getElementById('drawBtn' + tool.charAt(0).toUpperCase() + tool.slice(1));
-        if (btn) btn.classList.add('active');
+
+        // 새 메뉴 버튼 활성화 표시
+        document.querySelectorAll('#drawMenu .draw-menu-item[id^="dmBtn"]').forEach(b => b.classList.remove('active'));
+        const dmId = 'dmBtn' + tool.charAt(0).toUpperCase() + tool.slice(1);
+        document.getElementById(dmId)?.classList.add('active');
+
         // 캔버스 활성화
         const canvas = document.getElementById('drawCanvas');
         if (tool === 'none') {
-            canvas.classList.remove('active');
-            // 차트 스크롤/줌 복원
+            canvas?.classList.remove('active');
             if (lwChart) lwChart.applyOptions({ handleScroll: true, handleScale: true });
         } else {
-            canvas.classList.add('active');
-            // 차트 스크롤/줌 비활성화 (드로잉 중)
+            canvas?.classList.add('active');
             if (lwChart) lwChart.applyOptions({ handleScroll: false, handleScale: false });
         }
         redrawCanvas();
@@ -16329,6 +18282,10 @@
 
     function setDrawColor(color) {
         drawColor = color;
+        document.querySelectorAll('.draw-color-btn2').forEach(b => {
+            b.classList.toggle('active', b.dataset.color === color);
+        });
+        // 레거시 버튼 (혹시 남아있을 경우)
         document.querySelectorAll('.draw-color-btn').forEach(b => {
             b.classList.toggle('active', b.style.background === color || b.style.backgroundColor === color);
         });
@@ -16336,6 +18293,7 @@
 
     function setDrawWidth(w) {
         drawWidth = w;
+        document.querySelectorAll('.draw-width-btn2').forEach(b => b.classList.toggle('active', +b.dataset.w === w));
         document.querySelectorAll('.draw-width-btn').forEach(b => b.classList.toggle('active', +b.dataset.w === w));
     }
 
@@ -16362,6 +18320,12 @@
     let _chartTpLevel = parseInt(localStorage.getItem('stockai_chart_tp_level') || '1'); // 익절 단계: 1=1차만 2=1~2차 3=전체
     let _priceLabelRegistry = []; // 우측 가격 라벨 중복 방지 — ±0.8% 이내 중복 시 낮은 우선순위 라벨 숨김
     let _lastSigArgs = null;  // 토글 시 즉시 재렌더용 캐시
+    // ── 가격라인 깜빡임 방지 ─────────────────────────────────────────
+    // 봉·종목·타임프레임이 바뀌지 않으면 라인 재빌드를 건너뜀
+    let _lastRenderTs  = null;  // 마지막 가격라인 재빌드 봉 시간
+    let _lastRenderSym = null;  // 마지막 재빌드 종목
+    let _lastRenderTf  = null;  // 마지막 재빌드 타임프레임
+    let _layerDirty    = true;  // true → 다음 렌더에서 강제 재빌드 (토글·종목 변경 시 세팅)
     let _signalGrades = {};
     let _lastSymbolForGrades = null; // 종목 변경 감지용 (캐시 무효화)
     // 디폴트: B (C 제거됨 — B/A/S 3단계)
@@ -16395,7 +18359,7 @@
         localStorage.setItem('stockai_chart_sig_lines', _chartLinesEnabled ? '1' : '0');
         _updateChartLinesBtnUi();
         if (_lastSigArgs) {
-            renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb);
+            _layerDirty = true; renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb);
         } else {
             // 캐시 없으면 라인만 제거
             _chartLiveLines.forEach(pl => { try { lwCandleSeries?.removePriceLine(pl); } catch(e) {} });
@@ -16596,7 +18560,7 @@
         _chartTpLevel = _chartTpLevel >= 3 ? 1 : _chartTpLevel + 1;
         localStorage.setItem('stockai_chart_tp_level', String(_chartTpLevel));
         _updateTpBtnUi();
-        if (_lastSigArgs) renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb);
+        if (_lastSigArgs) { _layerDirty = true; renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
         try { _posDrawChartLine(); } catch(e) {}
     }
     // ── 알림 기록 패널 ───────────────────────────────────────────
@@ -16865,23 +18829,46 @@
 
     function renderChartLiveSignals(candleData, ts, q, bb) {
         _isMobileView = window.innerWidth <= 768; // 렌더 시마다 갱신
-        _clearChartLiveSignals();
         const bar = document.getElementById('chartSigBar');
         if (!bar || !lwCandleSeries || !candleData?.length) return;
         _lastSigArgs = { candleData, ts, q, bb }; // 토글 시 즉시 재렌더용
         try { window._lastSigArgs = _lastSigArgs; _updateJumpBtnVisibility?.(); _cnbUpdatePresetUi?.(); _renderChartHeaderAt?.(); } catch(_) {}
+        // Phase X1-b: 활성 셀 캐시 갱신 (셀 전환 시 재빌드에 사용)
+        const _xcAc = _xcCells[_xcActiveCellId];
+        if (_xcAc) { _xcAc._lastCandleData = candleData; _xcAc._lastTs = ts; _xcAc._lastQ = q; }
         _updateChartLinesBtnUi();
         _updateChartSoundBtnUi();
         _updateTpBtnUi();
         try { _updateDdStates(); } catch(_) {}
 
+        // ── 가격라인 재빌드 판단 (깜빡임 방지) ─────────────────────────────
+        // 봉 시간·종목·타임프레임이 동일하면 라인 rebuild 생략 → 폴링 깜빡임 제거
+        const _curLastTs = ts?.[ts.length - 1] ?? null;
+        const _doRebuild = _layerDirty
+            || _curLastTs      !== _lastRenderTs
+            || currentSymbol   !== _lastRenderSym
+            || currentInterval !== _lastRenderTf;
+        if (_doRebuild) {
+            _layerDirty    = false;
+            _lastRenderTs  = _curLastTs;
+            _lastRenderSym = currentSymbol;
+            _lastRenderTf  = currentInterval;
+            // 기존 가격 라인 제거 + 레지스트리 초기화 (레이어 재빌드 전에만 수행)
+            _chartLiveLines.forEach(pl => { try { lwCandleSeries?.removePriceLine(pl); } catch(e) {} });
+            _chartLiveLines = [];
+            _priceLabelRegistry = [];
+        }
+        // 캔들 마커 초기화 (배지 바는 계산 완료 후에만 덮어씀 → 중간 throw시 기존 배지 유지)
+        try { lwCandleSeries?.setMarkers([]); } catch(e) {}
+
         const closes = q.close, highs = q.high, lows = q.low;
         const lastVal = arr => { for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != null) return arr[i]; return null; };
         const findLastIdx = arr => { for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != null) return i; return -1; };
 
-        // 1) 지표 계산
-        const rsi = calcRSI(closes);
-        const { macdLine, signalLine, histogram } = calcMACD(closes);
+        // 1) 지표 계산 — 각각 try/catch: 데이터 이상으로 throw해도 나머지 배지는 유지
+        let rsi = [], macdLine = [], signalLine = [], histogram = [];
+        try { rsi = calcRSI(closes); } catch(e) {}
+        try { const _m = calcMACD(closes); macdLine = _m.macdLine; signalLine = _m.signalLine; histogram = _m.histogram; } catch(e) {}
         // 실시간 현재가 우선 사용 (프리마켓/애프터마켓 포함)
         const _livePx = (typeof _posCurrentPrice === 'function') ? _posCurrentPrice() : null;
         const lastClose = (_livePx != null && _livePx > 0) ? _livePx : lastVal(closes);
@@ -16933,17 +18920,21 @@
             if (lastClose >= lastBBU * 0.998) badges.push({ label: 'BB 상단', cls: 'sig-red' });
             else if (lastClose <= lastBBL * 1.002) badges.push({ label: 'BB 하단', cls: 'sig-blue' });
         }
-        // Rayner Stage 배지 (가장 앞에)
-        const ema20Data  = lwMaSeries.ema20_data  || calcEMA(closes, 20);
-        const ema50Data  = lwMaSeries.ema50_data  || calcEMA(closes, 50);
-        const ema200Data = lwMaSeries.ema200_data || calcEMA(closes, 200);
-        const stageInfo = _detectMarketStage(closes, ema200Data, ema50Data);
-        if (stageInfo) {
-            const cls = stageInfo.stage === 2 ? 'sig-red'
-                       : stageInfo.stage === 4 ? 'sig-blue'
-                       : stageInfo.stage === 3 ? 'sig-neutral' : 'sig-neutral';
-            badges.unshift({ label: `Stage ${stageInfo.stage} · ${stageInfo.label}`, cls });
-        }
+        // Rayner Stage 배지 (가장 앞에) — try/catch: 실패해도 RSI·MACD 배지는 표시
+        // let 선언 필수: ema20Data·ema50Data·ema200Data·stageInfo 는 아래 마커 루프에서도 사용
+        let ema20Data = [], ema50Data = [], ema200Data = [], stageInfo = null;
+        try {
+            ema20Data  = lwMaSeries.ema20_data  || calcEMA(closes, 20);
+            ema50Data  = lwMaSeries.ema50_data  || calcEMA(closes, 50);
+            ema200Data = lwMaSeries.ema200_data || calcEMA(closes, 200);
+            stageInfo = _detectMarketStage(closes, ema200Data, ema50Data);
+            if (stageInfo) {
+                const cls = stageInfo.stage === 2 ? 'sig-red'
+                           : stageInfo.stage === 4 ? 'sig-blue'
+                           : stageInfo.stage === 3 ? 'sig-neutral' : 'sig-neutral';
+                badges.unshift({ label: `Stage ${stageInfo.stage} · ${stageInfo.label}`, cls });
+            }
+        } catch(e) {}
         bar.innerHTML = badges.map(b => `<span class="chart-sig-pill ${b.cls}">${escHtml(b.label)}</span>`).join('');
 
         // 포지션 손절/익절 근접 알림 배지
@@ -17506,9 +19497,12 @@
                 }
             }
             _lastSigKey = newKey;
-            // 내 포지션 진입가 라인 재그리기 (차트 갱신 시)
-            try { _posDrawChartLine(); } catch(e) {}
+            // 내 포지션 진입가 라인 재그리기 (봉 변경·강제 재빌드 시에만)
+            if (_doRebuild) { try { _posDrawChartLine(); } catch(e) {} }
         }
+
+        // ── 가격 라인 + 레이어 — 재빌드 필요 시에만 (깜빡임 방지) ─────────
+        if (_doRebuild) {
 
         // 라인 토글 OFF → 보조지표 가격 라인만 건너뜀, 분석 레이어는 각 자체 플래그로 제어
         if (_chartLinesEnabled) {
@@ -17621,6 +19615,8 @@
 
         // 10) Smart Dip — 눌림목 피보나치 분할매수 레이어
         try { _renderSmartDipLayer(q, ts); } catch (e) { console.warn('[smartdip] render fail', e); }
+
+        } // end if (_doRebuild) — 가격 라인 재빌드 블록 끝
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -17889,7 +19885,7 @@
         try { if (lwCandleSeries) lwCandleSeries.setMarkers([]); } catch(e) {}
         if (_lastSigArgs) {
             try {
-                renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb);
+                _layerDirty = true; renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb);
             } catch(e) {
                 console.error('[grade] render fail', e);
             }
@@ -18324,7 +20320,7 @@
         _chartSmartDipEnabled = newState;
         localStorage.setItem('stockai_chart_smartdip_enabled', newState ? '1' : '0');
         if (_lastSigArgs) {
-            try { renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); } catch(e) {}
+            try { _layerDirty = true; renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); } catch(e) {}
         } else {
             _clearSmartDipLines();
             const el = document.getElementById('smartDipCard');
@@ -18337,7 +20333,7 @@
         const cur = localStorage.getItem(key) !== '0';
         localStorage.setItem(key, cur ? '0' : '1');
         if (_lastSigArgs) {
-            try { renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
+            try { _layerDirty = true; renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
             catch(e) {}
         }
     }
@@ -18756,7 +20752,7 @@
         }
         // 차트 라인 갱신 (꺼진 레이어 잔류 라인 즉시 제거)
         if (_lastSigArgs) {
-            try { renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
+            try { _layerDirty = true; renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
             catch(e) {}
         }
     }
@@ -18821,7 +20817,7 @@
         localStorage.setItem('stockai_chart_kull', newState ? '1' : '0');
         _updateKullagBtnUi();
         if (_lastSigArgs) {
-            try { renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
+            try { _layerDirty = true; renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
             catch(e) {}
         }
     }
@@ -19229,7 +21225,7 @@
         _updateSplitBuyBtnUi();
         _updateDdStates();
         if (_lastSigArgs) {
-            try { renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
+            try { _layerDirty = true; renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
             catch(e) {}
         }
     }
@@ -19240,7 +21236,7 @@
         const cur = localStorage.getItem(key) !== '0';
         localStorage.setItem(key, cur ? '0' : '1');
         if (_lastSigArgs) {
-            try { renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
+            try { _layerDirty = true; renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
             catch(e) {}
         }
     }
@@ -19251,7 +21247,7 @@
         const cur = localStorage.getItem(key) !== '0';
         localStorage.setItem(key, cur ? '0' : '1');
         if (_lastSigArgs) {
-            try { renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
+            try { _layerDirty = true; renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
             catch(e) {}
         }
         if (typeof _updateDdStates === 'function') _updateDdStates();
@@ -19987,7 +21983,7 @@
         localStorage.setItem('stockai_chart_pullback_enabled', _chartPullbackEnabled ? '1' : '0');
         _updatePullbackBtnUi();
         if (_lastSigArgs) {
-            try { renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
+            try { _layerDirty = true; renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
             catch(e) {}
         }
     }
@@ -20474,7 +22470,7 @@
         _chartSrEnabled = !_chartSrEnabled;
         localStorage.setItem('stockai_chart_sr_enabled', _chartSrEnabled ? '1' : '0');
         _updateSrBtnUi();
-        if (_lastSigArgs) renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb);
+        if (_lastSigArgs) { _layerDirty = true; renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
     }
 
     function toggleSrMode(mode) {
@@ -20483,7 +22479,7 @@
         localStorage.setItem('stockai_chart_sr_enabled', '1');
         localStorage.setItem('stockai_chart_sr_mode', String(_chartSrMode));
         _updateSrBtnUi();
-        if (_lastSigArgs) renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb);
+        if (_lastSigArgs) { _layerDirty = true; renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
     }
 
     function _clearSrLines() {
@@ -20925,7 +22921,7 @@
         _closeChartBottomSheet();
         if (_lastSigArgs) {
             try {
-                renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb);
+                _layerDirty = true; renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb);
             } catch(e) {}
         }
         _updateDdStates();
@@ -20951,13 +22947,13 @@
         _closeChartBottomSheet();
         if (_lastSigArgs) {
             try {
-                renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb);
+                _layerDirty = true; renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb);
             } catch(e) {}
         }
         _updateDdStates();
     }
 
-    function _closeAllDds() {
+    function _closeAllDds(e) {
         const am = document.getElementById('analysisDdMenu');
         const lm = document.getElementById('lineDdMenu');
         const ab = document.getElementById('analysisDdBtn');
@@ -20966,6 +22962,15 @@
         if (lm) lm.style.display = 'none';
         if (ab) delete ab.dataset.open;
         if (lb) delete lb.dataset.open;
+        // 그리기 메뉴: 클릭이 메뉴 또는 cxtDraw 버튼 바깥이면 닫기
+        const dm = document.getElementById('drawMenu');
+        if (dm && dm.style.display !== 'none') {
+            const btn = document.getElementById('cxtDraw');
+            if (e && (dm.contains(e.target) || btn?.contains(e.target))) return;
+            dm.style.display = 'none';
+            btn?.classList.remove('active');
+            if (typeof drawTool !== 'undefined' && drawTool !== 'none') setDrawTool('none');
+        }
     }
 
     function _setDdCheck(id, isChecked) {
@@ -21350,6 +23355,29 @@
                 ctx.fillStyle = obj.color + '08';
                 ctx.fillRect(0, yTop, canvas.width, yBot - yTop);
             }
+        } else if (obj.type === 'vline') {
+            const vx = lwChart?.timeScale().timeToCoordinate(obj.points[0].time);
+            if (vx === null || vx === undefined) return;
+            ctx.setLineDash([6, 3]);
+            ctx.beginPath(); ctx.moveTo(vx, 0); ctx.lineTo(vx, canvas.height); ctx.stroke();
+            ctx.setLineDash([]);
+        } else if (obj.type === 'cross') {
+            const cx2 = lwChart?.timeScale().timeToCoordinate(obj.points[0].time);
+            const cy2 = lwCandleSeries?.priceToCoordinate(obj.points[0].price);
+            if (cx2 == null || cy2 == null) return;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath(); ctx.moveTo(0, cy2); ctx.lineTo(canvas.width, cy2); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(cx2, 0); ctx.lineTo(cx2, canvas.height); ctx.stroke();
+            ctx.setLineDash([]);
+        } else if (obj.type === 'ellipse') {
+            const ep1 = chartToCanvas(obj.points[0].time, obj.points[0].price);
+            const ep2 = chartToCanvas(obj.points[1].time, obj.points[1].price);
+            if (!ep1 || !ep2) return;
+            const ecx = (ep1.x + ep2.x) / 2, ecy = (ep1.y + ep2.y) / 2;
+            const erx = Math.abs(ep2.x - ep1.x) / 2, ery = Math.abs(ep2.y - ep1.y) / 2;
+            if (erx < 1 || ery < 1) return;
+            ctx.fillStyle = obj.color + '18';
+            ctx.beginPath(); ctx.ellipse(ecx, ecy, erx, ery, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
         } else if (obj.type === 'angle') {
             const p1 = chartToCanvas(obj.points[0].time, obj.points[0].price);
             const p2 = chartToCanvas(obj.points[1].time, obj.points[1].price);
@@ -21462,8 +23490,22 @@
             ctx.moveTo(0, p.y);
             ctx.lineTo(canvas.width, p.y);
             ctx.stroke();
+        } else if (s.tool === 'vline') {
+            ctx.beginPath();
+            ctx.moveTo(p.x, 0);
+            ctx.lineTo(p.x, canvas.height);
+            ctx.stroke();
+        } else if (s.tool === 'cross') {
+            ctx.beginPath();
+            ctx.moveTo(0, s.startY); ctx.lineTo(canvas.width, s.startY); ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(s.startX, 0); ctx.lineTo(s.startX, canvas.height); ctx.stroke();
         } else if (s.tool === 'rect') {
             ctx.strokeRect(s.startX, s.startY, p.x - s.startX, p.y - s.startY);
+        } else if (s.tool === 'ellipse') {
+            const ecx = (s.startX + p.x) / 2, ecy = (s.startY + p.y) / 2;
+            const erx = Math.abs(p.x - s.startX) / 2 || 1, ery = Math.abs(p.y - s.startY) / 2 || 1;
+            ctx.beginPath(); ctx.ellipse(ecx, ecy, erx, ery, 0, 0, Math.PI * 2); ctx.stroke();
         } else if (s.tool === 'fib') {
             ctx.beginPath();
             ctx.moveTo(s.startX, s.startY);
@@ -21503,16 +23545,19 @@
             if (!chart) return;
 
             if (drawTool === 'hline') {
-                // 수평선은 클릭 한 번으로 완성
-                drawObjects.push({
-                    type: 'hline',
-                    points: [{ time: chart.time, price: chart.price }],
-                    color: drawColor,
-                    width: drawWidth,
-                });
-                redrawCanvas();
-                updateDrawBadge();
-                return;
+                // 수평선 — 클릭 한 번으로 완성
+                drawObjects.push({ type: 'hline', points: [{ time: chart.time, price: chart.price }], color: drawColor, width: drawWidth });
+                redrawCanvas(); updateDrawBadge(); return;
+            }
+            if (drawTool === 'vline') {
+                // 수직선 — 클릭 한 번으로 완성
+                drawObjects.push({ type: 'vline', points: [{ time: chart.time, price: chart.price }], color: drawColor, width: drawWidth });
+                redrawCanvas(); updateDrawBadge(); return;
+            }
+            if (drawTool === 'cross') {
+                // 크로스 — 클릭 한 번으로 완성
+                drawObjects.push({ type: 'cross', points: [{ time: chart.time, price: chart.price }], color: drawColor, width: drawWidth });
+                redrawCanvas(); updateDrawBadge(); return;
             }
 
             // 나머지 도구는 시작점 설정
@@ -21889,13 +23934,22 @@
     // ========================================
     async function renderFinancialInfo(symbol) {
         const grid = document.getElementById('financeGrid');
+        if (!grid) return;
+        // 로딩 표시 (financeGrid는 초기 HTML이 비어있어 빈 화면 방지)
+        grid.innerHTML = '<div style="text-align:center;padding:20px 0;color:var(--text3);font-size:14px;">로딩 중...</div>';
 
-        const meta = stockData.meta;
-        const quotes = stockData.indicators.quote[0];
-        const closes = quotes.close.filter(v => v != null);
-        const highs = quotes.high.filter(v => v != null);
-        const lows = quotes.low.filter(v => v != null);
-        const vols = quotes.volume.filter(v => v != null);
+        // stockData null 안전 (종목 빠른 전환 시 레이스 조건 대비)
+        const meta = stockData?.meta;
+        const quotes = stockData?.indicators?.quote?.[0] || {};
+        const closes = (quotes.close || []).filter(v => v != null);
+        const highs  = (quotes.high  || []).filter(v => v != null);
+        const lows   = (quotes.low   || []).filter(v => v != null);
+        const vols   = (quotes.volume|| []).filter(v => v != null);
+
+        if (!closes.length && !meta) {
+            grid.innerHTML = '<div style="text-align:center;padding:20px 0;color:var(--text3);font-size:14px;">데이터를 불러올 수 없습니다.</div>';
+            return;
+        }
         const avgVolume = vols.length ? vols.reduce((a,b) => a+b, 0) / vols.length : 0;
 
         const isKR = currentMarket === 'KR';
@@ -26508,8 +28562,8 @@
 
     // 종목 상세 페이지 알림 버튼 클릭
     function _openCurrentPriceAlert() {
-        const symbol = window.currentSymbol;
-        if (!symbol || window.currentMarket !== 'US') {
+        const symbol = currentSymbol;
+        if (!symbol || currentMarket !== 'US') {
             showToast('미국 주식만 가격 알림을 지원합니다.');
             return;
         }
@@ -26522,7 +28576,7 @@
     function _updatePriceAlertBtn() {
         const btn = document.getElementById('priceAlertBtn');
         if (!btn) return;
-        btn.style.display = (window.currentMarket === 'US' && window.currentSymbol) ? '' : 'none';
+        btn.style.display = (currentMarket === 'US' && currentSymbol) ? '' : 'none';
     }
 
     // onclick 핸들러 함수를 window에 명시적 노출 (스코프 안전장치)
@@ -29785,6 +31839,140 @@
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
+    // ── Phase M: 모바일 차트 UI ─────────────────────────────────────
+
+    /** M6: 모바일 헤더 가격/변동률 업데이트 */
+    function _mchUpdatePrice(price, chgPct) {
+        const priceEl = document.getElementById('mchPrice');
+        const chgEl   = document.getElementById('mchChg');
+        if (!priceEl || !chgEl) return;
+        if (price == null) { priceEl.textContent = '—'; chgEl.textContent = ''; return; }
+        priceEl.textContent = typeof price === 'number'
+            ? (price >= 10000 ? price.toLocaleString() : price >= 1 ? price.toFixed(2) : price.toFixed(4))
+            : price;
+        if (chgPct != null) {
+            const sign = chgPct >= 0 ? '+' : '';
+            chgEl.textContent = `${sign}${chgPct.toFixed(2)}%`;
+            chgEl.className = 'mch-chg ' + (chgPct > 0 ? 'up' : chgPct < 0 ? 'down' : 'flat');
+        } else {
+            chgEl.textContent = '';
+        }
+    }
+
+    /** M6: 모바일 헤더 TF 라벨 업데이트 */
+    function _mchUpdateTf(symbol, tf) {
+        const el = document.getElementById('mchTfLabel');
+        if (el) el.textContent = symbol ? `${symbol} · ${tf||'—'}` : (tf||'—');
+    }
+
+    /** M6: ⚙ 버튼 → 분석+라인 bottom sheet (기존 _toggleAnalysisDd 재사용) */
+    function _mchOpenGear(event) {
+        event.stopPropagation();
+        // Open analysis dropdown as bottom sheet (existing logic)
+        _toggleAnalysisDd(event);
+    }
+
+    /** M6: 모바일 기간 프리셋 선택 */
+    function _mpbSetPeriod(period) {
+        // Update active button
+        document.querySelectorAll('.mpb-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.period === period);
+        });
+        // Map to LW Charts range
+        const rangeMap = {
+            '1d':  { range: '1d',  interval: '5m'  },
+            '1mo': { range: '1mo', interval: '1d'  },
+            '3mo': { range: '3mo', interval: '1d'  },
+            '1y':  { range: '1y',  interval: '1wk' },
+            'max': { range: 'max', interval: '1mo' },
+        };
+        const cfg = rangeMap[period];
+        if (!cfg) return;
+        try { setChartInterval(cfg.interval); } catch(e) {}
+    }
+
+    /** M5: 더블탭 줌 in/out */
+    (function() {
+        let _dtLastTap = 0;
+        const wrap = document.getElementById('tvChartWrap');
+        if (!wrap) return;
+        wrap.addEventListener('touchend', e => {
+            if (window.innerWidth > 600) return;
+            const now = Date.now();
+            const delta = now - _dtLastTap;
+            if (delta < 300 && delta > 0) {
+                // Double tap — zoom in
+                e.preventDefault();
+                try {
+                    if (lwChart) {
+                        const ts = lwChart.getVisibleLogicalRange();
+                        if (ts) {
+                            const mid = (ts.from + ts.to) / 2;
+                            const half = (ts.to - ts.from) / 4; // zoom to 50%
+                            lwChart.setVisibleLogicalRange({ from: mid - half, to: mid + half });
+                        }
+                    }
+                } catch(er) {}
+            }
+            _dtLastTap = now;
+        }, { passive: false });
+    })();
+
+    /** M5: 길게 누르기 → OHLC 툴팁 표시 */
+    (function() {
+        let _lpTimer = null;
+        const wrap = document.getElementById('tvChartWrap');
+        if (!wrap) return;
+        wrap.addEventListener('touchstart', e => {
+            if (window.innerWidth > 600) return;
+            const touch = e.touches[0];
+            _lpTimer = setTimeout(() => {
+                // Show OHLC tooltip at touch position
+                try {
+                    const tooltip = document.querySelector('.chart-ohlc-tooltip');
+                    if (tooltip) {
+                        tooltip.classList.add('mobile-show');
+                        setTimeout(() => tooltip.classList.remove('mobile-show'), 3000);
+                    }
+                } catch(er) {}
+                if (navigator.vibrate) navigator.vibrate(40);
+            }, 600);
+        }, { passive: true });
+        wrap.addEventListener('touchend',   () => { clearTimeout(_lpTimer); _lpTimer = null; }, { passive: true });
+        wrap.addEventListener('touchmove',  () => { clearTimeout(_lpTimer); _lpTimer = null; }, { passive: true });
+        wrap.addEventListener('touchcancel',() => { clearTimeout(_lpTimer); _lpTimer = null; }, { passive: true });
+    })();
+
+    /** M2: 시그널 바텀시트 열기/닫기 */
+    function _mSigOpen(time, markers) {
+        const sheet = document.getElementById('mSigSheet');
+        const list  = document.getElementById('mSigList');
+        const title = document.getElementById('mSigTitle');
+        if (!sheet || !list) return;
+        // Filter markers near the tapped time (within 2 candles)
+        const near = (markers || []).filter(m => Math.abs((m.time||0) - time) < 200000);
+        if (!near.length) return; // No signals near tap — don't open
+        if (title) title.textContent = `시그널 (${near.length}개)`;
+        list.innerHTML = near.length ? near.map(m => {
+            const isBuy = m.position === 'belowBar';
+            const color = m.color || (isBuy ? '#22c55e' : '#ef4444');
+            const label = m._label || (isBuy ? '매수 시그널' : '매도 시그널');
+            const timeStr = m.time ? new Date(m.time * 1000).toLocaleString('ko-KR', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
+            return `<div class="msig-item">
+                <div class="msig-dot" style="background:${color};"></div>
+                <div class="msig-info">
+                    <div class="msig-label">${label}</div>
+                    <div class="msig-time">${timeStr}</div>
+                </div>
+            </div>`;
+        }).join('') : '<div class="msig-empty">근처에 시그널이 없습니다</div>';
+        sheet.classList.add('show');
+    }
+    function _mSigClose() {
+        const sheet = document.getElementById('mSigSheet');
+        if (sheet) sheet.classList.remove('show');
+    }
+
     // ═══════════════════════════════════════════════════════════
     // 종목 페이저 (하단 고정 바) — 키움증권 스타일
     // ═══════════════════════════════════════════════════════════
@@ -29944,7 +32132,7 @@
     // ── 본문 좌우 스와이프 (페이저 이동) ──
     (function() {
         let sx = 0, sy = 0, ex = 0, ey = 0, ing = false;
-        const THRESH = 80, VLIM = 60;
+        const THRESH = 60, VLIM = 60;
         document.body.addEventListener('touchstart', e => {
             const heroVisible = document.getElementById('stockHero')?.classList.contains('show');
             if (!heroVisible || !_stockPagerList.length) return;
@@ -29991,14 +32179,20 @@
         _chartJumpToLatest, _updateJumpBtnVisibility, _initJumpBtnObserver,
         _initOhlcTooltip, _onCrosshairMoveOhlc,
         _initShiftDragZoom, _initChartKeyboardShortcuts,
-        _cxtOpenIndicators, _cxtDraw, _cxtRuler, _cxtCompare, _cxtSplit,
+        _cxtOpenIndicators, _cxtDraw, _cxtDrawClose, _cxtRuler, _cxtCompare, _cxtSplit,
+        _indGetConfig, _indSaveConfig, _indSelect, _indToggleEnabled,
+        _indSetWidth, _indSetSource, _indSetPeriod, _indSetPeriodBb,
+        _indAddPeriod, _indRemovePeriod, _indOpenColorPicker, _indPickColor,
+        _indRebuildSeries, _indRefreshPanel,
         _renderChartHeaderAt, _onCrosshairMoveHeader,
-        _xcOpenLayoutPopover, _xcSetLayout, _xcRestoreLayout, _xcUpdateLayoutUi,
+        _xcOpenLayoutPopover, _xcSetLayout, _xcCloseCell, _xcRestoreLayout, _xcUpdateLayoutUi,
+        _xcActivate, _xcPromptSymbol, _xcCreateCell, _xcDestroyCell, _xcUpdateCellHeaders,
+        _xcToggleSync, _xcOpenSyncPopover, _xcUpdateSyncUi,
         favSearch, removeFavorite, setTop100Filter, goTop100, goCatalyst, loadCatalyst, _catalystSetFilter, switchCatalystTab, loadVolumeSurge, loadMinervini,
         _runCatalystAi, _renderCatalystAiExpanded,
         _runScannerAi, _renderScannerAiResult, _alphaAutoBatchAi, _renderAlphaAiMini,
         _alphaRenderSocialScanner, _runSocialAi, _renderSocialAiResult,
-setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawToolbar, addAutoTrendAngle, toggleChartLabels, toggleChartSound,
+setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawToolbar, toggleDrawMagnet, addAutoTrendAngle, toggleChartLabels, toggleChartSound,
         toggleTheme, showLoading, hideLoading, showToast, showSnackbar,
         openChangelog, closeChangelog,
         loadOptionsDate, setOptionsFilter,
@@ -30038,6 +32232,9 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         loadYouTubeTab, reloadYouTubeTab, renderYouTubeCards, _ytLogClick,
         renderAnalystTargets,
         initStockPager, hideStockPager, navigateStock, openStockPagerList, closeStockPagerList, jumpToStock,
+        _mchUpdatePrice, _mchUpdateTf, _mpbSetPeriod, _mSigOpen, _mSigClose, _mchOpenGear,
+        _cmpOpenSheet, _cmpCloseSheet, _cmpModalBgClick, _cmpSubmit, _cmpLoad, _cmpRemove,
+        _cmpUpdateLegend, _cmpRefreshIfActive, _cmpRenderRecent, _cmpRemoveRecent, _cmpSelectPeer, _cmpModalSearch,
         goScanner, goFav, goSearch, closeSearch, bnGo, updateBnActive,
         goVisionScanner, vsReset, vsClickUpload, vsHandleFileInput,
         vsDragEnter, vsDragOver, vsDragLeave, vsDrop,
@@ -30221,6 +32418,19 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
             <button class="sps-close" onclick="closeStockPagerList()">✕</button>
         </div>
         <div class="sps-list" id="stockPagerSheetList"></div>
+    </div>
+</div>
+
+<!-- 📱 M2: 시그널 탭 바텀시트 -->
+<div id="mSigSheet">
+    <div class="msig-backdrop" onclick="_mSigClose()"></div>
+    <div class="msig-content">
+        <div class="msig-handle"></div>
+        <div class="msig-header">
+            <span class="msig-title" id="mSigTitle">시그널</span>
+            <button class="msig-close" onclick="_mSigClose()">✕</button>
+        </div>
+        <div class="msig-list" id="mSigList"></div>
     </div>
 </div>
 

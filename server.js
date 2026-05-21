@@ -182,6 +182,24 @@ let _crumbPromise = null; // single-flight: 동시 갱신 요청 중복 방지
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
+// 서버 메모리 응답 캐시 — 동일 URL 반복 요청 시 야후 429 방지
+const _yfCache = new Map(); // url → { data, ts }
+const YF_CACHE_TTL = 30 * 1000; // 30초
+
+function _yfCacheGet(url) {
+    const hit = _yfCache.get(url);
+    if (hit && Date.now() - hit.ts < YF_CACHE_TTL) return hit.data;
+    return null;
+}
+function _yfCacheSet(url, data) {
+    _yfCache.set(url, { data, ts: Date.now() });
+    // 오래된 캐시 정리 (1000개 초과 시 가장 오래된 것부터)
+    if (_yfCache.size > 1000) {
+        const oldest = [..._yfCache.entries()].sort((a,b) => a[1].ts - b[1].ts)[0];
+        if (oldest) _yfCache.delete(oldest[0]);
+    }
+}
+
 async function getCrumb() {
     if (_crumb && Date.now() - _crumbTime < CRUMB_TTL) {
         return { crumb: _crumb, cookies: _cookies };
@@ -244,6 +262,10 @@ async function _fetchCrumb() {
 
 // crumb이 만료되면 자동 재시도
 async function yfRequest(url) {
+    // 서버 캐시 히트 — 야후 429 방지
+    const cached = _yfCacheGet(url);
+    if (cached) return cached;
+
     const { crumb, cookies } = await getCrumb();
     const sep      = url.includes('?') ? '&' : '?';
     const finalUrl = `${url}${sep}crumb=${encodeURIComponent(crumb)}`;
@@ -255,6 +277,7 @@ async function yfRequest(url) {
             httpAgent,
             httpsAgent,
         });
+        _yfCacheSet(url, res.data); // 캐시 저장
         return res.data;
     } catch (err) {
         const st = err.response?.status;
@@ -271,6 +294,27 @@ async function yfRequest(url) {
                 httpsAgent,
             });
             return res2.data;
+        }
+        // 429 → Yahoo 일시 차단. crumb 무효화 + 1.5초 대기 후 재시도
+        // query2 엔드포인트로 폴백 (query1과 별도 rate limit 풀)
+        if (st === 429) {
+            console.warn('[yfRequest] 429 Too Many Requests — 1.5s 대기 후 query2 폴백 재시도');
+            _crumb = null;
+            await new Promise(r => setTimeout(r, 1500));
+            const { crumb: c3, cookies: k3 } = await getCrumb();
+            // query1 ↔ query2 스왑 (별도 rate limit 풀)
+            const fallbackUrl = url.includes('query1.finance.yahoo.com')
+                ? url.replace('query1.finance.yahoo.com', 'query2.finance.yahoo.com')
+                : url.replace('query2.finance.yahoo.com', 'query1.finance.yahoo.com');
+            const url3 = `${fallbackUrl}${fallbackUrl.includes('?') ? '&' : '?'}crumb=${encodeURIComponent(c3)}`;
+            const res3 = await axios.get(url3, {
+                headers: { 'User-Agent': UA, 'Cookie': k3, 'Accept': 'application/json' },
+                timeout: 15000,
+                httpAgent,
+                httpsAgent,
+            });
+            _yfCacheSet(url, res3.data); // 원래 url 키로 캐시 저장
+            return res3.data;
         }
         throw err;
     }
@@ -6233,7 +6277,13 @@ app.get('/api/ai-analysis/:symbol', async (req, res) => {
             .select('data')
             .eq('symbol', symbol)
             .single();
-        if (error || !data) return res.status(404).json({ error: 'not found' });
+        // PGRST116 = "Results contain 0 rows" — 분석이 아직 저장되지 않은 정상 케이스
+        // 404 대신 200 + null 반환 → 브라우저 콘솔 오류 없애고 frontend가 빈 상태로 처리
+        if (error) {
+            if (error.code === 'PGRST116' || !data) return res.json({ symbol, data: null });
+            return res.status(500).json({ error: error.message });
+        }
+        if (!data) return res.json({ symbol, data: null });
         res.json(data.data);
     } catch (err) {
         res.status(500).json({ error: err.message });
