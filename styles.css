@@ -7605,6 +7605,169 @@
 }
 
 /* ═══════════════════════════════════════
+   Phase X1 — 멀티 차트 그리드 (UI 스캐폴딩)
+   ═══════════════════════════════════════ */
+
+/* 그리드 wrapper: 기본 1분할 (cell-1 = 100%) */
+.chart-grid-wrap {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    height: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* 셀 공통 — 1분할 시 cell-1만 보임 */
+.chart-cell {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+    position: relative;
+    border: 1px solid transparent;
+    transition: border-color 0.15s ease;
+}
+.chart-cell.active {
+    /* 1분할에서는 border 보이지 않음 */
+}
+
+/* 2분할 좌우 */
+.chart-grid-wrap[data-layout="2h"] { flex-direction: row; }
+.chart-grid-wrap[data-layout="2h"] .chart-cell { width: 50%; flex: 1 1 50%; }
+.chart-grid-wrap[data-layout="2h"] .chart-cell.active { border-color: #0080FB; }
+
+/* 2분할 상하 */
+.chart-grid-wrap[data-layout="2v"] { flex-direction: column; }
+.chart-grid-wrap[data-layout="2v"] .chart-cell { height: 50%; flex: 1 1 50%; }
+.chart-grid-wrap[data-layout="2v"] .chart-cell.active { border-color: #0080FB; }
+
+/* cell-2 헤더 (티커 · TF + 닫기 버튼) */
+.cell-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text2);
+    flex-shrink: 0;
+}
+.cell-symbol { font-weight: 700; color: var(--text); }
+.cell-sep    { color: var(--text3); }
+.cell-tf     { color: var(--text2); font-weight: 600; }
+.cell-close {
+    margin-left: auto;
+    background: transparent;
+    border: none;
+    color: var(--text3);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: background 0.12s;
+}
+.cell-close:hover { background: var(--bg3); color: var(--text); }
+
+/* cell-2 placeholder (실제 차트 인스턴스는 X1-b에서 활성화) */
+.cell-2-placeholder {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 24px;
+    background:
+        repeating-linear-gradient(45deg,
+            rgba(0,128,251,0.02) 0,
+            rgba(0,128,251,0.02) 10px,
+            transparent 10px,
+            transparent 20px);
+    color: var(--text3);
+    text-align: center;
+}
+.c2p-icon  { font-size: 48px; opacity: 0.4; margin-bottom: 12px; }
+.c2p-title { font-size: 14px; font-weight: 700; color: var(--text2); margin-bottom: 6px; }
+.c2p-sub   { font-size: 12px; line-height: 1.5; max-width: 280px; }
+
+/* 모바일: 1분할 강제 (HTML 호환용 — JS에서도 차단) */
+@media (max-width: 768px) {
+    .chart-grid-wrap[data-layout="2h"],
+    .chart-grid-wrap[data-layout="2v"] {
+        flex-direction: row;
+    }
+    .chart-grid-wrap .chart-cell-2 { display: none !important; }
+    .chart-grid-wrap .chart-cell-1 { width: 100%; flex: 1 1 100%; }
+}
+
+/* ═══ 레이아웃 선택 popover ═══ */
+.chart-layout-popover {
+    position: fixed;
+    z-index: 9500;
+    padding: 12px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    min-width: 240px;
+}
+.clp-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text3);
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}
+.clp-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+.clp-opt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 6px;
+    background: var(--bg3);
+    border: 1.5px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--text2);
+    font-size: 11px;
+    font-weight: 600;
+    font-family: inherit;
+    transition: border-color 0.12s ease, background 0.12s ease;
+}
+.clp-opt:hover { background: var(--bg2); border-color: var(--border); }
+.clp-opt.active {
+    border-color: #0080FB;
+    color: #0080FB;
+}
+.clp-preview {
+    display: flex;
+    width: 56px;
+    height: 36px;
+    background: transparent;
+    border: 1px solid var(--text3);
+    border-radius: 3px;
+    overflow: hidden;
+    gap: 1px;
+    padding: 0;
+}
+.clp-preview .clp-c {
+    flex: 1 1 0;
+    background: var(--text3);
+    opacity: 0.45;
+}
+.clp-preview-2v { flex-direction: column; }
+.clp-opt.active .clp-preview { border-color: #0080FB; }
+.clp-opt.active .clp-preview .clp-c { background: #0080FB; opacity: 0.55; }
+
+/* ═══════════════════════════════════════
    Phase A2 — 가로 도구 toolbar (차트 plot area 바로 위)
    ═══════════════════════════════════════ */
 

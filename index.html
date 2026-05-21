@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=736">
+    <link rel="stylesheet" href="/styles.css?v=737">
 </head>
 <body>
 <!-- Side Navigation -->
@@ -1045,6 +1045,9 @@
                         </button>
                     </div>
 
+                    <!-- ═══ Phase X1: 멀티 차트 그리드 wrapper ═══ -->
+                    <div class="chart-grid-wrap" id="chartGridWrap" data-layout="1">
+                    <div class="chart-cell chart-cell-1 active" id="chartCell1">
                     <div class="tv-chart-wrap" id="tvChartWrap">
                         <canvas class="draw-canvas" id="drawCanvas"></canvas>
                         <div class="ai-trendline-del" id="aiTrendDeleteBtn" onclick="deleteSelectedAiTrendline()">✕ 추세선 삭제</div>
@@ -1151,7 +1154,42 @@
                             </button>
                         </div>
                     </div>
-                </div>
+                    </div><!-- /.chart-cell-1 -->
+
+                    <!-- Phase X1: 두 번째 셀 (placeholder, 2분할 시 노출) -->
+                    <div class="chart-cell chart-cell-2" id="chartCell2" style="display:none;">
+                        <div class="cell-header">
+                            <span class="cell-symbol">—</span>
+                            <span class="cell-sep">·</span>
+                            <span class="cell-tf">—</span>
+                            <button class="cell-close" onclick="_xcSetLayout('1')" aria-label="셀 닫기">✕</button>
+                        </div>
+                        <div class="cell-2-placeholder">
+                            <div class="c2p-icon">⊞</div>
+                            <div class="c2p-title">X1 멀티차트 — 두 번째 셀</div>
+                            <div class="c2p-sub">레이아웃이 적용되었습니다.<br>두 번째 차트 인스턴스는 다음 단계(X1-b)에서 활성화됩니다.</div>
+                        </div>
+                    </div>
+                    </div><!-- /.chart-grid-wrap -->
+
+                    <!-- Phase X1: 레이아웃 선택 popover -->
+                    <div class="chart-layout-popover" id="chartLayoutPopover" style="display:none;">
+                        <div class="clp-title">차트 분할</div>
+                        <div class="clp-options">
+                            <button class="clp-opt active" data-layout="1" onclick="_xcSetLayout('1')" title="1분할">
+                                <div class="clp-preview"><div class="clp-c"></div></div>
+                                <span>1분할</span>
+                            </button>
+                            <button class="clp-opt" data-layout="2h" onclick="_xcSetLayout('2h')" title="좌우 분할">
+                                <div class="clp-preview clp-preview-2h"><div class="clp-c"></div><div class="clp-c"></div></div>
+                                <span>좌우</span>
+                            </button>
+                            <button class="clp-opt" data-layout="2v" onclick="_xcSetLayout('2v')" title="상하 분할">
+                                <div class="clp-preview clp-preview-2v"><div class="clp-c"></div><div class="clp-c"></div></div>
+                                <span>상하</span>
+                            </button>
+                        </div>
+                    </div>
 
 
                 <!-- 📱 모바일 인라인 종목 전환 바 (차트 바로 아래 sticky) -->
@@ -15479,7 +15517,106 @@
     }
     function _cxtRuler()   { showToast?.('📐 자 기능 — 곧 출시'); }
     function _cxtCompare() { showToast?.('⇌ 종목비교 — 곧 출시'); }
-    function _cxtSplit()   { showToast?.('⊞ 차트분할 — 곧 출시'); }
+    function _cxtSplit(ev) { _xcOpenLayoutPopover(ev); }
+
+    // ══════════════════════════════════════════════════════════
+    // Phase X1: 멀티 차트 그리드 (UI 스캐폴딩)
+    // 단일 차트 인스턴스 보존 → cell-1만 실제 차트, cell-2는 placeholder
+    // 다음 단계 X1-b에서 두 번째 인스턴스 + 셀별 라우팅 활성화 예정
+    // ══════════════════════════════════════════════════════════
+
+    function _xcCurrentLayout() {
+        return localStorage.getItem('stockai_chart_layout') || '1';
+    }
+
+    function _xcOpenLayoutPopover(ev) {
+        if (ev) ev.stopPropagation();
+        const pop = document.getElementById('chartLayoutPopover');
+        if (!pop) return;
+        // 모바일은 분할 UI 차단
+        if (window.innerWidth <= 768) {
+            showToast?.('모바일은 1분할 고정');
+            return;
+        }
+        // 토글
+        if (pop.style.display === 'block') { pop.style.display = 'none'; return; }
+        // 위치 계산 — 트리거 버튼 아래
+        const btn = document.getElementById('cxtSplit');
+        if (btn) {
+            const r = btn.getBoundingClientRect();
+            pop.style.position = 'fixed';
+            pop.style.top  = (r.bottom + 6) + 'px';
+            pop.style.left = Math.max(8, r.left - 40) + 'px';
+        }
+        pop.style.display = 'block';
+        _xcUpdateLayoutUi();
+        // 외부 클릭 시 닫기
+        setTimeout(() => {
+            document.addEventListener('click', _xcDocClickClose, { once: true, capture: true });
+        }, 0);
+    }
+
+    function _xcDocClickClose(e) {
+        const pop = document.getElementById('chartLayoutPopover');
+        const btn = document.getElementById('cxtSplit');
+        if (!pop) return;
+        if (pop.contains(e.target) || btn?.contains(e.target)) {
+            // 내부 클릭 → 다시 리스너 부착
+            document.addEventListener('click', _xcDocClickClose, { once: true, capture: true });
+            return;
+        }
+        pop.style.display = 'none';
+    }
+
+    function _xcUpdateLayoutUi() {
+        const cur = _xcCurrentLayout();
+        document.querySelectorAll('.clp-opt').forEach(b => {
+            b.classList.toggle('active', b.dataset.layout === cur);
+        });
+    }
+
+    /** 레이아웃 적용 — '1' | '2h' | '2v' */
+    function _xcSetLayout(layout) {
+        if (window.innerWidth <= 768 && layout !== '1') {
+            showToast?.('모바일은 1분할만 지원');
+            return;
+        }
+        const grid = document.getElementById('chartGridWrap');
+        const cell2 = document.getElementById('chartCell2');
+        if (!grid) return;
+        grid.setAttribute('data-layout', layout);
+        if (cell2) cell2.style.display = (layout === '1') ? 'none' : '';
+        try { localStorage.setItem('stockai_chart_layout', layout); } catch(_) {}
+        _xcUpdateLayoutUi();
+        // popover 닫기
+        const pop = document.getElementById('chartLayoutPopover');
+        if (pop) pop.style.display = 'none';
+        // 차트 리사이즈 (cell-1 너비 변경됨)
+        setTimeout(() => {
+            try {
+                const wrap = document.getElementById('tvChartWrap');
+                if (wrap && window.lwChart) {
+                    window.lwChart.applyOptions({ width: wrap.clientWidth, height: wrap.clientHeight });
+                }
+            } catch(_) {}
+        }, 60);
+        // cxtSplit 버튼 active 상태
+        const splitBtn = document.getElementById('cxtSplit');
+        if (splitBtn) splitBtn.classList.toggle('active', layout !== '1');
+    }
+
+    /** 새로고침 시 저장된 레이아웃 복원 (모바일은 강제 1분할) */
+    function _xcRestoreLayout() {
+        if (window.innerWidth <= 768) { _xcSetLayout('1'); return; }
+        const saved = _xcCurrentLayout();
+        if (saved !== '1') _xcSetLayout(saved);
+    }
+
+    // 모바일에서 그리드 트리거 버튼 hide
+    function _xcApplyMobileVisibility() {
+        const splitBtn = document.getElementById('cxtSplit');
+        if (splitBtn) splitBtn.style.display = (window.innerWidth <= 768) ? 'none' : '';
+    }
 
     function _ohlcFmtPrice(p) {
         if (p == null || !isFinite(p)) return '—';
@@ -29163,6 +29300,12 @@
 
         // 새로고침 후 전체화면 상태 복원
         if (typeof _restoreFullscreenState === 'function') _restoreFullscreenState();
+        // Phase X1: 멀티차트 레이아웃 복원 + 모바일 visibility
+        if (typeof _xcRestoreLayout === 'function') _xcRestoreLayout();
+        if (typeof _xcApplyMobileVisibility === 'function') _xcApplyMobileVisibility();
+        window.addEventListener('resize', () => {
+            if (typeof _xcApplyMobileVisibility === 'function') _xcApplyMobileVisibility();
+        }, { passive: true });
     });
 
     // ── 5분봉 돌파 단타 컨텍스트 추출 (전일 고점, 당일 박스 상단, 장 시작 후 경과 분 등) ──
@@ -29850,6 +29993,7 @@
         _initShiftDragZoom, _initChartKeyboardShortcuts,
         _cxtOpenIndicators, _cxtDraw, _cxtRuler, _cxtCompare, _cxtSplit,
         _renderChartHeaderAt, _onCrosshairMoveHeader,
+        _xcOpenLayoutPopover, _xcSetLayout, _xcRestoreLayout, _xcUpdateLayoutUi,
         favSearch, removeFavorite, setTop100Filter, goTop100, goCatalyst, loadCatalyst, _catalystSetFilter, switchCatalystTab, loadVolumeSurge, loadMinervini,
         _runCatalystAi, _renderCatalystAiExpanded,
         _runScannerAi, _renderScannerAiResult, _alphaAutoBatchAi, _renderAlphaAiMini,
