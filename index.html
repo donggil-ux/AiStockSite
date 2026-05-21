@@ -16925,7 +16925,7 @@
                     if (v3.pass) {
                         const sg = _gradeForBar(`${t}_buy3`, { ..._gradeOpts }, i === _lastBarIdx);
                         if (_passesGradeFilter(sg.grade, sg.fallback)) {
-                            markers.push({ time: t, position: 'belowBar', color: _gc(sg.grade), shape: 'arrowUp', text: `매수3 [${sg.grade}] ${sg.winRate}%` });
+                            markers.push({ time: t, position: 'belowBar', color: _gc(sg.grade), shape: 'arrowUp', _label: `매수3 [${sg.grade}] ${sg.winRate}%` });
                             window._smartDipAnalysis[t] = { ...v3, num: 3 };
                             lastBuy3Bar = i;
                         }
