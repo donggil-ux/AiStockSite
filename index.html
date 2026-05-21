@@ -17024,9 +17024,9 @@
                                 // 표시값(소수1자리)과 분류 기준 일치 — 반올림 후 판정
                                 if (_pnl != null) _pnl = Math.round(_pnl * 10) / 10;
                                 if (_pnl != null && _pnl <= -7) {
-                                    emoji = '🟣'; headline = `2차 분할매수 검토 — 손실 ${_pnl.toFixed(1)}% (${latest.text})`;
+                                    emoji = '🟣'; headline = `2차 분할매수 검토 — 손실 ${_pnl.toFixed(1)}% (${latest._label||''})`;
                                 } else if (_pnl != null && _pnl <= -3) {
-                                    emoji = '🟣'; headline = `1차 분할매수 검토 — 손실 ${_pnl.toFixed(1)}% (${latest.text})`;
+                                    emoji = '🟣'; headline = `1차 분할매수 검토 — 손실 ${_pnl.toFixed(1)}% (${latest._label||''})`;
                                 } else {
                                     posSkip = true;                     // 수익 중 / 손실 -3% 미만 — 매수 알림 억제
                                 }
@@ -17133,7 +17133,7 @@
                             }
                         } else if (_pa.status === 'watching') {
                             if (isBuy) {
-                                emoji = '🎯'; headline = `관심 종목 진입가 근접 (${latest.text})`;
+                                emoji = '🎯'; headline = `관심 종목 진입가 근접 (${latest._label||''})`;
                             } else {
                                 posSkip = true; // 관망 중(미진입) — 매도 시그널 억제
                             }
@@ -17142,7 +17142,7 @@
                         const _pl = _posLatestForTicker(currentSymbol);
                         if (_pl && _pl.status === 'closed') {
                             emoji = '🔄';
-                            headline = `재진입 검토 시그널 (${latest.text})`;
+                            headline = `재진입 검토 시그널 (${latest._label||''})`;
                         } else {
                             posSkip = true; // 포지션 없으면 알림 억제
                         }
