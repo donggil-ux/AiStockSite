@@ -1311,6 +1311,14 @@
                             <span class="cell-tf" id="cell2Tf">—</span>
                             <button class="cell-close" onclick="event.stopPropagation();_xcCloseCell(2)" aria-label="셀 닫기">✕</button>
                         </div>
+                        <div class="cell-ohlc" id="cell2OhlcBar" style="display:none;">
+                            <span class="co-item"><span class="co-lbl">시작</span> <span id="cell2O" class="co-val">—</span></span>
+                            <span class="co-item"><span class="co-lbl">고가</span> <span id="cell2H" class="co-val co-bull">—</span></span>
+                            <span class="co-item"><span class="co-lbl">저가</span> <span id="cell2L" class="co-val co-bear">—</span></span>
+                            <span class="co-item"><span class="co-lbl">종가</span> <span id="cell2C" class="co-val">—</span><span id="cell2Chg" class="co-chg">—</span></span>
+                            <button class="co-toggle" id="cell2LegendBtn" onclick="event.stopPropagation();_xcToggleLegend('cell2')">∧</button>
+                        </div>
+                        <div class="cell-legend" id="cell2Legend"></div>
                         <div id="tvChartWrap2" class="xc-chart-wrap">
                             <div class="xc-activate-overlay" onclick="_xcActivate('cell2')">
                                 <div class="xc-act-icon">⊞</div>
@@ -1328,6 +1336,14 @@
                             <span class="cell-tf" id="cell3Tf">—</span>
                             <button class="cell-close" onclick="event.stopPropagation();_xcCloseCell(3)" aria-label="셀 닫기">✕</button>
                         </div>
+                        <div class="cell-ohlc" id="cell3OhlcBar" style="display:none;">
+                            <span class="co-item"><span class="co-lbl">시작</span> <span id="cell3O" class="co-val">—</span></span>
+                            <span class="co-item"><span class="co-lbl">고가</span> <span id="cell3H" class="co-val co-bull">—</span></span>
+                            <span class="co-item"><span class="co-lbl">저가</span> <span id="cell3L" class="co-val co-bear">—</span></span>
+                            <span class="co-item"><span class="co-lbl">종가</span> <span id="cell3C" class="co-val">—</span><span id="cell3Chg" class="co-chg">—</span></span>
+                            <button class="co-toggle" id="cell3LegendBtn" onclick="event.stopPropagation();_xcToggleLegend('cell3')">∧</button>
+                        </div>
+                        <div class="cell-legend" id="cell3Legend"></div>
                         <div id="tvChartWrap3" class="xc-chart-wrap">
                             <div class="xc-activate-overlay" onclick="_xcActivate('cell3')">
                                 <div class="xc-act-icon">⊟</div>
@@ -17052,11 +17068,36 @@
             if (_xcActiveCellId !== cellId) _xcActivate(cellId);
         });
 
-        // 십자선 이동 시 OHLC tooltip + 차트 헤더 갱신 (활성 셀일 때만)
-        // X3b: 활성 셀일 때 다른 셀에도 십자선 브로드캐스트
+        // 십자선 이동 시 OHLC tooltip + 차트 헤더 갱신
+        // X3b: 활성 셀 → 다른 셀 브로드캐스트 / 비활성 셀 → 자체 OHLC 바 갱신
         try {
             chart.subscribeCrosshairMove(param => {
-                if (_xcActiveCellId !== cellId) return;
+                if (_xcActiveCellId !== cellId) {
+                    // 비활성 셀: OHLC 바 실시간 갱신
+                    if (cellId !== 'cell1') {
+                        try {
+                            const num = cellId.slice(4);
+                            if (param?.time) {
+                                const bar2 = param.seriesData?.get(candleSeries);
+                                if (bar2?.open != null) {
+                                    const cell2r = _xcCells[cellId];
+                                    const mkt2 = cell2r?.market || 'US';
+                                    const fmt2 = p => p == null ? '—' : (mkt2 === 'KR' ? Math.round(p).toLocaleString() : '$' + p.toFixed(2));
+                                    const set2 = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+                                    set2('cell' + num + 'O', fmt2(bar2.open));
+                                    set2('cell' + num + 'H', fmt2(bar2.high));
+                                    set2('cell' + num + 'L', fmt2(bar2.low));
+                                    set2('cell' + num + 'C', fmt2(bar2.close));
+                                    const chgEl2 = document.getElementById('cell' + num + 'Chg');
+                                    if (chgEl2) chgEl2.textContent = '';
+                                }
+                            } else {
+                                _xcUpdateCellOhlc(cellId); // 마우스 떠날 때 마지막 봉 복원
+                            }
+                        } catch(_) {}
+                    }
+                    return;
+                }
                 try { _onCrosshairMoveOhlc(param); } catch(_) {}
                 try { _onCrosshairMoveHeader(param); } catch(_) {}
                 _xcBroadcastCrosshair(cellId, param?.time ?? null);
@@ -17123,6 +17164,14 @@
                 + '<div class="xc-act-sub">심볼을 헤더에서 변경할 수 있습니다</div>'
                 + '</div>';
         }
+        // OHLC 바 + 범례 초기화
+        const _dNum = cellId.slice(4);
+        const _dOhlc = document.getElementById('cell' + _dNum + 'OhlcBar');
+        const _dLeg  = document.getElementById('cell' + _dNum + 'Legend');
+        if (_dOhlc) _dOhlc.style.display = 'none';
+        if (_dLeg)  { _dLeg.innerHTML = ''; _dLeg.classList.remove('cl-collapsed'); }
+        const _dBtn = document.getElementById('cell' + _dNum + 'LegendBtn');
+        if (_dBtn) _dBtn.textContent = '∧';
 
         // 이 셀이 활성이었으면 cell1 으로 복귀
         if (_xcActiveCellId === cellId) {
@@ -17249,6 +17298,7 @@
         const tf2El  = document.getElementById('cell2Tf');
         if (sym2El) sym2El.textContent = c2?.symbol || '—';
         if (tf2El)  tf2El.textContent  = c2?.tf     || '—';
+        _xcUpdateCellOhlc('cell2');
 
         // cell3 헤더
         const c3 = _xcCells['cell3'];
@@ -17256,6 +17306,99 @@
         const tf3El  = document.getElementById('cell3Tf');
         if (sym3El) sym3El.textContent = c3?.symbol || '—';
         if (tf3El)  tf3El.textContent  = c3?.tf     || '—';
+        _xcUpdateCellOhlc('cell3');
+    }
+
+    /** OHLC 바를 cell._lastQ 의 마지막 봉으로 채우기 */
+    function _xcUpdateCellOhlc(cellId) {
+        const num = cellId.slice(4); // 'cell2' → '2'
+        const cell = _xcCells[cellId];
+        const bar  = document.getElementById('cell' + num + 'OhlcBar');
+        const leg  = document.getElementById('cell' + num + 'Legend');
+        if (!bar) return;
+        if (!cell || !cell._lastQ) { bar.style.display = 'none'; return; }
+
+        const q = cell._lastQ;
+        const mkt = cell.market;
+        const fmt = p => p == null ? '—' : (mkt === 'KR' ? Math.round(p).toLocaleString() : '$' + p.toFixed(2));
+        // 마지막 유효 인덱스
+        let idx = (q.close || []).length - 1;
+        while (idx > 0 && q.close[idx] == null) idx--;
+
+        const O = q.open?.[idx], H = q.high?.[idx], L = q.low?.[idx], C = q.close?.[idx];
+        const prevC = idx > 0 ? q.close?.[idx - 1] : null;
+
+        bar.style.display = 'flex';
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        set('cell' + num + 'O', fmt(O));
+        set('cell' + num + 'H', fmt(H));
+        set('cell' + num + 'L', fmt(L));
+        set('cell' + num + 'C', fmt(C));
+
+        const chgEl = document.getElementById('cell' + num + 'Chg');
+        if (chgEl && C != null && prevC != null && prevC !== 0) {
+            const chg = (C - prevC) / prevC * 100;
+            chgEl.textContent = ' (' + (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%)';
+            chgEl.style.color = chg >= 0 ? '#ef4444' : '#3b82f6';
+        } else if (chgEl) {
+            chgEl.textContent = '';
+        }
+
+        // 지표 범례 채우기 (EMA + BB)
+        if (leg) _xcFillCellLegend(leg, q, mkt, idx);
+    }
+
+    /** 지표 범례 HTML 생성 */
+    function _xcFillCellLegend(legEl, q, mkt, idx) {
+        try {
+            const fmt = p => p == null ? '—' : (mkt === 'KR' ? Math.round(p).toLocaleString() : '$' + p.toFixed(2));
+            const rows = [];
+            // EMA
+            try {
+                const e20 = calcEMA(q.close, 20);
+                const e50 = calcEMA(q.close, 50);
+                const v20 = e20[idx], v50 = e50[idx];
+                if (v20 != null || v50 != null) {
+                    rows.push(
+                        '<div class="cl-row">' +
+                        '<span class="cl-swatch" style="background:#22C55E;"></span>' +
+                        '<span class="cl-name">이동평균선</span>' +
+                        '<span class="cl-vals">' +
+                        (v20 != null ? '<span class="cl-kv"><span class="cl-k">20</span><span class="cl-v" style="color:#22C55E">' + fmt(v20) + '</span></span>' : '') +
+                        (v50 != null ? '<span class="cl-kv"><span class="cl-k">50</span><span class="cl-v" style="color:#f59e0b">' + fmt(v50) + '</span></span>' : '') +
+                        '</span></div>'
+                    );
+                }
+            } catch(_) {}
+            // BB
+            try {
+                const bb = calcBollingerBands(q.close, 20, 2);
+                const mid = bb.middle?.[idx], up = bb.upper?.[idx], lo = bb.lower?.[idx];
+                if (mid != null) {
+                    rows.push(
+                        '<div class="cl-row">' +
+                        '<span class="cl-swatch" style="background:#818CF8;"></span>' +
+                        '<span class="cl-name">볼린저 밴드</span>' +
+                        '<span class="cl-vals">' +
+                        '<span class="cl-kv"><span class="cl-k">중심</span><span class="cl-v">' + fmt(mid) + '</span></span>' +
+                        '<span class="cl-kv"><span class="cl-k">상단</span><span class="cl-v" style="color:#ef4444">' + fmt(up) + '</span></span>' +
+                        '<span class="cl-kv"><span class="cl-k">하단</span><span class="cl-v" style="color:#3b82f6">' + fmt(lo) + '</span></span>' +
+                        '</span></div>'
+                    );
+                }
+            } catch(_) {}
+            legEl.innerHTML = rows.join('');
+        } catch(_) { legEl.innerHTML = ''; }
+    }
+
+    /** 범례 접기/펼치기 토글 */
+    function _xcToggleLegend(cellId) {
+        const num = cellId.slice(4);
+        const leg = document.getElementById('cell' + num + 'Legend');
+        const btn = document.getElementById('cell' + num + 'LegendBtn');
+        if (!leg) return;
+        const collapsed = leg.classList.toggle('cl-collapsed');
+        if (btn) btn.textContent = collapsed ? '∨' : '∧';
     }
 
     /** 멀티차트 전체 상태 localStorage 저장 */
@@ -32186,6 +32329,7 @@
         _indRebuildSeries, _indRefreshPanel,
         _renderChartHeaderAt, _onCrosshairMoveHeader,
         _xcOpenLayoutPopover, _xcSetLayout, _xcCloseCell, _xcRestoreLayout, _xcUpdateLayoutUi,
+        _xcToggleLegend,
         _xcActivate, _xcPromptSymbol, _xcCreateCell, _xcDestroyCell, _xcUpdateCellHeaders,
         _xcToggleSync, _xcOpenSyncPopover, _xcUpdateSyncUi,
         favSearch, removeFavorite, setTop100Filter, goTop100, goCatalyst, loadCatalyst, _catalystSetFilter, switchCatalystTab, loadVolumeSurge, loadMinervini,
