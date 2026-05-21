@@ -2397,6 +2397,12 @@
         searchStock();
     }
 
+    // selectStock — RS 강세주 chip / catalyst 카드 등에서 호출 (대부분 US 종목)
+    // 미정의 시 onclick 에러 발생 → quickSearch 위임 함수로 안전 처리
+    function selectStock(symbol, market) {
+        quickSearch(symbol, market || 'US');
+    }
+
     // ========================================
     // Tab Navigation
     // ========================================
@@ -13127,9 +13133,7 @@
 
             try { renderMyPosition(); } catch (e) { console.warn("[mypos] render fail", e); }
             try { if (typeof renderGuruHolders === 'function' && typeof currentSymbol !== 'undefined') renderGuruHolders(currentSymbol); } catch {}
-            renderRSIMomentum();
-            renderMACDSignal();
-            renderVolumeChart();
+            // RSI 모멘텀 / MACD / Volume 카드 — 종목 기본 정보 그룹 제거(v730)되어 target div 없음, 호출 생략
 
             // 추가 API 호출이 필요한 것들은 병렬로 실행 (await 안 함 → UI 블로킹 없음)
             fetchMarketSession(symbol);
@@ -13840,9 +13844,7 @@
 
             try { renderMyPosition(); } catch (e) { console.warn("[mypos] render fail", e); }
             try { if (typeof renderGuruHolders === 'function' && typeof currentSymbol !== 'undefined') renderGuruHolders(currentSymbol); } catch {}
-            renderRSIMomentum();
-            renderMACDSignal();
-            renderVolumeChart();
+            // RSI 모멘텀 / MACD / Volume 카드 — 종목 기본 정보 그룹 제거(v730)되어 target div 없음, 호출 생략
             updateAnalysisTimestamp();
         } catch(e) { /* 네트워크 오류 시 조용히 무시 */ }
     }
@@ -29695,7 +29697,7 @@
         loadGuruHome, goSmartMoneyAndOpenReal, guruRefresh, _guruImgErr, _searchGuruByTicker,
         _applyGuruFilter, _guruFilterPos, _guruRefreshLatest,
         setMarket, searchStock, setChartInterval, setPeriod, _toggleIntervalDropdown,
-        quickSearch, toggleFavorite, switchTab, toggleChartFullscreen, _restoreFullscreenState,
+        quickSearch, selectStock, toggleFavorite, switchTab, toggleChartFullscreen, _restoreFullscreenState,
         _ctrOpenAnalysis, _ctrOpenLine, _ctrCapturePng, _ctrSettings,
         _cnbZoom, _cnbPan, _cnbReset, _cnbSetPreset, _cnbUpdatePresetUi, _cnbDeactivatePreset,
         _chartJumpToLatest, _updateJumpBtnVisibility, _initJumpBtnObserver,
