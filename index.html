@@ -17204,7 +17204,10 @@
         if (_cellEl) _cellEl.classList.add('xc-loading');
 
         const { candleSeries, volSeries, fullSymbol, tf } = cell;
-        const period = '6mo';
+        // Yahoo Finance range limits: 5m/15m/30m → max 1mo, 1h → max 2y, 1d+ → 6mo
+        const period = (tf === '5m' || tf === '15m' || tf === '30m') ? '1mo'
+                     : (tf === '1h') ? '1y'
+                     : '6mo';
 
         try {
             const url = '/api/chart/' + encodeURIComponent(fullSymbol)
@@ -17213,8 +17216,9 @@
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
             const data = await resp.json();
 
-            const ts = data.timestamp;
-            const q  = data.indicators?.quote?.[0];
+            const result = data?.chart?.result?.[0];
+            const ts = result?.timestamp;
+            const q  = result?.indicators?.quote?.[0];
             if (!ts || !q) {
                 if (_cellEl) _cellEl.classList.remove('xc-loading');
                 return;
@@ -17262,8 +17266,9 @@
                 const resp = await fetch(url);
                 if (!resp.ok) return;
                 const data = await resp.json();
-                const ts2 = data.timestamp;
-                const q2  = data.indicators?.quote?.[0];
+                const _r2  = data?.chart?.result?.[0];
+                const ts2  = _r2?.timestamp;
+                const q2   = _r2?.indicators?.quote?.[0];
                 if (!ts2?.length || !q2) return;
                 const i = ts2.length - 1;
                 const bar = {
