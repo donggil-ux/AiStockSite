@@ -109,6 +109,10 @@
 
     // 이벤트 바인딩 (DOM 준비 후 실행)
     window.addEventListener('DOMContentLoaded', () => {
+        // alpha-home.js 에서 호출 못한 함수들 (app.js 정의, 이 시점엔 모든 파일 로드 완료)
+        try { loadSocialHot(); } catch(e) {}
+        try { loadOptionsPopular(); } catch(e) {}
+
         // 그룹 아코디언 localStorage 키 정리 (아코디언 제거됨)
         try { ['groupTradePlan','groupSystem','groupDayTrade'].forEach(id => localStorage.removeItem('stockai_group_'+id+'_collapsed')); localStorage.removeItem('stockai_group_mobile_init'); } catch(e) {}
 

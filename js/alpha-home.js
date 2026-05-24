@@ -1883,13 +1883,14 @@
     loadPremarketScanner();
     loadSwingRadar();
     loadRecentStocks();
-    loadSocialHot();
+    // loadSocialHot / loadOptionsPopular → app.js 정의, DOMContentLoaded 후 app.js에서 호출
+    if (typeof loadSocialHot === 'function') loadSocialHot();
     loadVolAlert();
     loadMarketThermometer();
     // loadAIRecommend / loadHotStocks — v530에서 완전 제거됨
     loadGuruHome();
     loadEarnHome();
-    loadOptionsPopular();
+    if (typeof loadOptionsPopular === 'function') loadOptionsPopular();
     loadAlphaHomePreview();
 
     // ────────────────────────────────────────────────────────────
