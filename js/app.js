@@ -178,8 +178,7 @@
         _setupMinerviniSchedule();
     });
 
-    // 백엔드 API 베이스 URL (같은 도메인 서빙 시 빈 문자열)
-    const API_BASE = '';
+    // 백엔드 API 베이스 URL — state.js / alpha-home.js에 이미 선언됨, 중복 제거
 
     // ========================================
 
@@ -4982,7 +4981,7 @@
 setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawToolbar, toggleDrawMagnet, addAutoTrendAngle, toggleChartLabels, toggleChartSound,
         toggleTheme, showLoading, hideLoading, showToast, showSnackbar,
         openChangelog, closeChangelog,
-        loadOptionsDate, setOptionsFilter,
+        loadOptionsDate, renderOptionsTab, setOptionsFilter,
         setOptionsStrikeRange, toggleOptionsVolFilter, sortOptionsBy,
         manualAnalysisRefresh, pwaInstall,
         toggleChartSigLines, toggleKullamagiLayer, toggleSplitBuyLayer, toggleSplitGroup, _toggleSplitGroup, getSplitBuyCoeff, togglePullbackLayer, toggleTpLevel, toggleSrLayer, toggleSrMode, toggleSigHistoryPanel, _renderSigHistoryPanel, _updateSigHistoryBadge,
