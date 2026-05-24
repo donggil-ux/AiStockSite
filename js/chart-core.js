@@ -791,7 +791,7 @@
                 showToast?.('차트 PNG 저장됨');
             }, 'image/png');
         } catch (e) {
-            console.warn('[capturePng]', e);
+            warn('[capturePng]', e);
             showToast?.('캡쳐 중 오류');
         }
     }
@@ -823,7 +823,7 @@
             _cnbProgrammaticRangeChange = true;
             ts.setVisibleLogicalRange({ from: mid - newWidth, to: mid + newWidth });
             setTimeout(() => { _cnbProgrammaticRangeChange = false; }, 200);
-        } catch(e) { console.warn('[cnbZoom]', e); }
+        } catch(e) { warn('[cnbZoom]', e); }
     }
 
     /** delta 봉수만큼 좌/우 이동 (음수=과거, 양수=최신) */
@@ -837,7 +837,7 @@
             _cnbProgrammaticRangeChange = true;
             ts.setVisibleLogicalRange({ from: r.from + delta, to: r.to + delta });
             setTimeout(() => { _cnbProgrammaticRangeChange = false; }, 200);
-        } catch(e) { console.warn('[cnbPan]', e); }
+        } catch(e) { warn('[cnbPan]', e); }
     }
 
     /** 줌·스크롤 리셋 — 활성 프리셋 있으면 그 범위로, 없으면 fitContent */
@@ -848,7 +848,7 @@
         }
         const ts = _cnbGetTimeScale();
         if (!ts) return;
-        try { ts.fitContent(); } catch(e) { console.warn('[cnbReset]', e); }
+        try { ts.fitContent(); } catch(e) { warn('[cnbReset]', e); }
     }
 
     // ══════════════════════════════════════════════════════════

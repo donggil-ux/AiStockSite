@@ -44,10 +44,10 @@
             const result = renderFn();
             // async 함수면 rejected promise도 잡아서 로그만 남김
             if (result && typeof result.catch === 'function') {
-                result.catch(err => console.warn(`[탭:${tabName}] 비동기 렌더 실패:`, err));
+                result.catch(err => warn(`[탭:${tabName}] 비동기 렌더 실패:`, err));
             }
         } catch (err) {
-            console.warn(`[탭:${tabName}] 렌더 실패:`, err);
+            warn(`[탭:${tabName}] 렌더 실패:`, err);
             _renderTabError(tabName);
         }
     }
@@ -306,7 +306,7 @@
             host.classList.add('show');
         } catch (e) {
             // 조용히 실패 — UI 블로킹 방지
-            console.warn('[52W] render failed:', e?.message || e);
+            warn('[52W] render failed:', e?.message || e);
         }
     }
 
@@ -454,7 +454,7 @@
             `;
             host.classList.add('show');
         } catch (e) {
-            console.warn('[LongStats] render failed:', e?.message || e);
+            warn('[LongStats] render failed:', e?.message || e);
         }
     }
 
@@ -706,16 +706,16 @@
             renderEntryTiming();
             renderAIAnalysis();
             renderRRAnalysis();
-            try { _renderMultiFactorCard(); } catch (e) { console.warn('[mf] render fail', e); }
-            try { _renderSEPACard(); } catch (e) { console.warn('[sepa-card] render fail', e); }
-            try { renderMinerviniSEPA(); } catch (e) { console.warn('[sepa-chart] render fail', e); }
+            try { _renderMultiFactorCard(); } catch (e) { warn('[mf] render fail', e); }
+            try { _renderSEPACard(); } catch (e) { warn('[sepa-card] render fail', e); }
+            try { renderMinerviniSEPA(); } catch (e) { warn('[sepa-chart] render fail', e); }
             try { // SEPA 토글 상태 적용
                 const _sepaEl = document.getElementById('sepaAnalysis');
                 if (_sepaEl) { if (typeof _chartSepaEnabled !== 'undefined' && !_chartSepaEnabled) _sepaEl.classList.add('sepa-hidden'); else _sepaEl.classList.remove('sepa-hidden'); }
             } catch(_) {}
-            try { renderSwingAnalysis(); } catch (e) { console.warn('[swing] render fail', e); }
+            try { renderSwingAnalysis(); } catch (e) { warn('[swing] render fail', e); }
 
-            try { renderMyPosition(); } catch (e) { console.warn("[mypos] render fail", e); }
+            try { renderMyPosition(); } catch (e) { warn("[mypos] render fail", e); }
             try { if (typeof renderGuruHolders === 'function' && typeof currentSymbol !== 'undefined') renderGuruHolders(currentSymbol); } catch {}
             // RSI 모멘텀 / MACD / Volume 카드 — 종목 기본 정보 그룹 제거(v730)되어 target div 없음, 호출 생략
             updateAnalysisTimestamp();
@@ -860,7 +860,7 @@
                     symbols: [symbol.replace(/\.(KS|KQ)$/i, '').toUpperCase()],
                 }));
                 _wsShowBadge(true);
-                console.log('[alpaca-ws] connected:', symbol);
+                log('[alpaca-ws] connected:', symbol);
             };
 
             _alpacaWs.onmessage = (event) => {
@@ -911,7 +911,7 @@
 
             _alpacaWs.onerror = () => {
                 _wsShowBadge(false);
-                console.warn('[alpaca-ws] error');
+                warn('[alpaca-ws] error');
             };
 
             _alpacaWs.onclose = () => {
@@ -925,7 +925,7 @@
                 }, 5000);
             };
         } catch(e) {
-            console.warn('[alpaca-ws] init failed:', e.message);
+            warn('[alpaca-ws] init failed:', e.message);
         }
     }
 
@@ -985,7 +985,7 @@
                         }
                     }
                 } catch(pe) {
-                    console.warn('[polygon] fallback to yahoo:', pe.message);
+                    warn('[polygon] fallback to yahoo:', pe.message);
                 }
             }
             // ── Kiwoom 우선 시도 (국내 종목만) ─────────────────────────
@@ -1020,7 +1020,7 @@
                         }
                     }
                 } catch(ke) {
-                    console.warn('[kiwoom] fallback to yahoo:', ke.message);
+                    warn('[kiwoom] fallback to yahoo:', ke.message);
                 }
             }
             // ── Yahoo Finance 폴백 ───────────────────────────────────
@@ -1049,7 +1049,7 @@
         } catch(e) { /* 폴링 실패는 조용히 무시 */ }
         // [디버그] 등급 캐시 안정성 모니터링 (확인 후 제거)
         try {
-            console.log('[poll]', {
+            log('[poll]', {
                 symbol: currentSymbol,
                 candleCount: _lastSigArgs?.candleData?.length || 0,
                 gradesCached: Object.keys(_signalGrades).length,
@@ -1074,7 +1074,7 @@
                 changeEl.style.color = d.changePct >= 0 ? '#22C55E' : '#EF4444';
             }
         } catch(e) {
-            console.warn('[kiwoom price]', e.message);
+            warn('[kiwoom price]', e.message);
         }
     }
 
@@ -3390,7 +3390,7 @@
         _clearMinerviniChartLines();
 
         let setup = null;
-        try { setup = _detectMinerviniSetup(cd); } catch(e) { console.warn('[mv setup]', e.message); }
+        try { setup = _detectMinerviniSetup(cd); } catch(e) { warn('[mv setup]', e.message); }
         if (!setup) return;
 
         // ── SigBar 배지 ─────────────────────────────────────────────

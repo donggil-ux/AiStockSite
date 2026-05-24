@@ -263,7 +263,7 @@
             // suspend 상태면 resume 완료 후 재생 (currentTime 유효성 보장)
             if (ctx.state === 'suspended') ctx.resume().then(fire).catch(() => {});
             else fire();
-        } catch (e) { console.warn('[sig-sound]', e?.message); }
+        } catch (e) { warn('[sig-sound]', e?.message); }
     }
 
     // 음성 안내 — "{종목} 매수/매도" 읽어주기 (v699)
@@ -658,7 +658,7 @@
         if (_lastSymbolForGrades !== currentSymbol) {
             _signalGrades = {};
             _lastSymbolForGrades = currentSymbol;
-            console.log('[grade] cache invalidated for', currentSymbol);
+            log('[grade] cache invalidated for', currentSymbol);
         }
     }
 
@@ -1128,7 +1128,7 @@
             if (_finalMarkers && _finalMarkers.length > 0) {
                 lwCandleSeries.setMarkers(_finalMarkers);
             }
-        } catch(e) { console.warn('[markers]', e.message); }
+        } catch(e) { warn('[markers]', e.message); }
 
         // 3.5) 새 시그널 감지 → 토스트 (폴링으로 신규 마커 도착 시)
         const latest = uniqMarkers[uniqMarkers.length - 1];
@@ -1455,22 +1455,22 @@
         } // end if (_chartLinesEnabled) — 보조지표 가격 라인 블록 끝
 
         // 6) Kullamägi 레이어 — _chartKullamagiEnabled 자체 플래그로 제어 (sig_lines와 독립)
-        try { _renderKullamagiLayer(q, ts, bb); } catch (e) { console.warn('[kull] render fail', e); }
+        try { _renderKullamagiLayer(q, ts, bb); } catch (e) { warn('[kull] render fail', e); }
 
         // 7) 6번 역피라미딩 분할매수 레이어 — _chartSplitEnabled 자체 플래그 (독립 모듈)
         // Smart Dip 활성 시 SD 레이어가 분할매수를 대신 처리하므로 중복 방지
         if (_chartSplitEnabled && !_chartSmartDipEnabled) {
-            try { _renderSplitBuyLayer(q, ts); } catch (e) { console.warn('[split] render fail', e); }
+            try { _renderSplitBuyLayer(q, ts); } catch (e) { warn('[split] render fail', e); }
         }
 
         // 8) 눌림목 감지 레이어 — _chartPullbackEnabled 자체 플래그 (독립 모듈)
-        try { _renderPullbackLayer(q, ts); } catch (e) { console.warn('[pullback] render fail', e); }
+        try { _renderPullbackLayer(q, ts); } catch (e) { warn('[pullback] render fail', e); }
 
         // 9) 지지/저항선 자동 감지 레이어 (5봉 피벗 + 1~5★ 강도 평가)
-        try { _renderSrLayer(q, ts); } catch (e) { console.warn('[sr] render fail', e); }
+        try { _renderSrLayer(q, ts); } catch (e) { warn('[sr] render fail', e); }
 
         // 10) Smart Dip — 눌림목 피보나치 분할매수 레이어
-        try { _renderSmartDipLayer(q, ts); } catch (e) { console.warn('[smartdip] render fail', e); }
+        try { _renderSmartDipLayer(q, ts); } catch (e) { warn('[smartdip] render fail', e); }
 
         } // end if (_doRebuild) — 가격 라인 재빌드 블록 끝
     }
@@ -1729,7 +1729,7 @@
 
     // ── 등급 필터 함수 ──────────────────────────────────────────────
     function _setMinGrade(grade) {
-        console.log('[grade] filter changed:', grade);
+        log('[grade] filter changed:', grade);
         _minGradeFilter = grade;
         localStorage.setItem('stockai_min_grade', grade);
         // 버튼 활성화 UI (grade-btn 레거시 + grade-seg-btn 모두 지원)
@@ -1746,7 +1746,7 @@
                 console.error('[grade] render fail', e);
             }
         } else {
-            console.warn('[grade] _lastSigArgs is null — open a stock first');
+            warn('[grade] _lastSigArgs is null — open a stock first');
         }
     }
 
@@ -1882,7 +1882,7 @@
             if (!r.ok) return;
             const d = await r.json();
             if (d?.candles?.length) window._spxCache = d.candles;
-        } catch(e) { console.warn('[spx cache]', e.message); }
+        } catch(e) { warn('[spx cache]', e.message); }
     }
 
     // renderSmartDipQuality 제거됨 (v830)

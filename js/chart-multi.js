@@ -507,7 +507,7 @@
             if (_cellEl) _cellEl.classList.remove('xc-loading');
         } catch(e) {
             if (_cellEl) _cellEl.classList.remove('xc-loading');
-            console.warn('[xc] loadCellData ' + cellId + ' fail:', e.message);
+            warn('[xc] loadCellData ' + cellId + ' fail:', e.message);
         }
     }
 

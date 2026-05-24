@@ -16,7 +16,7 @@
         const SHORT_INTERVALS = new Set(['1m','2m','5m','15m','30m','60m','90m','1h']);
         const LONG_RANGES     = new Set(['1mo','3mo','6mo','1y','2y','5y','10y','ytd','max']);
         if (SHORT_INTERVALS.has(currentInterval) && LONG_RANGES.has(currentPeriod)) {
-            console.warn('[chart-prefs] 불법 조합 감지 — 리셋:', currentPeriod, currentInterval);
+            warn('[chart-prefs] 불법 조합 감지 — 리셋:', currentPeriod, currentInterval);
             currentPeriod = '6mo';
             currentInterval = '1d';
             try {
@@ -191,7 +191,7 @@
     try {
         if (sessionStorage.getItem('_alphaCacheVersion') !== _ALPHA_CACHE_VERSION) {
             sessionStorage.setItem('_alphaCacheVersion', _ALPHA_CACHE_VERSION);
-            console.log('[alphaHome] 캐시 버전 변경 →', _ALPHA_CACHE_VERSION);
+            log('[alphaHome] 캐시 버전 변경 →', _ALPHA_CACHE_VERSION);
         }
     } catch(e) {}
     // 상장폐지 필터용 캐시: { ticker → { valid: bool, ts: number } }

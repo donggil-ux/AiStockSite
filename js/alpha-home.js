@@ -1051,7 +1051,7 @@
                     if (top100Filter === filter) renderTop100(items);
                     return;
                 }
-            } catch(e) { console.warn('[top100 oversold]', e); }
+            } catch(e) { warn('[top100 oversold]', e); }
             const grid = document.getElementById('top100Grid');
             if (grid && top100Filter === filter) grid.innerHTML = '<div class="top100-loading">데이터를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.</div>';
             return;
@@ -1408,12 +1408,12 @@
         if (!box || !txtEl || !symbol) return;
         try {
             const res = await fetch(`/api/news-reason?symbols=${encodeURIComponent(symbol)}`);
-            if (!res.ok) { console.warn('[reason] HTTP', res.status); return; }
+            if (!res.ok) { warn('[reason] HTTP', res.status); return; }
             const map = await res.json();
             const text = map[symbol] || '';
             if (text) { txtEl.textContent = text; box.hidden = false; }
-            else console.info('[reason] empty for', symbol);
-        } catch (e) { console.warn('[reason] fetch fail', e?.message); }
+            else info('[reason] empty for', symbol);
+        } catch (e) { warn('[reason] fetch fail', e?.message); }
     }
 
     function renderTop100(items) {
@@ -3920,7 +3920,7 @@
                             items = d?.finance?.result?.[0]?.quotes || [];
                             if (items.length) top100Cache['day_gainers'] = { items, ts: Date.now() };
                         }
-                    } catch(e) { console.warn('[alpha day_gainers fetch]', e); }
+                    } catch(e) { warn('[alpha day_gainers fetch]', e); }
                 }
                 if (_alphaTab !== tab) return;
                 if (!items.length) {
@@ -4032,7 +4032,7 @@
             `;
             el.innerHTML = html;
         } catch (e) {
-            console.warn('[social-scan]', e);
+            warn('[social-scan]', e);
             if (_alphaTab === 'social') el.innerHTML = '<div class="sniper-empty">데이터 로드 실패 — 잠시 후 다시 시도하세요</div>';
         }
     }
@@ -4318,7 +4318,7 @@
                 const seen = new Set(pool.map(q => q.symbol));
                 extra.forEach(q => { if (!seen.has(q.symbol)) { pool.push(q); seen.add(q.symbol); } });
             }
-        } catch (e) { console.warn('[dante-scan]', e); }
+        } catch (e) { warn('[dante-scan]', e); }
         if (_alphaTab !== 'dante') return;
         if (!pool.length) {
             el.innerHTML = '<div class="sniper-empty">데이터를 불러올 수 없습니다 — 잠시 후 다시 시도하세요</div>';
@@ -4371,34 +4371,34 @@
     }
 
     async function _alphaHomeFetchItems(tab) {
-        console.log('[alphaHome] 시작:', tab);
+        log('[alphaHome] 시작:', tab);
 
         const cached = _alphaHomeCache[tab];
         if (cached && (Date.now() - cached.ts) < _ALPHA_HOME_TTL) {
-            console.log('[alphaHome] 캐시 사용:', tab, cached.items.length + '개');
+            log('[alphaHome] 캐시 사용:', tab, cached.items.length + '개');
             return cached.items;
         }
 
         let items = [];
         try {
             if (tab === 'bounce') {
-                console.log('[alphaHome] API 호출: /api/oversold-radar?tab=oversold');
+                log('[alphaHome] API 호출: /api/oversold-radar?tab=oversold');
                 const r = await _alphaFetch('/api/oversold-radar?tab=oversold');
-                console.log('[alphaHome] API 응답:', r.status, r.ok ? 'OK' : 'FAIL');
+                log('[alphaHome] API 응답:', r.status, r.ok ? 'OK' : 'FAIL');
                 if (!r.ok) throw new Error('http ' + r.status);
 
                 const d = await r.json();
                 const raw = (d.items || []);
-                console.log('[alphaHome] raw 데이터:', raw.length + '개', '| d.error:', d.error || '없음');
+                log('[alphaHome] raw 데이터:', raw.length + '개', '| d.error:', d.error || '없음');
 
                 // 필터 단계
                 let filtered = [];
                 try {
                     filtered = raw.filter(item => {
                         try { return _isClearlyOversold(item); }
-                        catch(e) { console.warn('[isClearlyOversold 에러]', item?.symbol, e.message); return false; }
+                        catch(e) { warn('[isClearlyOversold 에러]', item?.symbol, e.message); return false; }
                     });
-                    console.log('[alphaHome] 필터 후:', filtered.length + '개');
+                    log('[alphaHome] 필터 후:', filtered.length + '개');
                 } catch(e) {
                     console.error('[alphaHome] 필터 단계 실패:', e);
                     throw e;
@@ -4409,9 +4409,9 @@
                 try {
                     scored = filtered.map(item => {
                         try { return { item, signals: _calcBounceScore(item) }; }
-                        catch(e) { console.warn('[calcBounceScore 에러]', item?.symbol, e.message); return { item, signals: [] }; }
+                        catch(e) { warn('[calcBounceScore 에러]', item?.symbol, e.message); return { item, signals: [] }; }
                     });
-                    console.log('[alphaHome] 점수 계산 후:', scored.length + '개');
+                    log('[alphaHome] 점수 계산 후:', scored.length + '개');
                 } catch(e) {
                     console.error('[alphaHome] 점수 단계 실패:', e);
                     throw e;
@@ -4420,15 +4420,15 @@
                 items = scored
                     .sort((a, b) => b.signals.length - a.signals.length)
                     .map(({ item, signals }) => ({ ...item, _alphaKind: 'bounce', _bounceSignals: signals }));
-                console.log('[alphaHome] bounce 최종:', items.length + '개');
+                log('[alphaHome] bounce 최종:', items.length + '개');
 
             } else if (tab === 'swing') {
-                console.log('[alphaHome] swing 탭 처리');
+                log('[alphaHome] swing 탭 처리');
                 let raw = (top100Cache?.['day_gainers']?.items) || [];
                 if (!raw.length) {
-                    console.log('[alphaHome] swing API 호출');
+                    log('[alphaHome] swing API 호출');
                     const r = await _alphaFetch('/api/screener/day_gainers?count=100');
-                    console.log('[alphaHome] swing 응답:', r.status);
+                    log('[alphaHome] swing 응답:', r.status);
                     if (r.ok) {
                         const d = await r.json();
                         raw = d?.finance?.result?.[0]?.quotes || [];
@@ -4441,9 +4441,9 @@
                     const rr = (h - p) / (p * 0.05);
                     return rr >= 1.5 ? { ...q, _rr: rr, _alphaKind: 'swing' } : null;
                 }).filter(Boolean).sort((a, b) => b._rr - a._rr);
-                console.log('[alphaHome] swing 최종:', items.length + '개');
+                log('[alphaHome] swing 최종:', items.length + '개');
             } else {
-                console.log('[alphaHome] 알 수 없는 탭:', tab);
+                log('[alphaHome] 알 수 없는 탭:', tab);
             }
 
             _alphaHomeCache[tab] = { items, ts: Date.now() };
@@ -4474,7 +4474,7 @@
             el.innerHTML = cards;
             _alphaHomeRetry[tab] = 0; // 성공 시 재시도 카운터 리셋
         } catch (e) {
-            console.warn('[alphaHome] 로드 실패:', e.message);
+            warn('[alphaHome] 로드 실패:', e.message);
             // 에러 시 로딩 상태 즉시 해제 (다시 시도 버튼 표시)
             if (el && _alphaHomeTab === tab) {
                 el.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text3);font-size:13px;">데이터를 불러올 수 없습니다.<button onclick="_alphaHomeSwitch('${tab}')" style="margin-left:8px;padding:4px 10px;font-size:12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text);">🔄 다시 시도</button></div>`;
@@ -4640,7 +4640,7 @@
         } catch (e) {
             // 실패 시 pending 표시 숨김
             document.querySelectorAll('.alpha-ai-mini[data-pending="1"]').forEach(el => { el.style.display = 'none'; });
-            console.warn('[scanner-ai-batch]', e.message);
+            warn('[scanner-ai-batch]', e.message);
         }
     }
 
@@ -7632,7 +7632,7 @@
                     try { localStorage.setItem('stockai_sig_history', JSON.stringify(_sigHistory.slice(0,100))); } catch(e){}
                 }
             }
-        } catch(e) { console.warn('[minervini schedule]', e.message); }
+        } catch(e) { warn('[minervini schedule]', e.message); }
     }
 
     function _setupMinerviniSchedule() {
@@ -7669,7 +7669,7 @@
                 upd.innerHTML = `마지막 스캔 ${hh}:${mm} ${srcBadge} · 공시 ${d.totalFilings || 0}건 · 후보 ${d.results.length}건`;
             }
         } catch (e) {
-            console.warn('[catalyst]', e);
+            warn('[catalyst]', e);
             listEl.innerHTML = '<div class="catalyst-empty">EDGAR 공시 조회 실패 — 잠시 후 다시 시도하세요</div>';
         }
     }
@@ -9781,7 +9781,7 @@
                         return;
                     }
                 } catch (e) {
-                    console.warn('[SmDeepDive] API 실패, 하드코딩 폴백:', instId, e);
+                    warn('[SmDeepDive] API 실패, 하드코딩 폴백:', instId, e);
                 }
             }
         }
@@ -10782,7 +10782,7 @@
                 });
             });
         } catch (e) {
-            console.warn('[guruHolders] render fail', e);
+            warn('[guruHolders] render fail', e);
         }
     }
 
@@ -11400,16 +11400,16 @@
             renderEntryTiming();
             renderAIAnalysis();
             renderRRAnalysis();
-            try { _renderMultiFactorCard(); } catch (e) { console.warn('[mf] render fail', e); }
-            try { _renderSEPACard(); } catch (e) { console.warn('[sepa-card] render fail', e); }
-            try { renderMinerviniSEPA(); } catch (e) { console.warn('[sepa-chart] render fail', e); }
+            try { _renderMultiFactorCard(); } catch (e) { warn('[mf] render fail', e); }
+            try { _renderSEPACard(); } catch (e) { warn('[sepa-card] render fail', e); }
+            try { renderMinerviniSEPA(); } catch (e) { warn('[sepa-chart] render fail', e); }
             try { // SEPA 토글 상태 적용
                 const _sepaEl = document.getElementById('sepaAnalysis');
                 if (_sepaEl) { if (typeof _chartSepaEnabled !== 'undefined' && !_chartSepaEnabled) _sepaEl.classList.add('sepa-hidden'); else _sepaEl.classList.remove('sepa-hidden'); }
             } catch(_) {}
-            try { renderSwingAnalysis(); } catch (e) { console.warn('[swing] render fail', e); }
+            try { renderSwingAnalysis(); } catch (e) { warn('[swing] render fail', e); }
 
-            try { renderMyPosition(); } catch (e) { console.warn("[mypos] render fail", e); }
+            try { renderMyPosition(); } catch (e) { warn("[mypos] render fail", e); }
             try { if (typeof renderGuruHolders === 'function' && typeof currentSymbol !== 'undefined') renderGuruHolders(currentSymbol); } catch {}
             // RSI 모멘텀 / MACD / Volume 카드 — 종목 기본 정보 그룹 제거(v730)되어 target div 없음, 호출 생략
 

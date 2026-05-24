@@ -2,6 +2,12 @@
 // 책임: 공통 유틸리티 (포맷터, 날짜 변환, 순수 함수)
 // 의존: 없음
 
+    // ── dev-only 로거 (?debug=1 로 활성화, production 무음) ──────────
+    const _DBG = new URLSearchParams(location.search).has('debug');
+    function log(...a)  { if (_DBG) console.log(...a); }
+    function warn(...a) { if (_DBG) console.warn(...a); }
+    function info(...a) { if (_DBG) console.info(...a); }
+
     function debounce(fn, ms) { let t; return (...args) => { clearTimeout(t); t = setTimeout(()=>fn(...args), ms); }; }
 
     // HTML 이스케이프 유틸 (XSS 방지)

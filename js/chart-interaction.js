@@ -83,7 +83,7 @@
                     ts.setVisibleLogicalRange({ from: fromL, to: toL });
                     setTimeout(() => { _cnbProgrammaticRangeChange = false; }, 200);
                 }
-            } catch(e) { console.warn('[shiftZoom]', e); }
+            } catch(e) { warn('[shiftZoom]', e); }
             if (sel) sel.style.display = 'none';
             _zoomDragState = null;
         });
@@ -407,12 +407,12 @@
                     lwVwapUpper.setData(upData);
                     lwVwapLower.setData(dnData);
                 }
-            } catch (e) { console.warn('[vwap] fail', e); }
+            } catch (e) { warn('[vwap] fail', e); }
         }
 
         // 실시간 지표 시그널 — 배지·마커·지지/저항선 자동 추가 (종목 변경 시 항상 완전 재빌드)
         _layerDirty = true;
-        try { renderChartLiveSignals(candleData, ts, q, bb); } catch (e) { console.warn('[chart-sig] fail', e); }
+        try { renderChartLiveSignals(candleData, ts, q, bb); } catch (e) { warn('[chart-sig] fail', e); }
 
         // 차트 전체 보이게
         lwChart.timeScale().fitContent();

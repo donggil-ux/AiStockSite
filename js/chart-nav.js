@@ -140,7 +140,7 @@
                 to:   lastIdx + rightMargin,
             });
             setTimeout(() => { _cnbProgrammaticRangeChange = false; }, 300);
-        } catch(e) { console.warn('[jumpLatest]', e); }
+        } catch(e) { warn('[jumpLatest]', e); }
     }
 
     // ══════════════════════════════════════════════════════════

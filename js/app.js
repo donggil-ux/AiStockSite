@@ -1832,7 +1832,7 @@
             try { localStorage.setItem(CK, JSON.stringify(data)); } catch(e){}
             _renderOptionsPopular();
         } catch (e) {
-            console.warn('[opt-popular fallback]', e.message);
+            warn('[opt-popular fallback]', e.message);
             el.innerHTML = `<div class="top100-loading" style="padding:24px;text-align:center;color:var(--text3);font-size:13px;">옵션 데이터를 불러올 수 없습니다.<br><span style="font-size:11px;opacity:0.7;">잠시 후 다시 시도해주세요</span></div>`;
         }
     }
@@ -2671,7 +2671,7 @@
             }
             const data  = await res.json();
             const items = data.videos || [];
-            console.log(`[YouTube] ✅ ${symbol}: ${items.length}개 영상 수신`);
+            log(`[YouTube] ✅ ${symbol}: ${items.length}개 영상 수신`);
             if (!items.length) throw new Error('empty response');
             _ytCache[symbol] = { ts: Date.now(), items };
             renderYouTubeCards(items);

@@ -978,7 +978,7 @@
             showToast(`${rawSym} 비교 추가됨`);
         } catch(e) {
             showToast('비교 실패: ' + e.message);
-            console.warn('[cmp] load fail:', e);
+            warn('[cmp] load fail:', e);
         }
     }
 
