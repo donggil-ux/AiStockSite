@@ -9836,3 +9836,9 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
         top: 36px;
     }
 }
+
+/* ── 인라인에서 이동된 keyframe ── */
+@keyframes vsPingRec {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: .3; }
+}
