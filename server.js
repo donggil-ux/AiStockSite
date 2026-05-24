@@ -162,7 +162,9 @@ app.use((req, res, next) => {
     const p = req.path;
     if (p.startsWith('/api/') || p === '/health') return next();
     // 화이트리스트 또는 안전한 정적 확장자만 서빙 허용
-    const allow = STATIC_WHITELIST.has(p) || STATIC_EXT_OK.test(p);
+    // /js/ 디렉토리 하위 .js 파일도 허용 (R1 분리 대응)
+    const isJsAsset = /^\/js\/[a-zA-Z0-9_-]+\.js$/.test(p);
+    const allow = STATIC_WHITELIST.has(p) || STATIC_EXT_OK.test(p) || isJsAsset;
     if (!allow) return next(); // SPA fallback 으로 위임 (index.html 반환)
     // ..(path traversal) 방어 — express.static 도 내부적으로 처리하지만 이중 방어
     if (p.includes('..')) return res.status(400).end();

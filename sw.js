@@ -5,12 +5,24 @@
 //   - /api/*: 네트워크만 (항상 최신)
 //   - 새 SW 는 waiting 대기 → 사용자가 '새로고침' 토스트 클릭 시에만 활성화
 
-const CACHE_NAME = 'stockai-v860';
+const CACHE_NAME = 'stockai-v862';
 
 
 const STATIC_ASSETS = [
   '/icon.svg',
-  '/manifest.json'
+  '/manifest.json',
+  '/js/state.js',
+  '/js/utils.js',
+  '/js/api.js',
+  '/js/chart-core.js',
+  '/js/chart-toolbar.js',
+  '/js/chart-nav.js',
+  '/js/chart-interaction.js',
+  '/js/chart-multi.js',
+  '/js/chart-sync.js',
+  '/js/tabs.js',
+  '/js/alpha-home.js',
+  '/js/app.js',
 ];
 
 self.addEventListener('install', e => {
