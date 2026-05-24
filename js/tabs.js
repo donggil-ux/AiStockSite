@@ -2143,7 +2143,7 @@
             return;
         }
 
-        const loading = '<div class="cp-empty" style="display:flex;align-items:center;justify-content:center;gap:8px;"><div class="spinner" style="width:16px;height:16px;border-width:2px;"></div> 불러오는 중...</div>';
+        const loading = (typeof tabLoading === 'function') ? tabLoading([100, 80, 60, 90, 70]) : '<div class="cp-empty">불러오는 중...</div>';
         ovEl.innerHTML = exEl.innerHTML = hdEl.innerHTML = inEl.innerHTML = loading;
         if (ihEl) ihEl.innerHTML = loading;
 
@@ -2218,7 +2218,7 @@
                 html += `</div>`;
             }
             ovEl.innerHTML = html;
-        } catch(e) { ovEl.innerHTML = '<div class="cp-empty">기업 개요를 불러올 수 없습니다.</div>'; }
+        } catch(e) { ovEl.innerHTML = tabError('기업 개요를 불러올 수 없습니다.'); }
 
         // === 주요 임원 ===
         try {
@@ -2228,7 +2228,7 @@
             officers.slice(0,10).forEach(o => { html += `<tr><td><div class="cp-exec-name">${escHtml(o.name||'-')}</div></td><td style="color:var(--text2);font-size:12px;">${escHtml(o.title||'-')}</td><td><span class="cp-exec-pay">${o.totalPay?.raw ? fmtMoney(o.totalPay.raw) : '-'}</span></td></tr>`; });
             html += '</tbody></table>';
             exEl.innerHTML = html;
-        } catch(e) { exEl.innerHTML = '<div class="cp-empty">임원 정보를 불러올 수 없습니다.</div>'; }
+        } catch(e) { exEl.innerHTML = tabError('임원 정보를 불러올 수 없습니다.'); }
 
         // === 주요 투자 기관 ===
         try {
@@ -2268,7 +2268,7 @@
             });
             html += '</div>';
             hdEl.innerHTML = html;
-        } catch(e) { hdEl.innerHTML = '<div class="cp-empty">투자 기관 정보를 불러올 수 없습니다.</div>'; }
+        } catch(e) { hdEl.innerHTML = tabError('투자 기관 정보를 불러올 수 없습니다.'); }
 
         // === 최근 내부자 거래 ===
         try {
@@ -2283,7 +2283,7 @@
             });
             html += '</tbody></table></div>';
             inEl.innerHTML = html;
-        } catch(e) { inEl.innerHTML = '<div class="cp-empty">내부자 거래 정보를 불러올 수 없습니다.</div>'; }
+        } catch(e) { inEl.innerHTML = tabError('내부자 거래 정보를 불러올 수 없습니다.'); }
 
         // === 내부자 지분 현황 ===
         if (ihEl) {
@@ -2300,7 +2300,7 @@
                 });
                 html += '</div>';
                 ihEl.innerHTML = html;
-            } catch(e) { ihEl.innerHTML = '<div class="cp-empty">내부자 지분 정보를 불러올 수 없습니다.</div>'; }
+            } catch(e) { ihEl.innerHTML = tabError('내부자 지분 정보를 불러올 수 없습니다.'); }
         }
     }
 

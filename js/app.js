@@ -530,7 +530,7 @@
         contentEl.style.display = 'block';
         expBar.innerHTML  = '';
         summaryEl.innerHTML = '';
-        gridEl.innerHTML  = '<div class="options-loading"><div class="spinner" style="width:20px;height:20px;border-width:2px;"></div>옵션 데이터 로딩 중...</div>';
+        gridEl.innerHTML  = tabLoading([100, 30, 100, 30, 100, 30]);
 
         try {
             const res  = await fetch(`${API_BASE}/api/options/${encodeURIComponent(symbol)}`);
@@ -566,7 +566,7 @@
             renderOptionsSummary();
 
         } catch(e) {
-            gridEl.innerHTML = `<div class="options-loading" style="color:var(--red)">⚠ ${e.message}</div>`;
+            gridEl.innerHTML = tabError('옵션 데이터를 불러올 수 없습니다.', `renderOptionsTab('${symbol}')`);
         }
     }
 
@@ -580,7 +580,7 @@
             `만기: ${d.toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric' })}`;
 
         const gridEl = document.getElementById('optionsChainGrid');
-        gridEl.innerHTML = '<div class="options-loading"><div class="spinner" style="width:18px;height:18px;border-width:2px;"></div>로딩 중...</div>';
+        gridEl.innerHTML = tabLoading([100, 30, 100, 30, 100, 30]);
 
         try {
             const res  = await fetch(`${API_BASE}/api/options/${encodeURIComponent(_optionsSymbol)}?date=${ts}`);
@@ -593,7 +593,7 @@
             renderOptionsChain();
             renderOptionsSummary();
         } catch(e) {
-            gridEl.innerHTML = `<div class="options-loading" style="color:var(--red)">⚠ ${e.message}</div>`;
+            gridEl.innerHTML = tabError('옵션 데이터를 불러올 수 없습니다.', `loadOptionsDate(${ts})`);
         }
     }
 
@@ -1924,7 +1924,7 @@
             _newsCache[symbol] = { ts: Date.now(), items };
             renderNewsList(items);
         } catch(e) {
-            list.innerHTML = '<div class="news-empty">뉴스를 불러올 수 없습니다.<br><span style="font-size:11px;color:var(--text3)">잠시 후 다시 시도해주세요</span></div>';
+            list.innerHTML = tabError('뉴스를 불러올 수 없습니다.', 'reloadNewsTab()');
         }
     }
 
@@ -2340,21 +2340,15 @@
         if (_socialCache[cKey] && Date.now() - _socialCache[cKey].ts < SOCIAL_CACHE_MS) {
             renderStockTwits(feed, _socialCache[cKey].data); return;
         }
-        feed.innerHTML = '<div class="social-empty"><div class="social-empty-text">로딩 중...</div></div>';
-        let done = false;
+        feed.innerHTML = tabLoading([90, 70, 90, 60, 80, 50]);
         try {
             const res = await fetch(`/api/stocktwits/${encodeURIComponent(symbol)}`);
             if (!res.ok) throw new Error(res.status);
             const data = await res.json();
             _socialCache[cKey] = { ts: Date.now(), data };
             renderStockTwits(feed, data);
-            done = true;
         } catch {
-            feed.innerHTML = '<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">Reddit 데이터를 가져올 수 없어요.<br><span style="font-size:11px;color:var(--text3)">KR 종목은 지원하지 않습니다.</span></div></div>';
-            done = true;
-        } finally {
-            // 로딩 중 상태가 예외로 인해 잔류하는 경우 안전하게 해제
-            if (!done) feed.innerHTML = '<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">데이터를 불러올 수 없습니다.</div></div>';
+            feed.innerHTML = tabError('Reddit 데이터를 가져올 수 없어요.', '');
         }
     }
 
@@ -2366,7 +2360,7 @@
         if (_socialCache[cKey] && Date.now() - _socialCache[cKey].ts < SOCIAL_CACHE_MS) {
             renderNaverBoard(feed, _socialCache[cKey].data); return;
         }
-        feed.innerHTML = '<div class="social-empty"><div class="social-empty-text">로딩 중...</div></div>';
+        feed.innerHTML = tabLoading([90, 70, 90, 60, 80]);
         try {
             const res = await fetch(`/api/naver-board/${encodeURIComponent(symbol)}`);
             if (!res.ok) throw new Error(res.status);
@@ -2374,7 +2368,7 @@
             _socialCache[cKey] = { ts: Date.now(), data };
             renderNaverBoard(feed, data);
         } catch {
-            feed.innerHTML = '<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">네이버 토론실 데이터를 가져올 수 없어요.</div></div>';
+            feed.innerHTML = tabError('네이버 토론실 데이터를 가져올 수 없어요.', '');
         }
     }
 
@@ -2416,7 +2410,7 @@
         if (_socialCache[cKey] && Date.now() - _socialCache[cKey].ts < SOCIAL_CACHE_MS) {
             renderPaxnetBoard(feed, _socialCache[cKey].data); return;
         }
-        feed.innerHTML = '<div class="social-empty"><div class="social-empty-text">로딩 중...</div></div>';
+        feed.innerHTML = tabLoading([90, 70, 90, 60, 80]);
         try {
             const res = await fetch(`/api/paxnet-board/${encodeURIComponent(symbol)}`);
             if (!res.ok) throw new Error(res.status);
@@ -2424,7 +2418,7 @@
             _socialCache[cKey] = { ts: Date.now(), data };
             renderPaxnetBoard(feed, data);
         } catch {
-            feed.innerHTML = '<div class="social-empty"><div class="social-empty-icon">📭</div><div class="social-empty-text">팍스넷 데이터를 가져올 수 없어요.</div></div>';
+            feed.innerHTML = tabError('팍스넷 데이터를 가져올 수 없어요.', '');
         }
     }
 
@@ -2614,15 +2608,16 @@
         if (_shortCache[symbol] && Date.now() - _shortCache[symbol].ts < SHORT_CACHE_MS) {
             renderShortTab(_shortCache[symbol].data); return;
         }
-        el.innerHTML = '<div class="short-nodata">데이터를 불러오는 중...</div>';
+        el.innerHTML = '<div class="ts-short-skel"><div class="ts-short-gauge"></div>' + tabLoading([70, 50, 60, 45]) + '</div>';
         try {
             const res = await fetch(`/api/summary/${encodeURIComponent(symbol)}?modules=defaultKeyStatistics`, { signal: AbortSignal.timeout(10000) });
             const json = await res.json();
             const d = json?.quoteSummary?.result?.[0]?.defaultKeyStatistics || null;
             _shortCache[symbol] = { ts: Date.now(), data: d };
+            if (!d) { el.innerHTML = tabEmpty('📊', '공매도 데이터가 없습니다.'); return; }
             renderShortTab(d);
         } catch(e) {
-            el.innerHTML = '<div class="short-nodata">데이터를 불러올 수 없습니다.</div>';
+            el.innerHTML = tabError('공매도 데이터를 불러올 수 없습니다.', 'reloadShortTab()');
         }
     }
 

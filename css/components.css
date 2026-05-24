@@ -1,0 +1,83 @@
+/* css/components.css
+   공통 탭 상태 UI: loading / error / empty
+   shimmer 애니메이션은 styles.css의 @keyframes shimmer 재사용 */
+
+/* ── 컨테이너 ───────────────────────────────────────────── */
+.tab-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 44px 20px;
+    gap: 10px;
+    min-height: 120px;
+    text-align: center;
+}
+
+/* loading 상태: 좌우 stretch + 촘촘한 패딩 */
+.tab-state--loading {
+    align-items: stretch;
+    padding: 20px 16px;
+    gap: 0;
+}
+
+/* ── 스켈레톤 행 ─────────────────────────────────────────── */
+.ts-skel {
+    /* skel-block(styles.css)의 shimmer 상속 — 높이 14px 고정 */
+    height: 14px !important;
+    margin-bottom: 10px;
+    border-radius: 6px;
+}
+.ts-skel:last-child { margin-bottom: 0; }
+
+/* ── 에러 / 빈 공통 ─────────────────────────────────────── */
+.ts-state-icon {
+    display: block;
+    font-size: 26px;
+    line-height: 1;
+    opacity: 0.75;
+}
+
+.tab-state--error .ts-state-icon {
+    color: var(--red, #ef4444);
+    font-style: normal;
+}
+
+.ts-msg {
+    font-size: 13px;
+    color: var(--text3);
+    line-height: 1.65;
+    max-width: 260px;
+}
+
+/* ── 재시도 버튼 ─────────────────────────────────────────── */
+.ts-retry {
+    margin-top: 6px;
+    padding: 5px 16px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text2);
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.ts-retry:hover { background: var(--bg3); }
+
+/* ── 공매도 탭 스켈레톤 특화 ─────────────────────────────── */
+.ts-short-skel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 20px 16px;
+}
+.ts-short-gauge {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: linear-gradient(90deg, var(--bg3) 25%, var(--bg4) 50%, var(--bg3) 75%);
+    background-size: 800px 100%;
+    animation: shimmer 1.2s infinite linear;
+    align-self: center;
+    margin-bottom: 8px;
+}
