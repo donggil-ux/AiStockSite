@@ -5,7 +5,7 @@
 //   - /api/*: 네트워크만 (항상 최신)
 //   - 새 SW 는 waiting 대기 → 사용자가 '새로고침' 토스트 클릭 시에만 활성화
 
-const CACHE_NAME = 'stockai-v866';
+const CACHE_NAME = 'stockai-v871';
 
 
 const STATIC_ASSETS = [
@@ -22,6 +22,7 @@ const STATIC_ASSETS = [
   '/js/chart-interaction.js',
   '/js/chart-multi.js',
   '/js/chart-sync.js',
+  '/js/chart-mobile.js',
   '/js/tabs.js',
   '/js/alpha-home.js',
   '/js/app.js',

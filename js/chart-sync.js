@@ -1101,12 +1101,7 @@
             }
         }
 
-        // 동일 봉 중복 마커는 첫 것만 유지
-        const seen = new Set();
-        const uniqMarkers = markers
-            .sort((a,b) => a.time - b.time)
-            .filter(m => { const k = m.time + ':' + m.position; if (seen.has(k)) return false; seen.add(k); return true; });
-        // 마커 우선순위 (매수1/매도1 > 매수2/매도2 > 매수3/매도3 > 크로스/브레이크 > RSI/MACD > 기타)
+        // M2: 마커 우선순위 — 높을수록 우선 (매수 > 매도 > 지표 순)
         const _mPri = m => {
             const t = m._label || '';
             if (t.startsWith('매수1') || t.startsWith('매도1')) return 5;
@@ -1116,14 +1111,41 @@
             if (t.startsWith('RSI') || t.startsWith('MACD')) return 2;
             return 1;
         };
-        // 500개 초과 시 우선순위 낮은 것부터 제거, 최종 time 순 재정렬
-        const _finalMarkers = uniqMarkers.length <= 500
-            ? uniqMarkers
-            : [...uniqMarkers]
+        // M2: 봉당 1개 — 같은 timestamp 중 최고 우선순위 1개 (동률 시 매수(belowBar) 우선)
+        const _byCandleMap = new Map();
+        for (const m of markers) {
+            const ex = _byCandleMap.get(m.time);
+            if (!ex) { _byCandleMap.set(m.time, m); continue; }
+            const nP = _mPri(m), eP = _mPri(ex);
+            if (nP > eP || (nP === eP && m.position === 'belowBar' && ex.position !== 'belowBar')) {
+                _byCandleMap.set(m.time, m);
+            }
+        }
+        // M2: 마커 상세 데이터 맵 → bottom sheet 에서 참조
+        window._markerDataMap = {};
+        for (const [time, m] of _byCandleMap) {
+            const t = m._label || '';
+            const sfx = t.startsWith('매수1') ? 'buy1' : t.startsWith('매수2') ? 'buy2'
+                : t.startsWith('매수3') ? 'buy3' : t.startsWith('매도1') ? 'sell1'
+                : t.startsWith('매도2') ? 'sell2' : t.startsWith('매도3') ? 'sell3' : null;
+            const sg = sfx ? _signalGrades?.[`${time}_${sfx}`] : null;
+            window._markerDataMap[time] = {
+                label: t, isBuy: m.position === 'belowBar',
+                grade: sg?.grade || null, winRate: sg?.winRate || null,
+                score: sg?.score || null, stars: sg?.stars || null,
+                factors: sg?.factors || [], recommendation: sg?.recommendation || '',
+            };
+        }
+        // 최종 배열 + 500개 제한
+        let uniqMarkers = [..._byCandleMap.values()].sort((a, b) => a.time - b.time);
+        if (uniqMarkers.length > 500) {
+            uniqMarkers = uniqMarkers
                 .sort((a, b) => _mPri(b) - _mPri(a) || b.time - a.time)
                 .slice(0, 500)
                 .sort((a, b) => a.time - b.time);
-        // 마커 부드럽게 교체 — 빈 배열일 때는 생략해서 깜빡임 방지
+        }
+        // M2: _label / text 제거 → 화살표 아이콘만 표시 (텍스트 마커 완전 제거)
+        const _finalMarkers = uniqMarkers.map(({ _label, text, ...rest }) => ({ ...rest, size: 1 }));
         try {
             if (_finalMarkers && _finalMarkers.length > 0) {
                 lwCandleSeries.setMarkers(_finalMarkers);
@@ -1409,20 +1431,22 @@
         const _lpFmt = p => currentMarket === 'KR'
             ? Math.round(p).toLocaleString() + '원'
             : '$' + p.toFixed(2);
-        resistances.forEach(r => addLine(r.price, 'rgba(239,68,68,0.9)',  `📍 저항 ${_lpFmt(r.price)}`, undefined, 4));
+        // Phase M: 가격 라인 라벨 가시성 prefs (기본 OFF)
+        const _lp = (typeof _linePrefs === 'function') ? _linePrefs() : {};
+        if (_lp.sr) resistances.forEach(r => addLine(r.price, 'rgba(239,68,68,0.9)', `📍${_lpFmt(r.price)}`, undefined, 4));
         let _bounceBadgeShown = false; // 중복 배지 방지
         supports.forEach(s => {
             const _distPct = curPrice > 0 ? (curPrice - s.price) / s.price * 100 : 999;
             if (_distPct >= 0 && _distPct <= 5.0) {
                 // 지지선 5% 이내 — 지지 반등 매수 가능
-                addLine(s.price, 'rgba(34,197,94,0.9)', `🔄 지지 반등 ${_lpFmt(s.price)}`, 0, 3);
+                if (_lp.bounce) addLine(s.price, 'rgba(34,197,94,0.9)', `🔄${_lpFmt(s.price)}`, 0, 3);
                 if (bar && !_bounceBadgeShown) {
                     bar.insertAdjacentHTML('beforeend',
                         `<span class="chart-sig-pill sig-emerald">🔄 지지 반등 매수</span>`);
                     _bounceBadgeShown = true;
                 }
             } else {
-                addLine(s.price, 'rgba(59,130,246,0.9)', `📍 지지 ${_lpFmt(s.price)}`, undefined, 4);
+                if (_lp.sr) addLine(s.price, 'rgba(59,130,246,0.9)', `📍${_lpFmt(s.price)}`, undefined, 4);
             }
         });
 
@@ -1438,17 +1462,17 @@
                 const breakoutLv = Math.max(...last20Hi);
                 if (breakoutLv > curPrice && breakoutLv <= curPrice * 1.35) {
                     // 돌파 대기 중 — 노란 점선
-                    addLine(breakoutLv, 'rgba(234,179,8,0.95)', `🚀 돌파 ${_lpFmt(breakoutLv)}`, 2, 3);
+                    addLine(breakoutLv, 'rgba(234,179,8,0.95)', `🚀${_lpFmt(breakoutLv)}`, 2, 3);
                 } else if (curPrice >= breakoutLv && curPrice <= breakoutLv * 1.05) {
                     // 돌파 직후 (0~5% 이내) — 초록 실선 + 진입 배지
-                    addLine(breakoutLv, 'rgba(34,197,94,0.95)', `✅ 돌파 진입 ${_lpFmt(breakoutLv)}`, 0, 2);
+                    addLine(breakoutLv, 'rgba(34,197,94,0.95)', `✅${_lpFmt(breakoutLv)}`, 0, 2);
                     if (bar) bar.insertAdjacentHTML('beforeend',
                         `<span class="chart-sig-pill sig-emerald">✅ 돌파 진입</span>`);
                 }
             }
             // 눌림목 라인 — EMA20 (현재가가 EMA20 위 = 상승 추세일 때만)
             if (lastEma20 != null && lastEma20 < curPrice && lastEma20 >= curPrice * 0.80) {
-                addLine(lastEma20, 'rgba(34,197,94,0.95)', `🟢 눌림목 ${_lpFmt(lastEma20)}`, 2, 3);
+                addLine(lastEma20, 'rgba(34,197,94,0.95)', `🟢${_lpFmt(lastEma20)}`, 2, 3);
             }
         } catch(e) {}
 
@@ -1583,14 +1607,27 @@
 
     function _sdAddLine(price, color, width, style, title) {
         if (!price || !isFinite(price) || price <= 0 || !lwCandleSeries) return;
-        // 모바일: 손절라인·골든존(★) 두 종류만 축 라벨 노출, 나머지 숨김
+        // 모바일: 골든존(★)만 축 라벨 노출 (손절은 _sdAddStopLine 전용)
         const _isMob = window.innerWidth <= 600;
-        const axisLabelVisible = _isMob
-            ? !!(title && (title.includes('손절') || title.includes('★')))
-            : true;
+        const axisLabelVisible = _isMob ? !!(title && title.includes('★')) : true;
         try {
             _smartDipLines.push(lwCandleSeries.createPriceLine({
                 price, color, lineWidth: width, lineStyle: style, axisLabelVisible, title,
+            }));
+        } catch(e) {}
+    }
+
+    // M3: 손절선 전용 — 1px dashed, rgba(239,68,68,0.6), 가격축 chip만, 텍스트 없음
+    function _sdAddStopLine(price) {
+        if (!price || !isFinite(price) || price <= 0 || !lwCandleSeries) return;
+        try {
+            _smartDipLines.push(lwCandleSeries.createPriceLine({
+                price,
+                color: 'rgba(239,68,68,0.6)',
+                lineWidth: 1,
+                lineStyle: 2,   // Dashed
+                axisLabelVisible: true,
+                title: '',
             }));
         } catch(e) {}
     }
@@ -1997,14 +2034,12 @@
                 const grp = num <= 2 ? '1_2' : num <= 4 ? '3_4' : '5_6';
                 if (localStorage.getItem(`stockai_sd_show_${grp}`) === '0') return;
                 const isGolden = fib === 0.618;
-                const lineLabel = _supportSnapped
-                    ? `매수 ${num}차 🎯지지반등 ${fmtP(price)}`
-                    : `매수 ${num}차 ${(fib*100).toFixed(1)}%${isGolden?' ★':''}`;
+                const lineLabel = isGolden ? `★${fmtP(price)}` : `${num}차${fmtP(price)}`;
                 _sdAddLine(price, isGolden ? SD_AMBER : 'rgba(245,158,11,0.45)', isGolden ? 2 : 1, isGolden ? 0 : 2, lineLabel);
             });
-            _sdAddLine(stopLoss, '#EF4444', 1, 2, `손절라인 ${fmtP(stopLoss)}`);
-            if (mode === 'reentry' && pos?.entryPrice) _sdAddLine(pos.entryPrice, '#94a3b8', 1, 2, `이전 진입 ${fmtP(pos.entryPrice)}`);
-            if (mode === 'reentry' && pos?.closedPrice) _sdAddLine(pos.closedPrice, '#64748b', 1, 2, `이전 매도 ${fmtP(pos.closedPrice)}`);
+            _sdAddStopLine(stopLoss);
+            if (mode === 'reentry' && pos?.entryPrice) _sdAddLine(pos.entryPrice, '#94a3b8', 1, 2, `↩${fmtP(pos.entryPrice)}`);
+            if (mode === 'reentry' && pos?.closedPrice) _sdAddLine(pos.closedPrice, '#64748b', 1, 2, `↗${fmtP(pos.closedPrice)}`);
         } else if (mode === 'loss') {
             // 내 진입 라인은 포지션 카드(_addPosLine)에서 표시 — Smart Dip 중복 제거
             const done = pos?.splitCount || 1;
@@ -2012,15 +2047,15 @@
             entryLevels.slice(done).filter(e => e.price < lastClose).forEach(({ num, fib, price }) => {
                 const grp = num <= 2 ? '1_2' : num <= 4 ? '3_4' : '5_6';
                 if (localStorage.getItem(`stockai_sd_show_${grp}`) === '0') return;
-                _sdAddLine(price, SD_AMBER, 1, 2, `매수 ${num}차 추가 ${fmtP(price)}`);
+                _sdAddLine(price, SD_AMBER, 1, 2, `${num}차${fmtP(price)}`);
             });
-            _sdAddLine(pos?.stopLoss || stopLoss, '#EF4444', 2, 0, `손절 ${fmtP(pos?.stopLoss || stopLoss)}`);
+            _sdAddStopLine(pos?.stopLoss || stopLoss);
         } else if (mode === 'profit') {
             // 내 진입 라인은 포지션 카드(_addPosLine)에서 표시 — Smart Dip 중복 제거
             const t1 = pos?.tp1 || tp1Price, t2 = pos?.tp2 || tp2Price;
-            _sdAddLine(t1, '#22C55E', 2, 0, `SD 익절1 (40%) ${fmtP(t1)}`);
-            _sdAddLine(t2, '#86EFAC', 1, 2, `SD 익절2 (35%) ${fmtP(t2)}`);
-            if (ema20) _sdAddLine(ema20, 'rgba(255,255,255,0.6)', 1, 2, `트레일링 EMA20 ${fmtP(ema20)}`);
+            _sdAddLine(t1, '#22C55E', 2, 0, `TP1${fmtP(t1)}`);
+            _sdAddLine(t2, '#86EFAC', 1, 2, `TP2${fmtP(t2)}`);
+            if (ema20) _sdAddLine(ema20, 'rgba(255,255,255,0.6)', 1, 2, `EMA${fmtP(ema20)}`);
         }
 
         // ── 카드 HTML ──
@@ -2188,6 +2223,14 @@
         const key = `stockai_sd_show_${group}`;
         const cur = localStorage.getItem(key) !== '0';
         localStorage.setItem(key, cur ? '0' : '1');
+        if (_lastSigArgs) {
+            try { _layerDirty = true; renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
+            catch(e) {}
+        }
+    }
+
+    // Phase M: chart-mobile.js에서 호출 — 가격 라인 라벨 토글 후 즉시 재렌더
+    function _triggerSigRebuild() {
         if (_lastSigArgs) {
             try { _layerDirty = true; renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
             catch(e) {}
@@ -2914,7 +2957,7 @@
                 } catch(e) {}
             };
             addKL(best.entry, best.color,    0, 2, `진입 ${best.fmtP(best.entry)}`, 2);
-            addKL(best.stop,  '#ef4444',     0, 2, `손절 ${best.fmtP(best.stop)}`, 1);
+            addKL(best.stop,  'rgba(239,68,68,0.6)', 2, 1, '', 1);  // M3: dashed thin
             addKL(best.tp1,   '#22c55e',     1, 1, `익절1 ${best.fmtP(best.tp1)} (R:R 1:${best.rr.toFixed(1)})`, 3);
             if (best.tp2 && _chartTpLevel >= 2) addKL(best.tp2, '#a3e635', 1, 1, `익절2 ${best.fmtP(best.tp2)}`, 5);
         }
@@ -3505,8 +3548,9 @@
             });
 
             // 손절선 — Smart Dip 활성 시 SD 레이어가 손절선 표시 → 중복 방지
+            // M3: 1px dashed, 0.6 opacity, 가격축 chip만 (title 없음)
             if (!_chartSmartDipEnabled) {
-                addLine(stopPrice, '#EF4444', 1, 3, `🔴 손절선 ${fmtP(stopPrice)} — 이탈 시 전량 청산`, 1);
+                addLine(stopPrice, 'rgba(239,68,68,0.6)', 2, 1, '', 1);
             }
 
             // 평균 단가 라인 (포지션 등록 시)
@@ -4133,10 +4177,16 @@
             }
 
             // 피보나치 3단계 — 분할매수와 ±1.2% 이내 중복이면 스킵
+            const _lp3 = (typeof _linePrefs === 'function') ? _linePrefs() : {};
             fibs.forEach(f => {
                 if (bothActive && _splitPrices.some(sp => Math.abs(sp - f.price) / Math.max(f.price, 1) <= 0.012)) return;
-                addPL(f.price, disableAll ? 'rgba(148,163,184,0.4)' : COLOR, f.lineStyle, f.width,
-                    `${f.label} ${fmtP(f.price)}`);
+                // Phase M: 38.2 / 50 는 토글 OFF 시 스킵 (기본 숨김), 61.8 골든존은 항상 표시
+                if (f.fibPct === 0.382 && !_lp3.pull38) return;
+                if (f.fibPct === 0.500 && !_lp3.pull50) return;
+                const shortTitle = f.fibPct === 0.618 ? `★${fmtP(f.price)}`
+                    : f.fibPct === 0.382 ? `38%${fmtP(f.price)}`
+                    : `50%${fmtP(f.price)}`;
+                addPL(f.price, disableAll ? 'rgba(148,163,184,0.4)' : COLOR, f.lineStyle, f.width, shortTitle);
             });
 
             // 추세 종료 위험선 (스윙 저점 아래 작은 버퍼)

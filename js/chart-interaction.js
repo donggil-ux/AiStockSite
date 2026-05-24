@@ -110,6 +110,8 @@
         if (_chartKbdHooked) return;
         _chartKbdHooked = true;
         window.addEventListener('keydown', (e) => {
+            // M5: 모바일(터치 환경)에서는 키보드 단축키 비활성
+            if ('ontouchstart' in window && window.innerWidth <= 600) return;
             // 입력 컴포넌트 포커스 시 비활성
             const ae = document.activeElement;
             const tag = (ae?.tagName || '').toLowerCase();
@@ -277,6 +279,17 @@
         // Phase C: OHLC tooltip + shift+drag zoom + 키보드 단축키
         try { _ohlcTooltipHooked = false; _initOhlcTooltip(); } catch(_) {}
         try { _initShiftDragZoom(); _initChartKeyboardShortcuts(); } catch(_) {}
+        // M6: 모바일에서 십자선 숨김 (터치 환경, 마우스 hover 없음)
+        if (window.innerWidth <= 600) {
+            try {
+                lwChart.applyOptions({
+                    crosshair: {
+                        vertLine: { visible: false, labelVisible: false },
+                        horzLine: { visible: false, labelVisible: false },
+                    }
+                });
+            } catch(_) {}
+        }
 
         // 캔들스틱 시리즈
         lwCandleSeries = lwChart.addCandlestickSeries({
@@ -417,34 +430,12 @@
         // 차트 전체 보이게
         lwChart.timeScale().fitContent();
 
-        // ── 마커 클릭 시 컨플루언스 상세 분석 모달 ──────────────────
+        // M2: 마커 클릭 → bottom sheet 상세 (chart-mobile.js)
         lwChart.subscribeClick((param) => {
             if (!param.point || !param.time) return;
-            const sg = _signalGrades?.[`${param.time}_buy1`]
-                    || _signalGrades?.[`${param.time}_buy2`]
-                    || _signalGrades?.[`${param.time}_buy3`]
-                    || _signalGrades?.[`${param.time}_sell1`]
-                    || _signalGrades?.[`${param.time}_sell2`]
-                    || _signalGrades?.[`${param.time}_sell3`];
-            if (!sg) return;
-            document.querySelectorAll('.grade-detail-modal').forEach(m => m.remove());
-            const modal = document.createElement('div');
-            modal.className = 'grade-detail-modal';
-            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;';
-            modal.innerHTML = `<div style="background:var(--bg);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:360px;width:90%;max-height:80vh;overflow-y:auto;">
-                <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:12px">${sg.stars} ${sg.grade}급 신호</div>
-                <div style="display:flex;gap:12px;font-size:13px;color:var(--text2);margin-bottom:12px">
-                    <div>예상 승률 <strong style="color:var(--text)">${sg.winRate}%</strong></div>
-                    <div>점수 <strong style="color:var(--text)">${sg.score}/11</strong></div>
-                    <div><strong style="color:var(--text)">${sg.recommendation}</strong></div>
-                </div>
-                <div style="font-size:12px;color:var(--text2);line-height:1.9">
-                    ${sg.factors.map(f => `<div>${f}</div>`).join('')}
-                </div>
-                <button onclick="this.closest('.grade-detail-modal').remove()" style="margin-top:14px;width:100%;padding:8px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);cursor:pointer;font-size:13px;">닫기</button>
-            </div>`;
-            modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-            document.body.appendChild(modal);
+            const data = window._markerDataMap?.[param.time];
+            if (!data) return;
+            if (typeof openMarkerSheet === 'function') openMarkerSheet(param.time, data);
         });
 
         // 저장된 라벨 표시 설정 적용

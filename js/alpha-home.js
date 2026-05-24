@@ -5892,11 +5892,9 @@
                     });
                 }
 
-                // 손절가 (holding 전용)
+                // 손절가 (holding 전용) — M3: 1px dashed, rgba 0.6, 가격축 chip만
                 if (pos.status === 'holding' && pos.stopLoss) {
-                    const slPct = _posPnlPct(pos.entryPrice, pos.stopLoss);
-                    _addPosLine(pos.stopLoss, '#EF4444', 1, 2,
-                        `손절 ${_posFmtP(pos.stopLoss,currentMarket)}${slPct!=null?` (${slPct.toFixed(1)}%)`:''}`)
+                    _addPosLine(pos.stopLoss, 'rgba(239,68,68,0.6)', 1, 2, '');
                 }
                 // ── 익절가: 포지션 설정값 우선, 미설정 시 타임프레임 기반 자동 계산 ──
                 //   기존 pos.tp1/2/3 값이 있으면 절대 덮어쓰지 않음 (설정값 우선)

@@ -4642,10 +4642,11 @@
         if (el) el.textContent = symbol ? `${symbol} · ${tf||'—'}` : (tf||'—');
     }
 
-    /** M6: ⚙ 버튼 → 분석+라인 bottom sheet (기존 _toggleAnalysisDd 재사용) */
+    /** M6: ⚙ 버튼 → 종합 설정 bottom sheet (chart-mobile.js openM6Sheet) */
     function _mchOpenGear(event) {
         event.stopPropagation();
-        // Open analysis dropdown as bottom sheet (existing logic)
+        if (typeof openM6Sheet === 'function') { openM6Sheet(); return; }
+        // 폴백: 분석 드롭다운
         _toggleAnalysisDd(event);
     }
 

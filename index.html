@@ -997,6 +997,10 @@
                             <span>차트 분할</span>
                         </button>
                         <div class="cxt-flex"></div>
+                        <button class="cxt-btn" id="cxtLineLabels" onclick="openLineSheet()" title="가격 라인 라벨 설정">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                            <span>라인</span>
+                        </button>
                         <button class="cxt-btn" id="cxtSync" onclick="event.stopPropagation();_xcOpenSyncPopover(event)" title="차트 동기화 설정">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                             <span>동기화</span>
@@ -1772,6 +1776,7 @@
     <script src="js/chart-interaction.js" defer></script>
     <script src="js/chart-multi.js" defer></script>
     <script src="js/chart-sync.js" defer></script>
+    <script src="js/chart-mobile.js" defer></script>
     <script src="js/tabs.js" defer></script>
     <script src="js/alpha-home.js" defer></script>
     <script src="js/app.js" defer></script>
@@ -1906,6 +1911,106 @@
         </div>
         <div class="msig-list" id="mSigList"></div>
     </div>
+</div>
+
+<!-- 📱 M2: 마커 상세 바텀시트 -->
+<div id="markerSheetBg" onclick="closeMarkerSheet()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1200;"></div>
+<div id="markerSheet" class="marker-sheet" aria-hidden="true"></div>
+
+<!-- 📱 M6: ⚙ 종합 설정 바텀시트 (인디케이터 + 분석 레이어 + 가격 라인) -->
+<div id="m6SheetBg" onclick="closeM6Sheet()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1200;"></div>
+<div id="m6Sheet" class="line-sheet" aria-hidden="true">
+    <div class="ls-handle"></div>
+    <div class="ls-title">차트 설정</div>
+    <!-- 인디케이터 -->
+    <p class="ls-sub">인디케이터</p>
+    <div class="ls-list">
+        <label class="ls-item" onclick="event.stopPropagation();_indSelect('ema');_m6UpdateUI();">
+            <span class="ls-icon">📈</span>
+            <span class="ls-lbl">이동평균선 (EMA)</span>
+            <span class="ls-chk" id="m6ChkEma" role="switch" aria-checked="true"></span>
+        </label>
+        <label class="ls-item" onclick="event.stopPropagation();_indSelect('bb');_m6UpdateUI();">
+            <span class="ls-icon">〰️</span>
+            <span class="ls-lbl">볼린저 밴드</span>
+            <span class="ls-chk" id="m6ChkBb" role="switch" aria-checked="true"></span>
+        </label>
+    </div>
+    <!-- 분석 레이어 -->
+    <p class="ls-sub">분석 레이어</p>
+    <div class="ls-list">
+        <label class="ls-item" onclick="event.stopPropagation();toggleKullamagiLayer();_updateDdStates();_m6UpdateUI();">
+            <span class="ls-icon">📊</span>
+            <span class="ls-lbl">Kullamägi 스윙</span>
+            <span class="ls-chk" id="m6ChkKl" role="switch" aria-checked="false"></span>
+        </label>
+        <label class="ls-item" onclick="event.stopPropagation();toggleSmartDipLayer();_updateDdStates();_m6UpdateUI();">
+            <span class="ls-icon">💧</span>
+            <span class="ls-lbl">Smart Dip</span>
+            <span class="ls-chk" id="m6ChkSd" role="switch" aria-checked="false"></span>
+        </label>
+        <label class="ls-item" onclick="event.stopPropagation();toggleSepaLayer();_updateDdStates();_m6UpdateUI();">
+            <span class="ls-icon">📐</span>
+            <span class="ls-lbl">Minervini SEPA</span>
+            <span class="ls-chk" id="m6ChkSepa" role="switch" aria-checked="false"></span>
+        </label>
+    </div>
+    <!-- 가격 라인 (선택 표시) -->
+    <p class="ls-sub">가격 라인 (선택 표시)</p>
+    <div class="ls-list">
+        <label class="ls-item" onclick="event.stopPropagation();toggleLineGroup('sr');_m6UpdateUI();">
+            <span class="ls-icon">📍</span>
+            <span class="ls-lbl">저항 / 지지선</span>
+            <span class="ls-chk" id="m6ChkSr" role="switch" aria-checked="false"></span>
+        </label>
+        <label class="ls-item" onclick="event.stopPropagation();toggleLineGroup('bounce');_m6UpdateUI();">
+            <span class="ls-icon">🔄</span>
+            <span class="ls-lbl">지지 반등</span>
+            <span class="ls-chk" id="m6ChkBounce" role="switch" aria-checked="false"></span>
+        </label>
+        <label class="ls-item" onclick="event.stopPropagation();toggleLineGroup('pull38');_m6UpdateUI();">
+            <span class="ls-icon">📉</span>
+            <span class="ls-lbl">눌림 38.2%</span>
+            <span class="ls-chk" id="m6ChkPull38" role="switch" aria-checked="false"></span>
+        </label>
+        <label class="ls-item" onclick="event.stopPropagation();toggleLineGroup('pull50');_m6UpdateUI();">
+            <span class="ls-icon">📉</span>
+            <span class="ls-lbl">눌림 50%</span>
+            <span class="ls-chk" id="m6ChkPull50" role="switch" aria-checked="false"></span>
+        </label>
+    </div>
+    <button class="ls-close" onclick="closeM6Sheet()">완료</button>
+</div>
+
+<!-- 📱 Phase M: 가격 라인 라벨 설정 바텀시트 -->
+<div id="lineSheetBg" onclick="closeLineSheet()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1200;"></div>
+<div id="lineSheet" class="line-sheet" aria-hidden="true">
+    <div class="ls-handle"></div>
+    <div class="ls-title">가격 라인 설정</div>
+    <p class="ls-sub">기본 노출: 🚀 돌파 · ★ 골든존 · ✂ 손절라인</p>
+    <div class="ls-list">
+        <label class="ls-item" onclick="toggleLineGroup('sr')">
+            <span class="ls-icon">📍</span>
+            <span class="ls-lbl">저항 / 지지선</span>
+            <span class="ls-chk" id="lsChkSr" role="switch" aria-checked="false"></span>
+        </label>
+        <label class="ls-item" onclick="toggleLineGroup('bounce')">
+            <span class="ls-icon">🔄</span>
+            <span class="ls-lbl">지지 반등</span>
+            <span class="ls-chk" id="lsChkBounce" role="switch" aria-checked="false"></span>
+        </label>
+        <label class="ls-item" onclick="toggleLineGroup('pull38')">
+            <span class="ls-icon">📉</span>
+            <span class="ls-lbl">눌림 38.2%</span>
+            <span class="ls-chk" id="lsChkPull38" role="switch" aria-checked="false"></span>
+        </label>
+        <label class="ls-item" onclick="toggleLineGroup('pull50')">
+            <span class="ls-icon">📉</span>
+            <span class="ls-lbl">눌림 50%</span>
+            <span class="ls-chk" id="lsChkPull50" role="switch" aria-checked="false"></span>
+        </label>
+    </div>
+    <button class="ls-close" onclick="closeLineSheet()">완료</button>
 </div>
 
 </body>

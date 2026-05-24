@@ -9509,11 +9509,38 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
 }
 .mpb-btn:active { opacity: 0.7; }
 
-/* M5: Long press OHLC tooltip — re-enable on mobile */
+/* ═══════════════════════════════════════
+   M5: 모바일 차트 제스처
+   ═══════════════════════════════════════ */
+
+/* 길게 누르기 OHLC 툴팁 — mobile-show 클래스로만 표시 */
 @media (max-width: 600px) {
     .chart-ohlc-tooltip.mobile-show {
-        display: flex !important;
+        display: block !important;
+        /* 모바일: 너비 줄이고 상단 여백 조정 */
+        width: calc(100% - 24px);
+        max-width: 280px;
+        top: 6px;
+        left: 12px;
+        font-size: 11px;
     }
+}
+
+/* 더블탭 줌 피드백 이모지 */
+.m5-zoom-fb {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(1);
+    font-size: 36px;
+    pointer-events: none;
+    z-index: 9999;
+    animation: m5ZoomPop 0.65s ease-out forwards;
+}
+@keyframes m5ZoomPop {
+    0%   { opacity: 0.9; transform: translate(-50%, -50%) scale(0.8); }
+    40%  { opacity: 1;   transform: translate(-50%, -50%) scale(1.2); }
+    100% { opacity: 0;   transform: translate(-50%, -50%) scale(1.8); }
 }
 
 /* M6: Hide desktop-only chart toolbar buttons on mobile */
@@ -9525,6 +9552,18 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
     .grade-seg-group {
         display: none !important;
     }
+
+    /* 차트 분할 / 동기화 / 종목비교 — 멀티차트 기능 모바일 숨김 */
+    #cxtSplit,
+    #cxtSync,
+    #cxtCompare {
+        display: none !important;
+    }
+}
+
+/* 320px 이하: 기간 프리셋 3M 숨김 → 4개 (1D · 1M · 1Y · ALL) */
+@media (max-width: 320px) {
+    .mpb-btn[data-period="3mo"] { display: none; }
 }
 
 /* M4: Fix swipe threshold feedback */
