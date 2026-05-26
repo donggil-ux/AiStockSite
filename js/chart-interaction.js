@@ -167,6 +167,11 @@
             card.classList.add('fullscreen');
             if (iconExpand) iconExpand.style.display = 'none';
             if (iconShrink) iconShrink.style.display = '';
+            // 라벨과 버튼 title 도 동기화 (이전 버전에서 누락)
+            const lbl = document.getElementById('tvFsLabel');
+            if (lbl) lbl.textContent = '작게보기';
+            const btn = document.getElementById('cxtFullscreen');
+            if (btn) btn.title = '작게보기';
             document.body.style.overflow = 'hidden';
             setTimeout(() => {
                 const wrap = document.getElementById('tvChartWrap');
