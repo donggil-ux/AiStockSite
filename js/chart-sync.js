@@ -175,20 +175,31 @@
     let _chartTpLevel = parseInt(localStorage.getItem('stockai_chart_tp_level') || '1'); // 익절 단계: 1=1차만 2=1~2차 3=전체
     let _priceLabelRegistry = []; // 우측 가격 라벨 중복 방지 — ±0.8% 이내 중복 시 낮은 우선순위 라벨 숨김
     let _lastSigArgs = null;  // 토글 시 즉시 재렌더용 캐시
-    // ── 분할차트 가격선 안전 제거 ──────────────────────────────────────
-    // 셀 전환 시 lwCandleSeries가 바뀌어 기존 셀의 price line을 제거 못하는 문제 방지.
-    // 현재 활성 series + 모든 xc 셀 series에서 제거 시도 (실패는 catch로 무시).
-    function _removePriceLineFromAll(pl) {
-        const tried = new Set();
-        const tryRemove = s => {
-            if (!s || tried.has(s)) return;
-            tried.add(s);
-            try { s.removePriceLine(pl); } catch(e) {}
-        };
-        tryRemove(lwCandleSeries);
-        if (window._xcCells) {
-            Object.values(window._xcCells).forEach(c => tryRemove(c?.candleSeries));
-        }
+    // ── 분할차트 가격선 셀별 독립 관리 ────────────────────────────────
+    // 각 price line이 어느 candleSeries에 속하는지 Map으로 추적.
+    // 렌더 시 현재 셀(lwCandleSeries) 소유 라인만 제거 → 다른 셀 라인은 보존.
+    const _plSeries = new Map(); // Map<priceLine, candleSeries>
+
+    // price line 생성 + 소유권 등록 + 배열에 추가
+    function _pushPriceLine(arr, pl) {
+        if (pl == null) return;
+        _plSeries.set(pl, lwCandleSeries);
+        arr.push(pl);
+    }
+
+    // 배열에서 현재 셀(lwCandleSeries) 소유 라인만 제거, 나머지는 보존해 반환
+    function _clearOwnLines(arr) {
+        const keep = [];
+        arr.forEach(pl => {
+            const owner = _plSeries.get(pl) ?? lwCandleSeries;
+            if (owner === lwCandleSeries) {
+                try { owner.removePriceLine(pl); } catch(e) {}
+                _plSeries.delete(pl);
+            } else {
+                keep.push(pl); // 다른 셀 라인 → 유지
+            }
+        });
+        return keep;
     }
     // ── 가격라인 깜빡임 방지 ─────────────────────────────────────────
     // 봉·종목·타임프레임이 바뀌지 않으면 라인 재빌드를 건너뜀
@@ -232,8 +243,7 @@
             _layerDirty = true; renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb);
         } else {
             // 캐시 없으면 라인만 제거
-            _chartLiveLines.forEach(pl => _removePriceLineFromAll(pl));
-            _chartLiveLines = [];
+            _chartLiveLines = _clearOwnLines(_chartLiveLines);
         }
     }
 
@@ -401,8 +411,7 @@
     }
 
     function _clearChartLiveSignals() {
-        _chartLiveLines.forEach(pl => _removePriceLineFromAll(pl));
-        _chartLiveLines = [];
+        _chartLiveLines = _clearOwnLines(_chartLiveLines);
         _priceLabelRegistry = []; // 라벨 레지스트리도 초기화
         try { lwCandleSeries?.setMarkers([]); } catch(e) {}
         const bar = document.getElementById('chartSigBar');
@@ -725,8 +734,7 @@
             _lastRenderSym = currentSymbol;
             _lastRenderTf  = currentInterval;
             // 기존 가격 라인 제거 + 레지스트리 초기화 (레이어 재빌드 전에만 수행)
-            _chartLiveLines.forEach(pl => _removePriceLineFromAll(pl));
-            _chartLiveLines = [];
+            _chartLiveLines = _clearOwnLines(_chartLiveLines);
             _priceLabelRegistry = [];
         }
         // 캔들 마커 초기화 (배지 바는 계산 완료 후에만 덮어씀 → 중간 throw시 기존 배지 유지)
@@ -1439,7 +1447,7 @@
                     axisLabelVisible,
                     title: label,
                 });
-                _chartLiveLines.push(pl);
+                _pushPriceLine(_chartLiveLines, pl);
             } catch(e) {}
         };
         // 가격 라벨 포맷 — KR/US 통화 분기
@@ -1616,8 +1624,7 @@
     let _chartSmartDipEnabled = localStorage.getItem('stockai_chart_smartdip_enabled') === '1';
 
     function _clearSmartDipLines() {
-        _smartDipLines.forEach(pl => _removePriceLineFromAll(pl));
-        _smartDipLines = [];
+        _smartDipLines = _clearOwnLines(_smartDipLines);
     }
 
     function _sdAddLine(price, color, width, style, title) {
@@ -1626,7 +1633,7 @@
         const _isMob = window.innerWidth <= 600;
         const axisLabelVisible = _isMob ? !!(title && title.includes('★')) : true;
         try {
-            _smartDipLines.push(lwCandleSeries.createPriceLine({
+            _pushPriceLine(_smartDipLines, lwCandleSeries.createPriceLine({
                 price, color, lineWidth: width, lineStyle: style, axisLabelVisible, title,
             }));
         } catch(e) {}
@@ -1636,7 +1643,7 @@
     function _sdAddStopLine(price) {
         if (!price || !isFinite(price) || price <= 0 || !lwCandleSeries) return;
         try {
-            _smartDipLines.push(lwCandleSeries.createPriceLine({
+            _pushPriceLine(_smartDipLines, lwCandleSeries.createPriceLine({
                 price,
                 color: 'rgba(239,68,68,0.6)',
                 lineWidth: 1,
@@ -2261,8 +2268,7 @@
     // 차트 라인 관리 (_detectMinerviniSetup 연동)
     let _minerviniChartLines = [];
     function _clearMinerviniChartLines() {
-        _minerviniChartLines.forEach(pl => _removePriceLineFromAll(pl));
-        _minerviniChartLines = [];
+        _minerviniChartLines = _clearOwnLines(_minerviniChartLines);
         document.querySelectorAll('.minervini-badge').forEach(e => e.remove());
     }
     function _mvAddLine(price, color, width, style, title) {
@@ -2270,7 +2276,7 @@
         const _isMob = window.innerWidth <= 600;
         const axisLabelVisible = _isMob ? !!(title && title.includes('손절')) : true;
         try {
-            _minerviniChartLines.push(lwCandleSeries.createPriceLine({
+            _pushPriceLine(_minerviniChartLines, lwCandleSeries.createPriceLine({
                 price, color, lineWidth: width, lineStyle: style, axisLabelVisible, title,
             }));
         } catch(e) {}
@@ -2740,8 +2746,7 @@
     }
 
     function _clearKullamagiLines() {
-        _chartKullamagiLines.forEach(pl => _removePriceLineFromAll(pl));
-        _chartKullamagiLines = [];
+        _chartKullamagiLines = _clearOwnLines(_chartKullamagiLines);
     }
 
     // ── 종목 유형 자동 감지 ──────────────────────────────────────
@@ -2971,7 +2976,7 @@
                         price, color, lineWidth: width, lineStyle: style,
                         axisLabelVisible, title: label,
                     });
-                    _chartKullamagiLines.push(pl);
+                    _pushPriceLine(_chartKullamagiLines, pl);
                 } catch(e) {}
             };
             addKL(best.entry, best.color,    0, 2, `진입 ${best.fmtP(best.entry)}`, 2);
@@ -3171,8 +3176,7 @@
     }
 
     function _clearSplitBuyLines() {
-        _chartSplitLines.forEach(pl => _removePriceLineFromAll(pl));
-        _chartSplitLines = [];
+        _chartSplitLines = _clearOwnLines(_chartSplitLines);
     }
 
     // 종목 유형별 ATR 계수 + 최대 진입 차수
@@ -3537,7 +3541,7 @@
                         price, color, lineWidth: width, lineStyle: style,
                         axisLabelVisible, title,
                     });
-                    _chartSplitLines.push(pl);
+                    _pushPriceLine(_chartSplitLines, pl);
                 } catch(e) {}
             };
 
@@ -3643,7 +3647,7 @@
                         axisLabelVisible,
                         title: `EQ ${fmtP(equilibrium)}`,
                     });
-                    _chartSplitLines.push(eqLine);
+                    _pushPriceLine(_chartSplitLines, eqLine);
                 } catch(e) {}
             }
         }
@@ -3907,8 +3911,7 @@
     }
 
     function _clearPullbackLines() {
-        _chartPullbackLines.forEach(pl => _removePriceLineFromAll(pl));
-        _chartPullbackLines = [];
+        _chartPullbackLines = _clearOwnLines(_chartPullbackLines);
     }
 
     // 타임프레임별 스윙 탐색 봉 수
@@ -4180,7 +4183,7 @@
                 try {
                     const axisLabelVisible = _claimPriceLabel(price, priority);
                     const pl = lwCandleSeries.createPriceLine({ price, color, lineWidth: width, lineStyle: style, axisLabelVisible, title });
-                    _chartPullbackLines.push(pl);
+                    _pushPriceLine(_chartPullbackLines, pl);
                 } catch(e) {}
             };
 
@@ -4407,8 +4410,7 @@
     }
 
     function _clearSrLines() {
-        _chartSrLines.forEach(pl => _removePriceLineFromAll(pl));
-        _chartSrLines = [];
+        _chartSrLines = _clearOwnLines(_chartSrLines);
     }
 
     // 타임프레임별 감지 범위
@@ -4584,7 +4586,7 @@
             try {
                 const axisLabelVisible = _claimPriceLabel(price, priority);
                 const pl = lwCandleSeries.createPriceLine({ price, color, lineWidth: width, lineStyle: style ?? 2, axisLabelVisible, title: label });
-                _chartSrLines.push(pl);
+                _pushPriceLine(_chartSrLines, pl);
             } catch(e) {}
         };
 
