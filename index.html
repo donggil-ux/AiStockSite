@@ -1481,7 +1481,6 @@
 
                 <!-- ═══ 빠른 이동 네비게이션 ═══ -->
                 <div class="group-nav" id="groupNav">
-                    <button onclick="_scrollToGroup('groupAi')">AI</button>
                     <button onclick="_scrollToGroup('groupTradePlan')">매매</button>
                     <button onclick="_scrollToGroup('groupSystem')">Smart Dip</button>
                     <button onclick="_scrollToGroup('groupDayTrade')">단타</button>
@@ -1517,18 +1516,6 @@
                 <button class="analysis-refresh-btn" id="analysisRefreshBtn" onclick="manualAnalysisRefresh()">↻ 지금 갱신</button>
             </div>
 
-            <!-- ═══ 그룹 1: AI 핵심 분석 ═══ -->
-            <div class="analysis-group" id="groupAi">
-                <div class="group-header">
-                    <span class="group-icon">🤖</span>
-                    <span class="group-title">AI 핵심 분석</span>
-                </div>
-                <div class="group-body" id="groupAi-body">
-                    <div id="aiSummaryCard"></div>
-                    <div id="aiPatternSection" style="display:none;"></div>
-                    <div id="aiHorizonSection" style="display:none;"></div>
-                </div><!-- /group-body groupAi -->
-            </div><!-- /analysis-group groupAi -->
 
             <!-- ═══ 그룹 2: 매매 계획 ═══ -->
             <div class="analysis-group" id="groupTradePlan">
