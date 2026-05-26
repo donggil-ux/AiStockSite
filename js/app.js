@@ -4968,6 +4968,7 @@
         _xcOpenLayoutPopover, _xcSetLayout, _xcCloseCell, _xcRestoreLayout, _xcUpdateLayoutUi,
         _xcToggleLegend,
         _xcActivate, _xcPromptSymbol, _xcCreateCell, _xcDestroyCell, _xcUpdateCellHeaders,
+        _xcCloseSymbolModal, _xcSymbolSearch, _xcSymbolKeydown,
         _xcToggleSync, _xcOpenSyncPopover, _xcUpdateSyncUi,
         favSearch, removeFavorite, setTop100Filter, goTop100, goCatalyst, loadCatalyst, _catalystSetFilter, switchCatalystTab, loadVolumeSurge, loadMinervini,
         _runCatalystAi, _renderCatalystAiExpanded,

@@ -866,31 +866,134 @@
     }
 
     /** 셀 심볼 변경 (prompt 다이얼로그) */
-    async function _xcPromptSymbol(cellId) {
-        const cell = _xcCells[cellId];
-        const cur  = cell?.symbol || '';
-        const input = window.prompt('종목 심볼 입력\n예: AAPL · NVDA · 005930.KS · 000660.KS', cur);
-        if (!input) return;
-        const raw  = input.trim();
-        if (!raw || raw.toUpperCase() === cur.toUpperCase()) return;
+    // ── 분할차트 종목 선택 커스텀 모달 ──────────────────────────
+    let _xcPendingCellId = null;
+    let _xcSymDebounce   = null;
 
-        const isKR     = /\.(KS|KQ)$/i.test(raw);
-        const fullSym  = isKR ? raw.toUpperCase() : raw.toUpperCase();
+    function _xcPromptSymbol(cellId) {
+        _xcPendingCellId = cellId;
+        const modal = document.getElementById('xcSymbolModal');
+        if (!modal) { _xcPromptSymbolFallback(cellId); return; }
+        modal.style.display = '';
+        setTimeout(() => {
+            const inp = document.getElementById('xcSymbolInput');
+            if (inp) { inp.value = ''; inp.focus(); }
+            _xcRenderSymbolResults(null);
+        }, 80);
+    }
+
+    function _xcCloseSymbolModal() {
+        const modal = document.getElementById('xcSymbolModal');
+        if (modal) modal.style.display = 'none';
+        const inp = document.getElementById('xcSymbolInput');
+        if (inp) inp.value = '';
+        _xcPendingCellId = null;
+    }
+
+    function _xcSymbolSearch(q) {
+        clearTimeout(_xcSymDebounce);
+        _xcSymDebounce = setTimeout(() => {
+            if (!q.trim()) { _xcRenderSymbolResults(null); return; }
+            let results = [];
+            try { results = (typeof searchSuggest === 'function') ? searchSuggest(q.trim(), 10) : []; } catch(_) {}
+            _xcRenderSymbolResults(results, q.trim());
+            // 로컬 결과 없으면 서버 검색
+            if (!results.length) {
+                fetch('/api/search?q=' + encodeURIComponent(q.trim()))
+                    .then(r => r.json())
+                    .then(list => {
+                        if (!Array.isArray(list)) return;
+                        const mapped = list.map(item => ({
+                            ticker: item.symbol || item.ticker || '',
+                            name:   item.shortname || item.longname || item.name || '',
+                            koreanName: item.koreanName || '',
+                            market: /\.(KS|KQ)$/i.test(item.symbol||'') ? 'KR' : 'US',
+                            type:   item.quoteType || '',
+                        }));
+                        const cur = document.getElementById('xcSymbolInput')?.value.trim();
+                        if (cur === q.trim()) _xcRenderSymbolResults(mapped, q.trim());
+                    }).catch(()=>{});
+            }
+        }, 220);
+    }
+
+    function _xcSymbolKeydown(e) {
+        const items = document.querySelectorAll('#xcSymbolResults .sdrop-item');
+        let idx = [...items].findIndex(el => el.classList.contains('highlighted'));
+        if (e.key === 'ArrowDown') { e.preventDefault(); idx = Math.min(idx + 1, items.length - 1); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); idx = Math.max(idx - 1, 0); }
+        else if (e.key === 'Enter') {
+            e.preventDefault();
+            const active = document.querySelector('#xcSymbolResults .sdrop-item.highlighted') || items[0];
+            if (active) active.click();
+            return;
+        } else if (e.key === 'Escape') { _xcCloseSymbolModal(); return; }
+        items.forEach(el => el.classList.remove('highlighted'));
+        if (items[idx]) { items[idx].classList.add('highlighted'); items[idx].scrollIntoView({ block: 'nearest' }); }
+    }
+
+    function _xcRenderSymbolResults(results, q) {
+        const el = document.getElementById('xcSymbolResults');
+        if (!el) return;
+        if (!results) {
+            // 빈 상태 — 최근 검색 표시
+            let html = '';
+            try {
+                const recent = JSON.parse(localStorage.getItem('stockai_recent_search') || '[]');
+                if (recent.length) {
+                    html += '<div class="mob-toss-section"><div class="mob-toss-section-hdr"><span class="mob-toss-section-title">최근 검색</span></div><div class="mob-toss-chips">';
+                    html += recent.slice(0, 10).map(r => {
+                        const sym = String(r.symbol||'').replace(/[<>"']/g,'');
+                        const mkt = r.market || 'US';
+                        return `<div class="mob-toss-chip sdrop-item" data-ticker="${sym}" data-market="${mkt}">${sym}</div>`;
+                    }).join('');
+                    html += '</div></div>';
+                }
+            } catch(_) {}
+            if (!html) html = '<div style="padding:40px 16px;text-align:center;color:var(--text3);font-size:13px;">종목 심볼 또는 이름을 입력하세요</div>';
+            el.innerHTML = html;
+        } else if (!results.length) {
+            el.innerHTML = `<div style="padding:32px 16px;text-align:center;"><div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:6px;">검색 결과가 없습니다.</div><div style="font-size:12px;color:var(--text3);">티커 심볼로 검색해 주세요<br><span style="color:var(--blue);font-weight:600;">예: AAPL, TSLA, 005930</span></div></div>`;
+        } else {
+            const esc = s => String(s||'').replace(/[<>"']/g,'');
+            el.innerHTML = '<div class="mob-toss-section"><div class="mob-toss-section-hdr"><span class="mob-toss-section-title">검색 결과</span></div><div class="mob-toss-trending-list">' +
+                results.map(item => {
+                    const name = item.koreanName && item.koreanName !== item.ticker ? item.koreanName : (item.name || item.ticker);
+                    const mkt  = item.market || 'US';
+                    const badge = `<span style="font-size:10px;padding:1px 5px;border-radius:4px;background:${mkt==='KR'?'rgba(239,68,68,.15)':'rgba(59,130,246,.15)'};color:${mkt==='KR'?'#ef4444':'#3b82f6'};font-weight:700;">${mkt}</span>`;
+                    return `<div class="mob-toss-trending-item sdrop-item" data-ticker="${esc(item.ticker)}" data-market="${esc(mkt)}"><div class="mob-toss-trending-info"><span class="mob-toss-trending-name">${esc(name)}</span><span class="mob-toss-trending-ticker">${esc(item.ticker)}</span></div>${badge}</div>`;
+                }).join('') +
+            '</div></div>';
+        }
+        el.querySelectorAll('.sdrop-item').forEach(row => {
+            row.addEventListener('click', () => {
+                const ticker = row.dataset.ticker;
+                const market = row.dataset.market || 'US';
+                if (ticker) _xcApplySymbolToCell(ticker, market);
+            });
+        });
+    }
+
+    async function _xcApplySymbolToCell(ticker, market) {
+        const cellId = _xcPendingCellId;
+        _xcCloseSymbolModal();
+        if (!cellId || !ticker) return;
+
+        const isKR    = market === 'KR';
+        const fullSym = isKR ? ticker.toUpperCase() : ticker.toUpperCase();
         const shortSym = fullSym.replace(/\.(KS|KQ)$/i, '');
-        const market   = isKR ? 'KR' : 'US';
-        const tf       = cell?.tf || currentInterval || '1d';
+        const tf      = _xcCells[cellId]?.tf || currentInterval || '1d';
+        const cell    = _xcCells[cellId];
 
         if (cell) {
             cell.symbol     = shortSym;
             cell.fullSymbol = fullSym;
             cell.market     = market;
-            // locale formatter 갱신
             try {
                 cell.chart.applyOptions({
                     localization: {
                         locale: 'ko-KR',
-                        priceFormatter: price =>
-                            (market === 'KR') ? Math.round(price).toLocaleString() : price.toFixed(2),
+                        priceFormatter: price => isKR ? Math.round(price).toLocaleString() : price.toFixed(2),
                     },
                 });
             } catch(_) {}
@@ -904,13 +1007,20 @@
                 JSON.stringify({ symbol: shortSym, fullSymbol: fullSym, market, tf }));
         } catch(_) {}
 
-        // X3c: 종목 동기화 ON이면 이 셀이 활성 셀일 때 모든 셀에 동일 종목 적용
         if (_xcSyncSymbol && cellId === _xcActiveCellId) {
             await _xcBroadcastSymbol(cellId);
         }
-
         _xcUpdateCellHeaders();
         _xcSaveState();
+    }
+
+    async function _xcPromptSymbolFallback(cellId) {
+        const cell = _xcCells[cellId];
+        const input = window.prompt('종목 심볼 입력\n예: AAPL · NVDA · 005930.KS', cell?.symbol || '');
+        if (!input?.trim()) return;
+        const raw  = input.trim();
+        const isKR = /\.(KS|KQ)$/i.test(raw);
+        await _xcApplySymbolToCell(raw.toUpperCase().replace(/\.(KS|KQ)$/i,''), isKR ? 'KR' : 'US');
     }
 
     // 모바일에서 그리드 트리거 버튼 hide

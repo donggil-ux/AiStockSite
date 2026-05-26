@@ -2016,6 +2016,20 @@
 <!-- ===== 바텀 내비게이션 (app.js initBottomNav()가 렌더링) ===== -->
 <nav class="bottom-nav" id="bottomNav"></nav>
 
+<!-- 🔍 분할차트 셀 종목 선택 모달 -->
+<div id="xcSymbolModal" class="mob-search-modal" style="display:none;z-index:1300;">
+    <div class="mob-search-header">
+        <button class="mob-back-btn" onclick="_xcCloseSymbolModal()" aria-label="닫기" style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border:none;background:var(--bg3);border-radius:50%;cursor:pointer;flex-shrink:0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <div class="mob-search-box" id="xcSymbolSearchBox">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input type="text" id="xcSymbolInput" placeholder="종목 검색 (예: AAPL, NVDA, 005930)" autocomplete="off" spellcheck="false" oninput="_xcSymbolSearch(this.value)" onkeydown="_xcSymbolKeydown(event)">
+        </div>
+    </div>
+    <div id="xcSymbolResults" style="overflow-y:auto;flex:1;overscroll-behavior:contain;"></div>
+</div>
+
 <!-- 🔍 검색 모달 (전체화면 오버레이) -->
 <div id="mobSearchModal" class="mob-search-modal" style="display:none;">
     <div class="mob-search-header">
