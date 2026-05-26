@@ -175,6 +175,21 @@
     let _chartTpLevel = parseInt(localStorage.getItem('stockai_chart_tp_level') || '1'); // 익절 단계: 1=1차만 2=1~2차 3=전체
     let _priceLabelRegistry = []; // 우측 가격 라벨 중복 방지 — ±0.8% 이내 중복 시 낮은 우선순위 라벨 숨김
     let _lastSigArgs = null;  // 토글 시 즉시 재렌더용 캐시
+    // ── 분할차트 가격선 안전 제거 ──────────────────────────────────────
+    // 셀 전환 시 lwCandleSeries가 바뀌어 기존 셀의 price line을 제거 못하는 문제 방지.
+    // 현재 활성 series + 모든 xc 셀 series에서 제거 시도 (실패는 catch로 무시).
+    function _removePriceLineFromAll(pl) {
+        const tried = new Set();
+        const tryRemove = s => {
+            if (!s || tried.has(s)) return;
+            tried.add(s);
+            try { s.removePriceLine(pl); } catch(e) {}
+        };
+        tryRemove(lwCandleSeries);
+        if (window._xcCells) {
+            Object.values(window._xcCells).forEach(c => tryRemove(c?.candleSeries));
+        }
+    }
     // ── 가격라인 깜빡임 방지 ─────────────────────────────────────────
     // 봉·종목·타임프레임이 바뀌지 않으면 라인 재빌드를 건너뜀
     let _lastRenderTs  = null;  // 마지막 가격라인 재빌드 봉 시간
@@ -217,7 +232,7 @@
             _layerDirty = true; renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb);
         } else {
             // 캐시 없으면 라인만 제거
-            _chartLiveLines.forEach(pl => { try { lwCandleSeries?.removePriceLine(pl); } catch(e) {} });
+            _chartLiveLines.forEach(pl => _removePriceLineFromAll(pl));
             _chartLiveLines = [];
         }
     }
@@ -386,7 +401,7 @@
     }
 
     function _clearChartLiveSignals() {
-        _chartLiveLines.forEach(pl => { try { lwCandleSeries?.removePriceLine(pl); } catch(e) {} });
+        _chartLiveLines.forEach(pl => _removePriceLineFromAll(pl));
         _chartLiveLines = [];
         _priceLabelRegistry = []; // 라벨 레지스트리도 초기화
         try { lwCandleSeries?.setMarkers([]); } catch(e) {}
@@ -710,7 +725,7 @@
             _lastRenderSym = currentSymbol;
             _lastRenderTf  = currentInterval;
             // 기존 가격 라인 제거 + 레지스트리 초기화 (레이어 재빌드 전에만 수행)
-            _chartLiveLines.forEach(pl => { try { lwCandleSeries?.removePriceLine(pl); } catch(e) {} });
+            _chartLiveLines.forEach(pl => _removePriceLineFromAll(pl));
             _chartLiveLines = [];
             _priceLabelRegistry = [];
         }
@@ -1601,7 +1616,7 @@
     let _chartSmartDipEnabled = localStorage.getItem('stockai_chart_smartdip_enabled') === '1';
 
     function _clearSmartDipLines() {
-        _smartDipLines.forEach(pl => { try { lwCandleSeries?.removePriceLine(pl); } catch(e) {} });
+        _smartDipLines.forEach(pl => _removePriceLineFromAll(pl));
         _smartDipLines = [];
     }
 
@@ -2246,7 +2261,7 @@
     // 차트 라인 관리 (_detectMinerviniSetup 연동)
     let _minerviniChartLines = [];
     function _clearMinerviniChartLines() {
-        _minerviniChartLines.forEach(pl => { try { lwCandleSeries?.removePriceLine(pl); } catch(e) {} });
+        _minerviniChartLines.forEach(pl => _removePriceLineFromAll(pl));
         _minerviniChartLines = [];
         document.querySelectorAll('.minervini-badge').forEach(e => e.remove());
     }
@@ -2725,7 +2740,7 @@
     }
 
     function _clearKullamagiLines() {
-        _chartKullamagiLines.forEach(pl => { try { lwCandleSeries?.removePriceLine(pl); } catch(e) {} });
+        _chartKullamagiLines.forEach(pl => _removePriceLineFromAll(pl));
         _chartKullamagiLines = [];
     }
 
@@ -3156,7 +3171,7 @@
     }
 
     function _clearSplitBuyLines() {
-        _chartSplitLines.forEach(pl => { try { lwCandleSeries?.removePriceLine(pl); } catch(e) {} });
+        _chartSplitLines.forEach(pl => _removePriceLineFromAll(pl));
         _chartSplitLines = [];
     }
 
@@ -3892,7 +3907,7 @@
     }
 
     function _clearPullbackLines() {
-        _chartPullbackLines.forEach(pl => { try { lwCandleSeries?.removePriceLine(pl); } catch(e) {} });
+        _chartPullbackLines.forEach(pl => _removePriceLineFromAll(pl));
         _chartPullbackLines = [];
     }
 
@@ -4392,7 +4407,7 @@
     }
 
     function _clearSrLines() {
-        _chartSrLines.forEach(pl => { try { lwCandleSeries?.removePriceLine(pl); } catch(e) {} });
+        _chartSrLines.forEach(pl => _removePriceLineFromAll(pl));
         _chartSrLines = [];
     }
 
