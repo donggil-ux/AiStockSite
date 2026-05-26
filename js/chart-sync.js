@@ -173,11 +173,16 @@
     }
     let _chartLinesEnabled = localStorage.getItem('stockai_chart_sig_lines') !== '0'; // 기본 ON
     let _chartTpLevel = parseInt(localStorage.getItem('stockai_chart_tp_level') || '1'); // 익절 단계: 1=1차만 2=1~2차 3=전체
+    // ── [분석 ▾] 레이어 플래그 — 함수 정의보다 위로 끌어올려 TDZ 방지 ──
+    // (이 변수들은 toggleKullamagiLayer 등 여러 곳에서 참조됨)
+    let _chartKullamagiEnabled = localStorage.getItem('stockai_chart_kull') !== '0';
+    let _chartSepaEnabled      = localStorage.getItem('stockai_chart_sepa') !== '0';
+    let _chartSmartDipEnabled  = localStorage.getItem('stockai_chart_smartdip_enabled') === '1';
     let _priceLabelRegistry = []; // 우측 가격 라벨 중복 방지 — ±0.8% 이내 중복 시 낮은 우선순위 라벨 숨김
     let _lastSigArgs = null;  // 토글 시 즉시 재렌더용
     // 마커 캐시 — 줌/스크롤로 차트가 재계산될 때 마커가 사라지는 현상 방지
     // setMarkers 호출 시 항상 _lastMarkers 에도 저장 → visibleRangeChange 등에서 복원 가능
-    let _lastMarkers = []; 캐시
+    let _lastMarkers = [];
     // ── 분할차트 가격선 셀별 독립 관리 ────────────────────────────────
     // 각 price line이 어느 candleSeries에 속하는지 Map으로 추적.
     // 렌더 시 현재 셀(lwCandleSeries) 소유 라인만 제거 → 다른 셀 라인은 보존.
@@ -1721,7 +1726,7 @@
     }
 
     let _smartDipLines = [];
-    let _chartSmartDipEnabled = localStorage.getItem('stockai_chart_smartdip_enabled') === '1';
+    // _chartSmartDipEnabled 는 상단(174~)에서 미리 선언됨 — TDZ 방지를 위해 중복 선언 제거
 
     function _clearSmartDipLines() {
         _smartDipLines = _clearOwnLines(_smartDipLines);
@@ -2363,7 +2368,7 @@
     }
 
     // ── Minervini SEPA 토글 (카드 표시/숨김) ─────────────────────
-    let _chartSepaEnabled = localStorage.getItem('stockai_chart_sepa') !== '0';
+    // _chartSepaEnabled 는 상단(174~)에서 미리 선언됨 — TDZ 방지를 위해 중복 선언 제거
 
     // 차트 라인 관리 (_detectMinerviniSetup 연동)
     let _minerviniChartLines = [];
@@ -2786,7 +2791,7 @@
     // 타임프레임·종목 유형 자동 감지 → 매칭 셋업 우선 표시
     // ═══════════════════════════════════════════════════════════
     let _chartKullamagiLines = [];
-    let _chartKullamagiEnabled = localStorage.getItem('stockai_chart_kull') !== '0';
+    // _chartKullamagiEnabled 는 상단(174~)에서 미리 선언됨 — TDZ 방지를 위해 중복 선언 제거
 
     // 페이지 로드 시 분석 라디오 상태 강제 정리
     // 둘 이상 ON이면 우선순위 적용: Smart Dip > Kullamägi > SEPA
