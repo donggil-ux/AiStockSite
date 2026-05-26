@@ -291,6 +291,8 @@
         @media(max-width:480px){.top100-title{font-size:20px;}}
         .top100-title .badge{font-size:11px;font-weight:700;background:var(--blue);color:#fff;padding:3px 10px;border-radius:var(--radius-md);}
         .top100-updated{font-size:11px;color:var(--text3);font-weight:500;}
+        /* 라이트 모드: --text3(#9C9CA0)는 흰 배경에 컨트라스트 2.74 → AA 미달, 더 진한 색으로 */
+        [data-theme="light"] .top100-updated{color:var(--text2);}
         /* ═══ iOS Segmented Control (Apple HIG) — top100-filters / dp-chip-row / radar-tab-bar / earn-topnav / alpha-tabs 공통 ═══ */
         .top100-filters,
         .dp-chip-row,
@@ -766,6 +768,9 @@
         .top100-change.down{color:#1473E6;} /* Toss Blue */
         [data-theme="dark"] .top100-change.up{color:var(--red)!important;}
         [data-theme="dark"] .top100-change.down{color:var(--blue)!important;}
+        /* 라이트 모드: 기존 Toss 색상은 흰 배경에 컨트라스트 3.7:1 → AA 미달, 더 진한 색으로 (5.5:1+) */
+        [data-theme="light"] .top100-change.up{color:#DC2626!important;}
+        [data-theme="light"] .top100-change.down{color:#1D4ED8!important;}
         .top100-change.flat{color:var(--text3);}
         .top100-vol{font-size:11px;color:var(--text3);font-weight:500;text-align:right;}
         .top100-loading{text-align:center;padding:60px 0;color:var(--text3);font-size:14px;}
