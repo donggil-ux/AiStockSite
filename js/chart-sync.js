@@ -1237,13 +1237,29 @@
         try {
             if (currentSymbol && uniqMarkers.length > 0) {
                 const fillKey = `_sigBackfilled_${currentSymbol}`;
+                // 1) 기존 _sigHistory 의 모든 종목 중복 제거 (이전 broken backfill 정리)
+                //    key = ts | symbol | headline (가격 제외 — 가격은 봉종가/현재가 차이로 미세 변동 가능)
+                const _seenAll = new Set();
+                const _dedup = _sigHistory.filter(h => {
+                    const k = `${h.ts}|${h.symbol}|${h.headline}`;
+                    if (_seenAll.has(k)) return false;
+                    _seenAll.add(k);
+                    return true;
+                });
+                if (_dedup.length !== _sigHistory.length) {
+                    _sigHistory.length = 0;
+                    _dedup.forEach(h => _sigHistory.push(h));
+                    localStorage.setItem('stockai_sig_history', JSON.stringify(_sigHistory));
+                }
+                // 2) 종목별 backfill (세션 1회만)
                 if (!window[fillKey]) {
                     window[fillKey] = true;
                     // 차트 위에 있는 시그널 중 최근 30개만 backfill (3일치 표시 위해 확장)
                     const recentMarkers = uniqMarkers.slice(-30).reverse();
+                    // 키 형식 통일: ts + headline (full label + " 시그널")
                     const existingKeys = new Set(
                         _sigHistory.filter(h => h.symbol === currentSymbol)
-                                   .map(h => `${h.ts}_${h.headline}`)
+                                   .map(h => `${h.ts}|${h.headline}`)
                     );
                     // 마커 time → 가격 매핑 (해당 봉 종가)
                     const _tsToClose = {};
@@ -1254,17 +1270,19 @@
                     }
                     let added = 0;
                     recentMarkers.forEach(m => {
-                        const tsMs = (m.time || 0) * 1000;
-                        const label = m._label || (m.position === 'belowBar' ? '매수' : '매도');
-                        const key = `${tsMs}_${label}`;
+                        const tsMs    = (m.time || 0) * 1000;
+                        const label   = m._label || (m.position === 'belowBar' ? '매수' : '매도');
+                        const headline = `${label} 시그널`;
+                        const key      = `${tsMs}|${headline}`;
                         if (existingKeys.has(key)) return;
+                        existingKeys.add(key); // 같은 backfill 루프 안의 중복도 방어
                         _sigHistory.unshift({
                             ts: tsMs,
                             symbol: currentSymbol,
                             market: currentMarket,
                             price:  _tsToClose[m.time] ?? null,
                             dir: m.position === 'belowBar' ? 'buy' : 'sell',
-                            headline: `${label} 시그널`,
+                            headline,
                             subText: '',
                             historical: true, // backfill 표식
                         });
