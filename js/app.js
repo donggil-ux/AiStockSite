@@ -1439,6 +1439,323 @@
         }
     }
 
+    // ═══════════════════════════════════════════════════════════
+    //  통합 설정 모달 (Settings)
+    // ═══════════════════════════════════════════════════════════
+    let _settingsCurrentTab = 'general';
+
+    function openSettings(tab) {
+        const m = document.getElementById('settingsModal');
+        const b = document.getElementById('settingsBackdrop');
+        if (!m || !b) return;
+        b.classList.add('open');
+        m.classList.add('open');
+        m.setAttribute('aria-hidden', 'false');
+        setSettingsTab(tab || _settingsCurrentTab || 'general');
+    }
+    function closeSettings() {
+        const m = document.getElementById('settingsModal');
+        const b = document.getElementById('settingsBackdrop');
+        if (m) { m.classList.remove('open'); m.setAttribute('aria-hidden', 'true'); }
+        if (b) b.classList.remove('open');
+    }
+    function setSettingsTab(tab) {
+        _settingsCurrentTab = tab;
+        // 좌측 탭 active 토글
+        document.querySelectorAll('.settings-tab').forEach(el => {
+            el.classList.toggle('active', el.dataset.tab === tab);
+        });
+        // 헤더 타이틀
+        const titles = { general:'일반', notif:'알림', chart:'차트', data:'데이터', about:'정보' };
+        const titleEl = document.getElementById('settingsTitle');
+        if (titleEl) titleEl.textContent = titles[tab] || '설정';
+        // 콘텐츠 렌더
+        const body = document.getElementById('settingsBody');
+        if (!body) return;
+        const renderers = {
+            general: _renderSettingsGeneral,
+            notif:   _renderSettingsNotif,
+            chart:   _renderSettingsChart,
+            data:    _renderSettingsData,
+            about:   _renderSettingsAbout,
+        };
+        const fn = renderers[tab] || _renderSettingsGeneral;
+        try { fn(body); } catch(e) { console.error('[settings]', e); body.innerHTML = '<div style="color:#ef4444;">렌더 오류</div>'; }
+    }
+
+    // ── 일반 ───────────────────────────────────────────────────
+    function _renderSettingsGeneral(body) {
+        const isDark = !document.body.classList.contains('light-mode');
+        const mkt    = (typeof currentMarket !== 'undefined' && currentMarket) || (localStorage.getItem('market') || 'US');
+        const cur    = localStorage.getItem('stockai_pref_currency') || (mkt === 'KR' ? 'KRW' : 'USD');
+        body.innerHTML = `
+            <div class="settings-section">
+                <div class="settings-section-label">색상 모드</div>
+                <div class="settings-card-grid">
+                    <div class="settings-card ${isDark ? 'selected':''}" onclick="_setSettingsTheme('dark')">
+                        <div class="settings-card-thumb"></div>
+                        <div class="settings-card-label">다크</div>
+                    </div>
+                    <div class="settings-card ${!isDark ? 'selected':''}" onclick="_setSettingsTheme('light')">
+                        <div class="settings-card-thumb light"></div>
+                        <div class="settings-card-label">라이트</div>
+                    </div>
+                </div>
+            </div>
+            <div class="settings-section">
+                <div class="settings-section-label">기본 시장</div>
+                <div class="settings-card-grid">
+                    <div class="settings-card ${mkt === 'US' ? 'selected':''}" onclick="_setSettingsMarket('US')">
+                        <div class="settings-card-thumb" style="display:flex;align-items:center;justify-content:center;font-size:18px;">🇺🇸</div>
+                        <div class="settings-card-label">미국 (NYSE / NASDAQ)</div>
+                    </div>
+                    <div class="settings-card ${mkt === 'KR' ? 'selected':''}" onclick="_setSettingsMarket('KR')">
+                        <div class="settings-card-thumb" style="display:flex;align-items:center;justify-content:center;font-size:18px;">🇰🇷</div>
+                        <div class="settings-card-label">한국 (KOSPI / KOSDAQ)</div>
+                    </div>
+                </div>
+                <div class="settings-section-hint">앱 진입 시 기본으로 선택될 시장입니다.</div>
+            </div>
+            <div class="settings-section">
+                <div class="settings-row" style="border-bottom:none;padding:0;">
+                    <div>
+                        <div class="settings-row-label">기본 통화</div>
+                        <div class="settings-row-sub">가격 표시 단위</div>
+                    </div>
+                    <div class="settings-pill-toggle">
+                        <button class="${cur === 'USD' ? 'selected' : ''}" onclick="_setSettingsCurrency('USD')">$</button>
+                        <button class="${cur === 'KRW' ? 'selected' : ''}" onclick="_setSettingsCurrency('KRW')">원</button>
+                    </div>
+                </div>
+            </div>`;
+    }
+    function _setSettingsTheme(mode) {
+        const wantDark = mode === 'dark';
+        const isDark = !document.body.classList.contains('light-mode');
+        if (wantDark !== isDark && typeof toggleTheme === 'function') toggleTheme();
+        setSettingsTab('general');
+    }
+    function _setSettingsMarket(mkt) {
+        localStorage.setItem('market', mkt);
+        if (typeof setMarket === 'function') { try { setMarket(mkt); } catch(_) {} }
+        showToast(`기본 시장: ${mkt === 'KR' ? '한국' : '미국'}`);
+        setSettingsTab('general');
+    }
+    function _setSettingsCurrency(cur) {
+        localStorage.setItem('stockai_pref_currency', cur);
+        setSettingsTab('general');
+    }
+
+    // ── 알림 ───────────────────────────────────────────────────
+    async function _renderSettingsNotif(body) {
+        const state = await getPushState();
+        const perm = state.perm, subscribed = !!state.subscribed;
+        const lastPushTs = parseInt(localStorage.getItem('stockai_last_push_ts') || '0', 10);
+        const fmtLast = (() => {
+            if (!lastPushTs) return '아직 받은 알림 없음';
+            const d = Date.now() - lastPushTs;
+            if (d < 60_000)     return '방금 전';
+            if (d < 3600_000)   return Math.floor(d/60_000)+'분 전';
+            if (d < 86400_000)  return Math.floor(d/3600_000)+'시간 전';
+            return Math.floor(d/86400_000)+'일 전';
+        })();
+        const statusMeta = (() => {
+            if (perm === 'denied')  return { bg:'rgba(239,68,68,.12)', bc:'rgba(239,68,68,.5)',  cl:'#ef4444', icon:'🔴', title:'알림 차단됨',          desc:'브라우저 설정에서 알림 권한을 풀어주세요.', action:null };
+            if (perm === 'granted' && subscribed) return { bg:'rgba(34,197,94,.12)', bc:'rgba(34,197,94,.5)', cl:'#22c55e', icon:'🟢', title:'알림 활성',  desc:'푸시 알림을 정상적으로 받을 수 있습니다.', action:{label:'테스트 알림', fn:'_sendTestNotif()'} };
+            if (perm === 'granted' && !subscribed) return { bg:'rgba(245,158,11,.12)', bc:'rgba(245,158,11,.5)', cl:'#f59e0b', icon:'🟡', title:'권한 있음 · 미구독', desc:'다시 구독해 주세요.', action:{label:'다시 구독', fn:'_resubscribePush()'} };
+            return { bg:'rgba(148,163,184,.12)', bc:'rgba(148,163,184,.5)', cl:'#94a3b8', icon:'⚪', title:'알림 미설정', desc:'PWA 푸시 알림을 활성화합니다.', action:{label:'알림 켜기', fn:'_resubscribePush()'} };
+        })();
+        const browserHint = perm === 'denied'
+            ? `<div style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.6;">
+                • Chrome/Edge: 주소창 자물쇠 → 알림 → 허용<br>
+                • Safari: 설정 → 웹사이트 → 알림 → 허용
+               </div>` : '';
+        const disabled = perm !== 'granted';
+        body.innerHTML = `
+            <div class="settings-section">
+                <div style="background:${statusMeta.bg};border:1px solid ${statusMeta.bc};border-radius:12px;padding:14px 16px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="font-size:16px;">${statusMeta.icon}</span>
+                        <span style="font-weight:700;font-size:14px;color:${statusMeta.cl};flex:1;">${statusMeta.title}</span>
+                        ${statusMeta.action ? `<button class="settings-action-btn" style="border-color:${statusMeta.bc};color:${statusMeta.cl};" onclick="${statusMeta.action.fn}">${statusMeta.action.label}</button>` : ''}
+                    </div>
+                    <div style="font-size:12px;color:var(--text3);margin-top:6px;line-height:1.5;">${statusMeta.desc}</div>
+                    ${browserHint}
+                    <div style="font-size:11px;color:var(--text3);margin-top:8px;">마지막 알림 수신: <b style="color:var(--text2);">${fmtLast}</b></div>
+                </div>
+            </div>
+            <div class="settings-section" style="${disabled ? 'opacity:.5;pointer-events:none;' : ''}">
+                <div class="settings-section-label">알림 종류</div>
+                ${[
+                    ['notifSetBuy',  'buy',  '📈 매수 진입 신호'],
+                    ['notifSetTp',   'tp',   '💰 익절 도달'],
+                    ['notifSetStop', 'stop', '🔴 손절선 이탈'],
+                    ['notifSetPos',  'pos',  '📋 포지션 변화'],
+                ].map(([id, key, label]) => {
+                    const on = localStorage.getItem('stockai_notif_' + key) !== '0';
+                    return `<div class="settings-row">
+                        <div class="settings-row-label">${label}</div>
+                        <input type="checkbox" class="settings-switch" id="${id}" ${on ? 'checked' : ''} onchange="_saveNotifPref('${key}', this.checked)">
+                    </div>`;
+                }).join('')}
+            </div>
+            ${subscribed ? `<div class="settings-section">
+                <button class="settings-danger-btn" onclick="_confirmUnsubPush();setTimeout(()=>setSettingsTab('notif'),300);">알림 해제</button>
+            </div>` : ''}
+        `;
+    }
+
+    // ── 차트 ───────────────────────────────────────────────────
+    function _renderSettingsChart(body) {
+        const sigLines  = localStorage.getItem('stockai_chart_sig_lines') !== '0';
+        const sigSound  = localStorage.getItem('stockai_chart_sound') === '1';
+        const minGrade  = localStorage.getItem('stockai_min_grade') || 'B';
+        const tpLevel   = parseInt(localStorage.getItem('stockai_chart_tp_level') || '1');
+        const gradeOpts = [['B','B+'], ['A','A+'], ['S','S']];
+        const tpOpts    = [[1,'1차만'], [2,'1~2차'], [3,'1~3차']];
+        body.innerHTML = `
+            <div class="settings-section">
+                <div class="settings-row">
+                    <div>
+                        <div class="settings-row-label">시그널 가격 라인 표시</div>
+                        <div class="settings-row-sub">차트에 매수/매도 가격대를 라인으로 표시</div>
+                    </div>
+                    <input type="checkbox" class="settings-switch" ${sigLines ? 'checked':''}
+                           onchange="localStorage.setItem('stockai_chart_sig_lines', this.checked ? '1':'0');showToast('재로딩 시 적용');">
+                </div>
+                <div class="settings-row">
+                    <div>
+                        <div class="settings-row-label">시그널 사운드</div>
+                        <div class="settings-row-sub">매수/매도 시그널 발생 시 음성·효과음 재생</div>
+                    </div>
+                    <input type="checkbox" class="settings-switch" ${sigSound ? 'checked':''}
+                           onchange="localStorage.setItem('stockai_chart_sound', this.checked ? '1':'0');showToast(this.checked ? '사운드 켜짐' : '사운드 꺼짐');">
+                </div>
+            </div>
+            <div class="settings-section">
+                <div class="settings-row" style="border-bottom:none;padding-bottom:6px;">
+                    <div>
+                        <div class="settings-row-label">시그널 최소 등급</div>
+                        <div class="settings-row-sub">설정 등급 이상 시그널만 차트에 표시</div>
+                    </div>
+                    <div class="settings-pill-toggle">
+                        ${gradeOpts.map(([v, lbl]) => `<button class="${minGrade===v?'selected':''}" onclick="localStorage.setItem('stockai_min_grade','${v}');setSettingsTab('chart');showToast('등급 필터: ${lbl}');">${lbl}</button>`).join('')}
+                    </div>
+                </div>
+                <div class="settings-row" style="border-bottom:none;padding-top:6px;">
+                    <div>
+                        <div class="settings-row-label">익절 단계 표시</div>
+                        <div class="settings-row-sub">차트에 표시할 익절 라인 단계</div>
+                    </div>
+                    <div class="settings-pill-toggle">
+                        ${tpOpts.map(([v, lbl]) => `<button class="${tpLevel===v?'selected':''}" onclick="localStorage.setItem('stockai_chart_tp_level','${v}');setSettingsTab('chart');showToast('익절 단계: ${lbl}');">${lbl}</button>`).join('')}
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    // ── 데이터 ─────────────────────────────────────────────────
+    function _renderSettingsData(body) {
+        const sigCount = (() => { try { return JSON.parse(localStorage.getItem('stockai_sig_history')||'[]').length; } catch(_){ return 0; } })();
+        const favCount = (() => { try { return (typeof getFavorites === 'function' ? getFavorites() : []).length; } catch(_){ return 0; } })();
+        body.innerHTML = `
+            <div class="settings-section">
+                <div class="settings-row">
+                    <div>
+                        <div class="settings-row-label">알림 내역 초기화</div>
+                        <div class="settings-row-sub">현재 ${sigCount}개 시그널이 저장되어 있습니다</div>
+                    </div>
+                    <button class="settings-danger-btn" onclick="_clearSigHistoryFromSettings()">초기화</button>
+                </div>
+                <div class="settings-row">
+                    <div>
+                        <div class="settings-row-label">즐겨찾기 초기화</div>
+                        <div class="settings-row-sub">현재 ${favCount}개 종목이 등록되어 있습니다</div>
+                    </div>
+                    <button class="settings-danger-btn" onclick="_clearFavsFromSettings()">초기화</button>
+                </div>
+                <div class="settings-row">
+                    <div>
+                        <div class="settings-row-label">서비스 워커 캐시 초기화</div>
+                        <div class="settings-row-sub">앱 캐시를 모두 삭제하고 새로 받아옵니다</div>
+                    </div>
+                    <button class="settings-danger-btn" onclick="_clearSwCacheFromSettings()">캐시 비우기</button>
+                </div>
+            </div>
+            <div class="settings-section">
+                <div class="settings-section-hint" style="color:#f59e0b;">
+                    ⚠️ 초기화는 되돌릴 수 없습니다.
+                </div>
+            </div>`;
+    }
+    function _clearSigHistoryFromSettings() {
+        if (!confirm('알림 내역을 모두 지우시겠습니까?')) return;
+        try {
+            if (typeof _sigHistory !== 'undefined') _sigHistory.length = 0;
+        } catch(_){}
+        localStorage.removeItem('stockai_sig_history');
+        // backfill 플래그도 제거 → 다시 보면 backfill 재실행됨
+        Object.keys(window).filter(k => k.startsWith('_sigBackfilled_')).forEach(k => delete window[k]);
+        if (typeof _renderSigHistoryPanel === 'function') { try { _renderSigHistoryPanel(); } catch(_){} }
+        showToast('알림 내역이 초기화되었습니다');
+        setSettingsTab('data');
+    }
+    function _clearFavsFromSettings() {
+        if (!confirm('즐겨찾기를 모두 지우시겠습니까?')) return;
+        localStorage.removeItem('favorites');
+        showToast('즐겨찾기가 초기화되었습니다');
+        setSettingsTab('data');
+    }
+    async function _clearSwCacheFromSettings() {
+        if (!confirm('서비스 워커 캐시를 비우고 새로고침하시겠습니까?')) return;
+        try {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(r => r.unregister()));
+            const keys = await caches.keys();
+            await Promise.all(keys.map(k => caches.delete(k)));
+        } catch(_){}
+        showToast('캐시 초기화 완료 — 새로고침합니다');
+        setTimeout(() => location.reload(), 800);
+    }
+
+    // ── 정보 ───────────────────────────────────────────────────
+    function _renderSettingsAbout(body) {
+        body.innerHTML = `
+            <div class="settings-section">
+                <div class="settings-row">
+                    <div>
+                        <div class="settings-row-label">앱 버전</div>
+                        <div class="settings-row-sub">서비스 워커 캐시 기준</div>
+                    </div>
+                    <span id="settingsAppVersion" style="font-size:13px;color:var(--text2);font-family:monospace;">확인 중…</span>
+                </div>
+                <div class="settings-row">
+                    <div>
+                        <div class="settings-row-label">PWA 설치</div>
+                        <div class="settings-row-sub">홈 화면에 추가하여 빠르게 실행</div>
+                    </div>
+                    <button class="settings-action-btn" onclick="pwaInstall()">설치</button>
+                </div>
+                <div class="settings-row" style="border-bottom:none;">
+                    <div>
+                        <div class="settings-row-label">기능 업데이트 내역</div>
+                        <div class="settings-row-sub">변경된 기능 살펴보기</div>
+                    </div>
+                    <button class="settings-action-btn" onclick="closeSettings();setTimeout(openChangelog,200);">보기</button>
+                </div>
+            </div>`;
+        // SW 버전 비동기 조회
+        (async () => {
+            try {
+                const r = await fetch('/sw.js', { cache: 'no-store' });
+                const txt = await r.text();
+                const m = txt.match(/CACHE_NAME\s*=\s*['"]([^'"]+)['"]/);
+                const v = document.getElementById('settingsAppVersion');
+                if (v && m) v.textContent = m[1];
+            } catch(_) {}
+        })();
+    }
+
     function _saveNotifPref(key, val) {
         localStorage.setItem('stockai_notif_' + key, val ? '1' : '0');
         showToast(val ? `${key === 'buy' ? '매수' : key === 'tp' ? '익절' : key === 'stop' ? '손절' : '포지션'} 알림 켜짐` : `알림 꺼짐`);
@@ -5180,6 +5497,10 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         openPriceAlertModal, _setPaDir, _savePriceAlert, _deletePriceAlert,
         _togglePushBell, _openCurrentPriceAlert, _showNotifSettingsModal, _saveNotifPref, _confirmUnsubPush,
         _sendTestNotif, _resubscribePush, _updatePushBellDot,
+        // 통합 설정
+        openSettings, closeSettings, setSettingsTab,
+        _setSettingsTheme, _setSettingsMarket, _setSettingsCurrency,
+        _clearSigHistoryFromSettings, _clearFavsFromSettings, _clearSwCacheFromSettings,
         _sideNavSearchKey, _sideNavSearchInput,
         _renderRecentSearchStrip, _clickRecentChip, _deleteRecentSearch, _clearAllRecentSearches,
         loadOptionsPopular, _optPopSwitch, _renderOptionsPopular,

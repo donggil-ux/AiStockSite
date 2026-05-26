@@ -102,6 +102,10 @@
                 <span class="changelog-label">기능 업데이트</span>
                 <span class="changelog-badge" id="changelogBadge" style="display:none;">N</span>
             </button>
+            <button class="changelog-btn" id="settingsBtn" onclick="openSettings();closeSideNav();">
+                <span class="changelog-icon"><i class="ri-settings-3-fill"></i></span>
+                <span class="changelog-label">설정</span>
+            </button>
             <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()">
                 <span class="theme-icon" id="themeIcon">&#9790;</span>
                 <span id="themeLabel">다크 모드</span>
@@ -111,6 +115,25 @@
     </div>
 </nav>
 <div class="side-nav-backdrop" id="sideNavBackdrop" onclick="closeSideNav()"></div>
+
+<!-- ===== 설정 모달 ===== -->
+<div class="settings-backdrop" id="settingsBackdrop" onclick="closeSettings()"></div>
+<div class="settings-modal" id="settingsModal" role="dialog" aria-labelledby="settingsTitle" aria-hidden="true">
+    <aside class="settings-side">
+        <button class="settings-tab active" data-tab="general" onclick="setSettingsTab('general')">일반</button>
+        <button class="settings-tab" data-tab="notif"   onclick="setSettingsTab('notif')">알림</button>
+        <button class="settings-tab" data-tab="chart"   onclick="setSettingsTab('chart')">차트</button>
+        <button class="settings-tab" data-tab="data"    onclick="setSettingsTab('data')">데이터</button>
+        <button class="settings-tab" data-tab="about"   onclick="setSettingsTab('about')">정보</button>
+    </aside>
+    <section class="settings-content">
+        <div class="settings-header">
+            <h2 class="settings-title" id="settingsTitle">일반</h2>
+            <button class="settings-close" onclick="closeSettings()" aria-label="닫기">&times;</button>
+        </div>
+        <div class="settings-body" id="settingsBody"></div>
+    </section>
+</div>
 
 <!-- ===== 기능 업데이트 모달 ===== -->
 <div class="changelog-backdrop" id="changelogBackdrop" onclick="closeChangelog()"></div>
