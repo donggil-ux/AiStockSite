@@ -888,7 +888,7 @@
         const titleEl = document.getElementById('cmpCatTitle');
         const s = (sym || '').toUpperCase();
         const sector = _cmpGetSectorLabel(s);
-        if (titleEl) titleEl.textContent = sector === '유사 종목' ? '유사 종목' : `${sector} 유사 종목`;
+        if (titleEl) titleEl.textContent = sector === '유사 종목' ? '인기 검색' : `${sector} 인기 종목`;
         if (!listEl) return;
         const peers = _cmpGetPeers(s);
         listEl.innerHTML = peers.map((p, i) => {
@@ -911,11 +911,11 @@
         fetch(`/api/quote?symbols=${encodeURIComponent(symbols)}`)
             .then(r => r.json())
             .then(data => {
-                if (!Array.isArray(data)) return;
-                data.forEach(q => {
+                const list = data?.quoteResponse?.result || (Array.isArray(data) ? data : []);
+                list.forEach(q => {
                     const el = document.getElementById('cmpChg_' + (q.symbol || q.ticker || ''));
                     if (!el) return;
-                    const chg = q.regularMarketChangePercent ?? q.changePercent ?? null;
+                    const chg = q.regularMarketChangePercent ?? null;
                     if (chg == null) return;
                     const isUp = chg >= 0;
                     el.textContent = (isUp ? '+' : '') + chg.toFixed(2) + '%';
