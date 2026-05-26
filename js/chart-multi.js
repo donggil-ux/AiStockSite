@@ -199,6 +199,8 @@
         currentFullSymbol = cell.fullSymbol;
         currentMarket     = cell.market;
         currentInterval   = cell.tf;
+        // stockData 동기화 — 분석 함수들이 !stockData 가드를 통과하도록
+        stockData = cell.stockData?.chart?.result?.[0] || cell.stockData || stockData;
     }
 
     /** 셀 활성화 — 클릭 or 심볼 로드 완료 후 호출 */
