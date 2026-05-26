@@ -1980,8 +1980,11 @@
         const { sl, tp1, tp2, maxEntry, allocs } = coeff;
 
         // Fibonacci 진입 레벨
+        // 앵커를 현재가 이하로 고정 → 1차가 항상 현재가 아래에 위치
+        // (swHigh가 현재가보다 높을 때 1차가 현재가 위로 올라가는 버그 방지)
+        const anchor = Math.min(swHigh, lastClose * 0.9995);
         const entryLevels = SD_FIB.slice(0, maxEntry).map((fib, i) => ({
-            num: i+1, fib, price: swHigh - fib * range, alloc: allocs[i] || 5
+            num: i+1, fib, price: +(anchor - fib * range).toFixed(4), alloc: allocs[i] || 5
         }));
 
         const goldenIdx = entryLevels.findIndex(e => e.fib === 0.618);
