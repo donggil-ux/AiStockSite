@@ -1879,6 +1879,12 @@
 
     let _earnHomeCache = null; // 호출 전에 선언 필요 (TDZ 방지)
 
+    // ── 알파홈 상태 변수 — loadAlphaHomePreview() 호출 전에 선언 필요 (TDZ 방지) ──
+    let _alphaHomeTab   = 'bounce';
+    let _alphaHomeCache = {};                 // { [tab]: { items, ts } }
+    let _alphaHomeRetry = {};                 // { [tab]: retryCount }
+    const _ALPHA_HOME_TTL = 5 * 60 * 1000;   // 5분 캐시
+
     // 페이지 로드 시 즉시 실행 (TOP100은 메뉴에서만 로드)
     loadPremarketScanner();
     loadSwingRadar();
@@ -4363,10 +4369,6 @@
     // ═══════════════════════════════════════════════════════════
     // 알파 스캐너 홈 프리뷰 — 탭별 상위 10개 + 더보기 (v624)
     // ═══════════════════════════════════════════════════════════
-    let _alphaHomeTab   = 'bounce';
-    let _alphaHomeCache = {};                 // { [tab]: { items, ts } }
-    let _alphaHomeRetry = {};                 // { [tab]: retryCount }
-    const _ALPHA_HOME_TTL = 5 * 60 * 1000;   // 5분 캐시
 
     // 10초 타임아웃 fetch — 응답 없으면 자동 abort
     function _alphaFetch(url) {
@@ -11160,7 +11162,8 @@
     };
 
     // 한글 별칭 통합 맵 — US_STOCK_NAMES + US_ETF_NAMES.korean 병합, 공백 제거 정규화
-    const _normKor = (s) => String(s || '').replace(/\s+/g, '').toLowerCase();
+    // function 선언식으로 호이스팅 → TDZ 없음 (파일 초기화 중 호출돼도 안전)
+    function _normKor(s) { return String(s || '').replace(/\s+/g, '').toLowerCase(); }
     const KOR_TO_US_TICKER = (() => {
         const m = {};
         for (const [kor, t] of Object.entries(US_STOCK_NAMES)) {
