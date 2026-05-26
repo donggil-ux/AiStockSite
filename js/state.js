@@ -192,7 +192,7 @@
     try {
         if (sessionStorage.getItem('_alphaCacheVersion') !== _ALPHA_CACHE_VERSION) {
             sessionStorage.setItem('_alphaCacheVersion', _ALPHA_CACHE_VERSION);
-            log('[alphaHome] 캐시 버전 변경 →', _ALPHA_CACHE_VERSION);
+            console.log('[alphaHome] 캐시 버전 변경 →', _ALPHA_CACHE_VERSION);
         }
     } catch(e) {}
     // 상장폐지 필터용 캐시: { ticker → { valid: bool, ts: number } }
