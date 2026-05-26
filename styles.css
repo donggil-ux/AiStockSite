@@ -670,13 +670,14 @@
             min-width:80px;height:44px;
             padding-left:8px;
         }
-        /* 거래대금 라벨 — 라이트·다크 모두 디자인 시스템 색상 사용 (WCAG AA 충족) */
+        /* 거래대금 라벨 — 라이트·다크 모두 명확하게 보이도록 강화 */
         .top100-tv-label{
-            font-size:11px;color:var(--text2);
-            font-weight:400;line-height:14px;
+            font-size:11px;color:#6B7280;
+            font-weight:500;line-height:14px;
             white-space:nowrap;
         }
-        [data-theme="dark"] .top100-tv-label{color:var(--text2)!important;}
+        [data-theme="light"] .top100-tv-label{color:#6B7280!important;}
+        [data-theme="dark"] .top100-tv-label{color:#D1D5DB!important;}
         .top100-tv{
             font-size:14px;font-weight:500;
             color:#333D4B;
@@ -712,12 +713,15 @@
         }
         [data-theme="dark"] .top100-ticker-sym{color:var(--text)!important;}
         .top100-reason{
-            display:block;font-size:14px;color:#757575;
-            font-weight:400;line-height:22px;letter-spacing:-0.005em;
+            display:block;font-size:14px;color:#4B5563;
+            font-weight:500;line-height:22px;letter-spacing:-0.005em;
             white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
             text-align:left;min-width:0;
         }
-        [data-theme="dark"] .top100-reason{color:var(--text2)!important;}
+        /* 라이트: 충분히 진한 회색 #4B5563 (컨트라스트 7.5:1) */
+        [data-theme="light"] .top100-reason{color:#4B5563!important;}
+        /* 다크: 더 밝은 회색으로 — 어두운 디스플레이에서도 잘 보이게 */
+        [data-theme="dark"] .top100-reason{color:#D1D5DB!important;font-weight:500;}
         /* 핵심 키워드 배지 모드 */
         .top100-reason.reason-tag{
             display:inline-flex;align-items:center;
@@ -736,10 +740,13 @@
         .top100-row:hover{background:var(--bg3);transform:none;}
         .top100-row-head{background:transparent;padding:6px 12px;cursor:default;font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.3px;border-bottom:none;grid-template-columns:24px 28px 44px minmax(100px,1fr) auto auto;grid-template-areas:"fav rank logo info price tv";}
         .top100-row-head:hover{background:transparent;}
-        .top100-rank{font-size:15px;font-weight:500;color:rgba(0,12,30,0.8);text-align:center;font-variant-numeric:tabular-nums;letter-spacing:-0.01em;line-height:22px;}
-        [data-theme="dark"] .top100-rank{color:var(--text2)!important;}
-        .top100-rank.top3{color:rgba(0,12,30,0.8);font-weight:500;} /* Toss 일관 컬러 */
-        [data-theme="dark"] .top100-rank.top3{color:var(--text2)!important;}
+        .top100-rank{font-size:15px;font-weight:600;color:#374151;text-align:center;font-variant-numeric:tabular-nums;letter-spacing:-0.01em;line-height:22px;}
+        /* 다크: 더 밝게 (이전 var(--text2)=#A1A1A6 → #E5E7EB 로 강화) */
+        [data-theme="dark"] .top100-rank{color:#E5E7EB!important;font-weight:600;}
+        [data-theme="light"] .top100-rank{color:#374151!important;}
+        .top100-rank.top3{font-weight:700;}
+        [data-theme="dark"] .top100-rank.top3{color:#FBBF24!important;} /* TOP3 강조 — 금색 */
+        [data-theme="light"] .top100-rank.top3{color:#D97706!important;}
         /* Row-level favorite icon button */
         .top100-fav{width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:none;border-radius:var(--radius-xs);color:rgba(3,24,50,0.46);font-size:14px;cursor:pointer;padding:2px 4px;transition:color .15s,background .15s;}
         .top100-fav:hover{background:var(--bg3);}
