@@ -3822,8 +3822,8 @@
         const fmtP = p => p == null ? '-' : (isKR ? Math.round(p).toLocaleString() + '원' : '$' + p.toFixed(2));
         if (!plan || !plan.recommend) {
             return `<div style="margin:12px 0;padding:11px 13px;background:var(--bg3);border:1px solid var(--border);border-radius:9px;">
-                <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:3px;">🎯 분할 진입 플랜</div>
-                <div style="font-size:11.5px;color:var(--text2);line-height:1.5;">⚠️ ${escHtml(plan?.note || '진입가 산출 불가')}</div>
+                <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:3px;">분할 진입 플랜</div>
+                <div style="font-size:11.5px;color:var(--text2);line-height:1.5;">${escHtml(plan?.note || '진입가 산출 불가')}</div>
             </div>`;
         }
         const rrCol = plan.rr >= 2 ? '#22c55e' : plan.rr >= 1.5 ? '#eab308' : '#ef4444';
@@ -3833,7 +3833,7 @@
             ${cap ? `<div style="font-size:9.5px;color:var(--text3);margin-top:2px;line-height:1.3;">${escHtml(cap)}</div>` : ''}
         </div>`;
         return `<div style="margin:12px 0;padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;">
-            <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:9px;">🎯 분할 진입 플랜</div>
+            <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:9px;">분할 진입 플랜</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:9px;">
                 ${cell('1차 진입가', fmtP(plan.entry1), '#3b82f6', plan.basis1)}
                 ${cell('2차 진입가 (추가매수)', fmtP(plan.entry2), '#6366f1', plan.basis2)}
@@ -3916,13 +3916,13 @@
     }
 
     const _SWING_CATS = [
-        { key:'technical',   name:'기술적 분석', icon:'📈', weight:0.25 },
-        { key:'risk',        name:'리스크 관리', icon:'🛡️', weight:0.20 },
-        { key:'fundamental', name:'펀더멘탈',   icon:'🏢', weight:0.15 },
-        { key:'volatility',  name:'변동성',     icon:'📊', weight:0.15 },
-        { key:'liquidity',   name:'유동성',     icon:'💧', weight:0.10 },
-        { key:'news',        name:'시장 뉴스',  icon:'📰', weight:0.08 },
-        { key:'interest',    name:'시장 관심',  icon:'🔥', weight:0.07 },
+        { key:'technical',   name:'기술적 분석', icon:'', weight:0.25 },
+        { key:'risk',        name:'리스크 관리', icon:'', weight:0.20 },
+        { key:'fundamental', name:'펀더멘탈',   icon:'', weight:0.15 },
+        { key:'volatility',  name:'변동성',     icon:'', weight:0.15 },
+        { key:'liquidity',   name:'유동성',     icon:'', weight:0.10 },
+        { key:'news',        name:'시장 뉴스',  icon:'', weight:0.08 },
+        { key:'interest',    name:'시장 관심',  icon:'', weight:0.07 },
     ];
 
     function _swingColor(s) {
@@ -3932,10 +3932,10 @@
         return '#ef4444';
     }
     function _swingGrade(s) {
-        if (s >= 75) return { label:'🟢 우수 — 스윙 진입 매력적', color:'#22c55e' };
-        if (s >= 55) return { label:'🟡 양호 — 조건부 진입 검토', color:'#eab308' };
-        if (s >= 35) return { label:'🟠 보통 — 신중한 관망', color:'#f97316' };
-        return { label:'🔴 주의 — 진입 비권장', color:'#ef4444' };
+        if (s >= 75) return { label:'우수 — 스윙 진입 매력적', color:'#22c55e' };
+        if (s >= 55) return { label:'양호 — 조건부 진입 검토', color:'#eab308' };
+        if (s >= 35) return { label:'보통 — 신중한 관망', color:'#f97316' };
+        return { label:'주의 — 진입 비권장', color:'#ef4444' };
     }
 
     function _buildSwingCardHtml(scores, ticker, d) {
@@ -3949,8 +3949,8 @@
             const pct = Math.max(3, Math.min(100, r.score));
             return `<div style="margin-bottom:10px;">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-                    <span style="font-size:12px;font-weight:700;color:var(--text);">${c.icon} ${c.name}</span>
-                    <span style="font-size:12px;font-weight:800;color:${col};font-variant-numeric:tabular-nums;">${r.pending?'⏳':r.score}</span>
+                    <span style="font-size:12px;font-weight:700;color:var(--text);">${c.name}</span>
+                    <span style="font-size:12px;font-weight:800;color:${col};font-variant-numeric:tabular-nums;">${r.pending?'…':r.score}</span>
                 </div>
                 <div style="height:7px;background:var(--bg2);border-radius:100px;overflow:hidden;">
                     <div style="height:100%;width:${r.pending?0:pct}%;background:${col};border-radius:100px;transition:width .4s;"></div>
@@ -3961,7 +3961,7 @@
         return `
         <div style="background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:16px;margin:0;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-                <div style="font-size:14px;font-weight:900;color:var(--text);">🎯 스윙 분석</div>
+                <div style="font-size:14px;font-weight:900;color:var(--text);">스윙 분석</div>
                 <div style="font-size:11px;color:var(--text3);">7개 카테고리 종합</div>
             </div>
             <div style="display:flex;align-items:center;gap:14px;margin:10px 0 14px;padding:12px;background:var(--bg3);border-radius:10px;">
@@ -3973,10 +3973,10 @@
             </div>
             ${barsHtml}
             ${d ? _buildSwingEntryHtml(_swingEntryPlan(d)) : ''}
-            <button id="swingAiBtn" onclick="_runSwingAi('${escHtml(ticker)}')" style="width:100%;margin-top:6px;padding:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:999px;font-size:13px;font-weight:800;cursor:pointer;letter-spacing:.02em;">🤖 AI 종합 분석</button>
+            <button id="swingAiBtn" onclick="_runSwingAi('${escHtml(ticker)}')" style="width:100%;margin-top:6px;padding:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:999px;font-size:13px;font-weight:800;cursor:pointer;letter-spacing:.02em;">AI 종합 분석</button>
             <div id="swingAnalysis-ai" style="margin-top:10px;"></div>
             <div style="margin-top:12px;padding:9px 11px;background:var(--bg3);border-radius:8px;font-size:10.5px;color:var(--text3);line-height:1.5;">
-                💡 점수는 룰베이스 알고리즘 자동 산출입니다. 펀더멘탈·뉴스는 외부 데이터 로드 후 갱신됩니다. AI 종합 분석은 버튼 클릭 시에만 호출됩니다.
+                점수는 룰베이스 알고리즘 자동 산출입니다. 펀더멘탈·뉴스는 외부 데이터 로드 후 갱신됩니다. AI 종합 분석은 버튼 클릭 시에만 호출됩니다.
             </div>
         </div>`;
     }
@@ -4057,8 +4057,8 @@
         let overall = 0, wsum = 0;
         _SWING_CATS.forEach((c,i) => { if(cats[i]){ overall += cats[i].score*c.weight; wsum += c.weight; } });
         overall = Math.round(overall / (wsum||1));
-        if (btn) { btn.disabled = true; btn.textContent = '🤖 AI 분석 중...'; btn.style.opacity = '0.6'; }
-        out.innerHTML = '<div style="font-size:12px;color:var(--text2);padding:8px;">🤖 Gemini 종합 분석 중...</div>';
+        if (btn) { btn.disabled = true; btn.textContent = 'AI 분석 중...'; btn.style.opacity = '0.6'; }
+        out.innerHTML = '<div style="font-size:12px;color:var(--text2);padding:8px;">Gemini 종합 분석 중...</div>';
         try {
             const res = await fetch('/api/swing/ai-analyze', {
                 method:'POST', headers:{'Content-Type':'application/json'},
@@ -4070,7 +4070,7 @@
         } catch (e) {
             out.innerHTML = `<div style="font-size:12px;color:var(--red);padding:8px;">AI 분석 실패: ${escHtml(e.message||'')}</div>`;
         } finally {
-            if (btn) { btn.disabled = false; btn.textContent = '🤖 AI 종합 분석 다시'; btn.style.opacity = '1'; }
+            if (btn) { btn.disabled = false; btn.textContent = 'AI 종합 분석 다시'; btn.style.opacity = '1'; }
         }
     }
 
@@ -4078,11 +4078,11 @@
         if (!ai || typeof ai !== 'object') return '<div style="font-size:12px;color:var(--text2);">분석 결과 없음</div>';
         const row = (label, val, col) => val ? `<div style="margin-top:7px;"><span style="font-size:11px;font-weight:800;color:${col||'var(--text2)'};">${label}</span><div style="font-size:12px;color:var(--text);line-height:1.55;margin-top:2px;">${escHtml(val)}</div></div>` : '';
         return `<div class="cat-ai-card">
-            ${ai.verdict ? `<div style="font-size:13px;font-weight:900;color:var(--text);margin-bottom:4px;">🤖 ${escHtml(ai.verdict)}</div>` : ''}
+            ${ai.verdict ? `<div style="font-size:13px;font-weight:900;color:var(--text);margin-bottom:4px;">${escHtml(ai.verdict)}</div>` : ''}
             ${ai.summary ? `<div style="font-size:12px;color:var(--text);line-height:1.6;">${escHtml(ai.summary)}</div>` : ''}
-            ${row('💪 강점', ai.strength, '#22c55e')}
-            ${row('⚠️ 약점', ai.weakness, '#ef4444')}
-            ${row('🎯 스윙 적합도', ai.swingFit, '#6366f1')}
+            ${row('강점', ai.strength, '#22c55e')}
+            ${row('약점', ai.weakness, '#ef4444')}
+            ${row('스윙 적합도', ai.swingFit, '#6366f1')}
         </div>`;
     }
 
