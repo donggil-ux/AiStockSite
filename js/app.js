@@ -242,19 +242,20 @@
 
     function applyTheme(theme) {
         document.documentElement.setAttribute('data-theme', theme);
+        // 사이드 네비 다크 모드 토글이 제거되어 아래 요소들은 없을 수 있음 → null-safe
         const icon = document.getElementById('themeIcon');
         const label = document.getElementById('themeLabel');
         const sw = document.getElementById('themeSwitch');
         const headerBtn = document.getElementById('themeHeaderBtn');
         if (theme === 'light') {
-            icon.innerHTML = '&#9728;';
-            label.textContent = '라이트 모드';
-            sw.className = 'theme-switch light';
+            if (icon)  icon.innerHTML = '&#9728;';
+            if (label) label.textContent = '라이트 모드';
+            if (sw)    sw.className = 'theme-switch light';
             if (headerBtn) headerBtn.innerHTML = '&#9728;';
         } else {
-            icon.innerHTML = '&#9790;';
-            label.textContent = '다크 모드';
-            sw.className = 'theme-switch dark';
+            if (icon)  icon.innerHTML = '&#9790;';
+            if (label) label.textContent = '다크 모드';
+            if (sw)    sw.className = 'theme-switch dark';
             if (headerBtn) headerBtn.innerHTML = '&#9790;';
         }
         // Lightweight Charts 배경 업데이트
@@ -1485,7 +1486,8 @@
 
     // ── 일반 ───────────────────────────────────────────────────
     function _renderSettingsGeneral(body) {
-        const isDark = !document.body.classList.contains('light-mode');
+        // 테마는 <html data-theme="dark|light"> 로 관리됨
+        const isDark = (document.documentElement.getAttribute('data-theme') || 'dark') !== 'light';
         const mkt    = (typeof currentMarket !== 'undefined' && currentMarket) || (localStorage.getItem('market') || 'US');
         const cur    = localStorage.getItem('stockai_pref_currency') || (mkt === 'KR' ? 'KRW' : 'USD');
         body.innerHTML = `
@@ -1531,7 +1533,7 @@
     }
     function _setSettingsTheme(mode) {
         const wantDark = mode === 'dark';
-        const isDark = !document.body.classList.contains('light-mode');
+        const isDark = (document.documentElement.getAttribute('data-theme') || 'dark') !== 'light';
         if (wantDark !== isDark && typeof toggleTheme === 'function') toggleTheme();
         setSettingsTab('general');
     }
