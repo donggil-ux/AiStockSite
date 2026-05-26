@@ -721,6 +721,10 @@
         const isFull = card.classList.contains('fullscreen');
         iconExpand.style.display = isFull ? 'none' : '';
         iconShrink.style.display = isFull ? '' : 'none';
+        const lbl = document.getElementById('tvFsLabel');
+        if (lbl) lbl.textContent = isFull ? '작게보기' : '크게보기';
+        const btn = document.getElementById('cxtFullscreen');
+        if (btn) btn.title = isFull ? '작게보기' : '크게보기';
         document.body.style.overflow = isFull ? 'hidden' : '';
         // 전체화면 상태 저장
         localStorage.setItem('stockai_chart_fullscreen', isFull ? '1' : '0');
