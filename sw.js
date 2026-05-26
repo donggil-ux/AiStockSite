@@ -5,7 +5,7 @@
 //   - /api/*: 네트워크만 (항상 최신)
 //   - 새 SW 는 waiting 대기 → 사용자가 '새로고침' 토스트 클릭 시에만 활성화
 
-const CACHE_NAME = 'stockai-v899';
+const CACHE_NAME = 'stockai-v901';
 
 
 const STATIC_ASSETS = [
@@ -53,8 +53,9 @@ self.addEventListener('message', e => {
 self.addEventListener('push', e => {
   let d = {};
   try { d = e.data?.json() || {}; } catch(err) { d = { title: 'StockAI', body: e.data?.text() || '' }; }
-  e.waitUntil(
-    self.registration.showNotification(d.title || 'StockAI', {
+  e.waitUntil((async () => {
+    // 알림 표시
+    await self.registration.showNotification(d.title || 'StockAI', {
       body: d.body || '',
       icon: '/icon.svg',
       badge: '/icon.svg',
@@ -62,8 +63,13 @@ self.addEventListener('push', e => {
       tag: d.tag || 'stockai',
       renotify: true,
       requireInteraction: false,
-    })
-  );
+    });
+    // 열려있는 모든 클라이언트에 last-push 시각 전달 → localStorage 저장
+    try {
+      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      clients.forEach(c => c.postMessage({ type: 'LAST_PUSH_TS', ts: Date.now() }));
+    } catch(_) {}
+  })());
 });
 
 // ── 알림 클릭 → 해당 페이지로 이동 ───────────────────────────

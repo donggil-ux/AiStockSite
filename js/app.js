@@ -1099,6 +1099,27 @@
         return _pushEndpoint;
     }
 
+    // SW → 클라이언트 메시지 수신 (LAST_PUSH_TS)
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', e => {
+            if (e.data?.type === 'LAST_PUSH_TS' && e.data?.ts) {
+                localStorage.setItem('stockai_last_push_ts', String(e.data.ts));
+                // 모달이 열려있으면 갱신
+                const modal = document.getElementById('notifSettingsModal');
+                if (modal && modal.style.display === 'flex') {
+                    _showNotifSettingsModal();
+                }
+            }
+        });
+    }
+
+    // 페이지 로드 시 종 버튼 상태 초기화 (DOMContentLoaded 후)
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => { _updatePushBellDot(); });
+    } else {
+        setTimeout(() => _updatePushBellDot(), 100);
+    }
+
     // 알림 구독 (권한 요청 + 서버에 저장)
     async function subscribePush() {
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -1280,44 +1301,142 @@
     }
 
     // 알림 설정 모달 — 알림 종류별 ON/OFF + 구독 해제
-    function _showNotifSettingsModal() {
+    async function _showNotifSettingsModal() {
         let modal = document.getElementById('notifSettingsModal');
         if (!modal) {
             modal = document.createElement('div');
             modal.id = 'notifSettingsModal';
-            modal.innerHTML = `
-            <div class="notif-modal-backdrop" onclick="document.getElementById('notifSettingsModal').style.display='none'"></div>
-            <div class="notif-modal-box">
-                <div class="notif-modal-header">
-                    <span>🔔 알림 설정</span>
-                    <button class="notif-modal-close" onclick="document.getElementById('notifSettingsModal').style.display='none'">✕</button>
-                </div>
-                <div class="notif-modal-body">
-                    ${[
-                        ['notifBuy',  'buy',  '📈 매수 진입 신호'],
-                        ['notifTp',   'tp',   '💰 익절 도달'],
-                        ['notifStop', 'stop', '🔴 손절선 이탈'],
-                        ['notifPos',  'pos',  '📋 포지션 변화'],
-                    ].map(([id, key, label]) => `
-                    <label class="notif-row" for="${id}">
-                        <span>${label}</span>
-                        <input type="checkbox" id="${id}" class="notif-check"
-                            onchange="_saveNotifPref('${key}', this.checked)">
-                    </label>`).join('')}
-                </div>
-                <div class="notif-modal-footer">
-                    <button class="notif-unsub-btn" onclick="_confirmUnsubPush()">알림 해제</button>
-                </div>
-            </div>`;
             document.body.appendChild(modal);
         }
+        // ── 현재 권한/구독 상태 조회 ──
+        const state = await getPushState();
+        const perm = state.perm; // granted | denied | default
+        const subscribed = !!state.subscribed;
+        const lastPushTs = parseInt(localStorage.getItem('stockai_last_push_ts') || '0', 10);
+        // 상태 메타 (색/문구/액션)
+        const statusMeta = (() => {
+            if (perm === 'denied') return {
+                bg: 'rgba(239,68,68,.12)', bc: 'rgba(239,68,68,.5)', cl: '#ef4444', icon: '🔴',
+                title: '알림 차단됨',
+                desc: '브라우저 설정에서 알림 권한을 수동으로 풀어주세요.',
+                action: null,
+            };
+            if (perm === 'granted' && subscribed) return {
+                bg: 'rgba(34,197,94,.12)', bc: 'rgba(34,197,94,.5)', cl: '#22c55e', icon: '🟢',
+                title: '알림 활성',
+                desc: subscribed ? 'PWA 푸시 알림이 등록되어 있습니다.' : '',
+                action: { label: '테스트 알림', fn: '_sendTestNotif()' },
+            };
+            if (perm === 'granted' && !subscribed) return {
+                bg: 'rgba(245,158,11,.12)', bc: 'rgba(245,158,11,.5)', cl: '#f59e0b', icon: '🟡',
+                title: '권한은 있으나 구독 안 됨',
+                desc: '아래 버튼으로 다시 구독해 주세요.',
+                action: { label: '다시 구독', fn: '_resubscribePush()' },
+            };
+            return {
+                bg: 'rgba(148,163,184,.12)', bc: 'rgba(148,163,184,.5)', cl: '#94a3b8', icon: '⚪',
+                title: '알림 미설정',
+                desc: '아래 버튼으로 알림을 활성화하세요.',
+                action: { label: '알림 켜기', fn: '_resubscribePush()' },
+            };
+        })();
+        const fmtLastPush = (() => {
+            if (!lastPushTs) return '';
+            const diff = Date.now() - lastPushTs;
+            if (diff < 60_000) return '방금 전';
+            if (diff < 3_600_000) return Math.floor(diff / 60_000) + '분 전';
+            if (diff < 86_400_000) return Math.floor(diff / 3_600_000) + '시간 전';
+            return Math.floor(diff / 86_400_000) + '일 전';
+        })();
+        // ── 권한 안내 (denied 일 때만) ──
+        const browserHint = perm === 'denied'
+            ? `<div style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.6;">
+                 • Chrome/Edge: 주소창 자물쇠 → 알림 → 허용<br>
+                 • Safari: 설정 → 웹사이트 → 알림 → 허용
+               </div>`
+            : '';
+        // 알림 체크박스는 권한이 있을 때만 의미가 있음 → denied 면 비활성
+        const checksDisabled = perm !== 'granted';
+        modal.innerHTML = `
+        <div class="notif-modal-backdrop" onclick="document.getElementById('notifSettingsModal').style.display='none'"></div>
+        <div class="notif-modal-box">
+            <div class="notif-modal-header">
+                <span>🔔 알림 설정</span>
+                <button class="notif-modal-close" onclick="document.getElementById('notifSettingsModal').style.display='none'">✕</button>
+            </div>
+            <div class="notif-modal-body">
+                <!-- 상태 카드 -->
+                <div style="background:${statusMeta.bg};border:1px solid ${statusMeta.bc};border-radius:10px;padding:10px 12px;margin-bottom:12px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:14px;">${statusMeta.icon}</span>
+                        <span style="font-weight:700;font-size:13px;color:${statusMeta.cl};flex:1;">${statusMeta.title}</span>
+                        ${statusMeta.action ? `<button class="notif-status-btn" onclick="${statusMeta.action.fn}" style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid ${statusMeta.bc};background:transparent;color:${statusMeta.cl};cursor:pointer;font-weight:600;">${statusMeta.action.label}</button>` : ''}
+                    </div>
+                    ${statusMeta.desc ? `<div style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.5;">${statusMeta.desc}</div>` : ''}
+                    ${browserHint}
+                    ${fmtLastPush ? `<div style="font-size:11px;color:var(--text3);margin-top:6px;">마지막 알림 수신: <b style="color:var(--text2);">${fmtLastPush}</b></div>` : ''}
+                </div>
+                <!-- 알림 종류 -->
+                <div style="font-size:11px;color:var(--text3);margin-bottom:4px;padding-left:2px;font-weight:600;">알림 종류</div>
+                ${[
+                    ['notifBuy',  'buy',  '📈 매수 진입 신호'],
+                    ['notifTp',   'tp',   '💰 익절 도달'],
+                    ['notifStop', 'stop', '🔴 손절선 이탈'],
+                    ['notifPos',  'pos',  '📋 포지션 변화'],
+                ].map(([id, key, label]) => `
+                <label class="notif-row" for="${id}" style="${checksDisabled ? 'opacity:.4;pointer-events:none;' : ''}">
+                    <span>${label}</span>
+                    <input type="checkbox" id="${id}" class="notif-check"
+                        onchange="_saveNotifPref('${key}', this.checked)">
+                </label>`).join('')}
+            </div>
+            <div class="notif-modal-footer">
+                ${subscribed ? '<button class="notif-unsub-btn" onclick="_confirmUnsubPush()">알림 해제</button>' : ''}
+            </div>
+        </div>`;
         // 체크 상태 동기화
         [['notifBuy','buy'],['notifTp','tp'],['notifStop','stop'],['notifPos','pos']].forEach(([id, k]) => {
             const el = document.getElementById(id);
             if (el) el.checked = localStorage.getItem('stockai_notif_' + k) !== '0';
         });
-        const isHidden = !modal.style.display || modal.style.display === 'none';
-        modal.style.display = isHidden ? 'flex' : 'none';
+        modal.style.display = 'flex';
+    }
+
+    // 테스트 알림 — 로컬 Notification API 로 즉시 표시 (서버 트리거 불필요)
+    async function _sendTestNotif() {
+        if (Notification.permission !== 'granted') {
+            showToast('알림 권한이 필요합니다.');
+            return;
+        }
+        try {
+            const reg = await navigator.serviceWorker.ready;
+            await reg.showNotification('StockAI 테스트', {
+                body: '알림이 정상적으로 작동합니다 🔔',
+                icon: '/icon.svg',
+                badge: '/icon.svg',
+                tag: 'stockai-test',
+                data: { url: '/' },
+            });
+            // 마지막 푸시 시각 저장
+            localStorage.setItem('stockai_last_push_ts', String(Date.now()));
+            showToast('테스트 알림을 발송했습니다');
+            // 모달 다시 렌더링 (마지막 수신 시간 갱신)
+            setTimeout(() => _showNotifSettingsModal(), 800);
+        } catch(e) {
+            console.error('[testNotif]', e);
+            showToast('테스트 알림 발송 실패');
+        }
+    }
+
+    // 재구독 — 모달에서 권한 있으나 구독 안 됐을 때 또는 미설정일 때
+    async function _resubscribePush() {
+        const ok = await subscribePush();
+        if (ok) {
+            showToast('알림이 활성화되었습니다 🔔');
+            _updatePushBellDot();
+            // 모달 재렌더링
+            setTimeout(() => _showNotifSettingsModal(), 400);
+        }
     }
 
     function _saveNotifPref(key, val) {
@@ -1329,8 +1448,33 @@
         document.getElementById('notifSettingsModal').style.display = 'none';
         await unsubscribePush();
         showToast('알림이 해제되었습니다.');
+        _updatePushBellDot();
+    }
+
+    // 종 버튼 시각 상태 — opacity + 상태 점(dot)
+    async function _updatePushBellDot() {
         const btn = document.getElementById('pushBellBtn');
-        if (btn) btn.style.opacity = '0.4';
+        if (!btn) return;
+        const state = await getPushState();
+        const perm = state.perm;
+        const sub  = !!state.subscribed;
+        // opacity
+        btn.style.opacity = (perm === 'granted' && sub) ? '1' : '0.5';
+        // 기존 dot 제거
+        const old = btn.querySelector('.push-bell-dot');
+        if (old) old.remove();
+        // 상태 점: 빨강(denied) / 주황(미구독 권한있음) / 회색(미설정) / 없음(활성)
+        let dotColor = null;
+        if (perm === 'denied') dotColor = '#ef4444';
+        else if (perm === 'granted' && !sub) dotColor = '#f59e0b';
+        else if (perm === 'default') dotColor = '#94a3b8';
+        if (dotColor) {
+            const dot = document.createElement('span');
+            dot.className = 'push-bell-dot';
+            dot.style.cssText = `position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:${dotColor};box-shadow:0 0 0 2px var(--bg);pointer-events:none;`;
+            btn.style.position = 'relative';
+            btn.appendChild(dot);
+        }
     }
 
     // 종목 상세 페이지 알림 버튼 클릭
@@ -5035,6 +5179,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         subscribePush, unsubscribePush, getPushState,
         openPriceAlertModal, _setPaDir, _savePriceAlert, _deletePriceAlert,
         _togglePushBell, _openCurrentPriceAlert, _showNotifSettingsModal, _saveNotifPref, _confirmUnsubPush,
+        _sendTestNotif, _resubscribePush, _updatePushBellDot,
         _sideNavSearchKey, _sideNavSearchInput,
         _renderRecentSearchStrip, _clickRecentChip, _deleteRecentSearch, _clearAllRecentSearches,
         loadOptionsPopular, _optPopSwitch, _renderOptionsPopular,
