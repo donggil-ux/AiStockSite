@@ -351,11 +351,12 @@
             flex:0 0 auto;
             padding:3px 14px!important;height:28px!important;
             border:none;background:transparent!important;
-            color:rgba(60,60,67,0.46)!important;
+            /* 비활성 alpha 0.46 → 0.85 (가독성 확보, active 와 충분히 구분) */
+            color:rgba(60,60,67,0.85)!important;
             border-radius:var(--radius-lg);
             cursor:pointer;
             font-family:-apple-system,'SF Pro Text',inherit;
-            font-size:13.333px!important;font-weight:510!important;
+            font-size:13.333px!important;font-weight:600!important;
             line-height:18px;
             letter-spacing:-0.08px;
             text-align:center;
@@ -364,27 +365,30 @@
             -webkit-tap-highlight-color:transparent;
             box-shadow:none!important;
         }
+        /* 호버 시에도 같은 alpha 유지 (active 와 충분히 구분되도록 0.85) */
         .top100-filter:hover:not(.active),
         .dp-chip:hover:not(.active),
         .radar-tab:hover:not(.active),
         .earn-date-chip:hover:not(.active),
         .earn-chip-group .earn-chip:hover:not(.active),
         .alpha-tab:hover:not(.active),
-        .sm-sub-tab:hover:not(.active){color:rgba(60,60,67,0.46)!important;background:transparent!important;}
+        .sm-sub-tab:hover:not(.active){color:rgba(60,60,67,0.85)!important;background:transparent!important;}
+        /* 라이트 모드 — 비활성 alpha 0.85 (컨트라스트 5.5:1) */
         [data-theme="light"] .top100-filter,
         [data-theme="light"] .dp-chip,
         [data-theme="light"] .radar-tab,
         [data-theme="light"] .earn-date-chip,
         [data-theme="light"] .earn-chip-group .earn-chip,
         [data-theme="light"] .alpha-tab,
-        [data-theme="light"] .sm-sub-tab{color:rgba(60,60,67,0.46)!important;}
+        [data-theme="light"] .sm-sub-tab{color:rgba(60,60,67,0.85)!important;}
+        /* 다크 모드 — 비활성 alpha 0.85 (컨트라스트 9:1) */
         [data-theme="dark"] .top100-filter:not(.active),
         [data-theme="dark"] .dp-chip:not(.active),
         [data-theme="dark"] .radar-tab:not(.active),
         [data-theme="dark"] .earn-date-chip:not(.active),
         [data-theme="dark"] .earn-chip-group .earn-chip:not(.active),
         [data-theme="dark"] .alpha-tab:not(.active),
-        [data-theme="dark"] .sm-sub-tab:not(.active){color:rgba(235,235,245,0.46)!important;}
+        [data-theme="dark"] .sm-sub-tab:not(.active){color:rgba(235,235,245,0.85)!important;}
 
         .top100-filter.active,
         .dp-chip.active,
@@ -6687,9 +6691,10 @@
     border:none;background:transparent;
     border-radius:var(--radius-full);
     font-family:-apple-system,'SF Pro Text',inherit;
-    font-size:13px;font-weight:510;
+    font-size:13px;font-weight:600;
     letter-spacing:-0.08px;
-    color:rgba(60,60,67,0.66);
+    /* 비활성도 읽을 수 있도록 alpha 0.66 → 0.88 (가독성 확보, active 와 구분 유지) */
+    color:rgba(60,60,67,0.88);
     cursor:pointer;
     transition:all .15s;
     -webkit-tap-highlight-color:transparent;
@@ -6700,7 +6705,8 @@
     background:#fff;color:#000;font-weight:700;
     box-shadow:0 3px 8px rgba(0,0,0,0.12), 0 3px 1px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.04);
 }
-[data-theme="dark"] .alpha-home-tab{color:rgba(235,235,245,0.6);}
+/* 다크: 비활성 alpha 0.6 → 0.85 (컨트라스트 6.2 → ~9:1) */
+[data-theme="dark"] .alpha-home-tab{color:rgba(235,235,245,0.85);}
 [data-theme="dark"] .alpha-home-tab.active{background:rgba(118,118,128,0.36);color:#fff;}
 
 /* 일·주봉 분석 기준가 vs 프리/애프터 갭 배너 (v649) */
