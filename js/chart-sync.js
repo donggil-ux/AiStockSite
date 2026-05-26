@@ -452,8 +452,15 @@
         if (fab) fab.classList.toggle('active', _sigHistoryOpen);
         _renderSigHistoryPanel();
     }
+    // 3일 이내 카운트 — 배지에 사용
+    function _sigHistoryRecentCount() {
+        const cutoff = Date.now() - 3 * 86400000;
+        let n = 0;
+        for (const h of _sigHistory) if (h.ts >= cutoff) n++;
+        return n;
+    }
     function _updateSigHistoryBadge() {
-        const count = _sigHistory.length;
+        const count = _sigHistoryRecentCount();
         const badge = document.getElementById('splitCalcAlertBadge');
         if (badge) {
             badge.style.display = count > 0 ? 'inline-block' : 'none';
@@ -461,9 +468,9 @@
         }
     }
     function _renderSigHistoryPanel() {
-        // 배지 업데이트
+        // 배지 업데이트 (3일 이내 알림만 카운트)
+        const unread = _sigHistoryRecentCount();
         const badge = document.getElementById('sigHistoryBadge');
-        const unread = _sigHistory.length;
         if (badge) { badge.style.display = unread > 0 ? '' : 'none'; badge.textContent = unread > 9 ? '9+' : String(unread); }
         // alertFab 배지 동기화
         const fabBadge = document.getElementById('alertFabBadge');
@@ -486,7 +493,10 @@
         }
         // 필터 상태
         const _flt = panel._filter || 'all';
-        const filtered = _flt === 'all' ? _sigHistory : _sigHistory.filter(h => h.dir === _flt);
+        // 1) 최근 3일치만 표시  2) 최신순 정렬  3) 매수/매도 필터
+        const _cutoff = Date.now() - 3 * 86400000;
+        const _base = _sigHistory.filter(h => h.ts >= _cutoff).sort((a, b) => b.ts - a.ts);
+        const filtered = _flt === 'all' ? _base : _base.filter(h => h.dir === _flt);
         const fmtTime = ts => {
             const d = new Date(ts);
             const today = new Date();
@@ -519,6 +529,11 @@
         if (filtered.length === 0) {
             html += '<div style="padding:32px 24px;text-align:center;color:var(--text3);">알림내역이 없습니다</div>';
         } else {
+            // 시그널 가격 포맷터 (KR: 원, US: $)
+            const fmtSigPrice = (p, mkt) => {
+                if (p == null || !isFinite(p) || p <= 0) return '';
+                return mkt === 'KR' ? Math.round(p).toLocaleString() + '원' : '$' + Number(p).toFixed(2);
+            };
             filtered.forEach(function(h) {
                 const isBuyH  = h.dir === 'buy';
                 const rowBg   = isBuyH ? 'rgba(239,68,68,.04)' : 'rgba(59,130,246,.04)';
@@ -530,10 +545,15 @@
                 const tkr     = h.symbol
                     ? '<span style="display:inline-block;font-size:10px;font-weight:800;background:' + chipBg + ';color:' + chipCl + ';padding:1px 6px;border-radius:4px;margin-right:6px;letter-spacing:.2px;">' + escHtml(h.symbol) + '</span>'
                     : '';
+                // 가격 chip (헤드라인 옆) — 매수/매도 동일 색 강조
+                const priceStr = fmtSigPrice(h.price, h.market);
+                const priceChip = priceStr
+                    ? '<span style="display:inline-block;font-size:11px;font-weight:700;color:' + chipCl + ';margin-left:6px;letter-spacing:.2px;">@ ' + escHtml(priceStr) + '</span>'
+                    : '';
                 html += '<div style="display:flex;align-items:flex-start;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border);background:' + rowBg + ';">'
                     + '<div style="width:34px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;margin-top:1px;background:' + chipBg + ';color:' + chipCl + ';">' + dirLbl + '</div>'
                     + '<div style="flex:1;min-width:0;">'
-                    + '<div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + tkr + escHtml(h.headline) + '</div>'
+                    + '<div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + tkr + escHtml(h.headline) + priceChip + '</div>'
                     + sub
                     + '</div>'
                     + '<div style="font-size:10px;color:var(--text3);white-space:nowrap;flex-shrink:0;margin-top:2px;">' + fmtTime(h.ts) + '</div>'
@@ -1182,20 +1202,30 @@
                 const fillKey = `_sigBackfilled_${currentSymbol}`;
                 if (!window[fillKey]) {
                     window[fillKey] = true;
-                    // 차트 위에 있는 시그널 중 최근 20개만 backfill (오래된 것 제외)
-                    const recentMarkers = uniqMarkers.slice(-20).reverse();
+                    // 차트 위에 있는 시그널 중 최근 30개만 backfill (3일치 표시 위해 확장)
+                    const recentMarkers = uniqMarkers.slice(-30).reverse();
                     const existingKeys = new Set(
                         _sigHistory.filter(h => h.symbol === currentSymbol)
                                    .map(h => `${h.ts}_${h.headline}`)
                     );
+                    // 마커 time → 가격 매핑 (해당 봉 종가)
+                    const _tsToClose = {};
+                    if (ts && q?.close) {
+                        for (let i = 0; i < ts.length; i++) {
+                            if (q.close[i] != null) _tsToClose[ts[i]] = q.close[i];
+                        }
+                    }
                     let added = 0;
                     recentMarkers.forEach(m => {
-                        const ts = (m.time || 0) * 1000;
+                        const tsMs = (m.time || 0) * 1000;
                         const label = m._label || (m.position === 'belowBar' ? '매수' : '매도');
-                        const key = `${ts}_${label}`;
+                        const key = `${tsMs}_${label}`;
                         if (existingKeys.has(key)) return;
                         _sigHistory.unshift({
-                            ts, symbol: currentSymbol,
+                            ts: tsMs,
+                            symbol: currentSymbol,
+                            market: currentMarket,
+                            price:  _tsToClose[m.time] ?? null,
                             dir: m.position === 'belowBar' ? 'buy' : 'sell',
                             headline: `${label} 시그널`,
                             subText: '',
@@ -1402,6 +1432,8 @@
                             _sigHistory.unshift({
                                 ts:       _now,
                                 symbol:   currentSymbol,
+                                market:   currentMarket,
+                                price:    (typeof lastClose === 'number' && lastClose > 0) ? lastClose : null,
                                 dir:      effectiveBuy ? 'buy' : 'sell',
                                 headline: headline,
                                 subText:  _finalSub,
