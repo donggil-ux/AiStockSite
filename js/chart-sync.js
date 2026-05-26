@@ -1175,6 +1175,43 @@
             }
         } catch(e) { warn('[markers]', e.message); }
 
+        // 3.4) 종목 로드 시 historical 마커 → 알림 패널 backfill (한 번만)
+        // 폴링 중 신규 시그널만 추가하는 구조라 종목 전환 직후 패널이 비어 있는 문제 해결
+        try {
+            if (currentSymbol && uniqMarkers.length > 0) {
+                const fillKey = `_sigBackfilled_${currentSymbol}`;
+                if (!window[fillKey]) {
+                    window[fillKey] = true;
+                    // 차트 위에 있는 시그널 중 최근 20개만 backfill (오래된 것 제외)
+                    const recentMarkers = uniqMarkers.slice(-20).reverse();
+                    const existingKeys = new Set(
+                        _sigHistory.filter(h => h.symbol === currentSymbol)
+                                   .map(h => `${h.ts}_${h.headline}`)
+                    );
+                    let added = 0;
+                    recentMarkers.forEach(m => {
+                        const ts = (m.time || 0) * 1000;
+                        const label = m._label || (m.position === 'belowBar' ? '매수' : '매도');
+                        const key = `${ts}_${label}`;
+                        if (existingKeys.has(key)) return;
+                        _sigHistory.unshift({
+                            ts, symbol: currentSymbol,
+                            dir: m.position === 'belowBar' ? 'buy' : 'sell',
+                            headline: `${label} 시그널`,
+                            subText: '',
+                            historical: true, // backfill 표식
+                        });
+                        added++;
+                    });
+                    if (added > 0) {
+                        if (_sigHistory.length > _SIG_HISTORY_MAX) _sigHistory.length = _SIG_HISTORY_MAX;
+                        localStorage.setItem('stockai_sig_history', JSON.stringify(_sigHistory));
+                        _renderSigHistoryPanel();
+                    }
+                }
+            }
+        } catch(e) { warn('[sig backfill]', e.message); }
+
         // 3.5) 새 시그널 감지 → 토스트 (폴링으로 신규 마커 도착 시)
         const latest = uniqMarkers[uniqMarkers.length - 1];
         if (latest && currentSymbol) {
@@ -1505,10 +1542,8 @@
         try { _renderKullamagiLayer(q, ts, bb); } catch (e) { warn('[kull] render fail', e); }
 
         // 7) 6번 역피라미딩 분할매수 레이어 — _chartSplitEnabled 자체 플래그 (독립 모듈)
-        // Smart Dip 활성 시 SD 레이어가 분할매수를 대신 처리하므로 중복 방지
-        if (_chartSplitEnabled && !_chartSmartDipEnabled) {
-            try { _renderSplitBuyLayer(q, ts); } catch (e) { warn('[split] render fail', e); }
-        }
+        // 항상 호출 → 내부에서 클리어 먼저 실행 (OFF 시에도 잔류 라인 제거)
+        try { _renderSplitBuyLayer(q, ts); } catch (e) { warn('[split] render fail', e); }
 
         // 8) 눌림목 감지 레이어 — _chartPullbackEnabled 자체 플래그 (독립 모듈)
         try { _renderPullbackLayer(q, ts); } catch (e) { warn('[pullback] render fail', e); }
@@ -3161,19 +3196,10 @@
             try { _layerDirty = true; renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
             catch(e) {}
         }
-    }
-
-    // _toggleSplitGroup: toggleSplitGroup의 private 별칭 (_updateDdStates 포함)
-    function _toggleSplitGroup(group) {
-        const key = `stockai_split_show_${group}`;
-        const cur = localStorage.getItem(key) !== '0';
-        localStorage.setItem(key, cur ? '0' : '1');
-        if (_lastSigArgs) {
-            try { _layerDirty = true; renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); }
-            catch(e) {}
-        }
         if (typeof _updateDdStates === 'function') _updateDdStates();
     }
+    // _toggleSplitGroup: 하위 호환 별칭 (toggleSplitGroup으로 통합됨)
+    const _toggleSplitGroup = toggleSplitGroup;
 
     function _clearSplitBuyLines() {
         _chartSplitLines = _clearOwnLines(_chartSplitLines);
@@ -3497,7 +3523,8 @@
         const emaPullback3 = !!(_swLast && swEma120 != null && _swLast.low <= swEma120 && _swBull && _swRsiOk && swEma120 > (swEma240 || 0));
 
         // ── EMA 240 트레일링 손절 자동 업데이트 ────────────────────
-        // 포지션 보유 중이고 EMA 240이 현재 손절가보다 높을 때만 업데이트 (항상 위 방향)
+        // 분할매수 ON + 포지션 보유 중 + EMA240이 현재 손절가보다 높을 때만 업데이트 (항상 위 방향)
+        // Smart Dip ON 시 _chartSplitEnabled=false 로 자동 비활성 → 트레일링 손절 미실행 (정상)
         if (_chartSplitEnabled && swEma240 != null && typeof _posActiveForTicker === 'function') {
             const _trailPa = _posActiveForTicker(currentSymbol);
             if (_trailPa && _trailPa.status === 'holding') {
@@ -3531,8 +3558,8 @@
         const warnings = _splitBuyWarnings(q);
         const has5_6Warn = warnings.some(w => w.disable5_6);
 
-        // ── 차트 라인 ──────────────────────────────────────────────
-        if (_chartSplitEnabled && lwCandleSeries) {
+        // ── 차트 라인 ── Smart Dip 활성 시 중복 방지 ──────────────
+        if (_chartSplitEnabled && !_chartSmartDipEnabled && lwCandleSeries) {
             const addLine = (price, color, style, width, title, priority = 2) => {
                 if (price == null || !isFinite(price) || price <= 0) return;
                 try {

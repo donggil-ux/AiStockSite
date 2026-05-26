@@ -4778,6 +4778,7 @@
     }
 
     function _showStockPager() {
+        return; // TODO: 임시 숨김 — 종목 페이저 바 UI 재설계 후 제거
         const bar = document.getElementById('stockPagerBar');
         if (!bar) return;
         // ✅ flex로 명시 (display:none 인라인 덮어쓰기 방지)
@@ -4806,6 +4807,8 @@
     function _syncChartPagerInline(cur) {
         const el = document.getElementById('chartPagerInline');
         if (!el) return;
+        el.style.display = 'none'; // TODO: 임시 숨김 — 종목 페이저 재설계 후 제거
+        return;
         if (!_stockPagerList.length) { el.style.display = 'none'; return; }
         el.style.display = 'flex';
         const c = cur || _stockPagerList[_stockPagerIndex] || {};
