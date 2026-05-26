@@ -668,11 +668,13 @@
             min-width:80px;height:44px;
             padding-left:8px;
         }
+        /* 거래대금 라벨 — 라이트·다크 모두 디자인 시스템 색상 사용 (WCAG AA 충족) */
         .top100-tv-label{
-            font-size:11px;color:#9CA3AF;
+            font-size:11px;color:var(--text2);
             font-weight:400;line-height:14px;
             white-space:nowrap;
         }
+        [data-theme="dark"] .top100-tv-label{color:var(--text2)!important;}
         .top100-tv{
             font-size:14px;font-weight:500;
             color:#333D4B;
@@ -680,7 +682,8 @@
             font-variant-numeric:tabular-nums;
             white-space:nowrap;
         }
-        [data-theme="dark"] .top100-tv{color:var(--text2)!important;}
+        [data-theme="dark"] .top100-tv{color:var(--text)!important;} /* 다크: 흰색으로 더 진하게 */
+        [data-theme="light"] .top100-tv{color:#110F1A!important;} /* 라이트: 거의 검정으로 명확하게 */
         @media(max-width:480px){
             .top100-row > .top100-tv-wrap{min-width:70px;padding-left:4px;}
             .top100-tv{font-size:13px;}
