@@ -9685,142 +9685,112 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
 
 /* 검색 시트 — chartCell1 기준 absolute, mobilePeriodBar 높이 고려 */
 /* ─── 종목비교 모달 (TradingView style) ─── */
-.cmp-modal-overlay {
+/* ── 종목 비교 팝오버 (토스 스타일) ── */
+.cmp-popover {
     position: fixed;
-    inset: 0;
     z-index: 9990;
-    background: rgba(0,0,0,0.55);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding-top: 80px;
-}
-.cmp-modal-card {
     background: var(--bg1);
-    border-radius: 18px;
-    width: min(560px, 96vw);
-    max-height: 75vh;
+    border-radius: 16px;
+    width: 340px;
+    max-height: 500px;
     overflow-y: auto;
-    box-shadow: 0 24px 64px rgba(0,0,0,0.45);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.38);
+    border: 1px solid var(--border);
     display: flex;
     flex-direction: column;
 }
-[data-theme="light"] .cmp-modal-card {
+[data-theme="light"] .cmp-popover {
     background: #fff;
-    box-shadow: 0 24px 64px rgba(0,0,0,0.18);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.14);
 }
-/* 검색창 헤더 */
-.cmp-modal-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 18px 20px 16px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-    position: sticky;
-    top: 0;
-    background: inherit;
-    border-radius: 18px 18px 0 0;
-    z-index: 1;
-}
-.cmp-modal-search-icon { color: var(--text3); flex-shrink: 0; }
-.cmp-modal-input {
-    flex: 1;
-    background: transparent;
-    border: none;
-    outline: none;
-    color: var(--text1);
-    font-size: 16px;
-    font-family: inherit;
-    min-width: 0;
-}
-.cmp-modal-input::placeholder { color: var(--text4, var(--text3)); }
-.cmp-modal-close-btn {
-    width: 32px; height: 32px;
-    display: flex; align-items: center; justify-content: center;
-    background: var(--bg3);
-    border: none;
-    border-radius: 50%;
-    color: var(--text2);
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: background .12s;
-}
-.cmp-modal-close-btn:hover { background: var(--bg4); }
-/* 섹션 */
-.cmp-modal-section { padding: 18px 20px 10px; }
-.cmp-modal-section + .cmp-modal-section { padding-top: 4px; }
-.cmp-modal-sec-head {
+/* 종목명 헤더 */
+.cmp-pop-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 12px;
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
 }
-.cmp-modal-sec-title { font-size: 14px; font-weight: 700; color: var(--text1); }
-.cmp-modal-sec-sub   { font-size: 11px; color: var(--text3); }
-/* 최근 검색 칩 */
-.cmp-recent-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.cmp-recent-chip {
-    display: inline-flex; align-items: center; gap: 4px;
-    padding: 6px 12px;
+.cmp-pop-stock-info { display: flex; align-items: center; gap: 8px; }
+.cmp-pop-stock-name { font-size: 15px; font-weight: 800; color: var(--text1); }
+.cmp-pop-period {
+    font-size: 11px; font-weight: 600;
+    color: var(--text3);
     background: var(--bg3);
     border: 1px solid var(--border);
-    border-radius: 20px;
-    color: var(--text1);
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    font-family: inherit;
-    transition: background .1s;
+    border-radius: 6px;
+    padding: 2px 7px;
+}
+.cmp-pop-close {
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg3); border: none; border-radius: 50%;
+    color: var(--text2); cursor: pointer; transition: background .12s;
+}
+.cmp-pop-close:hover { background: var(--bg4); }
+/* 검색창 */
+.cmp-pop-search-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.cmp-pop-search-icon { color: var(--text3); flex-shrink: 0; }
+.cmp-pop-input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--text1); font-size: 14px; font-family: inherit; min-width: 0;
+}
+.cmp-pop-input::placeholder { color: var(--text3); }
+/* 섹션 */
+.cmp-pop-section { padding: 12px 16px 8px; }
+.cmp-pop-section + .cmp-pop-section { padding-top: 0; border-top: 1px solid var(--border); }
+.cmp-pop-sec-row {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+}
+.cmp-pop-sec-title { font-size: 13px; font-weight: 700; color: var(--text1); }
+.cmp-pop-sec-time  { font-size: 11px; color: var(--text3); }
+/* 최근 검색 칩 */
+.cmp-recent-chips { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 4px; }
+.cmp-recent-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 5px 10px;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 20px; color: var(--text1);
+    font-size: 12px; font-weight: 600;
+    cursor: pointer; font-family: inherit; transition: background .1s;
 }
 .cmp-recent-chip:hover { background: var(--bg4); }
-.cmp-chip-x {
-    color: var(--text3);
-    font-size: 14px;
-    line-height: 1;
-    padding: 0 2px;
-    transition: color .1s;
-}
+.cmp-chip-x { color: var(--text3); font-size: 13px; line-height: 1; padding: 0 1px; transition: color .1s; }
 .cmp-chip-x:hover { color: var(--text1); }
-/* 피어 리스트 */
-.cmp-peer-list { display: flex; flex-direction: column; gap: 0; }
+/* 피어 리스트 (토스 스타일: 번호 + 아바타 + 이름 + 등락률) */
+.cmp-peer-list { display: flex; flex-direction: column; }
 .cmp-peer-row {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 12px 4px;
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid var(--border);
-    cursor: pointer;
-    font-family: inherit;
-    text-align: left;
-    transition: background .1s;
-    border-radius: 0;
-    width: 100%;
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 4px;
+    background: transparent; border: none; border-radius: 10px;
+    cursor: pointer; font-family: inherit; text-align: left;
+    transition: background .1s; width: 100%;
 }
-.cmp-peer-row:last-child { border-bottom: none; }
-.cmp-peer-row:hover { background: var(--bg2); border-radius: 10px; }
+.cmp-peer-row:hover { background: var(--bg3); }
+.cmp-peer-rank {
+    width: 18px; font-size: 14px; font-weight: 700;
+    color: var(--text3); text-align: center; flex-shrink: 0; line-height: 1;
+}
+.cmp-peer-rank.rank-top { color: var(--text1); }
 .cmp-peer-avatar {
-    width: 40px; height: 40px;
-    border-radius: 50%;
+    width: 36px; height: 36px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-size: 16px; font-weight: 800; color: #fff;
-    flex-shrink: 0;
-    letter-spacing: -0.02em;
+    font-size: 13px; font-weight: 800; color: #fff; flex-shrink: 0;
 }
-.cmp-peer-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.cmp-peer-name { font-size: 14px; font-weight: 600; color: var(--text1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmp-peer-info { flex: 1; min-width: 0; }
+.cmp-peer-name { font-size: 13px; font-weight: 600; color: var(--text1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
 .cmp-peer-sym-label { font-size: 11px; color: var(--text3); font-weight: 500; }
-.cmp-peer-chg { font-size: 13px; font-weight: 700; color: var(--text3); flex-shrink: 0; min-width: 50px; text-align: right; }
-/* cmp-input 레거시 (검색창 재활용) */
-.cmp-input { flex:1;background:transparent;border:none;border-radius:8px;padding:7px 12px;color:var(--text1);font-size:14px;outline:none;min-width:0; }
-.cmp-input:focus { border-color:#818CF8; }
+.cmp-peer-chg { font-size: 13px; font-weight: 700; flex-shrink: 0; min-width: 54px; text-align: right; color: var(--text3); }
+.cmp-peer-chg.up   { color: #ef4444; }
+.cmp-peer-chg.down { color: #3b82f6; }
 @media(max-width:600px){
-    .cmp-modal-overlay { padding-top: 20px; align-items: flex-end; }
-    .cmp-modal-card { width:100%;border-radius:20px 20px 0 0;max-height:90vh; }
+    .cmp-popover { width: calc(100vw - 24px); max-height: 80vh; }
 }
 /* 레전드 칩 — 차트 좌상단 float */
 #cmpLegend {

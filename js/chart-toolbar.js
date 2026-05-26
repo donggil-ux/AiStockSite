@@ -803,10 +803,47 @@
         if (!modal) return;
         const inp = document.getElementById('cmpInput');
         if (inp) inp.value = '';
+
+        // 현재 종목명 헤더 갱신
+        const nameEl   = document.getElementById('cmpStockName');
+        const periodEl = document.getElementById('cmpStockPeriod');
+        if (nameEl) nameEl.textContent = currentSymbol || '—';
+        if (periodEl) periodEl.textContent = currentMarket === 'KR' ? '주' : 'Stock';
+
+        // 시간 표시
+        const now = new Date();
+        const timeStr = `오늘 ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} 기준`;
+        const catTime = document.getElementById('cmpCatTime');
+        if (catTime) catTime.textContent = timeStr;
+
         _cmpRenderRecent();
         _cmpRenderPeers(currentSymbol || '');
-        modal.style.display = 'flex';
+
+        // 버튼 기준으로 팝오버 위치 계산
+        const btn = document.getElementById('cxtCompare');
+        if (btn) {
+            const r = btn.getBoundingClientRect();
+            modal.style.top  = (r.bottom + 6) + 'px';
+            modal.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 348)) + 'px';
+        }
+        modal.style.display = '';
+
+        // 외부 클릭 시 닫기
+        setTimeout(() => {
+            document.addEventListener('click', _cmpDocClose, { once: true, capture: true });
+        }, 0);
         setTimeout(() => inp?.focus(), 60);
+    }
+
+    function _cmpDocClose(e) {
+        const modal = document.getElementById('cmpModal');
+        const btn   = document.getElementById('cxtCompare');
+        if (!modal) return;
+        if (modal.contains(e.target) || btn?.contains(e.target)) {
+            document.addEventListener('click', _cmpDocClose, { once: true, capture: true });
+            return;
+        }
+        _cmpCloseSheet();
     }
 
     function _cmpCloseSheet() {
@@ -814,9 +851,7 @@
         if (modal) modal.style.display = 'none';
     }
 
-    function _cmpModalBgClick(e) {
-        if (e.target.id === 'cmpModal') _cmpCloseSheet();
-    }
+    function _cmpModalBgClick(e) { /* 팝오버 방식으로 전환 — 외부 클릭은 _cmpDocClose가 처리 */ }
 
     function _cmpRenderRecent() {
         const section = document.getElementById('cmpRecentSection');
@@ -829,8 +864,8 @@
         const now = new Date();
         if (timeEl) timeEl.textContent = `오늘 ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} 기준`;
         if (chips) chips.innerHTML = recent.map(sym => {
-            const name = _CMP_NAMES[sym] || sym;
-            return `<button class="cmp-recent-chip" onclick="_cmpSelectPeer('${sym}')">${name} <span class="cmp-chip-x" onclick="event.stopPropagation();_cmpRemoveRecent('${sym}')">×</span></button>`;
+            const s = sym.replace(/[<>"']/g,'');
+            return `<button class="cmp-recent-chip" onclick="_cmpSelectPeer('${s}')">${s}<span class="cmp-chip-x" onclick="event.stopPropagation();_cmpRemoveRecent('${s}')">×</span></button>`;
         }).join('');
     }
 
@@ -852,14 +887,15 @@
         const listEl  = document.getElementById('cmpPeerList');
         const titleEl = document.getElementById('cmpCatTitle');
         const s = (sym || '').toUpperCase();
-        const sector  = _cmpGetSectorLabel(s);
-        if (titleEl) titleEl.textContent = s ? `${s}와 같은 카테고리에서 비교하기` : '유사 종목에서 비교하기';
+        if (titleEl) titleEl.textContent = s ? `${_cmpGetSectorLabel(s)} 유사 종목` : '유사 종목';
         if (!listEl) return;
         const peers = _cmpGetPeers(s);
-        listEl.innerHTML = peers.map(p => {
+        listEl.innerHTML = peers.map((p, i) => {
             const name  = _CMP_NAMES[p] || p;
             const color = _cmpSymColor(p);
+            const rankCls = i < 3 ? ' rank-top' : '';
             return `<button class="cmp-peer-row" onclick="_cmpSelectPeer('${p}')">
+                <span class="cmp-peer-rank${rankCls}">${i + 1}</span>
                 <div class="cmp-peer-avatar" style="background:${color}">${p.charAt(0)}</div>
                 <div class="cmp-peer-info">
                     <span class="cmp-peer-name">${name}</span>
@@ -868,6 +904,23 @@
                 <span class="cmp-peer-chg" id="cmpChg_${p}">—</span>
             </button>`;
         }).join('');
+
+        // 등락률 비동기 로드
+        const symbols = peers.join(',');
+        fetch(`/api/quote?symbols=${encodeURIComponent(symbols)}`)
+            .then(r => r.json())
+            .then(data => {
+                if (!Array.isArray(data)) return;
+                data.forEach(q => {
+                    const el = document.getElementById('cmpChg_' + (q.symbol || q.ticker || ''));
+                    if (!el) return;
+                    const chg = q.regularMarketChangePercent ?? q.changePercent ?? null;
+                    if (chg == null) return;
+                    const isUp = chg >= 0;
+                    el.textContent = (isUp ? '+' : '') + chg.toFixed(2) + '%';
+                    el.className = 'cmp-peer-chg ' + (isUp ? 'up' : 'down');
+                });
+            }).catch(() => {});
     }
 
     function _cmpModalSearch(val) {
