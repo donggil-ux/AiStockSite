@@ -174,7 +174,10 @@
     let _chartLinesEnabled = localStorage.getItem('stockai_chart_sig_lines') !== '0'; // 기본 ON
     let _chartTpLevel = parseInt(localStorage.getItem('stockai_chart_tp_level') || '1'); // 익절 단계: 1=1차만 2=1~2차 3=전체
     let _priceLabelRegistry = []; // 우측 가격 라벨 중복 방지 — ±0.8% 이내 중복 시 낮은 우선순위 라벨 숨김
-    let _lastSigArgs = null;  // 토글 시 즉시 재렌더용 캐시
+    let _lastSigArgs = null;  // 토글 시 즉시 재렌더용
+    // 마커 캐시 — 줌/스크롤로 차트가 재계산될 때 마커가 사라지는 현상 방지
+    // setMarkers 호출 시 항상 _lastMarkers 에도 저장 → visibleRangeChange 등에서 복원 가능
+    let _lastMarkers = []; 캐시
     // ── 분할차트 가격선 셀별 독립 관리 ────────────────────────────────
     // 각 price line이 어느 candleSeries에 속하는지 Map으로 추적.
     // 렌더 시 현재 셀(lwCandleSeries) 소유 라인만 제거 → 다른 셀 라인은 보존.
@@ -781,8 +784,11 @@
             _chartLiveLines = _clearOwnLines(_chartLiveLines);
             _priceLabelRegistry = [];
         }
-        // 캔들 마커 초기화 (배지 바는 계산 완료 후에만 덮어씀 → 중간 throw시 기존 배지 유지)
-        try { lwCandleSeries?.setMarkers([]); } catch(e) {}
+        // 캔들 마커 초기화 — _doRebuild 시에만 실제로 클리어
+        // (줌/스크롤로 폴링이 fire될 때 마커가 사라지는 현상 방지)
+        if (_doRebuild) {
+            try { lwCandleSeries?.setMarkers([]); _lastMarkers = []; } catch(e) {}
+        }
 
         const closes = q.close, highs = q.high, lows = q.low;
         const lastVal = arr => { for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != null) return arr[i]; return null; };
@@ -1216,6 +1222,8 @@
         try {
             if (_finalMarkers && _finalMarkers.length > 0) {
                 lwCandleSeries.setMarkers(_finalMarkers);
+                _lastMarkers = _finalMarkers; // 캐시 → 줌/스크롤 시 복원용
+                try { window._lastMarkers = _lastMarkers; } catch(_) {}
             }
         } catch(e) { warn('[markers]', e.message); }
 

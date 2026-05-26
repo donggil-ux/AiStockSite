@@ -94,6 +94,12 @@
             _cnbDeactivatePreset();
         }
         _updateJumpBtnVisibility();
+        // 줌/스크롤로 마커가 사라지는 현상 방지 — 캐시된 마커 재설정 보장
+        try {
+            if (window.lwCandleSeries && window._lastMarkers && window._lastMarkers.length > 0) {
+                window.lwCandleSeries.setMarkers(window._lastMarkers);
+            }
+        } catch(_) {}
     }
 
     function _updateJumpBtnVisibility() {
