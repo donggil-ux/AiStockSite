@@ -3744,9 +3744,8 @@
         const clearBtn = document.getElementById('chartAiClearBtn');
         if (clearBtn && lwAiPriceLines.length) clearBtn.style.display = '';
 
-        // 차트 하단 신호 카드(관망/미충족 조건 등) — 사용자 요청으로 기능 제거 (v715)
-        const _asc = document.getElementById('aiSummaryCard');
-        if (_asc) { _asc.style.display = 'none'; _asc.innerHTML = ''; }
+        // AI 핵심 분석 카드 렌더링 (테스타 신호 카드)
+        try { _renderTestaSignalCard(data); } catch(e) {}
     }
 
     // ── 테스타 신호 카드 렌더링 (4가지 신호 + 3가지 모드) ──
