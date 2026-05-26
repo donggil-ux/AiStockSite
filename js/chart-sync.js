@@ -452,11 +452,16 @@
         if (fab) fab.classList.toggle('active', _sigHistoryOpen);
         _renderSigHistoryPanel();
     }
-    // 3일 이내 카운트 — 배지에 사용
+    // 3일 이내 + 현재 종목 카운트 — 배지에 사용
     function _sigHistoryRecentCount() {
         const cutoff = Date.now() - 3 * 86400000;
+        const sym = typeof currentSymbol !== 'undefined' ? currentSymbol : null;
         let n = 0;
-        for (const h of _sigHistory) if (h.ts >= cutoff) n++;
+        for (const h of _sigHistory) {
+            if (h.ts < cutoff) continue;
+            if (sym && h.symbol !== sym) continue;
+            n++;
+        }
         return n;
     }
     function _updateSigHistoryBadge() {
@@ -493,9 +498,13 @@
         }
         // 필터 상태
         const _flt = panel._filter || 'all';
-        // 1) 최근 3일치만 표시  2) 최신순 정렬  3) 매수/매도 필터
+        // 1) 현재 종목만  2) 최근 3일치  3) 최신순 정렬  4) 매수/매도 필터
         const _cutoff = Date.now() - 3 * 86400000;
-        const _base = _sigHistory.filter(h => h.ts >= _cutoff).sort((a, b) => b.ts - a.ts);
+        const _curSym = typeof currentSymbol !== 'undefined' ? currentSymbol : null;
+        const _base = _sigHistory
+            .filter(h => h.ts >= _cutoff)
+            .filter(h => !_curSym || h.symbol === _curSym)
+            .sort((a, b) => b.ts - a.ts);
         const filtered = _flt === 'all' ? _base : _base.filter(h => h.dir === _flt);
         const fmtTime = ts => {
             const d = new Date(ts);
@@ -515,9 +524,10 @@
         let html = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;'
             + 'width:min(420px,100%);max-height:80vh;display:flex;flex-direction:column;overflow:hidden;'
             + 'box-shadow:0 12px 48px rgba(0,0,0,.5);">';
-        // 헤더
+        // 헤더 — 현재 종목 표시
+        const _hdrSym = _curSym ? ` · ${escHtml(_curSym)}` : '';
         html += '<div style="display:flex;align-items:center;gap:6px;padding:12px 14px;border-bottom:1px solid var(--border);">'
-            + '<span style="font-weight:700;font-size:14px;flex:1;">🔔 알림내역</span>'
+            + '<span style="font-weight:700;font-size:14px;flex:1;">🔔 알림내역' + _hdrSym + '</span>'
             + '<button onclick="document.getElementById(\'sigHistoryPanel\')._filter=\'all\';_renderSigHistoryPanel();" style="font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:' + bgAll + ';color:var(--text);cursor:pointer;">전체</button>'
             + '<button onclick="document.getElementById(\'sigHistoryPanel\')._filter=\'buy\';_renderSigHistoryPanel();" style="font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:' + bgBuy + ';color:' + clBuy + ';cursor:pointer;">매수</button>'
             + '<button onclick="document.getElementById(\'sigHistoryPanel\')._filter=\'sell\';_renderSigHistoryPanel();" style="font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:' + bgSell + ';color:' + clSell + ';cursor:pointer;">매도</button>'
@@ -1236,9 +1246,10 @@
                     if (added > 0) {
                         if (_sigHistory.length > _SIG_HISTORY_MAX) _sigHistory.length = _SIG_HISTORY_MAX;
                         localStorage.setItem('stockai_sig_history', JSON.stringify(_sigHistory));
-                        _renderSigHistoryPanel();
                     }
                 }
+                // 종목 변경 시 항상 배지 갱신 (backfill 여부와 무관)
+                _renderSigHistoryPanel();
             }
         } catch(e) { warn('[sig backfill]', e.message); }
 
