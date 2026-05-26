@@ -1586,6 +1586,42 @@
                     <div style="font-size:11px;color:var(--text3);margin-top:8px;">마지막 알림 수신: <b style="color:var(--text2);">${fmtLast}</b></div>
                 </div>
             </div>
+            <!-- 체결 알림 (알림음 + 볼륨) -->
+            <div class="settings-section">
+                <div class="settings-section-label">체결 알림</div>
+                <div class="settings-row">
+                    <div class="settings-row-label">알림음</div>
+                    <select class="settings-select" id="notifSoundType" onchange="_saveNotifSoundType(this.value)">
+                        ${(() => {
+                            const cur = localStorage.getItem('stockai_notif_sound_type') || 'both';
+                            const opts = [
+                                ['voice',  '목소리'],
+                                ['effect', '효과음'],
+                                ['both',   '목소리 + 효과음'],
+                                ['off',    '무음'],
+                            ];
+                            return opts.map(([v, lbl]) => `<option value="${v}" ${cur === v ? 'selected' : ''}>${lbl}</option>`).join('');
+                        })()}
+                    </select>
+                </div>
+                <div class="settings-row" style="border-bottom:none;">
+                    <div class="settings-row-label">볼륨 조절</div>
+                    <div class="settings-volume-row">
+                        <span class="settings-volume-icon" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+                        </span>
+                        <input type="range" min="0" max="100" step="1"
+                               class="settings-volume-slider" id="notifVolume"
+                               value="${parseInt(localStorage.getItem('stockai_notif_volume') || '80', 10)}"
+                               oninput="_saveNotifVolume(this.value)"
+                               onchange="_saveNotifVolume(this.value, true)">
+                        <span class="settings-volume-icon" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"></path></svg>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
             <div class="settings-section" style="${disabled ? 'opacity:.5;pointer-events:none;' : ''}">
                 <div class="settings-section-label">알림 종류</div>
                 ${[
@@ -1605,6 +1641,9 @@
                 <button class="settings-danger-btn" onclick="_confirmUnsubPush();setTimeout(()=>setSettingsTab('notif'),300);">알림 해제</button>
             </div>` : ''}
         `;
+        // 슬라이더 초기 채움 색상 동기화
+        const sl = document.getElementById('notifVolume');
+        if (sl) sl.style.setProperty('--fill', sl.value + '%');
     }
 
     // ── 차트 ───────────────────────────────────────────────────
@@ -1761,6 +1800,31 @@
     function _saveNotifPref(key, val) {
         localStorage.setItem('stockai_notif_' + key, val ? '1' : '0');
         showToast(val ? `${key === 'buy' ? '매수' : key === 'tp' ? '익절' : key === 'stop' ? '손절' : '포지션'} 알림 켜짐` : `알림 꺼짐`);
+    }
+
+    // 알림음 종류 저장 + 미리듣기
+    function _saveNotifSoundType(type) {
+        localStorage.setItem('stockai_notif_sound_type', type);
+        const labels = { voice:'목소리', effect:'효과음', both:'목소리 + 효과음', off:'무음' };
+        showToast(`알림음: ${labels[type] || type}`);
+        // 미리듣기 (무음 제외)
+        if (type !== 'off') _previewNotifSound();
+    }
+    // 볼륨 저장 — 슬라이더 드래그 중에는 토스트 생략, change 이벤트에서만 미리듣기
+    function _saveNotifVolume(val, preview) {
+        const v = Math.max(0, Math.min(100, parseInt(val, 10) || 0));
+        localStorage.setItem('stockai_notif_volume', String(v));
+        // 슬라이더 채움 색 동기화 (CSS 변수)
+        const el = document.getElementById('notifVolume');
+        if (el) el.style.setProperty('--fill', v + '%');
+        if (preview) _previewNotifSound();
+    }
+    // 미리듣기 — 현재 설정 기준 소리 1회 재생
+    function _previewNotifSound() {
+        try {
+            if (typeof _playSignalSound === 'function') _playSignalSound('buy');
+            if (typeof _speakSignal === 'function') setTimeout(() => _speakSignal('테스트', '매수'), 300);
+        } catch(_) {}
     }
 
     async function _confirmUnsubPush() {
@@ -5499,6 +5563,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         openPriceAlertModal, _setPaDir, _savePriceAlert, _deletePriceAlert,
         _togglePushBell, _openCurrentPriceAlert, _showNotifSettingsModal, _saveNotifPref, _confirmUnsubPush,
         _sendTestNotif, _resubscribePush, _updatePushBellDot,
+        _saveNotifSoundType, _saveNotifVolume, _previewNotifSound,
         // 통합 설정
         openSettings, closeSettings, setSettingsTab,
         _setSettingsTheme, _setSettingsMarket, _setSettingsCurrency,

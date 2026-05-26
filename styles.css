@@ -10036,3 +10036,51 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
     .settings-modal{ flex-direction:column; }
     .settings-card-grid{ grid-template-columns:1fr; }
 }
+
+/* ── 설정 모달 — Select & Volume Slider ── */
+.settings-select{
+    appearance:none;
+    border:1px solid var(--border); background:var(--bg2);
+    color:var(--text1); border-radius:8px;
+    padding:6px 28px 6px 12px;
+    font-size:13px; font-weight:500; cursor:pointer;
+    background-image:linear-gradient(45deg, transparent 50%, var(--text2) 50%),
+                     linear-gradient(135deg, var(--text2) 50%, transparent 50%);
+    background-position:calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+    background-size:5px 5px, 5px 5px;
+    background-repeat:no-repeat;
+}
+.settings-select:hover{ background-color:var(--bg3); }
+.settings-select:focus{ outline:none; border-color:#3b82f6; }
+
+.settings-volume-row{
+    display:flex; align-items:center; gap:10px;
+    min-width:200px;
+}
+.settings-volume-icon{
+    color:var(--text3); display:inline-flex;
+    width:18px; height:18px; align-items:center; justify-content:center;
+    flex-shrink:0;
+}
+.settings-volume-slider{
+    appearance:none; -webkit-appearance:none;
+    flex:1; height:4px; border-radius:2px;
+    background:var(--bg3); outline:none; cursor:pointer;
+}
+.settings-volume-slider::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none;
+    width:16px; height:16px; border-radius:50%;
+    background:#3b82f6; border:2px solid var(--bg);
+    cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,.3);
+    transition:transform .12s ease;
+}
+.settings-volume-slider::-webkit-slider-thumb:hover{ transform:scale(1.15); }
+.settings-volume-slider::-moz-range-thumb{
+    width:16px; height:16px; border-radius:50%;
+    background:#3b82f6; border:2px solid var(--bg);
+    cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,.3);
+}
+/* 채워진 부분 색상 — webkit only (range linear-gradient trick) */
+.settings-volume-slider{
+    background:linear-gradient(to right, #3b82f6 0%, #3b82f6 var(--fill, 80%), var(--bg3) var(--fill, 80%), var(--bg3) 100%);
+}

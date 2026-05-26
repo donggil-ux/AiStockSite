@@ -266,7 +266,18 @@
     }
 
     // Web Audio 비프음 — buy: 상승 2음 / sell: 하강 2음
+    // 알림 사운드 설정 헬퍼 — 설정 모달에서 저장된 값 사용
+    function _getNotifSoundCfg() {
+        const type = localStorage.getItem('stockai_notif_sound_type') || 'both'; // voice|effect|both|off
+        const volPct = parseInt(localStorage.getItem('stockai_notif_volume') || '80', 10);
+        const vol = Math.max(0, Math.min(1, (isNaN(volPct) ? 80 : volPct) / 100));
+        return { type, vol };
+    }
+
     function _playSignalSound(kind) {
+        const cfg = _getNotifSoundCfg();
+        if (cfg.type === 'off' || cfg.type === 'voice') return; // 무음 or 목소리만이면 효과음 스킵
+        if (cfg.vol <= 0) return;
         try {
             if (!_sigAudioCtx) _sigAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const ctx = _sigAudioCtx;
@@ -279,7 +290,7 @@
                     osc.type = 'sine';
                     osc.frequency.setValueAtTime(freq, t0);
                     gain.gain.setValueAtTime(0.0001, t0);
-                    gain.gain.exponentialRampToValueAtTime(0.32, t0 + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.32 * cfg.vol, t0 + 0.02);
                     gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.15);
                     osc.connect(gain); gain.connect(ctx.destination);
                     osc.start(t0); osc.stop(t0 + 0.16);
@@ -293,6 +304,9 @@
 
     // 음성 안내 — "{종목} 매수/매도" 읽어주기 (v699)
     function _speakSignal(ticker, dirKo) {
+        const cfg = _getNotifSoundCfg();
+        if (cfg.type === 'off' || cfg.type === 'effect') return; // 무음 or 효과음만이면 TTS 스킵
+        if (cfg.vol <= 0) return;
         try {
             const synth = window.speechSynthesis;
             if (!synth) return;
@@ -300,7 +314,7 @@
             const u = new SpeechSynthesisUtterance(`${ticker}, ${dirKo}`);
             u.lang = 'ko-KR';
             u.rate = 1.05;
-            u.volume = 1;
+            u.volume = cfg.vol;
             synth.speak(u);
         } catch (e) {}
     }
