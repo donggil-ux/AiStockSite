@@ -4597,7 +4597,7 @@
             const width = r.stars >= 4 ? 2.5 : 2;
             const style = r.stars >= 4 ? 0 : 2;   // 4★+ 실선, 그 외 대시
             const typeLabel = isRetest ? '이전저항→지지' : '저항';
-            addSrLine(r.price, color, width, `${typeLabel} ${starStr(r.stars)} ${fmtP(r.price)} (${r.touchCount}회)`, r.stars >= 4 ? 4 : 6, style);
+            addSrLine(r.price, color, width, `${typeLabel} ${starStr(r.stars)} ${fmtP(r.price)}`, r.stars >= 4 ? 4 : 6, style);
         });
 
         visSup.forEach(s => {
@@ -4605,7 +4605,7 @@
             const color = s.stars >= 4 ? '#60A5FA' : '#93C5FD';
             const width = s.stars >= 4 ? 2.5 : 2;
             const style = s.stars >= 4 ? 0 : 2;
-            addSrLine(s.price, color, width, `지지 ${starStr(s.stars)} ${fmtP(s.price)} (${s.touchCount}회)`, s.stars >= 4 ? 4 : 6, style);
+            addSrLine(s.price, color, width, `지지 ${starStr(s.stars)} ${fmtP(s.price)}`, s.stars >= 4 ? 4 : 6, style);
         });
 
         // ── 시그널 배지 ──────────────────────────────────────────
