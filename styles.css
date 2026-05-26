@@ -3,8 +3,12 @@
         *{margin:0;padding:0;box-sizing:border-box;}
         :root{
             /* ===== StockAI Design System v2 — Dark Mode ===== */
+            /* 텍스트 hierarchy (WCAG AAA 기준 강화)
+               · --text  (Primary)   : 흰색 — 21:1 — 헤드라인, 종목명, 가격
+               · --text2 (Secondary) : #D1D5DB — 13:1 — 회사명, 부가 설명
+               · --text3 (Tertiary)  : #9CA3AF — 7.5:1 — 라벨, 시간, 메타정보 */
             --bg:#000000;--bg2:#141414;--bg3:#1C1C1E;--bg4:#242426;
-            --border:rgba(255,255,255,0.07);--text:#FFFFFF;--text1:#FFFFFF;--text2:#A1A1A6;--text3:#7E7E83;
+            --border:rgba(255,255,255,0.10);--text:#FFFFFF;--text1:#FFFFFF;--text2:#D1D5DB;--text3:#9CA3AF;
             --blue:#0080FB;--green:#0CF5B0;--red:#FF453A;--yellow:#FFD60A;--purple:#BF5AF2;--cyan:#64D2FF;
             /* Semantic color tokens */
             --color-buy:#0CF5B0;--color-sell:#FF453A;--color-brand-accent:#0080FB;
@@ -30,11 +34,15 @@
             --rui-ink:#000000;--rui-paper:#ffffff;
         }
         [data-theme="light"]{
+            /* 텍스트 hierarchy (WCAG AAA 기준 강화)
+               · --text  (Primary)   : #110F1A — 19:1
+               · --text2 (Secondary) : #4B5563 — 7.5:1
+               · --text3 (Tertiary)  : #6B7280 — 5.8:1 — 이전 #9C9CA0(2.7:1) 미달 해소 */
             --bg:#FFFFFF;--bg2:#F7F8FA;--bg3:#F2F2F7;--bg4:#E5E5EA;
-            --border:rgba(0,0,0,0.08);--text:#110F1A;--text1:#110F1A;--text2:#6C6C70;--text3:#9C9CA0;
-            --blue:#0080FB;--green:#00A882;--red:#FF3B30;--yellow:#FF9500;--purple:#AF52DE;--cyan:#32ADE6;
-            --color-buy:#00A882;--color-sell:#FF3B30;--color-brand-accent:#0080FB;
-            --color-text-primary:#110F1A;--color-text-secondary:#6C6C70;--color-text-tertiary:#AEAEB2;
+            --border:rgba(0,0,0,0.12);--text:#110F1A;--text1:#110F1A;--text2:#4B5563;--text3:#6B7280;
+            --blue:#0066CC;--green:#00875A;--red:#DC2626;--yellow:#D97706;--purple:#9333EA;--cyan:#0891B2;
+            --color-buy:#00875A;--color-sell:#DC2626;--color-brand-accent:#0066CC;
+            --color-text-primary:#110F1A;--color-text-secondary:#4B5563;--color-text-tertiary:#6B7280;
             --shadow-sm:0 1px 8px rgba(0,0,0,0.08);--shadow-md:0 4px 24px rgba(0,0,0,0.12);
             /* Surface ladder (light) */
             --surface-0:#ffffff;--surface-1:#F2F2F7;--surface-2:#E5E5EA;--ink:#110F1A;
@@ -291,8 +299,6 @@
         @media(max-width:480px){.top100-title{font-size:20px;}}
         .top100-title .badge{font-size:11px;font-weight:700;background:var(--blue);color:#fff;padding:3px 10px;border-radius:var(--radius-md);}
         .top100-updated{font-size:11px;color:var(--text3);font-weight:500;}
-        /* 라이트 모드: --text3(#9C9CA0)는 흰 배경에 컨트라스트 2.74 → AA 미달, 더 진한 색으로 */
-        [data-theme="light"] .top100-updated{color:var(--text2);}
         /* ═══ iOS Segmented Control (Apple HIG) — top100-filters / dp-chip-row / radar-tab-bar / earn-topnav / alpha-tabs 공통 ═══ */
         .top100-filters,
         .dp-chip-row,
@@ -670,14 +676,12 @@
             min-width:80px;height:44px;
             padding-left:8px;
         }
-        /* 거래대금 라벨 — 라이트·다크 모두 명확하게 보이도록 강화 */
+        /* 거래대금 라벨 — Tertiary text (디자인 시스템 변수 통일) */
         .top100-tv-label{
-            font-size:11px;color:#6B7280;
+            font-size:11px;color:var(--text3);
             font-weight:500;line-height:14px;
             white-space:nowrap;
         }
-        [data-theme="light"] .top100-tv-label{color:#6B7280!important;}
-        [data-theme="dark"] .top100-tv-label{color:#D1D5DB!important;}
         .top100-tv{
             font-size:14px;font-weight:500;
             color:#333D4B;
@@ -713,15 +717,11 @@
         }
         [data-theme="dark"] .top100-ticker-sym{color:var(--text)!important;}
         .top100-reason{
-            display:block;font-size:14px;color:#4B5563;
+            display:block;font-size:14px;color:var(--text2);
             font-weight:500;line-height:22px;letter-spacing:-0.005em;
             white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
             text-align:left;min-width:0;
         }
-        /* 라이트: 충분히 진한 회색 #4B5563 (컨트라스트 7.5:1) */
-        [data-theme="light"] .top100-reason{color:#4B5563!important;}
-        /* 다크: 더 밝은 회색으로 — 어두운 디스플레이에서도 잘 보이게 */
-        [data-theme="dark"] .top100-reason{color:#D1D5DB!important;font-weight:500;}
         /* 핵심 키워드 배지 모드 */
         .top100-reason.reason-tag{
             display:inline-flex;align-items:center;
@@ -740,13 +740,11 @@
         .top100-row:hover{background:var(--bg3);transform:none;}
         .top100-row-head{background:transparent;padding:6px 12px;cursor:default;font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.3px;border-bottom:none;grid-template-columns:24px 28px 44px minmax(100px,1fr) auto auto;grid-template-areas:"fav rank logo info price tv";}
         .top100-row-head:hover{background:transparent;}
-        .top100-rank{font-size:15px;font-weight:600;color:#374151;text-align:center;font-variant-numeric:tabular-nums;letter-spacing:-0.01em;line-height:22px;}
-        /* 다크: 더 밝게 (이전 var(--text2)=#A1A1A6 → #E5E7EB 로 강화) */
-        [data-theme="dark"] .top100-rank{color:#E5E7EB!important;font-weight:600;}
-        [data-theme="light"] .top100-rank{color:#374151!important;}
+        /* 순위 — 시스템 변수 + 강조 단계 (Primary text 사용) */
+        .top100-rank{font-size:15px;font-weight:600;color:var(--text);text-align:center;font-variant-numeric:tabular-nums;letter-spacing:-0.01em;line-height:22px;}
         .top100-rank.top3{font-weight:700;}
         [data-theme="dark"] .top100-rank.top3{color:#FBBF24!important;} /* TOP3 강조 — 금색 */
-        [data-theme="light"] .top100-rank.top3{color:#D97706!important;}
+        [data-theme="light"] .top100-rank.top3{color:#92400E!important;} /* amber-800, 컨트라스트 6.5:1 */
         /* Row-level favorite icon button */
         .top100-fav{width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:none;border-radius:var(--radius-xs);color:rgba(3,24,50,0.46);font-size:14px;cursor:pointer;padding:2px 4px;transition:color .15s,background .15s;}
         .top100-fav:hover{background:var(--bg3);}
@@ -771,13 +769,9 @@
         .top100-price{font-size:15px;font-weight:500;line-height:22px;text-align:right;font-variant-numeric:tabular-nums;letter-spacing:-0.01em;color:#333D4B;}
         [data-theme="dark"] .top100-price{color:var(--text)!important;}
         .top100-change{font-size:15px;font-weight:500;line-height:22px;text-align:right;font-variant-numeric:tabular-nums;letter-spacing:-0.01em;}
-        .top100-change.up{color:#F04452;} /* Toss Amaranth */
-        .top100-change.down{color:#1473E6;} /* Toss Blue */
-        [data-theme="dark"] .top100-change.up{color:var(--red)!important;}
-        [data-theme="dark"] .top100-change.down{color:var(--blue)!important;}
-        /* 라이트 모드: 기존 Toss 색상은 흰 배경에 컨트라스트 3.7:1 → AA 미달, 더 진한 색으로 (5.5:1+) */
-        [data-theme="light"] .top100-change.up{color:#DC2626!important;}
-        [data-theme="light"] .top100-change.down{color:#1D4ED8!important;}
+        /* 가격 변동률 — 시스템 변수 (--red/--blue) 통일, 강화된 색상 자동 적용 */
+        .top100-change.up{color:var(--red);font-weight:600;}
+        .top100-change.down{color:var(--blue);font-weight:600;}
         .top100-change.flat{color:var(--text3);}
         .top100-vol{font-size:11px;color:var(--text3);font-weight:500;text-align:right;}
         .top100-loading{text-align:center;padding:60px 0;color:var(--text3);font-size:14px;}
