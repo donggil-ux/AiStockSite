@@ -2013,5 +2013,19 @@
     <button class="ls-close" onclick="closeLineSheet()">완료</button>
 </div>
 
+<!-- 🔍 검색 모달 (전체화면 오버레이) -->
+<div id="mobSearchModal" class="mob-search-modal" style="display:none;">
+    <div class="mob-search-header">
+        <button class="mob-back-btn" onclick="closeSearch()" aria-label="뒤로가기" style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border:none;background:var(--bg3);border-radius:50%;cursor:pointer;flex-shrink:0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <div class="mob-search-box" id="mobSearchBox">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input type="text" id="mobSearchInput" placeholder="종목 검색 (예: AAPL, 삼성전자)" autocomplete="off" spellcheck="false">
+        </div>
+    </div>
+    <div id="mobSearchResults" style="overflow-y:auto;flex:1;overscroll-behavior:contain;"></div>
+</div>
+
 </body>
 </html>
