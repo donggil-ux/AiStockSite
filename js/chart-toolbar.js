@@ -887,7 +887,8 @@
         const listEl  = document.getElementById('cmpPeerList');
         const titleEl = document.getElementById('cmpCatTitle');
         const s = (sym || '').toUpperCase();
-        if (titleEl) titleEl.textContent = s ? `${_cmpGetSectorLabel(s)} 유사 종목` : '유사 종목';
+        const sector = _cmpGetSectorLabel(s);
+        if (titleEl) titleEl.textContent = sector === '유사 종목' ? '유사 종목' : `${sector} 유사 종목`;
         if (!listEl) return;
         const peers = _cmpGetPeers(s);
         listEl.innerHTML = peers.map((p, i) => {
