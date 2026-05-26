@@ -16,7 +16,8 @@
         const SHORT_INTERVALS = new Set(['1m','2m','5m','15m','30m','60m','90m','1h']);
         const LONG_RANGES     = new Set(['1mo','3mo','6mo','1y','2y','5y','10y','ytd','max']);
         if (SHORT_INTERVALS.has(currentInterval) && LONG_RANGES.has(currentPeriod)) {
-            warn('[chart-prefs] 불법 조합 감지 — 리셋:', currentPeriod, currentInterval);
+            // warn()은 utils.js에 정의되어 있어 state.js 실행 시점엔 아직 없음 → console.warn 직접 사용
+            console.warn('[chart-prefs] 불법 조합 감지 — 리셋:', currentPeriod, currentInterval);
             currentPeriod = '6mo';
             currentInterval = '1d';
             try {
