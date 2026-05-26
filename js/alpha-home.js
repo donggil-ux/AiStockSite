@@ -4363,7 +4363,10 @@
     // ═══════════════════════════════════════════════════════════
     // 알파 스캐너 홈 프리뷰 — 탭별 상위 10개 + 더보기 (v624)
     // ═══════════════════════════════════════════════════════════
-    // ※ _alphaHomeTab / _alphaHomeCache 등은 상단에서 선언됨 — TDZ 방지
+    let _alphaHomeTab   = 'bounce';
+    let _alphaHomeCache = {};                 // { [tab]: { items, ts } }
+    let _alphaHomeRetry = {};                 // { [tab]: retryCount }
+    const _ALPHA_HOME_TTL = 5 * 60 * 1000;   // 5분 캐시
 
     // 10초 타임아웃 fetch — 응답 없으면 자동 abort
     function _alphaFetch(url) {
