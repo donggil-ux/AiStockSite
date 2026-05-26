@@ -7402,7 +7402,7 @@
    ══════════════════════════════════════════════════ */
 .sepa-hidden{display:none!important;}
 
-.sd-card{padding:0;}
+.sd-card{padding:0;overflow:hidden;}
 .sd-card .card-title{padding:16px 16px 10px;}
 
 .sd-mode-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 10px 5px 12px;border-radius:var(--radius-lg);font-size:12px;font-weight:600;margin:0 16px 12px;letter-spacing:-.01em;}
