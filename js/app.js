@@ -1297,25 +1297,15 @@
     let _notifFilter = 'all'; // all | unread | buy | sell
 
     function openNotificationsScreen() {
-        // 다른 화면 모두 숨기기
-        const screens = ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen',
-                         'visionScannerScreen','top100Screen','catalystScreen','leverageScreen',
-                         'economicScreen','earningsScreen','myPositionScreen'];
-        screens.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
-        // 시장 온도계(헤더 아래 배너) 도 숨김 — 알림 페이지에서는 불필요
-        const thermo = document.getElementById('marketThermometer');
-        if (thermo) {
-            thermo.dataset.notifPrevDisplay = thermo.style.display || '';
-            thermo.style.display = 'none';
-        }
-        // stockHero / stockMain 등 종목 화면도 가림
-        const heroes = ['stockHero','stockMain','tvChartCard'];
-        heroes.forEach(id => { const el = document.getElementById(id); if (el) el.dataset.notifHidden = el.style.display || ''; });
-        // 알림 페이지 표시
+        // 풀스크린 오버레이 방식 — 다른 화면을 굳이 숨길 필요 없음 (z-index 9999로 위에 표시).
+        // 단, body 스크롤 잠금 + 페이지 자체 스크롤은 페이지 내부에서.
+        document.body.dataset.notifPrevOverflow = document.body.style.overflow || '';
+        document.body.style.overflow = 'hidden';
         const ns = document.getElementById('notificationsScreen');
-        if (ns) ns.style.display = 'block';
-        document.body.scrollTop = 0;
-        window.scrollTo(0, 0);
+        if (ns) {
+            ns.style.display = 'block';
+            ns.scrollTop = 0;
+        }
         _notifFilter = 'all';
         _renderNotificationsPage();
     }
@@ -1323,22 +1313,10 @@
     function closeNotificationsScreen() {
         const ns = document.getElementById('notificationsScreen');
         if (ns) ns.style.display = 'none';
-        // 시장 온도계 복원
-        const thermo = document.getElementById('marketThermometer');
-        if (thermo) {
-            const prev = thermo.dataset.notifPrevDisplay;
-            thermo.style.display = prev !== undefined ? prev : '';
-            delete thermo.dataset.notifPrevDisplay;
-        }
-        // 이전 화면 복원 — 종목이 로드돼 있으면 그 화면으로, 아니면 홈으로
-        if (typeof currentSymbol !== 'undefined' && currentSymbol) {
-            const hero = document.getElementById('stockHero');
-            const main = document.getElementById('stockMain');
-            if (hero) hero.style.display = '';
-            if (main) main.style.display = '';
-        } else if (typeof goHome === 'function') {
-            goHome();
-        }
+        // body 스크롤 복원
+        const prev = document.body.dataset.notifPrevOverflow;
+        document.body.style.overflow = prev !== undefined ? prev : '';
+        delete document.body.dataset.notifPrevOverflow;
     }
 
     // 상대 시간 포맷터: "방금" / "N분 전" / "N시간 전" / "어제" / "N일 전" / "MM월 DD일"

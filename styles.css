@@ -10106,9 +10106,16 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
 
 /* ═══════════════════════════════════════════════════════════
    알림 전체 페이지 (Notifications Screen) — 토스 스타일
+   풀스크린 오버레이 — 모든 다른 UI(헤더·시장온도계·바텀네비) 위에 표시
    ═══════════════════════════════════════════════════════════ */
-#notificationsScreen{ background:var(--bg); min-height:100vh; }
-.notif-page{ max-width:720px; margin:0 auto; padding-bottom:80px; }
+#notificationsScreen{
+    background:var(--bg);
+    position:fixed; inset:0;
+    z-index:9999;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+}
+.notif-page{ max-width:720px; margin:0 auto; padding-bottom:80px; min-height:100vh; }
 
 /* ── 헤더 ── */
 .notif-page-header{
