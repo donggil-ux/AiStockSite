@@ -3,3 +3,9 @@ node_modules/
 .env.local
 .DS_Store
 .vercel
+
+# Cloudflare Workers
+workers/.wrangler/
+workers/node_modules/
+workers/.dev.vars
+.env.vercel.local

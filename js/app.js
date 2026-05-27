@@ -1078,7 +1078,7 @@
     // ═══════════════════════════════════════════════════════════
     // 푸시 알림 — 구독 · 가격 알림 CRUD
     // ═══════════════════════════════════════════════════════════
-    const VAPID_PUBLIC_KEY = 'BC1xd7ln0Ib3Kr430J3W0dI2dBZPh9dL-YhwcZVhCdlAcRVpOeleeU66gULQ01BTmqWGGwy7HFCA_gAfRvdyb8U';
+    const VAPID_PUBLIC_KEY = 'BBaWe4OMFqSKHN5g1b8EUiUXYxhZKALHVA23ds_3bkGbJJM8g5q6jYw8KTANDmO-YJzTK4Y0sewN3YCUAvZ5Zpk';
 
     function _urlBase64ToUint8Array(base64String) {
         const padding = '='.repeat((4 - base64String.length % 4) % 4);

@@ -1,0 +1,39 @@
+name = "stockai-api"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# ── KV 네임스페이스 ─────────────────────────────────────────
+# Yahoo Finance crumb 토큰 캐시, 차트 데이터 캐시
+# 생성: wrangler kv:namespace create "CACHE"
+[[kv_namespaces]]
+binding = "CACHE"
+id = "ccd6b1c20a86487ea45d4148dc11f13a"
+
+# ── D1 데이터베이스 ─────────────────────────────────────────
+# 푸시 구독자, 가격 알림 영구 저장
+# 생성: wrangler d1 create stockai-db
+[[d1_databases]]
+binding = "DB"
+database_name = "stockai-db"
+database_id = "eb508a0a-95a0-4879-963c-dca0ae6eb350"
+
+# ── 환경변수 (vars) ────────────────────────────────────────
+# 공개 변수만 여기에. 시크릿(VAPID, Polygon API)은 wrangler secret 으로
+[vars]
+ENV = "production"
+
+# ── Cron Triggers ────────────────────────────────────────
+# 매 5분마다 가격 알림 체크 (Hobby 무료)
+# 매일 KST 09시 (=UTC 00시) 실적 리마인더
+[triggers]
+crons = [
+  "*/5 * * * *",      # 5분마다 가격 체크
+  "0 0 * * 1-5",      # 평일 KST 09:00 실적
+]
+
+# ── 라우트 (커스텀 도메인 사용 시) ──────────────────────────
+# 옵션: 도메인 구매 후 활성화. 지금은 *.workers.dev 사용.
+# [[routes]]
+# pattern = "api.stockai.kr/*"
+# zone_name = "stockai.kr"

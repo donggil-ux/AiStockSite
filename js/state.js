@@ -4,6 +4,53 @@
 // 주의: 이 파일의 변수들은 window.xxx 로 선언되어 모든 파일에서 접근 가능
 
 
+    // ════════════════════════════════════════════════════════════
+    //  Workers 백엔드 라우팅 (Vercel + Cloudflare Workers 하이브리드)
+    //  지정 prefix 의 API 호출만 Workers 로, 나머지는 Vercel(같은 origin) 그대로.
+    //  로컬 개발(localhost) 에서는 라우팅 비활성 → Express server.js 호출.
+    // ════════════════════════════════════════════════════════════
+    (function _initWorkersRouting() {
+        const WORKERS_BASE = 'https://stockai-api.rkd687.workers.dev';
+        const WORKERS_PREFIXES = [
+            '/api/health',
+            '/api/chart/',
+            '/api/quote',
+            '/api/price/',
+            '/api/summary/',
+            '/api/search',
+            '/api/polygon/',
+            '/api/push/',
+        ];
+        const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        window.API_WORKERS_BASE = WORKERS_BASE;
+        if (isLocal) return; // 로컬은 Express 그대로
+        const origFetch = window.fetch.bind(window);
+        window.fetch = function (input, init) {
+            try {
+                let url = (typeof input === 'string') ? input
+                        : (input instanceof Request) ? input.url
+                        : String(input);
+                if (url.startsWith('/api/')) {
+                    const match = WORKERS_PREFIXES.some(p => url.startsWith(p));
+                    if (match) {
+                        const newUrl = WORKERS_BASE + url;
+                        if (typeof input === 'string') input = newUrl;
+                        else if (input instanceof Request) {
+                            const r = input;
+                            input = new Request(newUrl, {
+                                method: r.method, headers: r.headers, body: r.body,
+                                mode: r.mode, credentials: r.credentials, cache: r.cache,
+                                redirect: r.redirect, referrer: r.referrer, integrity: r.integrity,
+                            });
+                        }
+                        else input = newUrl;
+                    }
+                }
+            } catch (_) {}
+            return origFetch(input, init);
+        };
+    })();
+
     // ========================================
     // State
     // ========================================
