@@ -1302,6 +1302,12 @@
                          'visionScannerScreen','top100Screen','catalystScreen','leverageScreen',
                          'economicScreen','earningsScreen','myPositionScreen'];
         screens.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+        // 시장 온도계(헤더 아래 배너) 도 숨김 — 알림 페이지에서는 불필요
+        const thermo = document.getElementById('marketThermometer');
+        if (thermo) {
+            thermo.dataset.notifPrevDisplay = thermo.style.display || '';
+            thermo.style.display = 'none';
+        }
         // stockHero / stockMain 등 종목 화면도 가림
         const heroes = ['stockHero','stockMain','tvChartCard'];
         heroes.forEach(id => { const el = document.getElementById(id); if (el) el.dataset.notifHidden = el.style.display || ''; });
@@ -1317,6 +1323,13 @@
     function closeNotificationsScreen() {
         const ns = document.getElementById('notificationsScreen');
         if (ns) ns.style.display = 'none';
+        // 시장 온도계 복원
+        const thermo = document.getElementById('marketThermometer');
+        if (thermo) {
+            const prev = thermo.dataset.notifPrevDisplay;
+            thermo.style.display = prev !== undefined ? prev : '';
+            delete thermo.dataset.notifPrevDisplay;
+        }
         // 이전 화면 복원 — 종목이 로드돼 있으면 그 화면으로, 아니면 홈으로
         if (typeof currentSymbol !== 'undefined' && currentSymbol) {
             const hero = document.getElementById('stockHero');
