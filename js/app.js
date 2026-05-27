@@ -1847,8 +1847,9 @@
         const state = await getPushState();
         const perm = state.perm;
         const sub  = !!state.subscribed;
-        // opacity
-        btn.style.opacity = (perm === 'granted' && sub) ? '1' : '0.5';
+        // 아이콘은 항상 풀 컬러(불투명) — 상태는 점으로만 표시
+        btn.style.opacity = '1';
+        btn.style.color   = 'var(--text)';
         // 기존 dot 제거
         const old = btn.querySelector('.push-bell-dot');
         if (old) old.remove();
