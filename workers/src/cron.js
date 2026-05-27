@@ -137,29 +137,37 @@ async function _todayEarnings(env, favs) {
  *
  * 최대 처리량 보호: 구독자 50명 / 종목 30개 / 5분 = Workers 30초 한계 내.
  */
-export async function analyzeSignals(env) {
+export async function analyzeSignals(env, marketHint = 'ALL') {
     try {
-        // 1) 30일 이내 활동한 구독자 + 즐겨찾기 모음
+        // 1) 30일 이내 활동한 구독자 + 즐겨찾기 + 알림 선호 + 시장 필터 모음
         const rs = await env.DB.prepare(
-            'SELECT endpoint, p256dh, auth, favs FROM push_subscribers WHERE last_seen > ? LIMIT 100'
+            'SELECT endpoint, p256dh, auth, favs, notif_prefs, market_filter FROM push_subscribers WHERE last_seen > ? LIMIT 100'
         ).bind(Date.now() - 30 * 24 * 3600 * 1000).all();
         const subs = rs.results || [];
         if (!subs.length) return { subscribers: 0, fired: 0 };
 
-        // 2) 즐겨찾기 종목 dedupe (모든 구독자 합산)
-        const symbolToSubs = new Map(); // symbol → [{endpoint, p256dh, auth}]
+        // 2) 즐겨찾기 종목 dedupe + 매수 알림 켠 구독자만 + 시장 필터 일치만
+        // symbolToSubs: symbol → [{endpoint, p256dh, auth, prefs, marketFilter}]
+        const symbolToSubs = new Map();
         for (const sub of subs) {
-            let favs = [];
+            let favs = [], prefs = { buy:1, tp:1, stop:1, pos:1 };
             try { favs = JSON.parse(sub.favs || '[]'); } catch (_) {}
+            try { prefs = JSON.parse(sub.notif_prefs || '{"buy":1,"tp":1,"stop":1,"pos":1}'); } catch (_) {}
+            const subMarket = sub.market_filter || 'ALL';
+            // 시장 필터: cron 호출 시 marketHint 와 사용자의 market_filter 둘 다 매치되어야 함
+            if (marketHint !== 'ALL' && subMarket !== 'ALL' && subMarket !== marketHint) continue;
             for (const sym of favs) {
                 if (!sym) continue;
                 const arr = symbolToSubs.get(sym) || [];
-                arr.push({ endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth });
+                arr.push({
+                    endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth,
+                    prefs, marketFilter: subMarket,
+                });
                 symbolToSubs.set(sym, arr);
             }
         }
         const allSymbols = [...symbolToSubs.keys()].slice(0, 30); // Workers 30초 보호
-        if (!allSymbols.length) return { subscribers: subs.length, fired: 0 };
+        if (!allSymbols.length) return { subscribers: subs.length, marketHint, fired: 0 };
 
         // 3) 각 종목 5분봉 분석 + 시그널 발견 시 푸시 큐잉
         let fired = 0, analyzed = 0;
@@ -196,7 +204,7 @@ export async function analyzeSignals(env) {
                     Date.now()
                 ).run();
 
-                // 푸시 발송
+                // 푸시 발송 — 사용자별 알림 종류 설정(prefs.buy/stop) 존중
                 const subList = symbolToSubs.get(symbol) || [];
                 const arrow = sig.dir === 'buy' ? '📈' : '📉';
                 const dirKo = sig.dir === 'buy' ? '매수' : '매도';
@@ -207,6 +215,10 @@ export async function analyzeSignals(env) {
                     tag: `signal-${symbol}-${sig.dir}`,
                 });
                 for (const sub of subList) {
+                    // 매수 시그널인데 사용자가 buy=0 → 스킵
+                    // 매도 시그널인데 사용자가 stop=0 → 스킵 (매도 = 손절선 이탈 의미)
+                    if (sig.dir === 'buy'  && !sub.prefs?.buy)  continue;
+                    if (sig.dir === 'sell' && !sub.prefs?.stop) continue;
                     try {
                         const r = await sendPush(
                             { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },

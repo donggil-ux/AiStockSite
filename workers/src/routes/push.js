@@ -93,6 +93,35 @@ export async function handleDeleteAlert(req, env, params) {
     }
 }
 
+// ── POST /api/push/prefs — 알림 종류 4종 + 시장 필터 동기화 ────
+// Body: { subToken, endpoint, prefs?: {buy,tp,stop,pos}, marketFilter?: 'US'|'KR'|'ALL' }
+export async function handleSyncPrefs(req, env) {
+    try {
+        const b = await req.json();
+        if (!b.subToken || !b.endpoint) return err(400, 'subToken+endpoint required');
+        const prefs = (b.prefs && typeof b.prefs === 'object') ? {
+            buy:  b.prefs.buy  ? 1 : 0,
+            tp:   b.prefs.tp   ? 1 : 0,
+            stop: b.prefs.stop ? 1 : 0,
+            pos:  b.prefs.pos  ? 1 : 0,
+        } : null;
+        const mkt = ['US','KR','ALL'].includes(b.marketFilter) ? b.marketFilter : null;
+        // 둘 중 제공된 것만 업데이트
+        const sets = [];
+        const args = [];
+        if (prefs) { sets.push('notif_prefs=?'); args.push(JSON.stringify(prefs)); }
+        if (mkt)   { sets.push('market_filter=?'); args.push(mkt); }
+        if (!sets.length) return err(400, 'nothing to update');
+        sets.push('last_seen=?'); args.push(Date.now());
+        args.push(b.subToken, b.endpoint);
+        const sql = `UPDATE push_subscribers SET ${sets.join(',')} WHERE sub_token=? AND endpoint=?`;
+        const r = await env.DB.prepare(sql).bind(...args).run();
+        return json({ ok: true, updated: r.meta?.changes || 0 });
+    } catch (e) {
+        return err(500, e.message);
+    }
+}
+
 // ── POST /api/push/favs — 즐겨찾기 동기화 (백엔드 시그널 분석 대상) ────
 // Body: { subToken, endpoint, favs: ['NVDA','AAPL', ...] }
 export async function handleSyncFavs(req, env) {

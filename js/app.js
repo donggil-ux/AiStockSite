@@ -1959,6 +1959,31 @@
     function _saveNotifPref(key, val) {
         localStorage.setItem('stockai_notif_' + key, val ? '1' : '0');
         showToast(val ? `${key === 'buy' ? '매수' : key === 'tp' ? '익절' : key === 'stop' ? '손절' : '포지션'} 알림 켜짐` : `알림 꺼짐`);
+        // 백엔드(Workers) 동기화 — cron 시그널 분석에서 사용자 토글 존중
+        try {
+            if (window._syncPrefsTimer) clearTimeout(window._syncPrefsTimer);
+            window._syncPrefsTimer = setTimeout(() => _syncNotifPrefsToBackend(), 1500);
+        } catch(_) {}
+    }
+
+    async function _syncNotifPrefsToBackend() {
+        try {
+            const subToken = localStorage.getItem('pushSubToken');
+            if (!subToken) return;
+            const endpoint = await _getPushEndpoint();
+            if (!endpoint) return;
+            const prefs = {
+                buy:  localStorage.getItem('stockai_notif_buy')  !== '0',
+                tp:   localStorage.getItem('stockai_notif_tp')   !== '0',
+                stop: localStorage.getItem('stockai_notif_stop') !== '0',
+                pos:  localStorage.getItem('stockai_notif_pos')  !== '0',
+            };
+            await fetch('/api/push/prefs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subToken, endpoint, prefs }),
+            });
+        } catch(_) {}
     }
 
     // 알림음 종류 저장 + 미리듣기

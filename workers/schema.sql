@@ -3,14 +3,16 @@
 
 -- ── 푸시 구독자 ───────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS push_subscribers (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    sub_token   TEXT UNIQUE NOT NULL,          -- 클라이언트 인증용
-    endpoint    TEXT NOT NULL,                 -- VAPID endpoint URL
-    p256dh      TEXT NOT NULL,                 -- 공개 키
-    auth        TEXT NOT NULL,                 -- 인증 시크릿
-    favs        TEXT,                          -- JSON: ['NVDA','AAPL',...]
-    created_at  INTEGER NOT NULL,              -- Unix ms
-    last_seen   INTEGER NOT NULL               -- 마지막 활동 시각
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    sub_token     TEXT UNIQUE NOT NULL,        -- 클라이언트 인증용
+    endpoint      TEXT NOT NULL,               -- VAPID endpoint URL
+    p256dh        TEXT NOT NULL,               -- 공개 키
+    auth          TEXT NOT NULL,               -- 인증 시크릿
+    favs          TEXT,                        -- JSON: ['NVDA','AAPL',...]
+    notif_prefs   TEXT DEFAULT '{"buy":1,"tp":1,"stop":1,"pos":1}', -- 4종 토글
+    market_filter TEXT DEFAULT 'ALL',          -- 'US' | 'KR' | 'ALL'
+    created_at    INTEGER NOT NULL,            -- Unix ms
+    last_seen     INTEGER NOT NULL             -- 마지막 활동 시각
 );
 CREATE INDEX IF NOT EXISTS idx_push_endpoint ON push_subscribers(endpoint);
 CREATE INDEX IF NOT EXISTS idx_push_token    ON push_subscribers(sub_token);

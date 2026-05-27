@@ -16,7 +16,7 @@
 
 import { handleChart, handleQuote, handlePrice, handleSummary, handleSearch } from './routes/yahoo.js';
 import { handlePolygonCandles } from './routes/polygon.js';
-import { handleSubscribe, handleCreateAlert, handleListAlerts, handleDeleteAlert, handlePushTest, handleSyncFavs } from './routes/push.js';
+import { handleSubscribe, handleCreateAlert, handleListAlerts, handleDeleteAlert, handlePushTest, handleSyncFavs, handleSyncPrefs } from './routes/push.js';
 import { checkPriceAlerts, earningsReminder, analyzeSignals } from './cron.js';
 import { json, err } from './utils/validators.js';
 
@@ -64,6 +64,7 @@ const ROUTES = [
     ['DELETE', '/api/push/price-alert/:id', handleDeleteAlert],
     ['POST',   '/api/push/test',         handlePushTest],
     ['POST',   '/api/push/favs',         handleSyncFavs],
+    ['POST',   '/api/push/prefs',        handleSyncPrefs],
 ];
 
 export default {
@@ -89,17 +90,21 @@ export default {
 
     async scheduled(event, env, ctx) {
         // wrangler.toml [triggers] crons:
-        //   "*/5 * * * *" → checkPriceAlerts + analyzeSignals (병렬)
-        //   "0 0 * * 1-5" → earningsReminder (KST 09시 = UTC 00시 평일)
+        //   "*/5 13-21 * * 1-5" → 미국 정규장 시그널 + 가격 알림
+        //   "*/5 0-6  * * 1-5"  → 한국 정규장 시그널 + 가격 알림
+        //   "0 0 * * 1-5"       → 실적 리마인더 (평일 KST 09시 = UTC 00시)
         const cron = event.cron;
-        if (cron === '*/5 * * * *') {
-            // 5분마다 두 작업 병렬 실행
-            ctx.waitUntil(Promise.all([
-                checkPriceAlerts(env).then(r => console.log('[cron] price', r)),
-                analyzeSignals(env).then(r => console.log('[cron] signal', r)),
-            ]));
-        } else if (cron === '0 0 * * 1-5') {
+        if (cron === '0 0 * * 1-5') {
+            // 09시 실적 리마인더만 (00시 한국 시그널 cron 과 충돌 방지 — 동시에 fire)
             ctx.waitUntil(earningsReminder(env).then(r => console.log('[cron] earnings', r)));
+        }
+        // 5분마다 (시장 시간) 시그널 분석 + 가격 알림 병렬 실행
+        if (cron === '*/5 13-21 * * 1-5' || cron === '*/5 0-6 * * 1-5') {
+            const market = cron.startsWith('*/5 13') ? 'US' : 'KR';
+            ctx.waitUntil(Promise.all([
+                checkPriceAlerts(env).then(r => console.log(`[cron] ${market} price`, r)),
+                analyzeSignals(env, market).then(r => console.log(`[cron] ${market} signal`, r)),
+            ]));
         }
     },
 };
