@@ -256,7 +256,9 @@
     }
 
     // ── 매수·매도 시그널 사운드 알림 (v694) ──────────────────────
-    let _chartSoundEnabled = localStorage.getItem('stockai_chart_sound') === '1'; // 기본 OFF
+    // 차트 사운드 기본값 ON — 사용자가 명시적으로 끄지 않는 한 매수·매도 시그널 발생 시 알림
+    // (localStorage 키 부재 시 → ON, '0' 명시 → OFF, '1' 명시 → ON)
+    let _chartSoundEnabled = localStorage.getItem('stockai_chart_sound') !== '0';
     let _sigAudioCtx = null;
 
     function _updateChartSoundBtnUi() {
@@ -1396,7 +1398,12 @@
         if (latest && currentSymbol) {
             const newKey = `${currentSymbol}:${latest.time}:${latest.position}:${latest._label||''}`;
             const prevSameSymbol = _lastSigKey && _lastSigKey.startsWith(currentSymbol + ':');
-            if (prevSameSymbol && _lastSigKey !== newKey) {
+            // 종목 첫 로드 시 최근 시그널이 "fresh" (현재 인터벌 기준 1봉 이내) 이면 1회 자동 표시
+            const _ivToSec = { '1m':60,'2m':120,'5m':300,'15m':900,'30m':1800,'60m':3600,'90m':5400,'1h':3600,'1d':86400,'1wk':604800,'1mo':2592000 };
+            const _barSec = _ivToSec[currentInterval] || 300;
+            const _ageSec = Date.now()/1000 - (latest.time || 0);
+            const _isFreshOnFirstLoad = !prevSameSymbol && _ageSec >= 0 && _ageSec < _barSec * 1.5;
+            if ((prevSameSymbol && _lastSigKey !== newKey) || _isFreshOnFirstLoad) {
                 const isBuy = latest.position === 'belowBar';
                 const dir   = isBuy ? '매수' : '매도';
                 let effectiveBuy = isBuy; // 포지션 로직으로 방향 바뀔 때 사운드·음성에 사용
@@ -1616,6 +1623,7 @@
                 }
             }
             _lastSigKey = newKey;
+            try { window._lastSigKey = _lastSigKey; } catch(_) {}
             // 내 포지션 진입가 라인 재그리기 (봉 변경·강제 재빌드 시에만)
             if (_doRebuild) { try { _posDrawChartLine(); } catch(e) {} }
         }
