@@ -1451,6 +1451,146 @@
         showToast('알림 내역이 모두 삭제되었습니다');
     }
 
+    // ═══════════════════════════════════════════════════════════
+    //  시그널 통계 페이지 — D1 signal_history 기반 누적 분석
+    // ═══════════════════════════════════════════════════════════
+    let _statsPeriodDays = 7;
+
+    function openSignalStats() {
+        document.body.dataset.notifPrevOverflow = document.body.style.overflow || '';
+        document.body.style.overflow = 'hidden';
+        const ns = document.getElementById('signalStatsScreen');
+        if (ns) {
+            ns.style.display = 'block';
+            ns.scrollTop = 0;
+        }
+        _setStatsPeriod(7);
+    }
+    function closeSignalStats() {
+        const ns = document.getElementById('signalStatsScreen');
+        if (ns) ns.style.display = 'none';
+        const prev = document.body.dataset.notifPrevOverflow;
+        document.body.style.overflow = prev !== undefined ? prev : '';
+        delete document.body.dataset.notifPrevOverflow;
+    }
+    function _setStatsPeriod(days) {
+        _statsPeriodDays = days;
+        document.querySelectorAll('.stats-period').forEach(b =>
+            b.classList.toggle('active', parseInt(b.dataset.days,10) === days));
+        _loadSignalStats();
+    }
+
+    async function _loadSignalStats() {
+        const body = document.getElementById('statsBody');
+        if (!body) return;
+        body.innerHTML = '<div class="stats-loading">불러오는 중...</div>';
+        try {
+            const r = await fetch(`/api/stats/signals?days=${_statsPeriodDays}`);
+            if (!r.ok) throw new Error('fetch failed');
+            const d = await r.json();
+            _renderSignalStats(d);
+        } catch(e) {
+            body.innerHTML = `<div class="stats-empty">데이터를 불러올 수 없습니다<br><small>${e.message}</small></div>`;
+        }
+    }
+
+    function _renderSignalStats(d) {
+        const body = document.getElementById('statsBody');
+        if (!body) return;
+        const tot = d.totals || { total:0, buy_count:0, sell_count:0 };
+        if (tot.total === 0) {
+            body.innerHTML = `<div class="stats-empty">
+                <div class="stats-empty-icon">📊</div>
+                <div class="stats-empty-text">아직 누적 시그널이 없습니다</div>
+                <div class="stats-empty-sub">즐겨찾기 종목에서 매수/매도 시그널 발생 시 자동 기록됩니다</div>
+            </div>`;
+            return;
+        }
+        const fmtDate = ts => {
+            const dt = new Date(ts);
+            return `${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+        };
+        const gradeColor = g => g === 'S' ? '#FFD60A' : g === 'A' ? '#22C55E' : g === 'B' ? '#3B82F6' : '#94A3B8';
+
+        // 1) 총괄 KPI
+        const buyPct = tot.total ? Math.round(tot.buy_count / tot.total * 100) : 0;
+        const sellPct = tot.total ? Math.round(tot.sell_count / tot.total * 100) : 0;
+        let html = `
+            <section class="stats-section">
+                <div class="stats-kpi-grid">
+                    <div class="stats-kpi-card">
+                        <div class="stats-kpi-label">총 시그널</div>
+                        <div class="stats-kpi-value">${tot.total}</div>
+                        <div class="stats-kpi-sub">최근 ${d.days}일</div>
+                    </div>
+                    <div class="stats-kpi-card stats-kpi-buy">
+                        <div class="stats-kpi-label">📈 매수</div>
+                        <div class="stats-kpi-value">${tot.buy_count}</div>
+                        <div class="stats-kpi-sub">${buyPct}%</div>
+                    </div>
+                    <div class="stats-kpi-card stats-kpi-sell">
+                        <div class="stats-kpi-label">📉 매도</div>
+                        <div class="stats-kpi-value">${tot.sell_count}</div>
+                        <div class="stats-kpi-sub">${sellPct}%</div>
+                    </div>
+                </div>
+            </section>`;
+
+        // 2) 등급별 분포
+        if (d.grades && d.grades.length) {
+            html += `<section class="stats-section">
+                <h2 class="stats-section-title">등급별 분포 (예상 승률 평균)</h2>
+                <div class="stats-grade-grid">`;
+            for (const g of d.grades) {
+                const wr = Math.round(g.avg_winrate || 0);
+                html += `<div class="stats-grade-card" style="border-color:${gradeColor(g.grade)};">
+                    <div class="stats-grade-badge" style="background:${gradeColor(g.grade)};color:#000;">${g.grade || '-'}</div>
+                    <div class="stats-grade-count">${g.count}건</div>
+                    <div class="stats-grade-winrate">승률 ${wr}%</div>
+                </div>`;
+            }
+            html += `</div></section>`;
+        }
+
+        // 3) TOP 종목
+        if (d.topSymbols && d.topSymbols.length) {
+            html += `<section class="stats-section">
+                <h2 class="stats-section-title">TOP 종목 (시그널 빈도)</h2>
+                <div class="stats-symbol-list">`;
+            for (const s of d.topSymbols) {
+                html += `<div class="stats-symbol-row" onclick="quickSearch('${escHtml(s.symbol)}','US')">
+                    <span class="stats-symbol-name">${escHtml(s.symbol)}</span>
+                    <span class="stats-symbol-bar">
+                        <span class="stats-symbol-buy"  style="flex:${s.buy_count}"></span>
+                        <span class="stats-symbol-sell" style="flex:${s.sell_count}"></span>
+                    </span>
+                    <span class="stats-symbol-counts">📈${s.buy_count} 📉${s.sell_count}</span>
+                </div>`;
+            }
+            html += `</div></section>`;
+        }
+
+        // 4) 최근 시그널 테이블
+        if (d.recent && d.recent.length) {
+            html += `<section class="stats-section">
+                <h2 class="stats-section-title">최근 시그널 (${d.recent.length}건)</h2>
+                <div class="stats-recent-list">`;
+            for (const r of d.recent) {
+                const isBuy = r.direction === 'buy';
+                html += `<div class="stats-recent-row" onclick="quickSearch('${escHtml(r.symbol)}','US')">
+                    <span class="stats-recent-dir ${isBuy?'buy':'sell'}">${isBuy?'📈 매수':'📉 매도'}</span>
+                    <span class="stats-recent-ticker">${escHtml(r.symbol)}</span>
+                    <span class="stats-recent-grade" style="background:${gradeColor(r.grade)};color:#000;">${r.grade || '-'}</span>
+                    <span class="stats-recent-price">$${(r.price||0).toFixed(2)}</span>
+                    <span class="stats-recent-time">${fmtDate(r.created_at)}</span>
+                </div>`;
+            }
+            html += `</div></section>`;
+        }
+
+        body.innerHTML = html;
+    }
+
     // 알림 설정 모달 — 알림 종류별 ON/OFF + 구독 해제
     async function _showNotifSettingsModal() {
         let modal = document.getElementById('notifSettingsModal');
@@ -5752,6 +5892,8 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         // 알림 전체 페이지
         openNotificationsScreen, closeNotificationsScreen,
         _setNotifFilter, _clickNotifItem, _markAllNotifRead, _clearAllNotifications,
+        // 시그널 통계 페이지
+        openSignalStats, closeSignalStats, _setStatsPeriod,
         // 통합 설정
         openSettings, closeSettings, setSettingsTab,
         _setSettingsTheme, _setSettingsMarket, _setSettingsCurrency,

@@ -81,6 +81,11 @@
                     <span class="side-nav-item-text">카탈리스트</span>
                     <span class="side-nav-item-sub">SEC EDGAR</span>
                 </button>
+                <button class="side-nav-item" id="sideNavStatsBtn" onclick="openSignalStats();closeSideNav();">
+                    <span class="side-nav-item-icon"><i class="ri-line-chart-fill"></i></span>
+                    <span class="side-nav-item-text">시그널 통계</span>
+                    <span class="side-nav-item-sub">D1 누적</span>
+                </button>
             </div>
         </div>
         <div class="side-nav-divider"></div>
@@ -526,6 +531,29 @@
             <div class="notif-page-footer" id="notifPageFooter">
                 <button class="notif-mark-read-btn" onclick="_markAllNotifRead()">모두 읽음 처리</button>
                 <button class="notif-clear-all-btn" onclick="_clearAllNotifications()">전체 삭제</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         시그널 통계 페이지 (D1 signal_history 기반 누적 분석)
+         openSignalStats() / closeSignalStats()
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="signalStatsScreen" style="display:none;">
+        <div class="stats-page">
+            <header class="stats-header">
+                <button class="stats-back" onclick="closeSignalStats()" aria-label="뒤로">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <h1 class="stats-title">시그널 통계</h1>
+                <div class="stats-period-tabs">
+                    <button class="stats-period active" data-days="7"  onclick="_setStatsPeriod(7)">7일</button>
+                    <button class="stats-period"        data-days="30" onclick="_setStatsPeriod(30)">30일</button>
+                    <button class="stats-period"        data-days="90" onclick="_setStatsPeriod(90)">90일</button>
+                </div>
+            </header>
+            <div class="stats-body" id="statsBody">
+                <div class="stats-loading">불러오는 중...</div>
             </div>
         </div>
     </div>

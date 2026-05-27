@@ -10375,3 +10375,122 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
 @media (max-width: 480px) {
     .sgp-refresh{ font-size:10px; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   시그널 통계 페이지 (D1 누적)
+   ═══════════════════════════════════════════════════════════ */
+#signalStatsScreen{
+    background:var(--bg); position:fixed; inset:0; z-index:9999;
+    overflow-y:auto; -webkit-overflow-scrolling:touch;
+}
+.stats-page{ max-width:760px; margin:0 auto; padding-bottom:80px; min-height:100vh; }
+.stats-header{
+    display:flex; align-items:center; gap:8px;
+    padding:14px 16px; border-bottom:1px solid var(--border);
+    position:sticky; top:0; background:var(--bg); z-index:10; flex-wrap:wrap;
+}
+.stats-back{
+    width:38px; height:38px; display:flex; align-items:center; justify-content:center;
+    background:none; border:none; cursor:pointer; color:var(--text);
+    border-radius:var(--radius-md); transition:background .15s;
+}
+.stats-back:hover{ background:var(--bg3); }
+.stats-title{ flex:1; margin:0; font-size:17px; font-weight:700; color:var(--text); letter-spacing:-0.02em; }
+.stats-period-tabs{ display:inline-flex; gap:4px; background:var(--bg2); padding:3px; border-radius:var(--radius-full); }
+.stats-period{
+    padding:5px 12px; height:28px; border:none; background:transparent;
+    color:var(--text2); font-size:12px; font-weight:600; cursor:pointer;
+    border-radius:var(--radius-full); transition:background .15s, color .15s;
+}
+.stats-period:hover{ color:var(--text); }
+.stats-period.active{ background:var(--text); color:var(--bg); }
+.stats-body{ padding:16px; display:flex; flex-direction:column; gap:18px; }
+.stats-loading, .stats-empty{
+    padding:60px 24px; text-align:center; color:var(--text3);
+    font-size:14px;
+}
+.stats-empty-icon{ font-size:42px; opacity:.5; margin-bottom:8px; }
+.stats-empty-text{ font-size:15px; font-weight:600; color:var(--text2); margin-bottom:4px; }
+.stats-empty-sub{ font-size:12px; color:var(--text3); }
+
+.stats-section{
+    background:var(--bg2); border:1px solid var(--border);
+    border-radius:var(--radius-lg); padding:16px;
+}
+.stats-section-title{ margin:0 0 12px; font-size:13px; font-weight:700; color:var(--text2); }
+
+/* KPI 그리드 */
+.stats-kpi-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; }
+.stats-kpi-card{
+    background:var(--bg); border:1px solid var(--border);
+    border-radius:var(--radius-md); padding:12px 14px;
+}
+.stats-kpi-label{ font-size:11px; color:var(--text2); font-weight:600; margin-bottom:4px; }
+.stats-kpi-value{ font-size:24px; font-weight:800; color:var(--text); letter-spacing:-0.02em; font-variant-numeric:tabular-nums; }
+.stats-kpi-sub{ font-size:11px; color:var(--text3); margin-top:2px; }
+.stats-kpi-buy{ border-color:rgba(239,68,68,.3); }
+.stats-kpi-buy .stats-kpi-value{ color:var(--red); }
+.stats-kpi-sell{ border-color:rgba(59,130,246,.3); }
+.stats-kpi-sell .stats-kpi-value{ color:var(--blue); }
+
+/* 등급별 카드 */
+.stats-grade-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; }
+.stats-grade-card{
+    background:var(--bg); border:2px solid var(--border);
+    border-radius:var(--radius-md); padding:10px;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+}
+.stats-grade-badge{
+    width:32px; height:32px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:14px;
+}
+.stats-grade-count{ font-size:14px; font-weight:700; color:var(--text); }
+.stats-grade-winrate{ font-size:11px; color:var(--text3); }
+
+/* TOP 종목 */
+.stats-symbol-list{ display:flex; flex-direction:column; gap:8px; }
+.stats-symbol-row{
+    display:grid; grid-template-columns:60px 1fr 80px; gap:10px;
+    align-items:center; padding:8px 10px;
+    background:var(--bg); border:1px solid var(--border);
+    border-radius:var(--radius-md); cursor:pointer;
+    transition:background .15s;
+}
+@media (hover: hover) { .stats-symbol-row:hover{ background:var(--bg3); } }
+.stats-symbol-name{ font-size:13px; font-weight:700; font-family:var(--font-data); color:var(--text); }
+.stats-symbol-bar{ display:flex; height:8px; border-radius:4px; overflow:hidden; background:var(--bg3); }
+.stats-symbol-buy { background:var(--red); }
+.stats-symbol-sell{ background:var(--blue); }
+.stats-symbol-counts{ font-size:11px; color:var(--text2); text-align:right; }
+
+/* 최근 시그널 */
+.stats-recent-list{ display:flex; flex-direction:column; gap:4px; }
+.stats-recent-row{
+    display:grid; grid-template-columns:70px 60px 30px 1fr auto; gap:8px;
+    align-items:center; padding:8px 10px;
+    background:var(--bg); border:1px solid var(--border);
+    border-radius:var(--radius-md); cursor:pointer;
+    transition:background .15s; font-size:12px;
+}
+@media (hover: hover) { .stats-recent-row:hover{ background:var(--bg3); } }
+.stats-recent-dir{ font-weight:600; }
+.stats-recent-dir.buy { color:var(--red); }
+.stats-recent-dir.sell{ color:var(--blue); }
+.stats-recent-ticker{ font-family:var(--font-data); font-weight:700; color:var(--text); }
+.stats-recent-grade{
+    width:24px; height:24px; display:flex; align-items:center; justify-content:center;
+    border-radius:50%; font-weight:800; font-size:11px;
+}
+.stats-recent-price{ font-family:var(--font-data); font-weight:600; color:var(--text); font-variant-numeric:tabular-nums; }
+.stats-recent-time{ color:var(--text3); font-size:11px; white-space:nowrap; }
+
+@media (max-width:480px){
+    .stats-kpi-grid{ grid-template-columns:repeat(3, 1fr); gap:6px; }
+    .stats-kpi-card{ padding:8px 10px; }
+    .stats-kpi-value{ font-size:18px; }
+    .stats-grade-grid{ grid-template-columns:repeat(4, 1fr); gap:4px; }
+    .stats-recent-row{ grid-template-columns:60px 50px 24px 1fr; font-size:11px; }
+    .stats-recent-time{ display:none; }
+    .stats-period{ padding:4px 10px; font-size:11px; }
+}
