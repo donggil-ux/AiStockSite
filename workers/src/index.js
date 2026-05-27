@@ -16,8 +16,8 @@
 
 import { handleChart, handleQuote, handlePrice, handleSummary, handleSearch } from './routes/yahoo.js';
 import { handlePolygonCandles } from './routes/polygon.js';
-import { handleSubscribe, handleCreateAlert, handleListAlerts, handleDeleteAlert, handlePushTest } from './routes/push.js';
-import { checkPriceAlerts, earningsReminder } from './cron.js';
+import { handleSubscribe, handleCreateAlert, handleListAlerts, handleDeleteAlert, handlePushTest, handleSyncFavs } from './routes/push.js';
+import { checkPriceAlerts, earningsReminder, analyzeSignals } from './cron.js';
 import { json, err } from './utils/validators.js';
 
 const CORS = {
@@ -63,6 +63,7 @@ const ROUTES = [
     ['GET',    '/api/push/price-alert',  handleListAlerts],
     ['DELETE', '/api/push/price-alert/:id', handleDeleteAlert],
     ['POST',   '/api/push/test',         handlePushTest],
+    ['POST',   '/api/push/favs',         handleSyncFavs],
 ];
 
 export default {
@@ -88,11 +89,15 @@ export default {
 
     async scheduled(event, env, ctx) {
         // wrangler.toml [triggers] crons:
-        //   "*/5 * * * *" → checkPriceAlerts
+        //   "*/5 * * * *" → checkPriceAlerts + analyzeSignals (병렬)
         //   "0 0 * * 1-5" → earningsReminder (KST 09시 = UTC 00시 평일)
         const cron = event.cron;
         if (cron === '*/5 * * * *') {
-            ctx.waitUntil(checkPriceAlerts(env).then(r => console.log('[cron] price', r)));
+            // 5분마다 두 작업 병렬 실행
+            ctx.waitUntil(Promise.all([
+                checkPriceAlerts(env).then(r => console.log('[cron] price', r)),
+                analyzeSignals(env).then(r => console.log('[cron] signal', r)),
+            ]));
         } else if (cron === '0 0 * * 1-5') {
             ctx.waitUntil(earningsReminder(env).then(r => console.log('[cron] earnings', r)));
         }

@@ -1,6 +1,7 @@
 // Cloudflare Cron Triggers — wrangler.toml [triggers] crons 항목에서 호출
 import { yfRequest } from './utils/crumb.js';
 import { sendPush } from './utils/vapid.js';
+import { detectSignal } from './utils/indicators.js';
 
 /**
  * 매 5분마다: 등록된 가격 알림을 체크해 조건 충족 시 푸시 발송
@@ -125,4 +126,103 @@ async function _todayEarnings(env, favs) {
             .map(r => r.symbol);
         return list;
     } catch (_) { return []; }
+}
+
+/**
+ * 매 5분마다 (또는 *5분봉* cron trigger): 활성 구독자의 즐겨찾기 종목을
+ * 5분봉으로 분석 → A/S 등급 시그널 발생 시 푸시 발송.
+ *
+ * 중복 방지: signal_history 테이블에 (symbol, dir, candle_ts) 키로 저장.
+ * 같은 5분봉 + 같은 방향 시그널은 한 번만 발송.
+ *
+ * 최대 처리량 보호: 구독자 50명 / 종목 30개 / 5분 = Workers 30초 한계 내.
+ */
+export async function analyzeSignals(env) {
+    try {
+        // 1) 30일 이내 활동한 구독자 + 즐겨찾기 모음
+        const rs = await env.DB.prepare(
+            'SELECT endpoint, p256dh, auth, favs FROM push_subscribers WHERE last_seen > ? LIMIT 100'
+        ).bind(Date.now() - 30 * 24 * 3600 * 1000).all();
+        const subs = rs.results || [];
+        if (!subs.length) return { subscribers: 0, fired: 0 };
+
+        // 2) 즐겨찾기 종목 dedupe (모든 구독자 합산)
+        const symbolToSubs = new Map(); // symbol → [{endpoint, p256dh, auth}]
+        for (const sub of subs) {
+            let favs = [];
+            try { favs = JSON.parse(sub.favs || '[]'); } catch (_) {}
+            for (const sym of favs) {
+                if (!sym) continue;
+                const arr = symbolToSubs.get(sym) || [];
+                arr.push({ endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth });
+                symbolToSubs.set(sym, arr);
+            }
+        }
+        const allSymbols = [...symbolToSubs.keys()].slice(0, 30); // Workers 30초 보호
+        if (!allSymbols.length) return { subscribers: subs.length, fired: 0 };
+
+        // 3) 각 종목 5분봉 분석 + 시그널 발견 시 푸시 큐잉
+        let fired = 0, analyzed = 0;
+        for (const symbol of allSymbols) {
+            try {
+                const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`
+                    + '?range=1d&interval=5m&includePrePost=false';
+                const raw = await yfRequest(env.CACHE, yahooUrl);
+                const result = raw?.chart?.result?.[0];
+                if (!result) continue;
+                const q = result.indicators?.quote?.[0];
+                if (!q?.close?.length) continue;
+                const ts = result.timestamp || [];
+                analyzed++;
+
+                const sig = detectSignal(q);
+                // S/A 등급만 발송 (B/C 는 노이즈 가능성)
+                if (!sig || (sig.grade !== 'S' && sig.grade !== 'A')) continue;
+
+                const candleTs = ts[ts.length - 1] || Math.floor(Date.now() / 1000);
+
+                // 중복 체크
+                const existing = await env.DB.prepare(
+                    'SELECT id FROM signal_history WHERE symbol=? AND direction=? AND created_at >= ?'
+                ).bind(symbol, sig.dir, (candleTs - 60) * 1000).first();
+                if (existing) continue; // 1분 이내 같은 시그널 → 스킵
+
+                // signal_history 기록
+                await env.DB.prepare(
+                    'INSERT INTO signal_history (symbol, market, direction, grade, score, win_rate, price, headline, created_at) VALUES (?,?,?,?,?,?,?,?,?)'
+                ).bind(
+                    symbol, 'US', sig.dir, sig.grade, sig.score, sig.winRate,
+                    sig.price, sig.factors.slice(0, 3).join(' · '),
+                    Date.now()
+                ).run();
+
+                // 푸시 발송
+                const subList = symbolToSubs.get(symbol) || [];
+                const arrow = sig.dir === 'buy' ? '📈' : '📉';
+                const dirKo = sig.dir === 'buy' ? '매수' : '매도';
+                const payload = JSON.stringify({
+                    title: `${arrow} ${symbol} ${dirKo} 시그널 [${sig.grade}급]`,
+                    body: `$${sig.price.toFixed(2)} · 예상 승률 ${sig.winRate}% · ${sig.factors.slice(0, 2).join(' · ')}`,
+                    url: `/?s=${symbol}`,
+                    tag: `signal-${symbol}-${sig.dir}`,
+                });
+                for (const sub of subList) {
+                    try {
+                        const r = await sendPush(
+                            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+                            payload, env
+                        );
+                        if (r.ok || r.status === 201) fired++;
+                        else if (r.status === 404 || r.status === 410) {
+                            await env.DB.prepare('DELETE FROM push_subscribers WHERE endpoint=?').bind(sub.endpoint).run();
+                        }
+                    } catch (e) { console.warn('[signal-push] fail', symbol, e.message); }
+                }
+            } catch (e) { console.warn('[analyze] fail', symbol, e.message); }
+        }
+        return { subscribers: subs.length, symbols: allSymbols.length, analyzed, fired };
+    } catch (e) {
+        console.error('[cron] analyzeSignals', e.message);
+        return { error: e.message };
+    }
 }

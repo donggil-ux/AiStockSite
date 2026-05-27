@@ -93,6 +93,25 @@ export async function handleDeleteAlert(req, env, params) {
     }
 }
 
+// ── POST /api/push/favs — 즐겨찾기 동기화 (백엔드 시그널 분석 대상) ────
+// Body: { subToken, endpoint, favs: ['NVDA','AAPL', ...] }
+export async function handleSyncFavs(req, env) {
+    try {
+        const b = await req.json();
+        if (!b.subToken || !b.endpoint || !Array.isArray(b.favs)) {
+            return err(400, 'invalid favs');
+        }
+        // favs 정리 (대문자 + 중복 제거 + 최대 30개)
+        const cleaned = [...new Set(b.favs.map(s => String(s || '').trim().toUpperCase()).filter(Boolean))].slice(0, 30);
+        const r = await env.DB.prepare(
+            'UPDATE push_subscribers SET favs=?, last_seen=? WHERE sub_token=? AND endpoint=?'
+        ).bind(JSON.stringify(cleaned), Date.now(), b.subToken, b.endpoint).run();
+        return json({ ok: true, count: cleaned.length, updated: r.meta?.changes || 0 });
+    } catch (e) {
+        return err(500, e.message);
+    }
+}
+
 // ── POST /api/push/test — 단일 구독자 테스트 발송 (디버그) ────
 export async function handlePushTest(req, env) {
     try {

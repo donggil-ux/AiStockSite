@@ -50,6 +50,31 @@
 
     function saveFavorites(favs) {
         localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+        // 백엔드 시그널 분석용 — 즐겨찾기 변경 시 Workers 로 동기화 (디바운스)
+        try {
+            if (window._syncFavsTimer) clearTimeout(window._syncFavsTimer);
+            window._syncFavsTimer = setTimeout(() => _syncFavsToBackend(favs), 1500);
+        } catch(_) {}
+    }
+
+    // 백엔드(Cloudflare Workers) 로 즐겨찾기 동기화 — 5분봉 자동 시그널 분석 대상
+    async function _syncFavsToBackend(favs) {
+        try {
+            const subToken = localStorage.getItem('pushSubToken');
+            const endpoint = window._pushEndpoint || await (async () => {
+                if (!('serviceWorker' in navigator)) return null;
+                const reg = await navigator.serviceWorker.ready;
+                const sub = await reg.pushManager.getSubscription();
+                return sub?.endpoint || null;
+            })();
+            if (!subToken || !endpoint) return; // 푸시 미구독 → 동기화 불필요
+            const symbols = (favs || []).map(f => f.symbol).filter(Boolean);
+            await fetch('/api/push/favs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subToken, endpoint, favs: symbols }),
+            });
+        } catch(_) {}
     }
 
     function isFavorited(symbol, market) {
