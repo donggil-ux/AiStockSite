@@ -16,7 +16,7 @@
 
 import { handleChart, handleQuote, handlePrice, handleSummary, handleSearch } from './routes/yahoo.js';
 import { handlePolygonCandles } from './routes/polygon.js';
-import { handleSubscribe, handleCreateAlert, handleListAlerts, handleDeleteAlert, handlePushTest, handleSyncFavs, handleSyncPrefs } from './routes/push.js';
+import { handleSubscribe, handleCreateAlert, handleListAlerts, handleDeleteAlert, handlePushTest, handleSyncFavs, handleSyncPrefs, handleLinkAccount } from './routes/push.js';
 import { handleSignalStats } from './routes/stats.js';
 import { handleAdminStatus } from './routes/admin.js';
 import { checkPriceAlerts, earningsReminder, analyzeSignals } from './cron.js';
@@ -61,6 +61,7 @@ const ROUTES = [
     ['GET',    '/api/search',            handleSearch],
     ['GET',    '/api/polygon/candles',   handlePolygonCandles],
     ['POST',   '/api/push/subscribe',    handleSubscribe],
+    ['POST',   '/api/push/link',         handleLinkAccount],
     ['POST',   '/api/push/price-alert',  handleCreateAlert],
     ['GET',    '/api/push/price-alert',  handleListAlerts],
     ['DELETE', '/api/push/price-alert/:id', handleDeleteAlert],

@@ -10494,3 +10494,157 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
     .stats-recent-time{ display:none; }
     .stats-period{ padding:4px 10px; font-size:11px; }
 }
+
+/* ════════════════════════════════════════════════════════════
+   Clerk 인증 카드 — 설정 모달 > 일반 탭 상단
+   ════════════════════════════════════════════════════════════ */
+.auth-status-card{
+    background: var(--bg2, #1f2937);
+    border: 1px solid var(--border, rgba(255,255,255,.08));
+    border-radius: 14px;
+    padding: 16px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+}
+.auth-user{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+.auth-user-info{ flex:1; min-width:0; }
+.auth-user-name{
+    font-size:15px;
+    font-weight:700;
+    color: var(--text, #fff);
+    margin-bottom:2px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+.auth-user-email{
+    font-size:12px;
+    color: var(--text2, #D1D5DB);
+    margin-bottom:4px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+.auth-user-status{
+    font-size:11px;
+    color:#10b981;
+    font-weight:600;
+}
+.auth-avatar-fallback{
+    width:48px; height:48px;
+    border-radius:50%;
+    background: linear-gradient(135deg,#3b82f6 0%,#8b5cf6 100%);
+    color:#fff;
+    display:flex; align-items:center; justify-content:center;
+    font-size:18px;
+    font-weight:700;
+    flex-shrink:0;
+}
+.auth-empty{
+    text-align:center;
+    padding:8px 0;
+}
+.auth-empty-icon{
+    font-size:32px;
+    margin-bottom:8px;
+}
+.auth-empty-title{
+    font-size:14px;
+    font-weight:600;
+    color: var(--text, #fff);
+    margin-bottom:4px;
+}
+.auth-empty-desc{
+    font-size:12px;
+    color: var(--text2, #D1D5DB);
+    line-height:1.5;
+}
+.auth-btn{
+    width:100%;
+    padding:10px 14px;
+    border-radius:10px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    border:none;
+    transition: opacity .15s, transform .1s;
+}
+.auth-btn:active{ transform: translateY(1px); }
+.auth-btn-primary{
+    background: linear-gradient(135deg,#3b82f6 0%,#8b5cf6 100%);
+    color:#fff;
+}
+.auth-btn-primary:hover{ opacity:.92; }
+.auth-btn-secondary{
+    background: var(--bg3, rgba(255,255,255,.06));
+    color: var(--text, #fff);
+    border: 1px solid var(--border, rgba(255,255,255,.1));
+}
+.auth-btn-secondary:hover{ background: var(--bg4, rgba(255,255,255,.1)); }
+
+/* 라이트 모드 컨트라스트 강화 */
+[data-theme="light"] .auth-status-card{
+    background: #F9FAFB;
+    border-color: #E5E7EB;
+}
+[data-theme="light"] .auth-user-name,
+[data-theme="light"] .auth-empty-title{ color: #111827; }
+[data-theme="light"] .auth-user-email,
+[data-theme="light"] .auth-empty-desc{ color: #4B5563; }
+[data-theme="light"] .auth-btn-secondary{
+    background:#fff;
+    color:#111827;
+    border-color:#D1D5DB;
+}
+
+/* ════════════════════════════════════════════════════════════
+   오프라인 인디케이터 — PWA 오프라인 모드
+   ════════════════════════════════════════════════════════════ */
+.offline-banner{
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10000;
+    background: linear-gradient(90deg, #f59e0b 0%, #ef4444 100%);
+    color:#fff;
+    padding: 6px 16px;
+    text-align:center;
+    font-size:12px;
+    font-weight:600;
+    box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    transform: translateY(-100%);
+    transition: transform .25s;
+}
+.offline-banner.visible{ transform: translateY(0); }
+.offline-banner-dot{
+    width:8px; height:8px;
+    border-radius:50%;
+    background:#fff;
+    animation: offline-pulse 1.5s ease-in-out infinite;
+}
+@keyframes offline-pulse{
+    0%, 100%{ opacity:1; transform:scale(1); }
+    50%{ opacity:.5; transform:scale(.85); }
+}
+.stale-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(245, 158, 11, .15);
+    color: #f59e0b;
+    font-size:10px;
+    font-weight:600;
+    margin-left: 6px;
+}

@@ -1000,7 +1000,52 @@
         }
     }
 
-    // 오프라인 배너 제거됨 — Comet 등 일부 브라우저에서 navigator.onLine 오탐 이슈로 비활성화
+    // 오프라인 배너 — PWA 오프라인 모드 (SW SWR 캐시와 연동)
+    // navigator.onLine 만으로 표시하지 않음 (오탐 이슈) — 실제 fetch 실패 누적 시 활성화
+    (function _initOfflineBanner() {
+        let _offlineFailCount = 0;
+        let _offlineFailWindow = 0;
+        const banner = () => document.getElementById('offlineBanner');
+        const text   = () => document.getElementById('offlineBannerText');
+        function setVisible(visible, message) {
+            const el = banner();
+            if (!el) return;
+            if (visible) {
+                if (message && text()) text().textContent = message;
+                el.classList.add('visible');
+            } else {
+                el.classList.remove('visible');
+            }
+        }
+        // navigator API 이벤트 — 보조 신호만
+        window.addEventListener('online',  () => { _offlineFailCount = 0; setVisible(false); });
+        window.addEventListener('offline', () => { setVisible(true, '오프라인 — 캐시된 데이터로 표시 중'); });
+        // fetch 실패 감지 (전역 인터셉터에 hook)
+        const origFetch = window.fetch.bind(window);
+        window.fetch = async function (...args) {
+            try {
+                const res = await origFetch(...args);
+                // SW SWR 응답이 'offline' 으로 표시되면 배너 노출
+                const fromCache = res.headers?.get?.('X-From-Cache');
+                if (fromCache === 'offline') {
+                    setVisible(true, '오프라인 — 마지막 캐시 데이터를 표시 중입니다');
+                }
+                if (res.ok) { _offlineFailCount = 0; if (navigator.onLine) setVisible(false); }
+                return res;
+            } catch (e) {
+                _offlineFailCount++;
+                const now = Date.now();
+                if (now - _offlineFailWindow > 10000) { _offlineFailWindow = now; _offlineFailCount = 1; }
+                if (_offlineFailCount >= 2 && !navigator.onLine) {
+                    setVisible(true, '오프라인 — 네트워크 연결을 확인하세요');
+                }
+                throw e;
+            }
+        };
+        // 초기 상태 — 오프라인이면 즉시 표시
+        if (!navigator.onLine) setVisible(true, '오프라인 — 캐시된 데이터로 표시 중');
+    })();
+
 
     // 서비스 워커 등록 + 새 버전 자동 감지 · 토스트 알림
     if ('serviceWorker' in navigator) {
@@ -1781,6 +1826,8 @@
         };
         const fn = renderers[tab] || _renderSettingsGeneral;
         try { fn(body); } catch(e) { console.error('[settings]', e); body.innerHTML = '<div style="color:#ef4444;">렌더 오류</div>'; }
+        // 일반 탭이면 auth UI 새로 그리기 (Clerk 상태 반영)
+        if (tab === 'general') { try { window._authRefreshUI?.(); } catch(_) {} }
     }
 
     // ── 일반 ───────────────────────────────────────────────────
@@ -1790,6 +1837,16 @@
         const mkt    = (typeof currentMarket !== 'undefined' && currentMarket) || (localStorage.getItem('market') || 'US');
         const cur    = localStorage.getItem('stockai_pref_currency') || (mkt === 'KR' ? 'KRW' : 'USD');
         body.innerHTML = `
+            <div class="settings-section">
+                <div class="settings-section-label">계정 · 다기기 동기화</div>
+                <div id="authStatusCard" class="auth-status-card">
+                    <div class="auth-empty">
+                        <div class="auth-empty-icon">⏳</div>
+                        <div class="auth-empty-title">로그인 시스템 로딩 중...</div>
+                    </div>
+                </div>
+                <div class="settings-section-hint">Google · Apple 계정으로 로그인하면 즐겨찾기·알림 설정이 모든 기기에서 자동 동기화됩니다.</div>
+            </div>
             <div class="settings-section">
                 <div class="settings-section-label">색상 모드</div>
                 <div class="settings-card-grid">

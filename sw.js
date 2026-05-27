@@ -2,17 +2,24 @@
 // 전략:
 //   - HTML / CSS / JS: 네트워크 우선 (새 배포 즉시 반영)
 //   - 이미지/아이콘/폰트: 캐시 우선
-//   - /api/*: 네트워크만 (항상 최신)
+//   - /api/chart|quote|price|summary: stale-while-revalidate (오프라인 시 최후의 캐시)
+//   - /api/* 기타: 네트워크만 (항상 최신)
 //   - 새 SW 는 waiting 대기 → 사용자가 '새로고침' 토스트 클릭 시에만 활성화
 
-const CACHE_NAME = 'stockai-v935';
+const CACHE_NAME = 'stockai-v936';
+const API_CACHE = 'stockai-api-v936';
+// API 캐시 최대 항목 수 (Quota 보호) — LRU 방식
+const API_CACHE_MAX = 80;
 
+// Workers 백엔드 도메인 (origin 다르므로 별도 매칭)
+const WORKERS_HOST = 'stockai-api.rkd687.workers.dev';
 
 const STATIC_ASSETS = [
   '/icon.svg',
   '/manifest.json',
   '/css/components.css',
   '/js/state.js',
+  '/js/auth.js',
   '/js/utils.js',
   '/js/components/tab-state.js',
   '/js/api.js',
@@ -37,9 +44,9 @@ self.addEventListener('install', e => {
 
 self.addEventListener('activate', e => {
   e.waitUntil((async () => {
-    // 이전 캐시 모두 삭제
+    // 이전 캐시 모두 삭제 (정적 + API 캐시 둘 다 — 현재 버전만 유지)
     const keys = await caches.keys();
-    await Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)));
+    await Promise.all(keys.filter(k => k !== CACHE_NAME && k !== API_CACHE).map(k => caches.delete(k)));
     await self.clients.claim();
   })());
 });
@@ -85,6 +92,77 @@ self.addEventListener('notificationclick', e => {
   );
 });
 
+// ── API 캐시 LRU 트림 (백그라운드 비동기) ───────────────────
+async function trimApiCache() {
+  try {
+    const cache = await caches.open(API_CACHE);
+    const keys = await cache.keys();
+    if (keys.length <= API_CACHE_MAX) return;
+    // 오래된 항목부터 삭제 (Cache API 는 삽입 순 — 첫 항목이 가장 오래됨)
+    const toDelete = keys.length - API_CACHE_MAX;
+    for (let i = 0; i < toDelete; i++) await cache.delete(keys[i]);
+  } catch (_) {}
+}
+
+// stale-while-revalidate: 캐시 즉시 반환, 백그라운드에서 갱신.
+//   - 캐시 있고 fresh(<5분): 캐시만 반환, 갱신 안 함
+//   - 캐시 있고 stale: 캐시 반환 + 백그라운드 갱신
+//   - 캐시 없음: 네트워크 대기 (실패 시 throw)
+//   - 응답에 X-Cached-At 헤더로 캐시 시각 주입 → 클라이언트가 "오래된 데이터" 표시 가능
+const SWR_FRESH_TTL = 5 * 60 * 1000; // 5분
+async function staleWhileRevalidate(request) {
+  const cache = await caches.open(API_CACHE);
+  const cached = await cache.match(request);
+  const cachedAtStr = cached?.headers.get('X-Cached-At');
+  const cachedAt = cachedAtStr ? parseInt(cachedAtStr, 10) : 0;
+  const isFresh = cached && (Date.now() - cachedAt) < SWR_FRESH_TTL;
+
+  const fetchAndCache = async () => {
+    try {
+      const net = await fetch(request);
+      if (net && net.ok && request.method === 'GET') {
+        // 응답에 캐시 시각 헤더 추가 (재구성 필요)
+        const blob = await net.clone().blob();
+        const h = new Headers(net.headers);
+        h.set('X-Cached-At', String(Date.now()));
+        h.set('X-From-Cache', 'no');
+        const stamped = new Response(blob, { status: net.status, statusText: net.statusText, headers: h });
+        await cache.put(request, stamped.clone());
+        trimApiCache(); // fire-and-forget
+        return stamped;
+      }
+      return net;
+    } catch (err) {
+      // 네트워크 실패 — 캐시가 있으면 그것이라도, 없으면 throw
+      if (cached) {
+        const h = new Headers(cached.headers);
+        h.set('X-From-Cache', 'offline');
+        const body = await cached.clone().blob();
+        return new Response(body, { status: cached.status, statusText: cached.statusText, headers: h });
+      }
+      throw err;
+    }
+  };
+
+  if (cached && isFresh) {
+    // 5분 이내 — 캐시만 반환 (네트워크 호출 0회)
+    const h = new Headers(cached.headers);
+    h.set('X-From-Cache', 'fresh');
+    const body = await cached.clone().blob();
+    return new Response(body, { status: cached.status, statusText: cached.statusText, headers: h });
+  }
+  if (cached) {
+    // stale 캐시 — 즉시 반환 + 백그라운드 갱신
+    fetchAndCache().catch(()=>{});
+    const h = new Headers(cached.headers);
+    h.set('X-From-Cache', 'stale');
+    const body = await cached.clone().blob();
+    return new Response(body, { status: cached.status, statusText: cached.statusText, headers: h });
+  }
+  // 캐시 없음 — 네트워크 대기
+  return fetchAndCache();
+}
+
 // 네트워크 우선(실패 시 캐시), HTML/CSS/JS 용
 async function networkFirst(request) {
   try {
@@ -113,16 +191,42 @@ async function cacheFirst(request) {
   return net;
 }
 
+// 차트 데이터 API 패턴 — stale-while-revalidate 대상
+const SWR_PATTERNS = [
+  /\/api\/chart\//,
+  /\/api\/quote(\?|$)/,
+  /\/api\/price\//,
+  /\/api\/summary\//,
+  /\/api\/polygon\/candles/,
+];
+function isSwrApi(pathname) {
+  return SWR_PATTERNS.some(rx => rx.test(pathname));
+}
+
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
 
+  // Workers 백엔드 — 차트 데이터는 SWR, 나머지는 네트워크 전용
+  if (url.hostname === WORKERS_HOST) {
+    if (isSwrApi(url.pathname)) {
+      e.respondWith(staleWhileRevalidate(req));
+      return;
+    }
+    // 그 외 Workers API — SW 개입 안 함 (push/admin/stats 등)
+    return;
+  }
+
   // 외부 도메인: 기본 fetch (SW 개입 안 함)
   if (url.hostname !== self.location.hostname) return;
 
-  // API: 항상 네트워크 (실패 시만 캐시 fallback)
+  // 같은 origin 의 /api/ — SWR 패턴이면 SWR (Vercel 환경에서 사용 가능)
   if (url.pathname.startsWith('/api/')) {
+    if (isSwrApi(url.pathname)) {
+      e.respondWith(staleWhileRevalidate(req));
+      return;
+    }
     e.respondWith(fetch(req).catch(() => caches.match(req)));
     return;
   }

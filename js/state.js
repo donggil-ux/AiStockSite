@@ -24,9 +24,11 @@
         ];
         const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
         window.API_WORKERS_BASE = WORKERS_BASE;
+        // Clerk 세션 토큰 게터 (auth.js 가 채워줌). 비로그인이면 null 반환.
+        window.getAuthToken = window.getAuthToken || (async () => null);
         if (isLocal) return; // 로컬은 Express 그대로
         const origFetch = window.fetch.bind(window);
-        window.fetch = function (input, init) {
+        window.fetch = async function (input, init) {
             try {
                 let url = (typeof input === 'string') ? input
                         : (input instanceof Request) ? input.url
@@ -35,16 +37,35 @@
                     const match = WORKERS_PREFIXES.some(p => url.startsWith(p));
                     if (match) {
                         const newUrl = WORKERS_BASE + url;
-                        if (typeof input === 'string') input = newUrl;
-                        else if (input instanceof Request) {
+                        // Clerk 세션 토큰 자동 주입 (있을 때만)
+                        let token = null;
+                        try { token = await window.getAuthToken(); } catch (_) {}
+                        if (typeof input === 'string') {
+                            input = newUrl;
+                            if (token) {
+                                init = init || {};
+                                const h = new Headers(init.headers || {});
+                                if (!h.has('Authorization')) h.set('Authorization', `Bearer ${token}`);
+                                init.headers = h;
+                            }
+                        } else if (input instanceof Request) {
                             const r = input;
+                            const h = new Headers(r.headers);
+                            if (token && !h.has('Authorization')) h.set('Authorization', `Bearer ${token}`);
                             input = new Request(newUrl, {
-                                method: r.method, headers: r.headers, body: r.body,
+                                method: r.method, headers: h, body: r.body,
                                 mode: r.mode, credentials: r.credentials, cache: r.cache,
                                 redirect: r.redirect, referrer: r.referrer, integrity: r.integrity,
                             });
+                        } else {
+                            input = newUrl;
+                            if (token) {
+                                init = init || {};
+                                const h = new Headers(init.headers || {});
+                                if (!h.has('Authorization')) h.set('Authorization', `Bearer ${token}`);
+                                init.headers = h;
+                            }
                         }
-                        else input = newUrl;
                     }
                 }
             } catch (_) {}
