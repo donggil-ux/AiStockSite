@@ -741,11 +741,18 @@
     // ── 등급 캐시 우선 조회 헬퍼 ──────────────────────────────────────
     // isLastBar=true: 실시간 봉 → 항상 재계산 (마지막 봉 close가 계속 변동)
     // isLastBar=false: 확정된 과거 봉 → 캐시 우선 사용 (등급 안정)
+    // 최신 캔들 등급 캐시 — 신호 등급 패널 렌더에 사용
+    let _lastSigGrade = null;
     function _gradeForBar(cacheKey, opts, isLastBar) {
         if (isLastBar) {
             try {
                 const sg = _calcSignalGrade(opts);
-                if (sg && sg.grade) { _signalGrades[cacheKey] = sg; return sg; }
+                if (sg && sg.grade) {
+                    _signalGrades[cacheKey] = sg;
+                    _lastSigGrade = { ...sg, signalType: opts?.signalType || 'buy' };
+                    try { window._lastSigGrade = _lastSigGrade; } catch(_){}
+                    return sg;
+                }
             } catch(e) {}
             return { grade: 'B', fallback: true, winRate: 60, score: 5 };
         }
@@ -757,6 +764,73 @@
         } catch(e) {}
         return { grade: 'B', fallback: true, winRate: 60, score: 5 };
     }
+
+    // 신호 등급 패널 렌더링 — _lastSigGrade 기준
+    function _renderSigGradePanel() {
+        const panel = document.getElementById('sigGradePanel');
+        if (!panel) return;
+        // 신호 라인 비활성 또는 등급 없으면 숨김
+        if (!_chartLinesEnabled || !_lastSigGrade) { panel.style.display = 'none'; return; }
+        const sg = _lastSigGrade;
+        const grade = sg.grade || 'B';
+        const stars = sg.stars || '⭐⭐⭐';
+        const winRate = sg.winRate ?? 60;
+        const factors = Array.isArray(sg.factors) ? sg.factors : [];
+
+        // 등급별 색상
+        const gradeMeta = {
+            S: { bg:'rgba(255,215,0,.18)',   bc:'#FFD700', cl:'#FFD700' },
+            A: { bg:'rgba(34,197,94,.18)',   bc:'#22C55E', cl:'#22C55E' },
+            B: { bg:'rgba(59,130,246,.18)',  bc:'#3B82F6', cl:'#3B82F6' },
+            C: { bg:'rgba(156,163,175,.18)', bc:'#9CA3AF', cl:'#9CA3AF' },
+        }[grade] || { bg:'rgba(59,130,246,.18)', bc:'#3B82F6', cl:'#3B82F6' };
+        const badge = document.getElementById('sgpBadge');
+        if (badge) {
+            badge.textContent = grade;
+            badge.style.background = gradeMeta.bg;
+            badge.style.borderColor = gradeMeta.bc;
+            badge.style.color = gradeMeta.cl;
+        }
+        const starsEl = document.getElementById('sgpStars');
+        if (starsEl) starsEl.textContent = stars;
+        const winRateEl = document.getElementById('sgpWinRate');
+        if (winRateEl) winRateEl.textContent = `예상 승률 ${winRate}%`;
+
+        // body — 컨플루언스 조건 체크리스트
+        const body = document.getElementById('sgpBody');
+        if (body) {
+            if (!factors.length) {
+                body.innerHTML = '<div class="sgp-empty">데이터 부족 — 조건을 분석할 수 없습니다</div>';
+            } else {
+                body.innerHTML = factors.map(f => {
+                    // factor 라벨에서 ✅/🟡/❌ 분류
+                    const cls = f.startsWith('✅') ? 'sgp-cond-pass'
+                              : f.startsWith('🟡') ? 'sgp-cond-mid'
+                              : f.startsWith('❌') ? 'sgp-cond-fail'
+                              : 'sgp-cond-other';
+                    return `<div class="sgp-condition ${cls}">${escHtml(f)}</div>`;
+                }).join('');
+            }
+        }
+
+        // 접기/펴기 상태 복원
+        const collapsed = localStorage.getItem('stockai_sgp_collapsed') === '1';
+        panel.classList.toggle('collapsed', collapsed);
+        const toggle = document.getElementById('sgpToggle');
+        if (toggle) toggle.textContent = collapsed ? '▸' : '▾';
+
+        panel.style.display = '';
+    }
+
+    function _toggleSigGradePanel() {
+        const panel = document.getElementById('sigGradePanel');
+        if (!panel) return;
+        const cur = panel.classList.toggle('collapsed');
+        localStorage.setItem('stockai_sgp_collapsed', cur ? '1' : '0');
+        const toggle = document.getElementById('sgpToggle');
+        if (toggle) toggle.textContent = cur ? '▸' : '▾';
+    }
+    try { window._toggleSigGradePanel = _toggleSigGradePanel; } catch(_) {}
 
     function renderChartLiveSignals(candleData, ts, q, bb) {
         _isMobileView = window.innerWidth <= 768; // 렌더 시마다 갱신
@@ -1232,6 +1306,9 @@
             }
         } catch(e) { warn('[markers]', e.message); }
 
+        // 신호 등급 패널 렌더 — _lastSigGrade 캐시 기준 (등급 계산은 마커 생성 과정에서 이미 _gradeForBar 호출됨)
+        try { _renderSigGradePanel(); } catch(e) {}
+
         // 3.4) 종목 로드 시 historical 마커 → 알림 패널 backfill (한 번만)
         // 폴링 중 신규 시그널만 추가하는 구조라 종목 전환 직후 패널이 비어 있는 문제 해결
         try {
@@ -1698,8 +1775,27 @@
         return 0; // 일봉 이상 → 단순 max/min (넓은 레인지가 적합)
     }
     // Pivot 방식 Swing High/Low 탐지 (폴백: 단순 max/min)
-    function _sdSwingPoints(highs, lows, N, lb, pivotWin) {
+    // 거래량 가중 Pivot Swing 탐지
+    // - pivotWin 윈도우 내 좌우 모두보다 높/낮은 캔들을 후보로
+    // - 후보 중 직전 20봉 거래량 평균의 1.2배 이상인 캔들만 인정 (노이즈 스파이크 제외)
+    // - 폴백: pivot 미발견 시 단순 max/min (volumes 미사용)
+    function _sdSwingPoints(highs, lows, volumes, N, lb, pivotWin) {
         let swHigh = -Infinity, swLow = Infinity;
+        // 거래량 평균 계산 헬퍼 (직전 20봉, null 제외)
+        const _avgVol = (idx) => {
+            if (!volumes || !Array.isArray(volumes)) return null;
+            const arr = volumes.slice(Math.max(0, idx - 20), idx).filter(v => v != null && v > 0);
+            if (!arr.length) return null;
+            return arr.reduce((s, v) => s + v, 0) / arr.length;
+        };
+        // volumes 가 제공된 경우만 거래량 필터 적용 (하위 호환)
+        const _volPass = (idx) => {
+            if (!volumes || !Array.isArray(volumes)) return true;
+            const v = volumes[idx];
+            const avg = _avgVol(idx);
+            if (v == null || avg == null || avg <= 0) return true; // 데이터 부족 시 통과
+            return v >= avg * 1.2;
+        };
         if (pivotWin > 0) {
             const start = N - lb + pivotWin;
             const end   = N - pivotWin;
@@ -1710,7 +1806,7 @@
                         if ((i-j >= 0 && highs[i-j] != null && highs[i-j] >= highs[i]) ||
                             (i+j <  N && highs[i+j] != null && highs[i+j] >= highs[i])) isPH = false;
                     }
-                    if (isPH && highs[i] > swHigh) swHigh = highs[i];
+                    if (isPH && highs[i] > swHigh && _volPass(i)) swHigh = highs[i];
                 }
                 if (lows[i] != null) {
                     let isPL = true;
@@ -1718,11 +1814,11 @@
                         if ((i-j >= 0 && lows[i-j] != null && lows[i-j] <= lows[i]) ||
                             (i+j <  N && lows[i+j] != null && lows[i+j] <= lows[i]))  isPL = false;
                     }
-                    if (isPL && lows[i] < swLow) swLow = lows[i];
+                    if (isPL && lows[i] < swLow && _volPass(i)) swLow = lows[i];
                 }
             }
         }
-        // 폴백: pivot 미발견 또는 pivotWin=0 → 단순 최대/최솟값
+        // 폴백: pivot 미발견 또는 pivotWin=0 → 단순 최대/최솟값 (거래량 무시, 데이터 안정성)
         if (!isFinite(swHigh) || !isFinite(swLow) || swHigh <= swLow) {
             for (let i = N - lb; i < N; i++) {
                 if (highs[i] != null && highs[i] > swHigh) swHigh = highs[i];
@@ -1821,22 +1917,27 @@
 
         // 3. 거래량 — 1.5점
         const vols = (volumes && Array.isArray(volumes)) ? volumes : [];
-        const vSlice = vols.slice(Math.max(0, i-20), i).filter(v => v != null);
+        // 거래량 lookback — 5분봉 이하는 8봉(=40분), 그 외는 기존 20봉
+        const _isShortTF = typeof currentInterval !== 'undefined' && /^(1m|2m|5m)$/.test(currentInterval);
+        const volLookback = _isShortTF ? 8 : 20;
+        const vSlice = vols.slice(Math.max(0, i-volLookback), i).filter(v => v != null);
         const vAvg = vSlice.length ? vSlice.reduce((s,v) => s+v, 0) / vSlice.length : 0;
         const vRatio = vAvg > 0 ? (vols[i] || 0) / vAvg : 1;
         if (vRatio >= 2.0)      { score += 1.5; factors.push(`✅ 거래량 ${vRatio.toFixed(1)}x`); }
         else if (vRatio >= 1.5) { score += 1;   factors.push(`✅ 거래량 ${vRatio.toFixed(1)}x`); }
         else if (vRatio >= 1.2) { score += 0.5; factors.push(`🟡 거래량 ${vRatio.toFixed(1)}x`); }
 
-        // 4. RSI — 1.5점
+        // 4. RSI — 1.5점 (5분봉 이하: 25/75 임계값, 그 외: 30/70)
+        const RSI_OS = _isShortTF ? 25 : 30;
+        const RSI_OB = _isShortTF ? 75 : 70;
         const rsiVal = sg(rsi, i) ?? 50;
         if (signalType === 'buy') {
-            if (rsiVal < 30)                       { score += 1.5; factors.push(`✅ RSI ${rsiVal.toFixed(0)} (과매도)`); }
+            if (rsiVal < RSI_OS)                   { score += 1.5; factors.push(`✅ RSI ${rsiVal.toFixed(0)} (과매도)`); }
             else if (rsiVal >= 40 && rsiVal <= 60) { score += 1;   factors.push(`✅ RSI ${rsiVal.toFixed(0)} (중립)`); }
-            else if (rsiVal > 70)                  { score -= 1;   factors.push(`❌ RSI ${rsiVal.toFixed(0)} (과매수)`); }
+            else if (rsiVal > RSI_OB)              { score -= 1;   factors.push(`❌ RSI ${rsiVal.toFixed(0)} (과매수)`); }
         } else {
-            if (rsiVal > 70)  { score += 1.5; factors.push(`✅ RSI ${rsiVal.toFixed(0)} (과매수)`); }
-            else if (rsiVal < 30) { score -= 1; factors.push(`❌ RSI ${rsiVal.toFixed(0)} (과매도)`); }
+            if (rsiVal > RSI_OB)  { score += 1.5; factors.push(`✅ RSI ${rsiVal.toFixed(0)} (과매수)`); }
+            else if (rsiVal < RSI_OS) { score -= 1; factors.push(`❌ RSI ${rsiVal.toFixed(0)} (과매도)`); }
         }
 
         // 5. MACD — 1.5점
@@ -2099,7 +2200,7 @@
         if (!_chartSmartDipEnabled) { if (el) el.style.display = 'none'; return; }
         if (!lwCandleSeries || !q) return;
 
-        const closes = q.close || [], highs = q.high || [], lows = q.low || [];
+        const closes = q.close || [], highs = q.high || [], lows = q.low || [], volumes = q.volume || [];
         const N = closes.length;
         if (N < 30) { if (el) el.style.display = 'none'; return; }
 
@@ -2113,12 +2214,15 @@
         // Swing high/low — 분봉 최적화: 타임프레임별 룩백 + Pivot 방식 감지
         const lb = Math.min(_sdLookback(currentInterval), N);
         const pivotWin = _sdPivotWin(currentInterval);
-        const { swHigh, swLow } = _sdSwingPoints(highs, lows, N, lb, pivotWin);
+        const { swHigh, swLow } = _sdSwingPoints(highs, lows, volumes, N, lb, pivotWin);
         if (!isFinite(swHigh) || !isFinite(swLow) || swHigh <= swLow) { if (el) el.style.display = 'none'; return; }
 
-        const range = swHigh - swLow;
+        // Fibonacci range ATR 정규화 — swing 폭이 비정상적으로 작거나(노이즈) 거대(왜곡)할 때
+        // ATR 의 [5배 ~ 30배] 범위로 클램프 → 진입 레벨이 현재가에서 너무 멀어지지 않음
+        const rawRange = swHigh - swLow;
         const atrArr = calcATR(q.high, q.low, q.close, _sdAtrPeriod(currentInterval));
-        const atr = lastVal(atrArr) || range * 0.02;
+        const atr = lastVal(atrArr) || rawRange * 0.02;
+        const range = Math.max(atr * 5, Math.min(rawRange, atr * 30));
         const ema20 = lastVal(calcEMA(closes, 20));
 
         const coeff = _sdGetCoeff(currentSymbol);
@@ -2134,7 +2238,9 @@
 
         const goldenIdx = entryLevels.findIndex(e => e.fib === 0.618);
         const goldenEntry = goldenIdx >= 0 ? entryLevels[goldenIdx] : entryLevels[entryLevels.length - 1];
-        const stopLoss = swLow - atr * sl;
+        // 손절선 음수 보호 — swLow 가 매우 낮을 때 음수 방지 (가격의 5% 아래로 fallback)
+        const stopLossRaw = swLow - atr * sl;
+        const stopLoss = stopLossRaw > 0.01 ? stopLossRaw : Math.max(0.01, lastClose * 0.95);
         const tp1Price = goldenEntry.price + (goldenEntry.price - stopLoss) * tp1;
         const tp2Price = goldenEntry.price + (goldenEntry.price - stopLoss) * tp2;
 

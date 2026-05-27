@@ -507,13 +507,22 @@
     }
 
     // ATR (Average True Range) — Wilder smoothing with tracked prev (O(N), not O(N²))
+    // 초기 [5 ~ period) 구간은 단순 TR 평균으로 조기 ATR 제공 (5분봉 장 초반 손절선 빠른 표시 목적).
+    // i >= period 부터는 기존 Wilder EMA 평활 유지.
     function calcATR(highs, lows, closes, period = 14) {
         const tr = [], atr = [];
         let prevAtr = null;
         for (let i = 0; i < closes.length; i++) {
             if (i===0||highs[i]==null||lows[i]==null||closes[i-1]==null) { tr.push(null); atr.push(null); continue; }
             tr.push(Math.max(highs[i]-lows[i], Math.abs(highs[i]-closes[i-1]), Math.abs(lows[i]-closes[i-1])));
-            if (i < period) { atr.push(null); continue; }
+            if (i < period) {
+                if (i < 5) { atr.push(null); continue; }
+                // 초기 단순 평균 — 가용한 TR(non-null) 들의 평균
+                let sum = 0, cnt = 0;
+                for (let j = 0; j <= i; j++) { if (tr[j] != null) { sum += tr[j]; cnt++; } }
+                atr.push(cnt > 0 ? sum / cnt : null);
+                continue;
+            }
             if (prevAtr == null) {
                 let sum=0; for(let j=i-period+1;j<=i;j++) sum+=(tr[j]||0);
                 prevAtr = sum/period;

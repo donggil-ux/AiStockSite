@@ -10264,3 +10264,83 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
     color:var(--red);
 }
 .notif-clear-all-btn:hover{ background:rgba(239,68,68,0.15); }
+
+/* ═══════════════════════════════════════════════════════════
+   신호 등급 패널 (Signal Grade Panel)
+   차트 헤더에서 컨플루언스 조건 체크리스트 표시
+   ═══════════════════════════════════════════════════════════ */
+.sig-grade-panel{
+    margin:8px 12px 0; padding:0;
+    background:var(--bg2); border:1px solid var(--border);
+    border-radius:var(--radius-md);
+    overflow:hidden;
+    transition:max-height .2s ease;
+}
+.sgp-header{
+    display:flex; align-items:center; gap:8px;
+    padding:8px 12px;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+    user-select:none;
+}
+@media (hover: hover) { .sgp-header:hover{ background:var(--bg3); } }
+.sgp-badge{
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width:28px; height:22px; padding:0 8px;
+    border:1px solid #3B82F6;
+    background:rgba(59,130,246,.18);
+    color:#3B82F6;
+    border-radius:var(--radius-sm);
+    font-size:12px; font-weight:800;
+    letter-spacing:-0.02em;
+}
+.sgp-label{ font-size:12px; font-weight:600; color:var(--text2); }
+.sgp-stars{ font-size:11px; letter-spacing:1px; }
+.sgp-winrate{
+    flex:1;
+    font-size:12px; font-weight:600;
+    color:var(--text);
+    text-align:right;
+    margin-right:4px;
+}
+.sgp-toggle{
+    width:22px; height:22px;
+    border:none; background:transparent;
+    color:var(--text2); cursor:pointer;
+    font-size:12px;
+    border-radius:var(--radius-xs);
+}
+.sgp-toggle:hover{ background:var(--bg3); color:var(--text); }
+.sgp-body{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(160px, 1fr));
+    gap:6px;
+    padding:8px 12px 12px;
+    border-top:1px solid var(--border);
+}
+.sig-grade-panel.collapsed .sgp-body{ display:none; }
+.sgp-condition{
+    font-size:11.5px; font-weight:500;
+    padding:5px 9px;
+    background:var(--bg); border:1px solid var(--border);
+    border-radius:var(--radius-xs);
+    color:var(--text2);
+    line-height:1.4;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.sgp-cond-pass{ color:var(--text); border-color:rgba(34,197,94,.35); background:rgba(34,197,94,.06); }
+.sgp-cond-mid { color:var(--text); border-color:rgba(245,158,11,.35); background:rgba(245,158,11,.06); }
+.sgp-cond-fail{ color:var(--text2); border-color:rgba(239,68,68,.35); background:rgba(239,68,68,.06); }
+.sgp-empty{
+    grid-column:1 / -1;
+    padding:8px;
+    font-size:12px; color:var(--text3);
+    text-align:center;
+}
+@media (max-width: 480px) {
+    .sig-grade-panel{ margin:6px 8px 0; }
+    .sgp-header{ padding:7px 10px; }
+    .sgp-body{ grid-template-columns:1fr 1fr; gap:5px; padding:6px 10px 10px; }
+    .sgp-condition{ font-size:11px; padding:4px 7px; }
+    .sgp-winrate{ font-size:11px; }
+}
