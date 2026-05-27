@@ -1555,8 +1555,20 @@
 
     // 테스트 알림 — 로컬 Notification API 로 즉시 표시 (서버 트리거 불필요)
     async function _sendTestNotif() {
+        // 1) 인앱 스낵바 + 사운드 — 권한과 무관하게 즉시 작동 (사용자가 차트 알림을 직접 체험)
+        try {
+            if (typeof _showSignalAlert === 'function') {
+                _showSignalAlert('🔴 테스트 · 매수 시그널', true, '인앱 알림 테스트 — 스낵바 + 사운드가 정상이면 매수 시그널 발생 시에도 동일하게 작동합니다.');
+            }
+            if (typeof _playSignalSound === 'function') _playSignalSound('buy');
+            if (typeof _speakSignal === 'function') setTimeout(() => _speakSignal('테스트', '매수'), 380);
+            localStorage.setItem('stockai_last_push_ts', String(Date.now()));
+        } catch(_) {}
+
+        // 2) 브라우저 푸시 알림 — 권한 있을 때만 추가로 발송
         if (Notification.permission !== 'granted') {
-            showToast('알림 권한이 필요합니다.');
+            showToast('인앱 테스트 알림을 표시했습니다 (브라우저 푸시는 권한 필요)');
+            setTimeout(() => _showNotifSettingsModal(), 800);
             return;
         }
         try {
@@ -1568,10 +1580,7 @@
                 tag: 'stockai-test',
                 data: { url: '/' },
             });
-            // 마지막 푸시 시각 저장
-            localStorage.setItem('stockai_last_push_ts', String(Date.now()));
             showToast('테스트 알림을 발송했습니다');
-            // 모달 다시 렌더링 (마지막 수신 시간 갱신)
             setTimeout(() => _showNotifSettingsModal(), 800);
         } catch(e) {
             console.error('[testNotif]', e);

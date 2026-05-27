@@ -1426,11 +1426,15 @@
         if (latest && currentSymbol) {
             const newKey = `${currentSymbol}:${latest.time}:${latest.position}:${latest._label||''}`;
             const prevSameSymbol = _lastSigKey && _lastSigKey.startsWith(currentSymbol + ':');
-            // 종목 첫 로드 시 최근 시그널이 "fresh" (현재 인터벌 기준 1봉 이내) 이면 1회 자동 표시
+            // 종목 첫 로드 시 최근 시그널이 "fresh" 면 1회 자동 표시
+            // 분봉(1m/2m/5m): 4시간 이내 → 당일 시그널 모두 포함
+            // 그 외 타임프레임: 1봉 이내
             const _ivToSec = { '1m':60,'2m':120,'5m':300,'15m':900,'30m':1800,'60m':3600,'90m':5400,'1h':3600,'1d':86400,'1wk':604800,'1mo':2592000 };
             const _barSec = _ivToSec[currentInterval] || 300;
+            const _isShortTFforFresh = /^(1m|2m|5m)$/.test(currentInterval || '');
+            const _freshWindowSec = _isShortTFforFresh ? 4 * 3600 : _barSec * 1.5; // 단봉 4시간, 그 외 1.5봉
             const _ageSec = Date.now()/1000 - (latest.time || 0);
-            const _isFreshOnFirstLoad = !prevSameSymbol && _ageSec >= 0 && _ageSec < _barSec * 1.5;
+            const _isFreshOnFirstLoad = !prevSameSymbol && _ageSec >= 0 && _ageSec < _freshWindowSec;
             if ((prevSameSymbol && _lastSigKey !== newKey) || _isFreshOnFirstLoad) {
                 const isBuy = latest.position === 'belowBar';
                 const dir   = isBuy ? '매수' : '매도';
