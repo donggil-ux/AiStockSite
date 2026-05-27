@@ -489,6 +489,47 @@
         </div>
     </div>
 
+    <!-- ═══════════════════════════════════════════════════════════
+         알림 전체 페이지 (Notifications Screen)
+         종 아이콘 클릭 → 풀 페이지로 알림 목록 표시
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="notificationsScreen" style="display:none;">
+        <div class="notif-page">
+            <header class="notif-page-header">
+                <button class="notif-page-back" onclick="closeNotificationsScreen()" aria-label="뒤로">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <h1 class="notif-page-title">알림</h1>
+                <button class="notif-page-settings" onclick="openSettings('notif')" aria-label="알림 설정">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                </button>
+            </header>
+
+            <!-- 필터 칩 -->
+            <div class="notif-page-filters" id="notifPageFilters">
+                <button class="notif-chip active" data-filter="all"    onclick="_setNotifFilter('all')">전체 <span class="notif-chip-count" id="notifCountAll">0</span></button>
+                <button class="notif-chip"        data-filter="unread" onclick="_setNotifFilter('unread')">안읽음 <span class="notif-chip-count notif-chip-count-blue" id="notifCountUnread">0</span></button>
+                <button class="notif-chip"        data-filter="buy"    onclick="_setNotifFilter('buy')">매수 <span class="notif-chip-count notif-chip-count-red" id="notifCountBuy">0</span></button>
+                <button class="notif-chip"        data-filter="sell"   onclick="_setNotifFilter('sell')">매도 <span class="notif-chip-count notif-chip-count-blue" id="notifCountSell">0</span></button>
+            </div>
+
+            <!-- 목록 -->
+            <div class="notif-page-list" id="notifPageList">
+                <div class="notif-empty">
+                    <div class="notif-empty-icon">🔔</div>
+                    <div class="notif-empty-text">알림이 없습니다</div>
+                    <div class="notif-empty-sub">분석 시그널이 발생하면 여기에 표시됩니다</div>
+                </div>
+            </div>
+
+            <!-- 푸터 액션 -->
+            <div class="notif-page-footer" id="notifPageFooter">
+                <button class="notif-mark-read-btn" onclick="_markAllNotifRead()">모두 읽음 처리</button>
+                <button class="notif-clear-all-btn" onclick="_clearAllNotifications()">전체 삭제</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Catalyst Hunter Screen (v655) — SEC EDGAR 공시 기반 -->
     <div id="catalystScreen" style="display:none;">
         <div class="catalyst-section">

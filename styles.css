@@ -10103,3 +10103,157 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
 .settings-volume-slider{
     background:linear-gradient(to right, #3b82f6 0%, #3b82f6 var(--fill, 80%), var(--bg3) var(--fill, 80%), var(--bg3) 100%);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   알림 전체 페이지 (Notifications Screen) — 토스 스타일
+   ═══════════════════════════════════════════════════════════ */
+#notificationsScreen{ background:var(--bg); min-height:100vh; }
+.notif-page{ max-width:720px; margin:0 auto; padding-bottom:80px; }
+
+/* ── 헤더 ── */
+.notif-page-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px; gap:8px;
+    position:sticky; top:0; z-index:10;
+    background:var(--bg);
+    border-bottom:1px solid var(--border);
+}
+.notif-page-back, .notif-page-settings{
+    width:38px; height:38px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    background:none; border:none; cursor:pointer;
+    color:var(--text); border-radius:var(--radius-md);
+    -webkit-tap-highlight-color:transparent;
+    transition:background .15s;
+}
+.notif-page-back:hover, .notif-page-settings:hover{ background:var(--bg3); }
+.notif-page-title{
+    flex:1; text-align:center; margin:0;
+    font-size:17px; font-weight:700; color:var(--text);
+    letter-spacing:-0.02em;
+}
+
+/* ── 필터 칩 ── */
+.notif-page-filters{
+    display:flex; gap:8px; padding:14px 16px;
+    overflow-x:auto; scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+}
+.notif-page-filters::-webkit-scrollbar{ display:none; }
+.notif-chip{
+    flex-shrink:0;
+    display:inline-flex; align-items:center; gap:6px;
+    padding:8px 14px; height:34px;
+    background:var(--bg2); border:1px solid var(--border);
+    border-radius:var(--radius-full);
+    color:var(--text2);
+    font-size:13px; font-weight:600;
+    cursor:pointer;
+    transition:background .15s, color .15s, border-color .15s;
+    -webkit-tap-highlight-color:transparent;
+}
+.notif-chip:hover{ background:var(--bg3); }
+.notif-chip.active{
+    background:var(--text); color:var(--bg); border-color:var(--text);
+}
+.notif-chip.active .notif-chip-count{ color:var(--bg); opacity:.7; }
+.notif-chip-count{
+    font-size:13px; font-weight:700;
+    color:var(--text3);
+    font-variant-numeric:tabular-nums;
+}
+.notif-chip-count-red  { color:var(--red); }
+.notif-chip-count-blue { color:var(--blue); }
+
+/* ── 알림 목록 ── */
+.notif-page-list{ display:flex; flex-direction:column; }
+.notif-item{
+    display:grid;
+    grid-template-columns:44px 1fr auto;
+    grid-template-areas:
+        "icon meta time"
+        "icon title title"
+        "icon sub sub";
+    column-gap:12px; row-gap:2px;
+    padding:14px 16px;
+    border-bottom:1px solid var(--border);
+    cursor:pointer;
+    transition:background .15s;
+    -webkit-tap-highlight-color:transparent;
+}
+@media (hover: hover) {
+    .notif-item:hover{ background:var(--bg2); }
+}
+.notif-item.unread{ background:rgba(59,130,246,0.04); }
+[data-theme="dark"] .notif-item.unread{ background:rgba(59,130,246,0.06); }
+.notif-item-icon{
+    grid-area:icon;
+    width:44px; height:44px; border-radius:var(--radius-md);
+    display:flex; align-items:center; justify-content:center;
+    font-size:22px;
+    align-self:start;
+}
+.notif-item-icon.icon-buy  { background:rgba(255,69,58,0.12); color:var(--red); }
+.notif-item-icon.icon-sell { background:rgba(0,128,251,0.12); color:var(--blue); }
+.notif-item-icon.icon-sys  { background:var(--bg3); color:var(--text2); }
+.notif-item-meta{
+    grid-area:meta;
+    font-size:12px; color:var(--text3);
+    font-weight:500;
+}
+.notif-item-time{
+    grid-area:time;
+    font-size:12px; color:var(--text3);
+    font-weight:500;
+    white-space:nowrap;
+    align-self:start;
+}
+.notif-item-title{
+    grid-area:title;
+    font-size:15px; font-weight:700; color:var(--text);
+    line-height:1.4;
+    overflow:hidden; text-overflow:ellipsis;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+}
+.notif-item-title .notif-ticker{ font-family:var(--font-data); }
+.notif-item-title .notif-arrow-up   { color:var(--red);  margin-left:4px; }
+.notif-item-title .notif-arrow-down { color:var(--blue); margin-left:4px; }
+.notif-item-sub{
+    grid-area:sub;
+    font-size:13px; color:var(--text2);
+    line-height:1.5;
+    margin-top:2px;
+}
+.notif-item-sub b{ font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; }
+
+/* ── 빈 상태 ── */
+.notif-empty{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:80px 24px; gap:8px; text-align:center;
+}
+.notif-empty-icon{ font-size:48px; opacity:.4; }
+.notif-empty-text{ font-size:16px; font-weight:600; color:var(--text2); }
+.notif-empty-sub { font-size:13px; color:var(--text3); }
+
+/* ── 푸터 액션 ── */
+.notif-page-footer{
+    display:flex; gap:8px; padding:16px;
+    border-top:1px solid var(--border);
+    background:var(--bg);
+    position:sticky; bottom:0;
+}
+.notif-mark-read-btn, .notif-clear-all-btn{
+    flex:1; padding:12px;
+    border-radius:var(--radius-md);
+    font-size:13px; font-weight:600;
+    cursor:pointer; transition:background .15s;
+}
+.notif-mark-read-btn{
+    background:var(--bg2); border:1px solid var(--border); color:var(--text1);
+}
+.notif-mark-read-btn:hover{ background:var(--bg3); }
+.notif-clear-all-btn{
+    background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.4);
+    color:var(--red);
+}
+.notif-clear-all-btn:hover{ background:rgba(239,68,68,0.15); }

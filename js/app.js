@@ -1286,25 +1286,178 @@
 
     // 헤더 🔔 버튼 — 구독 토글
     async function _togglePushBell() {
-        // 헤더 종 → 전체 설정 페이지(알림 탭) 로 이동
-        // 권한 상태 카드 / 체결 알림(음/볼륨) / 알림 종류 토글 / 테스트 알림을
-        // 한 화면에서 모두 다룰 수 있는 통합 페이지
-        const state = await getPushState();
-        // 미구독 + 권한 가능 상태면 자동 구독 시도 (denied 면 시도하지 않음 — 가이드만 보여줌)
-        if (!state.subscribed && state.perm !== 'denied') {
-            const ok = await subscribePush();
-            if (ok) {
-                showToast('알림이 활성화되었습니다 🔔');
-                if (typeof _updatePushBellDot === 'function') _updatePushBellDot();
-            }
+        // 헤더 종 → 전체 알림 페이지로 이동
+        openNotificationsScreen();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  알림 전체 페이지 (Notifications Screen)
+    //  종 아이콘 → 풀 페이지로 알림 목록 표시 (토스 스타일)
+    // ═══════════════════════════════════════════════════════════
+    let _notifFilter = 'all'; // all | unread | buy | sell
+
+    function openNotificationsScreen() {
+        // 다른 화면 모두 숨기기
+        const screens = ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen',
+                         'visionScannerScreen','top100Screen','catalystScreen','leverageScreen',
+                         'economicScreen','earningsScreen','myPositionScreen'];
+        screens.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+        // stockHero / stockMain 등 종목 화면도 가림
+        const heroes = ['stockHero','stockMain','tvChartCard'];
+        heroes.forEach(id => { const el = document.getElementById(id); if (el) el.dataset.notifHidden = el.style.display || ''; });
+        // 알림 페이지 표시
+        const ns = document.getElementById('notificationsScreen');
+        if (ns) ns.style.display = 'block';
+        document.body.scrollTop = 0;
+        window.scrollTo(0, 0);
+        _notifFilter = 'all';
+        _renderNotificationsPage();
+    }
+
+    function closeNotificationsScreen() {
+        const ns = document.getElementById('notificationsScreen');
+        if (ns) ns.style.display = 'none';
+        // 이전 화면 복원 — 종목이 로드돼 있으면 그 화면으로, 아니면 홈으로
+        if (typeof currentSymbol !== 'undefined' && currentSymbol) {
+            const hero = document.getElementById('stockHero');
+            const main = document.getElementById('stockMain');
+            if (hero) hero.style.display = '';
+            if (main) main.style.display = '';
+        } else if (typeof goHome === 'function') {
+            goHome();
         }
-        // 설정 모달 알림 탭으로 이동
-        if (typeof openSettings === 'function') {
-            openSettings('notif');
-        } else if (typeof _showNotifSettingsModal === 'function') {
-            // 폴백: 설정 모달이 로드되기 전이면 기존 작은 모달
-            _showNotifSettingsModal();
+    }
+
+    // 상대 시간 포맷터: "방금" / "N분 전" / "N시간 전" / "어제" / "N일 전" / "MM월 DD일"
+    function _fmtNotifRelative(ts) {
+        const diff = Date.now() - ts;
+        if (diff < 60_000)        return '방금';
+        if (diff < 3600_000)      return Math.floor(diff / 60_000) + '분 전';
+        if (diff < 86400_000)     return Math.floor(diff / 3600_000) + '시간 전';
+        if (diff < 2 * 86400_000) return '어제';
+        if (diff < 7 * 86400_000) return Math.floor(diff / 86400_000) + '일 전';
+        const d = new Date(ts);
+        return `${d.getMonth()+1}월 ${d.getDate()}일`;
+    }
+
+    function _setNotifFilter(filter) {
+        _notifFilter = filter;
+        document.querySelectorAll('.notif-chip').forEach(el => {
+            el.classList.toggle('active', el.dataset.filter === filter);
+        });
+        _renderNotificationsPage();
+    }
+
+    // 안읽음 카운트 계산 — `read` 플래그가 없거나 false 면 안읽음
+    function _notifCount(filter) {
+        const items = window._sigHistory || [];
+        if (filter === 'all')    return items.length;
+        if (filter === 'unread') return items.filter(h => !h.read).length;
+        if (filter === 'buy')    return items.filter(h => h.dir === 'buy').length;
+        if (filter === 'sell')   return items.filter(h => h.dir === 'sell').length;
+        return 0;
+    }
+
+    function _renderNotificationsPage() {
+        const items = (window._sigHistory || []).slice().sort((a, b) => b.ts - a.ts);
+        // 카운트 칩 업데이트
+        const updateCount = (id, n) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = n > 99 ? '99+' : String(n);
+        };
+        updateCount('notifCountAll',    _notifCount('all'));
+        updateCount('notifCountUnread', _notifCount('unread'));
+        updateCount('notifCountBuy',    _notifCount('buy'));
+        updateCount('notifCountSell',   _notifCount('sell'));
+
+        // 필터 적용
+        let filtered = items;
+        if (_notifFilter === 'unread') filtered = items.filter(h => !h.read);
+        else if (_notifFilter === 'buy')  filtered = items.filter(h => h.dir === 'buy');
+        else if (_notifFilter === 'sell') filtered = items.filter(h => h.dir === 'sell');
+
+        const list = document.getElementById('notifPageList');
+        const footer = document.getElementById('notifPageFooter');
+        if (!list) return;
+
+        if (filtered.length === 0) {
+            const msg = _notifFilter === 'all'
+                ? { icon:'🔔', text:'알림이 없습니다', sub:'분석 시그널이 발생하면 여기에 표시됩니다' }
+                : _notifFilter === 'unread'
+                    ? { icon:'✅', text:'모든 알림을 읽었습니다', sub:'새 알림이 오면 여기에 표시됩니다' }
+                    : { icon:'🔍', text:'해당 알림이 없습니다', sub:'필터를 바꿔보세요' };
+            list.innerHTML = `<div class="notif-empty">
+                <div class="notif-empty-icon">${msg.icon}</div>
+                <div class="notif-empty-text">${msg.text}</div>
+                <div class="notif-empty-sub">${msg.sub}</div>
+            </div>`;
+            if (footer) footer.style.display = items.length > 0 ? '' : 'none';
+            return;
         }
+        if (footer) footer.style.display = '';
+
+        const fmtPrice = (p, mkt) => {
+            if (p == null || !isFinite(p) || p <= 0) return '';
+            return mkt === 'KR' ? Math.round(p).toLocaleString() + '원' : '$' + Number(p).toFixed(2);
+        };
+
+        list.innerHTML = filtered.map(h => {
+            const isBuy = h.dir === 'buy';
+            const iconCls = isBuy ? 'icon-buy' : 'icon-sell';
+            const iconChar = isBuy ? '📈' : '📉';
+            const arrow = isBuy ? '<span class="notif-arrow-up">📈</span>' : '<span class="notif-arrow-down">📉</span>';
+            const price = fmtPrice(h.price, h.market);
+            const titleStr = `<span class="notif-ticker">${escHtml(h.symbol || '')}</span> ${arrow}`;
+            const subStr = price
+                ? `<b>${escHtml(price)}</b> 에 ${escHtml(h.headline || (isBuy ? '매수' : '매도') + ' 시그널')}`
+                : escHtml(h.headline || (isBuy ? '매수' : '매도') + ' 시그널');
+            return `<div class="notif-item ${h.read ? '' : 'unread'}" data-ts="${h.ts}" data-symbol="${escHtml(h.symbol||'')}" onclick="_clickNotifItem(${h.ts}, '${escHtml(h.symbol||'')}', '${escHtml(h.market||'US')}')">
+                <div class="notif-item-icon ${iconCls}">${iconChar}</div>
+                <div class="notif-item-meta">${isBuy ? '매수 시그널' : '매도 시그널'}</div>
+                <div class="notif-item-time">${_fmtNotifRelative(h.ts)}</div>
+                <div class="notif-item-title">${titleStr}</div>
+                <div class="notif-item-sub">${subStr}</div>
+            </div>`;
+        }).join('');
+    }
+
+    // 알림 클릭 → 읽음 처리 + 종목 페이지로 이동
+    function _clickNotifItem(ts, symbol, market) {
+        const items = window._sigHistory || [];
+        const item = items.find(h => h.ts === ts);
+        if (item) {
+            item.read = true;
+            try { localStorage.setItem('stockai_sig_history', JSON.stringify(items)); } catch(_){}
+        }
+        // 종목 페이지로 이동
+        if (symbol && typeof quickSearch === 'function') {
+            closeNotificationsScreen();
+            setTimeout(() => quickSearch(symbol, market || 'US'), 100);
+        } else {
+            _renderNotificationsPage();
+        }
+    }
+
+    function _markAllNotifRead() {
+        const items = window._sigHistory || [];
+        items.forEach(h => { h.read = true; });
+        try { localStorage.setItem('stockai_sig_history', JSON.stringify(items)); } catch(_){}
+        _renderNotificationsPage();
+        showToast('모든 알림을 읽음 처리했습니다');
+        // 배지 갱신
+        if (typeof _renderSigHistoryPanel === 'function') { try { _renderSigHistoryPanel(); } catch(_){} }
+    }
+
+    function _clearAllNotifications() {
+        if (!confirm('알림 내역을 모두 지우시겠습니까?')) return;
+        try {
+            if (window._sigHistory) window._sigHistory.length = 0;
+        } catch(_){}
+        localStorage.removeItem('stockai_sig_history');
+        Object.keys(window).filter(k => k.startsWith('_sigBackfilled_')).forEach(k => delete window[k]);
+        _renderNotificationsPage();
+        if (typeof _renderSigHistoryPanel === 'function') { try { _renderSigHistoryPanel(); } catch(_){} }
+        showToast('알림 내역이 모두 삭제되었습니다');
     }
 
     // 알림 설정 모달 — 알림 종류별 ON/OFF + 구독 해제
@@ -5571,6 +5724,9 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         _togglePushBell, _openCurrentPriceAlert, _showNotifSettingsModal, _saveNotifPref, _confirmUnsubPush,
         _sendTestNotif, _resubscribePush, _updatePushBellDot,
         _saveNotifSoundType, _saveNotifVolume, _previewNotifSound,
+        // 알림 전체 페이지
+        openNotificationsScreen, closeNotificationsScreen,
+        _setNotifFilter, _clickNotifItem, _markAllNotifRead, _clearAllNotifications,
         // 통합 설정
         openSettings, closeSettings, setSettingsTab,
         _setSettingsTheme, _setSettingsMarket, _setSettingsCurrency,
