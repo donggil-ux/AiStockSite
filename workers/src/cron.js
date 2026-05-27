@@ -2,6 +2,7 @@
 import { yfRequest } from './utils/crumb.js';
 import { sendPush } from './utils/vapid.js';
 import { detectSignal } from './utils/indicators.js';
+import { fetchChartWithFallback } from './routes/yahoo.js';
 
 /**
  * 매 5분마다: 등록된 가격 알림을 체크해 조건 충족 시 푸시 발송
@@ -173,9 +174,8 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
         let fired = 0, analyzed = 0;
         for (const symbol of allSymbols) {
             try {
-                const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`
-                    + '?range=1d&interval=5m&includePrePost=false';
-                const raw = await yfRequest(env.CACHE, yahooUrl);
+                // Yahoo crumb 실패 시 자동으로 Polygon fallback
+                const raw = await fetchChartWithFallback(env, symbol, '1d', '5m', 'false');
                 const result = raw?.chart?.result?.[0];
                 if (!result) continue;
                 const q = result.indicators?.quote?.[0];

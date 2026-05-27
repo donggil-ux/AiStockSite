@@ -1,6 +1,30 @@
 // Yahoo Finance 프록시 라우트 — chart / quote / price / summary
 import { yfRequest } from '../utils/crumb.js';
+import { polygonChartFallback } from '../utils/polygon.js';
 import { validSymbol, validRange, validInterval, json, err } from '../utils/validators.js';
+
+// Yahoo 차트 + Polygon 자동 fallback
+// 한국 종목(.KS/.KQ)은 Polygon이 지원 안 하므로 fallback 비활성
+function _isKR(symbol) { return /\.(KS|KQ)$/i.test(symbol); }
+
+export async function fetchChartWithFallback(env, symbol, range, interval, includePrePost) {
+    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`
+        + `?range=${range}&interval=${interval}&includePrePost=${includePrePost}`;
+    try {
+        const data = await yfRequest(env.CACHE, yahooUrl);
+        // Yahoo 응답이지만 candles 가 빈 경우도 fallback
+        const candles = data?.chart?.result?.[0]?.timestamp?.length || 0;
+        if (candles === 0 && !_isKR(symbol) && env.POLYGON_API) {
+            console.log(`[chart] ${symbol} yahoo empty → polygon fallback`);
+            return await polygonChartFallback(env, symbol, range, interval);
+        }
+        return data;
+    } catch (e) {
+        if (_isKR(symbol) || !env.POLYGON_API) throw e;
+        console.warn(`[chart] ${symbol} yahoo fail (${e.message}) → polygon fallback`);
+        return await polygonChartFallback(env, symbol, range, interval);
+    }
+}
 
 // GET /api/chart/:symbol?range=6mo&interval=1d&includePrePost=false
 export async function handleChart(req, env, params) {
@@ -13,9 +37,7 @@ export async function handleChart(req, env, params) {
     if (!validRange(range)) return err(400, 'invalid range');
     if (!validInterval(interval)) return err(400, 'invalid interval');
     try {
-        const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`
-            + `?range=${range}&interval=${interval}&includePrePost=${includePrePost}`;
-        const data = await yfRequest(env.CACHE, yahooUrl);
+        const data = await fetchChartWithFallback(env, symbol, range, interval, includePrePost);
         return json(data);
     } catch (e) {
         console.error(`[chart] ${symbol}:`, e.message);
