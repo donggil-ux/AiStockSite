@@ -1286,18 +1286,24 @@
 
     // 헤더 🔔 버튼 — 구독 토글
     async function _togglePushBell() {
+        // 헤더 종 → 전체 설정 페이지(알림 탭) 로 이동
+        // 권한 상태 카드 / 체결 알림(음/볼륨) / 알림 종류 토글 / 테스트 알림을
+        // 한 화면에서 모두 다룰 수 있는 통합 페이지
         const state = await getPushState();
-        if (state.subscribed) {
-            // 이미 구독 중 → 설정 모달 표시 (구독 해제는 모달 내 버튼으로)
-            _showNotifSettingsModal();
-        } else {
+        // 미구독 + 권한 가능 상태면 자동 구독 시도 (denied 면 시도하지 않음 — 가이드만 보여줌)
+        if (!state.subscribed && state.perm !== 'denied') {
             const ok = await subscribePush();
             if (ok) {
                 showToast('알림이 활성화되었습니다 🔔');
-                const btn = document.getElementById('pushBellBtn');
-                if (btn) btn.style.opacity = '1';
-                _showNotifSettingsModal();
+                if (typeof _updatePushBellDot === 'function') _updatePushBellDot();
             }
+        }
+        // 설정 모달 알림 탭으로 이동
+        if (typeof openSettings === 'function') {
+            openSettings('notif');
+        } else if (typeof _showNotifSettingsModal === 'function') {
+            // 폴백: 설정 모달이 로드되기 전이면 기존 작은 모달
+            _showNotifSettingsModal();
         }
     }
 
