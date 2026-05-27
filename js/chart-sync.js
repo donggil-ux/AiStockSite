@@ -733,6 +733,8 @@
     function _maybeInvalidateGradesCache() {
         if (_lastSymbolForGrades !== currentSymbol) {
             _signalGrades = {};
+            _lastSigGrade = null; // 종목 변경 시 마지막 등급도 리셋 → 새 종목 첫 시그널이 패널에 반영되도록
+            try { window._lastSigGrade = null; } catch(_){}
             _lastSymbolForGrades = currentSymbol;
             log('[grade] cache invalidated for', currentSymbol);
         }
@@ -742,35 +744,46 @@
     // isLastBar=true: 실시간 봉 → 항상 재계산 (마지막 봉 close가 계속 변동)
     // isLastBar=false: 확정된 과거 봉 → 캐시 우선 사용 (등급 안정)
     // 최신 캔들 등급 캐시 — 신호 등급 패널 렌더에 사용
+    // _lastSigGrade.ts 추가 → 마지막 봉이 아닌 어떤 봉에서 마지막으로 시그널이 발생했는지 추적
     let _lastSigGrade = null;
     function _gradeForBar(cacheKey, opts, isLastBar) {
-        if (isLastBar) {
-            try {
-                const sg = _calcSignalGrade(opts);
-                if (sg && sg.grade) {
-                    _signalGrades[cacheKey] = sg;
-                    _lastSigGrade = { ...sg, signalType: opts?.signalType || 'buy' };
-                    try { window._lastSigGrade = _lastSigGrade; } catch(_){}
-                    return sg;
-                }
-            } catch(e) {}
-            return { grade: 'B', fallback: true, winRate: 60, score: 5 };
-        }
-        const cached = _signalGrades[cacheKey];
-        if (cached) return cached;
+        // 모든 호출에서 시그널이 감지된 경우 → _lastSigGrade 최신화 (timestamp 기반 비교)
         try {
             const sg = _calcSignalGrade(opts);
-            if (sg && sg.grade) { _signalGrades[cacheKey] = sg; return sg; }
+            if (sg && sg.grade) {
+                _signalGrades[cacheKey] = sg;
+                // cacheKey 형식: `${ts[i]}_<sig_key>` — ts 추출
+                const tsMatch = cacheKey.match(/^(\d+)_/);
+                const sigTs = tsMatch ? parseInt(tsMatch[1], 10) : null;
+                if (!_lastSigGrade || (sigTs && sigTs >= (_lastSigGrade.ts || 0))) {
+                    _lastSigGrade = { ...sg, signalType: opts?.signalType || 'buy', ts: sigTs };
+                    try { window._lastSigGrade = _lastSigGrade; } catch(_){}
+                }
+                return sg;
+            }
         } catch(e) {}
-        return { grade: 'B', fallback: true, winRate: 60, score: 5 };
+        return _signalGrades[cacheKey] || { grade: 'B', fallback: true, winRate: 60, score: 5 };
     }
 
     // 신호 등급 패널 렌더링 — _lastSigGrade 기준
     function _renderSigGradePanel() {
         const panel = document.getElementById('sigGradePanel');
         if (!panel) return;
-        // 신호 라인 비활성 또는 등급 없으면 숨김
-        if (!_chartLinesEnabled || !_lastSigGrade) { panel.style.display = 'none'; return; }
+        // 신호 라인 비활성 시 숨김
+        if (!_chartLinesEnabled) { panel.style.display = 'none'; return; }
+        // 등급 없으면 빈 상태 카드 (분석 대기 중)
+        if (!_lastSigGrade) {
+            panel.style.display = '';
+            const badge = document.getElementById('sgpBadge');
+            if (badge) { badge.textContent = '—'; badge.style.background = 'var(--bg3)'; badge.style.borderColor = 'var(--border)'; badge.style.color = 'var(--text2)'; }
+            const starsEl = document.getElementById('sgpStars');
+            if (starsEl) starsEl.textContent = '';
+            const winRateEl = document.getElementById('sgpWinRate');
+            if (winRateEl) winRateEl.textContent = '분석 대기 중';
+            const body = document.getElementById('sgpBody');
+            if (body) body.innerHTML = '<div class="sgp-empty">아직 강한 시그널이 감지되지 않았습니다 — 폴링 중...</div>';
+            return;
+        }
         const sg = _lastSigGrade;
         const grade = sg.grade || 'B';
         const stars = sg.stars || '⭐⭐⭐';
@@ -4770,6 +4783,19 @@
 
     // 메인 레이어 렌더
     function _renderSrLayer(q, ts) {
+        // 5분봉 + SR OFF 상태인데 자동 활성화를 한 번도 안 한 경우 → 1회 자동 ON
+        // 사용자 편의를 위해 5분봉에서는 지지/저항이 거의 필수이므로 처음 한 번만 자동 켜기.
+        // 이후 사용자가 다시 OFF 하면 그 상태 그대로 유지 (stockai_sr_auto_5m_done 플래그로 보호).
+        try {
+            if (currentInterval === '5m'
+                && localStorage.getItem('stockai_chart_sr_enabled') === '0'
+                && !localStorage.getItem('stockai_sr_auto_5m_done')) {
+                _chartSrEnabled = true;
+                localStorage.setItem('stockai_chart_sr_enabled', '1');
+                localStorage.setItem('stockai_sr_auto_5m_done', '1');
+                if (typeof showToast === 'function') showToast('5분봉 지지/저항선이 자동 활성화되었습니다 📍');
+            }
+        } catch(_) {}
         _clearSrLines();
         _updateSrBtnUi();
         // SR 비활성 시에도 _srLevels는 항상 계산 — Smart Dip 등 다른 레이어에서 참조
