@@ -777,9 +777,12 @@
         const winRate = sg.winRate ?? 60;
         const factors = Array.isArray(sg.factors) ? sg.factors : [];
 
-        // 등급별 색상
+        // 등급별 색상 — 라이트 모드의 S 는 가독성 위해 검정으로 분기
+        const _isLightTheme = (document.documentElement.getAttribute('data-theme') || 'dark') === 'light';
         const gradeMeta = {
-            S: { bg:'rgba(255,215,0,.18)',   bc:'#FFD700', cl:'#FFD700' },
+            S: _isLightTheme
+                ? { bg:'rgba(0,0,0,.08)',     bc:'#111111', cl:'#111111' }   // 라이트: 검정
+                : { bg:'rgba(255,215,0,.18)', bc:'#FFD700', cl:'#FFD700' },  // 다크: 금색
             A: { bg:'rgba(34,197,94,.18)',   bc:'#22C55E', cl:'#22C55E' },
             B: { bg:'rgba(59,130,246,.18)',  bc:'#3B82F6', cl:'#3B82F6' },
             C: { bg:'rgba(156,163,175,.18)', bc:'#9CA3AF', cl:'#9CA3AF' },
