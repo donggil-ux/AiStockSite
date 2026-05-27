@@ -741,7 +741,8 @@
         [data-theme="light"] .top100-reason.reason-tag.reason-down{background:rgba(0,128,251,0.1);color:var(--blue)!important;}
         .top100-row > *{min-width:0;}
         .top100-row:last-child{border-bottom:none;}
-        .top100-row:hover{background:var(--bg3);transform:none;}
+        /* hover 는 마우스 디바이스에만 적용 — 터치에서 stuck 방지 */
+        @media (hover: hover) { .top100-row:hover{background:var(--bg3);transform:none;} }
         .top100-row-head{background:transparent;padding:6px 12px;cursor:default;font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.3px;border-bottom:none;grid-template-columns:24px 28px 44px minmax(100px,1fr) auto auto;grid-template-areas:"fav rank logo info price tv";}
         .top100-row-head:hover{background:transparent;}
         /* 순위 — 시스템 변수 + 강조 단계 (Primary text 사용) */
@@ -750,11 +751,12 @@
         [data-theme="dark"] .top100-rank.top3{color:#FBBF24!important;} /* TOP3 강조 — 금색 */
         [data-theme="light"] .top100-rank.top3{color:#92400E!important;} /* amber-800, 컨트라스트 6.5:1 */
         /* Row-level favorite icon button */
-        .top100-fav{width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:none;border-radius:var(--radius-xs);color:rgba(3,24,50,0.46);font-size:14px;cursor:pointer;padding:2px 4px;transition:color .15s,background .15s;}
-        .top100-fav:hover{background:var(--bg3);}
-        [data-theme="dark"] .top100-fav{color:var(--text3)!important;}
-        .top100-fav:hover{color:var(--text);transform:scale(1.08);}
-        .top100-fav.on{color:var(--red);}
+        /* 즐겨찾기 별 아이콘 — 작은 아이콘이라 텍스트보다 더 진한 색 필요 */
+        .top100-fav{width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:none;border-radius:var(--radius-xs);color:var(--text2);font-size:16px;cursor:pointer;padding:2px 4px;transition:color .15s,background .15s;}
+        [data-theme="light"] .top100-fav{color:var(--text2)!important;}
+        [data-theme="dark"] .top100-fav{color:var(--text2)!important;}
+        .top100-fav:hover{background:var(--bg3);color:var(--text)!important;transform:scale(1.08);}
+        .top100-fav.on{color:var(--yellow)!important;}  /* 즐겨찾기 활성 — 금색 */
         /* Circle logo + flag overlay */
         .tlogo-wrap{position:relative!important;display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;flex-shrink:0;overflow:visible!important;}
         .tlogo{width:40px;height:40px;border-radius:50%;object-fit:cover;background:#fff;display:block;border:1px solid #DBDBE0;}
