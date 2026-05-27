@@ -1078,14 +1078,22 @@
         }
     }
 
+    // 폴링 주기 — 단봉(1m/2m/5m) 에서는 더 짧게, 그 외엔 기본
+    function _sigPollIntervalMs() {
+        return /^(1m|2m|5m)$/.test(currentInterval || '') ? 10000 : 15000; // 10초 vs 15초
+    }
+    function _liveUpdateIntervalMs() {
+        return /^(1m|2m|5m)$/.test(currentInterval || '') ? 15000 : 30000; // 15초 vs 30초
+    }
+
     function startChartSigPoll() {
         stopChartSigPoll();
-        chartSigPollTimer = window.setInterval(pollChartSignals, 15000); // 15초
+        chartSigPollTimer = window.setInterval(pollChartSignals, _sigPollIntervalMs());
     }
 
     function startLiveUpdate() {
         stopLiveUpdate();
-        // 30초마다 헤더 가격 + 차트 캔들 + 세션 뱃지 업데이트
+        // 단봉: 15초, 그 외: 30초 헤더 가격 + 차트 캔들 + 세션 뱃지 업데이트
         liveUpdateTimer = window.setInterval(async () => {
             if (!currentFullSymbol) return;
             try {

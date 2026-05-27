@@ -10344,3 +10344,34 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
     .sgp-condition{ font-size:11px; padding:4px 7px; }
     .sgp-winrate{ font-size:11px; }
 }
+
+/* 신호 등급 패널 — 마지막 갱신 표시 + pulse 애니메이션 */
+.sgp-refresh{
+    display:inline-flex; align-items:center; gap:5px;
+    font-size:11px; color:var(--text3);
+    margin-left:4px;
+    flex-shrink:0;
+}
+.sgp-refresh-dot{
+    width:6px; height:6px; border-radius:50%;
+    background:#22C55E;
+    box-shadow:0 0 0 0 rgba(34,197,94,.7);
+    animation:sgpPulseDot 2.4s ease-out infinite;
+}
+@keyframes sgpPulseDot{
+    0%   { box-shadow:0 0 0 0   rgba(34,197,94,.6); }
+    70%  { box-shadow:0 0 0 6px rgba(34,197,94,0); }
+    100% { box-shadow:0 0 0 0   rgba(34,197,94,0); }
+}
+/* 패널 전체 pulse — 새 분석 도착 시 0.6초간 강조 */
+.sig-grade-panel.sgp-pulse{
+    animation:sgpFlash 0.7s ease-out;
+}
+@keyframes sgpFlash{
+    0%   { box-shadow:0 0 0 0 rgba(59,130,246,.5); }
+    50%  { box-shadow:0 0 0 4px rgba(59,130,246,.18); }
+    100% { box-shadow:0 0 0 0 rgba(59,130,246,0); }
+}
+@media (max-width: 480px) {
+    .sgp-refresh{ font-size:10px; }
+}

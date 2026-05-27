@@ -768,11 +768,39 @@
     }
 
     // 신호 등급 패널 렌더링 — _lastSigGrade 기준
+    // 마지막 분석 시각 — pulse + "방금/N초 전" 표시
+    let _sigPanelLastUpdate = 0;
+    function _fmtRelativeShort(ms) {
+        const s = Math.floor(ms / 1000);
+        if (s < 5)    return '방금';
+        if (s < 60)   return s + '초 전';
+        if (s < 3600) return Math.floor(s / 60) + '분 전';
+        return Math.floor(s / 3600) + '시간 전';
+    }
+    // 패널 표시 중에는 1초마다 "방금/N초 전" 라벨 갱신
+    let _sigPanelTickTimer = null;
+    function _startSigPanelTick() {
+        if (_sigPanelTickTimer) return;
+        _sigPanelTickTimer = setInterval(() => {
+            const el = document.getElementById('sgpRefreshTime');
+            if (!el || !_sigPanelLastUpdate) return;
+            el.textContent = _fmtRelativeShort(Date.now() - _sigPanelLastUpdate);
+        }, 1000);
+    }
+
     function _renderSigGradePanel() {
         const panel = document.getElementById('sigGradePanel');
         if (!panel) return;
         // 신호 라인 비활성 시 숨김
         if (!_chartLinesEnabled) { panel.style.display = 'none'; return; }
+        // 갱신 트래킹 — 패널 렌더할 때마다 시각 기록 + pulse 애니메이션
+        _sigPanelLastUpdate = Date.now();
+        panel.classList.remove('sgp-pulse');
+        void panel.offsetWidth; // reflow
+        panel.classList.add('sgp-pulse');
+        const refreshTime = document.getElementById('sgpRefreshTime');
+        if (refreshTime) refreshTime.textContent = '방금';
+        _startSigPanelTick();
         // 등급 없으면 빈 상태 카드 (분석 대기 중)
         if (!_lastSigGrade) {
             panel.style.display = '';
