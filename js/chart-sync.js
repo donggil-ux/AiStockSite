@@ -2031,35 +2031,50 @@
         }
 
         // 6. 캔들 패턴 — 1점
+        // 분봉일수록 노이즈 캔들이 많으므로 해머/슈팅스타 body 비율을 더 엄격하게
+        //   5m 이하 → *2.5   15m → *2.2   30m+ → *2.0
+        const _wickRatio = _isShortTF ? 2.5 : _iv === '15m' ? 2.2 : 2.0;
         const op = opens && Array.isArray(opens) ? opens : [];
         if (sg(op, i) != null && sg(highs, i) != null && sg(lows, i) != null && i > 0) {
             const body  = Math.abs(c - op[i]);
             const upper = highs[i] - Math.max(op[i], c);
             const lower = Math.min(op[i], c) - lows[i];
             if (signalType === 'buy') {
-                if (lower >= body * 2 && upper < body) { score += 1; factors.push('✅ 해머 패턴'); }
+                if (lower >= body * _wickRatio && upper < body) { score += 1; factors.push('✅ 해머 패턴'); }
                 else if (c > op[i] && closes[i-1] < op[i-1] && c > op[i-1] && op[i] < closes[i-1]) { score += 1; factors.push('✅ Bullish Engulfing'); }
             } else {
-                if (upper >= body * 2 && lower < body) { score += 1; factors.push('✅ Shooting Star'); }
+                if (upper >= body * _wickRatio && lower < body) { score += 1; factors.push('✅ Shooting Star'); }
                 else if (c < op[i] && closes[i-1] > op[i-1] && c < op[i-1] && op[i] > closes[i-1]) { score += 1; factors.push('✅ Bearish Engulfing'); }
             }
         }
 
         // 7. ATR 적정 범위 — 0.5점
+        // 타임프레임별 허용 변동성 범위 차별화 (분봉은 자연스럽게 ATR% 높음)
+        //   5m 이하: 0.3~5.0%, >8.0% 패널티
+        //   15m    : 0.4~4.0%, >6.0% 패널티
+        //   30m    : 0.5~3.5%, >5.5% 패널티
+        //   1h+    : 0.5~3.0%, >5.0% 패널티 (기존)
+        const _atrMin  = _isShortTF ? 0.3 : _iv === '15m' ? 0.4 : 0.5;
+        const _atrMax  = _isShortTF ? 5.0 : _iv === '15m' ? 4.0 : _iv === '30m' ? 3.5 : 3.0;
+        const _atrPen  = _isShortTF ? 8.0 : _iv === '15m' ? 6.0 : _iv === '30m' ? 5.5 : 5.0;
         const atri = sg(atr, i);
         if (atri != null && c > 0) {
             const atrPct = (atri / c) * 100;
-            if (atrPct >= 0.5 && atrPct <= 3.0) { score += 0.5; factors.push(`✅ ATR ${atrPct.toFixed(1)}%`); }
-            else if (atrPct > 5.0)              { score -= 0.5; factors.push(`⚠️ ATR ${atrPct.toFixed(1)}% (과다)`); }
+            if (atrPct >= _atrMin && atrPct <= _atrMax) { score += 0.5; factors.push(`✅ ATR ${atrPct.toFixed(1)}%`); }
+            else if (atrPct > _atrPen)                  { score -= 0.5; factors.push(`⚠️ ATR ${atrPct.toFixed(1)}% (과다)`); }
         }
 
         // 8. Bollinger Band 위치 — 0.5점
+        // 분봉일수록 BB를 자주 터치 → 더 극단적인 위치(밴드 바깥 근접)만 의미 있음
+        //   5m 이하 → 0.25/0.75   15m → 0.27/0.73   30m+ → 0.30/0.70
+        const _bbBuyThr  = _isShortTF ? 0.25 : _iv === '15m' ? 0.27 : 0.30;
+        const _bbSellThr = _isShortTF ? 0.75 : _iv === '15m' ? 0.73 : 0.70;
         if (bb && bb.upper && bb.lower && sg(bb.upper, i) != null && sg(bb.lower, i) != null) {
             const bbRange = bb.upper[i] - bb.lower[i];
             if (bbRange > 0) {
                 const bbPos = (c - bb.lower[i]) / bbRange;
-                if (signalType === 'buy'  && bbPos < 0.3) { score += 0.5; factors.push('✅ BB 하단 근접'); }
-                else if (signalType === 'sell' && bbPos > 0.7) { score += 0.5; factors.push('✅ BB 상단 근접'); }
+                if (signalType === 'buy'  && bbPos < _bbBuyThr)  { score += 0.5; factors.push('✅ BB 하단 근접'); }
+                else if (signalType === 'sell' && bbPos > _bbSellThr) { score += 0.5; factors.push('✅ BB 상단 근접'); }
             }
         }
 
@@ -2074,7 +2089,10 @@
         }
 
         // 10. 지지/저항 — 1점
-        const lb = Math.min(50, i);
+        // 분봉에서 lookback이 너무 길면 전날/전전날 고저가가 섞여 의미 희석
+        //   5m → 50봉(~4h)   15m → 30봉(~7.5h)   30m → 20봉(~10h)   1h+ → 30봉
+        const _srLb = _isShortTF ? 50 : _iv === '15m' ? 30 : _iv === '30m' ? 20 : 30;
+        const lb = Math.min(_srLb, i);
         const rH = (highs || []).slice(Math.max(0, i-lb), i).filter(v => v != null);
         const rL = (lows  || []).slice(Math.max(0, i-lb), i).filter(v => v != null);
         if (rH.length && rL.length) {
