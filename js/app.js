@@ -1155,9 +1155,66 @@
                 if (modal && modal.style.display === 'flex') {
                     _showNotifSettingsModal();
                 }
+                // 푸시 알림 히스토리에 signalId 매핑 저장 (피드백 버튼용)
+                if (e.data?.signalId) {
+                    try {
+                        const map = JSON.parse(localStorage.getItem('stockai_signal_id_map') || '{}');
+                        // 최근 푸시 ts 별로 signalId 보관 (최대 50개)
+                        map[String(e.data.ts)] = {
+                            signalId: e.data.signalId,
+                            tag: e.data.tag || '',
+                            title: e.data.title || '',
+                        };
+                        // 50개 초과 → 가장 오래된 것 제거
+                        const keys = Object.keys(map).map(Number).sort((a,b) => b - a);
+                        if (keys.length > 50) {
+                            for (const k of keys.slice(50)) delete map[String(k)];
+                        }
+                        localStorage.setItem('stockai_signal_id_map', JSON.stringify(map));
+                    } catch (_) {}
+                    // 알림 페이지가 열려있으면 즉시 갱신
+                    const ns = document.getElementById('notificationsScreen');
+                    if (ns && ns.style.display !== 'none') _renderNotificationsPage();
+                }
             }
         });
     }
+
+    // ── 시그널 평가 (👍/👎) 제출 ────────────────────────────────
+    window._submitSignalFeedback = async function (signalId, rating, btnEl) {
+        if (!signalId || !(rating === 1 || rating === -1)) return;
+        try {
+            const subToken = localStorage.getItem('stockai_push_token') || '';
+            const res = await fetch(`/api/signals/${signalId}/feedback`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rating, subToken }),
+            });
+            if (!res.ok) throw new Error('feedback failed');
+            const data = await res.json();
+            // 로컬 평가 기록 (UI 표시용)
+            try {
+                const local = JSON.parse(localStorage.getItem('stockai_my_ratings') || '{}');
+                local[String(signalId)] = rating;
+                localStorage.setItem('stockai_my_ratings', JSON.stringify(local));
+            } catch (_) {}
+            // UI 즉시 갱신 — 클릭한 버튼 그룹 active 표시
+            if (btnEl) {
+                const group = btnEl.closest('.notif-fb-group');
+                if (group) {
+                    group.querySelectorAll('.notif-fb-btn').forEach(b => b.classList.remove('active'));
+                    btnEl.classList.add('active');
+                    const ct = group.querySelector('.notif-fb-count');
+                    if (ct && data.feedback) {
+                        ct.textContent = `👍 ${data.feedback.up || 0} · 👎 ${data.feedback.down || 0}`;
+                    }
+                }
+            }
+            try { snack?.('평가 감사합니다 — 알고리즘 개선에 반영됩니다', 'success'); } catch (_) {}
+        } catch (e) {
+            try { snack?.('평가 제출 실패: ' + e.message, 'error'); } catch (_) {}
+        }
+    };
 
     // 페이지 로드 시 종 버튼 상태 초기화 (DOMContentLoaded 후)
     if (document.readyState === 'loading') {
@@ -1437,6 +1494,20 @@
             return mkt === 'KR' ? Math.round(p).toLocaleString() + '원' : '$' + Number(p).toFixed(2);
         };
 
+        // signalId 매핑 — 푸시 ts ↔ signalId 매칭 (5분 윈도우)
+        let sigIdMap = {};
+        let myRatings = {};
+        try { sigIdMap = JSON.parse(localStorage.getItem('stockai_signal_id_map') || '{}'); } catch(_){}
+        try { myRatings = JSON.parse(localStorage.getItem('stockai_my_ratings') || '{}'); } catch(_){}
+        function findSignalId(ts) {
+            // 5분 윈도우 내 가장 가까운 push 매핑 검색
+            const keys = Object.keys(sigIdMap).map(Number);
+            for (const k of keys) {
+                if (Math.abs(k - ts) <= 5 * 60 * 1000) return sigIdMap[String(k)]?.signalId || null;
+            }
+            return null;
+        }
+
         list.innerHTML = filtered.map(h => {
             const isBuy = h.dir === 'buy';
             const iconCls = isBuy ? 'icon-buy' : 'icon-sell';
@@ -1447,12 +1518,28 @@
             const subStr = price
                 ? `<b>${escHtml(price)}</b> 에 ${escHtml(h.headline || (isBuy ? '매수' : '매도') + ' 시그널')}`
                 : escHtml(h.headline || (isBuy ? '매수' : '매도') + ' 시그널');
+
+            // 평가 버튼 — signalId 가 있을 때만 표시
+            const sigId = findSignalId(h.ts);
+            const myR = sigId ? myRatings[String(sigId)] : null;
+            const fbBar = sigId ? `
+                <div class="notif-fb-group" onclick="event.stopPropagation();">
+                    <button class="notif-fb-btn notif-fb-up ${myR === 1 ? 'active' : ''}"
+                            onclick="event.stopPropagation();_submitSignalFeedback(${sigId}, 1, this)"
+                            title="유용한 시그널">👍</button>
+                    <button class="notif-fb-btn notif-fb-down ${myR === -1 ? 'active' : ''}"
+                            onclick="event.stopPropagation();_submitSignalFeedback(${sigId}, -1, this)"
+                            title="별로였던 시그널">👎</button>
+                    <span class="notif-fb-count"></span>
+                </div>` : '';
+
             return `<div class="notif-item ${h.read ? '' : 'unread'}" data-ts="${h.ts}" data-symbol="${escHtml(h.symbol||'')}" onclick="_clickNotifItem(${h.ts}, '${escHtml(h.symbol||'')}', '${escHtml(h.market||'US')}')">
                 <div class="notif-item-icon ${iconCls}">${iconChar}</div>
                 <div class="notif-item-meta">${isBuy ? '매수 시그널' : '매도 시그널'}</div>
                 <div class="notif-item-time">${_fmtNotifRelative(h.ts)}</div>
                 <div class="notif-item-title">${titleStr}</div>
                 <div class="notif-item-sub">${subStr}</div>
+                ${fbBar}
             </div>`;
         }).join('');
     }
@@ -1751,6 +1838,31 @@
                 </div>
             </div>
         </section>`;
+
+        // ── 사용자 평가 — 등급별 평균 ──
+        if (d.ratingsByGrade && d.ratingsByGrade.length) {
+            html += `<section class="stats-section">
+                <h2 class="stats-section-title">사용자 평가 <small>(👍/👎 누적)</small></h2>
+                <div class="bt-rating-list">`;
+            for (const r of d.ratingsByGrade) {
+                const up = r.up_count || 0;
+                const down = r.down_count || 0;
+                const total = r.rating_count || 0;
+                const pct = total ? Math.round((up / total) * 100) : 0;
+                html += `<div class="bt-rating-row" style="border-color:${gradeColor(r.grade)};">
+                    <div class="bt-rating-grade" style="background:${gradeColor(r.grade)};color:#000;">${r.grade || '-'}</div>
+                    <div class="bt-rating-bar-wrap">
+                        <div class="bt-rating-bar-pos" style="width:${pct}%;"></div>
+                    </div>
+                    <div class="bt-rating-counts">
+                        <span class="bt-rating-up">👍 ${up}</span>
+                        <span class="bt-rating-down">👎 ${down}</span>
+                    </div>
+                    <div class="bt-rating-pct">${pct}%</div>
+                </div>`;
+            }
+            html += `</div></section>`;
+        }
 
         // ── 3) 등급별 실제 정확도 ──
         if (d.accuracy && d.accuracy.length) {
@@ -2192,6 +2304,42 @@
                     </div>`;
                 }).join('')}
             </div>
+            <!-- 조용 시간대 (Quiet Hours) — 야간 음소거 -->
+            <div class="settings-section" style="${disabled ? 'opacity:.5;pointer-events:none;' : ''}">
+                <div class="settings-section-label">조용 시간대 (야간 음소거)</div>
+                ${(() => {
+                    const qPref = (() => {
+                        try { return JSON.parse(localStorage.getItem('stockai_quiet_hours') || 'null'); } catch(_) { return null; }
+                    })() || { enabled: 0, start: 22, end: 7 };
+                    const enabled = !!qPref.enabled;
+                    const startVal = Number.isFinite(qPref.start) ? qPref.start : 22;
+                    const endVal   = Number.isFinite(qPref.end)   ? qPref.end   : 7;
+                    const hourOptions = (sel) => {
+                        let out = '';
+                        for (let i = 0; i < 24; i++) {
+                            out += `<option value="${i}" ${i === sel ? 'selected' : ''}>${String(i).padStart(2,'0')}:00</option>`;
+                        }
+                        return out;
+                    };
+                    return `
+                    <div class="settings-row">
+                        <div>
+                            <div class="settings-row-label">야간 음소거</div>
+                            <div class="settings-row-sub">설정한 시간에는 시그널 푸시가 발송되지 않습니다</div>
+                        </div>
+                        <input type="checkbox" class="settings-switch" id="quietEnabled" ${enabled ? 'checked' : ''} onchange="_saveQuietHours()">
+                    </div>
+                    <div class="settings-row" style="border-bottom:none;${enabled ? '' : 'opacity:.4;pointer-events:none;'}" id="quietHoursRow">
+                        <div class="settings-row-label">음소거 시간</div>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <select class="settings-select" id="quietStart" onchange="_saveQuietHours()">${hourOptions(startVal)}</select>
+                            <span style="color:var(--text3);font-size:12px;">~</span>
+                            <select class="settings-select" id="quietEnd" onchange="_saveQuietHours()">${hourOptions(endVal)}</select>
+                        </div>
+                    </div>`;
+                })()}
+            </div>
+
             ${subscribed ? `<div class="settings-section">
                 <button class="settings-danger-btn" onclick="_confirmUnsubPush();setTimeout(()=>setSettingsTab('notif'),300);">알림 해제</button>
             </div>` : ''}
@@ -2374,11 +2522,44 @@
                 stop: localStorage.getItem('stockai_notif_stop') !== '0',
                 pos:  localStorage.getItem('stockai_notif_pos')  !== '0',
             };
+            // 조용 시간대 (quiet hours)
+            let quiet = null;
+            try {
+                const q = JSON.parse(localStorage.getItem('stockai_quiet_hours') || 'null');
+                if (q) quiet = {
+                    enabled: q.enabled ? 1 : 0,
+                    start: Math.max(0, Math.min(23, parseInt(q.start, 10) || 22)),
+                    end:   Math.max(0, Math.min(23, parseInt(q.end,   10) || 7)),
+                    tz_offset_min: -new Date().getTimezoneOffset(), // 사용자 timezone 자동 감지
+                };
+            } catch(_) {}
             await fetch('/api/push/prefs', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ subToken, endpoint, prefs }),
+                body: JSON.stringify({ subToken, endpoint, prefs, quiet }),
             });
+        } catch(_) {}
+    }
+
+    // 조용 시간대 — UI 변경 시 호출 (localStorage 저장 + 백엔드 sync)
+    function _saveQuietHours() {
+        const enabled = document.getElementById('quietEnabled')?.checked;
+        const start = parseInt(document.getElementById('quietStart')?.value, 10);
+        const end   = parseInt(document.getElementById('quietEnd')?.value, 10);
+        const q = {
+            enabled: enabled ? 1 : 0,
+            start: Number.isFinite(start) ? start : 22,
+            end:   Number.isFinite(end)   ? end   : 7,
+        };
+        try { localStorage.setItem('stockai_quiet_hours', JSON.stringify(q)); } catch(_) {}
+        // 시간 선택 행 활성/비활성
+        const row = document.getElementById('quietHoursRow');
+        if (row) row.style.cssText = `border-bottom:none;${enabled ? '' : 'opacity:.4;pointer-events:none;'}`;
+        showToast(enabled ? `🌙 야간 음소거 ${String(q.start).padStart(2,'0')}:00 ~ ${String(q.end).padStart(2,'0')}:00` : '음소거 해제');
+        // 백엔드 sync (1.5s debounce)
+        try {
+            if (window._syncPrefsTimer) clearTimeout(window._syncPrefsTimer);
+            window._syncPrefsTimer = setTimeout(() => _syncNotifPrefsToBackend(), 1500);
         } catch(_) {}
     }
 
@@ -6143,6 +6324,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         subscribePush, unsubscribePush, getPushState,
         openPriceAlertModal, _setPaDir, _savePriceAlert, _deletePriceAlert,
         _togglePushBell, _openCurrentPriceAlert, _showNotifSettingsModal, _saveNotifPref, _confirmUnsubPush,
+        _saveQuietHours, _submitSignalFeedback,
         _sendTestNotif, _resubscribePush, _updatePushBellDot,
         _saveNotifSoundType, _saveNotifVolume, _previewNotifSound,
         // 알림 전체 페이지

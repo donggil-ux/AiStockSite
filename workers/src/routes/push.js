@@ -187,8 +187,13 @@ export async function handleDeleteAlert(req, env, params) {
     }
 }
 
-// ── POST /api/push/prefs — 알림 종류 4종 + 시장 필터 동기화 ────
-// Body: { subToken, endpoint, prefs?: {buy,tp,stop,pos}, marketFilter?: 'US'|'KR'|'ALL' }
+// ── POST /api/push/prefs — 알림 종류 4종 + 시장 필터 + 조용 시간대 동기화 ────
+// Body: {
+//   subToken, endpoint,
+//   prefs?: {buy,tp,stop,pos},
+//   marketFilter?: 'US'|'KR'|'ALL',
+//   quiet?: { enabled, start (0-23), end (0-23), tz_offset_min }
+// }
 // Auth: 있을 시 user_id 의 모든 디바이스에 동시 적용
 export async function handleSyncPrefs(req, env) {
     try {
@@ -201,10 +206,19 @@ export async function handleSyncPrefs(req, env) {
             pos:  b.prefs.pos  ? 1 : 0,
         } : null;
         const mkt = ['US','KR','ALL'].includes(b.marketFilter) ? b.marketFilter : null;
+        // 조용 시간대 검증 + 정규화
+        let quiet = null;
+        if (b.quiet && typeof b.quiet === 'object') {
+            const start = Math.max(0, Math.min(23, parseInt(b.quiet.start, 10) || 22));
+            const end   = Math.max(0, Math.min(23, parseInt(b.quiet.end,   10) || 7));
+            const tz    = Number.isFinite(b.quiet.tz_offset_min) ? Math.max(-720, Math.min(840, b.quiet.tz_offset_min)) : 540;
+            quiet = { enabled: b.quiet.enabled ? 1 : 0, start, end, tz_offset_min: tz };
+        }
         const sets = [];
         const args = [];
-        if (prefs) { sets.push('notif_prefs=?'); args.push(JSON.stringify(prefs)); }
-        if (mkt)   { sets.push('market_filter=?'); args.push(mkt); }
+        if (prefs)  { sets.push('notif_prefs=?'); args.push(JSON.stringify(prefs)); }
+        if (mkt)    { sets.push('market_filter=?'); args.push(mkt); }
+        if (quiet)  { sets.push('quiet=?'); args.push(JSON.stringify(quiet)); }
         if (!sets.length) return err(400, 'nothing to update');
         sets.push('last_seen=?'); args.push(Date.now());
 

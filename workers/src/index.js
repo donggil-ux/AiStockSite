@@ -18,6 +18,7 @@ import { handleChart, handleQuote, handlePrice, handleSummary, handleSearch } fr
 import { handlePolygonCandles } from './routes/polygon.js';
 import { handleSubscribe, handleCreateAlert, handleListAlerts, handleDeleteAlert, handlePushTest, handleSyncFavs, handleSyncPrefs, handleLinkAccount } from './routes/push.js';
 import { handleSignalStats, handleBacktest } from './routes/stats.js';
+import { handleSignalFeedback, handleGetSignalFeedback } from './routes/feedback.js';
 import { handleAdminStatus } from './routes/admin.js';
 import { checkPriceAlerts, earningsReminder, analyzeSignals, resolveSignals } from './cron.js';
 import { json, err } from './utils/validators.js';
@@ -70,6 +71,8 @@ const ROUTES = [
     ['POST',   '/api/push/prefs',        handleSyncPrefs],
     ['GET',    '/api/stats/signals',     handleSignalStats],
     ['GET',    '/api/stats/backtest',    handleBacktest],
+    ['POST',   '/api/signals/:id/feedback', handleSignalFeedback],
+    ['GET',    '/api/signals/:id/feedback', handleGetSignalFeedback],
     ['GET',    '/api/admin/status',      handleAdminStatus],
 ];
 

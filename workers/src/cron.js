@@ -4,6 +4,30 @@ import { sendPush } from './utils/vapid.js';
 import { detectSignal } from './utils/indicators.js';
 import { fetchChartWithFallback } from './routes/yahoo.js';
 
+// ─────────────────────────────────────────────────────────────
+// 조용 시간대 (Quiet Hours) — 사용자별 야간 음소거
+// quiet JSON: { enabled: 1, start: 22, end: 7, tz_offset_min: 540 }
+//   - start ~ end 가 같은 날 (e.g. 12~14) 이면 단순 비교
+//   - end < start (e.g. 22~7) 면 다음날 새벽까지 음소거
+// 반환: true 면 발송 스킵
+// ─────────────────────────────────────────────────────────────
+function isQuietNow(quietStr) {
+    if (!quietStr) return false;
+    let q;
+    try { q = typeof quietStr === 'string' ? JSON.parse(quietStr) : quietStr; }
+    catch { return false; }
+    if (!q?.enabled) return false;
+    const tzMin = Number.isFinite(q.tz_offset_min) ? q.tz_offset_min : 540; // 기본 KST
+    const start = Number.isFinite(q.start) ? q.start : 22;
+    const end   = Number.isFinite(q.end)   ? q.end   : 7;
+    // 현재 UTC 시각 → 사용자 로컬 시각
+    const localMs = Date.now() + tzMin * 60 * 1000;
+    const localH = new Date(localMs).getUTCHours();
+    if (start === end) return false;
+    if (start < end) return localH >= start && localH < end;       // 같은 날
+    return localH >= start || localH < end;                          // 자정 넘김
+}
+
 /**
  * 매 5분마다: 등록된 가격 알림을 체크해 조건 충족 시 푸시 발송
  */
@@ -147,7 +171,7 @@ export async function resolveSignals(env) {
         // 1) 미해결 시그널 (오래된 것부터 우선) — 한 회당 60건
         const rs = await env.DB.prepare(
             `SELECT id, symbol, direction, price, created_at,
-                    price_1h, price_4h, price_24h, price_7d, max_gain_24h
+                    price_1h, price_4h, price_24h, price_7d, max_gain_24h, loss_alerted
              FROM signal_history
              WHERE resolved=0 AND created_at < ?
              ORDER BY created_at ASC
@@ -170,13 +194,55 @@ export async function resolveSignals(env) {
             } catch (e) { console.warn('[resolve] quote fail', e.message); }
         }
 
-        // 3) 행마다 적절한 컬럼 채우기
-        let updated = 0;
+        // 3) 행마다 적절한 컬럼 채우기 + 즉시 큰 손실 감지 시 경고 푸시
+        let updated = 0, lossAlerted = 0;
         for (const r of rows) {
             const age = now - r.created_at;
             const cur = priceMap.get(r.symbol);
             const sets = [];
             const args = [];
+
+            // ── 즉시 손실 경고 (시그널 발생 후 24h 이내, 아직 미경고) ──
+            if (!r.loss_alerted && age < 24 * H && cur != null && r.price > 0) {
+                const lossPct = r.direction === 'buy'
+                    ? ((cur - r.price) / r.price) * 100      // buy: 가격 하락 → 손실
+                    : ((r.price - cur) / r.price) * 100;     // sell: 가격 상승 → 손실
+                if (lossPct <= -5) {
+                    // 해당 종목 즐겨찾기 보유한 구독자에게 손실 경고 발송
+                    try {
+                        const subs = await env.DB.prepare(
+                            `SELECT endpoint, p256dh, auth, notif_prefs, quiet
+                             FROM push_subscribers
+                             WHERE favs LIKE ? AND last_seen > ?`
+                        ).bind(`%${r.symbol}%`, now - 30 * 24 * H).all();
+                        for (const s of (subs.results || [])) {
+                            // 음소거 시간이면 스킵
+                            if (isQuietNow(s.quiet)) continue;
+                            // stop 알림 OFF 사용자 스킵
+                            try {
+                                const p = JSON.parse(s.notif_prefs || '{}');
+                                if (!p.stop) continue;
+                            } catch { /* default ON */ }
+                            const payload = JSON.stringify({
+                                title: `⚠️ ${r.symbol} 손실 ${lossPct.toFixed(1)}%`,
+                                body: `${r.direction === 'buy' ? '매수' : '매도'} 시그널 이후 큰 손실 발생 — 현재 $${cur.toFixed(2)}`,
+                                url: `/?s=${r.symbol}&signal=${r.id}`,
+                                tag: `loss-${r.symbol}-${r.id}`,
+                                signalId: r.id,
+                            });
+                            try {
+                                await sendPush(
+                                    { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+                                    payload, env
+                                );
+                            } catch (e) { console.warn('[loss-alert] push', e.message); }
+                        }
+                        sets.push('loss_alerted=?'); args.push(1);
+                        lossAlerted++;
+                    } catch (e) { console.warn('[loss-alert]', e.message); }
+                }
+            }
+
             // 1h
             if (r.price_1h == null && age >= H && cur != null) {
                 sets.push('price_1h=?'); args.push(cur);
@@ -224,7 +290,7 @@ export async function resolveSignals(env) {
                 .bind(...args).run();
             updated++;
         }
-        return { checked: rows.length, updated };
+        return { checked: rows.length, updated, lossAlerted };
     } catch (e) {
         console.error('[cron] resolveSignals', e.message);
         return { error: e.message };
@@ -244,13 +310,13 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
     try {
         // 1) 30일 이내 활동한 구독자 + 즐겨찾기 + 알림 선호 + 시장 필터 모음
         const rs = await env.DB.prepare(
-            'SELECT endpoint, p256dh, auth, favs, notif_prefs, market_filter FROM push_subscribers WHERE last_seen > ? LIMIT 100'
+            'SELECT endpoint, p256dh, auth, favs, notif_prefs, market_filter, quiet FROM push_subscribers WHERE last_seen > ? LIMIT 100'
         ).bind(Date.now() - 30 * 24 * 3600 * 1000).all();
         const subs = rs.results || [];
         if (!subs.length) return { subscribers: 0, fired: 0 };
 
         // 2) 즐겨찾기 종목 dedupe + 매수 알림 켠 구독자만 + 시장 필터 일치만
-        // symbolToSubs: symbol → [{endpoint, p256dh, auth, prefs, marketFilter}]
+        // symbolToSubs: symbol → [{endpoint, p256dh, auth, prefs, marketFilter, quiet}]
         const symbolToSubs = new Map();
         for (const sub of subs) {
             let favs = [], prefs = { buy:1, tp:1, stop:1, pos:1 };
@@ -259,6 +325,8 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
             const subMarket = sub.market_filter || 'ALL';
             // 시장 필터: cron 호출 시 marketHint 와 사용자의 market_filter 둘 다 매치되어야 함
             if (marketHint !== 'ALL' && subMarket !== 'ALL' && subMarket !== marketHint) continue;
+            // 조용 시간대 — 현재 음소거 중이면 이 사용자에게 푸시 안 보냄
+            if (isQuietNow(sub.quiet)) continue;
             for (const sym of favs) {
                 if (!sym) continue;
                 const arr = symbolToSubs.get(sym) || [];
@@ -291,20 +359,25 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
 
                 const candleTs = ts[ts.length - 1] || Math.floor(Date.now() / 1000);
 
-                // 중복 체크
+                // 중복 체크 — 6시간 cooldown (같은 종목+방향 시그널 6h 내 1회만)
+                // 이전: 1분 → 5분봉 노이즈가 그대로 알림으로 흘러감
+                // 변경: 21600초(6h) → 의미 있는 신호만 발송
+                const COOLDOWN_SEC = 6 * 3600;
                 const existing = await env.DB.prepare(
-                    'SELECT id FROM signal_history WHERE symbol=? AND direction=? AND created_at >= ?'
-                ).bind(symbol, sig.dir, (candleTs - 60) * 1000).first();
-                if (existing) continue; // 1분 이내 같은 시그널 → 스킵
+                    'SELECT id, pushed_at FROM signal_history WHERE symbol=? AND direction=? AND created_at >= ? ORDER BY created_at DESC LIMIT 1'
+                ).bind(symbol, sig.dir, Date.now() - COOLDOWN_SEC * 1000).first();
+                if (existing) continue; // 6시간 이내 같은 시그널 → 스킵
 
-                // signal_history 기록
-                await env.DB.prepare(
-                    'INSERT INTO signal_history (symbol, market, direction, grade, score, win_rate, price, headline, created_at) VALUES (?,?,?,?,?,?,?,?,?)'
+                // signal_history 기록 (pushed_at 동시 기록 — 첫 푸시 시점)
+                const now = Date.now();
+                const insRes = await env.DB.prepare(
+                    'INSERT INTO signal_history (symbol, market, direction, grade, score, win_rate, price, headline, created_at, pushed_at) VALUES (?,?,?,?,?,?,?,?,?,?)'
                 ).bind(
-                    symbol, 'US', sig.dir, sig.grade, sig.score, sig.winRate,
+                    symbol, marketHint === 'KR' ? 'KR' : 'US', sig.dir, sig.grade, sig.score, sig.winRate,
                     sig.price, sig.factors.slice(0, 3).join(' · '),
-                    Date.now()
+                    now, now
                 ).run();
+                const signalId = insRes.meta?.last_row_id || null;
 
                 // 푸시 발송 — 사용자별 알림 종류 설정(prefs.buy/stop) 존중
                 const subList = symbolToSubs.get(symbol) || [];
@@ -313,8 +386,9 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
                 const payload = JSON.stringify({
                     title: `${arrow} ${symbol} ${dirKo} 시그널 [${sig.grade}급]`,
                     body: `$${sig.price.toFixed(2)} · 예상 승률 ${sig.winRate}% · ${sig.factors.slice(0, 2).join(' · ')}`,
-                    url: `/?s=${symbol}`,
+                    url: `/?s=${symbol}&signal=${signalId || ''}`,
                     tag: `signal-${symbol}-${sig.dir}`,
+                    signalId,
                 });
                 for (const sub of subList) {
                     // 매수 시그널인데 사용자가 buy=0 → 스킵

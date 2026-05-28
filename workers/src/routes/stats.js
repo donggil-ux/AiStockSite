@@ -102,6 +102,19 @@ export async function handleBacktest(req, env) {
              FROM signal_history WHERE created_at >= ?`
         ).bind(since).first();
 
+        // 등급별 사용자 평가 (피드백)
+        const ratingsByGrade = await env.DB.prepare(
+            `SELECT s.grade,
+                COUNT(f.id) AS rating_count,
+                SUM(CASE WHEN f.rating=1  THEN 1 ELSE 0 END) AS up_count,
+                SUM(CASE WHEN f.rating=-1 THEN 1 ELSE 0 END) AS down_count,
+                AVG(f.rating) AS avg_rating
+             FROM signal_history s
+             LEFT JOIN signal_feedback f ON f.signal_id = s.id
+             WHERE s.created_at >= ? AND f.id IS NOT NULL
+             GROUP BY s.grade`
+        ).bind(since).all();
+
         // 등급별 실제 정확도 (24h 기준)
         // 수익률 = direction이 buy면 (price_24h-price)/price*100, sell이면 (price-price_24h)/price*100
         const accuracy = await env.DB.prepare(
@@ -216,6 +229,7 @@ export async function handleBacktest(req, env) {
             topAccurate: topAccurate.results || [],
             bottomAccurate: bottomAccurate.results || [],
             dailyReturns: dailyReturns.results || [],
+            ratingsByGrade: ratingsByGrade.results || [],
         });
     } catch (e) {
         return err(500, e.message);
