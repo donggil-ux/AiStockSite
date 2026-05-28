@@ -24,6 +24,9 @@ import { handleTranslate } from './routes/translate.js';
 import { handleNewsReason } from './routes/news-reason.js';
 import { handleEarningsSummary } from './routes/earnings.js';
 import { handleCalibrationStatus, handleCalibrateNow } from './routes/calibration.js';
+import { handleScannerAiAnalyze, handleSwingAiAnalyze } from './routes/ai-scanner.js';
+import { handleScannerAiBatch, handleSocialAiAnalyze } from './routes/ai-batch-social.js';
+import { handleCatalystAiAnalyze } from './routes/ai-catalyst.js';
 import { calibrateAlgorithm } from './utils/calibration.js';
 import { logError, pruneOldErrors } from './utils/errors.js';
 import { snapshotHealth } from './cron.js';
@@ -108,6 +111,11 @@ const ROUTES = [
     ['GET',    '/api/earnings-summary',  handleEarningsSummary],
     ['GET',    '/api/calibration/status', handleCalibrationStatus],
     ['POST',   '/api/admin/calibrate',    handleCalibrateNow],
+    ['POST',   '/api/scanner/ai-analyze', handleScannerAiAnalyze],
+    ['POST',   '/api/scanner/ai-batch',   handleScannerAiBatch],
+    ['POST',   '/api/swing/ai-analyze',   handleSwingAiAnalyze],
+    ['POST',   '/api/social/ai-analyze',  handleSocialAiAnalyze],
+    ['POST',   '/api/catalyst/ai-analyze', handleCatalystAiAnalyze],
 ];
 
 export default {
