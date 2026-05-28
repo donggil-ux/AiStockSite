@@ -832,6 +832,7 @@ app.get('/api/screener/:filter', async (req, res) => {
 //   - Polygon.io 일봉 기반 24h 캐시
 // ───────────────────────────────────────────────────────────────────────
 const _minerviniCache = { ts: 0, data: null };
+let _minerviniDebugInfo = null;
 const MINERVINI_CACHE_TTL = 24 * 60 * 60 * 1000;
 
 const MINERVINI_UNIVERSE = [
@@ -962,7 +963,9 @@ function _mvDetectSetup(candleData) {
 }
 
 app.get('/api/scanner/minervini', async (req, res) => {
-    if (_minerviniCache.data && Date.now() - _minerviniCache.ts < MINERVINI_CACHE_TTL)
+    // ?refresh=1 → 캐시 강제 무력화 (디버깅용)
+    const forceRefresh = req.query.refresh === '1';
+    if (!forceRefresh && _minerviniCache.data && Date.now() - _minerviniCache.ts < MINERVINI_CACHE_TTL)
         return res.json(_minerviniCache.data);
 
     const POLYGON_API = process.env.POLYGON_API;
@@ -973,10 +976,9 @@ app.get('/api/scanner/minervini', async (req, res) => {
         const to   = new Date().toISOString().split('T')[0];
         const from = new Date(Date.now() - 290*86400000).toISOString().split('T')[0];
 
-        // 병렬 처리 — 8개씩 chunk (Vercel function 60s 한계 내 74개 처리)
-        // 이전: 순차 + 300ms sleep → 74개 처리 시 ~90초 초과로 timeout
-        // 이후: 8 chunk × ~1.5초 = ~14초 안전
+        // 병렬 처리 — 8개씩 chunk + 진단용 카운터
         const CHUNK = 8;
+        const debug = { universe: MINERVINI_UNIVERSE.length, fetched: 0, failed: 0, lt200: 0, noSetup: 0, foundSetup: 0, failedTickers: [], lt200Tickers: [] };
         for (let i = 0; i < MINERVINI_UNIVERSE.length; i += CHUNK) {
             const chunk = MINERVINI_UNIVERSE.slice(i, i + CHUNK);
             const results = await Promise.all(chunk.map(async (ticker) => {
@@ -985,22 +987,25 @@ app.get('/api/scanner/minervini', async (req, res) => {
                         + `?adjusted=true&sort=asc&limit=300&apiKey=${POLYGON_API}`;
                     const r = await axios.get(url, { timeout: 6000 });
                     const d = r.data;
-                    if (!d.results || d.results.length < 200) return null;
+                    debug.fetched++;
+                    if (!d.results || d.results.length < 200) { debug.lt200++; debug.lt200Tickers.push(`${ticker}(${d.results?.length||0})`); return null; }
                     const candleData = d.results.map(c => ({ time: Math.floor(c.t/1000), open:c.o, high:c.h, low:c.l, close:c.c, volume:c.v }));
                     const setup = _mvDetectSetup(candleData);
-                    if (setup) return { ticker, ...setup, currentPrice: candleData[candleData.length-1].close };
+                    if (setup) { debug.foundSetup++; return { ticker, ...setup, currentPrice: candleData[candleData.length-1].close }; }
+                    debug.noSetup++;
                     return null;
                 } catch(e) {
-                    console.warn(`[minervini] ${ticker} skip:`, e.message);
+                    debug.failed++; debug.failedTickers.push(`${ticker}(${e.response?.status||'err'})`);
                     return null;
                 }
             }));
             candidates.push(...results.filter(Boolean));
         }
+        _minerviniDebugInfo = debug;
 
         const gradeOrder = { S: 4, A: 3, B: 2, C: 1 };
         candidates.sort((a,b) => (gradeOrder[b.grade]||0) - (gradeOrder[a.grade]||0) || b.rsScore - a.rsScore);
-        const result = { scannedAt: new Date().toISOString(), scanType: '종가 매매', total: candidates.length, stocks: candidates };
+        const result = { scannedAt: new Date().toISOString(), scanType: '종가 매매', total: candidates.length, stocks: candidates, _debug: _minerviniDebugInfo };
         _minerviniCache.data = result;
         _minerviniCache.ts   = Date.now();
         res.json(result);
