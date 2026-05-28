@@ -10482,6 +10482,17 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
     background:linear-gradient(90deg, #EF4444 0%, #F59E0B 40%, #22C55E 70%, #FFD700 95%);
     border-radius:inherit;
     transition:width .4s cubic-bezier(0.25,0.46,0.45,0.94);
+    z-index:1;
+}
+/* 등급 임계값 마커 (B=50%, A=70%, S=90%) — fill 위에 오버레이 */
+.sgp-score-bar::after{
+    content:''; position:absolute; inset:0;
+    background:
+        linear-gradient(to right, transparent calc(50% - 0.5px), rgba(255,255,255,0.55) 50%, transparent calc(50% + 0.5px)),
+        linear-gradient(to right, transparent calc(70% - 0.5px), rgba(255,255,255,0.55) 70%, transparent calc(70% + 0.5px)),
+        linear-gradient(to right, transparent calc(90% - 0.5px), rgba(255,215,0,0.85) 90%, transparent calc(90% + 0.5px));
+    pointer-events:none;
+    z-index:2;
 }
 
 /* ── 최약 조건 칩 (접힌 상태에서만 노출) ── */
@@ -10525,6 +10536,32 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
     gap:6px;
     padding:8px 12px 12px;
     border-top:1px solid var(--border);
+}
+/* 다음 등급까지 안내 라인 — body 그리드 전체 폭 차지 */
+.sgp-next-grade{
+    grid-column:1/-1;
+    display:flex; align-items:center; gap:8px;
+    padding:6px 9px;
+    border-radius:var(--radius-xs);
+    background:rgba(255,255,255,0.04);
+    border:1px solid var(--border);
+    font-size:11px; color:var(--text2);
+}
+.sgp-next-grade-badge{
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width:18px; height:16px; padding:0 5px;
+    border-radius:var(--radius-xs);
+    font-size:10px; font-weight:800;
+    background:rgba(34,197,94,.16); color:#22C55E;
+    border:1px solid rgba(34,197,94,.35);
+}
+.sgp-next-grade-pts{
+    font-family:var(--font-data); font-weight:800; color:var(--text);
+}
+.sgp-next-grade.max-grade{
+    background:rgba(255,215,0,.08);
+    border-color:rgba(255,215,0,.35);
+    color:#FFD700;
 }
 .sig-grade-panel.collapsed .sgp-body{ display:none; }
 .sgp-condition{

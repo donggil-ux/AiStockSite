@@ -987,10 +987,18 @@
         const body = document.getElementById('sgpBody');
         if (body) {
             const allConds = [...factors, ...(Array.isArray(sg.weakFactors) ? sg.weakFactors : [])];
+            // 다음 등급까지 부족 점수 계산
+            const sc = +sg.score || 0;
+            let nextHtml = '';
+            if (sc >= 9)      nextHtml = `<div class="sgp-next-grade max-grade">🏆 최고 등급 <b>S</b> 달성 — 모든 조건 충족됨</div>`;
+            else if (sc >= 7) nextHtml = `<div class="sgp-next-grade"><span class="sgp-next-grade-badge" style="background:rgba(255,215,0,.16);color:#FFD700;border-color:rgba(255,215,0,.35);">S</span>등급까지 <span class="sgp-next-grade-pts">${(9-sc).toFixed(1)}점</span> 부족</div>`;
+            else if (sc >= 5) nextHtml = `<div class="sgp-next-grade"><span class="sgp-next-grade-badge">A</span>등급까지 <span class="sgp-next-grade-pts">${(7-sc).toFixed(1)}점</span> 부족</div>`;
+            else              nextHtml = `<div class="sgp-next-grade"><span class="sgp-next-grade-badge" style="background:rgba(59,130,246,.16);color:#3B82F6;border-color:rgba(59,130,246,.35);">B</span>등급까지 <span class="sgp-next-grade-pts">${(5-sc).toFixed(1)}점</span> 부족</div>`;
+
             if (!allConds.length) {
-                body.innerHTML = '<div class="sgp-empty">데이터 부족 — 조건을 분석할 수 없습니다</div>';
+                body.innerHTML = nextHtml + '<div class="sgp-empty">데이터 부족 — 조건을 분석할 수 없습니다</div>';
             } else {
-                body.innerHTML = allConds.map(f => {
+                body.innerHTML = nextHtml + allConds.map(f => {
                     // factor 라벨에서 ✅/🟡/❌/⚪/⚠️ 분류
                     const cls = f.startsWith('✅') ? 'sgp-cond-pass'
                               : f.startsWith('🟡') ? 'sgp-cond-mid'
