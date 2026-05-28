@@ -156,23 +156,47 @@ function _m6UpdateUI() {
     } catch(_) {}
 }
 
-// ── M5: 모바일 차트 제스처 ──────────────────────────────────────
-// - 더블탭: 줌인 1 step (_cnbZoom 0.72)
-// - 길게 누르기 (1초+): OHLC tooltip
-// - 핀치 줌: LightweightCharts 기본 지원 (별도 구현 없음)
-// - 좌우 스와이프: M4(app.js)에서 처리
+// ── M5+M6: 모바일 차트 제스처 (개선판) ─────────────────────────
+// M5: 더블탭(줌↔핏 토글), 길게 누르기(OHLC)
+// M6: 핀치 줌 햅틱+뱃지, 두 손가락 탭(뷰 리셋), 스와이프 속도 기반 개선
 (function _initM5MobileGestures() {
     'use strict';
 
-    let _m5Hooked       = false;
-    let _lastTapTime    = 0;
-    let _longPressTimer = null;
-    let _longActive     = false;
+    let _m5Hooked        = false;
+    let _lastTapTime     = 0;
+    let _longPressTimer  = null;
+    let _longActive      = false;
     let _sx = 0, _sy = 0, _cx = 0, _cy = 0;
+    let _touchStartTime  = 0;
 
-    const LONG_MS  = 1000;  // 길게 누르기 임계
-    const DBL_MS   = 300;   // 더블탭 간격
-    const MOVE_LIM = 10;    // 이동 취소 임계 (px)
+    // 핀치 상태
+    let _pinchActive     = false;
+    let _pinchStartDist  = 0;
+    let _pinchHapticDone = false;
+    let _pinchTwoTapTime = 0;   // 두 손가락 탭 감지용
+
+    // 더블탭 상태: 매 탭마다 줌인↔핏 토글
+    let _dblFitMode      = false;
+
+    const LONG_MS   = 900;   // 길게 누르기 임계 (ms)
+    const DBL_MS    = 280;   // 더블탭 허용 간격 (ms)
+    const MOVE_LIM  = 12;    // 이동 취소 임계 (px)
+    const PINCH_LIM = 0.06;  // 핀치 비율 변화 임계 (6%)
+
+    /* ── 플로팅 뱃지 ── */
+    function _m5ShowBadge(text, dur) {
+        const wrap = document.getElementById('tvChartWrap');
+        if (!wrap) return;
+        wrap.querySelectorAll('.m6-badge').forEach(el => el.remove());
+        const b = document.createElement('div');
+        b.className = 'm6-badge';
+        b.textContent = text;
+        wrap.appendChild(b);
+        setTimeout(() => b.remove(), dur || 700);
+    }
+
+    /* ── 하위 호환: _m5ZoomFb 별칭 ── */
+    function _m5ZoomFb(icon) { _m5ShowBadge(icon || '🔍'); }
 
     /* ── OHLC 표시 ── */
     function _m5ShowOhlc(clientX, clientY) {
@@ -192,11 +216,9 @@ function _m6UpdateUI() {
             const idx  = Math.max(0, Math.min(tsArr.length - 1, Math.round(logIdx)));
             const time = tsArr[idx];
             if (time == null) return;
-            // 기존 OHLC tooltip 내용 채우기 (chart-multi.js)
             if (typeof _onCrosshairMoveOhlc === 'function') {
                 _onCrosshairMoveOhlc({ point: { x, y }, time });
             }
-            // mobile-show 클래스로 CSS !important 오버라이드
             const tip = document.getElementById('chartOhlcTooltip');
             if (tip) tip.classList.add('mobile-show');
         } catch(_) {}
@@ -207,16 +229,12 @@ function _m6UpdateUI() {
         if (tip) tip.classList.remove('mobile-show');
     }
 
-    /* ── 더블탭 줌 피드백 이모지 ── */
-    function _m5ZoomFb() {
-        const wrap = document.getElementById('tvChartWrap');
-        if (!wrap) return;
-        wrap.querySelectorAll('.m5-zoom-fb').forEach(el => el.remove());
-        const fb = document.createElement('div');
-        fb.className = 'm5-zoom-fb';
-        fb.textContent = '🔍';
-        wrap.appendChild(fb);
-        setTimeout(() => fb.remove(), 650);
+    /* ── 핀치 시작 거리 계산 ── */
+    function _pinchDist(touches) {
+        return Math.hypot(
+            touches[0].clientX - touches[1].clientX,
+            touches[0].clientY - touches[1].clientY
+        );
     }
 
     /* ── 이벤트 훅 ── */
@@ -225,24 +243,44 @@ function _m6UpdateUI() {
         if (!wrap || _m5Hooked) return;
         _m5Hooked = true;
 
+        /* ── touchstart ── */
         wrap.addEventListener('touchstart', e => {
-            if (e.touches.length !== 1) {
-                // 멀티터치 → 타이머·상태 초기화
+            // ── 멀티터치 (2개 손가락) ──────────────────────────────
+            if (e.touches.length === 2) {
                 clearTimeout(_longPressTimer);
                 _longActive = false;
+                _pinchActive     = true;
+                _pinchHapticDone = false;
+                _pinchStartDist  = _pinchDist(e.touches);
+                _pinchTwoTapTime = Date.now();
                 return;
             }
+            // 3+ 터치 → 무시
+            if (e.touches.length > 2) return;
+
+            // ── 단일 터치 ──────────────────────────────────────────
             const t = e.touches[0];
             _sx = _cx = t.clientX;
             _sy = _cy = t.clientY;
+            _touchStartTime = Date.now();
 
             // 더블탭 감지
             const now = Date.now();
             if ((now - _lastTapTime) < DBL_MS) {
                 _lastTapTime = 0;
                 clearTimeout(_longPressTimer);
-                if (typeof _cnbZoom === 'function') _cnbZoom(0.72); // ~28% 확대
-                _m5ZoomFb();
+                if (_dblFitMode) {
+                    // 핏 올 (차트 전체 보기)
+                    if (window.lwChart) window.lwChart.timeScale().fitContent();
+                    _m5ShowBadge('📐 전체 보기');
+                    if (navigator.vibrate) navigator.vibrate([8, 8]);
+                } else {
+                    // 줌인
+                    if (typeof _cnbZoom === 'function') _cnbZoom(0.72);
+                    _m5ShowBadge('🔍 확대');
+                    if (navigator.vibrate) navigator.vibrate([10]);
+                }
+                _dblFitMode = !_dblFitMode;
                 return;
             }
             _lastTapTime = now;
@@ -257,8 +295,22 @@ function _m6UpdateUI() {
             }, LONG_MS);
         }, { passive: true });
 
+        /* ── touchmove ── */
         wrap.addEventListener('touchmove', e => {
+            // 핀치 진행 중
+            if (e.touches.length === 2 && _pinchActive) {
+                const dist  = _pinchDist(e.touches);
+                const ratio = _pinchStartDist > 0 ? dist / _pinchStartDist : 1;
+                // 임계 넘으면 햅틱 + 뱃지 (1회)
+                if (!_pinchHapticDone && Math.abs(ratio - 1) > PINCH_LIM) {
+                    _pinchHapticDone = true;
+                    if (navigator.vibrate) navigator.vibrate(8);
+                    _m5ShowBadge(ratio > 1 ? '🔍 확대' : '🔍 축소', 600);
+                }
+                return;
+            }
             if (e.touches.length !== 1) return;
+
             const t = e.touches[0];
             _cx = t.clientX;
             _cy = t.clientY;
@@ -267,25 +319,48 @@ function _m6UpdateUI() {
                 clearTimeout(_longPressTimer);
                 if (_longActive) { _m5HideOhlc(); _longActive = false; }
             } else if (_longActive) {
-                // 살짝 이동해도 위치 따라 OHLC 갱신
                 _m5ShowOhlc(_cx, _cy);
             }
         }, { passive: true });
 
-        wrap.addEventListener('touchend', () => {
+        /* ── touchend ── */
+        wrap.addEventListener('touchend', e => {
+            // 두 손가락 탭 감지: 핀치 거의 안 했는데 빠르게 손 뗀 경우 → 뷰 리셋
+            if (_pinchActive && e.touches.length < 2) {
+                _pinchActive = false;
+                const elapsed   = Date.now() - _pinchTwoTapTime;
+                const dist      = _pinchStartDist > 0
+                    ? Math.abs(_pinchDist(e.changedTouches.length > 1
+                        ? e.changedTouches : e.touches) - _pinchStartDist)
+                    : 0;
+                // 300ms 이내, 이동 30px 미만 → 두 손가락 탭 = 뷰 리셋
+                if (elapsed < 300 && dist < 30) {
+                    if (window.lwChart) window.lwChart.timeScale().fitContent();
+                    _m5ShowBadge('📐 전체 보기');
+                    if (navigator.vibrate) navigator.vibrate([8, 8]);
+                    _dblFitMode = false; // 리셋 후 다음 더블탭은 줌인부터
+                }
+                return;
+            }
+
             clearTimeout(_longPressTimer);
             if (_longActive) {
-                setTimeout(_m5HideOhlc, 1800); // 1.8초 후 자동 숨김
+                setTimeout(_m5HideOhlc, 1800);
                 _longActive = false;
             }
         }, { passive: true });
 
+        /* ── touchcancel ── */
         wrap.addEventListener('touchcancel', () => {
             clearTimeout(_longPressTimer);
             _m5HideOhlc();
             _longActive = false;
+            _pinchActive = false;
         }, { passive: true });
     }
+
+    // 차트 렌더 후 다시 연결 가능하도록 전역 노출
+    window._m5Reattach = function() { _m5Hooked = false; _attach(); };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', _attach);

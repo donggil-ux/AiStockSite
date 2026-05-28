@@ -6276,15 +6276,19 @@
     // ── 바텀 네비 밖 클릭으로 닫기 (센터 모달 전용) ──
     // 스와이프 다운 닫기 제거 — 센터 팝업은 백드롭 탭으로만 닫힘
 
-    // ── 본문 좌우 스와이프 (페이저 이동) ──
+    // ── 본문 좌우 스와이프 (페이저 이동, 속도 기반) ──
     (function() {
         let sx = 0, sy = 0, ex = 0, ey = 0, ing = false;
-        const THRESH = 60, VLIM = 60;
+        let startTime = 0;
+        const THRESH = 55, VLIM = 55, VEL_MIN = 0.3; // 최소 속도: 0.3px/ms
         document.body.addEventListener('touchstart', e => {
             const heroVisible = document.getElementById('stockHero')?.classList.contains('show');
             if (!heroVisible || !_stockPagerList.length) return;
             if (e.target.closest('.tv-lightweight-charts,.lwchart-wrap,.scroll-x,table,.alpha-card-list,.top100-row,input,textarea,button,.stock-pager-sheet,.chart-dd,.side-nav')) return;
-            sx = e.touches[0].clientX; sy = e.touches[0].clientY; ing = true;
+            sx = ex = e.touches[0].clientX;
+            sy = ey = e.touches[0].clientY;
+            ing = true;
+            startTime = Date.now();
         }, { passive: true });
         document.body.addEventListener('touchmove', e => {
             if (!ing) return;
@@ -6293,8 +6297,15 @@
         document.body.addEventListener('touchend', () => {
             if (!ing) return; ing = false;
             const dx = ex - sx, dy = ey - sy;
-            if (Math.abs(dy) > VLIM || Math.abs(dx) < THRESH) return;
-            navigateStock(dx > 0 ? -1 : 1);
+            const dt = Date.now() - startTime;
+            const vel = dt > 0 ? Math.abs(dx) / dt : 0;
+            // 충분한 거리 OR 빠른 플릭 (짧아도 빠르면 인식)
+            const okDist = Math.abs(dx) >= THRESH;
+            const okFlick = vel >= VEL_MIN && Math.abs(dx) >= 30;
+            if (Math.abs(dy) > VLIM || (!okDist && !okFlick)) return;
+            const dir = dx > 0 ? -1 : 1;
+            if (navigator.vibrate) navigator.vibrate(12);
+            navigateStock(dir);
         }, { passive: true });
     })();
 

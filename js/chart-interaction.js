@@ -503,6 +503,9 @@
         hookDrawRedraw();
         setTimeout(redrawCanvas, 100);
 
+        // M5+M6 모바일 제스처 재연결 (차트 재생성 시마다)
+        if (typeof window._m5Reattach === 'function') window._m5Reattach();
+
         // 리사이즈 옵저버
         lwResizeObserver = new ResizeObserver(entries => {
             if (lwChart && entries[0]) {

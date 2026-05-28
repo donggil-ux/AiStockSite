@@ -9564,6 +9564,32 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
     40%  { opacity: 1;   transform: translate(-50%, -50%) scale(1.2); }
     100% { opacity: 0;   transform: translate(-50%, -50%) scale(1.8); }
 }
+/* M6: 제스처 피드백 뱃지 (핀치/더블탭/두 손가락 탭) */
+.m6-badge {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(15,20,32,0.80);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    padding: 7px 14px;
+    border-radius: 20px;
+    pointer-events: none;
+    z-index: 9999;
+    animation: m6BadgePop 0.7s ease-out forwards;
+    white-space: nowrap;
+}
+@keyframes m6BadgePop {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.85); }
+    20%  { opacity: 1; transform: translate(-50%, -50%) scale(1.03); }
+    70%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+}
 
 /* M6: Hide desktop-only chart toolbar buttons on mobile */
 @media (max-width: 600px) {
