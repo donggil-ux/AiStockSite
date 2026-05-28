@@ -97,14 +97,11 @@
             '/api/news-reason',
             '/api/earnings-summary',
             '/api/calibration/',
-            // ── AI 라우트 (Workers 코드 준비됨, GEMINI_API_KEY secret 등록 후 활성화) ──
-            // 활성화 방법:
-            //   1) cd workers && npx wrangler secret put GEMINI_API_KEY
-            //   2) 아래 주석 4줄 해제 + 배포 + SW v++
-            // '/api/scanner/ai-',     // ai-analyze, ai-batch
-            // '/api/swing/ai-',
-            // '/api/social/ai-',
-            // '/api/catalyst/ai-',
+            // ── AI 라우트 (Workers, Gemini REST API) ──
+            '/api/scanner/ai-',     // ai-analyze, ai-batch
+            '/api/swing/ai-',
+            '/api/social/ai-',
+            '/api/catalyst/ai-',
         ];
         const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
         window.API_WORKERS_BASE = WORKERS_BASE;
