@@ -3117,9 +3117,13 @@
         const atr = lastVal(atrArr);
         if (!e10 || !e20 || !e50 || !atr || atr <= 0) return [];
 
-        // 평균 거래량 (20봉)
+        // 타임프레임별 거래량 lookback — 분봉일수록 노이즈 평탄화 위해 더 긴 평균 필요
+        //   5m 이하 → 30봉   15m → 20봉   30m → 15봉   1h+ → 20봉
+        const _kullIv  = typeof currentInterval !== 'undefined' ? (currentInterval || '') : '';
+        const _kullShort = /^(1m|2m|5m)$/.test(_kullIv);
+        const _kullVolLb = _kullShort ? 30 : _kullIv === '15m' ? 20 : _kullIv === '30m' ? 15 : 20;
         let volSum = 0, volCnt = 0;
-        for (let i = Math.max(0, lastIdx - 19); i <= lastIdx; i++) { if (vols[i]) { volSum += vols[i]; volCnt++; } }
+        for (let i = Math.max(0, lastIdx - (_kullVolLb - 1)); i <= lastIdx; i++) { if (vols[i]) { volSum += vols[i]; volCnt++; } }
         const avgVol = volCnt ? volSum / volCnt : 0;
         const rvol = avgVol > 0 ? vol / avgVol : 0;
 
@@ -3128,10 +3132,14 @@
         const pctOf = (p, base) => base ? (((p - base) / base) * 100).toFixed(2) : '0';
 
         // ── 1) EP (Episodic Pivot) ────────────────────────────────
-        // 갭업 ≥ 3% + 거래량 2배 이상 + 가격 > EMA50
+        // 타임프레임별 갭/RVOL 임계값 — 분봉은 더 엄격하게(거짓 EP 감소)
+        //   5m 이하 → 갭 2.0% / RVOL 2.5x   15m → 2.5% / 2.2x
+        //   30m    → 3.0% / 2.0x            1h+ → 3.0% / 2.0x (기존)
         const prevClose = closes[lastIdx - 1];
         const gapPct = prevClose ? ((close - prevClose) / prevClose) * 100 : 0;
-        const isEP = gapPct >= 3 && rvol >= 2.0 && close > e50;
+        const _epGapMin  = _kullShort ? 2.0 : _kullIv === '15m' ? 2.5 : 3.0;
+        const _epRvolMin = _kullShort ? 2.5 : _kullIv === '15m' ? 2.2 : 2.0;
+        const isEP = gapPct >= _epGapMin && rvol >= _epRvolMin && close > e50;
         if (isEP) {
             const entry = low - atr * 0.1;  // 당일 저점 부근 재진입
             const stop  = low - atr * 0.5;
@@ -3655,9 +3663,14 @@
         if (n < 20) return null;
 
         // ─── Smart Dip v2: TQI + ER + SuperTrend 필터 ───────────────
+        // 타임프레임별 SuperTrend ATR 배수 — 분봉은 더 타이트하게(과민 신호 감소)
+        //   5m 이하 → 1.8   15m → 2.0   30m → 2.2   1h+ → 2.0 (기존)
+        const _splitIv    = typeof currentInterval !== 'undefined' ? (currentInterval || '') : '';
+        const _splitShort = /^(1m|2m|5m)$/.test(_splitIv);
+        const _stMult     = _splitShort ? 1.8 : _splitIv === '15m' ? 2.0 : _splitIv === '30m' ? 2.2 : 2.0;
         const er      = _calcER(closes, 20);
         const tqi     = _calcTQI(closes, highs, lows, volumes, er);
-        const stTrend = _calcSuperTrend(closes, highs, lows, atr, 2.0);
+        const stTrend = _calcSuperTrend(closes, highs, lows, atr, _stMult);
         if (tqi < 0.3)      return null;   // 추세 품질 부족 — 진입 억제
         if (stTrend === -1) return null;   // SuperTrend 하락 — 진입 억제
 
@@ -3723,13 +3736,18 @@
             if (_emaBelow.length > 0) levels = _emaBelow;
         }
 
-        // ER 기반 최대 차수 제한 (강한 추세: 4차, 보통: 3차, 횡보: 진입 억제)
-        const erMaxEntry = er > 0.5 ? 4 : er > 0.25 ? 3 : 0;
+        // ER 기반 최대 차수 제한 — 타임프레임별 임계값 차별화
+        //   5m 이하 → 0.45/0.22   15m → 0.50/0.25   30m → 0.55/0.28   1h+ → 0.50/0.25
+        const _erHi = _splitShort ? 0.45 : _splitIv === '15m' ? 0.50 : _splitIv === '30m' ? 0.55 : 0.50;
+        const _erLo = _splitShort ? 0.22 : _splitIv === '15m' ? 0.25 : _splitIv === '30m' ? 0.28 : 0.25;
+        const erMaxEntry = er > _erHi ? 4 : er > _erLo ? 3 : 0;
         if (erMaxEntry === 0) return null;
         if (levels.length > erMaxEntry) levels = levels.slice(0, erMaxEntry);
 
-        // 손절선: 스윙 저점 - ATR*0.3
-        const stopPrice = swingLow - (atr || swingLow * 0.03) * 0.3;
+        // 손절선 ATR 오프셋 — 타임프레임별 (분봉은 더 타이트, 30m+ 더 여유)
+        //   5m 이하 → 0.25배   15m → 0.30배   30m → 0.35배   1h+ → 0.30배
+        const _stopMult = _splitShort ? 0.25 : _splitIv === '15m' ? 0.30 : _splitIv === '30m' ? 0.35 : 0.30;
+        const stopPrice = swingLow - (atr || swingLow * 0.03) * _stopMult;
 
         // SMC: Premium / Discount Zone 계산 (스윙 고저점 50% 기준)
         const equilibrium  = (swingHigh + swingLow) / 2;
@@ -4301,22 +4319,29 @@
         const drawdown = (cur - recentHigh) / recentHigh * 100; // 음수
         if (drawdown < -25 || drawdown > -5) return { pass: false, drawdown };
 
-        // 거래량: 20일 평균 0.8배 이하
+        // 거래량: 20일 평균 이하 — 분봉별 임계값 차별화
+        //   5m 이하 → 0.75x   15m → 0.80x   30m → 0.85x   1h+ → 0.80x (기존)
         let volSum = 0, volCnt = 0;
         for (let i = Math.max(0, lastIdx - 19); i < lastIdx; i++) {
             if (volumes[i]) { volSum += volumes[i]; volCnt++; }
         }
         const avgVol = volCnt ? volSum / volCnt : 0;
         const rvol = avgVol > 0 ? (volumes[lastIdx] || 0) / avgVol : 1;
-        return { pass: rvol <= 0.8, drawdown, rvol, recentHigh };
+        const _pbIv     = typeof currentInterval !== 'undefined' ? (currentInterval || '') : '';
+        const _pbVolMax = /^(1m|2m|5m)$/.test(_pbIv) ? 0.75 : _pbIv === '15m' ? 0.80 : _pbIv === '30m' ? 0.85 : 0.80;
+        return { pass: rvol <= _pbVolMax, drawdown, rvol, recentHigh };
     }
 
-    // 조건 3: RSI 30~55 (정상 눌림)
+    // 조건 3: RSI 정상 눌림 — 분봉별 밴드 차별화
+    //   5m 이하 → 33~55   15m → 30~55   30m → 28~52   1h+ → 30~55 (기존)
     function _pullbackCond3(closes) {
         const rsi = calcRSI(closes, 14);
         const cur = (() => { for (let i = rsi.length-1; i >= 0; i--) if (rsi[i] != null) return rsi[i]; return null; })();
         if (cur == null) return { pass: false };
-        return { pass: cur >= 30 && cur <= 55, rsi: cur, oversold: cur < 30 };
+        const _pbIv     = typeof currentInterval !== 'undefined' ? (currentInterval || '') : '';
+        const _pbRsiMin = /^(1m|2m|5m)$/.test(_pbIv) ? 33 : _pbIv === '30m' ? 28 : 30;
+        const _pbRsiMax = _pbIv === '30m' ? 52 : 55;
+        return { pass: cur >= _pbRsiMin && cur <= _pbRsiMax, rsi: cur, oversold: cur < _pbRsiMin };
     }
 
     // 동적 지지선 피보나치 일치 감지 (±0.5%)
@@ -4364,12 +4389,15 @@
         }
         if (rsiRebound) signals.push('RSI 반등');
 
-        // 3) 거래량 증가 (직전 5봉 평균 1.3배 이상)
+        // 3) 거래량 증가 — 분봉별 임계값 (분봉은 거짓 surge 방지를 위해 더 높게)
+        //   5m 이하 → 1.4x   15m → 1.3x   30m → 1.25x   1h+ → 1.3x (기존)
         if (n >= 6) {
             let vSum = 0;
             for (let i = lastIdx - 5; i < lastIdx; i++) { if (volumes[i]) vSum += volumes[i]; }
             const avg5 = vSum / 5;
-            if (avg5 > 0 && (volumes[lastIdx] || 0) >= avg5 * 1.3) signals.push('거래량 급증');
+            const _pbIv2  = typeof currentInterval !== 'undefined' ? (currentInterval || '') : '';
+            const _pbSurge = /^(1m|2m|5m)$/.test(_pbIv2) ? 1.4 : _pbIv2 === '30m' ? 1.25 : 1.3;
+            if (avg5 > 0 && (volumes[lastIdx] || 0) >= avg5 * _pbSurge) signals.push('거래량 급증');
         }
 
         // 4) VWAP 위 회복 (분봉만, 전역 lwVwap 시리즈 활용 — 근사값: 직전봉 이후 상승)
