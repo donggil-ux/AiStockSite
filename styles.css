@@ -11016,3 +11016,51 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
     .bt-rating-counts{ font-size: 11px; gap: 6px; }
     .bt-rating-pct{ font-size: 12px; }
 }
+
+/* ════════════════════════════════════════════════════════════
+   자동 알고리즘 보정 — 백테스트 페이지
+   ════════════════════════════════════════════════════════════ */
+.calib-card{
+    background: linear-gradient(135deg, rgba(59,130,246,.08) 0%, rgba(139,92,246,.06) 100%);
+    border: 1px solid rgba(59,130,246,.25);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.calib-row{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.calib-label{
+    font-size: 12px;
+    color: var(--text2, #D1D5DB);
+    font-weight: 600;
+}
+.calib-value{
+    font-size: 12px;
+    color: var(--text, #fff);
+    text-align: right;
+}
+.calib-thresholds{
+    display: flex;
+    gap: 12px;
+    font-size: 13px;
+    font-weight: 700;
+}
+[data-theme="light"] .calib-card{
+    background: linear-gradient(135deg, rgba(59,130,246,.06) 0%, rgba(139,92,246,.04) 100%);
+    border-color: rgba(59,130,246,.3);
+}
+[data-theme="light"] .calib-label{ color: #4B5563; }
+[data-theme="light"] .calib-value{ color: #111827; }
+
+@media (max-width: 600px){
+    .calib-row{ font-size: 11px; gap: 6px; flex-direction: column; align-items: stretch; }
+    .calib-row .calib-value, .calib-row .calib-thresholds{ text-align: left; }
+    .calib-thresholds{ gap: 8px; }
+}

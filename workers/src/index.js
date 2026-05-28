@@ -23,6 +23,8 @@ import { handleReportError, handleListErrors } from './routes/errors.js';
 import { handleTranslate } from './routes/translate.js';
 import { handleNewsReason } from './routes/news-reason.js';
 import { handleEarningsSummary } from './routes/earnings.js';
+import { handleCalibrationStatus, handleCalibrateNow } from './routes/calibration.js';
+import { calibrateAlgorithm } from './utils/calibration.js';
 import { logError, pruneOldErrors } from './utils/errors.js';
 import { snapshotHealth } from './cron.js';
 import { handleAdminStatus } from './routes/admin.js';
@@ -104,6 +106,8 @@ const ROUTES = [
     ['GET',    '/api/translate',         handleTranslate],
     ['GET',    '/api/news-reason',       handleNewsReason],
     ['GET',    '/api/earnings-summary',  handleEarningsSummary],
+    ['GET',    '/api/calibration/status', handleCalibrationStatus],
+    ['POST',   '/api/admin/calibrate',    handleCalibrateNow],
 ];
 
 export default {
@@ -149,12 +153,17 @@ export default {
         if (cron === '30 * * * *') {
             ctx.waitUntil(resolveSignals(env).then(r => console.log('[cron] resolve', r)));
         }
-        // 매일 00:05 — 일별 헬스 스냅샷 + 30일+ 에러 정리
+        // 매일 00:05 — 일별 헬스 스냅샷 + 30일+ 에러 정리 + (일요일이면) 알고리즘 자동 보정
         if (cron === '5 0 * * *') {
-            ctx.waitUntil(Promise.all([
+            const tasks = [
                 snapshotHealth(env).then(r => console.log('[cron] health', r)),
                 pruneOldErrors(env).then(r => console.log('[cron] prune', r)),
-            ]));
+            ];
+            // 일요일 (getUTCDay === 0) 이면 알고리즘 보정도 함께 실행
+            if (new Date(event.scheduledTime || Date.now()).getUTCDay() === 0) {
+                tasks.push(calibrateAlgorithm(env).then(r => console.log('[cron] calibrate', r)));
+            }
+            ctx.waitUntil(Promise.all(tasks));
         }
         // 5분마다 (시장 시간) 시그널 분석 + 가격 알림 병렬 실행
         if (cron === '*/5 13-21 * * 1-5' || cron === '*/5 0-6 * * 1-5') {

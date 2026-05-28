@@ -4,6 +4,7 @@ import { sendPush } from './utils/vapid.js';
 import { detectSignal } from './utils/indicators.js';
 import { fetchChartWithFallback } from './routes/yahoo.js';
 import { logError } from './utils/errors.js';
+import { loadAlgorithmConfig, loadBlacklist } from './utils/calibration.js';
 
 // ─────────────────────────────────────────────────────────────
 // 조용 시간대 (Quiet Hours) — 사용자별 야간 음소거
@@ -341,9 +342,17 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
         const allSymbols = [...symbolToSubs.keys()].slice(0, 30); // Workers 30초 보호
         if (!allSymbols.length) return { subscribers: subs.length, marketHint, fired: 0 };
 
+        // 동적 알고리즘 설정 + 블랙리스트 로드 (자동 보정 결과 반영)
+        const [thresholds, blacklist] = await Promise.all([
+            loadAlgorithmConfig(env),
+            loadBlacklist(env),
+        ]);
+
         // 3) 각 종목 5분봉 분석 + 시그널 발견 시 푸시 큐잉
-        let fired = 0, analyzed = 0;
+        let fired = 0, analyzed = 0, skippedBlacklist = 0;
         for (const symbol of allSymbols) {
+            // 블랙리스트 종목 — 시그널 분석 자체 스킵
+            if (blacklist.has(symbol)) { skippedBlacklist++; continue; }
             try {
                 // Yahoo crumb 실패 시 자동으로 Polygon fallback
                 const raw = await fetchChartWithFallback(env, symbol, '1d', '5m', 'false');
@@ -354,7 +363,7 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
                 const ts = result.timestamp || [];
                 analyzed++;
 
-                const sig = detectSignal(q);
+                const sig = detectSignal(q, thresholds);
                 // S/A 등급만 발송 (B/C 는 노이즈 가능성)
                 if (!sig || (sig.grade !== 'S' && sig.grade !== 'A')) continue;
 
@@ -409,7 +418,7 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
                 }
             } catch (e) { console.warn('[analyze] fail', symbol, e.message); }
         }
-        return { subscribers: subs.length, symbols: allSymbols.length, analyzed, fired };
+        return { subscribers: subs.length, symbols: allSymbols.length, analyzed, fired, skippedBlacklist };
     } catch (e) {
         console.error('[cron] analyzeSignals', e.message);
         return { error: e.message };

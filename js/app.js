@@ -1744,26 +1744,47 @@
         if (!body) return;
         body.innerHTML = '<div class="stats-loading">백테스트 결과를 불러오는 중...</div>';
         try {
-            const r = await fetch(`/api/stats/backtest?days=${_statsPeriodDays}`);
-            if (!r.ok) throw new Error('fetch failed');
-            const d = await r.json();
-            _renderBacktest(d);
+            // 백테스트 + 알고리즘 보정 상태 병렬 로드
+            const [r, cal] = await Promise.all([
+                fetch(`/api/stats/backtest?days=${_statsPeriodDays}`).then(x => x.ok ? x.json() : null),
+                fetch('/api/calibration/status').then(x => x.ok ? x.json() : null).catch(() => null),
+            ]);
+            if (!r) throw new Error('fetch failed');
+            _renderBacktest(r, cal);
         } catch(e) {
             body.innerHTML = `<div class="stats-empty">백테스트 데이터를 불러올 수 없습니다<br><small>${e.message}</small></div>`;
         }
     }
 
-    function _renderBacktest(d) {
+    function _renderBacktest(d, cal) {
         const body = document.getElementById('statsBody');
         if (!body) return;
         const prog = d.progress || {};
         const total = prog.total || 0;
         const has24 = prog.has_24h || 0;
         if (total === 0) {
-            body.innerHTML = `<div class="stats-empty">
+            // 시그널 없어도 자동 보정 상태는 표시
+            const calBlock = cal ? `<section class="stats-section">
+                <h2 class="stats-section-title">🤖 자동 알고리즘 보정</h2>
+                <div class="calib-card">
+                    <div class="calib-row">
+                        <span class="calib-label">현재 등급 임계값</span>
+                        <span class="calib-thresholds">
+                            <span style="color:#FFD60A;">S ≥ ${(cal.thresholds?.S ?? 7).toFixed(1)}</span>
+                            <span style="color:#22C55E;">A ≥ ${(cal.thresholds?.A ?? 5.5).toFixed(1)}</span>
+                            <span style="color:#3B82F6;">B ≥ ${(cal.thresholds?.B ?? 4).toFixed(1)}</span>
+                        </span>
+                    </div>
+                    <div class="calib-row">
+                        <span class="calib-label">자동 보정</span>
+                        <span class="calib-value">매주 일요일 03:00 (UTC) — 데이터 누적 시 임계값 자동 조정</span>
+                    </div>
+                </div>
+            </section>` : '';
+            body.innerHTML = calBlock + `<div class="stats-empty">
                 <div class="stats-empty-icon">🎯</div>
                 <div class="stats-empty-text">백테스트할 시그널이 없습니다</div>
-                <div class="stats-empty-sub">즐겨찾기 종목에서 시그널 발생 시 24h 후 실제 가격이 자동 매칭됩니다 (1h/4h/24h/7d)</div>
+                <div class="stats-empty-sub">즐겨찾기 종목에서 시그널 발생 시 24h 후 실제 가격이 자동 매칭됩니다 (1h/4h/24h/7d)<br>30건 이상 매칭되면 매주 자동 보정이 시작됩니다.</div>
             </div>`;
             return;
         }
@@ -1780,8 +1801,50 @@
         const fmt = (v, suf='%') => v == null ? '-' : (v >= 0 ? '+' : '') + v.toFixed(2) + suf;
         const colorReturn = v => v == null ? 'var(--text2)' : (v >= 0 ? '#22C55E' : '#EF4444');
 
+        // ── 0) 알고리즘 자동 보정 상태 ──
+        let html = '';
+        if (cal) {
+            const T = cal.thresholds || {};
+            const last = cal.last_calibration || {};
+            const nextDt = cal.next_calibration_at ? new Date(cal.next_calibration_at) : null;
+            const nextStr = nextDt ? `${nextDt.getMonth()+1}/${nextDt.getDate()} ${String(nextDt.getHours()).padStart(2,'0')}:${String(nextDt.getMinutes()).padStart(2,'0')}` : '-';
+            const lastDt = last.run_at ? new Date(last.run_at) : null;
+            const lastStr = lastDt ? `${lastDt.getMonth()+1}/${lastDt.getDate()} ${String(lastDt.getHours()).padStart(2,'0')}:${String(lastDt.getMinutes()).padStart(2,'0')}` : '아직 실행 안 됨';
+            const blacklisted = (cal.symbols || []).filter(s => s.blacklisted).length;
+            const boosted = (cal.symbols || []).filter(s => !s.blacklisted && (s.weight || 1) > 1).length;
+            html += `<section class="stats-section">
+                <h2 class="stats-section-title">🤖 자동 알고리즘 보정</h2>
+                <div class="calib-card">
+                    <div class="calib-row">
+                        <span class="calib-label">현재 등급 임계값</span>
+                        <span class="calib-thresholds">
+                            <span style="color:#FFD60A;">S ≥ ${(T.S ?? 7).toFixed(1)}</span>
+                            <span style="color:#22C55E;">A ≥ ${(T.A ?? 5.5).toFixed(1)}</span>
+                            <span style="color:#3B82F6;">B ≥ ${(T.B ?? 4).toFixed(1)}</span>
+                        </span>
+                    </div>
+                    <div class="calib-row">
+                        <span class="calib-label">마지막 보정</span>
+                        <span class="calib-value">${lastStr}${last.samples ? ` · ${last.samples}건 분석` : ''}${last.adjustments ? ` · ${last.adjustments}건 조정` : ''}</span>
+                    </div>
+                    <div class="calib-row">
+                        <span class="calib-label">다음 보정 예정</span>
+                        <span class="calib-value">${nextStr} (매주 일요일 자동)</span>
+                    </div>
+                    ${blacklisted || boosted ? `
+                    <div class="calib-row">
+                        <span class="calib-label">종목 가중치</span>
+                        <span class="calib-value">
+                            ${boosted ? `<span style="color:#22C55E;">⬆ 강화 ${boosted}종목</span> ` : ''}
+                            ${blacklisted ? `<span style="color:#EF4444;">⛔ 블랙리스트 ${blacklisted}종목</span>` : ''}
+                        </span>
+                    </div>` : ''}
+                </div>
+            </section>`;
+        }
+
         // ── 1) 매칭 진척도 ──
-        let html = `<section class="stats-section">
+        html += `<section class="stats-section">
             <h2 class="stats-section-title">매칭 진척도</h2>
             <div class="bt-progress-grid">
                 <div class="bt-progress-card">

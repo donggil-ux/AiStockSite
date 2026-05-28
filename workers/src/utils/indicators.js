@@ -101,7 +101,7 @@ export function lastVal(arr) {
  *
  *   S: ≥7 (승률 80%) / A: ≥5.5 (70%) / B: ≥4 (60%) / C: <4 (50%)
  */
-export function detectSignal(q) {
+export function detectSignal(q, thresholds = null) {
     const { close = [], high = [], low = [], volume = [] } = q;
     const N = close.length;
     if (N < 30) return null;
@@ -182,10 +182,12 @@ export function detectSignal(q) {
 
     const score = useBuy ? buyScore : sellScore;
     const factors = useBuy ? buyFactors : sellFactors;
+    // 동적 임계값 (자동 보정 결과) — null 이면 하드코딩 기본값
+    const T = thresholds || { S: 7.0, A: 5.5, B: 4.0 };
     let grade = 'C', winRate = 50;
-    if (score >= 7)      { grade = 'S'; winRate = 80; }
-    else if (score >= 5.5){ grade = 'A'; winRate = 70; }
-    else if (score >= 4) { grade = 'B'; winRate = 60; }
+    if (score >= T.S)      { grade = 'S'; winRate = 80; }
+    else if (score >= T.A) { grade = 'A'; winRate = 70; }
+    else if (score >= T.B) { grade = 'B'; winRate = 60; }
 
     return {
         dir: useBuy ? 'buy' : 'sell',
