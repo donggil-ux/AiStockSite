@@ -3210,8 +3210,11 @@
             -webkit-tap-highlight-color:transparent;
             transition:opacity .1s ease;
             z-index:1;
+            font-family:inherit;color:inherit;
         }
         .bn-item:active{opacity:.55;}
+        /* 모바일에선 하단 고정 항목(설정) 숨김 — PC 전용 */
+        .bn-item--bottom{ display:none; }
 
         /* 선택 배경 필 */
         .bn-item.active::before{
@@ -3311,6 +3314,21 @@
             }
             .bn-icon{ font-size:1.45rem; }
             .bn-label{ font-size:10.5px; margin-top:2px; letter-spacing:-0.2px; }
+            /* 하단 고정 설정 버튼 — 토스 PC 패턴 */
+            .bn-item--bottom{
+                display:flex;
+                margin-top:auto;            /* 위 항목들과 분리, 하단 고정 */
+                position:relative;
+            }
+            /* 설정 위 가는 구분선 */
+            .bn-item--bottom::after{
+                content:''; position:absolute;
+                top:-6px; left:14px; right:14px; height:1px;
+                background:rgba(255,255,255,0.08);
+            }
+            [data-theme="light"] .bn-item--bottom::after{
+                background:rgba(0,0,0,0.08);
+            }
             /* body 패딩 — bottom 제거, right 패널 폭만큼 확보 */
             body{ padding-bottom:0 !important; padding-right:84px; }
             /* PC 에선 종목 상세 진입해도 사이드 내비 표시 */

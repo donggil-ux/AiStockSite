@@ -6461,5 +6461,14 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
             btn.innerHTML = `<div class="bn-inner"><i class="bn-icon ${idx === 0 ? tab.iconFill : tab.iconLine}" data-line="${tab.iconLine}" data-fill="${tab.iconFill}"></i><span class="bn-label">${tab.label}</span></div>`;
             pill.appendChild(btn);
         });
+        // ── PC 사이드 모드 전용: 하단 고정 설정 버튼 (토스 PC UI 패턴) ──
+        // 모바일에선 CSS 로 숨김 (.bn-item--bottom { display:none })
+        const settingsBtn = document.createElement('button');
+        settingsBtn.className = 'bn-item bn-item--bottom';
+        settingsBtn.id = 'bnSettings';
+        settingsBtn.setAttribute('onclick', "openSettings()");
+        settingsBtn.setAttribute('title', '설정');
+        settingsBtn.innerHTML = `<div class="bn-inner"><i class="bn-icon ri-settings-3-line"></i><span class="bn-label">설정</span></div>`;
+        pill.appendChild(settingsBtn);
         nav.appendChild(pill);
     })();
