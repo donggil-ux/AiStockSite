@@ -3259,43 +3259,66 @@
             body{padding-bottom:78px!important;}
         }
 
-        /* ════ PC: 토스증권 스타일 우측 세로 사이드 내비 (901px+) ════ */
+        /* ════ PC: 토스증권 스타일 우측 풀-높이 사이드 내비 (901px+) ════ */
         @media (min-width: 901px){
-            /* 바텀 → 우측 세로 floating */
+            /* 바텀 → 우측 풀-높이 직사각형 (화면 우측에 딱 붙음) */
             .bottom-nav{
                 position:fixed;
-                top:50%; right:14px; bottom:auto; left:auto;
-                transform:translateY(-50%);
+                top:0; right:0; bottom:0; left:auto;
+                transform:none;
                 width:auto; max-width:none; margin:0;
                 padding:0;
+                z-index:850;
+                /* iOS safe-area 우측 (가로 모드 노치 등) */
+                padding-right:env(safe-area-inset-right, 0);
             }
-            .bottom-nav.hidden{ transform:translateY(-50%) translateX(120%); }
-            /* 필 컨테이너 — 가로 → 세로 */
+            .bottom-nav.hidden{ transform:translateX(120%); }
+            /* 필 컨테이너 — 풀-높이 사이드 패널 */
             .bn-pill{
                 flex-direction:column;
-                width:74px; height:auto;
-                padding:8px 4px;
-                border-radius:var(--radius-lg);
-                gap:2px;
+                width:84px; height:100%;
+                padding:18px 6px;
+                border-radius:0;                /* 직사각형 — 토스 스타일 */
+                gap:4px;
+                /* 토스: 불투명 배경 + 좌측 가는 분리선 */
+                background:#1A1B1F;             /* 다크 토스 사이드 색상 */
+                backdrop-filter:none;
+                -webkit-backdrop-filter:none;
+                box-shadow:none;
+                border-left:1px solid rgba(255,255,255,0.06);
+                justify-content:flex-start;
             }
-            /* 탭 아이템 — 세로 stack */
+            [data-theme="light"] .bn-pill{
+                background:#FFFFFF;
+                border-left:1px solid rgba(0,0,0,0.08);
+                box-shadow:none;
+            }
+            /* 탭 아이템 — 세로 stack, 정사각형에 가까운 비율 */
             .bn-item{
                 flex:0 0 auto;
                 width:100%; height:64px;
-                padding:8px 4px;
+                padding:9px 4px;
                 border-radius:var(--radius-md);
+                gap:3px;
             }
-            .bn-item.active::before{ inset:3px 6px; border-radius:var(--radius-md); }
+            .bn-item.active::before{
+                inset:4px 8px;
+                border-radius:var(--radius-md);
+                background:rgba(255,255,255,0.06);
+            }
+            [data-theme="light"] .bn-item.active::before{
+                background:rgba(0,0,0,0.05);
+            }
             .bn-icon{ font-size:1.45rem; }
-            .bn-label{ font-size:10px; margin-top:2px; }
-            /* body 패딩 — bottom 제거, right 확보 */
-            body{ padding-bottom:0 !important; padding-right:96px; }
-            /* PC 에선 종목 상세 진입해도 사이드 내비 표시 (모바일 규칙 무효화) */
+            .bn-label{ font-size:10.5px; margin-top:2px; letter-spacing:-0.2px; }
+            /* body 패딩 — bottom 제거, right 패널 폭만큼 확보 */
+            body{ padding-bottom:0 !important; padding-right:84px; }
+            /* PC 에선 종목 상세 진입해도 사이드 내비 표시 */
             body:has(#mainHeader.stock-loaded) .bottom-nav{ display:flex !important; }
-            /* 우측 하단 플로팅(알람·계산기) 위치 조정 — 사이드 내비와 겹치지 않게 */
-            #alertFab{ right:104px !important; }
-            #calcFab{ right:104px !important; }
-            #alpacaWsBadge{ right:104px !important; }
+            /* 우측 하단 플로팅(알람·계산기·실시간 배지) 위치 조정 — 사이드 내비 안쪽으로 */
+            #alertFab{ right:96px !important; }
+            #calcFab{ right:96px !important; }
+            #alpacaWsBadge{ right:96px !important; }
         }
         /* 종목 상세 + 작은 화면(601~900px) — 기존 하단 유지 */
 

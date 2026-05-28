@@ -6,8 +6,8 @@
 //   - /api/* 기타: 네트워크만 (항상 최신)
 //   - 새 SW 는 waiting 대기 → 사용자가 '새로고침' 토스트 클릭 시에만 활성화
 
-const CACHE_NAME = 'stockai-v968';
-const API_CACHE = 'stockai-api-v968';
+const CACHE_NAME = 'stockai-v969';
+const API_CACHE = 'stockai-api-v969';
 // API 캐시 최대 항목 수 (Quota 보호) — LRU 방식
 const API_CACHE_MAX = 80;
 
