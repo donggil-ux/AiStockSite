@@ -3314,6 +3314,22 @@
             }
             .bn-icon{ font-size:1.45rem; }
             .bn-label{ font-size:10.5px; margin-top:2px; letter-spacing:-0.2px; }
+            /* ── PC 종목 상세 헤더 정상화 ── */
+            /* 종목 진입 시 헤더가 .app(max-width 834px) 안에 위치하므로 좌측 패딩 확보 */
+            #mainHeader.stock-loaded .header-top{ padding-left:16px !important; }
+            /* PC 에선 스크롤 없이도 종목명 노출 (모바일 .header--show-stock 의존성 제거) */
+            #mainHeader.stock-loaded .mob-stock-name{
+                opacity:1 !important; visibility:visible !important;
+                font-size:16px; gap:8px;
+            }
+            /* 뒤로가기 버튼 크기 살짝 키움 + 호버 효과 */
+            #mainHeader.stock-loaded .mob-back-btn{
+                width:38px; height:38px; font-size:22px;
+                transition:background .15s;
+            }
+            #mainHeader.stock-loaded .mob-back-btn:hover{
+                background:var(--bg4);
+            }
             /* 하단 고정 설정 버튼 — 토스 PC 패턴 */
             .bn-item--bottom{
                 display:flex;

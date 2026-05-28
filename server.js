@@ -849,6 +849,17 @@ const MINERVINI_UNIVERSE = [
     'TQQQ','SOXL','NVDL',
     // 신규 모멘텀
     'HIMS','UBER','ABNB','SPOT','NFLX',
+    // ── 중형주 (~$2B~$30B 시총) — 빅테크 외 다양화 ──
+    // 소비/리테일
+    'ULTA','DECK','BBY','WSM','FIVE','CROX','SKX','RH','BIRK','CELH',
+    // 핀테크/모빌리티
+    'SOFI','RKT','MTCH','LYFT','RKLB','JOBY',
+    // 바이오/헬스
+    'AXSM','VRTX','LLY','NVO',
+    // 클라우드/AI 중형
+    'NET','GTLB','ESTC','PATH','S','IOT',
+    // ── 소형주 (~$300M~$2B) — 단테 셋업 발생 빈도 높음 ──
+    'OKLO','IREN','BMNR','BTBT','MARA','RIOT','RGTI','QBTS','LAES','JANX','HUYA',
 ];
 
 function _mvSMA(arr, period) {
