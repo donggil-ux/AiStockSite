@@ -8100,7 +8100,20 @@
 /* 가로 toolbar + 보조지표 드롭다운 공통 래퍼 */
 .chart-xtb-wrap {
     position: relative;
+    /* 차트 카드(flex column) 내부 순서: 맨 위 (보조지표/그리기/종목 비교/차트 분할/라인/동기화/작게보기) */
+    order: -2;
 }
+/* 그 다음 분봉 분석 줄 (5분/B+/A+/S/분석/라인/익절/백테스트/소리) */
+.tv-chart-card > #chartToolbar { order: -1; }
+/* 신호 등급 패널은 분봉 분석 바로 아래 */
+.tv-chart-card > #sigGradePanel { order: 0; }
+/* 나머지 priceSourceBadge, aiProgress, chartPreBanner, chartSigBar 는 이후 */
+.tv-chart-card > #priceSourceBadge,
+.tv-chart-card > #aiProgress,
+.tv-chart-card > #chartPreBanner,
+.tv-chart-card > #chartSigBar { order: 1; }
+/* 차트 영역 — 맨 아래 (flex:1로 남은 공간 차지) */
+.tv-chart-card > #chartGridWrap { order: 10; }
 .chart-x-toolbar {
     display: flex;
     align-items: center;
