@@ -227,7 +227,7 @@
         if (!wrap || !stockData) return;
 
         // 기존 차트 정리 (비교 오버레이 stale ref 초기화 포함)
-        _cmpSeries = null;
+        _cmpItems = [];
         destroyChart();
         wrap.innerHTML = '';
 

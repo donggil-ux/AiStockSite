@@ -1268,6 +1268,14 @@
                                 oninput="_cmpModalSearch(this.value)"
                                 onkeydown="if(event.key==='Enter'){event.preventDefault();_cmpSubmit();}else if(event.key==='Escape')_cmpCloseSheet();">
                         </div>
+                        <!-- 현재 비교 중인 종목 -->
+                        <div id="cmpActiveSection" class="cmp-pop-section" style="display:none;">
+                            <div class="cmp-pop-sec-row">
+                                <span class="cmp-pop-sec-title">비교 중 (<span id="cmpActiveCount">0</span>/3)</span>
+                                <button class="cmp-pop-clear-all" onclick="_cmpRemoveAll()">모두 제거</button>
+                            </div>
+                            <div class="cmp-active-chips" id="cmpActiveChips"></div>
+                        </div>
                         <!-- 최근 검색 -->
                         <div id="cmpRecentSection" class="cmp-pop-section" style="display:none;">
                             <div class="cmp-pop-sec-row">
@@ -1285,13 +1293,8 @@
                             <div class="cmp-peer-list" id="cmpPeerList"></div>
                         </div>
                     </div>
-                    <!-- 📊 종목비교 레전드 칩 (차트 위 좌상단 오버레이) -->
-                    <div id="cmpLegend" style="display:none;">
-                        <div class="cmp-dot"></div>
-                        <span class="cmp-legend-sym">—</span>
-                        <span class="cmp-legend-chg"></span>
-                        <button class="cmp-legend-x" onclick="_cmpRemove()">✕</button>
-                    </div>
+                    <!-- 📊 종목비교 레전드 바 (차트 위 좌상단 — 동적 렌더) -->
+                    <div id="cmpLegendBar"></div>
                     <!-- ════ 그리기 도구 메뉴 (TradingView style floating panel) ════ -->
                     <div id="drawMenu" class="draw-menu" style="display:none;">
                         <!-- 도구 목록 -->

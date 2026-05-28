@@ -832,12 +832,15 @@
     }
     function _cxtRuler()   { showToast?.('📐 자 기능 — 곧 출시'); }
     function _cxtCompare() {
-        if (_cmpSeries) { _cmpRemove(); return; }
         _cmpOpenSheet();
     }
     function _cxtSplit(ev) { _xcOpenLayoutPopover(ev); }
 
-    // ── 종목비교 ────────────────────────────────────────────────────
+    // ── 종목비교 (최대 3개 동시) ────────────────────────────────────
+
+    const _CMP_MAX = 3;
+    // 비교 라인 색상 팔레트 (슬롯 0~2)
+    const _CMP_PALETTE = ['#818CF8', '#F59E0B', '#10B981'];
 
     // 섹터별 피어 매핑
     const _CMP_PEERS = {
@@ -932,6 +935,7 @@
         const catTime = document.getElementById('cmpCatTime');
         if (catTime) catTime.textContent = timeStr;
 
+        _cmpRenderActiveSection();
         _cmpRenderRecent();
         _cmpRenderPeers(currentSymbol || '');
 
@@ -1011,13 +1015,19 @@
             const name  = _CMP_NAMES[p] || p;
             const color = _cmpSymColor(p);
             const rankCls = i < 3 ? ' rank-top' : '';
-            return `<button class="cmp-peer-row" onclick="_cmpSelectPeer('${p}')">
+            const isActive = _cmpItems.some(it => it.sym === p);
+            const activeItem = _cmpItems.find(it => it.sym === p);
+            const activeMark = isActive
+                ? `<span class="cmp-peer-active-mark" style="color:${activeItem.color}">✓</span>`
+                : '';
+            return `<button class="cmp-peer-row${isActive ? ' is-active' : ''}" onclick="_cmpSelectPeer('${p}')">
                 <span class="cmp-peer-rank${rankCls}">${i + 1}</span>
                 <div class="cmp-peer-avatar" style="background:${color}">${p.charAt(0)}</div>
                 <div class="cmp-peer-info">
                     <span class="cmp-peer-name">${name}</span>
                     <span class="cmp-peer-sym-label">${p}</span>
                 </div>
+                ${activeMark}
                 <span class="cmp-peer-chg" id="cmpChg_${p}">—</span>
             </button>`;
         }).join('');
@@ -1055,7 +1065,7 @@
     }
 
     function _cmpSelectPeer(sym) {
-        _cmpCloseSheet();
+        // 시트 유지 — 여러 종목을 연속으로 추가/제거 가능하도록 닫지 않음
         _cmpLoad(sym);
     }
 
@@ -1063,7 +1073,7 @@
         const inp = document.getElementById('cmpInput');
         const raw = (inp?.value || '').trim().toUpperCase();
         if (!raw) return;
-        _cmpCloseSheet();
+        if (inp) inp.value = '';
         await _cmpLoad(raw);
     }
 
@@ -1073,15 +1083,28 @@
         const mainTs = _lastSigArgs?.ts;
         if (!q || !mainTs?.length) { showToast('차트 데이터가 없습니다.'); return; }
 
+        const sym = (rawSym || '').toUpperCase();
+
+        // 이미 추가된 경우 → 제거 (토글)
+        if (_cmpItems.some(it => it.sym === sym)) {
+            _cmpRemoveSym(sym);
+            return;
+        }
+
+        if (_cmpItems.length >= _CMP_MAX) {
+            showToast(`최대 ${_CMP_MAX}개까지 비교 가능합니다.`);
+            return;
+        }
+
         // 심볼 해석
         let fullSym;
-        if (/\.\w{2,3}$/.test(rawSym)) {
-            fullSym = rawSym;
-        } else if (autoDetectMarket(rawSym) === 'KR') {
-            const code = findKRCode(rawSym);
+        if (/\.\w{2,3}$/.test(sym)) {
+            fullSym = sym;
+        } else if (autoDetectMarket(sym) === 'KR') {
+            const code = findKRCode(sym);
             fullSym = code + '.KS';
         } else {
-            fullSym = findUSTicker(rawSym) || rawSym;
+            fullSym = findUSTicker(sym) || sym;
         }
 
         showToast('📊 비교 데이터 로딩 중...');
@@ -1120,67 +1143,113 @@
             }
             if (!lineData.length) throw new Error('겹치는 구간 없음');
 
-            // 기존 시리즈 제거
-            _cmpRemove(false);
+            // 팔레트에서 색상 슬롯 할당
+            const color = _CMP_PALETTE[_cmpItems.length % _CMP_PALETTE.length];
 
             // 라인 시리즈 추가
-            _cmpSeries = lwChart.addLineSeries({
-                color: _cmpColor,
+            const series = lwChart.addLineSeries({
+                color,
                 lineWidth: 2,
                 priceLineVisible: false,
                 lastValueVisible: false,
                 crosshairMarkerVisible: true,
                 crosshairMarkerRadius: 4,
-                crosshairMarkerBorderColor: _cmpColor,
-                crosshairMarkerBackgroundColor: _cmpColor,
+                crosshairMarkerBorderColor: color,
+                crosshairMarkerBackgroundColor: color,
             });
-            _cmpSeries.setData(lineData);
-            _cmpSymbol = rawSym;
+            series.setData(lineData);
 
-            // 레전드 계산 (시작 대비 현재 등락률)
+            // 등락률 계산
             const firstVal = lineData[0].value;
             const lastVal  = lineData[lineData.length - 1].value;
             const chgPct   = firstVal ? (lastVal / firstVal - 1) * 100 : 0;
 
-            _cmpUpdateLegend(rawSym, chgPct);
-            _cmpAddRecent(rawSym);
-            document.getElementById('cxtCompare')?.classList.add('active');
-            showToast(`${rawSym} 비교 추가됨`);
+            _cmpItems.push({ sym, series, color, chgPct });
+
+            _cmpRenderLegends();
+            _cmpRenderActiveSection();
+            _cmpRenderPeers(currentSymbol || '');  // 피어 목록 체크마크 갱신
+            _cmpAddRecent(sym);
+            document.getElementById('cxtCompare')?.classList.toggle('active', _cmpItems.length > 0);
+            showToast(`${sym} 비교 추가됨`);
         } catch(e) {
             showToast('비교 실패: ' + e.message);
             warn('[cmp] load fail:', e);
         }
     }
 
-    function _cmpRemove(doToast) {
-        if (_cmpSeries) {
-            try { lwChart?.removeSeries(_cmpSeries); } catch(_) {}
-            _cmpSeries = null;
-        }
-        _cmpSymbol = null;
-        const leg = document.getElementById('cmpLegend');
-        if (leg) leg.style.display = 'none';
-        document.getElementById('cxtCompare')?.classList.remove('active');
-        if (doToast !== false) showToast('비교 종목 제거됨');
+    /** 특정 심볼 제거 */
+    function _cmpRemoveSym(sym) {
+        const idx = _cmpItems.findIndex(it => it.sym === sym);
+        if (idx < 0) return;
+        try { lwChart?.removeSeries(_cmpItems[idx].series); } catch(_) {}
+        _cmpItems.splice(idx, 1);
+        _cmpRenderLegends();
+        _cmpRenderActiveSection();
+        _cmpRenderPeers(currentSymbol || '');
+        document.getElementById('cxtCompare')?.classList.toggle('active', _cmpItems.length > 0);
+        if (_cmpItems.length === 0) showToast('비교 종목 제거됨');
     }
 
-    function _cmpUpdateLegend(sym, chgPct) {
-        const leg = document.getElementById('cmpLegend');
-        if (!leg) return;
-        const symEl = leg.querySelector('.cmp-legend-sym');
-        const chgEl = leg.querySelector('.cmp-legend-chg');
-        if (symEl) symEl.textContent = sym;
-        if (chgEl) {
-            const sign = chgPct >= 0 ? '+' : '';
-            chgEl.textContent = `${sign}${chgPct.toFixed(2)}%`;
-            chgEl.style.color = chgPct > 0 ? '#EF4444' : chgPct < 0 ? '#3B82F6' : 'var(--text3)';
-        }
-        leg.style.display = 'flex';
+    /** 모든 비교 종목 제거 */
+    function _cmpRemoveAll(doToast) {
+        _cmpItems.forEach(it => { try { lwChart?.removeSeries(it.series); } catch(_) {} });
+        _cmpItems = [];
+        _cmpRenderLegends();
+        _cmpRenderActiveSection();
+        _cmpRenderPeers(currentSymbol || '');
+        document.getElementById('cxtCompare')?.classList.remove('active');
+        if (doToast !== false) showToast('비교 종목 모두 제거됨');
     }
+
+    /** 하위 호환 — 단일 제거 별칭 */
+    function _cmpRemove(doToast) {
+        if (_cmpItems.length) _cmpRemoveSym(_cmpItems[0].sym);
+        else if (doToast !== false) showToast('비교 종목 없음');
+    }
+
+    /** 레전드 바 재렌더 */
+    function _cmpRenderLegends() {
+        const bar = document.getElementById('cmpLegendBar');
+        if (!bar) return;
+        bar.innerHTML = _cmpItems.map(item => {
+            const sign = item.chgPct >= 0 ? '+' : '';
+            const chgColor = item.chgPct > 0 ? '#EF4444' : item.chgPct < 0 ? '#3B82F6' : 'var(--text3)';
+            const s = item.sym.replace(/[<>"']/g, '');
+            return `<div class="cmp-legend-chip">
+                <span class="cmp-dot" style="background:${item.color}"></span>
+                <span class="cmp-legend-sym" style="color:${item.color}">${s}</span>
+                <span class="cmp-legend-chg" style="color:${chgColor}">${sign}${item.chgPct.toFixed(2)}%</span>
+                <button class="cmp-legend-x" onclick="_cmpRemoveSym('${s}')">✕</button>
+            </div>`;
+        }).join('');
+    }
+
+    /** 팝오버 내 "현재 비교 중" 섹션 재렌더 */
+    function _cmpRenderActiveSection() {
+        const sec      = document.getElementById('cmpActiveSection');
+        const chips    = document.getElementById('cmpActiveChips');
+        const countEl  = document.getElementById('cmpActiveCount');
+        if (!sec) return;
+        if (!_cmpItems.length) { sec.style.display = 'none'; return; }
+        sec.style.display = '';
+        if (countEl) countEl.textContent = _cmpItems.length;
+        if (chips) chips.innerHTML = _cmpItems.map(item => {
+            const s = item.sym.replace(/[<>"']/g, '');
+            return `<button class="cmp-active-chip" style="border-color:${item.color};color:${item.color}" onclick="_cmpRemoveSym('${s}');event.stopPropagation();">${s} ✕</button>`;
+        }).join('');
+    }
+
+    /** 하위 호환 alias */
+    function _cmpUpdateLegend(sym, chgPct) { _cmpRenderLegends(); }
 
     /** 인터벌/기간 변경 시 비교 오버레이 자동 갱신 */
     function _cmpRefreshIfActive() {
-        if (_cmpSymbol) _cmpLoad(_cmpSymbol);
+        if (_cmpItems.length) {
+            const syms = _cmpItems.map(it => it.sym);
+            _cmpRemoveAll(false);
+            syms.forEach(s => _cmpLoad(s));
+        }
     }
 
     // ══════════════════════════════════════════════════════════

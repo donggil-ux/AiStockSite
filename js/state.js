@@ -211,10 +211,8 @@
     // Lightweight Charts 인스턴스
     window.lwChart = null;
     window.lwCandleSeries = null;
-    // 종목비교 오버레이 상태
-    window._cmpSeries = null;   // LineSeries on lwChart
-    window._cmpSymbol = null;   // 현재 비교 중인 심볼
-    window._cmpColor = '#818CF8'; // 인디고 라인 색상
+    // 종목비교 오버레이 상태 (최대 3개 동시 비교)
+    window._cmpItems = [];       // [{sym, series, color, chgPct}]
     window.lwVolumeSeries = null;
     window.lwMaSeries = {};       // { ma5, ma20, ma70 }
     window.lwBbUpper = null;

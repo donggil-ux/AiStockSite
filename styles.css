@@ -9810,35 +9810,40 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
 @media(max-width:600px){
     .cmp-popover { width: calc(100vw - 24px); max-height: 80vh; }
 }
-/* 레전드 칩 — 차트 좌상단 float */
-#cmpLegend {
+/* 레전드 바 — 차트 좌상단 float (멀티 칩 컨테이너) */
+#cmpLegendBar {
     position: absolute;
     top: 6px;
     left: 8px;
     z-index: 40;
-    display: none;          /* overridden by JS to flex */
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    pointer-events: auto;
+}
+.cmp-legend-chip {
+    display: flex;
     align-items: center;
     gap: 5px;
     background: rgba(15,20,32,0.82);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
-    border: 1px solid rgba(129,140,248,0.3);
+    border: 1px solid rgba(129,140,248,0.25);
     border-radius: 20px;
     padding: 4px 10px 4px 7px;
     font-size: 12px;
-    pointer-events: auto;
 }
 .cmp-dot {
     width: 10px;
     height: 3px;
-    background: #818CF8;
     border-radius: 2px;
     flex-shrink: 0;
+    /* background set via inline style per-chip */
 }
 .cmp-legend-sym {
-    color: #818CF8;
     font-weight: 700;
     letter-spacing: 0.01em;
+    /* color set via inline style per-chip */
 }
 .cmp-legend-chg {
     font-weight: 600;
@@ -9861,11 +9866,46 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
 #cxtCompare.active svg {
     stroke: #818CF8;
 }
-/* 모바일: cmpLegend top 아래쪽 (mobilePeriodBar 높이만큼 내리기) */
+/* 모바일: cmpLegendBar top 아래쪽 (mobilePeriodBar 높이만큼 내리기) */
 @media (max-width: 600px) {
-    #cmpLegend {
+    #cmpLegendBar {
         top: 36px;
     }
+}
+/* 팝오버 — 현재 비교 중 섹션 */
+.cmp-active-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-bottom: 4px;
+}
+.cmp-active-chip {
+    background: none;
+    border: 1.5px solid currentColor;
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+.cmp-active-chip:hover { opacity: 0.75; }
+.cmp-pop-clear-all {
+    background: none;
+    border: none;
+    font-size: 11px;
+    color: var(--text3);
+    cursor: pointer;
+    padding: 0;
+}
+.cmp-pop-clear-all:hover { color: var(--text1); }
+/* 피어 목록 — 이미 추가된 항목 강조 */
+.cmp-peer-row.is-active { background: var(--bg3); }
+.cmp-peer-active-mark {
+    font-size: 13px;
+    font-weight: 800;
+    flex-shrink: 0;
+    margin-left: 2px;
 }
 
 /* ── 인라인에서 이동된 keyframe ── */
