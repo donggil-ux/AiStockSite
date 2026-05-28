@@ -922,7 +922,17 @@
         // 1) 지표 계산 — 각각 try/catch: 데이터 이상으로 throw해도 나머지 배지는 유지
         let rsi = [], macdLine = [], signalLine = [], histogram = [];
         try { rsi = calcRSI(closes); } catch(e) {}
-        try { const _m = calcMACD(closes); macdLine = _m.macdLine; signalLine = _m.signalLine; histogram = _m.histogram; } catch(e) {}
+        // MACD 파라미터 — 분봉별 최적화 (짧은 TF는 더 빠른 응답)
+        //   5m 이하 → (5,13,4)   15m → (8,17,6)   30m → (10,21,7)   1h+ → (12,26,9) 표준
+        try {
+            const _macIv = typeof currentInterval !== 'undefined' ? (currentInterval || '') : '';
+            const _macP  = /^(1m|2m|5m)$/.test(_macIv) ? [5, 13, 4]
+                         : _macIv === '15m'           ? [8, 17, 6]
+                         : _macIv === '30m'           ? [10, 21, 7]
+                         :                              [12, 26, 9];
+            const _m = calcMACD(closes, _macP[0], _macP[1], _macP[2]);
+            macdLine = _m.macdLine; signalLine = _m.signalLine; histogram = _m.histogram;
+        } catch(e) {}
         // 실시간 현재가 우선 사용 (프리마켓/애프터마켓 포함)
         const _livePx = (typeof _posCurrentPrice === 'function') ? _posCurrentPrice() : null;
         const lastClose = (_livePx != null && _livePx > 0) ? _livePx : lastVal(closes);

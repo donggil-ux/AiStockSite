@@ -60,13 +60,16 @@
         return rsi;
     }
 
-    function calcMACD(closes) {
-        const ema12 = calcEMA(closes, 12);
-        const ema26 = calcEMA(closes, 26);
-        const macdLine = ema12.map((v, i) => (v != null && ema26[i] != null) ? v - ema26[i] : null);
+    // calcMACD — 표준 MACD(12,26,9) 기본값 유지 + 분봉 최적화용 파라미터 오버라이드
+    //   짧은 TF 에서는 더 빠른 응답을 위해 작은 기간 사용 권장
+    //     5m  → (5, 13, 4)   15m → (8, 17, 6)   30m → (10, 21, 7)   1h+ → (12, 26, 9)
+    function calcMACD(closes, fast = 12, slow = 26, signal = 9) {
+        const emaFast = calcEMA(closes, fast);
+        const emaSlow = calcEMA(closes, slow);
+        const macdLine = emaFast.map((v, i) => (v != null && emaSlow[i] != null) ? v - emaSlow[i] : null);
         // 수정: warm-up 구간 null을 0으로 치환하지 않고 그대로 전달.
         // calcEMA 가 null 을 받으면 seed 시점이 뒤로 밀려 실제 유효 MACD 값부터 EMA 시작.
-        const signalLine = calcEMA(macdLine, 9);
+        const signalLine = calcEMA(macdLine, signal);
         const histogram = macdLine.map((v, i) => (v != null && signalLine[i] != null) ? v - signalLine[i] : null);
         return { macdLine, signalLine, histogram };
     }
