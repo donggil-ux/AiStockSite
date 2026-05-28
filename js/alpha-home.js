@@ -2035,6 +2035,7 @@
         const _ernH = document.getElementById('earningsScreen'); if (_ernH) _ernH.style.display = 'none';
         const _levH = document.getElementById('leverageScreen'); if (_levH) _levH.style.display = 'none';
         const _posH = document.getElementById('positionScreen'); if (_posH) _posH.style.display = 'none';
+        const _profH = document.getElementById('profileScreen'); if (_profH) _profH.style.display = 'none';
         window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded'); const _fab=document.getElementById('calcFab'); if(_fab)_fab.style.display='none';
         document.querySelectorAll('.side-nav-item').forEach(b => b.classList.remove('active'));
@@ -7464,6 +7465,124 @@
         updateBnActive('all');
         loadCatalyst(false);
         try { window.scrollTo(0, 0); } catch(e){}
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // 계정/프로필 페이지
+    // ════════════════════════════════════════════════════════════════
+    function goProfile() {
+        window._lastScreen = 'profile';
+        _restoreHeaderChrome();
+        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen',
+         'top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen']
+            .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+        const ecoEl = document.getElementById('economicSection'); if (ecoEl) ecoEl.style.display = 'none';
+        const thermoEl = document.getElementById('marketThermometer'); if (thermoEl) thermoEl.style.display = 'none';
+        const qnavEl = document.getElementById('headerQNav'); if (qnavEl) qnavEl.style.display = 'none';
+        document.getElementById('mainContent').style.display = 'none';
+        const profileEl = document.getElementById('profileScreen');
+        if (profileEl) profileEl.style.display = '';
+        window._vsActive = false;
+        document.getElementById('mainHeader')?.classList.remove('stock-loaded');
+        const _fab = document.getElementById('calcFab'); if (_fab) _fab.style.display = 'none';
+        document.getElementById('stockHero')?.classList.remove('show');
+        document.getElementById('tabNav')?.classList.remove('show');
+        updateBnActive('all');
+        try { window.scrollTo(0, 0); } catch(e){}
+        _renderProfileScreen();
+    }
+
+    function _profileStatCell(icon, label, value) {
+        return `<div style="background:var(--bg2);border-radius:8px;padding:10px 12px;">
+            <div style="font-size:18px;margin-bottom:4px;">${icon}</div>
+            <div style="font-size:11px;color:var(--text3);">${label}</div>
+            <div style="font-size:14px;font-weight:700;color:var(--text);margin-top:2px;">${escHtml(String(value))}</div>
+        </div>`;
+    }
+
+    function _renderProfileScreen() {
+        const container = document.getElementById('profileContent');
+        if (!container) return;
+        const user = window.Clerk?.user;
+        const isLoggedIn = !!user;
+
+        // 앱 사용 통계 (localStorage 기반)
+        const favorites   = JSON.parse(localStorage.getItem('stockai_favorites') || '[]');
+        const themeRaw    = localStorage.getItem('stockai_theme') || '';
+        const themeLabel  = themeRaw === 'dark' ? '🌙 다크' : themeRaw === 'light' ? '☀️ 라이트' : '🌀 OS 자동';
+        const notifOn     = !!localStorage.getItem('stockai_push_token');
+        const recentSyms  = JSON.parse(localStorage.getItem('stockai_recent') || '[]');
+
+        // 유저 정보
+        const displayName = user?.firstName || user?.username ||
+            user?.emailAddresses?.[0]?.emailAddress?.split('@')[0] || '비로그인';
+        const email  = user?.emailAddresses?.[0]?.emailAddress || '';
+        const avatar = user?.imageUrl
+            ? `<img src="${escHtml(user.imageUrl)}" alt="" style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid var(--border);">`
+            : `<div style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--purple),var(--blue));display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:#fff;">${(displayName[0]||'?').toUpperCase()}</div>`;
+        const lastSignIn = user?.lastSignInAt
+            ? new Date(user.lastSignInAt).toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'})
+            : null;
+
+        // 계정 배지 업데이트
+        const btnLabel = document.getElementById('profileBtnLabel');
+        if (btnLabel) btnLabel.textContent = isLoggedIn ? (user?.firstName || '계정') : '계정';
+
+        container.innerHTML = `
+            <!-- 프로필 카드 -->
+            <div class="card" style="margin-bottom:12px;">
+                <div style="display:flex;align-items:center;gap:16px;padding:4px 0 14px;">
+                    ${avatar}
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-size:17px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(displayName)}</div>
+                        ${email ? `<div style="font-size:12px;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(email)}</div>` : ''}
+                        <div style="font-size:11px;color:${isLoggedIn ? 'var(--green)' : 'var(--text3)'};margin-top:5px;">${isLoggedIn ? '✓ 로그인됨 · 다기기 동기화 활성' : '비로그인 · 기기 단독 모드'}</div>
+                    </div>
+                </div>
+                ${isLoggedIn ? `
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button style="flex:1;min-width:100px;padding:8px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;cursor:pointer;" onclick="window.Clerk?.openUserProfile?.()">⚙️ 계정 관리</button>
+                    <button style="flex:1;min-width:100px;padding:8px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--red);font-size:13px;cursor:pointer;" onclick="window.signOut?.()">로그아웃</button>
+                </div>` : `
+                <button style="width:100%;padding:10px;background:var(--blue);border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;" onclick="window.signIn?.()">Google · Apple 로 로그인</button>
+                `}
+            </div>
+
+            <!-- 사용 현황 -->
+            <div class="card" style="margin-bottom:12px;">
+                <div class="card-title"><span class="dot" style="background:var(--green)"></span>사용 현황</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:4px 0 4px;">
+                    ${_profileStatCell('⭐', '즐겨찾기', favorites.length + '개')}
+                    ${_profileStatCell('📈', '최근 검색', recentSyms.length + '개')}
+                    ${_profileStatCell('🎨', '테마', themeLabel)}
+                    ${_profileStatCell('🔔', '알림 구독', notifOn ? '활성 ✓' : '비활성')}
+                </div>
+                ${lastSignIn ? `<div style="font-size:11px;color:var(--text3);text-align:right;padding-top:6px;">마지막 로그인: ${lastSignIn}</div>` : ''}
+            </div>
+
+            <!-- 빠른 이동 -->
+            <div class="card" style="margin-bottom:12px;">
+                <div class="card-title"><span class="dot" style="background:var(--yellow)"></span>빠른 이동</div>
+                <div style="display:flex;flex-direction:column;gap:0;">
+                    ${[
+                        ['🔔', '알림 설정', "openSettings('notif');goHome();"],
+                        ['⚙️', '전체 설정', "openSettings();goHome();"],
+                        ['📊', '시그널 통계', "openSignalStats?.();goHome?.();"],
+                        ['📢', '기능 업데이트', "openChangelog();goHome();"],
+                    ].map(([icon, label, fn]) =>
+                        `<button onclick="${fn}" style="display:flex;align-items:center;gap:10px;padding:11px 4px;background:none;border:none;border-bottom:1px solid var(--border);cursor:pointer;color:var(--text);font-size:13px;text-align:left;">
+                            <span style="width:22px;text-align:center;">${icon}</span>
+                            <span style="flex:1;">${label}</span>
+                            <span style="color:var(--text3);">›</span>
+                        </button>`
+                    ).join('')}
+                </div>
+            </div>
+
+            <div style="text-align:center;padding:16px 0 8px;font-size:11px;color:var(--text3);">
+                StockAI · rkd687@gmail.com
+            </div>
+        `;
     }
 
     function _catalystSetFilter(f) {
