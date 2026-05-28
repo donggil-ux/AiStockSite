@@ -1,12 +1,14 @@
 // 운영 모니터링 API — D1/KV 상태, cron 통계, 사용량 요약
 import { json, err } from '../utils/validators.js';
+import { requireAdmin } from '../utils/admin-auth.js';
 
 /**
  * GET /api/admin/status
  * Workers 백엔드의 운영 상태 종합 (대시보드용)
- * 시크릿 인증 없음 — 민감 데이터 미노출
+ * ADMIN_TOKEN 헤더 또는 ?token= 인증 필수
  */
 export async function handleAdminStatus(req, env) {
+    if (!(await requireAdmin(req, env))) return err(401, 'admin auth required (set ADMIN_TOKEN secret or X-Admin-Token header)');
     try {
         const since24h = Date.now() - 86400 * 1000;
         const since7d  = Date.now() - 7 * 86400 * 1000;

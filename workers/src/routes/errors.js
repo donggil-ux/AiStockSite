@@ -2,6 +2,7 @@
 import { json, err } from '../utils/validators.js';
 import { logError } from '../utils/errors.js';
 import { verifyClerkJWT } from '../utils/clerk.js';
+import { requireAdmin } from '../utils/admin-auth.js';
 
 /**
  * POST /api/errors
@@ -42,9 +43,11 @@ export async function handleReportError(req, env) {
 
 /**
  * GET /api/admin/errors?limit=50&since=24h
- * 관리자용 — 최근 에러 그룹별 + 개별 목록
+ * 관리자용 — 최근 에러 그룹별 + 개별 목록.
+ * ADMIN_TOKEN 인증 필수.
  */
 export async function handleListErrors(req, env) {
+    if (!(await requireAdmin(req, env))) return err(401, 'admin auth required');
     try {
         const url = new URL(req.url);
         const sinceArg = url.searchParams.get('since') || '24h';

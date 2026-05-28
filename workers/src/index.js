@@ -21,22 +21,43 @@ import { handleSignalStats, handleBacktest } from './routes/stats.js';
 import { handleSignalFeedback, handleGetSignalFeedback } from './routes/feedback.js';
 import { handleReportError, handleListErrors } from './routes/errors.js';
 import { handleTranslate } from './routes/translate.js';
+import { handleNewsReason } from './routes/news-reason.js';
+import { handleEarningsSummary } from './routes/earnings.js';
 import { logError, pruneOldErrors } from './utils/errors.js';
 import { snapshotHealth } from './cron.js';
 import { handleAdminStatus } from './routes/admin.js';
 import { checkPriceAlerts, earningsReminder, analyzeSignals, resolveSignals } from './cron.js';
 import { json, err } from './utils/validators.js';
 
-const CORS = {
-    'Access-Control-Allow-Origin':  '*',
+// CORS — 환경변수 ALLOWED_ORIGINS (콤마 구분) 에 등록된 origin 만 허용.
+// 미설정 시 와일드카드 (개발 편의) — 운영에서는 반드시 설정 권장.
+const CORS_BASE = {
     'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Admin-Token',
     'Access-Control-Max-Age':       '86400',
+    'Vary':                         'Origin',
 };
 
-function withCors(res) {
+function resolveAllowedOrigin(req, env) {
+    const reqOrigin = req.headers.get('Origin') || '';
+    const allowList = (env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!allowList.length) return '*'; // 미설정 시 와일드카드 (운영에선 설정 권장)
+    // 정확 일치 또는 와일드카드 *.example.com
+    for (const pat of allowList) {
+        if (pat === reqOrigin) return reqOrigin;
+        if (pat.startsWith('*.')) {
+            const suf = pat.slice(1); // ".example.com"
+            if (reqOrigin.endsWith(suf)) return reqOrigin;
+        }
+    }
+    // 매칭 실패 — 첫번째 등록 origin 으로 반환 (preflight 통과용)
+    return allowList[0];
+}
+
+function withCors(res, req, env) {
     const h = new Headers(res.headers);
-    for (const [k, v] of Object.entries(CORS)) h.set(k, v);
+    for (const [k, v] of Object.entries(CORS_BASE)) h.set(k, v);
+    h.set('Access-Control-Allow-Origin', resolveAllowedOrigin(req, env));
     return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
 }
 
@@ -81,12 +102,14 @@ const ROUTES = [
     ['POST',   '/api/errors',            handleReportError],
     ['GET',    '/api/admin/errors',      handleListErrors],
     ['GET',    '/api/translate',         handleTranslate],
+    ['GET',    '/api/news-reason',       handleNewsReason],
+    ['GET',    '/api/earnings-summary',  handleEarningsSummary],
 ];
 
 export default {
     async fetch(req, env, ctx) {
         // CORS Preflight
-        if (req.method === 'OPTIONS') return withCors(new Response(null, { status: 204 }));
+        if (req.method === 'OPTIONS') return withCors(new Response(null, { status: 204 }), req, env);
 
         const url = new URL(req.url);
         try {
@@ -94,10 +117,10 @@ export default {
                 const params = matchRoute(req.method, url.pathname, pattern, [method]);
                 if (params) {
                     const res = await handler(req, env, params);
-                    return withCors(res);
+                    return withCors(res, req, env);
                 }
             }
-            return withCors(err(404, 'route not found'));
+            return withCors(err(404, 'route not found'), req, env);
         } catch (e) {
             console.error('[fetch]', e.stack || e.message);
             // 자체 에러 추적 — fail-safe 로 wrapper 적용
@@ -108,7 +131,7 @@ export default {
                 stack: e.stack,
                 context: { route: url.pathname, method: req.method },
             }));
-            return withCors(err(500, e.message));
+            return withCors(err(500, e.message), req, env);
         }
     },
 
