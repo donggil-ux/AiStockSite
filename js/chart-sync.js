@@ -788,9 +788,95 @@
         }, 1000);
     }
 
+    // ── 신호 등급 패널 드래그 핸들러 (플로팅 모드) ────────────────
+    function _attachSgpDrag(panel) {
+        if (!panel || panel._sgpDragHooked) return;
+        panel._sgpDragHooked = true;
+        let startX = 0, startY = 0, origLeft = 0, origTop = 0, dragging = false, moved = false;
+        const onDown = (e) => {
+            // 토글 버튼 / 인터랙티브 자식 클릭은 드래그 시작 안 함
+            const t = e.target;
+            if (t.closest && (t.closest('button') || t.closest('a') || t.closest('input'))) return;
+            const pt = e.touches ? e.touches[0] : e;
+            startX = pt.clientX; startY = pt.clientY;
+            const rect = panel.getBoundingClientRect();
+            const parentRect = panel.parentElement.getBoundingClientRect();
+            origLeft = rect.left - parentRect.left;
+            origTop  = rect.top  - parentRect.top;
+            dragging = true; moved = false;
+            panel.classList.add('sgp-dragging');
+        };
+        const onMove = (e) => {
+            if (!dragging) return;
+            const pt = e.touches ? e.touches[0] : e;
+            const dx = pt.clientX - startX;
+            const dy = pt.clientY - startY;
+            if (!moved && Math.abs(dx) + Math.abs(dy) < 4) return; // 미세 움직임 무시
+            moved = true;
+            const parent = panel.parentElement;
+            const maxX = parent.clientWidth  - panel.offsetWidth - 4;
+            const maxY = parent.clientHeight - panel.offsetHeight - 4;
+            const nx = Math.max(4, Math.min(maxX, origLeft + dx));
+            const ny = Math.max(4, Math.min(maxY, origTop  + dy));
+            panel.style.left = nx + 'px';
+            panel.style.top  = ny + 'px';
+            if (e.cancelable) e.preventDefault();
+        };
+        const onUp = () => {
+            if (!dragging) return;
+            dragging = false;
+            panel.classList.remove('sgp-dragging');
+            if (moved) {
+                // 위치 저장 + 토글 클릭 방지 (드래그 직후 click 차단)
+                try {
+                    localStorage.setItem('stockai_sgp_pos', JSON.stringify({
+                        left: parseFloat(panel.style.left) || 0,
+                        top:  parseFloat(panel.style.top)  || 0,
+                    }));
+                } catch(_) {}
+                panel._suppressClickUntil = Date.now() + 250;
+            }
+        };
+        panel.addEventListener('mousedown', onDown);
+        panel.addEventListener('touchstart', onDown, { passive: true });
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('touchmove', onMove, { passive: false });
+        window.addEventListener('mouseup', onUp);
+        window.addEventListener('touchend', onUp);
+        // 드래그 직후 헤더 클릭(접기 토글)이 잘못 발화하지 않도록
+        const header = panel.querySelector('.sgp-header');
+        if (header) {
+            header.addEventListener('click', (e) => {
+                if (panel._suppressClickUntil && Date.now() < panel._suppressClickUntil) {
+                    e.stopPropagation(); e.preventDefault();
+                }
+            }, true);
+        }
+    }
+
     function _renderSigGradePanel() {
         const panel = document.getElementById('sigGradePanel');
         if (!panel) return;
+        // ── 플로팅 위치 보장: chartCell1 안으로 이동 (한번만) ──
+        // tvChartCard 의 flex item 으로 있으면 차트 영역을 침해하므로
+        // chart-cell1 (position:relative) 내부로 옮겨 절대 위치 플로팅으로 만듦.
+        if (!panel._sgpReparented) {
+            const target = document.getElementById('chartCell1');
+            if (target && panel.parentElement !== target) {
+                target.appendChild(panel);
+                panel._sgpReparented = true;
+                panel.classList.add('sgp-floating');
+                // 저장된 위치 복원
+                try {
+                    const saved = JSON.parse(localStorage.getItem('stockai_sgp_pos') || 'null');
+                    if (saved && typeof saved.left === 'number' && typeof saved.top === 'number') {
+                        panel.style.left = saved.left + 'px';
+                        panel.style.top  = saved.top + 'px';
+                    }
+                } catch(_) {}
+                _attachSgpDrag(panel);
+            }
+        }
         // 신호 라인 비활성 시 숨김
         if (!_chartLinesEnabled) { panel.style.display = 'none'; return; }
         // 갱신 트래킹 — 패널 렌더할 때마다 시각 기록 + pulse 애니메이션

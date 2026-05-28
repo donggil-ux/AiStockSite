@@ -8105,8 +8105,7 @@
 }
 /* 그 다음 분봉 분석 줄 (5분/B+/A+/S/분석/라인/익절/백테스트/소리) */
 .tv-chart-card > #chartToolbar { order: -1; }
-/* 신호 등급 패널은 분봉 분석 바로 아래 */
-.tv-chart-card > #sigGradePanel { order: 0; }
+/* sigGradePanel 은 JS 가 chartCell1 내부 플로팅으로 이동 (.sgp-floating) — order 불필요 */
 /* 나머지 priceSourceBadge, aiProgress, chartPreBanner, chartSigBar 는 이후 */
 .tv-chart-card > #priceSourceBadge,
 .tv-chart-card > #aiProgress,
@@ -10369,6 +10368,62 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
     border-radius:var(--radius-md);
     overflow:hidden;
     transition:max-height .2s ease;
+}
+
+/* ═══ 플로팅 모드 — chartCell1 내부 좌상단에 떠 있음 ═══ */
+.sig-grade-panel.sgp-floating{
+    position:absolute;
+    top:10px; left:10px;
+    margin:0;
+    z-index:50;
+    /* 컴팩트 사이즈 */
+    min-width:280px; max-width:calc(100% - 20px);
+    /* 반투명 backdrop blur 로 차트 위에 자연스럽게 떠보임 */
+    background:rgba(20,20,20,0.78);
+    backdrop-filter:blur(12px) saturate(140%);
+    -webkit-backdrop-filter:blur(12px) saturate(140%);
+    border:1px solid rgba(255,255,255,0.10);
+    border-radius:var(--radius-md);
+    box-shadow:0 8px 32px rgba(0,0,0,0.35), 0 2px 8px rgba(0,0,0,0.2);
+    /* 드래그 가능 표시 */
+    cursor:grab;
+}
+.sig-grade-panel.sgp-floating:active{ cursor:grabbing; }
+.sig-grade-panel.sgp-floating.sgp-dragging{
+    transition:none; cursor:grabbing;
+    box-shadow:0 12px 40px rgba(0,0,0,0.45);
+}
+[data-theme="light"] .sig-grade-panel.sgp-floating{
+    background:rgba(255,255,255,0.82);
+    border-color:rgba(0,0,0,0.08);
+}
+/* 접힌 상태에선 더 컴팩트 */
+.sig-grade-panel.sgp-floating.collapsed{
+    min-width:auto;
+}
+.sig-grade-panel.sgp-floating .sgp-header{
+    padding:6px 10px; gap:6px;
+}
+.sig-grade-panel.sgp-floating .sgp-badge{
+    min-width:24px; height:20px; padding:0 6px; font-size:11px;
+}
+.sig-grade-panel.sgp-floating .sgp-label{ font-size:11px; }
+.sig-grade-panel.sgp-floating .sgp-stars{ font-size:10px; }
+.sig-grade-panel.sgp-floating .sgp-winrate{ font-size:11px; }
+.sig-grade-panel.sgp-floating .sgp-refresh{ font-size:9px; }
+.sig-grade-panel.sgp-floating .sgp-body{
+    padding:6px 10px 10px;
+    max-width:520px;
+    max-height:280px;
+    overflow-y:auto;
+}
+/* 모바일: 좌상단 마진 축소 + 가로 폭 자동 */
+@media (max-width:600px){
+    .sig-grade-panel.sgp-floating{
+        top:6px; left:6px;
+        min-width:0; max-width:calc(100% - 12px);
+    }
+    .sig-grade-panel.sgp-floating .sgp-header{ padding:5px 8px; }
 }
 .sgp-header{
     display:flex; align-items:center; gap:8px;
