@@ -740,19 +740,31 @@
         document.body.style.overflow = isFull ? 'hidden' : '';
         // 전체화면 상태 저장
         localStorage.setItem('stockai_chart_fullscreen', isFull ? '1' : '0');
-        // 전체화면 전환 시 차트 리사이즈 (iOS safe-area / CSS transition 적용 대기)
+
+        // 전체화면 진입/해제 시 플로팅 UI 요소 숨김/복원
+        // (alertFab z-index=9200, alpacaWsBadge z-index=8000 이 차트 위로 뚫고 나오는 버그 방지)
+        document.body.classList.toggle('chart-fs-active', isFull);
+
+        // 전체화면 전환 시 차트 리사이즈 (CSS transition 완료 대기 후 재계산)
         if (lwChart) {
             setTimeout(() => {
                 const wrap = document.getElementById('tvChartWrap');
                 if (!wrap || !lwChart) return;
-                let h = wrap.clientHeight;
-                const fsCard = wrap.closest('.fullscreen');
-                if (fsCard && h < 200) {
-                    const toolbar = document.getElementById('chartToolbar');
-                    h = Math.max(200, fsCard.clientHeight - (toolbar ? toolbar.offsetHeight : 0));
+                let h, w;
+                if (isFull) {
+                    // 전체화면: 툴바 높이를 제외한 window 전체 높이 사용
+                    const toolbarEl = document.getElementById('chartToolbar') ||
+                                      card.querySelector('.chart-toolbar, #tvChartToolbar');
+                    const toolbarH = toolbarEl ? toolbarEl.offsetHeight : 0;
+                    h = Math.max(300, window.innerHeight - toolbarH);
+                    w = window.innerWidth;
+                } else {
+                    // 일반: wrap 실제 크기 (flex 레이아웃 기준)
+                    h = wrap.clientHeight || 500;
+                    w = wrap.clientWidth;
                 }
-                lwChart.applyOptions({ width: wrap.clientWidth, height: h });
-            }, 350);
+                lwChart.applyOptions({ width: w, height: h });
+            }, 360);
         }
     }
 
