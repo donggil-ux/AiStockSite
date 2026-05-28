@@ -17,9 +17,9 @@
 import { handleChart, handleQuote, handlePrice, handleSummary, handleSearch } from './routes/yahoo.js';
 import { handlePolygonCandles } from './routes/polygon.js';
 import { handleSubscribe, handleCreateAlert, handleListAlerts, handleDeleteAlert, handlePushTest, handleSyncFavs, handleSyncPrefs, handleLinkAccount } from './routes/push.js';
-import { handleSignalStats } from './routes/stats.js';
+import { handleSignalStats, handleBacktest } from './routes/stats.js';
 import { handleAdminStatus } from './routes/admin.js';
-import { checkPriceAlerts, earningsReminder, analyzeSignals } from './cron.js';
+import { checkPriceAlerts, earningsReminder, analyzeSignals, resolveSignals } from './cron.js';
 import { json, err } from './utils/validators.js';
 
 const CORS = {
@@ -69,6 +69,7 @@ const ROUTES = [
     ['POST',   '/api/push/favs',         handleSyncFavs],
     ['POST',   '/api/push/prefs',        handleSyncPrefs],
     ['GET',    '/api/stats/signals',     handleSignalStats],
+    ['GET',    '/api/stats/backtest',    handleBacktest],
     ['GET',    '/api/admin/status',      handleAdminStatus],
 ];
 
@@ -102,6 +103,10 @@ export default {
         if (cron === '0 0 * * 1-5') {
             // 09시 실적 리마인더만 (00시 한국 시그널 cron 과 충돌 방지 — 동시에 fire)
             ctx.waitUntil(earningsReminder(env).then(r => console.log('[cron] earnings', r)));
+        }
+        // 매시 :30 — 시그널 결과 매칭 (정확도 추적용)
+        if (cron === '30 * * * *') {
+            ctx.waitUntil(resolveSignals(env).then(r => console.log('[cron] resolve', r)));
         }
         // 5분마다 (시장 시간) 시그널 분석 + 가격 알림 병렬 실행
         if (cron === '*/5 13-21 * * 1-5' || cron === '*/5 0-6 * * 1-5') {

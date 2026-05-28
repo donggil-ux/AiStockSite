@@ -1500,6 +1500,7 @@
     //  시그널 통계 페이지 — D1 signal_history 기반 누적 분석
     // ═══════════════════════════════════════════════════════════
     let _statsPeriodDays = 7;
+    let _statsCurrentTab = 'stats';  // 'stats' | 'backtest'
 
     function openSignalStats() {
         document.body.dataset.notifPrevOverflow = document.body.style.overflow || '';
@@ -1509,7 +1510,17 @@
             ns.style.display = 'block';
             ns.scrollTop = 0;
         }
+        _statsCurrentTab = 'stats';
+        document.querySelectorAll('.stats-tab').forEach(b =>
+            b.classList.toggle('active', b.dataset.tab === 'stats'));
         _setStatsPeriod(7);
+    }
+    function _setStatsTab(tab) {
+        _statsCurrentTab = tab;
+        document.querySelectorAll('.stats-tab').forEach(b =>
+            b.classList.toggle('active', b.dataset.tab === tab));
+        if (tab === 'backtest') _loadBacktest();
+        else _loadSignalStats();
     }
     function closeSignalStats() {
         const ns = document.getElementById('signalStatsScreen');
@@ -1522,7 +1533,9 @@
         _statsPeriodDays = days;
         document.querySelectorAll('.stats-period').forEach(b =>
             b.classList.toggle('active', parseInt(b.dataset.days,10) === days));
-        _loadSignalStats();
+        // 현재 탭에 따라 다시 로드
+        if (_statsCurrentTab === 'backtest') _loadBacktest();
+        else _loadSignalStats();
     }
 
     async function _loadSignalStats() {
@@ -1628,6 +1641,192 @@
                     <span class="stats-recent-grade" style="background:${gradeColor(r.grade)};color:#000;">${r.grade || '-'}</span>
                     <span class="stats-recent-price">$${(r.price||0).toFixed(2)}</span>
                     <span class="stats-recent-time">${fmtDate(r.created_at)}</span>
+                </div>`;
+            }
+            html += `</div></section>`;
+        }
+
+        body.innerHTML = html;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  백테스트 — 시그널 정확도 추적 페이지
+    // ═══════════════════════════════════════════════════════════
+    async function _loadBacktest() {
+        const body = document.getElementById('statsBody');
+        if (!body) return;
+        body.innerHTML = '<div class="stats-loading">백테스트 결과를 불러오는 중...</div>';
+        try {
+            const r = await fetch(`/api/stats/backtest?days=${_statsPeriodDays}`);
+            if (!r.ok) throw new Error('fetch failed');
+            const d = await r.json();
+            _renderBacktest(d);
+        } catch(e) {
+            body.innerHTML = `<div class="stats-empty">백테스트 데이터를 불러올 수 없습니다<br><small>${e.message}</small></div>`;
+        }
+    }
+
+    function _renderBacktest(d) {
+        const body = document.getElementById('statsBody');
+        if (!body) return;
+        const prog = d.progress || {};
+        const total = prog.total || 0;
+        const has24 = prog.has_24h || 0;
+        if (total === 0) {
+            body.innerHTML = `<div class="stats-empty">
+                <div class="stats-empty-icon">🎯</div>
+                <div class="stats-empty-text">백테스트할 시그널이 없습니다</div>
+                <div class="stats-empty-sub">즐겨찾기 종목에서 시그널 발생 시 24h 후 실제 가격이 자동 매칭됩니다 (1h/4h/24h/7d)</div>
+            </div>`;
+            return;
+        }
+        if (has24 === 0) {
+            body.innerHTML = `<div class="stats-empty">
+                <div class="stats-empty-icon">⏳</div>
+                <div class="stats-empty-text">아직 24시간 매칭 완료된 시그널이 없습니다</div>
+                <div class="stats-empty-sub">${total}개 시그널 중 1h: ${prog.has_1h||0} / 4h: ${prog.has_4h||0} / 24h: 0<br>
+                매시 :30분마다 자동 매칭됩니다. 시그널 발생 후 24h 이상 기다려주세요.</div>
+            </div>`;
+            return;
+        }
+        const gradeColor = g => g === 'S' ? '#FFD60A' : g === 'A' ? '#22C55E' : g === 'B' ? '#3B82F6' : '#94A3B8';
+        const fmt = (v, suf='%') => v == null ? '-' : (v >= 0 ? '+' : '') + v.toFixed(2) + suf;
+        const colorReturn = v => v == null ? 'var(--text2)' : (v >= 0 ? '#22C55E' : '#EF4444');
+
+        // ── 1) 매칭 진척도 ──
+        let html = `<section class="stats-section">
+            <h2 class="stats-section-title">매칭 진척도</h2>
+            <div class="bt-progress-grid">
+                <div class="bt-progress-card">
+                    <div class="bt-progress-label">전체</div>
+                    <div class="bt-progress-value">${total}</div>
+                </div>
+                <div class="bt-progress-card">
+                    <div class="bt-progress-label">1h ✓</div>
+                    <div class="bt-progress-value">${prog.has_1h||0}</div>
+                    <div class="bt-progress-pct">${total ? Math.round((prog.has_1h||0)/total*100) : 0}%</div>
+                </div>
+                <div class="bt-progress-card">
+                    <div class="bt-progress-label">4h ✓</div>
+                    <div class="bt-progress-value">${prog.has_4h||0}</div>
+                    <div class="bt-progress-pct">${total ? Math.round((prog.has_4h||0)/total*100) : 0}%</div>
+                </div>
+                <div class="bt-progress-card highlight">
+                    <div class="bt-progress-label">24h ✓</div>
+                    <div class="bt-progress-value">${prog.has_24h||0}</div>
+                    <div class="bt-progress-pct">${total ? Math.round((prog.has_24h||0)/total*100) : 0}%</div>
+                </div>
+                <div class="bt-progress-card">
+                    <div class="bt-progress-label">7d ✓</div>
+                    <div class="bt-progress-value">${prog.has_7d||0}</div>
+                    <div class="bt-progress-pct">${total ? Math.round((prog.has_7d||0)/total*100) : 0}%</div>
+                </div>
+            </div>
+        </section>`;
+
+        // ── 2) 시간대별 평균 수익률 ──
+        const h = d.horizons || {};
+        html += `<section class="stats-section">
+            <h2 class="stats-section-title">시간대별 평균 수익률 <small>(매수: 상승=수익, 매도: 하락=수익)</small></h2>
+            <div class="bt-horizons">
+                <div class="bt-horizon">
+                    <div class="bt-h-label">1시간</div>
+                    <div class="bt-h-value" style="color:${colorReturn(h.avg_1h)}">${fmt(h.avg_1h)}</div>
+                    <div class="bt-h-n">N=${h.n_1h||0}</div>
+                </div>
+                <div class="bt-horizon">
+                    <div class="bt-h-label">4시간</div>
+                    <div class="bt-h-value" style="color:${colorReturn(h.avg_4h)}">${fmt(h.avg_4h)}</div>
+                    <div class="bt-h-n">N=${h.n_4h||0}</div>
+                </div>
+                <div class="bt-horizon highlight">
+                    <div class="bt-h-label">24시간</div>
+                    <div class="bt-h-value" style="color:${colorReturn(h.avg_24h)}">${fmt(h.avg_24h)}</div>
+                    <div class="bt-h-n">N=${h.n_24h||0}</div>
+                </div>
+                <div class="bt-horizon">
+                    <div class="bt-h-label">7일</div>
+                    <div class="bt-h-value" style="color:${colorReturn(h.avg_7d)}">${fmt(h.avg_7d)}</div>
+                    <div class="bt-h-n">N=${h.n_7d||0}</div>
+                </div>
+            </div>
+        </section>`;
+
+        // ── 3) 등급별 실제 정확도 ──
+        if (d.accuracy && d.accuracy.length) {
+            html += `<section class="stats-section">
+                <h2 class="stats-section-title">등급별 실제 정확도 <small>(24h 기준)</small></h2>
+                <div class="bt-accuracy-list">`;
+            for (const a of d.accuracy) {
+                const wr = a.actual_winrate || 0;
+                const ret = a.avg_return_24h || 0;
+                html += `<div class="bt-acc-row" style="border-color:${gradeColor(a.grade)};">
+                    <div class="bt-acc-grade" style="background:${gradeColor(a.grade)};color:#000;">${a.grade||'-'}</div>
+                    <div class="bt-acc-stats">
+                        <div class="bt-acc-main">
+                            <span class="bt-acc-wr">실제 승률 ${wr.toFixed(1)}%</span>
+                            <span class="bt-acc-ret" style="color:${colorReturn(ret)}">${fmt(ret)}</span>
+                        </div>
+                        <div class="bt-acc-sub">
+                            <span>샘플 ${a.samples}건</span>
+                            <span>최대상승 ${fmt(a.avg_max_gain)}</span>
+                            <span>최대하락 ${fmt(a.avg_max_loss)}</span>
+                        </div>
+                    </div>
+                </div>`;
+            }
+            html += `</div></section>`;
+        }
+
+        // ── 4) 종목별 정확도 TOP ──
+        if (d.topAccurate && d.topAccurate.length) {
+            html += `<section class="stats-section">
+                <h2 class="stats-section-title">정확도 TOP 종목 <small>(3건+ 기준)</small></h2>
+                <div class="bt-symbol-list">`;
+            for (const s of d.topAccurate) {
+                html += `<div class="bt-symbol-row" onclick="quickSearch('${escHtml(s.symbol)}','US')">
+                    <span class="bt-sym-name">${escHtml(s.symbol)}</span>
+                    <span class="bt-sym-wr">${(s.winrate||0).toFixed(0)}%</span>
+                    <span class="bt-sym-ret" style="color:${colorReturn(s.avg_return)}">${fmt(s.avg_return)}</span>
+                    <span class="bt-sym-n">N=${s.samples}</span>
+                </div>`;
+            }
+            html += `</div></section>`;
+        }
+
+        // ── 5) 부진 종목 ──
+        if (d.bottomAccurate && d.bottomAccurate.length) {
+            html += `<section class="stats-section">
+                <h2 class="stats-section-title">정확도 하위 종목 <small>(개선 필요)</small></h2>
+                <div class="bt-symbol-list">`;
+            for (const s of d.bottomAccurate) {
+                html += `<div class="bt-symbol-row" onclick="quickSearch('${escHtml(s.symbol)}','US')">
+                    <span class="bt-sym-name">${escHtml(s.symbol)}</span>
+                    <span class="bt-sym-wr">${(s.winrate||0).toFixed(0)}%</span>
+                    <span class="bt-sym-ret" style="color:${colorReturn(s.avg_return)}">${fmt(s.avg_return)}</span>
+                    <span class="bt-sym-n">N=${s.samples}</span>
+                </div>`;
+            }
+            html += `</div></section>`;
+        }
+
+        // ── 6) 일별 평균 수익률 시계열 (간단한 막대) ──
+        if (d.dailyReturns && d.dailyReturns.length) {
+            const maxAbs = Math.max(0.5, ...d.dailyReturns.map(x => Math.abs(x.avg_return || 0)));
+            html += `<section class="stats-section">
+                <h2 class="stats-section-title">일별 평균 수익률 (24h)</h2>
+                <div class="bt-daily-chart">`;
+            for (const r of d.dailyReturns) {
+                const ret = r.avg_return || 0;
+                const w = Math.min(100, Math.abs(ret) / maxAbs * 100);
+                const isPos = ret >= 0;
+                html += `<div class="bt-daily-row">
+                    <span class="bt-daily-date">${r.day.slice(5)}</span>
+                    <span class="bt-daily-bar-wrap">
+                        <span class="bt-daily-bar ${isPos?'pos':'neg'}" style="width:${w}%"></span>
+                    </span>
+                    <span class="bt-daily-val" style="color:${colorReturn(ret)}">${fmt(ret)}</span>
+                    <span class="bt-daily-n">N=${r.samples}</span>
                 </div>`;
             }
             html += `</div></section>`;
@@ -5950,7 +6149,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         openNotificationsScreen, closeNotificationsScreen,
         _setNotifFilter, _clickNotifItem, _markAllNotifRead, _clearAllNotifications,
         // 시그널 통계 페이지
-        openSignalStats, closeSignalStats, _setStatsPeriod,
+        openSignalStats, closeSignalStats, _setStatsPeriod, _setStatsTab, _loadBacktest, _renderBacktest,
         // 통합 설정
         openSettings, closeSettings, setSettingsTab,
         _setSettingsTheme, _setSettingsMarket, _setSettingsCurrency,

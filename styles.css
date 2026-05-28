@@ -10648,3 +10648,261 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
     font-weight:600;
     margin-left: 6px;
 }
+
+/* ════════════════════════════════════════════════════════════
+   백테스트 페이지 — 시그널 정확도 추적 UI
+   ════════════════════════════════════════════════════════════ */
+.stats-tab-bar{
+    display:flex;
+    gap:6px;
+    padding: 0 16px 12px;
+    border-bottom: 1px solid var(--border, rgba(255,255,255,.08));
+}
+.stats-tab{
+    flex:1;
+    padding: 10px 12px;
+    border: none;
+    background: var(--bg2, rgba(255,255,255,.04));
+    color: var(--text2, #D1D5DB);
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+}
+.stats-tab:hover{ background: var(--bg3, rgba(255,255,255,.08)); }
+.stats-tab.active{
+    background: linear-gradient(135deg,#3b82f6 0%,#8b5cf6 100%);
+    color: #fff;
+}
+[data-theme="light"] .stats-tab{
+    background:#F3F4F6;
+    color:#4B5563;
+}
+[data-theme="light"] .stats-tab.active{
+    background: linear-gradient(135deg,#3b82f6 0%,#8b5cf6 100%);
+    color:#fff;
+}
+
+/* 매칭 진척도 */
+.bt-progress-grid{
+    display:grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+}
+.bt-progress-card{
+    background: var(--bg2);
+    border: 1px solid var(--border, rgba(255,255,255,.08));
+    border-radius: 10px;
+    padding: 10px 6px;
+    text-align: center;
+}
+.bt-progress-card.highlight{
+    border-color: #3b82f6;
+    background: rgba(59,130,246,.08);
+}
+.bt-progress-label{
+    font-size: 11px;
+    color: var(--text2, #D1D5DB);
+    margin-bottom: 4px;
+}
+.bt-progress-value{
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text, #fff);
+}
+.bt-progress-pct{
+    font-size: 10px;
+    color: var(--text3, #9CA3AF);
+    margin-top: 2px;
+}
+[data-theme="light"] .bt-progress-card{ background:#fff; }
+[data-theme="light"] .bt-progress-label{ color:#4B5563; }
+[data-theme="light"] .bt-progress-value{ color:#111827; }
+[data-theme="light"] .bt-progress-pct{ color:#6B7280; }
+
+/* 시간대별 평균 수익률 */
+.bt-horizons{
+    display:grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+.bt-horizon{
+    background: var(--bg2);
+    border: 1px solid var(--border, rgba(255,255,255,.08));
+    border-radius: 12px;
+    padding: 14px 8px;
+    text-align: center;
+}
+.bt-horizon.highlight{
+    border-color: #3b82f6;
+    background: rgba(59,130,246,.06);
+}
+.bt-h-label{
+    font-size: 11px;
+    color: var(--text2, #D1D5DB);
+    margin-bottom: 6px;
+}
+.bt-h-value{
+    font-size: 22px;
+    font-weight: 800;
+    margin-bottom: 4px;
+}
+.bt-h-n{
+    font-size: 10px;
+    color: var(--text3, #9CA3AF);
+}
+[data-theme="light"] .bt-horizon{ background:#fff; }
+[data-theme="light"] .bt-h-label{ color:#4B5563; }
+[data-theme="light"] .bt-h-n{ color:#6B7280; }
+
+/* 등급별 정확도 */
+.bt-accuracy-list{
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.bt-acc-row{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg2);
+    border: 1px solid;
+    border-radius: 12px;
+    padding: 12px;
+}
+.bt-acc-grade{
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 800;
+    flex-shrink: 0;
+}
+.bt-acc-stats{ flex:1; min-width: 0; }
+.bt-acc-main{
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4px;
+}
+.bt-acc-wr{
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text, #fff);
+}
+.bt-acc-ret{
+    font-size: 16px;
+    font-weight: 800;
+}
+.bt-acc-sub{
+    display: flex;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--text3, #9CA3AF);
+}
+[data-theme="light"] .bt-acc-row{ background:#fff; }
+[data-theme="light"] .bt-acc-wr{ color:#111827; }
+[data-theme="light"] .bt-acc-sub{ color:#6B7280; }
+
+/* 종목별 정확도 리스트 */
+.bt-symbol-list{
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.bt-symbol-row{
+    display: grid;
+    grid-template-columns: 1fr 50px 80px 50px;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--bg2);
+    border: 1px solid var(--border, rgba(255,255,255,.06));
+    border-radius: 10px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .12s;
+}
+.bt-symbol-row:hover{ background: var(--bg3); }
+.bt-sym-name{
+    font-weight: 700;
+    color: var(--text, #fff);
+}
+.bt-sym-wr{
+    color: var(--text2, #D1D5DB);
+    text-align: right;
+    font-size: 12px;
+}
+.bt-sym-ret{
+    text-align: right;
+    font-weight: 700;
+    font-size: 13px;
+}
+.bt-sym-n{
+    color: var(--text3, #9CA3AF);
+    text-align: right;
+    font-size: 11px;
+}
+[data-theme="light"] .bt-symbol-row{ background:#fff; }
+[data-theme="light"] .bt-sym-name{ color:#111827; }
+[data-theme="light"] .bt-sym-wr{ color:#4B5563; }
+[data-theme="light"] .bt-sym-n{ color:#6B7280; }
+
+/* 일별 차트 */
+.bt-daily-chart{
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.bt-daily-row{
+    display: grid;
+    grid-template-columns: 50px 1fr 70px 50px;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    font-size: 12px;
+}
+.bt-daily-date{
+    color: var(--text2, #D1D5DB);
+    font-weight: 600;
+}
+.bt-daily-bar-wrap{
+    height: 8px;
+    background: var(--bg2);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+.bt-daily-bar{
+    height: 100%;
+    border-radius: 4px;
+    transition: width .25s;
+}
+.bt-daily-bar.pos{ background: linear-gradient(90deg, #22C55E, #10b981); }
+.bt-daily-bar.neg{ background: linear-gradient(90deg, #EF4444, #f87171); }
+.bt-daily-val{
+    text-align: right;
+    font-weight: 700;
+}
+.bt-daily-n{
+    color: var(--text3, #9CA3AF);
+    text-align: right;
+    font-size: 11px;
+}
+[data-theme="light"] .bt-daily-date{ color:#4B5563; }
+[data-theme="light"] .bt-daily-bar-wrap{ background:#F3F4F6; }
+[data-theme="light"] .bt-daily-n{ color:#6B7280; }
+
+/* 모바일 — 시간대 4컬럼 → 2x2 */
+@media (max-width: 600px){
+    .bt-progress-grid{ grid-template-columns: repeat(3, 1fr); }
+    .bt-progress-card:nth-child(4),
+    .bt-progress-card:nth-child(5){ grid-column: span 1; }
+    .bt-horizons{ grid-template-columns: repeat(2, 1fr); }
+    .bt-acc-sub{ flex-wrap: wrap; gap: 6px; font-size: 10px; }
+    .bt-symbol-row{ grid-template-columns: 1fr 40px 70px 40px; font-size: 12px; }
+}

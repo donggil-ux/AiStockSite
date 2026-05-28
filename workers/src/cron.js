@@ -130,6 +130,108 @@ async function _todayEarnings(env, favs) {
 }
 
 /**
+ * 매 시간 :30분 — 시그널 정확도 추적
+ * 미해결 signal_history 행을 찾아 N시간 후 가격을 채운다.
+ *   - 1h 경과 → price_1h
+ *   - 4h 경과 → price_4h
+ *   - 24h 경과 → price_24h + max_gain_24h + max_loss_24h (5분봉 OHLC 기반)
+ *   - 7d 경과 → price_7d + resolved=1
+ *
+ * Workers 30초 한계 보호 — 한 회당 최대 60건 처리.
+ */
+export async function resolveSignals(env) {
+    try {
+        const now = Date.now();
+        const H = 3600 * 1000;
+        const D = 24 * H;
+        // 1) 미해결 시그널 (오래된 것부터 우선) — 한 회당 60건
+        const rs = await env.DB.prepare(
+            `SELECT id, symbol, direction, price, created_at,
+                    price_1h, price_4h, price_24h, price_7d, max_gain_24h
+             FROM signal_history
+             WHERE resolved=0 AND created_at < ?
+             ORDER BY created_at ASC
+             LIMIT 60`
+        ).bind(now - H).all();
+        const rows = rs.results || [];
+        if (!rows.length) return { checked: 0, updated: 0 };
+
+        // 2) 현재가 일괄 조회 (Yahoo quote multi)
+        const symbols = [...new Set(rows.map(r => r.symbol))];
+        const priceMap = new Map();
+        for (let i = 0; i < symbols.length; i += 50) {
+            const chunk = symbols.slice(i, i + 50);
+            try {
+                const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(chunk.join(','))}`;
+                const data = await yfRequest(env.CACHE, url);
+                for (const r of (data?.quoteResponse?.result || [])) {
+                    if (r.regularMarketPrice != null) priceMap.set(r.symbol, r.regularMarketPrice);
+                }
+            } catch (e) { console.warn('[resolve] quote fail', e.message); }
+        }
+
+        // 3) 행마다 적절한 컬럼 채우기
+        let updated = 0;
+        for (const r of rows) {
+            const age = now - r.created_at;
+            const cur = priceMap.get(r.symbol);
+            const sets = [];
+            const args = [];
+            // 1h
+            if (r.price_1h == null && age >= H && cur != null) {
+                sets.push('price_1h=?'); args.push(cur);
+            }
+            // 4h
+            if (r.price_4h == null && age >= 4 * H && cur != null) {
+                sets.push('price_4h=?'); args.push(cur);
+            }
+            // 24h + max gain/loss (OHLC 필요)
+            if (r.price_24h == null && age >= 24 * H && cur != null) {
+                sets.push('price_24h=?'); args.push(cur);
+                // 5분봉 1일 chart 로 max high / min low 산출 (시그널 시각 ~ +24h)
+                try {
+                    const raw = await fetchChartWithFallback(env, r.symbol, '5d', '5m', 'false');
+                    const result = raw?.chart?.result?.[0];
+                    const ts = result?.timestamp || [];
+                    const q = result?.indicators?.quote?.[0];
+                    if (q && ts.length) {
+                        const sigSec = Math.floor(r.created_at / 1000);
+                        const endSec = sigSec + 24 * 3600;
+                        let hi = -Infinity, lo = Infinity;
+                        for (let i = 0; i < ts.length; i++) {
+                            if (ts[i] < sigSec || ts[i] > endSec) continue;
+                            if (q.high?.[i] != null && q.high[i] > hi) hi = q.high[i];
+                            if (q.low?.[i]  != null && q.low[i]  < lo) lo = q.low[i];
+                        }
+                        if (hi > -Infinity && lo < Infinity && r.price > 0) {
+                            const gain = ((hi - r.price) / r.price) * 100;
+                            const loss = ((lo - r.price) / r.price) * 100; // 음수
+                            sets.push('max_gain_24h=?'); args.push(+gain.toFixed(2));
+                            sets.push('max_loss_24h=?'); args.push(+loss.toFixed(2));
+                        }
+                    }
+                } catch (e) { console.warn('[resolve] ohlc fail', r.symbol, e.message); }
+            }
+            // 7d
+            if (r.price_7d == null && age >= 7 * D && cur != null) {
+                sets.push('price_7d=?'); args.push(cur);
+                sets.push('resolved=?'); args.push(1);
+                sets.push('resolved_at=?'); args.push(now);
+            }
+            if (!sets.length) continue;
+            args.push(r.id);
+            await env.DB.prepare(`UPDATE signal_history SET ${sets.join(',')} WHERE id=?`)
+                .bind(...args).run();
+            updated++;
+        }
+        return { checked: rows.length, updated };
+    } catch (e) {
+        console.error('[cron] resolveSignals', e.message);
+        return { error: e.message };
+    }
+}
+
+/**
  * 매 5분마다 (또는 *5분봉* cron trigger): 활성 구독자의 즐겨찾기 종목을
  * 5분봉으로 분석 → A/S 등급 시그널 발생 시 푸시 발송.
  *
