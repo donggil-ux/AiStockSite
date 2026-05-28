@@ -898,8 +898,6 @@
             panel.style.display = '';
             const badge = document.getElementById('sgpBadge');
             if (badge) { badge.textContent = '—'; badge.style.background = 'var(--bg3)'; badge.style.borderColor = 'var(--border)'; badge.style.color = 'var(--text2)'; }
-            const starsEl = document.getElementById('sgpStars');
-            if (starsEl) starsEl.textContent = '';
             const winRateEl = document.getElementById('sgpWinRate');
             if (winRateEl) winRateEl.textContent = '분석 대기 중';
             // 빈 상태에서도 점수/TF/최약조건 초기화
@@ -920,7 +918,6 @@
         }
         const sg = _lastSigGrade;
         const grade = sg.grade || 'B';
-        const stars = sg.stars || '⭐⭐⭐';
         const winRate = sg.winRate ?? 60;
         const factors = Array.isArray(sg.factors) ? sg.factors : [];
 
@@ -941,8 +938,6 @@
             badge.style.borderColor = gradeMeta.bc;
             badge.style.color = gradeMeta.cl;
         }
-        const starsEl = document.getElementById('sgpStars');
-        if (starsEl) starsEl.textContent = stars;
         const winRateEl = document.getElementById('sgpWinRate');
         if (winRateEl) winRateEl.textContent = `승률 ${winRate}%`;
 

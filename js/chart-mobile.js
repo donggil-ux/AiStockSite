@@ -195,9 +195,6 @@ function _m6UpdateUI() {
         setTimeout(() => b.remove(), dur || 700);
     }
 
-    /* ── 하위 호환: _m5ZoomFb 별칭 ── */
-    function _m5ZoomFb(icon) { _m5ShowBadge(icon || '🔍'); }
-
     /* ── OHLC 표시 ── */
     function _m5ShowOhlc(clientX, clientY) {
         if (!window.lwChart) return;

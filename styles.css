@@ -10409,8 +10409,6 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
 .sig-grade-panel.sgp-floating .sgp-badge{
     min-width:24px; height:20px; padding:0 6px; font-size:11px;
 }
-.sig-grade-panel.sgp-floating .sgp-label{ font-size:11px; }
-.sig-grade-panel.sgp-floating .sgp-stars{ font-size:10px; }
 .sig-grade-panel.sgp-floating .sgp-winrate{ font-size:11px; }
 .sig-grade-panel.sgp-floating .sgp-refresh{ font-size:9px; }
 .sig-grade-panel.sgp-floating .sgp-body{
@@ -10445,9 +10443,6 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
     font-size:12px; font-weight:800;
     letter-spacing:-0.02em;
 }
-.sgp-label{ font-size:12px; font-weight:600; color:var(--text2); }
-.sgp-stars{ font-size:11px; letter-spacing:1px; }
-
 /* ── TF 라벨 (5분 / 15분 / 일 등) ── */
 .sgp-tf{
     display:inline-flex; align-items:center; justify-content:center;

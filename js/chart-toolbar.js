@@ -1202,12 +1202,6 @@
         if (doToast !== false) showToast('비교 종목 모두 제거됨');
     }
 
-    /** 하위 호환 — 단일 제거 별칭 */
-    function _cmpRemove(doToast) {
-        if (_cmpItems.length) _cmpRemoveSym(_cmpItems[0].sym);
-        else if (doToast !== false) showToast('비교 종목 없음');
-    }
-
     /** 레전드 바 재렌더 */
     function _cmpRenderLegends() {
         const bar = document.getElementById('cmpLegendBar');

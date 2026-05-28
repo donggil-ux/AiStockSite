@@ -6398,7 +6398,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         renderAnalystTargets,
         initStockPager, hideStockPager, navigateStock, openStockPagerList, closeStockPagerList, jumpToStock,
         _mchUpdatePrice, _mchUpdateTf, _mpbSetPeriod, _mSigOpen, _mSigClose, _mchOpenGear,
-        _cmpOpenSheet, _cmpCloseSheet, _cmpModalBgClick, _cmpSubmit, _cmpLoad, _cmpRemove,
+        _cmpOpenSheet, _cmpCloseSheet, _cmpModalBgClick, _cmpSubmit, _cmpLoad,
         _cmpRemoveSym, _cmpRemoveAll, _cmpRenderLegends, _cmpRenderActiveSection,
         _cmpUpdateLegend, _cmpRefreshIfActive, _cmpRenderRecent, _cmpRemoveRecent, _cmpSelectPeer, _cmpModalSearch,
         goScanner, goFav, goSearch, closeSearch, bnGo, updateBnActive,
