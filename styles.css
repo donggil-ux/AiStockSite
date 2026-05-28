@@ -306,7 +306,9 @@
         .earn-topnav-dates,
         .earn-chip-group,
         .alpha-tabs,
-        .sm-sub-tabs{
+        .sm-sub-tabs,
+        .catalyst-tabs,
+        .catalyst-filter-bar{
             display:inline-flex;flex-direction:row;
             justify-content:center;align-items:center;
             padding:2px;gap:4px;
@@ -328,7 +330,9 @@
         [data-theme="light"] .earn-topnav-dates,
         [data-theme="light"] .earn-chip-group,
         [data-theme="light"] .alpha-tabs,
-        [data-theme="light"] .sm-sub-tabs{
+        [data-theme="light"] .sm-sub-tabs,
+        [data-theme="light"] .catalyst-tabs,
+        [data-theme="light"] .catalyst-filter-bar{
             background:rgba(118,118,128,0.12);
         }
         .top100-filters::-webkit-scrollbar,
@@ -337,7 +341,9 @@
         .earn-topnav-dates::-webkit-scrollbar,
         .earn-chip-group::-webkit-scrollbar,
         .alpha-tabs::-webkit-scrollbar,
-        .sm-sub-tabs::-webkit-scrollbar{display:none;}
+        .sm-sub-tabs::-webkit-scrollbar,
+        .catalyst-tabs::-webkit-scrollbar,
+        .catalyst-filter-bar::-webkit-scrollbar{display:none;}
 
         .top100-filter,
         .dp-chip,
@@ -345,7 +351,9 @@
         .earn-date-chip,
         .earn-chip-group .earn-chip,
         .alpha-tab,
-        .sm-sub-tab{
+        .sm-sub-tab,
+        .catalyst-tab,
+        .catalyst-filter{
             position:relative;
             display:flex;align-items:center;justify-content:center;
             flex:0 0 auto;
@@ -372,7 +380,9 @@
         .earn-date-chip:hover:not(.active),
         .earn-chip-group .earn-chip:hover:not(.active),
         .alpha-tab:hover:not(.active),
-        .sm-sub-tab:hover:not(.active){color:rgba(60,60,67,0.85)!important;background:transparent!important;}
+        .sm-sub-tab:hover:not(.active),
+        .catalyst-tab:hover:not(.active),
+        .catalyst-filter:hover:not(.active){color:rgba(60,60,67,0.85)!important;background:transparent!important;}
         /* 라이트 모드 — 비활성 alpha 0.85 (컨트라스트 5.5:1) */
         [data-theme="light"] .top100-filter,
         [data-theme="light"] .dp-chip,
@@ -380,7 +390,9 @@
         [data-theme="light"] .earn-date-chip,
         [data-theme="light"] .earn-chip-group .earn-chip,
         [data-theme="light"] .alpha-tab,
-        [data-theme="light"] .sm-sub-tab{color:rgba(60,60,67,0.85)!important;}
+        [data-theme="light"] .sm-sub-tab,
+        [data-theme="light"] .catalyst-tab,
+        [data-theme="light"] .catalyst-filter{color:rgba(60,60,67,0.85)!important;}
         /* 다크 모드 — 비활성 alpha 0.85 (컨트라스트 9:1) */
         [data-theme="dark"] .top100-filter:not(.active),
         [data-theme="dark"] .dp-chip:not(.active),
@@ -388,7 +400,9 @@
         [data-theme="dark"] .earn-date-chip:not(.active),
         [data-theme="dark"] .earn-chip-group .earn-chip:not(.active),
         [data-theme="dark"] .alpha-tab:not(.active),
-        [data-theme="dark"] .sm-sub-tab:not(.active){color:rgba(235,235,245,0.85)!important;}
+        [data-theme="dark"] .sm-sub-tab:not(.active),
+        [data-theme="dark"] .catalyst-tab:not(.active),
+        [data-theme="dark"] .catalyst-filter:not(.active){color:rgba(235,235,245,0.85)!important;}
 
         .top100-filter.active,
         .dp-chip.active,
@@ -396,7 +410,9 @@
         .earn-date-chip.active,
         .earn-chip-group .earn-chip.active,
         .alpha-tab.active,
-        .sm-sub-tab.active{
+        .sm-sub-tab.active,
+        .catalyst-tab.active,
+        .catalyst-filter.active{
             background:#FFFFFF!important;
             color:#000000!important;
             font-weight:700!important;
@@ -411,7 +427,9 @@
         [data-theme="dark"] .earn-date-chip.active,
         [data-theme="dark"] .earn-chip-group .earn-chip.active,
         [data-theme="dark"] .alpha-tab.active,
-        [data-theme="dark"] .sm-sub-tab.active{
+        [data-theme="dark"] .sm-sub-tab.active,
+        [data-theme="dark"] .catalyst-tab.active,
+        [data-theme="dark"] .catalyst-filter.active{
             background:rgba(118,118,128,0.36)!important;
             color:#FFFFFF!important;
         }
@@ -6891,7 +6909,7 @@
 /* ═══════════════════════════════════════════════════════
    카탈리스트 헌터 (v655) — SEC EDGAR 공시 기반
    ═══════════════════════════════════════════════════════ */
-.catalyst-section{padding:16px;max-width:1200px;margin:0 auto;}
+.catalyst-section{padding:20px 16px 32px;margin:0;}
 .catalyst-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
 .catalyst-title{font-size:24px;font-weight:800;color:var(--text1);letter-spacing:-0.02em;}
 .catalyst-sub{font-size:13px;color:var(--text2);margin-top:4px;}
@@ -6901,22 +6919,16 @@
 .catalyst-refresh:hover{background:var(--bg3);}
 .catalyst-warn{padding:10px 14px;margin-bottom:14px;background:rgba(251,191,36,0.10);border:1px solid rgba(251,191,36,0.35);border-radius:var(--radius-sm);font-size:12px;color:#d97706;line-height:1.6;}
 [data-theme="dark"] .catalyst-warn{color:#fbbf24;}
-.catalyst-filter-bar{display:flex;gap:6px;flex-wrap:wrap;padding:6px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:14px;width:fit-content;max-width:100%;overflow-x:auto;}
-.catalyst-filter{padding:6px 14px;border:none;background:transparent;border-radius:var(--radius-xs);font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap;-webkit-tap-highlight-color:transparent;}
-.catalyst-filter:hover{background:var(--bg3);}
-.catalyst-filter.active{background:var(--accent,#6366f1);color:#fff;}
-.catalyst-filter-cnt{display:inline-block;margin-left:4px;padding:1px 6px;background:rgba(0,0,0,0.08);border-radius:var(--radius-full);font-size:10px;font-weight:700;line-height:1.4;vertical-align:1px;font-variant-numeric:tabular-nums;}
-.catalyst-filter.active .catalyst-filter-cnt{background:rgba(255,255,255,0.25);color:#fff;}
+/* .catalyst-filter-bar / .catalyst-filter 는 iOS Segmented Control 그룹(.top100-filters 등)에 통합 */
+.catalyst-filter-cnt{display:inline-block;margin-left:4px;padding:1px 6px;background:rgba(118,118,128,0.18);border-radius:var(--radius-full);font-size:10px;font-weight:700;line-height:1.4;vertical-align:1px;font-variant-numeric:tabular-nums;}
+.catalyst-filter.active .catalyst-filter-cnt{background:rgba(0,0,0,0.10);color:inherit;}
+[data-theme="dark"] .catalyst-filter.active .catalyst-filter-cnt{background:rgba(255,255,255,0.20);color:inherit;}
+.catalyst-filter--acc.active .catalyst-filter-cnt{background:rgba(255,255,255,0.30)!important;color:#fff!important;}
 [data-theme="dark"] .catalyst-filter-cnt{background:rgba(255,255,255,0.10);}
-[data-theme="dark"] .catalyst-filter.active{background:rgba(99,102,241,0.5);}
-.catalyst-filter--acc.active{background:#a855f7;color:#fff;}
-[data-theme="dark"] .catalyst-filter--acc.active{background:rgba(168,85,247,0.6);}
-
-.catalyst-tabs{display:flex;gap:4px;padding:0 0 12px;}
-.catalyst-tab{flex:1;padding:9px 0;border:1px solid var(--border);background:var(--bg2);border-radius:var(--radius-sm);font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent;}
-.catalyst-tab:hover{background:var(--bg3);}
-.catalyst-tab.active{background:var(--accent,#6366f1);border-color:var(--accent,#6366f1);color:#fff;}
-[data-theme="dark"] .catalyst-tab.active{background:rgba(99,102,241,0.5);border-color:rgba(99,102,241,0.6);}
+/* '매집 의심' 필터만 보라색 강조 — 디자인 시스템 active 색상 위에 덮어쓰기 */
+.catalyst-filter--acc.active{background:#a855f7!important;color:#fff!important;}
+[data-theme="dark"] .catalyst-filter--acc.active{background:rgba(168,85,247,0.6)!important;color:#fff!important;}
+/* .catalyst-tabs / .catalyst-tab 은 iOS Segmented Control 그룹에 통합 */
 
 /* 매집 의심 경고문 + 카드 + 푸터 (v666) */
 .catalyst-acc-warn{padding:10px 14px;margin-bottom:14px;background:rgba(168,85,247,0.10);border:1px solid rgba(168,85,247,0.35);border-radius:var(--radius-sm);font-size:12px;color:#7e22ce;line-height:1.6;}
