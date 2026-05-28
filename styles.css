@@ -9948,7 +9948,7 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
    ═══════════════════════════════════════════════════════════ */
 .settings-backdrop{
     position:fixed; inset:0; background:rgba(0,0,0,.55);
-    z-index:9990; opacity:0; pointer-events:none;
+    z-index:10000; opacity:0; pointer-events:none;
     transition:opacity .18s ease;
 }
 .settings-backdrop.open{ opacity:1; pointer-events:auto; }
@@ -9959,7 +9959,7 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
     background:var(--bg); color:var(--text1);
     border:1px solid var(--border); border-radius:18px;
     box-shadow:0 24px 80px rgba(0,0,0,.6);
-    z-index:9991; opacity:0; pointer-events:none;
+    z-index:10001; opacity:0; pointer-events:none;
     transition:opacity .2s ease, transform .2s ease;
     display:flex; overflow:hidden;
 }
