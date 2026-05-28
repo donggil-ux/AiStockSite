@@ -10370,11 +10370,13 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
     transition:max-height .2s ease;
 }
 
-/* ═══ 플로팅 모드 — chartCell1 내부 좌상단에 떠 있음 ═══ */
+/* ═══ 플로팅 모드 — chartCell1 내부 좌하단에 떠 있음 ═══ */
 .sig-grade-panel.sgp-floating{
     position:absolute;
-    top:10px; left:10px;
+    bottom:14px; left:10px;
     margin:0;
+    /* 하단 위치이므로 펼침 시 body 가 헤더 위로 자라도록 */
+    display:flex; flex-direction:column-reverse;
     z-index:50;
     /* 컴팩트 사이즈 */
     min-width:280px; max-width:calc(100% - 20px);

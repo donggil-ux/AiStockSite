@@ -792,7 +792,7 @@
     function _attachSgpDrag(panel) {
         if (!panel || panel._sgpDragHooked) return;
         panel._sgpDragHooked = true;
-        let startX = 0, startY = 0, origLeft = 0, origTop = 0, dragging = false, moved = false;
+        let startX = 0, startY = 0, origLeft = 0, origBottom = 0, dragging = false, moved = false;
         const onDown = (e) => {
             // 토글 버튼 / 인터랙티브 자식 클릭은 드래그 시작 안 함
             const t = e.target;
@@ -801,8 +801,9 @@
             startX = pt.clientX; startY = pt.clientY;
             const rect = panel.getBoundingClientRect();
             const parentRect = panel.parentElement.getBoundingClientRect();
-            origLeft = rect.left - parentRect.left;
-            origTop  = rect.top  - parentRect.top;
+            origLeft   = rect.left - parentRect.left;
+            // bottom 거리 = 부모 하단 - 패널 하단
+            origBottom = parentRect.bottom - rect.bottom;
             dragging = true; moved = false;
             panel.classList.add('sgp-dragging');
         };
@@ -815,11 +816,13 @@
             moved = true;
             const parent = panel.parentElement;
             const maxX = parent.clientWidth  - panel.offsetWidth - 4;
-            const maxY = parent.clientHeight - panel.offsetHeight - 4;
+            const maxB = parent.clientHeight - panel.offsetHeight - 4;
             const nx = Math.max(4, Math.min(maxX, origLeft + dx));
-            const ny = Math.max(4, Math.min(maxY, origTop  + dy));
-            panel.style.left = nx + 'px';
-            panel.style.top  = ny + 'px';
+            // 하단 기준: 마우스가 아래로 가면 bottom 줄어듦
+            const nb = Math.max(4, Math.min(maxB, origBottom - dy));
+            panel.style.left   = nx + 'px';
+            panel.style.bottom = nb + 'px';
+            panel.style.top    = 'auto';
             if (e.cancelable) e.preventDefault();
         };
         const onUp = () => {
@@ -829,9 +832,9 @@
             if (moved) {
                 // 위치 저장 + 토글 클릭 방지 (드래그 직후 click 차단)
                 try {
-                    localStorage.setItem('stockai_sgp_pos', JSON.stringify({
-                        left: parseFloat(panel.style.left) || 0,
-                        top:  parseFloat(panel.style.top)  || 0,
+                    localStorage.setItem('stockai_sgp_pos_v2', JSON.stringify({
+                        left:   parseFloat(panel.style.left)   || 0,
+                        bottom: parseFloat(panel.style.bottom) || 0,
                     }));
                 } catch(_) {}
                 panel._suppressClickUntil = Date.now() + 250;
@@ -866,12 +869,15 @@
                 target.appendChild(panel);
                 panel._sgpReparented = true;
                 panel.classList.add('sgp-floating');
-                // 저장된 위치 복원
+                // 저장된 위치 복원 (v2 키 — 좌하단 기준)
+                // 구버전 stockai_sgp_pos 는 상단 기준이므로 무시
+                try { localStorage.removeItem('stockai_sgp_pos'); } catch(_) {}
                 try {
-                    const saved = JSON.parse(localStorage.getItem('stockai_sgp_pos') || 'null');
-                    if (saved && typeof saved.left === 'number' && typeof saved.top === 'number') {
-                        panel.style.left = saved.left + 'px';
-                        panel.style.top  = saved.top + 'px';
+                    const saved = JSON.parse(localStorage.getItem('stockai_sgp_pos_v2') || 'null');
+                    if (saved && typeof saved.left === 'number' && typeof saved.bottom === 'number') {
+                        panel.style.left   = saved.left + 'px';
+                        panel.style.bottom = saved.bottom + 'px';
+                        panel.style.top    = 'auto';
                     }
                 } catch(_) {}
                 _attachSgpDrag(panel);
