@@ -973,18 +973,29 @@ app.get('/api/scanner/minervini', async (req, res) => {
         const to   = new Date().toISOString().split('T')[0];
         const from = new Date(Date.now() - 290*86400000).toISOString().split('T')[0];
 
-        for (const ticker of MINERVINI_UNIVERSE) {
-            try {
-                const url = `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${from}/${to}`
-                    + `?adjusted=true&sort=asc&limit=300&apiKey=${POLYGON_API}`;
-                const r = await axios.get(url, { timeout: 8000 });
-                const d = r.data;
-                if (!d.results || d.results.length < 200) continue;
-                const candleData = d.results.map(c => ({ time: Math.floor(c.t/1000), open:c.o, high:c.h, low:c.l, close:c.c, volume:c.v }));
-                const setup = _mvDetectSetup(candleData);
-                if (setup) candidates.push({ ticker, ...setup, currentPrice: candleData[candleData.length-1].close });
-                await new Promise(r => setTimeout(r, 300));
-            } catch(e) { console.warn(`[minervini] ${ticker} skip:`, e.message); }
+        // 병렬 처리 — 8개씩 chunk (Vercel function 60s 한계 내 74개 처리)
+        // 이전: 순차 + 300ms sleep → 74개 처리 시 ~90초 초과로 timeout
+        // 이후: 8 chunk × ~1.5초 = ~14초 안전
+        const CHUNK = 8;
+        for (let i = 0; i < MINERVINI_UNIVERSE.length; i += CHUNK) {
+            const chunk = MINERVINI_UNIVERSE.slice(i, i + CHUNK);
+            const results = await Promise.all(chunk.map(async (ticker) => {
+                try {
+                    const url = `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${from}/${to}`
+                        + `?adjusted=true&sort=asc&limit=300&apiKey=${POLYGON_API}`;
+                    const r = await axios.get(url, { timeout: 6000 });
+                    const d = r.data;
+                    if (!d.results || d.results.length < 200) return null;
+                    const candleData = d.results.map(c => ({ time: Math.floor(c.t/1000), open:c.o, high:c.h, low:c.l, close:c.c, volume:c.v }));
+                    const setup = _mvDetectSetup(candleData);
+                    if (setup) return { ticker, ...setup, currentPrice: candleData[candleData.length-1].close };
+                    return null;
+                } catch(e) {
+                    console.warn(`[minervini] ${ticker} skip:`, e.message);
+                    return null;
+                }
+            }));
+            candidates.push(...results.filter(Boolean));
         }
 
         const gradeOrder = { S: 4, A: 3, B: 2, C: 1 };
