@@ -3330,6 +3330,14 @@
             #mainHeader.stock-loaded .mob-back-btn:hover{
                 background:var(--bg4);
             }
+            /* ── PC: header-top 의 viewport 정중앙 정렬 보정 ──
+               header-top 은 position:fixed + left:50%; transform:translateX(-50%)
+               로 viewport 정중앙에 고정. 하지만 body padding-right:84px (PC 사이드
+               내비) 때문에 body 가용 폭이 84px 줄어듦 → 헤더와 컨텐츠 좌표 불일치.
+               해결: 헤더를 사이드 내비 폭의 절반만큼 좌측으로 이동. */
+            #mainHeader .header-top{
+                left: calc(50% - 42px) !important;
+            }
             /* 하단 고정 설정 버튼 — 토스 PC 패턴 */
             .bn-item--bottom{
                 display:flex;
