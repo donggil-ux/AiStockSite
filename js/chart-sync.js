@@ -902,6 +902,18 @@
             if (starsEl) starsEl.textContent = '';
             const winRateEl = document.getElementById('sgpWinRate');
             if (winRateEl) winRateEl.textContent = '분석 대기 중';
+            // 빈 상태에서도 점수/TF/최약조건 초기화
+            const scoreEl = document.getElementById('sgpScore');
+            if (scoreEl) scoreEl.textContent = '—';
+            const fillEl = document.getElementById('sgpScoreFill');
+            if (fillEl) fillEl.style.width = '0%';
+            const weakEl = document.getElementById('sgpWeak');
+            if (weakEl) { weakEl.textContent = ''; weakEl.style.display = 'none'; }
+            const tfEl = document.getElementById('sgpTf');
+            if (tfEl) {
+                const _iv = (typeof currentInterval !== 'undefined' && currentInterval) || '5m';
+                tfEl.textContent = ({'1m':'1분','2m':'2분','5m':'5분','15m':'15분','30m':'30분','60m':'1시간','1h':'1시간','1d':'일','1wk':'주','1mo':'월'}[_iv]) || _iv;
+            }
             const body = document.getElementById('sgpBody');
             if (body) body.innerHTML = '<div class="sgp-empty">아직 강한 시그널이 감지되지 않았습니다 — 폴링 중...</div>';
             return;
@@ -932,7 +944,42 @@
         const starsEl = document.getElementById('sgpStars');
         if (starsEl) starsEl.textContent = stars;
         const winRateEl = document.getElementById('sgpWinRate');
-        if (winRateEl) winRateEl.textContent = `예상 승률 ${winRate}%`;
+        if (winRateEl) winRateEl.textContent = `승률 ${winRate}%`;
+
+        // ── 추가 UX (강화된 패널) ──
+        // TF 라벨 — 1m/2m/5m/15m/30m/60m/1d 등
+        const tfEl = document.getElementById('sgpTf');
+        if (tfEl) {
+            const _iv = (typeof currentInterval !== 'undefined' && currentInterval) || '5m';
+            const tfLabel = {
+                '1m':'1분','2m':'2분','5m':'5분','15m':'15분','30m':'30분',
+                '60m':'1시간','1h':'1시간','1d':'일','1wk':'주','1mo':'월'
+            }[_iv] || _iv;
+            tfEl.textContent = tfLabel;
+        }
+        // 점수 (0~10) + 진행률 바
+        const scoreVal = Math.max(0, Math.min(10, +(sg.score || 0)));
+        const scoreEl = document.getElementById('sgpScore');
+        if (scoreEl) scoreEl.textContent = scoreVal.toFixed(1);
+        const fillEl = document.getElementById('sgpScoreFill');
+        if (fillEl) fillEl.style.width = (scoreVal / 10 * 100) + '%';
+        // 최약 조건 — factors 중 ❌/⚠️/🟡 우선순위로 첫번째 추출
+        const weakEl = document.getElementById('sgpWeak');
+        if (weakEl) {
+            const weak = factors.find(f => f.startsWith('❌'))
+                     || factors.find(f => f.startsWith('⚠️'))
+                     || factors.find(f => f.startsWith('🟡'));
+            if (weak) {
+                // 이모지 제거 + 길면 자르기
+                const txt = weak.replace(/^[❌⚠️🟡✅]\s*/, '').slice(0, 18);
+                weakEl.textContent = '⚠ ' + txt;
+                weakEl.title = weak;
+                weakEl.style.display = '';
+            } else {
+                weakEl.textContent = '';
+                weakEl.style.display = 'none';
+            }
+        }
 
         // body — 컨플루언스 조건 체크리스트
         const body = document.getElementById('sgpBody');

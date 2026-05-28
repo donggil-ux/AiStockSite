@@ -1110,9 +1110,13 @@
                     <div class="sig-grade-panel" id="sigGradePanel" style="display:none;">
                         <div class="sgp-header" onclick="_toggleSigGradePanel()">
                             <span class="sgp-badge" id="sgpBadge">B+</span>
-                            <span class="sgp-label">신호 등급</span>
-                            <span class="sgp-stars" id="sgpStars">⭐⭐⭐</span>
-                            <span class="sgp-winrate" id="sgpWinRate">예상 승률 60%</span>
+                            <span class="sgp-tf" id="sgpTf" title="현재 분석 시간프레임">5분</span>
+                            <span class="sgp-score-wrap" title="점수 / 10">
+                                <span class="sgp-score" id="sgpScore">6.0</span>
+                                <span class="sgp-score-bar"><span class="sgp-score-bar-fill" id="sgpScoreFill"></span></span>
+                            </span>
+                            <span class="sgp-winrate" id="sgpWinRate">승률 60%</span>
+                            <span class="sgp-weak" id="sgpWeak" title="가장 약한 조건"></span>
                             <span class="sgp-refresh" id="sgpRefresh" title="마지막 분석 시각"><span class="sgp-refresh-dot"></span><span id="sgpRefreshTime">방금</span></span>
                             <button class="sgp-toggle" id="sgpToggle" type="button" aria-label="펼치기/접기">▾</button>
                         </div>

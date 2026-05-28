@@ -10447,6 +10447,63 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
 }
 .sgp-label{ font-size:12px; font-weight:600; color:var(--text2); }
 .sgp-stars{ font-size:11px; letter-spacing:1px; }
+
+/* ── TF 라벨 (5분 / 15분 / 일 등) ── */
+.sgp-tf{
+    display:inline-flex; align-items:center; justify-content:center;
+    height:20px; padding:0 7px;
+    border-radius:var(--radius-xs);
+    background:rgba(99,102,241,0.18);
+    color:#A5B4FC;
+    border:1px solid rgba(99,102,241,0.35);
+    font-size:10px; font-weight:700; letter-spacing:-0.01em;
+    white-space:nowrap;
+}
+
+/* ── 점수 + 진행률 바 ── */
+.sgp-score-wrap{
+    display:inline-flex; align-items:center; gap:6px;
+}
+.sgp-score{
+    font-family:var(--font-data); font-size:12px; font-weight:800;
+    color:var(--text); letter-spacing:-0.02em;
+    min-width:26px; text-align:right;
+}
+.sgp-score-bar{
+    position:relative;
+    width:64px; height:5px;
+    background:var(--bg3);
+    border-radius:var(--radius-full);
+    overflow:hidden;
+}
+.sgp-score-bar-fill{
+    position:absolute; left:0; top:0; bottom:0;
+    width:0%;
+    background:linear-gradient(90deg, #EF4444 0%, #F59E0B 40%, #22C55E 70%, #FFD700 95%);
+    border-radius:inherit;
+    transition:width .4s cubic-bezier(0.25,0.46,0.45,0.94);
+}
+
+/* ── 최약 조건 칩 (접힌 상태에서만 노출) ── */
+.sgp-weak{
+    display:none;
+    font-size:10px; font-weight:600;
+    padding:2px 6px;
+    border-radius:var(--radius-xs);
+    background:rgba(239,68,68,0.12);
+    color:#FCA5A5;
+    border:1px solid rgba(239,68,68,0.28);
+    max-width:120px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.sig-grade-panel.collapsed .sgp-weak{ display:inline-block; }
+.sig-grade-panel.sgp-floating .sgp-weak{ font-size:9px; max-width:90px; padding:1px 5px; }
+@media (max-width:600px){
+    .sgp-tf{ font-size:9px; height:18px; padding:0 5px; }
+    .sgp-score{ font-size:11px; }
+    .sgp-score-bar{ width:48px; height:4px; }
+    .sgp-weak{ max-width:80px; font-size:9px; }
+}
 .sgp-winrate{
     flex:1;
     font-size:12px; font-weight:600;
