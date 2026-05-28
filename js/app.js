@@ -6362,6 +6362,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         handleSearchKeydown, openSearchDropdown, closeSearchDropdown, searchSuggest, levenshtein,
         renderDayUnified, renderDanteAnalysis, runDanteBacktest,
         renderRRAnalysis, renderMinerviniSEPA, _renderSEPACard, renderSwingAnalysis, _runSwingAi, renderRSIMomentum, analyzeRSIDynamic,
+        fetchAiStockSummary, _renderAiSummaryCard, _aiSummaryToggle,
         renderMACDSignal, analyzeMACDRayner, _applyRRGate, _isFallingKnife,
         toggleChecklist,
         detectBullishDivergence, _detectOBVPanic,

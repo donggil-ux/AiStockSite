@@ -719,6 +719,8 @@
             try { if (typeof renderGuruHolders === 'function' && typeof currentSymbol !== 'undefined') renderGuruHolders(currentSymbol); } catch {}
             // RSI 모멘텀 / MACD / Volume 카드 — 종목 기본 정보 그룹 제거(v730)되어 target div 없음, 호출 생략
             updateAnalysisTimestamp();
+            // AI 종합 판단 카드 (10분 캐시 — 불필요한 Gemini 호출 방지)
+            try { fetchAiStockSummary(); } catch(e) { warn('[ai-sum] fail', e); }
         } catch(e) { /* 네트워크 오류 시 조용히 무시 */ }
     }
 
@@ -4092,6 +4094,141 @@
             ${row('약점', ai.weakness, '#ef4444')}
             ${row('스윙 적합도', ai.swingFit, '#6366f1')}
         </div>`;
+    }
+
+    // ========================================
+    // AI 주가 예측 요약 카드 (auto-fetch on stock load)
+    // ========================================
+    function _buildAiSummaryCategories() {
+        if (!stockData) return null;
+        const q = stockData.indicators?.quote?.[0];
+        if (!q) return null;
+        const closes  = (q.close  || []).filter(v => v != null);
+        const volumes = (q.volume || []).filter(v => v != null);
+        if (closes.length < 20) return null;
+        const cats = [];
+        const price = closes.at(-1);
+
+        // RSI 모멘텀
+        try {
+            const rsiArr = calcRSI(closes, 14);
+            const rsi = rsiArr.filter(v => v != null).at(-1);
+            if (rsi != null) {
+                const s = rsi < 30 ? 85 : rsi < 45 ? 72 : rsi < 55 ? 55 : rsi < 70 ? 40 : 22;
+                cats.push({ name: '모멘텀(RSI)', score: s,
+                    reason: `RSI ${rsi.toFixed(1)} — ${rsi < 30 ? '과매도' : rsi > 70 ? '과매수' : '중립'}` });
+            }
+        } catch(_) {}
+
+        // EMA200 추세 위치
+        try {
+            const ema200 = calcEMA(closes, Math.min(200, closes.length));
+            const e200 = ema200.filter(v => v != null).at(-1);
+            if (e200) {
+                const pct = (price / e200 - 1) * 100;
+                const s = pct > 8 ? 78 : pct > 3 ? 65 : pct > 0 ? 55 : pct > -3 ? 42 : pct > -8 ? 30 : 20;
+                cats.push({ name: '추세', score: s,
+                    reason: `EMA200 대비 ${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%` });
+            }
+        } catch(_) {}
+
+        // 단기 모멘텀 (5봉)
+        if (closes.length >= 6) {
+            const c5 = (closes.at(-1) / closes.at(-6) - 1) * 100;
+            const s = c5 > 5 ? 72 : c5 > 2 ? 62 : c5 > 0 ? 55 : c5 > -2 ? 45 : c5 > -5 ? 35 : 22;
+            cats.push({ name: '단기변동', score: s,
+                reason: `최근 5봉 변동: ${c5 >= 0 ? '+' : ''}${c5.toFixed(1)}%` });
+        }
+
+        // 거래량 강도
+        if (volumes.length >= 20) {
+            const avg20 = volumes.slice(-20).reduce((a,b) => a+b, 0) / 20;
+            const avg5  = volumes.slice(-5).reduce((a,b) => a+b, 0) / 5;
+            const mult  = avg20 > 0 ? avg5 / avg20 : 1;
+            const s = mult > 2.5 ? 80 : mult > 1.5 ? 68 : mult > 0.8 ? 52 : mult > 0.5 ? 38 : 25;
+            cats.push({ name: '거래량', score: s,
+                reason: `최근 5봉 평균 ${mult.toFixed(1)}× (20봉 대비)` });
+        }
+
+        return cats.length >= 2 ? cats : null;
+    }
+
+    async function fetchAiStockSummary(force) {
+        const sym = currentSymbol;
+        if (!sym || !stockData) return;
+        const cardEl = document.getElementById('aiStockSummaryCard');
+        if (!cardEl) return;
+
+        // 10분 sessionStorage 캐시 (API 호출 최소화)
+        const cKey = `stockai_aisum_${sym}_${currentInterval || 'd'}`;
+        if (!force) {
+            try {
+                const hit = JSON.parse(sessionStorage.getItem(cKey));
+                if (hit && Date.now() - hit.ts < 600_000) { _renderAiSummaryCard(hit.data); return; }
+            } catch(_) {}
+        }
+
+        const cats = _buildAiSummaryCategories();
+        if (!cats) {
+            cardEl.innerHTML = '<div style="font-size:12px;color:var(--text3);text-align:center;padding:8px 0;">분석 데이터 부족 (20봉 이상 필요)</div>';
+            return;
+        }
+        const overall = Math.round(cats.reduce((s,c) => s+c.score, 0) / cats.length);
+
+        const btn = document.getElementById('aiSumRefreshBtn');
+        if (btn) { btn.textContent = '…'; btn.disabled = true; }
+        cardEl.innerHTML = '<div class="cat-ai-loading">🤖 Gemini 분석 중…</div>';
+
+        try {
+            const res = await fetch('/api/swing/ai-analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ticker: sym, categories: cats, overallScore: overall }),
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const ai = await res.json();
+            try { sessionStorage.setItem(cKey, JSON.stringify({ ts: Date.now(), data: ai })); } catch(_) {}
+            _renderAiSummaryCard(ai);
+        } catch(e) {
+            cardEl.innerHTML = `<div style="font-size:12px;color:var(--red);text-align:center;padding:8px 0;">AI 분석 실패: ${escHtml(e.message || '')}</div>`;
+        } finally {
+            if (btn) { btn.textContent = '↺'; btn.disabled = false; }
+        }
+    }
+
+    function _renderAiSummaryCard(ai) {
+        const cardEl = document.getElementById('aiStockSummaryCard');
+        if (!cardEl) return;
+        if (!ai) { cardEl.innerHTML = '<div style="font-size:12px;color:var(--text3);text-align:center;padding:8px 0;">분석 결과 없음</div>'; return; }
+        const verdict = ai.verdict || '—';
+        const vColor = (verdict.includes('매수') || verdict === 'buy' || verdict === 'strong_buy')
+            ? '#22c55e' : (verdict.includes('매도') || verdict === 'sell') ? '#ef4444' : '#eab308';
+        const badge = document.getElementById('aiSumVerdict');
+        if (badge) {
+            badge.textContent = verdict;
+            badge.style.cssText = `font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px;background:${vColor}22;color:${vColor};`;
+        }
+        const row = (icon, label, val, col) => val
+            ? `<div style="display:flex;align-items:flex-start;gap:6px;margin-top:6px;font-size:12px;">
+                <span style="width:16px;flex-shrink:0">${icon}</span>
+                <span style="font-weight:700;color:var(--text2);min-width:52px;flex-shrink:0;">${label}</span>
+                <span style="flex:1;color:${col};line-height:1.45;">${escHtml(val)}</span>
+               </div>` : '';
+        cardEl.innerHTML = `<div class="cat-ai-card">
+            <div style="font-size:13px;font-weight:900;color:${vColor};margin-bottom:6px;">${escHtml(verdict)}</div>
+            ${ai.summary ? `<div style="font-size:12px;color:var(--text);line-height:1.6;margin-bottom:4px;">${escHtml(ai.summary)}</div>` : ''}
+            ${row('💪', '강점', ai.strength, '#22c55e')}
+            ${row('⚠️', '약점', ai.weakness, '#ef4444')}
+            ${row('🎯', '적합도', ai.swingFit, '#6366f1')}
+        </div>`;
+    }
+
+    function _aiSummaryToggle() {
+        const body = document.getElementById('aiSumBody');
+        if (!body) return;
+        const collapsed = body.style.display === 'none';
+        body.style.display = collapsed ? '' : 'none';
+        try { localStorage.setItem('stockai_aisum_collapsed', collapsed ? '0' : '1'); } catch(_) {}
     }
 
     // ========================================
