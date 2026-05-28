@@ -5,7 +5,9 @@
 import { json, err } from '../utils/validators.js';
 
 const TTL = 6 * 3600;        // 6시간
-const EMPTY_TTL = 30 * 60;   // 빈 응답 30분
+// 빈 응답은 KV 안 쓰고 메모리만 — KV PUT 절약
+const _emptyEarnMem = new Map(); // symbol → expireAt(ms)
+const EMPTY_MEM_MS = 30 * 60 * 1000;
 
 export async function handleEarningsSummary(req, env) {
     try {
@@ -19,8 +21,16 @@ export async function handleEarningsSummary(req, env) {
         const out = {};
         const missCache = [];
 
-        // 1) KV 캐시 일괄 조회
-        const cacheReads = await Promise.all(syms.map(async s => {
+        const now = Date.now();
+        // 1a) 메모리 빈응답 캐시 — 만료 안 된 것은 KV 호출 skip
+        const toCheckKv = [];
+        for (const s of syms) {
+            const exp = _emptyEarnMem.get(s);
+            if (exp && exp > now) continue;
+            toCheckKv.push(s);
+        }
+        // 1b) KV 캐시 일괄 조회
+        const cacheReads = await Promise.all(toCheckKv.map(async s => {
             try {
                 const v = await env.CACHE.get(`earn:${s}`, 'json');
                 return { s, v };
@@ -41,8 +51,12 @@ export async function handleEarningsSummary(req, env) {
                     out[r.symbol] = r.data;
                     writes.push(env.CACHE.put(`earn:${r.symbol}`, JSON.stringify(r.data), { expirationTtl: TTL }));
                 } else {
-                    writes.push(env.CACHE.put(`earn:${r.symbol}`, JSON.stringify({ summary: '' }), { expirationTtl: EMPTY_TTL }));
+                    // 빈 응답은 메모리에만 (KV PUT 절약)
+                    _emptyEarnMem.set(r.symbol, now + EMPTY_MEM_MS);
                 }
+            }
+            if (_emptyEarnMem.size > 1000) {
+                for (const [k, exp] of _emptyEarnMem) if (exp < now) _emptyEarnMem.delete(k);
             }
             Promise.all(writes).catch(() => {});
         }

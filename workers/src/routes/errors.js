@@ -4,23 +4,37 @@ import { logError } from '../utils/errors.js';
 import { verifyClerkJWT } from '../utils/clerk.js';
 import { requireAdmin } from '../utils/admin-auth.js';
 
+// IP 레이트 제한 — module-level Map (isolate 단위 메모리 캐시)
+// KV PUT 절약 (이전: 매 에러마다 PUT 1회)
+const _ipRateMap = new Map(); // ip → { count, resetAt }
+const _IP_LIMIT = 10;
+const _IP_WIN_MS = 60_000;
+function _ipRateLimitHit(ip) {
+    const now = Date.now();
+    const e = _ipRateMap.get(ip);
+    if (!e || e.resetAt < now) {
+        _ipRateMap.set(ip, { count: 1, resetAt: now + _IP_WIN_MS });
+        // 가끔 정리 (메모리 누수 방지)
+        if (_ipRateMap.size > 2000) {
+            for (const [k, v] of _ipRateMap) if (v.resetAt < now) _ipRateMap.delete(k);
+        }
+        return false;
+    }
+    e.count++;
+    return e.count > _IP_LIMIT;
+}
+
 /**
  * POST /api/errors
  * Body: { source?, severity?, message, stack?, context?, sub_token? }
  *
  * 익명 허용 — 단, 같은 fingerprint 1분 내 5회 초과 시 자동 무시 (utils/errors.js)
- * 추가 보호: IP 당 1분 5회 (request count cache)
+ * 추가 보호: IP 당 1분 10회 (메모리 카운터, KV 없이 — Workers KV PUT 절약)
  */
 export async function handleReportError(req, env) {
     try {
         const ip = req.headers.get('CF-Connecting-IP') || 'unknown';
-        // IP 레이트 제한 — KV 카운터 (1분 윈도우)
-        try {
-            const key = `err-rate:${ip}`;
-            const cur = parseInt(await env.CACHE.get(key) || '0', 10);
-            if (cur >= 10) return err(429, 'rate limited');
-            await env.CACHE.put(key, String(cur + 1), { expirationTtl: 60 });
-        } catch (_) {}
+        if (_ipRateLimitHit(ip)) return err(429, 'rate limited');
 
         const b = await req.json();
         if (!b?.message) return err(400, 'message required');

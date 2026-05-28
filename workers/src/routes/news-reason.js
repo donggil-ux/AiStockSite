@@ -7,7 +7,10 @@ import { json, err } from '../utils/validators.js';
 import { yfRequest } from '../utils/crumb.js';
 
 const REASON_TTL = 15 * 60; // 15분 (초)
-const EMPTY_TTL  = 30 * 60; // 빈 응답 30분 (재시도 차단)
+// 빈 응답은 KV 가 아니라 isolate 메모리에 보관 → KV PUT 절약
+// (빈 결과는 종목 많을수록 KV PUT 폭주의 주범)
+const _emptyMem = new Map(); // symbol → expireAt(ms)
+const EMPTY_MEM_MS = 30 * 60 * 1000;
 
 export async function handleNewsReason(req, env) {
     try {
@@ -21,8 +24,16 @@ export async function handleNewsReason(req, env) {
         const out = {};
         const missCache = [];
 
-        // 1) KV 캐시 일괄 조회
-        const cacheReads = await Promise.all(syms.map(async s => {
+        const now = Date.now();
+        // 1a) 메모리 빈응답 캐시 — 만료 안 된 항목 즉시 skip (KV 호출도 X)
+        const toCheckKv = [];
+        for (const s of syms) {
+            const exp = _emptyMem.get(s);
+            if (exp && exp > now) continue; // 빈 응답으로 처리 (out 미설정)
+            toCheckKv.push(s);
+        }
+        // 1b) KV 캐시 일괄 조회 (빈응답 메모리에 없는 것만)
+        const cacheReads = await Promise.all(toCheckKv.map(async s => {
             try {
                 const v = await env.CACHE.get(`news:${s}`);
                 return { s, v };
@@ -41,11 +52,16 @@ export async function handleNewsReason(req, env) {
                 const summary = _shortenReason(r.title || '');
                 if (summary) {
                     out[r.symbol] = summary;
+                    // KV PUT 은 유의미한 결과만 (빈 응답은 메모리로만)
                     upserts.push(env.CACHE.put(`news:${r.symbol}`, summary, { expirationTtl: REASON_TTL }));
                 } else {
-                    // 빈 응답 캐시
-                    upserts.push(env.CACHE.put(`news:${r.symbol}`, '', { expirationTtl: EMPTY_TTL }));
+                    // 빈 응답 — 메모리에만 30분 캐시 (KV PUT 절약)
+                    _emptyMem.set(r.symbol, now + EMPTY_MEM_MS);
                 }
+            }
+            // 가끔 메모리 정리 (1000개 넘으면 만료된 것 청소)
+            if (_emptyMem.size > 1000) {
+                for (const [k, exp] of _emptyMem) if (exp < now) _emptyMem.delete(k);
             }
             // KV 쓰기는 비동기 — 응답 대기 없이 fire-and-forget
             Promise.all(upserts).catch(() => {});
