@@ -1830,12 +1830,30 @@
         if (/^(30m|60m|90m|1h)$/.test(iv)) return 3;
         return 0; // 일봉 이상 → 단순 max/min (넓은 레인지가 적합)
     }
+    // 타임프레임별 Fibonacci range ATR 클램프 배수 [min, max]
+    //   5m 이하 → [5, 30]   15m → [4, 25]   30m → [3, 20]   1h+ → [2, 15]
+    function _sdFibClamp(iv) {
+        if (!iv || /^(1m|2m|5m)$/.test(iv)) return { min: 5, max: 30 };
+        if (iv === '15m') return { min: 4, max: 25 };
+        if (iv === '30m') return { min: 3, max: 20 };
+        return { min: 2, max: 15 };
+    }
     // Pivot 방식 Swing High/Low 탐지 (폴백: 단순 max/min)
     // 거래량 가중 Pivot Swing 탐지
     // - pivotWin 윈도우 내 좌우 모두보다 높/낮은 캔들을 후보로
     // - 후보 중 직전 20봉 거래량 평균의 1.2배 이상인 캔들만 인정 (노이즈 스파이크 제외)
     // - 폴백: pivot 미발견 시 단순 max/min (volumes 미사용)
-    function _sdSwingPoints(highs, lows, volumes, N, lb, pivotWin) {
+    // volMultiplier — 타임프레임별 Pivot 거래량 필터 강도
+    //   5m 이하 → 1.2x  15m → 1.3x  30m → 1.4x  1h+ → 1.2x (기본)
+    function _sdVolMultiplier(iv) {
+        if (!iv) return 1.2;
+        if (iv === '15m') return 1.3;
+        if (iv === '30m') return 1.4;
+        return 1.2;
+    }
+
+    function _sdSwingPoints(highs, lows, volumes, N, lb, pivotWin, volMultiplier) {
+        const _volMin = (volMultiplier != null && isFinite(volMultiplier)) ? volMultiplier : 1.2;
         let swHigh = -Infinity, swLow = Infinity;
         // 거래량 평균 계산 헬퍼 (직전 20봉, null 제외)
         const _avgVol = (idx) => {
@@ -1850,7 +1868,7 @@
             const v = volumes[idx];
             const avg = _avgVol(idx);
             if (v == null || avg == null || avg <= 0) return true; // 데이터 부족 시 통과
-            return v >= avg * 1.2;
+            return v >= avg * _volMin;
         };
         if (pivotWin > 0) {
             const start = N - lb + pivotWin;
@@ -1973,9 +1991,12 @@
 
         // 3. 거래량 — 1.5점
         const vols = (volumes && Array.isArray(volumes)) ? volumes : [];
-        // 거래량 lookback — 5분봉 이하는 8봉(=40분), 그 외는 기존 20봉
-        const _isShortTF = typeof currentInterval !== 'undefined' && /^(1m|2m|5m)$/.test(currentInterval);
-        const volLookback = _isShortTF ? 8 : 20;
+        // 타임프레임별 lookback 최적화 (노이즈 구간일수록 더 긴 평균 필요)
+        //   1m/2m/5m → 8봉(~40분)  15m → 12봉(~3h)  30m → 15봉(~7h)  1h+ → 20봉
+        const _iv        = typeof currentInterval !== 'undefined' ? (currentInterval || '') : '';
+        const _isShortTF = /^(1m|2m|5m)$/.test(_iv);
+        const _isMidTF   = /^(15m|30m)$/.test(_iv);
+        const volLookback = _isShortTF ? 8 : _iv === '15m' ? 12 : _iv === '30m' ? 15 : 20;
         const vSlice = vols.slice(Math.max(0, i-volLookback), i).filter(v => v != null);
         const vAvg = vSlice.length ? vSlice.reduce((s,v) => s+v, 0) / vSlice.length : 0;
         const vRatio = vAvg > 0 ? (vols[i] || 0) / vAvg : 1;
@@ -1983,9 +2004,11 @@
         else if (vRatio >= 1.5) { score += 1;   factors.push(`✅ 거래량 ${vRatio.toFixed(1)}x`); }
         else if (vRatio >= 1.2) { score += 0.5; factors.push(`🟡 거래량 ${vRatio.toFixed(1)}x`); }
 
-        // 4. RSI — 1.5점 (5분봉 이하: 25/75 임계값, 그 외: 30/70)
-        const RSI_OS = _isShortTF ? 25 : 30;
-        const RSI_OB = _isShortTF ? 75 : 70;
+        // 4. RSI — 1.5점
+        // 타임프레임별 과매도/과매수 임계값 — 분봉일수록 노이즈 크므로 더 엄격하게
+        //   5m 이하 → 25/75   15m → 27/73   30m → 28/72   1h+ → 30/70
+        const RSI_OS = _isShortTF ? 25 : _iv === '15m' ? 27 : _iv === '30m' ? 28 : 30;
+        const RSI_OB = _isShortTF ? 75 : _iv === '15m' ? 73 : _iv === '30m' ? 72 : 70;
         const rsiVal = sg(rsi, i) ?? 50;
         if (signalType === 'buy') {
             if (rsiVal < RSI_OS)                   { score += 1.5; factors.push(`✅ RSI ${rsiVal.toFixed(0)} (과매도)`); }
@@ -2040,12 +2063,14 @@
             }
         }
 
-        // 9. 5봉 모멘텀 — 0.5점
-        const prevC5 = closes[Math.max(0, i-5)];
-        if (prevC5 != null && prevC5 > 0) {
-            const mom5 = ((c - prevC5) / prevC5) * 100;
-            if (signalType === 'buy'  && mom5 > 0 && mom5 < 5)   { score += 0.5; factors.push(`✅ 모멘텀 +${mom5.toFixed(1)}%`); }
-            else if (signalType === 'sell' && mom5 < 0 && mom5 > -5) { score += 0.5; factors.push(`✅ 모멘텀 ${mom5.toFixed(1)}%`); }
+        // 9. 모멘텀 — 0.5점 (타임프레임별 봉 수 최적화)
+        //   5m 이하 → 5봉(~25분)   15m → 8봉(~2h)   30m → 6봉(~3h)   1h+ → 5봉
+        const momLb  = _isShortTF ? 5 : _iv === '15m' ? 8 : _iv === '30m' ? 6 : 5;
+        const prevCmom = closes[Math.max(0, i - momLb)];
+        if (prevCmom != null && prevCmom > 0) {
+            const momVal = ((c - prevCmom) / prevCmom) * 100;
+            if (signalType === 'buy'  && momVal > 0 && momVal < 5)    { score += 0.5; factors.push(`✅ 모멘텀 +${momVal.toFixed(1)}%`); }
+            else if (signalType === 'sell' && momVal < 0 && momVal > -5) { score += 0.5; factors.push(`✅ 모멘텀 ${momVal.toFixed(1)}%`); }
         }
 
         // 10. 지지/저항 — 1점
@@ -2268,17 +2293,20 @@
         const fmtPct = v => v != null ? (v >= 0 ? '+' : '') + v.toFixed(1) + '%' : '';
 
         // Swing high/low — 분봉 최적화: 타임프레임별 룩백 + Pivot 방식 감지
+        // 거래량 필터 강도 — 15m·30m 은 더 엄격하게 (1.3x / 1.4x)
         const lb = Math.min(_sdLookback(currentInterval), N);
         const pivotWin = _sdPivotWin(currentInterval);
-        const { swHigh, swLow } = _sdSwingPoints(highs, lows, volumes, N, lb, pivotWin);
+        const volMult = _sdVolMultiplier(currentInterval);
+        const { swHigh, swLow } = _sdSwingPoints(highs, lows, volumes, N, lb, pivotWin, volMult);
         if (!isFinite(swHigh) || !isFinite(swLow) || swHigh <= swLow) { if (el) el.style.display = 'none'; return; }
 
-        // Fibonacci range ATR 정규화 — swing 폭이 비정상적으로 작거나(노이즈) 거대(왜곡)할 때
-        // ATR 의 [5배 ~ 30배] 범위로 클램프 → 진입 레벨이 현재가에서 너무 멀어지지 않음
+        // Fibonacci range ATR 정규화 — 타임프레임별 클램프 범위 차별화
+        //   swing 폭이 비정상적으로 작거나(노이즈) 거대(왜곡)할 때 ATR 배수로 제한
         const rawRange = swHigh - swLow;
         const atrArr = calcATR(q.high, q.low, q.close, _sdAtrPeriod(currentInterval));
         const atr = lastVal(atrArr) || rawRange * 0.02;
-        const range = Math.max(atr * 5, Math.min(rawRange, atr * 30));
+        const { min: fibMin, max: fibMax } = _sdFibClamp(currentInterval);
+        const range = Math.max(atr * fibMin, Math.min(rawRange, atr * fibMax));
         const ema20 = lastVal(calcEMA(closes, 20));
 
         const coeff = _sdGetCoeff(currentSymbol);
