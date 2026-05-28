@@ -10539,6 +10539,7 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
 .sgp-cond-pass{ color:var(--text); border-color:rgba(34,197,94,.35); background:rgba(34,197,94,.06); }
 .sgp-cond-mid { color:var(--text); border-color:rgba(245,158,11,.35); background:rgba(245,158,11,.06); }
 .sgp-cond-fail{ color:var(--text2); border-color:rgba(239,68,68,.35); background:rgba(239,68,68,.06); }
+.sgp-cond-skip{ color:var(--text3); border-color:var(--border); background:rgba(255,255,255,.02); opacity:.7; }
 .sgp-empty{
     grid-column:1 / -1;
     padding:8px;

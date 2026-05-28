@@ -963,17 +963,19 @@
         if (scoreEl) scoreEl.textContent = scoreVal.toFixed(1);
         const fillEl = document.getElementById('sgpScoreFill');
         if (fillEl) fillEl.style.width = (scoreVal / 10 * 100) + '%';
-        // 최약 조건 — factors 중 ❌/⚠️/🟡 우선순위로 첫번째 추출
+        // 최약 조건 — ❌/⚠️/🟡/⚪ 우선순위로 첫번째 추출 (factors + weakFactors)
         const weakEl = document.getElementById('sgpWeak');
         if (weakEl) {
-            const weak = factors.find(f => f.startsWith('❌'))
-                     || factors.find(f => f.startsWith('⚠️'))
-                     || factors.find(f => f.startsWith('🟡'));
-            if (weak) {
-                // 이모지 제거 + 길면 자르기
-                const txt = weak.replace(/^[❌⚠️🟡✅]\s*/, '').slice(0, 18);
+            const weakArr = Array.isArray(sg.weakFactors) ? sg.weakFactors : [];
+            const all = [...factors, ...weakArr];
+            const weakOne = all.find(f => f.startsWith('❌'))
+                         || all.find(f => f.startsWith('⚠️'))
+                         || all.find(f => f.startsWith('🟡'))
+                         || all.find(f => f.startsWith('⚪'));
+            if (weakOne) {
+                const txt = weakOne.replace(/^[❌⚠️🟡✅⚪]\s*/, '').slice(0, 18);
                 weakEl.textContent = '⚠ ' + txt;
-                weakEl.title = weak;
+                weakEl.title = weakOne;
                 weakEl.style.display = '';
             } else {
                 weakEl.textContent = '';
@@ -981,17 +983,20 @@
             }
         }
 
-        // body — 컨플루언스 조건 체크리스트
+        // body — 컨플루언스 조건 체크리스트 (통과 + 미달 모두 표시 = 10개 풀 체크)
         const body = document.getElementById('sgpBody');
         if (body) {
-            if (!factors.length) {
+            const allConds = [...factors, ...(Array.isArray(sg.weakFactors) ? sg.weakFactors : [])];
+            if (!allConds.length) {
                 body.innerHTML = '<div class="sgp-empty">데이터 부족 — 조건을 분석할 수 없습니다</div>';
             } else {
-                body.innerHTML = factors.map(f => {
-                    // factor 라벨에서 ✅/🟡/❌ 분류
+                body.innerHTML = allConds.map(f => {
+                    // factor 라벨에서 ✅/🟡/❌/⚪/⚠️ 분류
                     const cls = f.startsWith('✅') ? 'sgp-cond-pass'
                               : f.startsWith('🟡') ? 'sgp-cond-mid'
                               : f.startsWith('❌') ? 'sgp-cond-fail'
+                              : f.startsWith('⚠️') ? 'sgp-cond-fail'
+                              : f.startsWith('⚪') ? 'sgp-cond-skip'
                               : 'sgp-cond-other';
                     return `<div class="sgp-condition ${cls}">${escHtml(f)}</div>`;
                 }).join('');
@@ -2122,21 +2127,29 @@
 
         let score = 0;
         const factors = [];
+        const weak = []; // 미달 조건 (점수 영향 X, 패널 전체 체크리스트 용)
+        const _markIfNoneNew = (lenBefore, label) => {
+            if (factors.length === lenBefore) weak.push(`⚪ ${label}`);
+        };
         const c = closes[i];
 
         // 1. 추세 방향 일치 (HTF) — 2점
+        let _pushed = factors.length;
         const ma20i = sg(ma20, i), ma60i = sg(ma60, i), ma120i = sg(ma120, i);
         const trendUp = ma20i != null && ma60i != null && ma120i != null && ma20i > ma60i && ma60i > ma120i;
         const trendDn = ma20i != null && ma60i != null && ma120i != null && ma20i < ma60i && ma60i < ma120i;
         if (signalType === 'buy' && trendUp)       { score += 2; factors.push('✅ 추세 정배열'); }
         else if (signalType === 'sell' && trendDn) { score += 2; factors.push('✅ 추세 역배열'); }
         else if (signalType === 'buy' && trendDn)  { score -= 1; factors.push('❌ 하락 추세 역방향 매수'); }
+        _markIfNoneNew(_pushed, '추세 미정렬');
 
         // 2. EMA20 위치 — 1점
+        _pushed = factors.length;
         if (ma20i != null) {
             if (signalType === 'buy'  && c > ma20i) { score += 1; factors.push('✅ EMA20 위'); }
             else if (signalType === 'sell' && c < ma20i) { score += 1; factors.push('✅ EMA20 아래'); }
         }
+        _markIfNoneNew(_pushed, signalType === 'buy' ? 'EMA20 미상승' : 'EMA20 미하락');
 
         // 3. 거래량 — 1.5점
         const vols = (volumes && Array.isArray(volumes)) ? volumes : [];
@@ -2149,9 +2162,11 @@
         const vSlice = vols.slice(Math.max(0, i-volLookback), i).filter(v => v != null);
         const vAvg = vSlice.length ? vSlice.reduce((s,v) => s+v, 0) / vSlice.length : 0;
         const vRatio = vAvg > 0 ? (vols[i] || 0) / vAvg : 1;
+        _pushed = factors.length;
         if (vRatio >= 2.0)      { score += 1.5; factors.push(`✅ 거래량 ${vRatio.toFixed(1)}x`); }
         else if (vRatio >= 1.5) { score += 1;   factors.push(`✅ 거래량 ${vRatio.toFixed(1)}x`); }
         else if (vRatio >= 1.2) { score += 0.5; factors.push(`🟡 거래량 ${vRatio.toFixed(1)}x`); }
+        _markIfNoneNew(_pushed, `거래량 ${vRatio.toFixed(1)}x (낮음)`);
 
         // 4. RSI — 1.5점
         // 타임프레임별 과매도/과매수 임계값 — 분봉일수록 노이즈 크므로 더 엄격하게
@@ -2159,6 +2174,7 @@
         const RSI_OS = _isShortTF ? 25 : _iv === '15m' ? 27 : _iv === '30m' ? 28 : 30;
         const RSI_OB = _isShortTF ? 75 : _iv === '15m' ? 73 : _iv === '30m' ? 72 : 70;
         const rsiVal = sg(rsi, i) ?? 50;
+        _pushed = factors.length;
         if (signalType === 'buy') {
             if (rsiVal < RSI_OS)                   { score += 1.5; factors.push(`✅ RSI ${rsiVal.toFixed(0)} (과매도)`); }
             else if (rsiVal >= 40 && rsiVal <= 60) { score += 1;   factors.push(`✅ RSI ${rsiVal.toFixed(0)} (중립)`); }
@@ -2167,10 +2183,12 @@
             if (rsiVal > RSI_OB)  { score += 1.5; factors.push(`✅ RSI ${rsiVal.toFixed(0)} (과매수)`); }
             else if (rsiVal < RSI_OS) { score -= 1; factors.push(`❌ RSI ${rsiVal.toFixed(0)} (과매도)`); }
         }
+        _markIfNoneNew(_pushed, `RSI ${rsiVal.toFixed(0)} (애매)`);
 
         // 5. MACD — 1.5점
         const macdi = sg(macd, i), macdSi = sg(macdSignal, i);
         const macdPi = sg(macd, i-1), macdPS = sg(macdSignal, i-1);
+        _pushed = factors.length;
         if (macdi != null && macdSi != null && macdPi != null && macdPS != null) {
             const diff = macdi - macdSi, diffP = macdPi - macdPS;
             if (signalType === 'buy'  && diff > 0 && diffP <= 0) { score += 1.5; factors.push('✅ MACD 골든크로스'); }
@@ -2178,12 +2196,14 @@
             else if (signalType === 'sell' && diff < 0 && diffP >= 0) { score += 1.5; factors.push('✅ MACD 데드크로스'); }
             else if (signalType === 'sell' && diff < 0)           { score += 0.5; factors.push('🟡 MACD 음수'); }
         }
+        _markIfNoneNew(_pushed, signalType === 'buy' ? 'MACD 비호의적' : 'MACD 비호의적');
 
         // 6. 캔들 패턴 — 1점
         // 분봉일수록 노이즈 캔들이 많으므로 해머/슈팅스타 body 비율을 더 엄격하게
         //   5m 이하 → *2.5   15m → *2.2   30m+ → *2.0
         const _wickRatio = _isShortTF ? 2.5 : _iv === '15m' ? 2.2 : 2.0;
         const op = opens && Array.isArray(opens) ? opens : [];
+        _pushed = factors.length;
         if (sg(op, i) != null && sg(highs, i) != null && sg(lows, i) != null && i > 0) {
             const body  = Math.abs(c - op[i]);
             const upper = highs[i] - Math.max(op[i], c);
@@ -2196,6 +2216,7 @@
                 else if (c < op[i] && closes[i-1] > op[i-1] && c < op[i-1] && op[i] > closes[i-1]) { score += 1; factors.push('✅ Bearish Engulfing'); }
             }
         }
+        _markIfNoneNew(_pushed, '캔들 패턴 없음');
 
         // 7. ATR 적정 범위 — 0.5점
         // 타임프레임별 허용 변동성 범위 차별화 (분봉은 자연스럽게 ATR% 높음)
@@ -2207,17 +2228,22 @@
         const _atrMax  = _isShortTF ? 5.0 : _iv === '15m' ? 4.0 : _iv === '30m' ? 3.5 : 3.0;
         const _atrPen  = _isShortTF ? 8.0 : _iv === '15m' ? 6.0 : _iv === '30m' ? 5.5 : 5.0;
         const atri = sg(atr, i);
+        _pushed = factors.length;
+        let _atrPctStr = '?';
         if (atri != null && c > 0) {
             const atrPct = (atri / c) * 100;
-            if (atrPct >= _atrMin && atrPct <= _atrMax) { score += 0.5; factors.push(`✅ ATR ${atrPct.toFixed(1)}%`); }
-            else if (atrPct > _atrPen)                  { score -= 0.5; factors.push(`⚠️ ATR ${atrPct.toFixed(1)}% (과다)`); }
+            _atrPctStr = atrPct.toFixed(1);
+            if (atrPct >= _atrMin && atrPct <= _atrMax) { score += 0.5; factors.push(`✅ ATR ${_atrPctStr}%`); }
+            else if (atrPct > _atrPen)                  { score -= 0.5; factors.push(`⚠️ ATR ${_atrPctStr}% (과다)`); }
         }
+        _markIfNoneNew(_pushed, `ATR ${_atrPctStr}% (범위 외)`);
 
         // 8. Bollinger Band 위치 — 0.5점
         // 분봉일수록 BB를 자주 터치 → 더 극단적인 위치(밴드 바깥 근접)만 의미 있음
         //   5m 이하 → 0.25/0.75   15m → 0.27/0.73   30m+ → 0.30/0.70
         const _bbBuyThr  = _isShortTF ? 0.25 : _iv === '15m' ? 0.27 : 0.30;
         const _bbSellThr = _isShortTF ? 0.75 : _iv === '15m' ? 0.73 : 0.70;
+        _pushed = factors.length;
         if (bb && bb.upper && bb.lower && sg(bb.upper, i) != null && sg(bb.lower, i) != null) {
             const bbRange = bb.upper[i] - bb.lower[i];
             if (bbRange > 0) {
@@ -2226,16 +2252,21 @@
                 else if (signalType === 'sell' && bbPos > _bbSellThr) { score += 0.5; factors.push('✅ BB 상단 근접'); }
             }
         }
+        _markIfNoneNew(_pushed, signalType === 'buy' ? 'BB 하단 미근접' : 'BB 상단 미근접');
 
         // 9. 모멘텀 — 0.5점 (타임프레임별 봉 수 최적화)
         //   5m 이하 → 5봉(~25분)   15m → 8봉(~2h)   30m → 6봉(~3h)   1h+ → 5봉
         const momLb  = _isShortTF ? 5 : _iv === '15m' ? 8 : _iv === '30m' ? 6 : 5;
         const prevCmom = closes[Math.max(0, i - momLb)];
+        _pushed = factors.length;
+        let _momStr = '?';
         if (prevCmom != null && prevCmom > 0) {
             const momVal = ((c - prevCmom) / prevCmom) * 100;
+            _momStr = (momVal >= 0 ? '+' : '') + momVal.toFixed(1) + '%';
             if (signalType === 'buy'  && momVal > 0 && momVal < 5)    { score += 0.5; factors.push(`✅ 모멘텀 +${momVal.toFixed(1)}%`); }
             else if (signalType === 'sell' && momVal < 0 && momVal > -5) { score += 0.5; factors.push(`✅ 모멘텀 ${momVal.toFixed(1)}%`); }
         }
+        _markIfNoneNew(_pushed, `모멘텀 ${_momStr} (방향 불일치)`);
 
         // 10. 지지/저항 — 1점
         // 분봉에서 lookback이 너무 길면 전날/전전날 고저가가 섞여 의미 희석
@@ -2244,18 +2275,26 @@
         const lb = Math.min(_srLb, i);
         const rH = (highs || []).slice(Math.max(0, i-lb), i).filter(v => v != null);
         const rL = (lows  || []).slice(Math.max(0, i-lb), i).filter(v => v != null);
+        _pushed = factors.length;
         if (rH.length && rL.length) {
             const maxH = Math.max(...rH), minL = Math.min(...rL);
             if (signalType === 'buy'  && minL > 0 && Math.abs(c - minL) / minL < 0.02) { score += 1; factors.push('✅ 지지선 근접'); }
             else if (signalType === 'sell' && maxH > 0 && Math.abs(c - maxH) / maxH < 0.02) { score += 1; factors.push('✅ 저항선 근접'); }
         }
+        _markIfNoneNew(_pushed, signalType === 'buy' ? '지지선 미근접' : '저항선 미근접');
 
         // 최종 등급 (D 제거 — C/B/A/S 4단계)
         const grade    = score >= 9 ? 'S' : score >= 7 ? 'A' : score >= 5 ? 'B' : 'C';
         const winRate  = score >= 9 ? 85  : score >= 7 ? 72  : score >= 5 ? 60  : 50;
         const stars    = score >= 9 ? '⭐⭐⭐⭐⭐' : score >= 7 ? '⭐⭐⭐⭐' : score >= 5 ? '⭐⭐⭐' : '⭐⭐';
         const recommendation = grade === 'S' ? '강력 진입' : grade === 'A' ? '진입 권장' : grade === 'B' ? '신중 진입' : '관망 권장';
-        return { grade, score: +score.toFixed(1), winRate, stars, factors, recommendation, fallback: false };
+        // factors = 통과/부분/약점 (✅/🟡/❌/⚠️), weak = 미달 (⚪). 푸시 알림은 통과만 사용
+        return {
+            grade, score: +score.toFixed(1), winRate, stars,
+            factors,                       // 점수 영향 + 유의미 (시그널 콜아웃 용)
+            weakFactors: weak,             // 점수 영향 X, 패널 전체 체크리스트 용
+            recommendation, fallback: false,
+        };
     }
 
     // ── 등급 필터 함수 ──────────────────────────────────────────────
