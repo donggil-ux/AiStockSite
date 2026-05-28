@@ -173,15 +173,20 @@
             const btn = document.getElementById('cxtFullscreen');
             if (btn) btn.title = '작게보기';
             document.body.style.overflow = 'hidden';
+            // 복원 시에도 body class 동기화 (플로팅 UI 숨김 + 부가 UI 클리핑)
+            document.body.classList.add('chart-fs-active');
             setTimeout(() => {
                 const wrap = document.getElementById('tvChartWrap');
                 if (!wrap || !lwChart) return;
+                // 전체화면: viewport 기준 — 카드 안 부가 UI 가 숨겨졌으므로 wrap.clientHeight 가 정확
                 let h = wrap.clientHeight;
                 if (h < 200) {
-                    const toolbar = document.getElementById('chartToolbar');
-                    h = Math.max(200, card.clientHeight - (toolbar ? toolbar.offsetHeight : 0));
+                    const toolbarEl = document.getElementById('chartToolbar') ||
+                                      card.querySelector('.chart-toolbar, #tvChartToolbar');
+                    const toolbarH = toolbarEl ? toolbarEl.offsetHeight : 0;
+                    h = Math.max(300, window.innerHeight - toolbarH);
                 }
-                lwChart.applyOptions({ width: wrap.clientWidth, height: h });
+                lwChart.applyOptions({ width: wrap.clientWidth || window.innerWidth, height: h });
             }, 400);
         };
         setTimeout(() => tryRestore(0), 500);

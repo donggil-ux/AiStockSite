@@ -1640,6 +1640,18 @@
         .tv-chart-card.fullscreen .tv-chart-wrap{flex:1;height:auto!important;border-radius:0;}
         /* 전체화면 차트 영역만 overflow 클립 */
         .tv-chart-card.fullscreen #tvChartWrap{overflow:hidden !important;}
+        /* 전체화면 — 차트와 관련 없는 부가 UI 숨김 (차트가 viewport 최대 차지하도록) */
+        .tv-chart-card.fullscreen #priceSourceBadge,
+        .tv-chart-card.fullscreen #myPositionSlot,
+        .tv-chart-card.fullscreen #groupNav,
+        .tv-chart-card.fullscreen #chartPagerInline{
+            display:none !important;
+        }
+        /* 전체화면 — chartGridWrap 이 남은 공간 전체 flex 차지 */
+        .tv-chart-card.fullscreen #chartGridWrap{
+            flex:1 1 auto !important;
+            min-height:0 !important;
+        }
         /* 네이티브 Fullscreen API 사용 시 (안드로이드 PWA·데스크탑) */
         .tv-chart-card:fullscreen,
         .tv-chart-card:-webkit-full-screen{
