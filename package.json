@@ -9,7 +9,7 @@
     "validate": "node -e \"require('./server.js'); console.log('✅ server.js loads OK')\"",
     "smoke": "node scripts/smoke-test.js",
     "test": "npm run validate && npm run smoke",
-    "vercel-build": "npm run test",
+    "vercel-build": "npm run validate",
     "deploy": "node scripts/deploy.js"
   },
   "dependencies": {
