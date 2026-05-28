@@ -1552,16 +1552,38 @@ function getVPSignal(currentPrice, vp) {
     return                           { type: 'NEUTRAL',    label: '⬜ 중립',               strength: 'none',   desc: '명확한 VP 신호 없음' };
 }
 
+// ─── Bollinger Band (20, 2σ) 서버 측 inline 계산 ───────────────────
+function _bbServer(closes, period = 20, mult = 2) {
+    if (!Array.isArray(closes) || closes.length < period) return null;
+    const slice = closes.slice(-period).filter(v => v != null);
+    if (slice.length < period) return null;
+    const mean = slice.reduce((s, v) => s + v, 0) / period;
+    const variance = slice.reduce((s, v) => s + (v - mean) * (v - mean), 0) / period;
+    const sigma = Math.sqrt(variance);
+    return { upper: mean + mult * sigma, mid: mean, lower: mean - mult * sigma };
+}
+
+/**
+ * 단테 모멘텀 7조건 분석 — 단타 진입 탭 전용.
+ *   A. 거래량 200%+ 폭발 (rvol ≥ 2)
+ *   B. 5일 평균 거래대금 $5M+
+ *   C. 당일 등락률 +2% ~ +20%
+ *   D. 현재가 > MA5
+ *   E. 현재가 > MA20
+ *   F. 볼린저 상단 4% 이내
+ *   G. ORB — 시가 또는 전일고 돌파
+ * 최종 조건식: A AND B AND C AND D AND E AND (F OR G) → dantePass
+ * TIER: 충족 개수 기준 (6+=T1, 4+=T2, 2+=T3)
+ */
 function _breakoutAnalyzeServer(closes, highs, lows, opens, volumes, meta) {
     if (!closes || closes.length < 30) return null;
     const N = closes.length;
-    // 마지막 봉 = 오늘 (장중이면 진행중인 봉)
     const price = meta?.regularMarketPrice ?? closes[N - 1];
     const todayOpen = opens[N - 1] ?? meta?.regularMarketOpen;
     const todayVol = volumes[N - 1] ?? meta?.regularMarketVolume ?? 0;
     if (price == null || price <= 0) return null;
 
-    // MA5, MA20
+    // 이동평균
     const ma = (period) => {
         if (closes.length < period) return null;
         const slice = closes.slice(-period).filter(v => v != null);
@@ -1570,85 +1592,60 @@ function _breakoutAnalyzeServer(closes, highs, lows, opens, volumes, meta) {
     const lma5  = ma(5);
     const lma20 = ma(20);
 
-    // 전일 고점·종가
-    const prevHigh = highs[N - 2];
+    // 전일 고점·종가 (ORB·등락률용)
+    const prevHigh  = highs[N - 2];
     const prevClose = closes[N - 2];
 
-    // 평균 거래량 (50일)
-    const recentVols = volumes.slice(-50).filter(v => v != null);
-    const avgVol = recentVols.length ? recentVols.reduce((s, v) => s + v, 0) / recentVols.length : 0;
-    const rvol = avgVol > 0 ? todayVol / avgVol : 0;
+    // 평균 거래량 (50봉) → rvol
+    const recentVols50 = volumes.slice(-50).filter(v => v != null);
+    const avgVol50 = recentVols50.length ? recentVols50.reduce((s, v) => s + v, 0) / recentVols50.length : 0;
+    const rvol = avgVol50 > 0 ? todayVol / avgVol50 : 0;
 
-    // ─── M1: 돌파 패턴 (35%) ───
-    let s1 = 20;
-    const ma5Above = lma5 != null && lma20 != null && price > lma5 && lma5 > lma20;
-    if (prevHigh != null && price > prevHigh) s1 = 90;
-    else if (todayOpen != null && price > todayOpen && ma5Above) s1 = 70;
-    else if (todayOpen != null && price > todayOpen) s1 = 50;
+    // 5일 평균 거래대금 (≈ avgVol5 × avgClose5)
+    const recentVol5 = volumes.slice(-5).filter(v => v != null);
+    const recentClose5 = closes.slice(-5).filter(v => v != null);
+    const avgTurnover5d = (recentVol5.length === 5 && recentClose5.length === 5)
+        ? (recentVol5.reduce((s, v) => s + v, 0) / 5) * (recentClose5.reduce((s, v) => s + v, 0) / 5)
+        : null;
 
-    // ─── M2: 양봉 시가 지지 (25%) ───
-    let s2 = 30;
-    if (todayOpen != null && prevClose != null) {
-        const isBull = todayOpen > prevClose; // gap up
-        if (isBull && price >= todayOpen) s2 = 85;
-        else if (price >= todayOpen) s2 = 60;
-        else s2 = 20;
-    }
+    // 당일 등락률
+    const changePct = (prevClose && prevClose > 0)
+        ? +(((price - prevClose) / prevClose) * 100).toFixed(2)
+        : null;
 
-    // ─── M3: 거래량 (20%) ───
-    let s3 = 20;
-    if (rvol >= 2.0) s3 = 95;
-    else if (rvol >= 1.5) s3 = 78;
-    else if (rvol >= 1.0) s3 = 50;
+    // Bollinger 상단까지 거리 (% of price)
+    const bb = _bbServer(closes);
+    const bbDistPct = bb ? +(((bb.upper - price) / price) * 100).toFixed(2) : null;
 
-    // ─── M4: 이평선 정배열 (10%) ───
-    let s4 = 20;
-    if (lma5 != null && lma20 != null) {
-        if (lma5 > lma20 && price > lma5) s4 = 90;
-        else if (price > lma5) s4 = 55;
-    }
+    // 단테 7조건
+    const danteA = rvol >= 2.0;
+    const danteB = avgTurnover5d != null && avgTurnover5d >= 5_000_000;
+    const danteC = changePct != null && changePct >= 2 && changePct <= 20;
+    const danteD = lma5  != null && price > lma5;
+    const danteE = lma20 != null && price > lma20;
+    const danteF = bbDistPct != null && bbDistPct >= 0 && bbDistPct <= 4;
+    const danteG = (todayOpen != null && price > todayOpen) ||
+                   (prevHigh  != null && price > prevHigh);
 
-    // ─── M5: 위험 패턴 (10%) ───
-    let s5 = 100;
-    // 장대양봉 시가 복귀 감지 (최근 5봉)
-    for (let i = N - 5; i < N - 1; i++) {
-        if (i < 0) continue;
-        const o = opens[i], c = closes[i];
-        if (o == null || c == null || o === 0) continue;
-        const bodyPct = (c - o) / o * 100;
-        if (bodyPct >= 3.0) {
-            const returnPct = (price - o) / o * 100;
-            if (returnPct <= 0.3 && returnPct >= -1.5) { s5 = 0; break; }
-        }
-    }
+    const danteFlags = { A: danteA, B: danteB, C: danteC, D: danteD, E: danteE, F: danteF, G: danteG };
+    const danteCount = Object.values(danteFlags).filter(Boolean).length;
+    const dantePass  = danteA && danteB && danteC && danteD && danteE && (danteF || danteG);
+    const tier       = danteCount >= 6 ? 1 : danteCount >= 4 ? 2 : danteCount >= 2 ? 3 : 4;
 
-    // ─── Volume Profile (최근 5일 일봉) ─────────────────────────────────
-    const vpCandles = [];
-    for (let i = Math.max(0, N - 5); i < N; i++) {
-        if (closes[i] != null && highs[i] != null && lows[i] != null)
-            vpCandles.push({ close: closes[i], high: highs[i], low: lows[i], volume: volumes?.[i] || 0 });
-    }
-    let vp = null, vpSignal = null;
-    try { vp = calcVolumeProfile(vpCandles); } catch(_) {}
-    try { if (vp) vpSignal = getVPSignal(price, vp); } catch(_) {}
-    const vpScore = { high: 30, medium: 15, watch: 5, none: 0 }[vpSignal?.strength] || 0;
-
-    // ─── 종합 (기존 5단계 + VP 보너스) ───────────────────────────────────
-    const score = Math.round(s1 * 0.35 + s2 * 0.25 + s3 * 0.20 + s4 * 0.10 + s5 * 0.10) + vpScore;
     return {
-        score,
-        s1, s2, s3, s4, s5,
+        // 표시용
         price: +price.toFixed(2),
-        prevHigh: prevHigh != null ? +prevHigh.toFixed(2) : null,
-        todayOpen: todayOpen != null ? +todayOpen.toFixed(2) : null,
+        changePct,
+        // 단테 표준 필드
+        danteFlags, danteCount, dantePass, tier,
+        // 카드 뱃지 텍스트용 중간값
         rvol: +rvol.toFixed(2),
-        ma5: lma5 != null ? +lma5.toFixed(2) : null,
+        avgTurnover5d: avgTurnover5d != null ? Math.round(avgTurnover5d) : null,
+        bbDistPct,
+        ma5:  lma5  != null ? +lma5.toFixed(2)  : null,
         ma20: lma20 != null ? +lma20.toFixed(2) : null,
-        breakAboveYH: prevHigh != null && price > prevHigh,
-        breakAboveOpen: todayOpen != null && price > todayOpen,
-        maAligned: lma5 != null && lma20 != null && lma5 > lma20,
-        dangerPattern: s5 < 50,
-        vp, vpSignal, vpScore,
+        prevHigh:  prevHigh  != null ? +prevHigh.toFixed(2)  : null,
+        todayOpen: todayOpen != null ? +todayOpen.toFixed(2) : null,
     };
 }
 
@@ -1685,14 +1682,10 @@ app.get('/api/breakout-scan', async (req, res) => {
                     if (!lastClose || lastClose <= 0) return null;
                     const a = _breakoutAnalyzeServer(q.close, q.high, q.low, q.open, q.volume, meta);
                     if (!a) return null;
-                    // 변동률 계산: 현재가 vs 전일 종가
-                    const N = q.close.length;
-                    const prevC = q.close[N - 2];
-                    const changePct = (prevC && a.price) ? +((a.price - prevC) / prevC * 100).toFixed(2) : null;
                     return {
                         symbol: sym,
                         name: meta?.shortName || meta?.longName || sym,
-                        changePct,
+                        marketCap: meta?.marketCap ?? null,  // 클라이언트 시총 필터용
                         ...a,
                     };
                 } catch (e) { return null; }
@@ -1700,9 +1693,25 @@ app.get('/api/breakout-scan', async (req, res) => {
             all.push(...chunkResults.filter(Boolean));
         }
 
-        // score >= 60 ("진입 가능") 필터
-        const filtered = all.filter(r => r.score >= 60);
-        filtered.sort((a, b) => b.score - a.score);
+        // 1) 단테 컷오프(≥2개 충족) + '거래량 급증' 탭과 중복 종목 제외
+        const volSurgeSyms = new Set(
+            (_volSurgeCache?.data?.stocks || [])
+                .filter(s => s.volRatio >= 3)
+                .map(s => s.symbol)
+        );
+        const filtered = all
+            .filter(r => r.danteCount >= 2)
+            .filter(r => !volSurgeSyms.has(r.symbol));
+
+        // 2) 정렬: dantePass → tier → danteCount → changePct
+        filtered.sort((a, b) =>
+            (Number(b.dantePass) - Number(a.dantePass)) ||
+            (a.tier - b.tier) ||
+            (b.danteCount - a.danteCount) ||
+            ((b.changePct ?? 0) - (a.changePct ?? 0))
+        );
+
+        // 3) 상위 50개 — 단테 표준 필드만 응답
         const top = filtered.slice(0, 50);
 
         _breakoutScanCache = { ts: now, data: { results: top, totalScanned: all.length, scannedAt: new Date().toISOString() } };

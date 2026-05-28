@@ -3916,6 +3916,9 @@
         });
         const descEl = document.getElementById('alphaDesc');
         if (descEl) descEl.textContent = _ALPHA_DESC[tab] || '';
+        // 단타 진입 탭일 때만 필터 행 노출
+        const filterRow = document.getElementById('alphaDaytradeFilters');
+        if (filterRow) filterRow.style.display = (tab === 'daytrade') ? '' : 'none';
         const el = document.getElementById('alphaResults');
         if (!el) return;
         // ── 캐시 확인: 3분 이내 로드된 탭이면 재렌더링 없이 즉시 복원 ──
@@ -4290,8 +4293,45 @@
     // ── 단테 스캐너 (Phase 3) ────────────────────────────────────────
     // day_gainers + most_actives 의 시세 메타 필드로 단테 시그널 근사 → 점수화
     // (60일 OHLCV 미가공 → 가벼운 휴리스틱: 매집·눌림·거래량·52주 위치)
-    // ── 5분봉 돌파 단타 스캐너 ──────────────────────────────────────────
-    // /api/breakout-scan: 돌파+양봉시가+거래량+정배열+위험패턴 5단계 점수 60+ 종목
+    // ── 단테 모멘텀 7조건 스캐너 ──────────────────────────────────────
+    // /api/breakout-scan: 단테 7조건(거래량/거래대금/등락률/MA5/MA20/BB/ORB) 충족 종목
+    // (거래량 급증 탭과 중복 종목 제외 — 백엔드에서 dedup)
+    let _daytradeItemsCache = [];                  // 마지막 fetch 결과 (필터 재적용용)
+    let _daytradeFilterTof  = 'all';               // 'all' | '5m' | '20m'
+    let _daytradeFilterMcap = 'all';               // 'all' | '300m' | '2b'
+
+    function _applyDaytradeFilter(items) {
+        const tof = _daytradeFilterTof, mcap = _daytradeFilterMcap;
+        return items.filter(it => {
+            const t = it._avgTurnover5d || 0;
+            if (tof === '5m'  && t <  5_000_000)  return false;
+            if (tof === '20m' && t < 20_000_000)  return false;
+            const m = it._marketCap || 0;
+            if (mcap === '300m' && m <   300_000_000) return false;
+            if (mcap === '2b'   && m < 2_000_000_000) return false;
+            return true;
+        });
+    }
+
+    function _alphaSetDaytradeFilter(kind, value) {
+        if (kind === 'tof')  _daytradeFilterTof  = value;
+        if (kind === 'mcap') _daytradeFilterMcap = value;
+        // 필터 칩 active 토글
+        document.querySelectorAll('#alphaDaytradeFilters [data-tof]')
+            .forEach(b => b.classList.toggle('active', b.dataset.tof === _daytradeFilterTof));
+        document.querySelectorAll('#alphaDaytradeFilters [data-mcap]')
+            .forEach(b => b.classList.toggle('active', b.dataset.mcap === _daytradeFilterMcap));
+        // 캐시된 items 에 재필터 적용 후 렌더 (API 호출 0)
+        const el = document.getElementById('alphaResults');
+        if (!el || _alphaTab !== 'daytrade') return;
+        const filtered = _applyDaytradeFilter(_daytradeItemsCache);
+        if (!filtered.length) {
+            el.innerHTML = _alphaTimingGuide('daytrade') + '<div class="sniper-empty">선택한 필터에 해당하는 종목이 없습니다</div>';
+            return;
+        }
+        _alphaRender(filtered, 'daytrade');
+    }
+
     async function _alphaRenderBreakoutScanner(el) {
         el.innerHTML = _alphaTimingGuide('daytrade') + '<div class="sniper-loading">' + Array(6).fill('<div class="sniper-skel"></div>').join('') + '</div>';
         try {
@@ -4301,29 +4341,34 @@
             if (_alphaTab !== 'daytrade') return;
             const results = Array.isArray(d.results) ? d.results : [];
             if (!results.length) {
-                el.innerHTML = _alphaTimingGuide('daytrade') + '<div class="sniper-empty">현재 5분봉 돌파 60+ 종목이 없습니다 — 장중 다시 시도</div>';
+                el.innerHTML = _alphaTimingGuide('daytrade') + '<div class="sniper-empty">현재 단테 조건 충족 종목이 없습니다 — 장중 다시 시도</div>';
                 return;
             }
-            // _alphaRender(통합 카드 UI)에 맞게 데이터 변환 — Rayner·SEPA 와 동일 패턴
+            // 단테 단일 뷰 — 응답 필드만 매핑
             const items = results.map(r => ({
-                symbol: r.symbol,
-                name: r.name,
-                regularMarketPrice: r.price,
-                price: r.price,
+                symbol: r.symbol, name: r.name,
+                regularMarketPrice: r.price, price: r.price,
                 regularMarketChangePercent: r.changePct ?? null,
+                marketCap: r.marketCap ?? null,
                 _alphaKind: 'daytrade',
-                _breakoutScore: r.score,
-                _breakoutRvol: r.rvol,
-                _breakAboveYH: r.breakAboveYH,
-                _breakAboveOpen: r.breakAboveOpen,
-                _maAligned: r.maAligned,
-                _dangerPattern: r.dangerPattern,
-                _prevHigh: r.prevHigh,
-                _todayOpen: r.todayOpen,
-                _vp: r.vp ?? null,
-                _vpSignal: r.vpSignal ?? null,
+                _danteFlags: r.danteFlags,
+                _danteCount: r.danteCount,
+                _dantePass:  r.dantePass,
+                _tier:       r.tier,
+                _rvol:       r.rvol,
+                _avgTurnover5d: r.avgTurnover5d,
+                _bbDistPct:  r.bbDistPct,
+                _ma5: r.ma5, _ma20: r.ma20,
+                _marketCap: r.marketCap,
+                _prevHigh: r.prevHigh, _todayOpen: r.todayOpen,
             }));
-            _alphaRender(items, 'daytrade');
+            _daytradeItemsCache = items;  // 필터 재적용용 보관
+            const filtered = _applyDaytradeFilter(items);
+            if (!filtered.length) {
+                el.innerHTML = _alphaTimingGuide('daytrade') + '<div class="sniper-empty">선택한 필터에 해당하는 종목이 없습니다</div>';
+                return;
+            }
+            _alphaRender(filtered, 'daytrade');
         } catch (e) {
             if (_alphaTab === 'daytrade') el.innerHTML = _alphaTimingGuide('daytrade') + '<div class="sniper-empty">데이터 로드 실패 — 잠시 후 다시 시도하세요</div>';
         }
@@ -4734,50 +4779,46 @@
             if (q.price && atr > 0) bounceTarget = q.price + atr * 1.5;
             expectedMove = 0; // 퍼센트 배지 미사용 — 목표가 배지로 대체
         } else if (kind === 'daytrade') {
-            // 5분봉 돌파 단타 — score 0~100 + 돌파 등급·RVOL·MA정배열·위험패턴
-            const score100 = q._breakoutScore ?? q.score ?? 0;
-            const rvol = q._breakoutRvol ?? q.rvol ?? 0;
-            const breakAboveYH = q._breakAboveYH ?? q.breakAboveYH;
-            const breakAboveOpen = q._breakAboveOpen ?? q.breakAboveOpen;
-            const maAligned = q._maAligned ?? q.maAligned;
-            const dangerPattern = q._dangerPattern ?? q.dangerPattern;
+            // 단테 모멘텀 7조건 — 통과 뱃지 + TIER 칩 + N/7 진행률
+            const flags = q._danteFlags || {};
+            const danteCount = q._danteCount ?? Object.values(flags).filter(Boolean).length;
+            const tier = q._tier ?? (danteCount >= 6 ? 1 : danteCount >= 4 ? 2 : danteCount >= 2 ? 3 : 4);
+            const rvol = q._rvol ?? 0;
+            const turnover = q._avgTurnover5d ?? 0;
+            const bbDist = q._bbDistPct;
 
-            // 점수 등급
-            if (score100 >= 75)      signals.push({label:`돌파 ${score100} · 강력`,    cls:'emerald'});
-            else if (score100 >= 60) signals.push({label:`돌파 ${score100} · 진입가능`, cls:'amber'});
-            else                      signals.push({label:`돌파 ${score100} · 관망`,    cls:'red'});
-            // 돌파 종류
-            if (breakAboveYH)                          signals.push({label:'🟢 전일고점 돌파',  cls:'emerald'});
-            else if (breakAboveOpen && maAligned)       signals.push({label:'🟡 시가+정배열',     cls:'amber'});
-            else if (breakAboveOpen)                    signals.push({label:'🟡 시가 위',         cls:'amber'});
-            // RVOL
-            if (rvol >= 2.0)                            signals.push({label:`🔥 RVOL ${rvol.toFixed(1)}x`, cls:'orange'});
-            else if (rvol >= 1.5)                       signals.push({label:`📈 RVOL ${rvol.toFixed(1)}x`, cls:'blue'});
-            else                                        signals.push({label:`RVOL ${rvol.toFixed(1)}x`,    cls:'purple'});
-            // MA + 위험
-            if (maAligned)     signals.push({label:'MA 정배열', cls:'emerald'});
-            if (dangerPattern) signals.push({label:'⚠️ 위험 패턴', cls:'red'});
-            // Volume Profile 신호
-            const _vpSigCard = q._vpSignal;
-            if (_vpSigCard && _vpSigCard.strength !== 'none') {
-                const _vpCls = { high:'emerald', medium:'amber', watch:'purple' }[_vpSigCard.strength] || 'cyan';
-                signals.push({ label: _vpSigCard.label, cls: _vpCls });
-            }
+            // TIER 칩 (맨 앞)
+            const tierCls = tier === 1 ? 'emerald' : tier === 2 ? 'cyan' : 'amber';
+            const tierTxt = tier === 1 ? 'TIER 1 (전체 충족)' : tier === 2 ? 'TIER 2 (핵심 충족)' : 'TIER 3 (참고)';
+            signals.push({ label: tierTxt, cls: tierCls });
+            // 통과한 단테 7조건만 뱃지로 표시 (미달은 숨김 — 카드 정보 밀도 유지)
+            if (flags.A) signals.push({ label: `🔥 거래량 ${rvol.toFixed(1)}x 폭발`, cls: 'orange' });
+            if (flags.B) signals.push({ label: `💰 거래대금 $${(turnover/1_000_000).toFixed(1)}M+`, cls: 'cyan' });
+            if (flags.C) signals.push({ label: `+${(chg||0).toFixed(1)}% 급등`, cls: 'emerald' });
+            if (flags.D) signals.push({ label: '5일선 위', cls: 'blue' });
+            if (flags.E) signals.push({ label: '20일선 위', cls: 'blue' });
+            if (flags.F) signals.push({ label: `볼린저 상단 ${bbDist != null ? bbDist.toFixed(1) + '%' : '근접'}`, cls: 'amber' });
+            if (flags.G) signals.push({ label: 'ORB 돌파', cls: 'emerald' });
 
-            // 점수 0~100 → 0~6
-            score = score100 >= 80 ? 6 : score100 >= 70 ? 5 : score100 >= 60 ? 4 : score100 >= 45 ? 3 : score100 >= 30 ? 2 : 1;
+            // 0~6 스케일 (다른 탭과 동일) — danteCount(0~7)를 매핑
+            score = Math.min(6, danteCount);
 
-            // 사유
-            const parts = [];
-            if (breakAboveYH) parts.push('전일고점 돌파');
-            else if (breakAboveOpen) parts.push('시가 위');
-            if (rvol >= 1.5) parts.push(`RVOL ${rvol.toFixed(1)}x`);
-            if (maAligned) parts.push('MA 정배열');
-            reason = `5분봉 돌파 단타: ${parts.length ? parts.join(' · ') : '조건 미충족'}. ${score100 >= 75 ? '강력 진입' : score100 >= 60 ? '진입 가능' : '관망'}.`;
+            // 사유 — 통과 조건 요약
+            const passLabels = [];
+            if (flags.A) passLabels.push(`거래량 ${rvol.toFixed(1)}x`);
+            if (flags.C) passLabels.push(`+${(chg||0).toFixed(1)}%`);
+            if (flags.D && flags.E) passLabels.push('이평 정배열');
+            else if (flags.D) passLabels.push('5일선 위');
+            if (flags.F) passLabels.push('볼린저 상단 근접');
+            if (flags.G) passLabels.push('ORB 돌파');
+            const recoText = q._dantePass ? '단테 전조건 충족 → 즉시 단타 진입'
+                            : tier === 2 ? '핵심 조건 충족 → 진입 검토'
+                            : '참고용 — 추가 확인 필요';
+            reason = `단테 ${danteCount}/7 충족${passLabels.length ? `: ${passLabels.join(' · ')}` : ''}. ${recoText}.`;
 
-            timingBadge = score100 >= 75 ? {label:'⚡ 즉시 진입', cls:'emerald'}
-                       : score100 >= 60 ? {label:'⚡ 양봉 확인 후 진입', cls:'amber'}
-                                          : {label:'📅 돌파 대기', cls:'cyan'};
+            timingBadge = q._dantePass ? { label: '⚡ 즉시 단타', cls: 'emerald' }
+                        : tier === 2   ? { label: '⚡ 분할 진입', cls: 'amber'   }
+                                       : { label: '📅 관망',     cls: 'cyan'    };
             expectedMove = Math.round(2 + rvol * 1.5);
         } else if (kind === 'swing') {
             const rr = q._rr || 0;
@@ -4896,29 +4937,13 @@
             stopLoss = price * 0.96;
             target = price * (1 + (expectedMove || 8) / 100);
         } else if (kind === 'daytrade') {
-            // 돌파 단타: 진입 = 전일고점 +0.3% 또는 현재가 +0.5% (역지정가)
+            // 단테 단타: 진입 = 전일고점 +0.3% 또는 현재가 +0.5%
             const prevHi = q._prevHigh ?? q.prevHigh;
             if (prevHi && prevHi > price * 1.003) entry = prevHi * 1.003;
             else entry = price * 1.005;
             stopLoss = entry * 0.97;            // -3%
             target = entry * 1.025;             // +2.5%
-            // ── Volume Profile 섹션 ─────────────────────────────────────────
-            const _vpD = q._vp, _vpS = q._vpSignal;
-            if (_vpD && _vpS && _vpS.strength !== 'none') {
-                const _vpTextCol = { high:'#22C55E', medium:'#F59E0B', watch:'#94a3b8' }[_vpS.strength] || '#94a3b8';
-                const _vpBgCol  = { high:'rgba(34,197,94,.10)', medium:'rgba(245,158,11,.10)', watch:'rgba(100,116,139,.10)' }[_vpS.strength] || 'rgba(100,116,139,.10)';
-                const _pocDir = price > _vpD.poc ? 'POC 위 ↑' : 'POC 아래 ↓';
-                vpSectionHtml = `<div class="vp-section">
-                    <div class="vp-signal-badge" style="background:${_vpBgCol};color:${_vpTextCol};">${escHtml(_vpS.label)}</div>
-                    <div class="vp-levels">
-                        <span class="vp-vah">VAH $${_vpD.vah}</span>
-                        <span class="vp-poc">POC $${_vpD.poc} ★</span>
-                        <span class="vp-val">VAL $${_vpD.val}</span>
-                    </div>
-                    <div class="vp-position">현재 $${priceFmt} → ${_pocDir}</div>
-                    <div class="vp-desc">${escHtml(_vpS.desc)}</div>
-                </div>`;
-            }
+            // Volume Profile 섹션 제거 (단테 응답에 vp 미포함)
         } else if (kind === 'dante') {
             stopLoss = price * 0.97;
             target = price * (1 + (expectedMove || 5) / 100);

@@ -6408,6 +6408,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         toggleScannerChip, setScannerPreset, syncScannerChipUI,
         debounceScannerFetch, runScannerFetch, filterScannerResults, renderScannerResults,
         _alphaSwitchTab, _alphaRender, _alphaRenderCard, _alphaToggleCard, _alphaTheme, _alphaRisk, _alphaTimingGuide,
+        _alphaSetDaytradeFilter,
         _alphaHomeSwitch, loadAlphaHomePreview, goAlphaFromHome, _setSurgeFilter, _bounceSetFilter, _alphaSetVerdictFilter,
         captureChartAndAnalyze, clearAiChartLines, drawAiChartLines, toggleAiReport, setTradeMode,
         renderAnalysisReport, buildChartContextJson,

@@ -396,6 +396,21 @@
         </div>
         <!-- 탭별 설명 -->
         <div class="alpha-desc" id="alphaDesc"></div>
+        <!-- 단타 진입 탭 전용 필터 (거래대금/시총) -->
+        <div class="alpha-filter-row" id="alphaDaytradeFilters" style="display:none;">
+            <div class="alpha-filter-group">
+                <span class="alpha-filter-label">💰 거래대금</span>
+                <button class="alpha-filter-chip active" data-tof="all"  onclick="_alphaSetDaytradeFilter('tof','all')">전체</button>
+                <button class="alpha-filter-chip"        data-tof="5m"   onclick="_alphaSetDaytradeFilter('tof','5m')">$5M+</button>
+                <button class="alpha-filter-chip"        data-tof="20m"  onclick="_alphaSetDaytradeFilter('tof','20m')">$20M+</button>
+            </div>
+            <div class="alpha-filter-group">
+                <span class="alpha-filter-label">📋 시가총액</span>
+                <button class="alpha-filter-chip active" data-mcap="all"  onclick="_alphaSetDaytradeFilter('mcap','all')">전체</button>
+                <button class="alpha-filter-chip"        data-mcap="300m" onclick="_alphaSetDaytradeFilter('mcap','300m')">$300M+</button>
+                <button class="alpha-filter-chip"        data-mcap="2b"   onclick="_alphaSetDaytradeFilter('mcap','2b')">$2B+</button>
+            </div>
+        </div>
         <!-- 결과 -->
         <div id="alphaResults" class="alpha-results"></div>
     </div>

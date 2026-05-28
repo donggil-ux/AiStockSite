@@ -433,6 +433,36 @@
         .sm-sub-tab:hover:not(.active){opacity:.7;}
         /* 알파 스캐너 설명·결과 영역 */
         .alpha-desc{font-size:13px;color:var(--text2);line-height:1.55;margin:8px 0 14px;letter-spacing:-0.01em;}
+        /* ── 단타 진입 탭 필터 행 ── */
+        .alpha-filter-row{
+            display:flex; flex-wrap:wrap; gap:14px;
+            padding:10px 12px; margin:0 0 12px;
+            background:var(--bg2);
+            border:1px solid var(--border);
+            border-radius:var(--radius-md);
+        }
+        .alpha-filter-group{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+        .alpha-filter-label{
+            font-size:11px; font-weight:700; color:var(--text2);
+            letter-spacing:-0.01em; margin-right:2px; white-space:nowrap;
+        }
+        .alpha-filter-chip{
+            font-size:11px; font-weight:600;
+            padding:5px 10px; border-radius:var(--radius-full);
+            background:transparent; color:var(--text2);
+            border:1px solid var(--border);
+            cursor:pointer; transition:all .15s;
+            white-space:nowrap; font-family:inherit;
+        }
+        .alpha-filter-chip:hover{ color:var(--text); border-color:var(--text3); }
+        .alpha-filter-chip.active{
+            background:rgba(0,128,251,.16); color:var(--blue);
+            border-color:rgba(0,128,251,.45);
+        }
+        @media (max-width:600px){
+            .alpha-filter-row{ gap:10px; padding:8px 10px; }
+            .alpha-filter-chip{ padding:4px 8px; font-size:10px; }
+        }
         .alpha-results{display:flex;flex-direction:column;gap:0;}
 
         /* ═══════════════════════════════════════════════════════
