@@ -59,6 +59,27 @@ export async function handleAdminStatus(req, env) {
              FROM signal_history ORDER BY created_at DESC LIMIT 5`
         ).all();
 
+        // 6) 최근 24시간 에러 통계 + 최근 10개
+        const errStats = await env.DB.prepare(
+            `SELECT
+                COUNT(*) AS total_24h,
+                SUM(CASE WHEN source='client' THEN 1 ELSE 0 END) AS client,
+                SUM(CASE WHEN source='worker' THEN 1 ELSE 0 END) AS worker,
+                SUM(CASE WHEN source='cron'   THEN 1 ELSE 0 END) AS cron
+             FROM errors WHERE created_at >= ?`
+        ).bind(since24h).first();
+
+        const errRecent = await env.DB.prepare(
+            `SELECT source, severity, message, created_at
+             FROM errors ORDER BY created_at DESC LIMIT 10`
+        ).all();
+
+        // 7) 최근 7일 헬스 스냅샷
+        const health = await env.DB.prepare(
+            `SELECT snapshot_date, subscribers, active_24h, signals_24h, pushes_24h, errors_24h, feedbacks_24h
+             FROM health_snapshots ORDER BY snapshot_date DESC LIMIT 7`
+        ).all();
+
         return json({
             timestamp: sinceNow,
             uptime: 'always (Cloudflare Workers)',
@@ -69,10 +90,14 @@ export async function handleAdminStatus(req, env) {
                 vapidPrivate: !!env.VAPID_PRIVATE_KEY,
                 vapidSubject: !!env.VAPID_SUBJECT,
                 polygon: !!env.POLYGON_API,
+                clerk: !!env.CLERK_PUBLISHABLE_KEY,
             },
             subscribers: subStats || { total: 0, active_24h: 0, active_7d: 0 },
             priceAlerts: alertStats || { total: 0, pending: 0, triggered_24h: 0 },
             signals: sigStats || { total: 0, last_24h: 0, last_7d: 0, s_total: 0, a_total: 0 },
+            errors: errStats || { total_24h: 0, client: 0, worker: 0, cron: 0 },
+            recentErrors: errRecent.results || [],
+            healthSnapshots: health.results || [],
             yahooCrumb: crumbStatus,
             recentSignals: recent.results || [],
             cron: {
@@ -80,8 +105,10 @@ export async function handleAdminStatus(req, env) {
                     '*/5 13-21 * * 1-5 (미국 정규장)',
                     '*/5 0-6 * * 1-5 (한국 정규장)',
                     '0 0 * * 1-5 (실적 리마인더)',
+                    '30 * * * * (시그널 결과 매칭)',
+                    '5 0 * * * (일별 헬스 스냅샷 + 에러 정리)',
                 ],
-                estimatedDaily: '~90회',
+                estimatedDaily: '~115회',
             },
         });
     } catch (e) {

@@ -5,6 +5,75 @@
 
 
     // ════════════════════════════════════════════════════════════
+    //  자체 에러 추적 — window.onerror + unhandledrejection 자동 보고
+    //  rate limit + sampling 으로 폭주 방지
+    // ════════════════════════════════════════════════════════════
+    (function _initErrorReporter() {
+        const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        if (isLocal) return; // 로컬은 콘솔만
+        let _lastErrTs = 0;
+        const _seen = new Set();      // fingerprint dedupe (세션 내)
+        const _SAMPLE = 0.3;          // 30% 만 보고 (트래픽 부담 ↓)
+        function _fingerprint(msg, src) {
+            const key = String(src || '') + ':' + String(msg || '').slice(0, 100);
+            return key;
+        }
+        async function reportError(info) {
+            try {
+                // rate: 5초당 1회
+                const now = Date.now();
+                if (now - _lastErrTs < 5000) return;
+                _lastErrTs = now;
+                // dedupe: 같은 fingerprint 세션 내 1회만
+                const fp = _fingerprint(info.message, info.source);
+                if (_seen.has(fp)) return;
+                _seen.add(fp);
+                // sampling
+                if (Math.random() > _SAMPLE) return;
+                // 전송 (실패해도 무시 — 무한루프 방지)
+                const subToken = (() => { try { return localStorage.getItem('stockai_push_token') || null; } catch { return null; } })();
+                const base = window.API_WORKERS_BASE || '';
+                await fetch(base + '/api/errors', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        source: 'client',
+                        severity: info.severity || 'error',
+                        message: info.message || 'unknown',
+                        stack: info.stack || null,
+                        context: {
+                            url: location.pathname + location.search,
+                            tz: -new Date().getTimezoneOffset(),
+                            symbol: window.currentSymbol || null,
+                        },
+                        sub_token: subToken,
+                    }),
+                    // 직접 origFetch 호출 (state.js 의 라우팅 인터셉터를 거치지 않음 — 무한루프 방지)
+                });
+            } catch (_) {}
+        }
+        window.addEventListener('error', (e) => {
+            // script load 에러도 잡힘 — message 비어있으면 스킵
+            if (!e.message && !e.error) return;
+            reportError({
+                message: e.message || e.error?.message || 'window.error',
+                stack: e.error?.stack || `${e.filename}:${e.lineno}:${e.colno}`,
+                severity: 'error',
+            });
+        });
+        window.addEventListener('unhandledrejection', (e) => {
+            const r = e.reason;
+            reportError({
+                message: r?.message || String(r || 'unhandled rejection').slice(0, 200),
+                stack: r?.stack || null,
+                severity: 'error',
+            });
+        });
+        // 디버깅용 수동 호출
+        window._reportError = reportError;
+    })();
+
+    // ════════════════════════════════════════════════════════════
     //  Workers 백엔드 라우팅 (Vercel + Cloudflare Workers 하이브리드)
     //  지정 prefix 의 API 호출만 Workers 로, 나머지는 Vercel(같은 origin) 그대로.
     //  로컬 개발(localhost) 에서는 라우팅 비활성 → Express server.js 호출.

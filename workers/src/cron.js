@@ -3,6 +3,7 @@ import { yfRequest } from './utils/crumb.js';
 import { sendPush } from './utils/vapid.js';
 import { detectSignal } from './utils/indicators.js';
 import { fetchChartWithFallback } from './routes/yahoo.js';
+import { logError } from './utils/errors.js';
 
 // ─────────────────────────────────────────────────────────────
 // 조용 시간대 (Quiet Hours) — 사용자별 야간 음소거
@@ -411,6 +412,68 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
         return { subscribers: subs.length, symbols: allSymbols.length, analyzed, fired };
     } catch (e) {
         console.error('[cron] analyzeSignals', e.message);
+        return { error: e.message };
+    }
+}
+
+/**
+ * 매일 UTC 00:05 — 일별 헬스 스냅샷 + cron 에러 자동 로깅
+ * health_snapshots 에 어제 날짜 메트릭 누적 기록
+ */
+export async function snapshotHealth(env) {
+    try {
+        const D = 24 * 3600 * 1000;
+        const now = Date.now();
+        const since24h = now - D;
+        // 어제 날짜 (YYYY-MM-DD) — UTC 기준
+        const yesterday = new Date(now - D).toISOString().split('T')[0];
+
+        const subStats = await env.DB.prepare(
+            `SELECT COUNT(*) AS total,
+                SUM(CASE WHEN last_seen >= ? THEN 1 ELSE 0 END) AS active
+             FROM push_subscribers`
+        ).bind(since24h).first();
+
+        const sigCount = await env.DB.prepare(
+            'SELECT COUNT(*) AS c FROM signal_history WHERE created_at >= ?'
+        ).bind(since24h).first();
+
+        const pushCount = await env.DB.prepare(
+            'SELECT COUNT(*) AS c FROM signal_history WHERE pushed_at >= ?'
+        ).bind(since24h).first();
+
+        const errCount = await env.DB.prepare(
+            'SELECT COUNT(*) AS c FROM errors WHERE created_at >= ?'
+        ).bind(since24h).first();
+
+        const fbCount = await env.DB.prepare(
+            'SELECT COUNT(*) AS c FROM signal_feedback WHERE created_at >= ?'
+        ).bind(since24h).first();
+
+        await env.DB.prepare(
+            `INSERT INTO health_snapshots (snapshot_date, subscribers, active_24h, signals_24h, pushes_24h, errors_24h, feedbacks_24h, created_at)
+             VALUES (?,?,?,?,?,?,?,?)
+             ON CONFLICT(snapshot_date) DO UPDATE SET
+                subscribers=excluded.subscribers,
+                active_24h=excluded.active_24h,
+                signals_24h=excluded.signals_24h,
+                pushes_24h=excluded.pushes_24h,
+                errors_24h=excluded.errors_24h,
+                feedbacks_24h=excluded.feedbacks_24h`
+        ).bind(
+            yesterday,
+            subStats?.total || 0,
+            subStats?.active || 0,
+            sigCount?.c || 0,
+            pushCount?.c || 0,
+            errCount?.c || 0,
+            fbCount?.c || 0,
+            now
+        ).run();
+
+        return { date: yesterday, subscribers: subStats?.total || 0, signals: sigCount?.c || 0, errors: errCount?.c || 0 };
+    } catch (e) {
+        await logError(env, { source: 'cron', message: 'snapshotHealth: ' + e.message, stack: e.stack });
         return { error: e.message };
     }
 }

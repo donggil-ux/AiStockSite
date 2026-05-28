@@ -19,6 +19,9 @@ import { handlePolygonCandles } from './routes/polygon.js';
 import { handleSubscribe, handleCreateAlert, handleListAlerts, handleDeleteAlert, handlePushTest, handleSyncFavs, handleSyncPrefs, handleLinkAccount } from './routes/push.js';
 import { handleSignalStats, handleBacktest } from './routes/stats.js';
 import { handleSignalFeedback, handleGetSignalFeedback } from './routes/feedback.js';
+import { handleReportError, handleListErrors } from './routes/errors.js';
+import { logError, pruneOldErrors } from './utils/errors.js';
+import { snapshotHealth } from './cron.js';
 import { handleAdminStatus } from './routes/admin.js';
 import { checkPriceAlerts, earningsReminder, analyzeSignals, resolveSignals } from './cron.js';
 import { json, err } from './utils/validators.js';
@@ -74,6 +77,8 @@ const ROUTES = [
     ['POST',   '/api/signals/:id/feedback', handleSignalFeedback],
     ['GET',    '/api/signals/:id/feedback', handleGetSignalFeedback],
     ['GET',    '/api/admin/status',      handleAdminStatus],
+    ['POST',   '/api/errors',            handleReportError],
+    ['GET',    '/api/admin/errors',      handleListErrors],
 ];
 
 export default {
@@ -93,6 +98,14 @@ export default {
             return withCors(err(404, 'route not found'));
         } catch (e) {
             console.error('[fetch]', e.stack || e.message);
+            // 자체 에러 추적 — fail-safe 로 wrapper 적용
+            ctx.waitUntil(logError(env, {
+                source: 'worker',
+                severity: 'error',
+                message: e.message || 'fetch error',
+                stack: e.stack,
+                context: { route: url.pathname, method: req.method },
+            }));
             return withCors(err(500, e.message));
         }
     },
@@ -110,6 +123,13 @@ export default {
         // 매시 :30 — 시그널 결과 매칭 (정확도 추적용)
         if (cron === '30 * * * *') {
             ctx.waitUntil(resolveSignals(env).then(r => console.log('[cron] resolve', r)));
+        }
+        // 매일 00:05 — 일별 헬스 스냅샷 + 30일+ 에러 정리
+        if (cron === '5 0 * * *') {
+            ctx.waitUntil(Promise.all([
+                snapshotHealth(env).then(r => console.log('[cron] health', r)),
+                pruneOldErrors(env).then(r => console.log('[cron] prune', r)),
+            ]));
         }
         // 5분마다 (시장 시간) 시그널 분석 + 가격 알림 병렬 실행
         if (cron === '*/5 13-21 * * 1-5' || cron === '*/5 0-6 * * 1-5') {
