@@ -986,27 +986,44 @@
         // body — 컨플루언스 조건 체크리스트 (통과 + 미달 모두 표시 = 10개 풀 체크)
         const body = document.getElementById('sgpBody');
         if (body) {
-            const allConds = [...factors, ...(Array.isArray(sg.weakFactors) ? sg.weakFactors : [])];
-            // 다음 등급까지 부족 점수 계산
+            const weakArr2 = Array.isArray(sg.weakFactors) ? sg.weakFactors : [];
+            const allConds = [...factors, ...weakArr2];
+            // 다음 등급까지 부족 점수 계산 + 가장 큰 영향 미달 조건 1개
             const sc = +sg.score || 0;
+            // weakFactors 는 잠재 점수 큰 순으로 정렬되어 있음 → 첫번째가 최고 leverage
+            const _bestWeak = weakArr2[0] || '';
+            // 라벨에서 잠재 점수 부분만 추출 (예: "⚪ 추세 미정렬 (잠재 +2)" → 라벨 + +2)
+            const _bestWeakLabel = _bestWeak.replace(/^⚪\s*/, '').replace(/\s*\(잠재 \+[\d.]+\)$/, '');
+            const _bestWeakPtsM = _bestWeak.match(/\(잠재 \+([\d.]+)\)$/);
+            const _bestWeakPts = _bestWeakPtsM ? _bestWeakPtsM[1] : null;
+            const _bestHtml = _bestWeakPts
+                ? ` <span class="sgp-best-tip">→ <b>${escHtml(_bestWeakLabel)}</b> 충족 시 <b style="color:#22C55E;">+${_bestWeakPts}</b></span>`
+                : '';
             let nextHtml = '';
             if (sc >= 9)      nextHtml = `<div class="sgp-next-grade max-grade">🏆 최고 등급 <b>S</b> 달성 — 모든 조건 충족됨</div>`;
-            else if (sc >= 7) nextHtml = `<div class="sgp-next-grade"><span class="sgp-next-grade-badge" style="background:rgba(255,215,0,.16);color:#FFD700;border-color:rgba(255,215,0,.35);">S</span>등급까지 <span class="sgp-next-grade-pts">${(9-sc).toFixed(1)}점</span> 부족</div>`;
-            else if (sc >= 5) nextHtml = `<div class="sgp-next-grade"><span class="sgp-next-grade-badge">A</span>등급까지 <span class="sgp-next-grade-pts">${(7-sc).toFixed(1)}점</span> 부족</div>`;
-            else              nextHtml = `<div class="sgp-next-grade"><span class="sgp-next-grade-badge" style="background:rgba(59,130,246,.16);color:#3B82F6;border-color:rgba(59,130,246,.35);">B</span>등급까지 <span class="sgp-next-grade-pts">${(5-sc).toFixed(1)}점</span> 부족</div>`;
+            else if (sc >= 7) nextHtml = `<div class="sgp-next-grade"><span class="sgp-next-grade-badge" style="background:rgba(255,215,0,.16);color:#FFD700;border-color:rgba(255,215,0,.35);">S</span>등급까지 <span class="sgp-next-grade-pts">${(9-sc).toFixed(1)}점</span> 부족${_bestHtml}</div>`;
+            else if (sc >= 5) nextHtml = `<div class="sgp-next-grade"><span class="sgp-next-grade-badge">A</span>등급까지 <span class="sgp-next-grade-pts">${(7-sc).toFixed(1)}점</span> 부족${_bestHtml}</div>`;
+            else              nextHtml = `<div class="sgp-next-grade"><span class="sgp-next-grade-badge" style="background:rgba(59,130,246,.16);color:#3B82F6;border-color:rgba(59,130,246,.35);">B</span>등급까지 <span class="sgp-next-grade-pts">${(5-sc).toFixed(1)}점</span> 부족${_bestHtml}</div>`;
 
             if (!allConds.length) {
                 body.innerHTML = nextHtml + '<div class="sgp-empty">데이터 부족 — 조건을 분석할 수 없습니다</div>';
             } else {
+                // 첫번째 weak 가 'best leverage' — 별도 highlight 클래스 추가
+                let weakSeen = 0;
                 body.innerHTML = nextHtml + allConds.map(f => {
-                    // factor 라벨에서 ✅/🟡/❌/⚪/⚠️ 분류
+                    const isWeak = f.startsWith('⚪');
                     const cls = f.startsWith('✅') ? 'sgp-cond-pass'
                               : f.startsWith('🟡') ? 'sgp-cond-mid'
                               : f.startsWith('❌') ? 'sgp-cond-fail'
                               : f.startsWith('⚠️') ? 'sgp-cond-fail'
-                              : f.startsWith('⚪') ? 'sgp-cond-skip'
+                              : isWeak ? 'sgp-cond-skip'
                               : 'sgp-cond-other';
-                    return `<div class="sgp-condition ${cls}">${escHtml(f)}</div>`;
+                    let extraCls = '';
+                    if (isWeak) {
+                        if (weakSeen === 0) extraCls = ' sgp-cond-best-leverage';
+                        weakSeen++;
+                    }
+                    return `<div class="sgp-condition ${cls}${extraCls}">${escHtml(f)}</div>`;
                 }).join('');
             }
         }
@@ -2135,29 +2152,36 @@
 
         let score = 0;
         const factors = [];
-        const weak = []; // 미달 조건 (점수 영향 X, 패널 전체 체크리스트 용)
-        const _markIfNoneNew = (lenBefore, label) => {
-            if (factors.length === lenBefore) weak.push(`⚪ ${label}`);
+        const weak = []; // 미달 조건 {label, max} (점수 영향 X, 잠재 점수 큰 순 정렬용)
+        // 미달 표시 헬퍼 — 카테고리에서 factors push 가 없으면 잠재 점수와 함께 weak 등록
+        const _markIfNoneNew = (lenBefore, label, maxPts) => {
+            if (factors.length === lenBefore) weak.push({ label, max: maxPts });
+        };
+        // 점수와 함께 통과 factor 추가 (사용자가 '어느 조건이 몇 점인지' 즉시 확인)
+        const _addPass = (icon, label, pts) => {
+            score += pts;
+            const sign = pts >= 0 ? '+' : '';
+            factors.push(`${icon} ${label} ${sign}${pts}`);
         };
         const c = closes[i];
 
-        // 1. 추세 방향 일치 (HTF) — 2점
+        // 1. 추세 방향 일치 (HTF) — 최대 2점
         let _pushed = factors.length;
         const ma20i = sg(ma20, i), ma60i = sg(ma60, i), ma120i = sg(ma120, i);
         const trendUp = ma20i != null && ma60i != null && ma120i != null && ma20i > ma60i && ma60i > ma120i;
         const trendDn = ma20i != null && ma60i != null && ma120i != null && ma20i < ma60i && ma60i < ma120i;
-        if (signalType === 'buy' && trendUp)       { score += 2; factors.push('✅ 추세 정배열'); }
-        else if (signalType === 'sell' && trendDn) { score += 2; factors.push('✅ 추세 역배열'); }
-        else if (signalType === 'buy' && trendDn)  { score -= 1; factors.push('❌ 하락 추세 역방향 매수'); }
-        _markIfNoneNew(_pushed, '추세 미정렬');
+        if (signalType === 'buy' && trendUp)       _addPass('✅', '추세 정배열', 2);
+        else if (signalType === 'sell' && trendDn) _addPass('✅', '추세 역배열', 2);
+        else if (signalType === 'buy' && trendDn)  _addPass('❌', '하락 추세 역방향 매수', -1);
+        _markIfNoneNew(_pushed, '추세 미정렬', 2);
 
-        // 2. EMA20 위치 — 1점
+        // 2. EMA20 위치 — 최대 1점
         _pushed = factors.length;
         if (ma20i != null) {
-            if (signalType === 'buy'  && c > ma20i) { score += 1; factors.push('✅ EMA20 위'); }
-            else if (signalType === 'sell' && c < ma20i) { score += 1; factors.push('✅ EMA20 아래'); }
+            if (signalType === 'buy'  && c > ma20i) _addPass('✅', 'EMA20 위', 1);
+            else if (signalType === 'sell' && c < ma20i) _addPass('✅', 'EMA20 아래', 1);
         }
-        _markIfNoneNew(_pushed, signalType === 'buy' ? 'EMA20 미상승' : 'EMA20 미하락');
+        _markIfNoneNew(_pushed, signalType === 'buy' ? 'EMA20 미상승' : 'EMA20 미하락', 1);
 
         // 3. 거래량 — 1.5점
         const vols = (volumes && Array.isArray(volumes)) ? volumes : [];
@@ -2170,41 +2194,44 @@
         const vSlice = vols.slice(Math.max(0, i-volLookback), i).filter(v => v != null);
         const vAvg = vSlice.length ? vSlice.reduce((s,v) => s+v, 0) / vSlice.length : 0;
         const vRatio = vAvg > 0 ? (vols[i] || 0) / vAvg : 1;
+        // 3. 거래량 — 최대 1.5점
         _pushed = factors.length;
-        if (vRatio >= 2.0)      { score += 1.5; factors.push(`✅ 거래량 ${vRatio.toFixed(1)}x`); }
-        else if (vRatio >= 1.5) { score += 1;   factors.push(`✅ 거래량 ${vRatio.toFixed(1)}x`); }
-        else if (vRatio >= 1.2) { score += 0.5; factors.push(`🟡 거래량 ${vRatio.toFixed(1)}x`); }
-        _markIfNoneNew(_pushed, `거래량 ${vRatio.toFixed(1)}x (낮음)`);
+        if (vRatio >= 2.0)      _addPass('✅', `거래량 ${vRatio.toFixed(1)}x`, 1.5);
+        else if (vRatio >= 1.5) _addPass('✅', `거래량 ${vRatio.toFixed(1)}x`, 1);
+        else if (vRatio >= 1.2) _addPass('🟡', `거래량 ${vRatio.toFixed(1)}x`, 0.5);
+        _markIfNoneNew(_pushed, `거래량 ${vRatio.toFixed(1)}x (낮음)`, 1.5);
 
         // 4. RSI — 1.5점
         // 타임프레임별 과매도/과매수 임계값 — 분봉일수록 노이즈 크므로 더 엄격하게
         //   5m 이하 → 25/75   15m → 27/73   30m → 28/72   1h+ → 30/70
         const RSI_OS = _isShortTF ? 25 : _iv === '15m' ? 27 : _iv === '30m' ? 28 : 30;
         const RSI_OB = _isShortTF ? 75 : _iv === '15m' ? 73 : _iv === '30m' ? 72 : 70;
+        // 4. RSI — 최대 1.5점
         const rsiVal = sg(rsi, i) ?? 50;
         _pushed = factors.length;
         if (signalType === 'buy') {
-            if (rsiVal < RSI_OS)                   { score += 1.5; factors.push(`✅ RSI ${rsiVal.toFixed(0)} (과매도)`); }
-            else if (rsiVal >= 40 && rsiVal <= 60) { score += 1;   factors.push(`✅ RSI ${rsiVal.toFixed(0)} (중립)`); }
-            else if (rsiVal > RSI_OB)              { score -= 1;   factors.push(`❌ RSI ${rsiVal.toFixed(0)} (과매수)`); }
+            if (rsiVal < RSI_OS)                   _addPass('✅', `RSI ${rsiVal.toFixed(0)} (과매도)`, 1.5);
+            else if (rsiVal >= 40 && rsiVal <= 60) _addPass('✅', `RSI ${rsiVal.toFixed(0)} (중립)`, 1);
+            else if (rsiVal > RSI_OB)              _addPass('❌', `RSI ${rsiVal.toFixed(0)} (과매수)`, -1);
         } else {
-            if (rsiVal > RSI_OB)  { score += 1.5; factors.push(`✅ RSI ${rsiVal.toFixed(0)} (과매수)`); }
-            else if (rsiVal < RSI_OS) { score -= 1; factors.push(`❌ RSI ${rsiVal.toFixed(0)} (과매도)`); }
+            if (rsiVal > RSI_OB)      _addPass('✅', `RSI ${rsiVal.toFixed(0)} (과매수)`, 1.5);
+            else if (rsiVal < RSI_OS) _addPass('❌', `RSI ${rsiVal.toFixed(0)} (과매도)`, -1);
         }
-        _markIfNoneNew(_pushed, `RSI ${rsiVal.toFixed(0)} (애매)`);
+        _markIfNoneNew(_pushed, `RSI ${rsiVal.toFixed(0)} (애매)`, 1.5);
 
         // 5. MACD — 1.5점
         const macdi = sg(macd, i), macdSi = sg(macdSignal, i);
         const macdPi = sg(macd, i-1), macdPS = sg(macdSignal, i-1);
+        // 5. MACD — 최대 1.5점
         _pushed = factors.length;
         if (macdi != null && macdSi != null && macdPi != null && macdPS != null) {
             const diff = macdi - macdSi, diffP = macdPi - macdPS;
-            if (signalType === 'buy'  && diff > 0 && diffP <= 0) { score += 1.5; factors.push('✅ MACD 골든크로스'); }
-            else if (signalType === 'buy'  && diff > 0)           { score += 0.5; factors.push('🟡 MACD 양수'); }
-            else if (signalType === 'sell' && diff < 0 && diffP >= 0) { score += 1.5; factors.push('✅ MACD 데드크로스'); }
-            else if (signalType === 'sell' && diff < 0)           { score += 0.5; factors.push('🟡 MACD 음수'); }
+            if (signalType === 'buy'  && diff > 0 && diffP <= 0)      _addPass('✅', 'MACD 골든크로스', 1.5);
+            else if (signalType === 'buy'  && diff > 0)               _addPass('🟡', 'MACD 양수', 0.5);
+            else if (signalType === 'sell' && diff < 0 && diffP >= 0) _addPass('✅', 'MACD 데드크로스', 1.5);
+            else if (signalType === 'sell' && diff < 0)               _addPass('🟡', 'MACD 음수', 0.5);
         }
-        _markIfNoneNew(_pushed, signalType === 'buy' ? 'MACD 비호의적' : 'MACD 비호의적');
+        _markIfNoneNew(_pushed, 'MACD 비호의적', 1.5);
 
         // 6. 캔들 패턴 — 1점
         // 분봉일수록 노이즈 캔들이 많으므로 해머/슈팅스타 body 비율을 더 엄격하게
@@ -2212,19 +2239,20 @@
         const _wickRatio = _isShortTF ? 2.5 : _iv === '15m' ? 2.2 : 2.0;
         const op = opens && Array.isArray(opens) ? opens : [];
         _pushed = factors.length;
+        // 6. 캔들 패턴 — 최대 1점
         if (sg(op, i) != null && sg(highs, i) != null && sg(lows, i) != null && i > 0) {
             const body  = Math.abs(c - op[i]);
             const upper = highs[i] - Math.max(op[i], c);
             const lower = Math.min(op[i], c) - lows[i];
             if (signalType === 'buy') {
-                if (lower >= body * _wickRatio && upper < body) { score += 1; factors.push('✅ 해머 패턴'); }
-                else if (c > op[i] && closes[i-1] < op[i-1] && c > op[i-1] && op[i] < closes[i-1]) { score += 1; factors.push('✅ Bullish Engulfing'); }
+                if (lower >= body * _wickRatio && upper < body)                                              _addPass('✅', '해머 패턴', 1);
+                else if (c > op[i] && closes[i-1] < op[i-1] && c > op[i-1] && op[i] < closes[i-1])           _addPass('✅', 'Bullish Engulfing', 1);
             } else {
-                if (upper >= body * _wickRatio && lower < body) { score += 1; factors.push('✅ Shooting Star'); }
-                else if (c < op[i] && closes[i-1] > op[i-1] && c < op[i-1] && op[i] > closes[i-1]) { score += 1; factors.push('✅ Bearish Engulfing'); }
+                if (upper >= body * _wickRatio && lower < body)                                              _addPass('✅', 'Shooting Star', 1);
+                else if (c < op[i] && closes[i-1] > op[i-1] && c < op[i-1] && op[i] > closes[i-1])           _addPass('✅', 'Bearish Engulfing', 1);
             }
         }
-        _markIfNoneNew(_pushed, '캔들 패턴 없음');
+        _markIfNoneNew(_pushed, '캔들 패턴 없음', 1);
 
         // 7. ATR 적정 범위 — 0.5점
         // 타임프레임별 허용 변동성 범위 차별화 (분봉은 자연스럽게 ATR% 높음)
@@ -2235,46 +2263,49 @@
         const _atrMin  = _isShortTF ? 0.3 : _iv === '15m' ? 0.4 : 0.5;
         const _atrMax  = _isShortTF ? 5.0 : _iv === '15m' ? 4.0 : _iv === '30m' ? 3.5 : 3.0;
         const _atrPen  = _isShortTF ? 8.0 : _iv === '15m' ? 6.0 : _iv === '30m' ? 5.5 : 5.0;
+        // 7. ATR — 최대 0.5점
         const atri = sg(atr, i);
         _pushed = factors.length;
         let _atrPctStr = '?';
         if (atri != null && c > 0) {
             const atrPct = (atri / c) * 100;
             _atrPctStr = atrPct.toFixed(1);
-            if (atrPct >= _atrMin && atrPct <= _atrMax) { score += 0.5; factors.push(`✅ ATR ${_atrPctStr}%`); }
-            else if (atrPct > _atrPen)                  { score -= 0.5; factors.push(`⚠️ ATR ${_atrPctStr}% (과다)`); }
+            if (atrPct >= _atrMin && atrPct <= _atrMax) _addPass('✅', `ATR ${_atrPctStr}%`, 0.5);
+            else if (atrPct > _atrPen)                  _addPass('⚠️', `ATR ${_atrPctStr}% (과다)`, -0.5);
         }
-        _markIfNoneNew(_pushed, `ATR ${_atrPctStr}% (범위 외)`);
+        _markIfNoneNew(_pushed, `ATR ${_atrPctStr}% (범위 외)`, 0.5);
 
         // 8. Bollinger Band 위치 — 0.5점
         // 분봉일수록 BB를 자주 터치 → 더 극단적인 위치(밴드 바깥 근접)만 의미 있음
         //   5m 이하 → 0.25/0.75   15m → 0.27/0.73   30m+ → 0.30/0.70
         const _bbBuyThr  = _isShortTF ? 0.25 : _iv === '15m' ? 0.27 : 0.30;
         const _bbSellThr = _isShortTF ? 0.75 : _iv === '15m' ? 0.73 : 0.70;
+        // 8. Bollinger Band — 최대 0.5점
         _pushed = factors.length;
         if (bb && bb.upper && bb.lower && sg(bb.upper, i) != null && sg(bb.lower, i) != null) {
             const bbRange = bb.upper[i] - bb.lower[i];
             if (bbRange > 0) {
                 const bbPos = (c - bb.lower[i]) / bbRange;
-                if (signalType === 'buy'  && bbPos < _bbBuyThr)  { score += 0.5; factors.push('✅ BB 하단 근접'); }
-                else if (signalType === 'sell' && bbPos > _bbSellThr) { score += 0.5; factors.push('✅ BB 상단 근접'); }
+                if (signalType === 'buy'  && bbPos < _bbBuyThr)       _addPass('✅', 'BB 하단 근접', 0.5);
+                else if (signalType === 'sell' && bbPos > _bbSellThr) _addPass('✅', 'BB 상단 근접', 0.5);
             }
         }
-        _markIfNoneNew(_pushed, signalType === 'buy' ? 'BB 하단 미근접' : 'BB 상단 미근접');
+        _markIfNoneNew(_pushed, signalType === 'buy' ? 'BB 하단 미근접' : 'BB 상단 미근접', 0.5);
 
         // 9. 모멘텀 — 0.5점 (타임프레임별 봉 수 최적화)
         //   5m 이하 → 5봉(~25분)   15m → 8봉(~2h)   30m → 6봉(~3h)   1h+ → 5봉
         const momLb  = _isShortTF ? 5 : _iv === '15m' ? 8 : _iv === '30m' ? 6 : 5;
+        // 9. 모멘텀 — 최대 0.5점
         const prevCmom = closes[Math.max(0, i - momLb)];
         _pushed = factors.length;
         let _momStr = '?';
         if (prevCmom != null && prevCmom > 0) {
             const momVal = ((c - prevCmom) / prevCmom) * 100;
             _momStr = (momVal >= 0 ? '+' : '') + momVal.toFixed(1) + '%';
-            if (signalType === 'buy'  && momVal > 0 && momVal < 5)    { score += 0.5; factors.push(`✅ 모멘텀 +${momVal.toFixed(1)}%`); }
-            else if (signalType === 'sell' && momVal < 0 && momVal > -5) { score += 0.5; factors.push(`✅ 모멘텀 ${momVal.toFixed(1)}%`); }
+            if (signalType === 'buy'  && momVal > 0 && momVal < 5)       _addPass('✅', `모멘텀 +${momVal.toFixed(1)}%`, 0.5);
+            else if (signalType === 'sell' && momVal < 0 && momVal > -5) _addPass('✅', `모멘텀 ${momVal.toFixed(1)}%`, 0.5);
         }
-        _markIfNoneNew(_pushed, `모멘텀 ${_momStr} (방향 불일치)`);
+        _markIfNoneNew(_pushed, `모멘텀 ${_momStr} (방향 불일치)`, 0.5);
 
         // 10. 지지/저항 — 1점
         // 분봉에서 lookback이 너무 길면 전날/전전날 고저가가 섞여 의미 희석
@@ -2283,24 +2314,28 @@
         const lb = Math.min(_srLb, i);
         const rH = (highs || []).slice(Math.max(0, i-lb), i).filter(v => v != null);
         const rL = (lows  || []).slice(Math.max(0, i-lb), i).filter(v => v != null);
+        // 10. 지지/저항 — 최대 1점
         _pushed = factors.length;
         if (rH.length && rL.length) {
             const maxH = Math.max(...rH), minL = Math.min(...rL);
-            if (signalType === 'buy'  && minL > 0 && Math.abs(c - minL) / minL < 0.02) { score += 1; factors.push('✅ 지지선 근접'); }
-            else if (signalType === 'sell' && maxH > 0 && Math.abs(c - maxH) / maxH < 0.02) { score += 1; factors.push('✅ 저항선 근접'); }
+            if (signalType === 'buy'  && minL > 0 && Math.abs(c - minL) / minL < 0.02)      _addPass('✅', '지지선 근접', 1);
+            else if (signalType === 'sell' && maxH > 0 && Math.abs(c - maxH) / maxH < 0.02) _addPass('✅', '저항선 근접', 1);
         }
-        _markIfNoneNew(_pushed, signalType === 'buy' ? '지지선 미근접' : '저항선 미근접');
+        _markIfNoneNew(_pushed, signalType === 'buy' ? '지지선 미근접' : '저항선 미근접', 1);
 
         // 최종 등급 (D 제거 — C/B/A/S 4단계)
         const grade    = score >= 9 ? 'S' : score >= 7 ? 'A' : score >= 5 ? 'B' : 'C';
         const winRate  = score >= 9 ? 85  : score >= 7 ? 72  : score >= 5 ? 60  : 50;
         const stars    = score >= 9 ? '⭐⭐⭐⭐⭐' : score >= 7 ? '⭐⭐⭐⭐' : score >= 5 ? '⭐⭐⭐' : '⭐⭐';
         const recommendation = grade === 'S' ? '강력 진입' : grade === 'A' ? '진입 권장' : grade === 'B' ? '신중 진입' : '관망 권장';
+        // 미달 조건은 잠재 점수 큰 순으로 정렬 후 라벨 문자열로 변환 ('어떻게 등급 올릴지' 안내)
+        weak.sort((a, b) => b.max - a.max);
+        const weakFactors = weak.map(w => `⚪ ${w.label} (잠재 +${w.max})`);
         // factors = 통과/부분/약점 (✅/🟡/❌/⚠️), weak = 미달 (⚪). 푸시 알림은 통과만 사용
         return {
             grade, score: +score.toFixed(1), winRate, stars,
             factors,                       // 점수 영향 + 유의미 (시그널 콜아웃 용)
-            weakFactors: weak,             // 점수 영향 X, 패널 전체 체크리스트 용
+            weakFactors,                   // 점수 영향 X, 잠재 점수 큰 순으로 정렬됨
             recommendation, fallback: false,
         };
     }

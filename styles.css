@@ -10577,6 +10577,31 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
 .sgp-cond-mid { color:var(--text); border-color:rgba(245,158,11,.35); background:rgba(245,158,11,.06); }
 .sgp-cond-fail{ color:var(--text2); border-color:rgba(239,68,68,.35); background:rgba(239,68,68,.06); }
 .sgp-cond-skip{ color:var(--text3); border-color:var(--border); background:rgba(255,255,255,.02); opacity:.7; }
+/* 가장 큰 영향 미달 조건 — 등급 올리려면 가장 먼저 충족할 것 */
+.sgp-cond-best-leverage{
+    opacity:1 !important;
+    color:var(--text) !important;
+    border-color:rgba(99,102,241,.55) !important;
+    background:rgba(99,102,241,.10) !important;
+    box-shadow:0 0 0 1px rgba(99,102,241,.25), 0 0 12px rgba(99,102,241,.15);
+    position:relative;
+}
+.sgp-cond-best-leverage::after{
+    content:'⚡'; position:absolute; top:-6px; right:-6px;
+    font-size:10px;
+    background:#6366F1; color:#fff;
+    width:16px; height:16px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    border:1px solid rgba(255,255,255,.2);
+    box-shadow:0 2px 6px rgba(99,102,241,.45);
+}
+/* '다음 등급' 헤더의 최고 leverage 팁 */
+.sgp-best-tip{
+    color:var(--text3);
+    font-size:10px;
+    margin-left:auto;
+}
+.sgp-best-tip b{ color:var(--text); font-weight:700; }
 .sgp-empty{
     grid-column:1 / -1;
     padding:8px;
