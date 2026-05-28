@@ -20,6 +20,7 @@ import { handleSubscribe, handleCreateAlert, handleListAlerts, handleDeleteAlert
 import { handleSignalStats, handleBacktest } from './routes/stats.js';
 import { handleSignalFeedback, handleGetSignalFeedback } from './routes/feedback.js';
 import { handleReportError, handleListErrors } from './routes/errors.js';
+import { handleTranslate } from './routes/translate.js';
 import { logError, pruneOldErrors } from './utils/errors.js';
 import { snapshotHealth } from './cron.js';
 import { handleAdminStatus } from './routes/admin.js';
@@ -79,6 +80,7 @@ const ROUTES = [
     ['GET',    '/api/admin/status',      handleAdminStatus],
     ['POST',   '/api/errors',            handleReportError],
     ['GET',    '/api/admin/errors',      handleListErrors],
+    ['GET',    '/api/translate',         handleTranslate],
 ];
 
 export default {
