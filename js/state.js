@@ -224,6 +224,9 @@
     window.lwVwap = null;
     window.lwVwapUpper = null;
     window.lwVwapLower = null;
+    window.lwStochK = null;    // Stochastic %K series
+    window.lwStochD = null;    // Stochastic %D series
+    window.lwOBVSeries = null; // OBV series
     window._chartVwapEnabled = localStorage.getItem('stockai_chart_vwap') === '1'; // 기본 OFF — 사용자가 켤 때만 '1' 저장
     // Phase A2 — 보조지표 패널 state
     window._indConfig = null;   // 보조지표 설정 (localStorage: stockai_ind_config)

@@ -159,6 +159,8 @@
         if (!c.bb)     c.bb     = { enabled: true,  color: '#f59e0b', width: 2, period: 4 };
         if (!c.vwap)   c.vwap   = { enabled: true  };
         if (!c.volume) c.volume = { enabled: true  };
+        if (!c.stoch) c.stoch = { enabled: false, kPeriod: 14, dPeriod: 3, kColor: '#7dd3fc', dColor: '#f97316' };
+        if (!c.obv)   c.obv   = { enabled: false, color: '#a855f7' };
         return c;
     }
 
@@ -216,6 +218,8 @@
         _indSetCheck('Volume',      cfg.volume.enabled);
         _indSetCheck('Rsi',         false);   // placeholder
         _indSetCheck('Macd',        false);   // placeholder
+        _indSetCheck('Stoch',       cfg.stoch?.enabled === true);
+        _indSetCheck('Obv',         cfg.obv?.enabled   === true);
         // 가격 라인 — key: 'pl_sig' → capKey: 'PlSig' → id: 'cidCheckPlSig'
         Object.keys(_IND_PL_MAP).forEach(key => {
             const ck = 'Pl' + key.slice(3).charAt(0).toUpperCase() + key.slice(4);
@@ -266,7 +270,8 @@
         const NAMES = {
             ema: '이동평균선', bb: '볼린저 밴드', vwap: 'VWAP', volume: '볼륨',
             ichimoku: '일목균형표', supertrend: '슈퍼트렌드', envelope: '엔벨로프',
-            rsi: 'RSI', macd: 'MACD'
+            rsi: 'RSI', macd: 'MACD',
+            stoch: '스토캐스틱', obv: 'OBV',
         };
 
         let on, name;
@@ -401,6 +406,55 @@
                 <span style="color:var(--text3)">하단 패널 출시 예정</span>
             </div>`;
 
+        } else if (key === 'stoch') {
+            const s = cfg.stoch || {};
+            html += `<div class="cid-period-row">
+                <span class="cid-period-label">%K 기간</span>
+                <input class="cid-period-input" type="number" min="3" max="50"
+                    value="${s.kPeriod || 14}"
+                    onchange="event.stopPropagation();_indSetStochParam('kPeriod',+this.value)"
+                    onclick="event.stopPropagation()">
+            </div>
+            <div class="cid-period-row">
+                <span class="cid-period-label">%D 기간</span>
+                <input class="cid-period-input" type="number" min="1" max="20"
+                    value="${s.dPeriod || 3}"
+                    onchange="event.stopPropagation();_indSetStochParam('dPeriod',+this.value)"
+                    onclick="event.stopPropagation()">
+            </div>
+            <div class="cid-period-row">
+                <span class="cid-period-label">%K 색상</span>
+                <div class="cid-color-swatch" id="cidSwatch_stoch_k"
+                    style="background:${s.kColor || '#7dd3fc'}"
+                    onclick="event.stopPropagation();_indOpenColorPicker('stoch_k',0,this)"
+                    title="색상 변경"></div>
+            </div>
+            <div class="cid-period-row">
+                <span class="cid-period-label">%D 색상</span>
+                <div class="cid-color-swatch" id="cidSwatch_stoch_d"
+                    style="background:${s.dColor || '#f97316'}"
+                    onclick="event.stopPropagation();_indOpenColorPicker('stoch_d',0,this)"
+                    title="색상 변경"></div>
+            </div>
+            <div class="cid-note" style="margin-top:6px">
+                과매수 80 이상 · 중립 50 · 과매도 20 이하<br>
+                %K(빠름)와 %D(느림) 교차로 반전 시점 포착
+            </div>`;
+
+        } else if (key === 'obv') {
+            const o = cfg.obv || {};
+            html += `<div class="cid-period-row">
+                <span class="cid-period-label">색상</span>
+                <div class="cid-color-swatch" id="cidSwatch_obv_0"
+                    style="background:${o.color || '#a855f7'}"
+                    onclick="event.stopPropagation();_indOpenColorPicker('obv',0,this)"
+                    title="색상 변경"></div>
+            </div>
+            <div class="cid-note" style="margin-top:6px">
+                OBV 상승 → 매집(스마트머니 유입) · OBV 하락 → 분배<br>
+                볼륨 히스토그램 영역에 라인으로 표시됩니다.
+            </div>`;
+
         // ── 가격 라인 ──
         } else if (_IND_PL_MAP[key]) {
             html += `<div class="cid-note">${_IND_PL_MAP[key].desc}</div>`;
@@ -445,6 +499,20 @@
             try { lwVwapLower?.applyOptions({ visible: on }); } catch(_) {}
         } else if (key === 'volume') {
             try { lwVolumeSeries?.applyOptions({ visible: on }); } catch(_) {}
+            _applySubPaneLayout?.();
+        } else if (key === 'stoch') {
+            if (lwStochK) { try { lwChart?.removeSeries(lwStochK); } catch(_) {} lwStochK = null; }
+            if (lwStochD) { try { lwChart?.removeSeries(lwStochD); } catch(_) {} lwStochD = null; }
+            if (on && window._lastSigArgs) {
+                try { _renderStochSeries(window._lastSigArgs.ts, window._lastSigArgs.q); } catch(_) {}
+            }
+            _applySubPaneLayout?.();
+        } else if (key === 'obv') {
+            if (lwOBVSeries) { try { lwChart?.removeSeries(lwOBVSeries); } catch(_) {} lwOBVSeries = null; }
+            if (on && window._lastSigArgs) {
+                try { _renderOBVSeries(window._lastSigArgs.ts, window._lastSigArgs.q); } catch(_) {}
+            }
+            _applySubPaneLayout?.();
         }
         _indRefreshPanel();
     }
@@ -497,6 +565,16 @@
         cfg.bb.period = period;
         _indSaveConfig();
         _indScheduleRebuild('bb');
+    }
+
+    /** 스토캐스틱 파라미터 변경 */
+    function _indSetStochParam(key, val) {
+        if (!val || val < 1) return;
+        const cfg = _indGetConfig();
+        cfg.stoch = cfg.stoch || {};
+        cfg.stoch[key] = val;
+        _indSaveConfig();
+        _indScheduleRebuild('stoch');
     }
 
     /** 기간 추가 */
@@ -612,6 +690,23 @@
                 lwBbUpper.setData(upperData);
                 lwBbLower.setData(lowerData);
             }
+        } else if (key === 'stoch') {
+            if (lwStochK) { try { lwChart.removeSeries(lwStochK); } catch(_) {} lwStochK = null; }
+            if (lwStochD) { try { lwChart.removeSeries(lwStochD); } catch(_) {} lwStochD = null; }
+            if (!_lastSigArgs) return;
+            const cfg2 = _indGetConfig();
+            if (cfg2.stoch?.enabled) {
+                try { _renderStochSeries(_lastSigArgs.ts, _lastSigArgs.q); } catch(_) {}
+            }
+            _applySubPaneLayout?.();
+        } else if (key === 'obv') {
+            if (lwOBVSeries) { try { lwChart.removeSeries(lwOBVSeries); } catch(_) {} lwOBVSeries = null; }
+            if (!_lastSigArgs) return;
+            const cfg2 = _indGetConfig();
+            if (cfg2.obv?.enabled) {
+                try { _renderOBVSeries(_lastSigArgs.ts, _lastSigArgs.q); } catch(_) {}
+            }
+            _applySubPaneLayout?.();
         }
     }
 
@@ -619,9 +714,12 @@
     function _indOpenColorPicker(key, idx, swatchEl) {
         _indCloseColorPicker();
         const cfg = _indGetConfig();
-        const current = key === 'ema'
-            ? (cfg.ema.periods[idx]?.color || '#7dd3fc')
-            : (cfg.bb.color || '#f59e0b');
+        const current = key === 'ema'     ? (cfg.ema.periods[idx]?.color || '#7dd3fc')
+                      : key === 'bb'      ? (cfg.bb.color || '#f59e0b')
+                      : key === 'stoch_k' ? (cfg.stoch?.kColor || '#7dd3fc')
+                      : key === 'stoch_d' ? (cfg.stoch?.dColor || '#f97316')
+                      : key === 'obv'     ? (cfg.obv?.color || '#a855f7')
+                      : '#7dd3fc';
 
         const picker = document.createElement('div');
         picker.className = 'cid-color-picker';
@@ -680,6 +778,24 @@
             try { lwBbUpper?.applyOptions({ color }); } catch(_) {}
             try { lwBbLower?.applyOptions({ color }); } catch(_) {}
             const sw = document.getElementById('cidSwatch_bb_0');
+            if (sw) sw.style.background = color;
+        } else if (key === 'stoch_k') {
+            cfg.stoch = cfg.stoch || {};
+            cfg.stoch.kColor = color;
+            try { lwStochK?.applyOptions({ color }); } catch(_) {}
+            const sw = document.getElementById('cidSwatch_stoch_k');
+            if (sw) sw.style.background = color;
+        } else if (key === 'stoch_d') {
+            cfg.stoch = cfg.stoch || {};
+            cfg.stoch.dColor = color;
+            try { lwStochD?.applyOptions({ color }); } catch(_) {}
+            const sw = document.getElementById('cidSwatch_stoch_d');
+            if (sw) sw.style.background = color;
+        } else if (key === 'obv') {
+            cfg.obv = cfg.obv || {};
+            cfg.obv.color = color;
+            try { lwOBVSeries?.applyOptions({ color }); } catch(_) {}
+            const sw = document.getElementById('cidSwatch_obv_0');
             if (sw) sw.style.background = color;
         }
         _indSaveConfig();

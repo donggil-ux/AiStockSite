@@ -209,6 +209,8 @@
         lwVwap = null;
         lwVwapUpper = null;
         lwVwapLower = null;
+        lwStochK = lwStochD = null;
+        lwOBVSeries = null;
         // 자동 추세각도 시리즈 정리
         try { _autoTrendLineSeries = []; } catch(_) {}
         // Phase X1-b: cell1 레지스트리 정리
@@ -428,6 +430,11 @@
             } catch (e) { warn('[vwap] fail', e); }
         }
 
+        // ── 스토캐스틱 + OBV 하단 패널 ──────────────────────────────────────
+        try { _renderStochSeries(ts, q); } catch(e) { warn('[stoch] fail', e); }
+        try { _renderOBVSeries(ts, q);   } catch(e) { warn('[obv] fail', e);   }
+        _applySubPaneLayout();
+
         // 실시간 지표 시그널 — 배지·마커·지지/저항선 자동 추가 (종목 변경 시 항상 완전 재빌드)
         _layerDirty = true;
         try { renderChartLiveSignals(candleData, ts, q, bb); } catch (e) { warn('[chart-sig] fail', e); }
@@ -561,6 +568,98 @@
 
         // X3: 동기화 UI 초기화
         setTimeout(_xcUpdateSyncUi, 100);
+    }
+
+    // ── Sub-pane 레이아웃 계산 ────────────────────────────────────────────────
+    function _applySubPaneLayout() {
+        if (!lwChart) return;
+        try {
+            const cfg = _indGetConfig();
+            const stochOn = cfg.stoch?.enabled === true;
+            const volOn   = cfg.volume?.enabled !== false;
+            const obvOn   = cfg.obv?.enabled === true;
+            const hasBottomOverlay = volOn || obvOn;
+
+            if (stochOn && hasBottomOverlay) {
+                // 두 서브패널: 중간(볼륨/OBV) + 하단(스토캐스틱)
+                lwChart.priceScale('right').applyOptions({ scaleMargins: { top: 0.05, bottom: 0.44 } });
+                try { lwChart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.58, bottom: 0.22 } }); } catch(_) {}
+                try { lwChart.priceScale('obv').applyOptions({ scaleMargins: { top: 0.58, bottom: 0.22 } }); } catch(_) {}
+                try { lwChart.priceScale('stoch').applyOptions({ scaleMargins: { top: 0.80, bottom: 0 } }); } catch(_) {}
+            } else if (stochOn) {
+                // 스토캐스틱만 — 볼륨 없음 → 하단 20%에 스토캐스틱
+                lwChart.priceScale('right').applyOptions({ scaleMargins: { top: 0.05, bottom: 0.25 } });
+                try { lwChart.priceScale('stoch').applyOptions({ scaleMargins: { top: 0.80, bottom: 0 } }); } catch(_) {}
+            } else {
+                // 기본: 볼륨/OBV만 하단 20%
+                lwChart.priceScale('right').applyOptions({ scaleMargins: { top: 0.05, bottom: 0.25 } });
+                try { lwChart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.80, bottom: 0 } }); } catch(_) {}
+                try { lwChart.priceScale('obv').applyOptions({ scaleMargins: { top: 0.80, bottom: 0 } }); } catch(_) {}
+            }
+        } catch(_) {}
+    }
+
+    // ── 스토캐스틱 렌더 ───────────────────────────────────────────────────────
+    function _renderStochSeries(ts, q) {
+        if (!lwChart || !ts || !q) return;
+        const cfg = _indGetConfig();
+        if (!cfg.stoch?.enabled) return;
+        const kPeriod = cfg.stoch.kPeriod || 14;
+        const dPeriod = cfg.stoch.dPeriod || 3;
+        const kColor  = cfg.stoch.kColor  || '#7dd3fc';
+        const dColor  = cfg.stoch.dColor  || '#f97316';
+        const { kLine, dLine } = calcStochastic(q.high, q.low, q.close, kPeriod, dPeriod);
+        const kData = [], dData = [];
+        for (let i = 0; i < ts.length; i++) {
+            if (kLine[i] != null) kData.push({ time: ts[i], value: kLine[i] });
+            if (dLine[i] != null) dData.push({ time: ts[i], value: dLine[i] });
+        }
+        if (!kData.length) return;
+        lwStochK = lwChart.addLineSeries({
+            priceScaleId: 'stoch',
+            color: kColor, lineWidth: 1,
+            priceLineVisible: false, lastValueVisible: false,
+            title: '%K', crosshairMarkerVisible: false,
+        });
+        lwStochD = lwChart.addLineSeries({
+            priceScaleId: 'stoch',
+            color: dColor, lineWidth: 1,
+            priceLineVisible: false, lastValueVisible: false,
+            title: '%D', crosshairMarkerVisible: false,
+        });
+        lwStochK.setData(kData);
+        if (dData.length) lwStochD.setData(dData);
+        // 기준선 (80/50/20)
+        try {
+            lwStochK.createPriceLine({ price: 80, color: 'rgba(239,68,68,0.45)', lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: 'OB' });
+            lwStochK.createPriceLine({ price: 50, color: 'rgba(148,163,184,0.3)', lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' });
+            lwStochK.createPriceLine({ price: 20, color: 'rgba(59,130,246,0.45)', lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: 'OS' });
+        } catch(_) {}
+        // 스토캐스틱 가격 축 숨김 (0-100 스케일 불필요)
+        try { lwChart.priceScale('stoch').applyOptions({ visible: false }); } catch(_) {}
+    }
+
+    // ── OBV 렌더 ─────────────────────────────────────────────────────────────
+    function _renderOBVSeries(ts, q) {
+        if (!lwChart || !ts || !q) return;
+        const cfg = _indGetConfig();
+        if (!cfg.obv?.enabled) return;
+        const color = cfg.obv.color || '#a855f7';
+        const obvArr = calcOBV(q.close, q.volume || []);
+        const obvData = [];
+        for (let i = 0; i < ts.length; i++) {
+            if (obvArr[i] != null) obvData.push({ time: ts[i], value: obvArr[i] });
+        }
+        if (!obvData.length) return;
+        lwOBVSeries = lwChart.addLineSeries({
+            priceScaleId: 'obv',
+            color, lineWidth: 1,
+            priceLineVisible: false, lastValueVisible: false,
+            title: 'OBV', crosshairMarkerVisible: false,
+        });
+        lwOBVSeries.setData(obvData);
+        // OBV 가격 축 숨김 (절대값 불필요)
+        try { lwChart.priceScale('obv').applyOptions({ visible: false }); } catch(_) {}
     }
 
     function renderVolumeChart() {}
