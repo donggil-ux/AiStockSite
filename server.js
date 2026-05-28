@@ -968,34 +968,40 @@ app.get('/api/scanner/minervini', async (req, res) => {
     if (!forceRefresh && _minerviniCache.data && Date.now() - _minerviniCache.ts < MINERVINI_CACHE_TTL)
         return res.json(_minerviniCache.data);
 
-    const POLYGON_API = process.env.POLYGON_API;
-    if (!POLYGON_API) return res.status(503).json({ error: 'POLYGON_API not configured' });
-
     try {
         const candidates = [];
-        const to   = new Date().toISOString().split('T')[0];
-        const from = new Date(Date.now() - 290*86400000).toISOString().split('T')[0];
 
-        // 병렬 처리 — 8개씩 chunk + 진단용 카운터
+        // Yahoo Finance 1년 일봉 사용 (Polygon 무료 플랜 5/min 한계 우회)
+        // 8개씩 병렬 chunk (Yahoo 는 분당 ~수백건 안정적)
         const CHUNK = 8;
         const debug = { universe: MINERVINI_UNIVERSE.length, fetched: 0, failed: 0, lt200: 0, noSetup: 0, foundSetup: 0, failedTickers: [], lt200Tickers: [] };
         for (let i = 0; i < MINERVINI_UNIVERSE.length; i += CHUNK) {
             const chunk = MINERVINI_UNIVERSE.slice(i, i + CHUNK);
             const results = await Promise.all(chunk.map(async (ticker) => {
                 try {
-                    const url = `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${from}/${to}`
-                        + `?adjusted=true&sort=asc&limit=300&apiKey=${POLYGON_API}`;
-                    const r = await axios.get(url, { timeout: 6000 });
-                    const d = r.data;
+                    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}`
+                        + `?range=1y&interval=1d`;
+                    const data = await yfRequest(url);
+                    const r0 = data?.chart?.result?.[0];
+                    if (!r0) { debug.failed++; debug.failedTickers.push(`${ticker}(no-result)`); return null; }
+                    const ts = r0.timestamp || [];
+                    const q = r0.indicators?.quote?.[0] || {};
+                    const candleData = ts.map((t, i) => ({
+                        time: t,
+                        open:   q.open?.[i],
+                        high:   q.high?.[i],
+                        low:    q.low?.[i],
+                        close:  q.close?.[i],
+                        volume: q.volume?.[i],
+                    })).filter(c => c.close != null && c.high != null && c.low != null);
                     debug.fetched++;
-                    if (!d.results || d.results.length < 200) { debug.lt200++; debug.lt200Tickers.push(`${ticker}(${d.results?.length||0})`); return null; }
-                    const candleData = d.results.map(c => ({ time: Math.floor(c.t/1000), open:c.o, high:c.h, low:c.l, close:c.c, volume:c.v }));
+                    if (candleData.length < 200) { debug.lt200++; debug.lt200Tickers.push(`${ticker}(${candleData.length})`); return null; }
                     const setup = _mvDetectSetup(candleData);
                     if (setup) { debug.foundSetup++; return { ticker, ...setup, currentPrice: candleData[candleData.length-1].close }; }
                     debug.noSetup++;
                     return null;
                 } catch(e) {
-                    debug.failed++; debug.failedTickers.push(`${ticker}(${e.response?.status||'err'})`);
+                    debug.failed++; debug.failedTickers.push(`${ticker}(${e.message?.slice(0,20)||'err'})`);
                     return null;
                 }
             }));
