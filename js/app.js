@@ -258,11 +258,11 @@
             if (sw)    sw.className = 'theme-switch dark';
             if (headerBtn) headerBtn.innerHTML = '&#9790;';
         }
-        // Lightweight Charts 배경 업데이트
+        // Lightweight Charts 배경 업데이트 — 페이지 배경과 통일
         if (lwChart) {
-            const bgColor = theme === 'light' ? '#ffffff' : '#111620';
+            const bgColor = theme === 'light' ? '#ffffff' : '#000000';
             const textColor = theme === 'light' ? '#6C6C70' : '#8E8E93';
-            const gridColor = theme === 'light' ? 'rgba(0,0,0,0.06)' : 'rgba(45,58,77,0.2)';
+            const gridColor = theme === 'light' ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)';
             lwChart.applyOptions({
                 layout: { background: { type: 'solid', color: bgColor }, textColor },
                 grid: { vertLines: { color: gridColor }, horzLines: { color: gridColor } },
@@ -276,6 +276,21 @@
         localStorage.setItem(THEME_LS, next);
         applyTheme(next);
     }
+
+    // OS 다크/라이트 모드 변경 자동 감지 — 사용자가 명시 저장한 적 없을 때만 따라감
+    try {
+        if (window.matchMedia) {
+            const _mql = window.matchMedia('(prefers-color-scheme: light)');
+            const _onSchemeChange = (e) => {
+                // 사용자가 수동으로 테마를 저장한 경우엔 무시
+                if (localStorage.getItem(THEME_LS)) return;
+                applyTheme(e.matches ? 'light' : 'dark');
+            };
+            // Safari 14+ / Chrome / Firefox 모두 지원
+            if (_mql.addEventListener) _mql.addEventListener('change', _onSchemeChange);
+            else if (_mql.addListener)  _mql.addListener(_onSchemeChange); // legacy
+        }
+    } catch (_) {}
 
     // ========================================
     // 기능 업데이트 (Changelog) 모달

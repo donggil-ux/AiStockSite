@@ -10,6 +10,20 @@
     <meta name="theme-color" content="#3b82f6">
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/icon.svg">
+    <!-- FOUC 방지 — 다른 스크립트 로드 전에 테마 즉시 적용
+         우선순위: localStorage 저장값 > OS 다크모드 prefers-color-scheme > dark (기본) -->
+    <script>
+        (function() {
+            try {
+                var saved = localStorage.getItem('stockai_theme');
+                var prefers = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+                var theme = saved || (prefers ? 'light' : 'dark');
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch(e) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
     <!-- Clerk 인증 — Frontend API: relaxing-colt-25.clerk.accounts.dev -->
     <meta name="clerk-publishable-key" content="pk_test_cmVsYXhpbmctY29sdC0yNS5jbGVyay5hY2NvdW50cy5kZXYk">
     <title>StockAI - 주식 종목 분석</title>
