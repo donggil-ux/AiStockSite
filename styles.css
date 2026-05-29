@@ -3506,6 +3506,9 @@
                해결: 헤더를 사이드 내비 폭의 절반만큼 좌측으로 이동. */
             #mainHeader .header-top{
                 left: calc(50% - 42px) !important;
+                /* 좁은 viewport (901~999px) 에선 헤더 max-width 동적 축소
+                   → 사이드 내비(84px)와 좌우 viewport 모두 침범하지 않도록 */
+                max-width: min(834px, calc(100vw - 116px)) !important;
             }
             /* 하단 고정 설정 버튼 — 토스 PC 패턴 */
             .bn-item--bottom{
