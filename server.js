@@ -832,7 +832,6 @@ app.get('/api/screener/:filter', async (req, res) => {
 //   - Polygon.io 일봉 기반 24h 캐시
 // ───────────────────────────────────────────────────────────────────────
 const _minerviniCache = { ts: 0, data: null };
-let _minerviniDebugInfo = null;
 const MINERVINI_CACHE_TTL = 24 * 60 * 60 * 1000;
 
 const MINERVINI_UNIVERSE = [
@@ -963,9 +962,7 @@ function _mvDetectSetup(candleData) {
 }
 
 app.get('/api/scanner/minervini', async (req, res) => {
-    // ?refresh=1 → 캐시 강제 무력화 (디버깅용)
-    const forceRefresh = req.query.refresh === '1';
-    if (!forceRefresh && _minerviniCache.data && Date.now() - _minerviniCache.ts < MINERVINI_CACHE_TTL)
+    if (_minerviniCache.data && Date.now() - _minerviniCache.ts < MINERVINI_CACHE_TTL)
         return res.json(_minerviniCache.data);
 
     try {
@@ -974,7 +971,6 @@ app.get('/api/scanner/minervini', async (req, res) => {
         // Yahoo Finance 1년 일봉 사용 (Polygon 무료 플랜 5/min 한계 우회)
         // 8개씩 병렬 chunk (Yahoo 는 분당 ~수백건 안정적)
         const CHUNK = 8;
-        const debug = { universe: MINERVINI_UNIVERSE.length, fetched: 0, failed: 0, lt200: 0, noSetup: 0, foundSetup: 0, failedTickers: [], lt200Tickers: [] };
         for (let i = 0; i < MINERVINI_UNIVERSE.length; i += CHUNK) {
             const chunk = MINERVINI_UNIVERSE.slice(i, i + CHUNK);
             const results = await Promise.all(chunk.map(async (ticker) => {
@@ -983,35 +979,32 @@ app.get('/api/scanner/minervini', async (req, res) => {
                         + `?range=1y&interval=1d`;
                     const data = await yfRequest(url);
                     const r0 = data?.chart?.result?.[0];
-                    if (!r0) { debug.failed++; debug.failedTickers.push(`${ticker}(no-result)`); return null; }
+                    if (!r0) return null;
                     const ts = r0.timestamp || [];
                     const q = r0.indicators?.quote?.[0] || {};
-                    const candleData = ts.map((t, i) => ({
+                    const candleData = ts.map((t, idx) => ({
                         time: t,
-                        open:   q.open?.[i],
-                        high:   q.high?.[i],
-                        low:    q.low?.[i],
-                        close:  q.close?.[i],
-                        volume: q.volume?.[i],
+                        open:   q.open?.[idx],
+                        high:   q.high?.[idx],
+                        low:    q.low?.[idx],
+                        close:  q.close?.[idx],
+                        volume: q.volume?.[idx],
                     })).filter(c => c.close != null && c.high != null && c.low != null);
-                    debug.fetched++;
-                    if (candleData.length < 200) { debug.lt200++; debug.lt200Tickers.push(`${ticker}(${candleData.length})`); return null; }
+                    if (candleData.length < 200) return null;
                     const setup = _mvDetectSetup(candleData);
-                    if (setup) { debug.foundSetup++; return { ticker, ...setup, currentPrice: candleData[candleData.length-1].close }; }
-                    debug.noSetup++;
+                    if (setup) return { ticker, ...setup, currentPrice: candleData[candleData.length-1].close };
                     return null;
                 } catch(e) {
-                    debug.failed++; debug.failedTickers.push(`${ticker}(${e.message?.slice(0,20)||'err'})`);
+                    console.warn(`[minervini] ${ticker} skip:`, e.message);
                     return null;
                 }
             }));
             candidates.push(...results.filter(Boolean));
         }
-        _minerviniDebugInfo = debug;
 
         const gradeOrder = { S: 4, A: 3, B: 2, C: 1 };
         candidates.sort((a,b) => (gradeOrder[b.grade]||0) - (gradeOrder[a.grade]||0) || b.rsScore - a.rsScore);
-        const result = { scannedAt: new Date().toISOString(), scanType: '종가 매매', total: candidates.length, stocks: candidates, _debug: _minerviniDebugInfo };
+        const result = { scannedAt: new Date().toISOString(), scanType: '종가 매매', total: candidates.length, stocks: candidates };
         _minerviniCache.data = result;
         _minerviniCache.ts   = Date.now();
         res.json(result);
