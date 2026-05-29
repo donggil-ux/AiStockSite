@@ -3301,15 +3301,21 @@
             width:100%; max-width:300px;
             display:flex; flex-direction:column;
         }
-        /* 로고 */
+        /* 로고 — 홈 헤더와 동일 텍스트 (Stock + 파란 AI) */
         .login-logo{
-            display:flex; align-items:center; justify-content:center; gap:8px;
+            display:flex; align-items:center; justify-content:center;
             margin-bottom:54px;
         }
-        .login-logo-mark{ display:inline-flex; }
-        .login-logo-text{
-            font-size:22px; font-weight:800; letter-spacing:-0.5px;
+        #loginScreen .login-logo .logo{
+            font-size:32px !important;
+            font-weight:700 !important;
+            letter-spacing:-0.025em !important;
+            cursor:default; pointer-events:none;
             color:var(--text);
+        }
+        #loginScreen .login-logo .logo span{
+            color:var(--blue) !important;
+            font-weight:800 !important;
         }
         /* 폼 */
         .login-form{
