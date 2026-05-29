@@ -7496,6 +7496,11 @@
     // 계정/프로필 페이지
     // ════════════════════════════════════════════════════════════════
     function goProfile() {
+        // 비로그인 사용자 → 로그인 페이지로 라우팅 (오늘의집 스타일)
+        if (!window.Clerk?.user && typeof window.goLogin === 'function') {
+            window.goLogin();
+            return;
+        }
         window._lastScreen = 'profile';
         _restoreHeaderChrome();
         ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen',
