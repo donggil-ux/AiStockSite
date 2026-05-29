@@ -339,7 +339,15 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
                 symbolToSubs.set(sym, arr);
             }
         }
-        const allSymbols = [...symbolToSubs.keys()].slice(0, 30); // Workers 30초 보호
+        // 즐겨찾기 + 기본 풀 합치기 (즐겨찾기 우선)
+        // 기본 풀 종목은 시그널 발견 시 signal_history 에 INSERT 만 (푸시는 즐겨찾기 한정)
+        // → 백테스트 / 시그널 통계 페이지에 누적 데이터 확보 + 푸시 스팸 방지
+        const DEFAULT_UNIVERSE = marketHint === 'KR'
+            ? ['005930.KS','035720.KS','035420.KS','000660.KS','005380.KS','068270.KS','051910.KS','017670.KS','105560.KS','055550.KS']
+            : ['NVDA','AAPL','MSFT','AMZN','GOOGL','META','TSLA','AVGO','AMD','NFLX',
+               'PLTR','SMCI','MSTR','COIN','HOOD','RBLX','SHOP','SOFI','RKLB','MARA'];
+        const favSymbols = [...symbolToSubs.keys()];
+        const allSymbols = [...new Set([...favSymbols, ...DEFAULT_UNIVERSE])].slice(0, 30);
         if (!allSymbols.length) return { subscribers: subs.length, marketHint, fired: 0 };
 
         // 동적 알고리즘 설정 + 블랙리스트 로드 (자동 보정 결과 반영)
@@ -364,8 +372,10 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
                 analyzed++;
 
                 const sig = detectSignal(q, thresholds);
-                // S/A 등급만 발송 (B/C 는 노이즈 가능성)
-                if (!sig || (sig.grade !== 'S' && sig.grade !== 'A')) continue;
+                if (!sig) continue;
+                // min_score_for_push 임계값 통과 안 하면 스킵 (calibration 설정)
+                // 푸시는 즐겨찾기 종목 한정 + 사용자 prefs 추가 체크
+                if (sig.score < (thresholds.min_score_for_push ?? 5.5)) continue;
 
                 const candleTs = ts[ts.length - 1] || Math.floor(Date.now() / 1000);
 
@@ -389,8 +399,10 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
                 ).run();
                 const signalId = insRes.meta?.last_row_id || null;
 
-                // 푸시 발송 — 사용자별 알림 종류 설정(prefs.buy/stop) 존중
+                // 푸시는 즐겨찾기 종목에 한정 (기본 풀 종목은 INSERT 만)
                 const subList = symbolToSubs.get(symbol) || [];
+                if (!subList.length) continue; // 기본 풀 종목 — 푸시 안 함
+
                 const arrow = sig.dir === 'buy' ? '📈' : '📉';
                 const dirKo = sig.dir === 'buy' ? '매수' : '매도';
                 const payload = JSON.stringify({
@@ -401,8 +413,6 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
                     signalId,
                 });
                 for (const sub of subList) {
-                    // 매수 시그널인데 사용자가 buy=0 → 스킵
-                    // 매도 시그널인데 사용자가 stop=0 → 스킵 (매도 = 손절선 이탈 의미)
                     if (sig.dir === 'buy'  && !sub.prefs?.buy)  continue;
                     if (sig.dir === 'sell' && !sub.prefs?.stop) continue;
                     try {
@@ -418,7 +428,7 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
                 }
             } catch (e) { console.warn('[analyze] fail', symbol, e.message); }
         }
-        return { subscribers: subs.length, symbols: allSymbols.length, analyzed, fired, skippedBlacklist };
+        return { subscribers: subs.length, symbols: allSymbols.length, favSymbols: favSymbols.length, defaultPool: DEFAULT_UNIVERSE.length, analyzed, fired, skippedBlacklist };
     } catch (e) {
         console.error('[cron] analyzeSignals', e.message);
         return { error: e.message };
