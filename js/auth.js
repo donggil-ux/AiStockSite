@@ -141,6 +141,60 @@
             afterSignUpUrl: location.href,
         });
     };
+
+    // ──────────────────────────────────────────────────────────
+    // 로그인 페이지 (오늘의집 스타일 풀스크린)
+    // ──────────────────────────────────────────────────────────
+    window.goLogin = function () {
+        const ls = document.getElementById('loginScreen');
+        if (!ls) return;
+        // 이미 로그인된 사용자는 페이지 안 보임
+        if (window.Clerk?.user) {
+            try { window.snack?.('이미 로그인되어 있습니다', 'info'); } catch(_) {}
+            return;
+        }
+        ls.style.display = '';
+        document.body.style.overflow = 'hidden';
+    };
+    window.closeLogin = function () {
+        const ls = document.getElementById('loginScreen');
+        if (ls) ls.style.display = 'none';
+        document.body.style.overflow = '';
+    };
+    // 로그인 페이지 내부 트리거 — Clerk 모달로 위임 (이메일/비번)
+    window._loginOpenClerk = function () {
+        const Clerk = window.Clerk;
+        if (!Clerk) return alert('Clerk 미초기화');
+        Clerk.openSignIn({
+            afterSignInUrl: location.href,
+            afterSignUpUrl: location.href,
+        });
+    };
+    // 회원가입 모달
+    window._loginOpenClerkSignUp = function () {
+        const Clerk = window.Clerk;
+        if (!Clerk) return alert('Clerk 미초기화');
+        Clerk.openSignUp({
+            afterSignInUrl: location.href,
+            afterSignUpUrl: location.href,
+        });
+    };
+    // SNS OAuth — Google/Apple/Kakao 등
+    window._loginOAuth = async function (strategy) {
+        const Clerk = window.Clerk;
+        if (!Clerk) return alert('Clerk 미초기화');
+        try {
+            await Clerk.client.signIn.authenticateWithRedirect({
+                strategy,
+                redirectUrl:        location.origin + location.pathname,
+                redirectUrlComplete: location.origin + location.pathname,
+            });
+        } catch (e) {
+            // 폴백 — 일반 모달
+            console.warn('[auth] OAuth direct fail, fallback to modal', e);
+            Clerk.openSignIn({ afterSignInUrl: location.href });
+        }
+    };
     window.signOut = async function () {
         try {
             await window.Clerk?.signOut();
