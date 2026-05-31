@@ -7087,17 +7087,16 @@
 /* 매집 의심 경고문 + 카드 + 푸터 (v666) */
 .catalyst-acc-warn{padding:10px 14px;margin-bottom:14px;background:rgba(168,85,247,0.10);border:1px solid rgba(168,85,247,0.35);border-radius:var(--radius-sm);font-size:12px;color:#7e22ce;line-height:1.6;}
 [data-theme="dark"] .catalyst-acc-warn{color:#d8b4fe;}
-.catalyst-card--acc{border-color:rgba(168,85,247,0.4);background:linear-gradient(135deg, rgba(168,85,247,0.04), var(--bg2) 50%);}
-.catalyst-tag--acc{background:rgba(168,85,247,0.15);color:#a855f7;border-color:rgba(168,85,247,0.4);}
+.catalyst-card--acc{border-color:rgba(168,85,247,0.35);background:var(--bg2);}
+.catalyst-tag--acc{background:rgba(191,90,242,0.10);color:var(--purple);border-color:rgba(191,90,242,0.22);}
 .catalyst-footer{margin-top:14px;padding:10px 12px;background:var(--bg3);border-radius:var(--radius-xs);font-size:11px;color:var(--text3);text-align:center;letter-spacing:0.02em;}
 
 /* Gemini AI 카탈리스트 분석 (v671) */
 .catalyst-ai-badge{display:inline-flex;align-items:center;gap:4px;margin:6px 0;padding:5px 10px;border:1px solid;border-radius:var(--radius-xs);font-size:11px;font-weight:600;background:rgba(99,102,241,0.06);color:var(--text1);}
 .catalyst-priority{display:inline-block;margin-left:6px;padding:2px 8px;border-radius:var(--radius-full);background:#ef4444;color:#fff;font-size:10px;font-weight:700;}
 .catalyst-risk-banner{margin:-2px -2px 10px;padding:8px 12px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.4);border-radius:var(--radius-xs);font-size:12px;color:#ef4444;font-weight:700;text-align:center;}
-.catalyst-card--top{border-color:rgba(239,68,68,0.5);background:linear-gradient(135deg, rgba(239,68,68,0.06), var(--bg2) 50%);}
-.catalyst-card--bear{opacity:0.78;background:linear-gradient(135deg, rgba(0,0,0,0.04), var(--bg2));}
-[data-theme="dark"] .catalyst-card--bear{background:linear-gradient(135deg, rgba(0,0,0,0.25), var(--bg2));}
+.catalyst-card--top{border-color:rgba(255,69,58,0.35);background:var(--bg2);}
+.catalyst-card--bear{opacity:0.7;background:var(--bg2);}
 .catalyst-ai-btn{margin-top:8px;padding:8px 12px;border:1px solid var(--border);background:var(--bg3);border-radius:var(--radius-xs);font-size:12px;font-weight:600;color:var(--text1);cursor:pointer;width:100%;transition:all .15s;}
 .catalyst-ai-btn:hover{background:var(--bg2);border-color:#6366f1;color:#6366f1;}
 .catalyst-ai-btn:disabled{opacity:0.6;cursor:wait;}
@@ -7227,21 +7226,22 @@
     .cat-ai-row{font-size:11px;}
 }
 .catalyst-loading,.catalyst-empty{padding:40px 16px;text-align:center;color:var(--text2);font-size:14px;}
-.catalyst-list{display:flex;flex-direction:column;gap:12px;}
-.catalyst-card{padding:14px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg2);cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .15s;}
-.catalyst-card:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(0,0,0,0.06);border-color:rgba(99,102,241,0.4);}
-.catalyst-card--fresh{border-color:rgba(239,68,68,0.5);background:linear-gradient(135deg, rgba(239,68,68,0.04), var(--bg2) 50%);}
+/* ── 알파 스캐너 카드 디자인 시스템과 통일 (차분한 border, font-data, radius-xs) ── */
+.catalyst-list{display:flex;flex-direction:column;gap:10px;}
+.catalyst-card{padding:14px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg2);cursor:pointer;transition:border-color .15s;}
+.catalyst-card:hover{border-color:var(--text3);}
+.catalyst-card--fresh{border-color:rgba(255,69,58,0.3);background:var(--bg2);}
 .catalyst-card-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
-.catalyst-rank{width:28px;height:28px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--text2);flex-shrink:0;}
+.catalyst-rank{width:28px;height:28px;border-radius:var(--radius-xs);background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:11px;font-family:var(--font-data);font-weight:700;color:var(--text3);flex-shrink:0;}
 .catalyst-id{flex:1;min-width:0;}
-.catalyst-sym{font-size:16px;font-weight:800;color:var(--text1);letter-spacing:-0.01em;}
-.catalyst-form{font-size:10px;padding:2px 6px;background:var(--bg3);border-radius:var(--radius-xs);color:var(--text3);font-weight:600;margin-left:4px;vertical-align:1px;}
-.catalyst-name{font-size:12px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.catalyst-grade{padding:4px 10px;border-radius:var(--radius-full);font-size:11px;font-weight:700;white-space:nowrap;}
-.catalyst-title{font-size:13px;color:var(--text1);margin-bottom:6px;line-height:1.4;font-weight:500;}
-.catalyst-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;}
-.catalyst-tag{font-size:10px;padding:2px 8px;border-radius:var(--radius-full);background:rgba(99,102,241,0.10);color:#6366f1;border:1px solid rgba(99,102,241,0.25);font-weight:600;}
-[data-theme="dark"] .catalyst-tag{color:#a5b4fc;background:rgba(99,102,241,0.18);}
+.catalyst-sym{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-0.01em;}
+.catalyst-form{font-size:9px;padding:2px 6px;background:var(--bg3);border-radius:var(--radius-xs);color:var(--text3);font-weight:600;margin-left:4px;vertical-align:1px;font-family:var(--font-data);}
+.catalyst-name{font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.catalyst-grade{padding:3px 8px;border-radius:var(--radius-xs);font-size:10px;font-family:var(--font-data);font-weight:700;white-space:nowrap;letter-spacing:0.02em;}
+.catalyst-title{font-size:13px;color:var(--text2);margin-bottom:8px;line-height:1.5;font-weight:500;}
+.catalyst-tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;}
+.catalyst-tag{font-size:10px;font-family:var(--font-data);padding:3px 8px;border-radius:var(--radius-xs);background:rgba(0,128,251,0.10);color:var(--blue);border:1px solid rgba(0,128,251,0.22);font-weight:600;letter-spacing:-0.01em;}
+[data-theme="dark"] .catalyst-tag{color:var(--blue);background:rgba(0,128,251,0.12);}
 /* v693 — 바닥 턴어라운드 호재 태그 + D-3 실적발표 경고 배지 */
 .catalyst-tag--turn{background:rgba(34,197,94,0.14);color:#16a34a;border-color:rgba(34,197,94,0.45);font-weight:800;}
 [data-theme="dark"] .catalyst-tag--turn{color:#4ade80;background:rgba(34,197,94,0.22);}
@@ -7256,7 +7256,7 @@
 .cs-cell.entry{color:#22c55e;background:rgba(34,197,94,0.10);}
 .cs-cell.stop{color:#ef4444;background:rgba(239,68,68,0.10);}
 .cs-cell.tp{color:#eab308;background:rgba(234,179,8,0.10);}
-.catalyst-source{display:inline-block;margin-top:8px;font-size:11px;color:#6366f1;text-decoration:none;}
+.catalyst-source{display:inline-block;margin-top:8px;font-size:11px;color:var(--blue);text-decoration:none;}
 .catalyst-source:hover{text-decoration:underline;}
 /* 데이터 소스 배지 (v658 — Alpaca 실시간 vs yfinance 지연) */
 .catalyst-src-badge{display:inline-block;margin:0 6px;padding:2px 8px;border-radius:var(--radius-full);font-size:11px;font-weight:600;}
@@ -7274,13 +7274,33 @@
     .catalyst-grade{font-size:10px;padding:3px 8px;}
 }
 
-/* 급등 후보 단계 필터 바 (v638 — Tim Sykes) */
-.surge-filter-bar{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 12px;padding:6px;border-radius:var(--radius-md);background:var(--bg2);border:1px solid var(--border);}
-.surge-filter{padding:6px 12px;border:none;background:transparent;border-radius:var(--radius-xs);font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent;white-space:nowrap;}
-.surge-filter:hover{background:var(--bg3);}
-.surge-filter.active{background:var(--accent,#6366f1);color:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.12);}
-[data-theme="dark"] .surge-filter.active{background:rgba(99,102,241,0.5);}
-@media(max-width:480px){.surge-filter{padding:5px 8px;font-size:11px;}}
+/* 급등 후보 단계 필터 바 — iOS Segmented Control 톤으로 통일 */
+.surge-filter-bar{
+    display:inline-flex;flex-wrap:nowrap;align-items:center;gap:4px;
+    margin:10px 0 12px;padding:2px;width:fit-content;max-width:100%;height:32px;
+    border-radius:var(--radius-full);background:rgba(118,118,128,0.12);
+    overflow-x:auto;scrollbar-width:none;box-sizing:border-box;
+}
+.surge-filter-bar::-webkit-scrollbar{display:none;}
+.surge-filter{
+    flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+    padding:3px 14px;height:28px;border:none;background:transparent;
+    border-radius:var(--radius-lg);
+    font-size:13px;font-weight:600;color:rgba(235,235,245,0.85);
+    cursor:pointer;transition:background .15s,color .15s;
+    -webkit-tap-highlight-color:transparent;white-space:nowrap;
+    font-family:-apple-system,'SF Pro Text',inherit;
+}
+[data-theme="light"] .surge-filter{color:rgba(60,60,67,0.85);}
+.surge-filter:hover:not(.active){background:transparent;}
+.surge-filter.active{
+    background:rgba(118,118,128,0.36);color:#fff;font-weight:700;
+}
+[data-theme="light"] .surge-filter.active{
+    background:#fff;color:#000;
+    box-shadow:0 3px 8px rgba(0,0,0,0.12),0 0 0 0.5px rgba(0,0,0,0.04);
+}
+@media(max-width:480px){.surge-filter{padding:3px 10px;font-size:12px;}}
 
 /* 과매도 탭 — 거래대금·시총 필터 (v689) */
 .bounce-filter-box{margin:10px 0 12px;padding:10px 12px;border-radius:var(--radius-md);background:var(--bg2);border:1px solid var(--border);}
