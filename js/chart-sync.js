@@ -123,6 +123,11 @@
         const dmId = 'dmBtn' + tool.charAt(0).toUpperCase() + tool.slice(1);
         document.getElementById(dmId)?.classList.add('active');
 
+        // 좌측 세로 그리기 dock 버튼 동기화 (TradingView)
+        document.querySelectorAll('#drawDock .draw-dock-btn').forEach(b => b.classList.remove('active'));
+        const _dockMap = { none:'ddockCursor', line:'ddockLine', hline:'ddockHline', fib:'ddockFib', rect:'ddockRect', ellipse:'ddockEllipse' };
+        document.getElementById(_dockMap[tool])?.classList.add('active');
+
         // 캔버스 활성화
         const canvas = document.getElementById('drawCanvas');
         if (tool === 'none') {

@@ -1763,7 +1763,54 @@
         .draw-canvas.active{pointer-events:auto;cursor:crosshair;}
         .draw-count-badge{font-size:10px;font-weight:700;min-width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;border-radius:var(--radius-xs);background:var(--bg4);color:var(--text2);padding:0 4px;margin-left:2px;}
 
-        /* ═══ 그리기 도구 메뉴 (TradingView style floating panel) ═══ */
+        /* ═══ TradingView 좌측 세로 그리기 dock (PC 상시 / 모바일 숨김) ═══ */
+        .draw-dock{
+            position:absolute; left:6px; top:50%; transform:translateY(-50%);
+            display:flex; flex-direction:column; align-items:center; gap:2px;
+            padding:4px; z-index:60;
+            background:rgba(20,20,20,0.72);
+            backdrop-filter:blur(10px) saturate(140%);
+            -webkit-backdrop-filter:blur(10px) saturate(140%);
+            border:1px solid rgba(255,255,255,0.08);
+            border-radius:var(--radius-md);
+            box-shadow:0 4px 18px rgba(0,0,0,0.3);
+        }
+        [data-theme="light"] .draw-dock{ background:rgba(255,255,255,0.88); border-color:rgba(0,0,0,0.08); }
+        .draw-dock-btn{
+            width:30px; height:30px; padding:0;
+            display:flex; align-items:center; justify-content:center;
+            background:transparent; border:none; cursor:pointer;
+            color:rgba(235,235,245,0.6); border-radius:var(--radius-xs);
+            transition:background .12s, color .12s;
+        }
+        [data-theme="light"] .draw-dock-btn{ color:rgba(60,60,67,0.6); }
+        .draw-dock-btn:hover{ background:rgba(255,255,255,0.08); color:var(--text); }
+        [data-theme="light"] .draw-dock-btn:hover{ background:rgba(0,0,0,0.05); }
+        .draw-dock-btn.active{ background:rgba(0,128,251,0.16); color:var(--blue); }
+        .draw-dock-sep{ width:18px; height:1px; background:rgba(255,255,255,0.1); margin:3px 0; }
+        [data-theme="light"] .draw-dock-sep{ background:rgba(0,0,0,0.1); }
+        /* 모바일/태블릿 — dock 숨김 (기존 그리기 시트 사용) */
+        @media (max-width:768px){ .draw-dock{ display:none !important; } }
+        /* 전체화면에서도 dock 표시 유지 */
+
+        /* ═══ 차트 타입 세그먼트 (캔들/라인/영역) ═══ */
+        .ctype-seg{
+            display:inline-flex; align-items:center; gap:1px;
+            padding:2px; border-radius:var(--radius-sm);
+            background:rgba(118,118,128,0.12);
+        }
+        .ctype-btn{
+            width:28px; height:24px; padding:0;
+            display:flex; align-items:center; justify-content:center;
+            background:transparent; border:none; cursor:pointer;
+            color:var(--text3); border-radius:var(--radius-xs);
+            transition:background .12s, color .12s;
+        }
+        .ctype-btn:hover{ color:var(--text2); }
+        .ctype-btn.active{ background:var(--bg); color:var(--blue); box-shadow:0 1px 3px rgba(0,0,0,0.15); }
+        [data-theme="light"] .ctype-btn.active{ background:#fff; }
+
+        /* ═══ 그리기 도구 메뉴 (모바일 바텀시트 + 호환) ═══ */
         .draw-menu{position:absolute;left:8px;top:8px;z-index:150;background:var(--bg2);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.22);width:210px;padding:6px 0;user-select:none;}
         [data-theme="light"] .draw-menu{background:#fff;box-shadow:0 8px 32px rgba(0,0,0,.13);}
         .draw-menu-item{display:flex;align-items:center;gap:10px;width:100%;padding:8px 16px;background:transparent;border:none;color:var(--text2);font-size:13px;font-family:inherit;cursor:pointer;transition:background .1s;text-align:left;line-height:1.3;}
@@ -8436,6 +8483,8 @@
 }
 /* 그 다음 분봉 분석 줄 (5분/B+/A+/S/분석/라인/익절/백테스트/소리) */
 .tv-chart-card > #chartToolbar { order: -1; }
+/* PC: 좌측 dock 으로 대체된 chartXToolbar '그리기' 버튼 숨김 (모바일은 표시) */
+@media (min-width:769px){ #cxtDraw{ display:none !important; } }
 /* sigGradePanel 은 JS 가 chartCell1 내부 플로팅으로 이동 (.sgp-floating) — order 불필요 */
 /* 나머지 priceSourceBadge, aiProgress, chartPreBanner, chartSigBar 는 이후 */
 .tv-chart-card > #priceSourceBadge,

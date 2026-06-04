@@ -197,6 +197,38 @@
     // 차트 리사이즈 옵저버
     let lwResizeObserver = null;
 
+    // ── 차트 타입 전환 (캔들 / 라인 / 영역) ──────────────────────
+    // 캔들 series 는 항상 유지(마커/가격라인 앵커). 라인·영역은 close 오버레이.
+    let _chartType = (() => { try { return localStorage.getItem('stockai_chart_type') || 'candle'; } catch(_) { return 'candle'; } })();
+    const _CANDLE_ON = {
+        upColor: '#ef4444', downColor: '#3b82f6',
+        borderUpColor: '#ef4444', borderDownColor: '#3b82f6',
+        wickUpColor: '#ef4444', wickDownColor: '#3b82f6',
+    };
+    const _CANDLE_OFF = {
+        upColor: 'transparent', downColor: 'transparent',
+        borderUpColor: 'transparent', borderDownColor: 'transparent',
+        wickUpColor: 'transparent', wickDownColor: 'transparent',
+    };
+    function _applyChartType() {
+        if (!lwCandleSeries) return;
+        const isCandle = _chartType === 'candle';
+        try { lwCandleSeries.applyOptions(isCandle ? _CANDLE_ON : _CANDLE_OFF); } catch(_) {}
+        try { lwLineOverlay?.applyOptions({ visible: _chartType === 'line' }); } catch(_) {}
+        try { lwAreaOverlay?.applyOptions({ visible: _chartType === 'area' }); } catch(_) {}
+        // 상단 세그먼트 active UI
+        document.querySelectorAll('.ctype-btn').forEach(b =>
+            b.classList.toggle('active', b.dataset.ct === _chartType));
+    }
+    function _setChartType(type) {
+        if (!['candle','line','area'].includes(type)) type = 'candle';
+        _chartType = type;
+        try { localStorage.setItem('stockai_chart_type', type); } catch(_) {}
+        _applyChartType();
+    }
+    window._setChartType = _setChartType;
+    window._applyChartType = _applyChartType;
+
     function destroyChart() {
         if (lwResizeObserver) { lwResizeObserver.disconnect(); lwResizeObserver = null; }
         lwAiPriceLines = [];        // refs만 초기화 (데이터는 lwAiLastData에 보존)
@@ -206,6 +238,8 @@
         const _aiBtn = document.getElementById('chartAiReaderBtn');
         if (_aiBtn) _aiBtn.style.display = 'none';
         lwCandleSeries = null;
+        lwLineOverlay = null;
+        lwAreaOverlay = null;
         lwVolumeSeries = null;
         lwMaSeries = {};
         lwBbUpper = null;
@@ -313,6 +347,19 @@
             wickDownColor: '#3b82f6',
         });
 
+        // 차트 타입 전환용 오버레이 (라인/영역) — close 기반, 기본 숨김
+        // 캔들을 투명화하고 이 오버레이를 표시하는 방식 → lwCandleSeries 참조 무변경
+        lwLineOverlay = lwChart.addLineSeries({
+            color: '#2962FF', lineWidth: 2,
+            priceLineVisible: false, lastValueVisible: false,
+            crosshairMarkerVisible: false, visible: false,
+        });
+        lwAreaOverlay = lwChart.addAreaSeries({
+            lineColor: '#2962FF', topColor: 'rgba(41,98,255,0.28)', bottomColor: 'rgba(41,98,255,0.02)',
+            lineWidth: 2, priceLineVisible: false, lastValueVisible: false,
+            crosshairMarkerVisible: false, visible: false,
+        });
+
         // 거래량 시리즈
         lwVolumeSeries = lwChart.addHistogramSeries({
             priceFormat: { type: 'volume' },
@@ -342,6 +389,13 @@
 
         lwCandleSeries.setData(candleData);
         lwVolumeSeries.setData(volumeData);
+        // 오버레이(라인/영역)에 close 데이터 적용 + 저장된 차트 타입 반영
+        try {
+            const lineData = candleData.map(d => ({ time: d.time, value: d.close }));
+            lwLineOverlay?.setData(lineData);
+            lwAreaOverlay?.setData(lineData);
+            if (typeof _applyChartType === 'function') _applyChartType();
+        } catch (e) {}
 
         // 이동평균선 추가 — Phase A2: _indGetConfig() 에서 기간/색상/두께 로드
         const closes = q.close;

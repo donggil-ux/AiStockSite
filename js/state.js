@@ -211,6 +211,9 @@
     // Lightweight Charts 인스턴스
     window.lwChart = null;
     window.lwCandleSeries = null;
+    // 차트 타입(캔들/라인/영역) — 라인·영역 오버레이 series (캔들 투명화 방식)
+    window.lwLineOverlay = null;
+    window.lwAreaOverlay = null;
     // 종목비교 오버레이 상태 (최대 3개 동시 비교)
     window._cmpItems = [];       // [{sym, series, color, chgPct}]
     window.lwVolumeSeries = null;
