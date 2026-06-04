@@ -2526,13 +2526,60 @@
         }, 60 * 1000);
     }
 
+    // ── 당일 본장 5분봉 캐시 (Smart Dip 전용 — 차트 인터벌 무관) ──
+    let _sdBars5m = null;       // { open, high, low, close, volume, ts } — 당일 정규장 5분봉
+    let _sdBars5mSym = null;    // 캐시된 종목
+    let _sdBars5mTs = 0;        // 마지막 로드 시각(ms)
+    let _sdBarsLoading = false;
+    const _SD_BARS_TTL = 5 * 60 * 1000; // 5분
+
+    async function _loadSmartDipBars(symbol, force) {
+        symbol = symbol || (typeof currentSymbol !== 'undefined' ? currentSymbol : null);
+        if (!symbol || _sdBarsLoading) return;
+        // 한국 종목(.KS/.KQ)은 미지원 → 캐시 비우고 현재 q 폴백
+        if (/\.(KS|KQ)$/i.test(symbol)) { _sdBars5m = null; _sdBars5mSym = null; return; }
+        // 같은 종목 + 5분 이내 + 강제 아님 → skip
+        if (!force && _sdBars5mSym === symbol && (Date.now() - _sdBars5mTs) < _SD_BARS_TTL) return;
+        _sdBarsLoading = true;
+        try {
+            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=5m&includePrePost=false`;
+            const data = await fetchWithProxy(url);
+            const r = data?.chart?.result?.[0];
+            const ind = r?.indicators?.quote?.[0];
+            if (r?.timestamp && ind?.close && ind.close.filter(v => v != null).length >= 30) {
+                _sdBars5m = { open: ind.open, high: ind.high, low: ind.low, close: ind.close, volume: ind.volume, ts: r.timestamp };
+                _sdBars5mSym = symbol;
+                _sdBars5mTs = Date.now();
+                // 로드 완료 → 마지막 시그널 인자로 Smart Dip 재렌더
+                if (_chartSmartDipEnabled && _lastSigArgs?.q) {
+                    try { _renderSmartDipLayer(_lastSigArgs.q, _lastSigArgs.ts); } catch(_) {}
+                }
+            }
+        } catch (e) { try { warn('[smartdip] bars load fail', e?.message); } catch(_) {} }
+        finally { _sdBarsLoading = false; }
+    }
+
     function _renderSmartDipLayer(q) {
         _clearSmartDipLines();
         const el = document.getElementById('smartDipCard');
         if (!_chartSmartDipEnabled) { if (el) el.style.display = 'none'; return; }
         if (!lwCandleSeries || !q) return;
 
-        const closes = q.close || [], highs = q.high || [], lows = q.low || [], volumes = q.volume || [];
+        // Smart Dip 활성인데 당일 5분봉 캐시가 없거나 오래됐으면 비동기 로드 (현재 종목)
+        if (_chartSmartDipEnabled && typeof currentSymbol !== 'undefined' && currentSymbol
+            && !/\.(KS|KQ)$/i.test(currentSymbol)
+            && (_sdBars5mSym !== currentSymbol || (Date.now() - _sdBars5mTs) > _SD_BARS_TTL)) {
+            _loadSmartDipBars(currentSymbol);
+        }
+
+        // ── 당일 본장 5분봉 우선 (차트 인터벌 무관 — 당일 단타 진입 관점) ──
+        // _sdBars5m 캐시(현재 종목, 정규장 5분봉)가 충분하면 그것으로, 없으면 현재 차트 q 폴백.
+        const _today5mOk = _sdBars5m && _sdBars5mSym === currentSymbol
+            && (_sdBars5m.close || []).filter(v => v != null).length >= 30;
+        const src  = _today5mOk ? _sdBars5m : q;
+        const _sdIv = _today5mOk ? '5m' : currentInterval;
+
+        const closes = src.close || [], highs = src.high || [], lows = src.low || [], volumes = src.volume || [];
         const N = closes.length;
         if (N < 30) { if (el) el.style.display = 'none'; return; }
 
@@ -2543,20 +2590,19 @@
         const fmtP = p => currentMarket === 'KR' ? Math.round(p).toLocaleString()+'원' : '$'+p.toFixed(2);
         const fmtPct = v => v != null ? (v >= 0 ? '+' : '') + v.toFixed(1) + '%' : '';
 
-        // Swing high/low — 분봉 최적화: 타임프레임별 룩백 + Pivot 방식 감지
-        // 거래량 필터 강도 — 15m·30m 은 더 엄격하게 (1.3x / 1.4x)
-        const lb = Math.min(_sdLookback(currentInterval), N);
-        const pivotWin = _sdPivotWin(currentInterval);
-        const volMult = _sdVolMultiplier(currentInterval);
+        // Swing high/low — 당일 5분봉(또는 폴백 차트) 기준 룩백 + Pivot 방식 감지
+        const lb = Math.min(_sdLookback(_sdIv), N);
+        const pivotWin = _sdPivotWin(_sdIv);
+        const volMult = _sdVolMultiplier(_sdIv);
         const { swHigh, swLow } = _sdSwingPoints(highs, lows, volumes, N, lb, pivotWin, volMult);
         if (!isFinite(swHigh) || !isFinite(swLow) || swHigh <= swLow) { if (el) el.style.display = 'none'; return; }
 
         // Fibonacci range ATR 정규화 — 타임프레임별 클램프 범위 차별화
         //   swing 폭이 비정상적으로 작거나(노이즈) 거대(왜곡)할 때 ATR 배수로 제한
         const rawRange = swHigh - swLow;
-        const atrArr = calcATR(q.high, q.low, q.close, _sdAtrPeriod(currentInterval));
+        const atrArr = calcATR(src.high, src.low, src.close, _sdAtrPeriod(_sdIv));
         const atr = lastVal(atrArr) || rawRange * 0.02;
-        const { min: fibMin, max: fibMax } = _sdFibClamp(currentInterval);
+        const { min: fibMin, max: fibMax } = _sdFibClamp(_sdIv);
         const range = Math.max(atr * fibMin, Math.min(rawRange, atr * fibMax));
         const ema20 = lastVal(calcEMA(closes, 20));
 
@@ -2652,6 +2698,11 @@
             el.style.display = 'block';
             el.innerHTML = _buildSmartDipCard(mode, pos, cur, entryLevels, goldenEntry,
                 stopLoss, tp1Price, tp2Price, ema20, coeff, fmtP, fmtPct);
+            // 데이터 출처 표시 — 당일 본장 5분봉 기준일 때 배지에 라벨 추가
+            if (_today5mOk) {
+                const badge = el.querySelector('.sd-mode-badge');
+                if (badge) badge.insertAdjacentHTML('beforeend', '<span class="sd-today-tag">· 당일 본장 5분봉</span>');
+            }
         }
     }
 
@@ -2799,6 +2850,10 @@
         }
         _chartSmartDipEnabled = newState;
         localStorage.setItem('stockai_chart_smartdip_enabled', newState ? '1' : '0');
+        // 켤 때 당일 본장 5분봉 즉시 로드 (다음 렌더 대기 없이)
+        if (newState && typeof currentSymbol !== 'undefined' && currentSymbol) {
+            try { _loadSmartDipBars(currentSymbol, true); } catch(_) {}
+        }
         if (_lastSigArgs) {
             try { _layerDirty = true; renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); } catch(e) {}
         } else {
