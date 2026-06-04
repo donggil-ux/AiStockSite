@@ -8152,8 +8152,9 @@
 .cell-symbol:hover { color: #0080FB; }
 
 /* ── 셀 OHLC 바 (TradingView 스타일) ── */
+/* OHLC 바(시/고/저/종) 완전 숨김 — 사용자 요청 (우상단 차트 헤더로 대체) */
+.cell-ohlc { display: none !important; }
 .cell-ohlc {
-    display: flex;
     align-items: center;
     gap: 10px;
     padding: 3px 12px 4px;
