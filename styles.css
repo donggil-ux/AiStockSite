@@ -1712,7 +1712,7 @@
             flex:1;height:auto!important;border-radius:0;
         }
         /* Chart Toolbar */
-        .chart-toolbar{display:flex;align-items:center;gap:6px;padding:10px 14px;background:var(--bg2);border-radius:var(--radius-xs) var(--radius-xs) 0 0;border-bottom:1px solid var(--border);flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;cursor:grab;}
+        .chart-toolbar{display:flex;align-items:center;gap:6px;padding:6px 12px 7px;background:var(--bg2);border-radius:0;border-bottom:1px solid var(--border);flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;cursor:grab;}
         .chart-toolbar::-webkit-scrollbar{display:none;}
         .chart-toolbar.is-dragging{cursor:grabbing;user-select:none;}
         .chart-toolbar-group{display:flex;gap:3px;align-items:center;}
@@ -1720,6 +1720,15 @@
         .chart-tb-btn{padding:5px 12px;border:1px solid var(--border);background:transparent;color:var(--text3);border-radius:var(--radius-xs);cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all .12s;white-space:nowrap;display:inline-flex;align-items:center;}
         .chart-tb-btn:hover{border-color:var(--text3);color:var(--text2);}
         .chart-tb-btn.active{border-color:var(--blue);color:var(--blue);background:rgba(0,128,251,.08);}
+        /* [⋯ 더보기] 정사각 미니멀 아이콘 버튼 */
+        .chart-tb-more{padding:0;width:30px;height:28px;justify-content:center;}
+        .chart-tb-more svg{width:16px;height:16px;}
+        /* 더보기 드롭다운 항목 — 아이콘 + 라벨 + 상태 */
+        .more-dd-item{display:flex;align-items:center;gap:8px;}
+        .more-dd-ico{font-size:14px;width:18px;text-align:center;flex-shrink:0;}
+        .more-dd-state{margin-left:auto;font-size:10px;font-weight:700;color:var(--text3);font-family:var(--font-data);padding:2px 7px;border-radius:var(--radius-xs);background:var(--bg3);}
+        .more-dd-state.more-dd-state-on{color:var(--green);background:rgba(12,245,176,.12);}
+        .more-dd-state.sig-history-badge{background:#EF4444;color:#fff;min-width:16px;text-align:center;}
         .dd-arrow{width:14px;height:14px;margin-left:3px;flex-shrink:0;transition:transform .2s ease;}
         .chart-tb-btn[data-open="1"] .dd-arrow{transform:rotate(180deg);}
         .chart-ai-reader-btn{border-color:var(--purple);color:var(--purple);background:rgba(191,90,242,.08);margin-right:4px;}
@@ -8438,10 +8447,11 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 6px 10px;
+    padding: 5px 10px;
     background: var(--bg2);
+    /* chart-toolbar 와 시각 통합 — 사이 구분선 제거, 차트 쪽만 하단 라인 */
     border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
+    border-bottom: none;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;

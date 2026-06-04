@@ -5315,6 +5315,35 @@
         if (!open) { _ddOpenMenu(menu, btn); btn.dataset.open = '1'; }
     }
 
+    // ── [⋯ 더보기] 드롭다운 (익절/백테스트/소리/알림내역/AI라인) ──
+    function _moreDdSyncLabels() {
+        // 익절 단계 라벨
+        const tpEl = document.getElementById('moreTpState');
+        if (tpEl) {
+            const lv = parseInt(localStorage.getItem('stockai_chart_tp_level') || '1', 10);
+            tpEl.textContent = lv >= 3 ? '전체' : lv === 2 ? '1~2차' : '1차';
+        }
+        // 소리 on/off 라벨
+        const sndEl = document.getElementById('moreSoundState');
+        if (sndEl) {
+            const on = localStorage.getItem('stockai_chart_sound') !== '0';
+            sndEl.textContent = on ? '켜짐' : '꺼짐';
+            sndEl.classList.toggle('more-dd-state-on', on);
+        }
+    }
+    function _toggleMoreDd(e) {
+        if (e) e.stopPropagation();
+        const isMobile = window.innerWidth <= 768
+            || document.querySelector('.tv-chart-card.fullscreen') !== null;
+        if (isMobile) { _moreDdSyncLabels(); _openChartBottomSheet('더보기', 'moreDdMenu'); return; }
+        const menu = document.getElementById('moreDdMenu');
+        const btn  = document.getElementById('moreDdBtn');
+        if (!menu) return;
+        const open = menu.style.display !== 'none';
+        _closeAllDds();
+        if (!open) { _moreDdSyncLabels(); _ddOpenMenu(menu, btn); btn.dataset.open = '1'; }
+    }
+
     // ── 차트 모바일 바텀시트 ─────────────────────────────────────
     let _bsSnapshot = null;   // 열 때 상태 스냅샷 (취소 시 복원)
     let _bsMenuId   = null;   // 현재 시트가 미러링 중인 드롭다운 메뉴 id
@@ -5474,12 +5503,16 @@
     function _closeAllDds(e) {
         const am = document.getElementById('analysisDdMenu');
         const lm = document.getElementById('lineDdMenu');
+        const mm = document.getElementById('moreDdMenu');
         const ab = document.getElementById('analysisDdBtn');
         const lb = document.getElementById('lineDdBtn');
+        const mb = document.getElementById('moreDdBtn');
         if (am) am.style.display = 'none';
         if (lm) lm.style.display = 'none';
+        if (mm) mm.style.display = 'none';
         if (ab) delete ab.dataset.open;
         if (lb) delete lb.dataset.open;
+        if (mb) delete mb.dataset.open;
         // 그리기 메뉴: 클릭이 메뉴 또는 cxtDraw 버튼 바깥이면 닫기
         const dm = document.getElementById('drawMenu');
         if (dm && dm.style.display !== 'none') {

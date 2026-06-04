@@ -6368,7 +6368,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         _calcSignalGrade, _setMinGrade, _passesGradeFilter,
         _runBacktest, _openBacktest,
         startAlpacaWS, stopAlpacaWS,
-        _toggleAnalysisDd, _toggleLineDd, _closeAllDds, _updateDdStates, _setDdCheck,
+        _toggleAnalysisDd, _toggleLineDd, _toggleMoreDd, _closeAllDds, _updateDdStates, _setDdCheck,
         _openChartBottomSheet, _closeChartBottomSheet, _confirmChartBottomSheet,
         _cancelChartBottomSheet, _bsRenderBody,
         handleSearchKeydown, openSearchDropdown, closeSearchDropdown, searchSuggest, levenshtein,

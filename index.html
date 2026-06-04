@@ -1138,28 +1138,36 @@
                                     </div>
                                 </div>
                             </div>
-                            <!-- 익절1 단독 유지 -->
-                            <button class="chart-tb-btn" id="chartTpLevelBtn"
-                                onclick="toggleTpLevel()" title="익절 단계 — 1차만 / 1~2차 / 전체"
-                                style="border-color:var(--border);color:var(--text3);font-size:10px;padding:0 7px;letter-spacing:-.3px;">익절1
-                            </button>
-
-                            <button class="chart-tb-btn" id="backtestBtn"
-                                onclick="_openBacktest()" title="EMA 눌림목 백테스팅"
-                                style="border-color:var(--border);color:var(--text3);">백테스트
-                            </button>
-                            <button class="chart-tb-btn" id="chartSoundBtn"
-                                onclick="toggleChartSound()" title="시그널 사운드 켜기 — 매수·매도 시그널 발생 시 소리 알림"
-                                style="border-color:var(--border);color:var(--text3);">소리
-                            </button>
-                            <button class="chart-tb-btn" id="sigHistoryBtn"
-                                onclick="toggleSigHistoryPanel()" title="알림내역"
-                                style="display:none;border-color:var(--border);color:var(--text3);position:relative;">알림내역
-                                <span id="sigHistoryBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:#EF4444;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;line-height:14px;text-align:center;padding:0 2px;"></span>
-                            </button>
-                            <button class="chart-tb-btn" id="chartAiClearBtn"
-                                onclick="clearAiChartLines()" title="AI 라인 지우기"
-                                style="display:none;border-color:var(--border);color:var(--text3);">AI 라인</button>
+                            <!-- [⋯ 더보기] 드롭다운 — 익절/백테스트/소리/알림내역/AI라인 -->
+                            <div class="chart-dd-wrap" id="moreDdWrap">
+                                <button class="chart-tb-btn chart-tb-more" id="moreDdBtn"
+                                    onclick="_toggleMoreDd(event)" title="더보기"
+                                    style="border-color:var(--border);color:var(--text3);">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+                                </button>
+                                <div class="chart-dd-menu" id="moreDdMenu" style="display:none;">
+                                    <button class="chart-dd-item more-dd-item" onclick="event.stopPropagation();toggleTpLevel();">
+                                        <span class="more-dd-ico">🎯</span>익절 단계<span class="more-dd-state" id="moreTpState"></span>
+                                    </button>
+                                    <button class="chart-dd-item more-dd-item" onclick="event.stopPropagation();_openBacktest();">
+                                        <span class="more-dd-ico">📊</span>백테스트
+                                    </button>
+                                    <button class="chart-dd-item more-dd-item" onclick="event.stopPropagation();toggleChartSound();">
+                                        <span class="more-dd-ico">🔔</span>시그널 소리<span class="more-dd-state" id="moreSoundState"></span>
+                                    </button>
+                                    <button class="chart-dd-item more-dd-item" id="moreSigHistory" onclick="event.stopPropagation();toggleSigHistoryPanel();">
+                                        <span class="more-dd-ico">📜</span>알림 내역<span class="more-dd-state sig-history-badge" id="sigHistoryBadge" style="display:none;"></span>
+                                    </button>
+                                    <button class="chart-dd-item more-dd-item" id="moreAiClear" onclick="event.stopPropagation();clearAiChartLines();">
+                                        <span class="more-dd-ico">🧹</span>AI 라인 지우기
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- 호환용 hidden 참조 — 기존 JS 가 style/title 만 갱신하므로 안전하게 유지 -->
+                            <button id="chartTpLevelBtn" style="display:none;"></button>
+                            <button id="chartSoundBtn" style="display:none;"></button>
+                            <button id="sigHistoryBtn" style="display:none;"></button>
+                            <button id="chartAiClearBtn" style="display:none;"></button>
                         </div>
                     </div>
                     <!-- 데이터 소스 배지 -->
