@@ -300,13 +300,36 @@ export async function resolveSignals(env) {
 }
 
 /**
- * 매 5분마다 (또는 *5분봉* cron trigger): 활성 구독자의 즐겨찾기 종목을
- * 5분봉으로 분석 → A/S 등급 시그널 발생 시 푸시 발송.
+ * 디스커버리 유니버스 — 당일 데이트레이딩 활발 종목 (Yahoo 스크리너).
+ * most_actives(거래량 상위) + day_gainers(상승률 상위) → 단타 적합 종목.
+ * 가격/유동성 필터로 페니주·저유동성 제외. US 한정(1차).
+ */
+async function _fetchDiscoverySymbols(env, marketHint) {
+    if (marketHint === 'KR') return []; // KR 스크리너 추후
+    const base = 'https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved'
+        + '?formatted=false&lang=en-US&region=US&count=30&scrIds=';
+    try {
+        const [act, gain] = await Promise.allSettled([
+            yfRequest(env.CACHE, base + 'most_actives'),
+            yfRequest(env.CACHE, base + 'day_gainers'),
+        ]);
+        const pick = r => (r.status === 'fulfilled' ? (r.value?.finance?.result?.[0]?.quotes || []) : []);
+        const rows = [...pick(act), ...pick(gain)];
+        const syms = rows
+            .filter(q => q && q.regularMarketPrice >= 2 && q.regularMarketPrice <= 600
+                      && (q.averageDailyVolume3Month || 0) >= 500000
+                      && /^[A-Z]{1,5}$/.test(q.symbol || ''))
+            .map(q => q.symbol);
+        return [...new Set(syms)].slice(0, 30);
+    } catch (e) { console.warn('[discovery] universe fail', e.message); return []; }
+}
+
+/**
+ * 매 5분마다 (또는 *5분봉* cron trigger): 활성 구독자의 즐겨찾기 종목 +
+ * 당일 발굴 종목을 5분봉으로 분석 → 즐겨찾기는 임계값↑ 푸시, 발굴은 S급만 푸시.
  *
- * 중복 방지: signal_history 테이블에 (symbol, dir, candle_ts) 키로 저장.
- * 같은 5분봉 + 같은 방향 시그널은 한 번만 발송.
- *
- * 최대 처리량 보호: 구독자 50명 / 종목 30개 / 5분 = Workers 30초 한계 내.
+ * 중복 방지: signal_history 6시간 cooldown (같은 종목+방향).
+ * 최대 처리량 보호: 구독자 100명 / 종목 50개 / 5분 = Workers 한계 내(waitUntil).
  */
 export async function analyzeSignals(env, marketHint = 'ALL') {
     try {
@@ -347,8 +370,22 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
             : ['NVDA','AAPL','MSFT','AMZN','GOOGL','META','TSLA','AVGO','AMD','NFLX',
                'PLTR','SMCI','MSTR','COIN','HOOD','RBLX','SHOP','SOFI','RKLB','MARA'];
         const favSymbols = [...symbolToSubs.keys()];
-        const allSymbols = [...new Set([...favSymbols, ...DEFAULT_UNIVERSE])].slice(0, 30);
+        const favSet = new Set(favSymbols);
+        // 디스커버리 — 당일 활발 종목 동적 발굴 (US)
+        const dynamic = await _fetchDiscoverySymbols(env, marketHint);
+        const allSymbols = [...new Set([...favSymbols, ...DEFAULT_UNIVERSE, ...dynamic])].slice(0, 50);
         if (!allSymbols.length) return { subscribers: subs.length, marketHint, fired: 0 };
+
+        // 디스커버리 푸시 대상 구독자 (discovery 토글 ON + 조용시간 아님 + 시장필터)
+        const discoverySubs = subs.filter(s => {
+            let p = {};
+            try { p = JSON.parse(s.notif_prefs || '{}'); } catch (_) {}
+            if (!(p.discovery ?? 1)) return false;
+            if (isQuietNow(s.quiet)) return false;
+            const subMarket = s.market_filter || 'ALL';
+            if (marketHint !== 'ALL' && subMarket !== 'ALL' && subMarket !== marketHint) return false;
+            return true;
+        }).map(s => ({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth, prefs: (() => { try { return JSON.parse(s.notif_prefs||'{}'); } catch(_) { return {}; } })() }));
 
         // 동적 알고리즘 설정 + 블랙리스트 로드 (자동 보정 결과 반영)
         const [thresholds, blacklist] = await Promise.all([
@@ -388,47 +425,62 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
                 ).bind(symbol, sig.dir, Date.now() - COOLDOWN_SEC * 1000).first();
                 if (existing) continue; // 6시간 이내 같은 시그널 → 스킵
 
-                // signal_history 기록 (pushed_at 동시 기록 — 첫 푸시 시점)
+                const isFav = favSet.has(symbol);
+                // signal_history 기록 (source: favs | discovery)
                 const now = Date.now();
                 const insRes = await env.DB.prepare(
-                    'INSERT INTO signal_history (symbol, market, direction, grade, score, win_rate, price, headline, created_at, pushed_at) VALUES (?,?,?,?,?,?,?,?,?,?)'
+                    'INSERT INTO signal_history (symbol, market, direction, grade, score, win_rate, price, headline, created_at, pushed_at, source) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
                 ).bind(
                     symbol, marketHint === 'KR' ? 'KR' : 'US', sig.dir, sig.grade, sig.score, sig.winRate,
                     sig.price, sig.factors.slice(0, 3).join(' · '),
-                    now, now
+                    now, now, isFav ? 'favs' : 'discovery'
                 ).run();
                 const signalId = insRes.meta?.last_row_id || null;
 
-                // 푸시는 즐겨찾기 종목에 한정 (기본 풀 종목은 INSERT 만)
-                const subList = symbolToSubs.get(symbol) || [];
-                if (!subList.length) continue; // 기본 풀 종목 — 푸시 안 함
-
                 const arrow = sig.dir === 'buy' ? '📈' : '📉';
                 const dirKo = sig.dir === 'buy' ? '매수' : '매도';
-                const payload = JSON.stringify({
-                    title: `${arrow} ${symbol} ${dirKo} 시그널 [${sig.grade}급]`,
-                    body: `$${sig.price.toFixed(2)} · 예상 승률 ${sig.winRate}% · ${sig.factors.slice(0, 2).join(' · ')}`,
-                    url: `/?s=${symbol}&signal=${signalId || ''}`,
-                    tag: `signal-${symbol}-${sig.dir}`,
-                    signalId,
-                });
-                for (const sub of subList) {
-                    if (sig.dir === 'buy'  && !sub.prefs?.buy)  continue;
-                    if (sig.dir === 'sell' && !sub.prefs?.stop) continue;
-                    try {
-                        const r = await sendPush(
-                            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-                            payload, env
-                        );
-                        if (r.ok || r.status === 201) fired++;
-                        else if (r.status === 404 || r.status === 410) {
-                            await env.DB.prepare('DELETE FROM push_subscribers WHERE endpoint=?').bind(sub.endpoint).run();
-                        }
-                    } catch (e) { console.warn('[signal-push] fail', symbol, e.message); }
+                const subList = symbolToSubs.get(symbol) || [];
+
+                if (isFav && subList.length) {
+                    // ── 즐겨찾기 푸시 (기존 — 점수≥min_score_for_push, prefs.buy/stop 존중) ──
+                    const payload = JSON.stringify({
+                        title: `${arrow} ${symbol} ${dirKo} 시그널 [${sig.grade}급]`,
+                        body: `$${sig.price.toFixed(2)} · 예상 승률 ${sig.winRate}% · ${sig.factors.slice(0, 2).join(' · ')}`,
+                        url: `/?s=${symbol}&signal=${signalId || ''}`,
+                        tag: `signal-${symbol}-${sig.dir}`, signalId,
+                    });
+                    for (const sub of subList) {
+                        if (sig.dir === 'buy'  && !sub.prefs?.buy)  continue;
+                        if (sig.dir === 'sell' && !sub.prefs?.stop) continue;
+                        try {
+                            const r = await sendPush({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload, env);
+                            if (r.ok || r.status === 201) fired++;
+                            else if (r.status === 404 || r.status === 410) await env.DB.prepare('DELETE FROM push_subscribers WHERE endpoint=?').bind(sub.endpoint).run();
+                        } catch (e) { console.warn('[signal-push] fail', symbol, e.message); }
+                    }
+                } else if (!isFav) {
+                    // ── 디스커버리 푸시 — S급만, discovery 토글 켠 전체 구독자 ──
+                    if (sig.grade !== 'S') continue;
+                    const payload = JSON.stringify({
+                        title: `🔍 발굴 ${symbol} ${dirKo} 진입 [S급]`,
+                        body: `$${sig.price.toFixed(2)} · 5분봉 단타 · 승률 ${sig.winRate}% · ${sig.factors.slice(0, 2).join(' · ')}`,
+                        url: `/?s=${symbol}&signal=${signalId || ''}`,
+                        tag: `disc-${symbol}-${sig.dir}`, signalId,
+                    });
+                    for (const sub of discoverySubs) {
+                        // 매수=buy 토글, 매도=stop 토글 존중 (discovery 토글은 이미 위에서 필터)
+                        if (sig.dir === 'buy'  && !(sub.prefs?.buy  ?? 1)) continue;
+                        if (sig.dir === 'sell' && !(sub.prefs?.stop ?? 1)) continue;
+                        try {
+                            const r = await sendPush({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload, env);
+                            if (r.ok || r.status === 201) fired++;
+                            else if (r.status === 404 || r.status === 410) await env.DB.prepare('DELETE FROM push_subscribers WHERE endpoint=?').bind(sub.endpoint).run();
+                        } catch (e) { console.warn('[disc-push] fail', symbol, e.message); }
+                    }
                 }
             } catch (e) { console.warn('[analyze] fail', symbol, e.message); }
         }
-        return { subscribers: subs.length, symbols: allSymbols.length, favSymbols: favSymbols.length, defaultPool: DEFAULT_UNIVERSE.length, analyzed, fired, skippedBlacklist };
+        return { subscribers: subs.length, symbols: allSymbols.length, favSymbols: favSymbols.length, dynamic: dynamic.length, analyzed, fired, skippedBlacklist };
     } catch (e) {
         console.error('[cron] analyzeSignals', e.message);
         return { error: e.message };

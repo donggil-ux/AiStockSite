@@ -204,6 +204,8 @@ export async function handleSyncPrefs(req, env) {
             tp:   b.prefs.tp   ? 1 : 0,
             stop: b.prefs.stop ? 1 : 0,
             pos:  b.prefs.pos  ? 1 : 0,
+            // 디스커버리 알림 (즐겨찾기 외 당일 발굴 S급) — 미지정 시 기본 ON
+            discovery: (b.prefs.discovery === undefined ? 1 : (b.prefs.discovery ? 1 : 0)),
         } : null;
         const mkt = ['US','KR','ALL'].includes(b.marketFilter) ? b.marketFilter : null;
         // 조용 시간대 검증 + 정규화

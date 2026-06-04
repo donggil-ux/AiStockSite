@@ -2381,6 +2381,13 @@
                         <input type="checkbox" class="settings-switch" id="${id}" ${on ? 'checked' : ''} onchange="_saveNotifPref('${key}', this.checked)">
                     </div>`;
                 }).join('')}
+                <!-- 디스커버리 알림 — 즐겨찾기 외 당일 발굴 S급 -->
+                <div class="settings-row" style="border-bottom:none;">
+                    <div class="settings-row-label">🔍 디스커버리 알림
+                        <div style="font-size:11px;color:var(--text3);margin-top:2px;font-weight:400;">즐겨찾기 외 당일 단타 S급 종목 자동 발굴</div>
+                    </div>
+                    <input type="checkbox" class="settings-switch" id="notifSetDiscovery" ${localStorage.getItem('stockai_notif_discovery') !== '0' ? 'checked' : ''} onchange="_saveNotifPref('discovery', this.checked)">
+                </div>
             </div>
             <!-- 조용 시간대 (Quiet Hours) — 야간 음소거 -->
             <div class="settings-section" style="${disabled ? 'opacity:.5;pointer-events:none;' : ''}">
@@ -2580,7 +2587,8 @@
 
     function _saveNotifPref(key, val) {
         localStorage.setItem('stockai_notif_' + key, val ? '1' : '0');
-        showToast(val ? `${key === 'buy' ? '매수' : key === 'tp' ? '익절' : key === 'stop' ? '손절' : '포지션'} 알림 켜짐` : `알림 꺼짐`);
+        const _lbl = { buy:'매수', tp:'익절', stop:'손절', pos:'포지션', discovery:'디스커버리' }[key] || '알림';
+        showToast(val ? `${_lbl} 알림 켜짐` : `${_lbl} 알림 꺼짐`);
         // 백엔드(Workers) 동기화 — cron 시그널 분석에서 사용자 토글 존중
         try {
             if (window._syncPrefsTimer) clearTimeout(window._syncPrefsTimer);
@@ -2599,6 +2607,7 @@
                 tp:   localStorage.getItem('stockai_notif_tp')   !== '0',
                 stop: localStorage.getItem('stockai_notif_stop') !== '0',
                 pos:  localStorage.getItem('stockai_notif_pos')  !== '0',
+                discovery: localStorage.getItem('stockai_notif_discovery') !== '0',
             };
             // 조용 시간대 (quiet hours)
             let quiet = null;
