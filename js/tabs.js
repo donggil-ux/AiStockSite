@@ -854,10 +854,13 @@
         const wsUrl   = `${wsProto}://${location.host}/ws/alpaca`;
 
         try {
-            _alpacaWs = new WebSocket(wsUrl);
+            const ws = new WebSocket(wsUrl);
+            _alpacaWs = ws;
 
-            _alpacaWs.onopen = () => {
-                _alpacaWs.send(JSON.stringify({
+            ws.onopen = () => {
+                // 종목 전환 등으로 _alpacaWs 가 교체/해제됐으면 이 소켓은 폐기 (레이스 가드)
+                if (_alpacaWs !== ws || ws.readyState !== WebSocket.OPEN) { try { ws.close(); } catch(_) {} return; }
+                ws.send(JSON.stringify({
                     action: 'subscribe',
                     symbols: [symbol.replace(/\.(KS|KQ)$/i, '').toUpperCase()],
                 }));
