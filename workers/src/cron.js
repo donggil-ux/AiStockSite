@@ -459,10 +459,10 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
                         } catch (e) { console.warn('[signal-push] fail', symbol, e.message); }
                     }
                 } else if (!isFav) {
-                    // ── 디스커버리 푸시 — S급만, discovery 토글 켠 전체 구독자 ──
-                    if (sig.grade !== 'S') continue;
+                    // ── 디스커버리 푸시 — S/A급, discovery 토글 켠 전체 구독자 ──
+                    if (sig.grade !== 'S' && sig.grade !== 'A') continue;
                     const payload = JSON.stringify({
-                        title: `🔍 발굴 ${symbol} ${dirKo} 진입 [S급]`,
+                        title: `🔍 발굴 ${symbol} ${dirKo} 진입 [${sig.grade}급]`,
                         body: `$${sig.price.toFixed(2)} · 5분봉 단타 · 승률 ${sig.winRate}% · ${sig.factors.slice(0, 2).join(' · ')}`,
                         url: `/?s=${symbol}&signal=${signalId || ''}`,
                         tag: `disc-${symbol}-${sig.dir}`, signalId,
