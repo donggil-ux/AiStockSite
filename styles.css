@@ -3527,6 +3527,17 @@
         .signup-email-row{
             display:flex; align-items:center; gap:8px;
         }
+        /* 입력칸: login-form 박스가 없으므로 각 input에 직접 테두리/배경 부여 */
+        #signupScreen .login-input{
+            background:var(--bg2);
+            border:1px solid var(--border);
+            border-radius:var(--radius-xs,8px);
+            cursor:text;
+            width:100%;
+            box-sizing:border-box;
+        }
+        #signupScreen .login-input:focus{ border-color:var(--blue); }
+        #signupScreen select.login-input{ cursor:pointer; }
         .signup-email-row .login-input{ flex:1; min-width:0; }
         .signup-at{ color:var(--text3); font-size:14px; flex-shrink:0; }
         .signup-domain{ flex:1; min-width:0; cursor:pointer; }
