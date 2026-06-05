@@ -3539,9 +3539,21 @@
         #signupScreen .login-input:focus, #resetScreen .login-input:focus{ border-color:var(--blue); }
         #signupScreen select.login-input{ cursor:pointer; }
         .signup-email-row .login-input{ flex:1; min-width:0; }
-        /* 비밀번호 재설정 화면 — 상단 정렬 */
-        #resetScreen .login-page{ align-items:flex-start; }
-        #resetScreen .signup-inner{ padding-top:8px; width:100%; }
+        /* 비밀번호 재설정 화면 — 콘텐츠 상단 / 푸터 하단 고정 + 상태바·닫기버튼 겹침 방지 */
+        #resetScreen .login-page{
+            flex-direction:column;
+            align-items:center;
+            justify-content:flex-start;
+            padding-top:calc(76px + env(safe-area-inset-top)); /* 닫기 버튼·상태바 아래로 */
+        }
+        #resetScreen .login-inner{
+            flex:1 1 auto;
+            display:flex;
+            flex-direction:column;
+            width:100%;
+            max-width:380px;
+        }
+        #resetScreen .login-footer{ margin-top:auto; padding-top:24px; }
         .reset-desc{ font-size:13px; color:var(--text3); line-height:1.6; margin:0 0 18px; }
         .signup-at{ color:var(--text3); font-size:14px; flex-shrink:0; }
         .signup-domain{ flex:1; min-width:0; cursor:pointer; }
