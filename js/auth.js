@@ -250,7 +250,6 @@
         const ageOk = document.getElementById('suAge')?.checked;
         const tosOk = document.getElementById('suTos')?.checked;
         const mkt = document.getElementById('suMkt')?.checked;
-        const event = document.getElementById('suEvent')?.checked;
 
         // ── 검증 ──
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return _suSetError('suError', '올바른 이메일을 입력해주세요.');
@@ -264,7 +263,7 @@
             await Clerk.client.signUp.create({
                 emailAddress: email,
                 password: pwd,
-                unsafeMetadata: { nickname: nick, marketing: !!mkt, eventOptIn: !!event },
+                unsafeMetadata: { nickname: nick, marketing: !!mkt },
             });
             await Clerk.client.signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
             // 인증 단계로 전환
