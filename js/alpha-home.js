@@ -7874,9 +7874,8 @@
                 return;
             }
             const guideHtml = `<div class="mv-guide">
-                <strong>🌙 종가 매매 — 시장 대비 강한 리더 + VCP 돌파</strong>
-                <span>진입: 장 마감 직전 종가 매수 · 손절: 스윙 저점/-8% · 목표: 2R·3R·5R · 보유 1~3일</span>
-                <span class="mv-guide-dim">★ RS Rating(시장 초과강도) 높을수록 우선 · S/A 우선 진입 · B 소량 · C 관망</span></div>`;
+                <strong>🌙 종가 매매 — 시장 대비 강한 리더</strong>
+                <span>장 마감 직전 매수 · 손절 -8% · 목표 2R·3R·5R</span></div>`;
             const _gc = g => g === 'S' ? '#FFD60A' : g === 'A' ? '#22C55E' : g === 'B' ? '#3B82F6' : '#9CA3AF';
             const _gl = g => g === 'S' ? '최우선' : g === 'A' ? '진입' : g === 'B' ? '소량' : '관망';
             const pct = v => `${v > 0 ? '+' : ''}${v}%`;
