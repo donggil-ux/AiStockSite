@@ -7500,6 +7500,34 @@
 /* 경고 배너 — 부드럽게 */
 #catalystScreen .catalyst-warn{ border-radius:14px; line-height:1.6; }
 #catalystScreen .catalyst-source{ margin-top:12px; font-weight:600; }
+
+/* ── 거래량 급증/소셜 카드 (catalyst-card-top 구조) — 무스타일이던 것 토스화 ── */
+#catalystScreen .catalyst-card-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px; }
+#catalystScreen .catalyst-card-left{ display:flex; flex-direction:column; gap:3px; min-width:0; }
+#catalystScreen .catalyst-ticker{ font-size:16.5px; font-weight:800; color:var(--text); letter-spacing:-0.02em; }
+#catalystScreen .catalyst-card-left .catalyst-name{ font-size:12px; color:var(--text3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#catalystScreen .catalyst-card-right{ display:flex; flex-direction:column; align-items:flex-end; gap:2px; flex-shrink:0; }
+#catalystScreen .catalyst-price{ font-size:15px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; }
+#catalystScreen .catalyst-chg{ font-size:13px; font-weight:700; font-variant-numeric:tabular-nums; }
+#catalystScreen .catalyst-chg.pos{ color:#ef4444; }
+#catalystScreen .catalyst-chg.neg{ color:#3b82f6; }
+#catalystScreen .catalyst-card-signals{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+#catalystScreen .catalyst-card-footer{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding-top:11px; border-top:1px solid var(--border); }
+#catalystScreen .catalyst-score{ color:#f59e0b; font-size:12px; letter-spacing:1px; flex-shrink:0; }
+#catalystScreen .catalyst-reason{ font-size:11.5px; color:var(--text3); line-height:1.45; flex:1; min-width:0; }
+/* 시그널 알약 (alpha-signal) — 기존 무스타일 → 둥근 칩 */
+.alpha-signal{ display:inline-block; font-size:11px; font-weight:700; padding:4px 11px; border-radius:9999px; border:1px solid var(--border); background:var(--bg3); color:var(--text2); letter-spacing:-0.01em; white-space:nowrap; }
+.alpha-signal.amber{ background:rgba(255,214,10,0.12); color:#a16207; border-color:rgba(255,214,10,0.28); }
+.alpha-signal.emerald{ background:rgba(34,197,94,0.12); color:#16a34a; border-color:rgba(34,197,94,0.28); }
+.alpha-signal.cyan{ background:rgba(100,210,255,0.12); color:#0891b2; border-color:rgba(100,210,255,0.28); }
+.alpha-signal.orange{ background:rgba(249,115,22,0.12); color:#ea580c; border-color:rgba(249,115,22,0.28); }
+.alpha-signal.blue{ background:rgba(0,128,251,0.12); color:var(--blue); border-color:rgba(0,128,251,0.28); }
+.alpha-signal.red{ background:rgba(239,68,68,0.12); color:#ef4444; border-color:rgba(239,68,68,0.28); }
+.alpha-signal.purple{ background:rgba(191,90,242,0.12); color:#a855f7; border-color:rgba(191,90,242,0.28); }
+[data-theme="dark"] .alpha-signal.amber{ color:#fcd34d; }
+[data-theme="dark"] .alpha-signal.emerald{ color:#4ade80; }
+[data-theme="dark"] .alpha-signal.cyan{ color:#67e8f9; }
+[data-theme="dark"] .alpha-signal.orange{ color:#fb923c; }
 /* ═══════════════════════════════════════════════════════════════════════ */
 @media(max-width:480px){
     .catalyst-section{padding:12px;}
