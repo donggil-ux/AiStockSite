@@ -7478,7 +7478,7 @@
 #catalystScreen .catalyst-form{ font-size:9.5px; border-radius:6px; }
 /* 등급 배지 — 둥근 알약 */
 #catalystScreen .catalyst-grade{
-    padding:5px 12px; border-radius:9999px; font-size:11.5px;
+    padding:3px 9px; border-radius:9999px; font-size:10px;
     font-family:inherit; letter-spacing:0; font-weight:700;
 }
 /* 공시 제목 — 핵심 라인 강조 */
