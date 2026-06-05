@@ -7911,7 +7911,7 @@
                     </div>
                 </div>`;
             }).join('');
-            listEl.innerHTML = `<div class="mv-scan-meta">스캔 ${new Date(d.scannedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})} · ${d.total}개 셋업</div>${guideHtml}<div class="catalyst-list">${cards}</div>`;
+            listEl.innerHTML = `${guideHtml}<div class="mv-scan-meta">스캔 ${new Date(d.scannedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})} · ${d.total}개 셋업</div><div class="catalyst-list">${cards}</div>`;
         } catch(e) {
             listEl.innerHTML = `<div class="catalyst-empty">스캔 실패: ${e.message}<br><button onclick="loadMinervini()" style="margin-top:8px;padding:4px 12px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer">다시 시도</button></div>`;
         }
