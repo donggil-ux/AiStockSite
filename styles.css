@@ -1717,12 +1717,12 @@
         .chart-toolbar.is-dragging{cursor:grabbing;user-select:none;}
         .chart-toolbar-group{display:flex;gap:3px;align-items:center;}
         .chart-toolbar-divider{width:1px;height:20px;background:var(--border);margin:0 6px;}
-        .chart-tb-btn{padding:5px 12px;border:1px solid var(--border);background:transparent;color:var(--text3);border-radius:var(--radius-xs);cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all .12s;white-space:nowrap;display:inline-flex;align-items:center;}
+        .chart-tb-btn{padding:5px 12px;border:1px solid var(--border);background:transparent;color:var(--text3);border-radius:var(--radius-xs);cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all .12s;white-space:nowrap;display:inline-flex;align-items:center;flex-shrink:0;}
         .chart-tb-btn:hover{border-color:var(--text3);color:var(--text2);}
         .chart-tb-btn.active{border-color:var(--blue);color:var(--blue);background:rgba(0,128,251,.08);}
         /* [⋯ 더보기] 정사각 미니멀 아이콘 버튼 */
-        .chart-tb-more{padding:0;width:30px;height:28px;justify-content:center;}
-        .chart-tb-more svg{width:16px;height:16px;}
+        .chart-tb-more{padding:0;width:30px;min-width:30px;height:28px;justify-content:center;flex-shrink:0;}
+        .chart-tb-more svg{width:16px;height:16px;flex-shrink:0;display:block;}
         /* 더보기 드롭다운 항목 — 아이콘 + 라벨 + 상태 */
         .more-dd-item{display:flex;align-items:center;gap:8px;}
         .more-dd-ico{font-size:14px;width:18px;text-align:center;flex-shrink:0;}
