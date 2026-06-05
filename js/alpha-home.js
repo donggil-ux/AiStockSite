@@ -7873,45 +7873,46 @@
                 listEl.innerHTML = '<div class="catalyst-empty">오늘은 종가 매매 셋업 없음<br><span style="font-size:11px;color:var(--text3)">시장 상황상 진입 기회가 없을 수 있어요</span></div>';
                 return;
             }
-            const guideHtml = `<div style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.25);border-radius:8px;padding:12px;margin-bottom:12px;font-size:11px;color:var(--text2);line-height:1.8">
-                <strong style="color:#A855F7">🌙 종가 매매 룰</strong><br>
-                진입: 장 마감 30분 전 확인 후 종가 매수 &nbsp;|&nbsp; 손절: -7% (다음날 장 시작 즉시 확인)<br>
-                익절: +8%(30%) → +15%(40%) → +25%(30%) &nbsp;|&nbsp; 보유: 1~3일<br>
-                <span style="color:var(--text3)">★ S/A 등급 우선 진입 &middot; B 등급은 소량 &middot; C 등급은 관망</span></div>`;
-            const _gc = g => g === 'S' ? '#FFD700' : g === 'A' ? '#22C55E' : g === 'B' ? '#3B82F6' : '#9CA3AF';
-            const _gl = g => g === 'S' ? '최우선' : g === 'A' ? '진입 가능' : g === 'B' ? '소량 진입' : '관망';
-            const cards = d.stocks.map(s => {
+            const guideHtml = `<div class="mv-guide">
+                <strong>🌙 종가 매매 — 시장 대비 강한 리더 + VCP 돌파</strong>
+                <span>진입: 장 마감 직전 종가 매수 · 손절: 스윙 저점/-8% · 목표: 2R·3R·5R · 보유 1~3일</span>
+                <span class="mv-guide-dim">★ RS Rating(시장 초과강도) 높을수록 우선 · S/A 우선 진입 · B 소량 · C 관망</span></div>`;
+            const _gc = g => g === 'S' ? '#FFD60A' : g === 'A' ? '#22C55E' : g === 'B' ? '#3B82F6' : '#9CA3AF';
+            const _gl = g => g === 'S' ? '최우선' : g === 'A' ? '진입' : g === 'B' ? '소량' : '관망';
+            const pct = v => `${v > 0 ? '+' : ''}${v}%`;
+            const cards = d.stocks.map((s, idx) => {
                 const gc = _gc(s.grade || 'C');
-                const gl = _gl(s.grade || 'C');
-                const bgAlpha = s.grade === 'S' ? '0.08' : s.grade === 'A' ? '0.06' : '0.04';
-                return `
-                <div class="catalyst-card" onclick="selectStock('${s.ticker}')" style="cursor:pointer;border-left:3px solid ${gc};margin-bottom:8px;padding:12px">
-                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-                        <div>
-                            <div style="display:flex;align-items:center;gap:6px">
-                                <span style="font-size:14px;font-weight:800;color:var(--text1)">${s.ticker}</span>
-                                <span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;background:${gc}22;color:${gc};border:1px solid ${gc}44">${s.grade || 'C'} ${gl}</span>
+                const pills = [];
+                if (s.marketBeat) pills.push(`<span class="alpha-sig-pill alpha-sig--purple">시장대비 +${s.rsVsSpx}%</span>`);
+                if (s.vcp)        pills.push(`<span class="alpha-sig-pill alpha-sig--blue">VCP 수축</span>`);
+                if (s.volDryUp)   pills.push(`<span class="alpha-sig-pill alpha-sig--cyan">거래량 마름</span>`);
+                if (s.pivotBroken)pills.push(`<span class="alpha-sig-pill alpha-sig--emerald">피벗 돌파</span>`);
+                if (s.volConfirm || s.volRatio >= 1.3) pills.push(`<span class="alpha-sig-pill alpha-sig--amber">돌파 거래량 ${s.volRatio}x</span>`);
+                const cell = (label, v) => `<span class="catalyst-meta-cell ${v > 0 ? 'up' : v < 0 ? 'down' : ''}">${label} ${pct(v)}</span>`;
+                return `<div class="catalyst-card" onclick="selectStock('${escHtml(s.ticker)}')">
+                    <div class="catalyst-card-head">
+                        <div class="catalyst-rank">${idx + 1}</div>
+                        <div class="catalyst-id" style="flex:1;min-width:0">
+                            <div class="catalyst-sym">${escHtml(s.ticker)}
+                                <span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;background:${gc}22;color:${gc};border:1px solid ${gc}55;margin-left:4px;">RS ${s.rsRating ?? '—'}</span>
                             </div>
-                            <div style="font-size:10px;color:var(--text3);margin-top:3px">RS ${s.rsScore} &middot; 트렌드 ${s.trendTemplateScore}/8 &middot; VCP ${s.vcp?'✓':'✗'} &middot; 점수 ${s.totalScore}</div>
+                            <div class="catalyst-name">트렌드 ${s.trendTemplateScore}/8 · 점수 ${s.totalScore} · 거래량 ${s.volRatio}x</div>
                         </div>
-                        <div style="text-align:right">
-                            <div style="font-size:13px;font-weight:700;color:var(--text1)">$${(s.currentPrice||s.entryPrice).toFixed(2)}</div>
-                            <div style="font-size:10px;color:${s.volRatio>=2?'#F59E0B':s.volRatio>=1.2?'#22C55E':'var(--text3)'}">거래량 ${s.volRatio}배</div>
-                        </div>
+                        <div class="catalyst-grade" style="background:${gc};color:#000">${s.grade || 'C'} · ${_gl(s.grade || 'C')}</div>
                     </div>
-                    <div style="background:${gc}${bgAlpha.replace('0.','')};border-radius:6px;padding:8px;font-size:11px;line-height:1.7">
-                        <div><span style="color:var(--text3)">진입:</span> <strong style="color:var(--text1)">$${s.entryPrice.toFixed(2)}</strong> <span style="color:var(--text3)">(피벗 $${s.pivot})</span></div>
-                        <div><span style="color:#EF4444">손절:</span> <strong style="color:#EF4444">$${s.stopLoss}</strong> <span style="color:var(--text3)">(-7%)</span></div>
-                        <div><span style="color:#22C55E">익절:</span> <strong style="color:#22C55E">$${s.tp1Price}</strong> <span style="color:var(--text3)">/ $${s.tp2Price} / $${s.tp3Price}</span></div>
+                    ${pills.length ? `<div class="alpha-signals">${pills.join('')}</div>` : ''}
+                    <div class="catalyst-meta-row">
+                        <span class="catalyst-meta-cell">💰 $${(s.currentPrice || s.entryPrice).toFixed(2)}</span>
+                        ${cell('1M', s.rs1m)}${cell('3M', s.rs3m)}${cell('6M', s.rs6m)}
                     </div>
-                    <div style="display:flex;gap:8px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);font-size:10px;color:var(--text3)">
-                        <span>1M <span style="color:${s.rs1m>0?'#22C55E':'#EF4444'}">${s.rs1m>0?'+':''}${s.rs1m}%</span></span>
-                        <span>3M <span style="color:${s.rs3m>0?'#22C55E':'#EF4444'}">${s.rs3m>0?'+':''}${s.rs3m}%</span></span>
-                        <span>6M <span style="color:${s.rs6m>0?'#22C55E':'#EF4444'}">${s.rs6m>0?'+':''}${s.rs6m}%</span></span>
+                    <div class="catalyst-strategy">
+                        <span class="cs-cell entry">진입 $${s.entryPrice.toFixed(2)}</span>
+                        <span class="cs-cell stop">손절 $${s.stopLoss}${s.riskPct ? ` (-${s.riskPct}%)` : ''}</span>
+                        <span class="cs-cell tp">목표 $${s.tp1Price} / $${s.tp2Price} / $${s.tp3Price}</span>
                     </div>
                 </div>`;
             }).join('');
-            listEl.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:4px 0 10px">스캔: ${new Date(d.scannedAt).toLocaleString('ko-KR')} &middot; ${d.total}개 셋업</div>${guideHtml}${cards}`;
+            listEl.innerHTML = `<div class="mv-scan-meta">스캔 ${new Date(d.scannedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})} · ${d.total}개 셋업</div>${guideHtml}<div class="catalyst-list">${cards}</div>`;
         } catch(e) {
             listEl.innerHTML = `<div class="catalyst-empty">스캔 실패: ${e.message}<br><button onclick="loadMinervini()" style="margin-top:8px;padding:4px 12px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer">다시 시도</button></div>`;
         }

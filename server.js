@@ -885,7 +885,7 @@ function _mvATR(highs, lows, closes, period) {
     }
     return result;
 }
-function _mvDetectSetup(candleData) {
+function _mvDetectSetup(candleData, spxRet) {
     if (!candleData || candleData.length < 60) return null;
     const closes = candleData.map(c => c.close);
     const highs  = candleData.map(c => c.high);
@@ -894,33 +894,39 @@ function _mvDetectSetup(candleData) {
     const n = closes.length, cur = closes[n-1];
 
     // ── 이동평균 ───────────────────────────────────────────────────────────
-    const ma20  = _mvSMA(closes, 20);
     const ma50  = _mvSMA(closes, 50);
     const ma150 = _mvSMA(closes, 150);
     const ma200 = n >= 200 ? _mvSMA(closes, 200) : null;
-    const lm20 = ma20[n-1], lm50 = ma50[n-1], lm150 = ma150[n-1];
+    const lm50 = ma50[n-1], lm150 = ma150[n-1];
     const lm200 = ma200 ? ma200[n-1] : null;
     if (!lm50 || !lm150) return null;
 
-    // ── 트렌드 템플릿 (완화: 필수 5개 이상) ─────────────────────────────
-    const cond1 = cur > lm150 && (!lm200 || cur > lm200);
-    const cond2 = lm150 > (lm200 || lm150 * 0.99);
-    const cond3 = lm200 && ma200[n-21] != null ? lm200 > ma200[n-21]
-                : ma150[n-21] != null ? lm150 > ma150[n-21] : false;
-    const cond4 = lm50 > lm150;
-    const cond5 = cur > lm50;
-    const lookback = Math.min(252, n);
-    const low52w  = Math.min(...lows.slice(-lookback));
-    const high52w = Math.max(...highs.slice(-lookback));
-    const cond6 = (cur - low52w) / low52w >= 0.20;   // 완화: 30% → 20%
-    const cond7 = (high52w - cur) / high52w <= 0.30;  // 완화: 25% → 30%
+    // ── 절대 수익률 + 시장(SPY) 대비 상대강도 (Minervini RS Rating 핵심) ──
     const rs1m = n > 21  ? (cur / closes[n-21] - 1) * 100 : 0;
     const rs3m = n > 63  ? (cur / closes[n-63] - 1) * 100 : 0;
     const rs6m = n > 126 ? (cur / closes[n-126] - 1) * 100 : 0;
-    const rsScore = rs1m * 0.4 + rs3m * 0.3 + rs6m * 0.3;
-    const cond8 = rsScore >= 10;   // 완화: 15 → 10
+    const sp = spxRet || { r1m: 0, r3m: 0, r6m: 0 };
+    // 시장 초과수익(outperformance) — 6개월·3개월 가중 (장기 추세 우선)
+    const rsVsSpx = (rs6m - sp.r6m) * 0.5 + (rs3m - sp.r3m) * 0.3 + (rs1m - sp.r1m) * 0.2;
+    // RS Rating 근사치(1~99): 시장 초과수익을 백분위처럼 매핑
+    const rsRating = Math.max(1, Math.min(99, Math.round(50 + rsVsSpx * 1.4)));
+
+    // ── 트렌드 템플릿 (정상화) ──────────────────────────────────────────
+    const cond1 = cur > lm150 && (!lm200 || cur > lm200);          // 가격 > MA150·MA200
+    const cond2 = lm150 > (lm200 || lm150 * 0.99);                  // MA150 > MA200
+    const cond3 = lm200 && ma200[n-21] != null ? lm200 > ma200[n-21]
+                : ma150[n-21] != null ? lm150 > ma150[n-21] : false; // MA200 상승
+    const cond4 = lm50 > lm150;                                     // MA50 > MA150
+    const cond5 = cur > lm50;                                       // 가격 > MA50
+    const lookback = Math.min(252, n);
+    const low52w  = Math.min(...lows.slice(-lookback));
+    const high52w = Math.max(...highs.slice(-lookback));
+    const cond6 = (cur - low52w) / low52w >= 0.25;   // 52주 저점 대비 +25% 이상
+    const cond7 = (high52w - cur) / high52w <= 0.25; // 52주 고점 25% 이내
+    const cond8 = rsVsSpx > 0;                        // 시장 대비 강세 (절대수익 아님)
     const trendTemplateScore = [cond1,cond2,cond3,cond4,cond5,cond6,cond7,cond8].filter(Boolean).length;
-    if (trendTemplateScore < 5) return null;   // 최소 5개 (완화: 7 → 5)
+    // 게이트: 템플릿 6개 이상 + 반드시 시장 초과(강세 리더만)
+    if (trendTemplateScore < 6 || rsVsSpx <= 0) return null;
 
     // ── VCP / 피벗 분석 ──────────────────────────────────────────────────
     const vcpWindow = 40;
@@ -931,31 +937,48 @@ function _mvDetectSetup(candleData) {
     const range1 = rng(s1), range2 = rng(s2), range3 = rng(s3);
     const isVCP = range1 > range2 && range2 > range3 && range3 < range1 * 0.6;
     const pivot = s3.length > 0 ? Math.max(...s3) : cur;
-    const pivotBroken = cur >= pivot * 0.995;   // 완화: 0.998 → 0.995
+    const pivotBroken = cur >= pivot * 0.997;
 
-    // ── 거래량 ───────────────────────────────────────────────────────────
+    // ── 거래량: 돌파 확인 + 베이스 중 거래량 마름(dry-up) ─────────────────
     const vols = volumes.slice(-50).filter(v => v != null);
     const avgVol50 = vols.length > 0 ? vols.reduce((a,b)=>a+b,0)/vols.length : 0;
     const volRatio = avgVol50 > 0 ? (volumes[n-1] || 0) / avgVol50 : 0;
-    const volConfirm = volRatio >= 1.2;   // 완화: 1.5 → 1.2
+    const volConfirm = volRatio >= 1.3;                       // 돌파일 거래량 +30%
+    const recentVols = volumes.slice(-11, -1).filter(v => v != null); // 직전 10봉(돌파일 제외)
+    const avgRecent10 = recentVols.length ? recentVols.reduce((a,b)=>a+b,0)/recentVols.length : avgVol50;
+    const volDryUp = avgVol50 > 0 && avgRecent10 < avgVol50 * 0.85; // 베이스에서 거래량 마름
 
-    // ── 종합 점수 (0~10점) ───────────────────────────────────────────────
+    // ── ATR 기반 리스크/목표 (R-멀티플 → 기대값 개선) ────────────────────
+    const atrArr = _mvATR(highs, lows, closes, 14);
+    const atr = atrArr[n-1] || cur * 0.02;
+    const swingLow = Math.min(...lows.slice(-10));
+    let stop = Math.max(swingLow, cur * 0.92);   // 스윙 저점과 -8% 중 더 타이트한 쪽
+    if (stop >= cur) stop = cur * 0.93;
+    const risk = cur - stop;
+    const tp1 = cur + risk * 2, tp2 = cur + risk * 3, tp3 = cur + risk * 5; // 2R·3R·5R
+
+    // ── 종합 점수 (0~10) — 상대강도·추세 비중↑ ───────────────────────────
     let totalScore = 0;
-    totalScore += Math.min(4, trendTemplateScore * 0.5);     // 트렌드: 0~4점
-    if (isVCP)       totalScore += 2;                         // VCP: 2점
-    if (pivotBroken) totalScore += 2;                         // 피벗 돌파: 2점
-    if (volConfirm)  totalScore += 1;                         // 거래량 확인: 1점
-    totalScore += rsScore >= 20 ? 1 : rsScore >= 10 ? 0.5 : 0; // RS 모멘텀: 0~1점
+    totalScore += (trendTemplateScore / 8) * 3;                 // 트렌드: 0~3
+    totalScore += rsVsSpx >= 30 ? 3.5 : rsVsSpx >= 15 ? 2.5     // 시장초과: 0~3.5 (핵심)
+                : rsVsSpx >= 7 ? 1.5 : 0.7;
+    if (isVCP)       totalScore += 1.5;                         // VCP 변동성 수축
+    if (volDryUp)    totalScore += 0.5;                         // 베이스 거래량 마름
+    if (pivotBroken) totalScore += 1.0;                         // 피벗 돌파
+    if (volConfirm)  totalScore += 0.5;                         // 돌파 거래량
+    totalScore = Math.min(10, totalScore);
 
-    // ── 등급 분류 ─────────────────────────────────────────────────────────
-    const grade = totalScore >= 8 ? 'S' : totalScore >= 6 ? 'A' : totalScore >= 4 ? 'B' : 'C';
+    // ── 등급 (상향 조정 — 고품질만 상위 등급) ─────────────────────────────
+    const grade = totalScore >= 8.5 ? 'S' : totalScore >= 6.5 ? 'A' : totalScore >= 4.5 ? 'B' : 'C';
 
     return {
         signal: true, stage2: true, vcp: isVCP, grade,
-        pivot: +pivot.toFixed(2), pivotBroken, volRatio: +volRatio.toFixed(2),
-        rsScore: +rsScore.toFixed(1), trendTemplateScore, totalScore: +totalScore.toFixed(1),
-        entryPrice: cur, stopLoss: +(cur * 0.93).toFixed(2),
-        tp1Price: +(cur * 1.08).toFixed(2), tp2Price: +(cur * 1.15).toFixed(2), tp3Price: +(cur * 1.25).toFixed(2),
+        pivot: +pivot.toFixed(2), pivotBroken, volRatio: +volRatio.toFixed(2), volDryUp,
+        rsScore: +rsVsSpx.toFixed(1), rsRating, rsVsSpx: +rsVsSpx.toFixed(1), marketBeat: rsVsSpx > 0,
+        trendTemplateScore, totalScore: +totalScore.toFixed(1),
+        entryPrice: +cur.toFixed(2), stopLoss: +stop.toFixed(2), riskPct: +((risk/cur)*100).toFixed(1),
+        tp1Price: +tp1.toFixed(2), tp2Price: +tp2.toFixed(2), tp3Price: +tp3.toFixed(2),
+        atrPct: +((atr/cur)*100).toFixed(1),
         rs1m: +rs1m.toFixed(1), rs3m: +rs3m.toFixed(1), rs6m: +rs6m.toFixed(1),
         ranges: { range1: +range1.toFixed(1), range2: +range2.toFixed(1), range3: +range3.toFixed(1) },
     };
@@ -968,11 +991,21 @@ app.get('/api/scanner/minervini', async (req, res) => {
     try {
         const candidates = [];
 
+        // 시장(S&P500) 수익률 — 종목별 상대강도(RS) 계산 기준
+        const spx = await _getSPXClosesServer();
+        const spxRet = (() => {
+            if (!spx || spx.length < 127) return { r1m: 0, r3m: 0, r6m: 0 };
+            const m = spx.length - 1;
+            const ret = p => (spx[m - p] ? (spx[m] / spx[m - p] - 1) * 100 : 0);
+            return { r1m: ret(21), r3m: ret(63), r6m: ret(126) };
+        })();
+        const universe = [...new Set(MINERVINI_UNIVERSE)]; // 중복 제거
+
         // Yahoo Finance 1년 일봉 사용 (Polygon 무료 플랜 5/min 한계 우회)
         // 8개씩 병렬 chunk (Yahoo 는 분당 ~수백건 안정적)
         const CHUNK = 8;
-        for (let i = 0; i < MINERVINI_UNIVERSE.length; i += CHUNK) {
-            const chunk = MINERVINI_UNIVERSE.slice(i, i + CHUNK);
+        for (let i = 0; i < universe.length; i += CHUNK) {
+            const chunk = universe.slice(i, i + CHUNK);
             const results = await Promise.all(chunk.map(async (ticker) => {
                 try {
                     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}`
@@ -991,7 +1024,7 @@ app.get('/api/scanner/minervini', async (req, res) => {
                         volume: q.volume?.[idx],
                     })).filter(c => c.close != null && c.high != null && c.low != null);
                     if (candleData.length < 200) return null;
-                    const setup = _mvDetectSetup(candleData);
+                    const setup = _mvDetectSetup(candleData, spxRet);
                     if (setup) return { ticker, ...setup, currentPrice: candleData[candleData.length-1].close };
                     return null;
                 } catch(e) {
