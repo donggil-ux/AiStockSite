@@ -5319,7 +5319,15 @@
     }
     function _earnToggleDay(dateStr) {
         window._earnExpandedDays[dateStr] = !window._earnExpandedDays[dateStr];
+        // 그리드는 가로 스크롤 캐러셀 → 재렌더 시 scrollLeft 초기화되며 화면이 튐.
+        // 보던 위치 그대로 아래로 펼쳐지도록 가로 스크롤 위치를 보존한다.
+        const grid = document.getElementById('earningsGrid');
+        const sx = grid ? grid.scrollLeft : 0;
         _earnRenderWeek();
+        if (grid) {
+            grid.scrollLeft = sx;                       // 동기 복원
+            requestAnimationFrame(() => { grid.scrollLeft = sx; }); // 레이아웃 확정 후 재복원
+        }
     }
     function _earnWeekNav(delta) {
         const next = (window._earnWeekOffset || 0) + delta;
