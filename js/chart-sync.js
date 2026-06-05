@@ -2537,7 +2537,8 @@
     let _sdBars5mSym = null;    // 캐시된 종목
     let _sdBars5mTs = 0;        // 마지막 로드 시각(ms)
     let _sdBarsLoading = false;
-    const _SD_BARS_TTL = 5 * 60 * 1000; // 5분
+    const _SD_BARS_TTL = 60 * 1000; // 60초 (프리장+본장 빠른 갱신)
+    let _sdAutoTimer = null;
 
     async function _loadSmartDipBars(symbol, force) {
         symbol = symbol || (typeof currentSymbol !== 'undefined' ? currentSymbol : null);
@@ -2548,7 +2549,8 @@
         if (!force && _sdBars5mSym === symbol && (Date.now() - _sdBars5mTs) < _SD_BARS_TTL) return;
         _sdBarsLoading = true;
         try {
-            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=5m&includePrePost=false`;
+            // 프리장 + 본장(+애프터) 5분봉 — 당일 단타 진입 타점을 프리장부터 반영
+            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=5m&includePrePost=true`;
             const data = await fetchWithProxy(url);
             const r = data?.chart?.result?.[0];
             const ind = r?.indicators?.quote?.[0];
@@ -2565,11 +2567,29 @@
         finally { _sdBarsLoading = false; }
     }
 
+    // Smart Dip 자동 갱신 — 켜져 있고 종목 차트일 때 60초마다 프리장+본장 5분봉 재로드
+    function _startSmartDipAutoRefresh() {
+        _stopSmartDipAutoRefresh();
+        _sdAutoTimer = setInterval(() => {
+            try {
+                if (!_chartSmartDipEnabled) { _stopSmartDipAutoRefresh(); return; }
+                if (typeof document.hidden !== 'undefined' && document.hidden) return; // 백그라운드 탭 스킵
+                const sym = (typeof currentSymbol !== 'undefined') ? currentSymbol : null;
+                if (sym && !/\.(KS|KQ)$/i.test(sym)) _loadSmartDipBars(sym, true);
+            } catch (_) {}
+        }, 60 * 1000);
+    }
+    function _stopSmartDipAutoRefresh() {
+        if (_sdAutoTimer) { clearInterval(_sdAutoTimer); _sdAutoTimer = null; }
+    }
+
     function _renderSmartDipLayer(q) {
         _clearSmartDipLines();
         const el = document.getElementById('smartDipCard');
-        if (!_chartSmartDipEnabled) { if (el) el.style.display = 'none'; return; }
+        if (!_chartSmartDipEnabled) { if (el) el.style.display = 'none'; _stopSmartDipAutoRefresh(); return; }
         if (!lwCandleSeries || !q) return;
+        // 이미 켜진 상태로 진입했을 때도 60초 자동 갱신 보장
+        if (!_sdAutoTimer) _startSmartDipAutoRefresh();
 
         // Smart Dip 활성인데 당일 5분봉 캐시가 없거나 오래됐으면 비동기 로드 (현재 종목)
         if (_chartSmartDipEnabled && typeof currentSymbol !== 'undefined' && currentSymbol
@@ -2707,7 +2727,7 @@
             // 데이터 출처 표시 — 당일 본장 5분봉 기준일 때 배지에 라벨 추가
             if (_today5mOk) {
                 const badge = el.querySelector('.sd-mode-badge');
-                if (badge) badge.insertAdjacentHTML('beforeend', '<span class="sd-today-tag">· 당일 본장 5분봉</span>');
+                if (badge) badge.insertAdjacentHTML('beforeend', '<span class="sd-today-tag">· 프리장+본장 5분봉</span>');
             }
         }
     }
@@ -2856,9 +2876,12 @@
         }
         _chartSmartDipEnabled = newState;
         localStorage.setItem('stockai_chart_smartdip_enabled', newState ? '1' : '0');
-        // 켤 때 당일 본장 5분봉 즉시 로드 (다음 렌더 대기 없이)
+        // 켤 때 프리장+본장 5분봉 즉시 로드 + 60초 자동 갱신 시작 / 끌 때 정지
         if (newState && typeof currentSymbol !== 'undefined' && currentSymbol) {
             try { _loadSmartDipBars(currentSymbol, true); } catch(_) {}
+            _startSmartDipAutoRefresh();
+        } else {
+            _stopSmartDipAutoRefresh();
         }
         if (_lastSigArgs) {
             try { _layerDirty = true; renderChartLiveSignals(_lastSigArgs.candleData, _lastSigArgs.ts, _lastSigArgs.q, _lastSigArgs.bb); } catch(e) {}
