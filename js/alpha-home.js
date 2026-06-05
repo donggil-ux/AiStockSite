@@ -7585,19 +7585,40 @@
         if (!list || !d) return;
         const upd = document.getElementById('dailyUpdated');
         if (upd) upd.textContent = `${d.totalScanned||0}종목 · ${new Date(d.scannedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
+
+        // 오늘의 장세 배너 (시장 레짐)
+        let regimeBanner = '';
+        const rg = d.regime;
+        if (rg && rg.label) {
+            const cls = rg.regime === 'favorable' ? 'dt-regime--good' : rg.regime === 'risk_off' ? 'dt-regime--bad' : 'dt-regime--mid';
+            const ico = rg.regime === 'favorable' ? '🟢' : rg.regime === 'risk_off' ? '🔴' : '🟡';
+            const spy = rg.spyChgPct != null ? `SPY ${rg.spyChgPct >= 0 ? '+' : ''}${rg.spyChgPct}%` : '';
+            const vix = rg.vix != null ? `VIX ${rg.vix}` : '';
+            const warn = rg.regime === 'risk_off' ? '<div class="dt-regime-warn">⚠️ 위험 장세 — 매수는 S급만 표시됩니다</div>' : '';
+            regimeBanner = `<div class="dt-regime ${cls}">
+                <div class="dt-regime-top"><span>${ico} 오늘의 장세 · <b>${escHtml(rg.label)}</b></span><span class="dt-regime-meta">${spy}${spy&&vix?' · ':''}${vix}</span></div>
+                ${warn}</div>`;
+        }
+
         const side = window._dailySide || 'all';
         const rows = (d.results || []).filter(r => side === 'all' || r.dir === side);
         if (!rows.length) {
-            list.innerHTML = `<div class="catalyst-loading" style="padding:32px 16px;line-height:1.6;">조건을 충족하는 종목이 없습니다.<br><span style="font-size:12px;color:var(--text3)">A급 이상 + 거래량 받쳐주는 후보는 장중에 실시간으로 갱신됩니다.</span></div>`;
+            list.innerHTML = regimeBanner + `<div class="catalyst-loading" style="padding:28px 16px;line-height:1.6;">조건을 충족하는 종목이 없습니다.<br><span style="font-size:12px;color:var(--text3)">A급 + 거래량 + VWAP·ADX 통과 후보는 장중에 실시간 갱신됩니다.</span></div>`;
             return;
         }
         const sigPill = (f) => `<span class="alpha-sig-pill alpha-sig--blue">${escHtml(f)}</span>`;
-        list.innerHTML = rows.map((r, idx) => {
+        const _sessLabel = { open_drive: '장초반', midday: '점심', power_hour: '파워아워' };
+        list.innerHTML = regimeBanner + rows.map((r, idx) => {
             const isBuy = r.dir === 'buy';
             const dirBg = isBuy ? '#FFD400' : '#22C55E';
             const dirTx = isBuy ? '#000' : '#fff';
             const dirLabel = isBuy ? '📈 매수' : '📉 매도';
             const gradeColor = r.grade === 'S' ? '#FFD60A' : '#22C55E';
+            // 진입 품질 pill
+            const qPills = [];
+            if (r.vwapPos) qPills.push(`<span class="alpha-sig-pill ${r.vwapPos==='above'?'alpha-sig--emerald':'alpha-sig--red'}">VWAP ${r.vwapPos==='above'?'위':'아래'}</span>`);
+            if (r.adx != null) qPills.push(`<span class="alpha-sig-pill alpha-sig--cyan">ADX ${r.adx}</span>`);
+            if (_sessLabel[r.session]) qPills.push(`<span class="alpha-sig-pill alpha-sig--amber">${_sessLabel[r.session]}</span>`);
             return `<div class="catalyst-card" onclick="quickSearch('${escHtml(r.symbol)}','US')">
                 <div class="catalyst-card-head">
                     <div class="catalyst-rank">${idx + 1}</div>
@@ -7609,6 +7630,7 @@
                     </div>
                     <div class="catalyst-grade" style="background:${gradeColor};color:#000">${escHtml(r.grade)} · ${r.score}</div>
                 </div>
+                ${qPills.length ? `<div class="alpha-signals" style="margin-bottom:8px">${qPills.join('')}</div>` : ''}
                 <div class="catalyst-meta-row">
                     <span class="catalyst-meta-cell">💰 $${(r.price||0).toFixed(2)}</span>
                     <span class="catalyst-meta-cell">📊 거래량 ${r.rvol}x</span>

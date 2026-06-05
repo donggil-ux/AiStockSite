@@ -85,6 +85,62 @@ export function lastVal(arr) {
     return null;
 }
 
+// VWAP — 거래량 가중 평균가 (당일 세션 봉 누적). 마지막 값 반환.
+// q: { high, low, close, volume } 배열. range=1d&interval=5m 면 당일 세션.
+export function calcVWAP(q) {
+    const { high = [], low = [], close = [], volume = [] } = q;
+    let pv = 0, vol = 0;
+    for (let i = 0; i < close.length; i++) {
+        const h = high[i], l = low[i], c = close[i], v = volume[i];
+        if (h == null || l == null || c == null || v == null || v <= 0) continue;
+        const tp = (h + l + c) / 3; // typical price
+        pv += tp * v;
+        vol += v;
+    }
+    return vol > 0 ? pv / vol : null;
+}
+
+// ADX — Wilder 추세강도(0~100). DI+/DI− 기반. 마지막 ADX 값 반환.
+export function calcADX(highs, lows, closes, period = 14) {
+    const n = closes.length;
+    if (n < period * 2 + 1) return null;
+    const tr = [], plusDM = [], minusDM = [];
+    for (let i = 1; i < n; i++) {
+        if (highs[i] == null || lows[i] == null || closes[i-1] == null || highs[i-1] == null || lows[i-1] == null) {
+            tr.push(0); plusDM.push(0); minusDM.push(0); continue;
+        }
+        const up = highs[i] - highs[i-1];
+        const down = lows[i-1] - lows[i];
+        plusDM.push(up > down && up > 0 ? up : 0);
+        minusDM.push(down > up && down > 0 ? down : 0);
+        tr.push(Math.max(highs[i]-lows[i], Math.abs(highs[i]-closes[i-1]), Math.abs(lows[i]-closes[i-1])));
+    }
+    // Wilder 평활
+    let atr = 0, pdm = 0, mdm = 0;
+    for (let i = 0; i < period; i++) { atr += tr[i]; pdm += plusDM[i]; mdm += minusDM[i]; }
+    const dx = [];
+    const pushDX = () => {
+        const pDI = atr === 0 ? 0 : 100 * pdm / atr;
+        const mDI = atr === 0 ? 0 : 100 * mdm / atr;
+        const sum = pDI + mDI;
+        dx.push(sum === 0 ? 0 : 100 * Math.abs(pDI - mDI) / sum);
+    };
+    pushDX();
+    for (let i = period; i < tr.length; i++) {
+        atr = atr - atr / period + tr[i];
+        pdm = pdm - pdm / period + plusDM[i];
+        mdm = mdm - mdm / period + minusDM[i];
+        pushDX();
+    }
+    if (dx.length < period) return null;
+    // ADX = DX 의 Wilder 평활
+    let adx = 0;
+    for (let i = 0; i < period; i++) adx += dx[i];
+    adx /= period;
+    for (let i = period; i < dx.length; i++) adx = (adx * (period - 1) + dx[i]) / period;
+    return adx;
+}
+
 /**
  * 5분봉 시그널 감지 (단순화된 _calcSignalGrade 백엔드 버전)
  *

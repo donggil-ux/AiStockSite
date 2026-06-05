@@ -4,9 +4,10 @@
 // 기존 cron analyzeSignals 의 스캔 로직(universe→fetch→detectSignal)을 재사용하되,
 // 푸시 없이 후보 리스트만 반환. 거래량(RVOL≥1.2) 받쳐주는 A/S급만.
 import { json, err } from '../utils/validators.js';
-import { detectSignal } from '../utils/indicators.js';
+import { detectSignal, calcVWAP, calcADX } from '../utils/indicators.js';
 import { fetchChartWithFallback } from './yahoo.js';
 import { loadAlgorithmConfig } from '../utils/calibration.js';
+import { getMarketRegime } from '../utils/market.js';
 import { _fetchDiscoverySymbols, DEFAULT_UNIVERSE_US, DEFAULT_UNIVERSE_KR } from '../cron.js';
 
 const CACHE_TTL = 90; // intraday — 90초
@@ -19,6 +20,17 @@ function _rvol(volume) {
     const avg = slice.length ? slice.reduce((s, v) => s + v, 0) / slice.length : 0;
     const cur = volume[i] || 0;
     return avg > 0 ? cur / avg : 0;
+}
+
+// 미국 세션 단계 — 마지막 봉 ts(초) 의 UTC 시각 기준
+function _session(tsSec) {
+    if (!tsSec) return 'regular';
+    const d = new Date(tsSec * 1000);
+    const m = d.getUTCHours() * 60 + d.getUTCMinutes(); // UTC 분
+    if (m >= 810 && m < 870) return 'open_drive';   // 13:30–14:30 UTC (장 초반 30~60분)
+    if (m >= 930 && m < 1110) return 'midday';       // 15:30–18:30 UTC (점심 횡보)
+    if (m >= 1170 && m <= 1260) return 'power_hour'; // 19:30–21:00 UTC (파워아워)
+    return 'regular';
 }
 
 export async function handleDailyTradingScan(req, env) {
@@ -35,6 +47,10 @@ export async function handleDailyTradingScan(req, env) {
         } catch (_) {}
 
         const thresholds = await loadAlgorithmConfig(env);
+        // 시장 레짐 — US 한정 (KR 은 중립 취급)
+        const regime = market === 'KR'
+            ? { regime: 'neutral', label: '중립', spyTrend: 'flat', spyChgPct: 0, vix: null, note: 'KR' }
+            : await getMarketRegime(env);
 
         // 유니버스 — 기본 풀 + 당일 활발 종목(US 스크리너)
         const base = market === 'KR' ? DEFAULT_UNIVERSE_KR : DEFAULT_UNIVERSE_US;
@@ -53,7 +69,8 @@ export async function handleDailyTradingScan(req, env) {
             await Promise.all(chunk.map(async (symbol) => {
                 try {
                     const raw = await fetchChartWithFallback(env, symbol, range, tf, 'false');
-                    const q = raw?.chart?.result?.[0]?.indicators?.quote?.[0];
+                    const result0 = raw?.chart?.result?.[0];
+                    const q = result0?.indicators?.quote?.[0];
                     if (!q?.close?.length || q.close.length < 30) return;
                     analyzed++;
                     const sig = detectSignal(q, thresholds);
@@ -61,6 +78,23 @@ export async function handleDailyTradingScan(req, env) {
                     if (sig.grade !== 'S' && sig.grade !== 'A') return; // A급 이상만
                     const rvol = _rvol(q.volume || []);
                     if (rvol < 1.2) return; // 거래량 받쳐주는 종목만
+
+                    // ── 진입 품질: VWAP 위치 + ADX 추세강도 ──
+                    const vwap = calcVWAP(q);
+                    const adxV = calcADX(q.high || [], q.low || [], q.close || []);
+                    const price = sig.price;
+                    const vwapPos = (vwap != null) ? (price >= vwap ? 'above' : 'below') : null;
+                    // 매수는 VWAP 위 + ADX≥20, 매도는 VWAP 아래 + ADX≥20 (횡보·반대편 컷)
+                    if (adxV != null && adxV < 20) return;
+                    if (vwapPos === 'below' && sig.dir === 'buy') return;
+                    if (vwapPos === 'above' && sig.dir === 'sell') return;
+
+                    // ── 레짐 게이트: 위험 장세엔 약한 매수(A급) 제외, S급·매도는 유지 ──
+                    if (regime.regime === 'risk_off' && sig.dir === 'buy' && sig.grade !== 'S') return;
+
+                    const ts = result0?.timestamp || [];
+                    const session = _session(ts[ts.length - 1]);
+
                     results.push({
                         symbol,
                         dir: sig.dir,
@@ -71,6 +105,9 @@ export async function handleDailyTradingScan(req, env) {
                         price: sig.price,
                         rsi: Math.round(sig.rsi),
                         rvol: Math.round(rvol * 10) / 10,
+                        vwapPos,
+                        adx: adxV != null ? Math.round(adxV) : null,
+                        session,
                     });
                 } catch (_) {}
             }));
@@ -81,6 +118,7 @@ export async function handleDailyTradingScan(req, env) {
 
         const payload = {
             results,
+            regime,
             totalScanned: analyzed,
             universe: universe.length,
             tf,

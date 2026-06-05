@@ -5,6 +5,7 @@ import { detectSignal } from './utils/indicators.js';
 import { fetchChartWithFallback } from './routes/yahoo.js';
 import { logError } from './utils/errors.js';
 import { loadAlgorithmConfig, loadBlacklist } from './utils/calibration.js';
+import { getMarketRegime } from './utils/market.js';
 
 // 기본 유니버스 — cron 시그널 분석 + 데일리 트레이딩 스캐너 공용
 export const DEFAULT_UNIVERSE_US = ['NVDA','AAPL','MSFT','AMZN','GOOGL','META','TSLA','AVGO','AMD','NFLX',
@@ -395,6 +396,8 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
             loadAlgorithmConfig(env),
             loadBlacklist(env),
         ]);
+        // 시장 레짐 — 위험 장세엔 약한 매수 디스커버리 푸시 억제 (US 한정)
+        const regime = marketHint === 'KR' ? { regime: 'neutral' } : await getMarketRegime(env);
 
         // 3) 각 종목 5분봉 분석 + 시그널 발견 시 푸시 큐잉
         let fired = 0, analyzed = 0, skippedBlacklist = 0;
@@ -464,6 +467,8 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
                 } else if (!isFav) {
                     // ── 디스커버리 푸시 — S/A급, discovery 토글 켠 전체 구독자 ──
                     if (sig.grade !== 'S' && sig.grade !== 'A') continue;
+                    // 위험 장세엔 약한 매수(A급) 발굴 알림 억제 — S급·매도는 유지
+                    if (regime.regime === 'risk_off' && sig.dir === 'buy' && sig.grade !== 'S') continue;
                     const payload = JSON.stringify({
                         title: `🔍 발굴 ${symbol} ${dirKo} 진입 [${sig.grade}급]`,
                         body: `$${sig.price.toFixed(2)} · 5분봉 단타 · 승률 ${sig.winRate}% · ${sig.factors.slice(0, 2).join(' · ')}`,
