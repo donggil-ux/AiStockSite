@@ -3358,9 +3358,11 @@
             min-height:100vh;
             display:flex; align-items:center; justify-content:center;
             padding:48px 20px;
+            padding-top:calc(48px + env(safe-area-inset-top));
+            padding-bottom:calc(48px + env(safe-area-inset-bottom));
         }
         .login-close{
-            position:absolute; top:20px; right:20px;
+            position:absolute; top:calc(20px + env(safe-area-inset-top)); right:20px;
             width:38px; height:38px;
             display:flex; align-items:center; justify-content:center;
             background:transparent; border:none; cursor:pointer;
@@ -10534,6 +10536,9 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
         max-width:none; max-height:none;
         border-radius:0; left:0; top:0;
         transform:none;
+        box-sizing:border-box;
+        padding-top:env(safe-area-inset-top);
+        padding-bottom:env(safe-area-inset-bottom);
     }
     .settings-modal.open{ transform:none; }
     .settings-side{
@@ -10610,7 +10615,7 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
 /* ── 헤더 ── */
 .notif-page-header{
     display:flex; align-items:center; justify-content:space-between;
-    padding:14px 16px; gap:8px;
+    padding:calc(14px + env(safe-area-inset-top)) 16px 14px; gap:8px;
     position:sticky; top:0; z-index:10;
     background:var(--bg);
     border-bottom:1px solid var(--border);
