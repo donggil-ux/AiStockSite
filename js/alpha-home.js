@@ -8197,7 +8197,8 @@
             // AI 확장 영역 (자동 분석 있으면 상시 펼침, 없으면 수동 버튼)
             const cardId = `ccard-${r.ticker}-${idx}`;
             const expandedAi = ai ? _renderCatalystAiExpanded(ai) : '';
-            const manualBtn = !ai && r.score >= 35 && r.score < 70 ? `
+            // 하단 단일 액션 — AI 심층 분석 버튼 (자동 분석 결과 없을 때만; EDGAR 원문 링크 대체)
+            const aiBtn = !ai ? `
                 <button class="catalyst-ai-btn" onclick="event.stopPropagation(); _runCatalystAi('${cardId}', ${JSON.stringify(r).replace(/"/g, '&quot;')})">🤖 AI 심층 분석</button>` : '';
 
             // 위험도 50+ 종목은 매매 라인 숨김
@@ -8243,9 +8244,8 @@
                     ${r.preGapPct != null ? `<span class="catalyst-meta-cell ${r.preGapPct >= 0 ? 'up':'down'}">🌅 프리 ${r.preGapPct >= 0 ? '+':''}${r.preGapPct.toFixed(1)}%</span>` : ''}
                 </div>
                 ${stratHtml}
-                ${manualBtn}
                 <div class="catalyst-ai-expanded" id="${cardId}-ai">${expandedAi}</div>
-                ${f.link ? `<a class="catalyst-source" href="${escHtml(f.link)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">📄 EDGAR 원문 →</a>` : ''}
+                ${aiBtn}
             </div>`;
         }).join('');
 
