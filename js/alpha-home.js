@@ -4975,7 +4975,7 @@
         return `<div id="${cardId}" class="alpha-card ${tierClass}">
             <div class="alpha-card-main" onclick="_alphaToggleCard('${cardId}')">
                 <div class="alpha-card-head">
-                    <div class="alpha-rank">#${idx + 1}</div>
+                    <div class="alpha-rank">${idx + 1}</div>
                     <div class="tlogo-wrap alpha-card-logo">
                         <img class="tlogo" src="${logoUrl}" alt="${sym}" loading="lazy"
                             onerror="this.outerHTML='<span class=\\'tlogo tlogo-fb\\'>${fb2}</span>'">
