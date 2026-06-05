@@ -313,6 +313,94 @@
             try { window.snack?.('인증 코드를 다시 보냈습니다', 'info'); } catch (_) {}
         } catch (e) { _suSetError('suVerifyError', _clerkErr(e)); }
     };
+
+    // ──────────────────────────────────────────────────────────
+    // 비밀번호 재설정 (커스텀 — Clerk reset_password_email_code)
+    // 1) 이메일 입력 → 코드 발송  2) 코드 + 새 비밀번호 → 재설정 + 자동 로그인
+    // ──────────────────────────────────────────────────────────
+    window.goReset = function () {
+        const rs = document.getElementById('resetScreen');
+        if (!rs) return;
+        document.getElementById('resetEmailStep').style.display = '';
+        document.getElementById('resetVerifyStep').style.display = 'none';
+        _suSetError('rsError', ''); _suSetError('rsVerifyError', '');
+        const e = document.getElementById('rsEmail'); if (e) e.value = '';
+        const c = document.getElementById('rsCode'); if (c) c.value = '';
+        const p = document.getElementById('rsPwd'); if (p) p.value = '';
+        const p2 = document.getElementById('rsPwd2'); if (p2) p2.value = '';
+        rs.style.display = '';
+        document.body.style.overflow = 'hidden';
+    };
+    window.closeReset = function () {
+        const rs = document.getElementById('resetScreen');
+        if (rs) rs.style.display = 'none';
+        document.body.style.overflow = '';
+    };
+
+    window._resetSendCode = async function () {
+        const Clerk = window.Clerk;
+        const btn = document.getElementById('rsSendBtn');
+        _suSetError('rsError', '');
+        if (!Clerk) { _suSetError('rsError', '현재 환경에서는 사용할 수 없습니다.'); return; }
+        const email = (document.getElementById('rsEmail')?.value || '').trim();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return _suSetError('rsError', '올바른 이메일을 입력해주세요.');
+        if (btn) { btn.disabled = true; btn.textContent = '전송 중…'; }
+        try {
+            await Clerk.client.signIn.create({ strategy: 'reset_password_email_code', identifier: email });
+            const echo = document.getElementById('rsEmailEcho');
+            if (echo) echo.textContent = email;
+            document.getElementById('resetEmailStep').style.display = 'none';
+            document.getElementById('resetVerifyStep').style.display = '';
+            _suSetError('rsVerifyError', '');
+            setTimeout(() => document.getElementById('rsCode')?.focus(), 100);
+        } catch (e) {
+            _suSetError('rsError', _clerkErr(e));
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = '이메일로 인증코드 받기'; }
+        }
+    };
+
+    window._resetSubmit = async function () {
+        const Clerk = window.Clerk;
+        const btn = document.getElementById('rsResetBtn');
+        _suSetError('rsVerifyError', '');
+        if (!Clerk) return;
+        const code = (document.getElementById('rsCode')?.value || '').trim();
+        const pwd = document.getElementById('rsPwd')?.value || '';
+        const pwd2 = document.getElementById('rsPwd2')?.value || '';
+        if (!/^\d{6}$/.test(code)) return _suSetError('rsVerifyError', '6자리 인증 코드를 입력해주세요.');
+        if (!/^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(pwd)) return _suSetError('rsVerifyError', '비밀번호는 영문·숫자 포함 8자 이상이어야 합니다.');
+        if (pwd !== pwd2) return _suSetError('rsVerifyError', '비밀번호가 일치하지 않습니다.');
+        if (btn) { btn.disabled = true; btn.textContent = '재설정 중…'; }
+        try {
+            const res = await Clerk.client.signIn.attemptFirstFactor({
+                strategy: 'reset_password_email_code', code, password: pwd,
+            });
+            if (res.status === 'complete') {
+                await Clerk.setActive({ session: res.createdSessionId });
+                window.closeReset();
+                try { window.snack?.('비밀번호가 재설정되었습니다 — 로그인됨', 'success'); } catch (_) {}
+            } else {
+                _suSetError('rsVerifyError', '재설정이 완료되지 않았습니다. 코드를 다시 확인해주세요.');
+            }
+        } catch (e) {
+            _suSetError('rsVerifyError', _clerkErr(e));
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = '비밀번호 재설정'; }
+        }
+    };
+
+    window._resetResend = async function () {
+        const Clerk = window.Clerk;
+        if (!Clerk) return;
+        const email = (document.getElementById('rsEmail')?.value || '').trim();
+        if (!email) return;
+        try {
+            await Clerk.client.signIn.create({ strategy: 'reset_password_email_code', identifier: email });
+            _suSetError('rsVerifyError', '');
+            try { window.snack?.('인증 코드를 다시 보냈습니다', 'info'); } catch (_) {}
+        } catch (e) { _suSetError('rsVerifyError', _clerkErr(e)); }
+    };
     // SNS OAuth — Google/Apple/Kakao 등
     window._loginOAuth = async function (strategy) {
         const Clerk = window.Clerk;

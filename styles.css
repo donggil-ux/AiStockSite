@@ -3497,7 +3497,7 @@
         }
 
         /* ═══ 회원가입 화면 (다크 테마, 커스텀 이메일/비번 가입) ═══ */
-        #signupScreen{
+        #signupScreen, #resetScreen{
             position:fixed; inset:0;
             z-index:10500;
             background:var(--bg);
@@ -3528,7 +3528,7 @@
             display:flex; align-items:center; gap:8px;
         }
         /* 입력칸: login-form 박스가 없으므로 각 input에 직접 테두리/배경 부여 */
-        #signupScreen .login-input{
+        #signupScreen .login-input, #resetScreen .login-input{
             background:var(--bg2);
             border:1px solid var(--border);
             border-radius:var(--radius-xs,8px);
@@ -3536,9 +3536,12 @@
             width:100%;
             box-sizing:border-box;
         }
-        #signupScreen .login-input:focus{ border-color:var(--blue); }
+        #signupScreen .login-input:focus, #resetScreen .login-input:focus{ border-color:var(--blue); }
         #signupScreen select.login-input{ cursor:pointer; }
         .signup-email-row .login-input{ flex:1; min-width:0; }
+        /* 비밀번호 재설정 화면 */
+        #resetScreen .signup-inner{ padding-top:8px; }
+        .reset-desc{ font-size:13px; color:var(--text3); line-height:1.6; margin:0 0 18px; }
         .signup-at{ color:var(--text3); font-size:14px; flex-shrink:0; }
         .signup-domain{ flex:1; min-width:0; cursor:pointer; }
         .signup-domain-custom{ display:none; margin-top:8px; }

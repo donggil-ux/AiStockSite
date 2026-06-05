@@ -33,7 +33,7 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
-    <link rel="stylesheet" href="/styles.css?v=952">
+    <link rel="stylesheet" href="/styles.css?v=953">
     <link rel="stylesheet" href="/css/components.css?v=1">
 </head>
 <body>
@@ -599,7 +599,7 @@
                 <button class="login-submit" onclick="_loginOpenClerk()">로그인</button>
 
                 <div class="login-links">
-                    <button class="login-link" onclick="_loginOpenClerk()">비밀번호 재설정</button>
+                    <button class="login-link" onclick="closeLogin();goReset();">비밀번호 재설정</button>
                     <span class="login-link-sep"></span>
                     <button class="login-link" onclick="closeLogin();goSignup();">회원가입</button>
                 </div>
@@ -742,6 +742,56 @@
                     <div class="signup-footer-link">
                         코드를 못 받으셨나요? <button class="login-link" onclick="_suResend()">코드 재전송</button>
                     </div>
+                </div>
+
+                <div class="login-footer">© StockAI · Co., Ltd. All Rights Reserved</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         비밀번호 재설정 화면 (커스텀 — Clerk reset_password_email_code)
+         goReset() / closeReset()
+    ════════════════════════════════════════════════════════════ -->
+    <div id="resetScreen" style="display:none;">
+        <div class="login-page">
+            <button class="login-close" onclick="closeReset()" aria-label="닫기">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+            <div class="login-inner signup-inner">
+                <h2 class="signup-title">비밀번호 재설정</h2>
+
+                <!-- ── 1단계: 이메일 입력 → 인증코드 발송 ── -->
+                <div id="resetEmailStep">
+                    <div class="reset-desc">가입한 이메일 주소를 입력해주세요.<br>이메일로 인증코드를 보내드립니다.</div>
+                    <div class="signup-field">
+                        <label class="signup-label">이메일</label>
+                        <input type="email" class="login-input" id="rsEmail" placeholder="이메일" autocomplete="email">
+                    </div>
+                    <div class="signup-error" id="rsError"></div>
+                    <button class="login-submit signup-submit" id="rsSendBtn" onclick="_resetSendCode()">이메일로 인증코드 받기</button>
+                    <div class="signup-footer-link">비밀번호가 기억나셨나요? <button class="login-link" onclick="closeReset();goLogin();">로그인</button></div>
+                </div>
+
+                <!-- ── 2단계: 인증코드 + 새 비밀번호 ── -->
+                <div id="resetVerifyStep" style="display:none;">
+                    <div class="reset-desc"><b id="rsEmailEcho"></b> 로 보낸<br>인증코드와 새 비밀번호를 입력해주세요.</div>
+                    <div class="signup-field">
+                        <label class="signup-label">인증 코드</label>
+                        <input type="text" class="login-input signup-code-input" id="rsCode" placeholder="인증 코드 6자리" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+                    </div>
+                    <div class="signup-field">
+                        <label class="signup-label">새 비밀번호</label>
+                        <div class="signup-hint">영문, 숫자를 포함한 8자 이상의 비밀번호를 입력해주세요.</div>
+                        <input type="password" class="login-input" id="rsPwd" placeholder="새 비밀번호" autocomplete="new-password">
+                    </div>
+                    <div class="signup-field">
+                        <label class="signup-label">새 비밀번호 확인</label>
+                        <input type="password" class="login-input" id="rsPwd2" placeholder="새 비밀번호 확인" autocomplete="new-password">
+                    </div>
+                    <div class="signup-error" id="rsVerifyError"></div>
+                    <button class="login-submit signup-submit" id="rsResetBtn" onclick="_resetSubmit()">비밀번호 재설정</button>
+                    <div class="signup-footer-link">코드를 못 받으셨나요? <button class="login-link" onclick="_resetResend()">코드 재전송</button></div>
                 </div>
 
                 <div class="login-footer">© StockAI · Co., Ltd. All Rights Reserved</div>
