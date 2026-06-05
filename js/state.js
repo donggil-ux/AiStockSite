@@ -104,10 +104,16 @@
             '/api/catalyst/ai-',
         ];
         const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        // Workers 전용 엔드포인트 — Express(server.js)에 구현이 없어 로컬에서도 반드시 Workers 로 보내야 함.
+        // (이게 없으면 로컬에서 /api/stats 등이 Express SPA HTML 을 받아 "Unexpected token '<'" 로 깨짐)
+        const WORKERS_ONLY = [
+            '/api/stats/', '/api/signals/', '/api/admin/', '/api/calibration/', '/api/errors',
+        ];
         window.API_WORKERS_BASE = WORKERS_BASE;
         // Clerk 세션 토큰 게터 (auth.js 가 채워줌). 비로그인이면 null 반환.
         window.getAuthToken = window.getAuthToken || (async () => null);
-        if (isLocal) return; // 로컬은 Express 그대로
+        // 로컬: Workers 전용 엔드포인트만 라우팅 / 프로덕션: 전체 WORKERS_PREFIXES 라우팅
+        const ACTIVE_PREFIXES = isLocal ? WORKERS_ONLY : WORKERS_PREFIXES;
         const origFetch = window.fetch.bind(window);
         window.fetch = async function (input, init) {
             try {
@@ -115,7 +121,7 @@
                         : (input instanceof Request) ? input.url
                         : String(input);
                 if (url.startsWith('/api/')) {
-                    const match = WORKERS_PREFIXES.some(p => url.startsWith(p));
+                    const match = ACTIVE_PREFIXES.some(p => url.startsWith(p));
                     if (match) {
                         const newUrl = WORKERS_BASE + url;
                         // Clerk 세션 토큰 자동 주입 (있을 때만)
