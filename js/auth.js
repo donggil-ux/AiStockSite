@@ -170,7 +170,7 @@
             afterSignUpUrl: location.href,
         });
     };
-    // 회원가입 모달
+    // 회원가입 모달 (구버전 — Clerk 기본 모달, 폴백용)
     window._loginOpenClerkSignUp = function () {
         const Clerk = window.Clerk;
         if (!Clerk) return alert('Clerk 미초기화');
@@ -178,6 +178,141 @@
             afterSignInUrl: location.href,
             afterSignUpUrl: location.href,
         });
+    };
+
+    // ──────────────────────────────────────────────────────────
+    // 커스텀 회원가입 화면 (이메일/비밀번호 직접 가입 — Clerk signUp API)
+    // ──────────────────────────────────────────────────────────
+    function _clerkErr(e) {
+        try { return e?.errors?.[0]?.longMessage || e?.errors?.[0]?.message || e?.message || '오류가 발생했습니다'; }
+        catch (_) { return '오류가 발생했습니다'; }
+    }
+    function _suSetError(id, msg) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = msg || '';
+    }
+    function _suEmail() {
+        const local = (document.getElementById('suEmailLocal')?.value || '').trim();
+        const sel = document.getElementById('suEmailDomain');
+        const custom = (document.getElementById('suEmailDomainCustom')?.value || '').trim();
+        const domain = (sel && sel.value) ? sel.value : custom;
+        if (!local || !domain) return '';
+        return `${local}@${domain}`;
+    }
+    let _suTermsBound = false;
+    function _suBindTerms() {
+        if (_suTermsBound) return;
+        _suTermsBound = true;
+        const all = document.getElementById('suAgreeAll');
+        const terms = [...document.querySelectorAll('.su-term')];
+        terms.forEach(t => t.addEventListener('change', () => {
+            if (all) all.checked = terms.every(x => x.checked);
+        }));
+    }
+
+    window.goSignup = function () {
+        const ss = document.getElementById('signupScreen');
+        if (!ss) return;
+        if (window.Clerk?.user) { try { window.snack?.('이미 로그인되어 있습니다', 'info'); } catch (_) {} return; }
+        // 폼 단계로 초기화
+        document.getElementById('signupFormStep').style.display = '';
+        document.getElementById('signupVerifyStep').style.display = 'none';
+        _suSetError('suError', ''); _suSetError('suVerifyError', '');
+        _suBindTerms();
+        ss.style.display = '';
+        document.body.style.overflow = 'hidden';
+    };
+    window.closeSignup = function () {
+        const ss = document.getElementById('signupScreen');
+        if (ss) ss.style.display = 'none';
+        document.body.style.overflow = '';
+    };
+    window._suDomainChange = function (sel) {
+        const custom = document.getElementById('suEmailDomainCustom');
+        if (!custom) return;
+        // '직접입력'(value='') 선택 시 커스텀 도메인 입력 노출
+        custom.style.display = sel.value === '' ? 'block' : 'none';
+    };
+    window._suToggleAll = function (cb) {
+        document.querySelectorAll('.su-term').forEach(t => { t.checked = cb.checked; });
+    };
+
+    window._suSubmit = async function () {
+        const Clerk = window.Clerk;
+        const btn = document.getElementById('suSubmitBtn');
+        _suSetError('suError', '');
+        if (!Clerk) { _suSetError('suError', '현재 환경에서는 회원가입을 사용할 수 없습니다.'); return; }
+
+        const email = _suEmail();
+        const pwd = document.getElementById('suPwd')?.value || '';
+        const pwd2 = document.getElementById('suPwd2')?.value || '';
+        const nick = (document.getElementById('suNick')?.value || '').trim();
+        const ageOk = document.getElementById('suAge')?.checked;
+        const tosOk = document.getElementById('suTos')?.checked;
+        const mkt = document.getElementById('suMkt')?.checked;
+        const event = document.getElementById('suEvent')?.checked;
+
+        // ── 검증 ──
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return _suSetError('suError', '올바른 이메일을 입력해주세요.');
+        if (!/^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(pwd)) return _suSetError('suError', '비밀번호는 영문·숫자 포함 8자 이상이어야 합니다.');
+        if (pwd !== pwd2) return _suSetError('suError', '비밀번호가 일치하지 않습니다.');
+        if (nick.length < 2 || nick.length > 20) return _suSetError('suError', '닉네임은 2~20자로 입력해주세요.');
+        if (!ageOk || !tosOk) return _suSetError('suError', '필수 약관(만 14세 이상, 이용약관)에 동의해주세요.');
+
+        if (btn) { btn.disabled = true; btn.textContent = '처리 중…'; }
+        try {
+            await Clerk.client.signUp.create({
+                emailAddress: email,
+                password: pwd,
+                unsafeMetadata: { nickname: nick, marketing: !!mkt, eventOptIn: !!event },
+            });
+            await Clerk.client.signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+            // 인증 단계로 전환
+            const ve = document.getElementById('suVerifyEmail');
+            if (ve) ve.textContent = email;
+            document.getElementById('signupFormStep').style.display = 'none';
+            document.getElementById('signupVerifyStep').style.display = '';
+            _suSetError('suVerifyError', '');
+            setTimeout(() => document.getElementById('suCode')?.focus(), 100);
+        } catch (e) {
+            _suSetError('suError', _clerkErr(e));
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = '회원가입하기'; }
+        }
+    };
+
+    window._suVerify = async function () {
+        const Clerk = window.Clerk;
+        const btn = document.getElementById('suVerifyBtn');
+        _suSetError('suVerifyError', '');
+        if (!Clerk) return;
+        const code = (document.getElementById('suCode')?.value || '').trim();
+        if (!/^\d{6}$/.test(code)) return _suSetError('suVerifyError', '6자리 인증 코드를 입력해주세요.');
+        if (btn) { btn.disabled = true; btn.textContent = '확인 중…'; }
+        try {
+            const res = await Clerk.client.signUp.attemptEmailAddressVerification({ code });
+            if (res.status === 'complete') {
+                await Clerk.setActive({ session: res.createdSessionId });
+                window.closeSignup();
+                try { window.snack?.('회원가입이 완료되었습니다 — 환영합니다!', 'success'); } catch (_) {}
+            } else {
+                _suSetError('suVerifyError', '인증이 완료되지 않았습니다. 코드를 다시 확인해주세요.');
+            }
+        } catch (e) {
+            _suSetError('suVerifyError', _clerkErr(e));
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = '인증 완료'; }
+        }
+    };
+
+    window._suResend = async function () {
+        const Clerk = window.Clerk;
+        if (!Clerk) return;
+        try {
+            await Clerk.client.signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+            _suSetError('suVerifyError', '');
+            try { window.snack?.('인증 코드를 다시 보냈습니다', 'info'); } catch (_) {}
+        } catch (e) { _suSetError('suVerifyError', _clerkErr(e)); }
     };
     // SNS OAuth — Google/Apple/Kakao 등
     window._loginOAuth = async function (strategy) {

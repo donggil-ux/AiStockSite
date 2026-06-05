@@ -3496,6 +3496,83 @@
             .login-logo-text{ font-size:20px; }
         }
 
+        /* ═══ 회원가입 화면 (다크 테마, 커스텀 이메일/비번 가입) ═══ */
+        #signupScreen{
+            position:fixed; inset:0;
+            z-index:10500;
+            background:var(--bg);
+            overflow-y:auto;
+            -webkit-overflow-scrolling:touch;
+        }
+        .signup-inner{ max-width:380px; align-items:stretch; }
+        .signup-title{
+            font-size:22px; font-weight:800; color:var(--text);
+            margin:0 0 20px; text-align:left;
+        }
+        .signup-sns{ margin-bottom:18px; }
+        .signup-sns-label{
+            text-align:center; font-size:12px; color:var(--text3);
+            font-weight:500; margin-bottom:14px;
+        }
+        .signup-divider{ height:1px; background:var(--border); margin:0 0 22px; }
+        .signup-field{ margin-bottom:18px; }
+        .signup-label{
+            display:block; font-size:14px; font-weight:700;
+            color:var(--text); margin-bottom:8px;
+        }
+        .signup-hint{
+            font-size:12px; color:var(--text3); line-height:1.5;
+            margin-bottom:8px;
+        }
+        .signup-email-row{
+            display:flex; align-items:center; gap:8px;
+        }
+        .signup-email-row .login-input{ flex:1; min-width:0; }
+        .signup-at{ color:var(--text3); font-size:14px; flex-shrink:0; }
+        .signup-domain{ flex:1; min-width:0; cursor:pointer; }
+        .signup-domain-custom{ display:none; margin-top:8px; }
+        /* 약관동의 박스 */
+        .signup-terms{
+            border:1px solid var(--border); border-radius:var(--radius-md,10px);
+            padding:14px 14px; background:var(--bg2);
+        }
+        .signup-term-row{
+            display:flex; align-items:flex-start; gap:10px;
+            font-size:13px; color:var(--text2); cursor:pointer;
+            padding:7px 0; line-height:1.45;
+        }
+        .signup-term-row b{ color:var(--text); font-weight:700; }
+        .signup-term-all{ padding-top:2px; }
+        .signup-term-sub{ font-size:11px; color:var(--text3); font-weight:400; }
+        .signup-term-sep{ height:1px; background:var(--border); margin:6px 0; }
+        .signup-term-req{ color:var(--blue); font-weight:600; }
+        .signup-term-opt{ color:var(--text3); }
+        .signup-term-row input[type=checkbox]{
+            width:18px; height:18px; flex-shrink:0; margin-top:1px;
+            accent-color:var(--blue); cursor:pointer;
+        }
+        .signup-submit{ width:100%; margin-top:6px; }
+        .signup-error{
+            color:#ef4444; font-size:12.5px; line-height:1.5;
+            margin:4px 0 10px; min-height:0; text-align:center;
+        }
+        .signup-error:empty{ margin:0; }
+        .signup-footer-link{
+            text-align:center; font-size:13px; color:var(--text3);
+            margin:16px 0 24px;
+        }
+        .signup-footer-link .login-link{ font-weight:700; }
+        /* 이메일 코드 인증 단계 */
+        #signupVerifyStep{ text-align:center; padding-top:8px; }
+        .signup-verify-icon{ font-size:40px; margin-bottom:12px; }
+        .signup-verify-title{ font-size:18px; font-weight:800; color:var(--text); margin-bottom:8px; }
+        .signup-verify-desc{ font-size:13px; color:var(--text3); line-height:1.6; margin-bottom:20px; }
+        .signup-verify-desc b{ color:var(--text2); }
+        .signup-code-input{
+            text-align:center; font-size:20px; font-weight:700;
+            letter-spacing:6px; margin-bottom:8px;
+        }
+
         /* PWA(홈 화면 설치) 모드 — 바텀 네비 하단에서 12px 띄움 */
         @media (display-mode: standalone), (display-mode: fullscreen){
             .bottom-nav{
