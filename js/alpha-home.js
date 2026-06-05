@@ -7696,6 +7696,10 @@
         const displayName = user?.firstName || user?.username ||
             user?.emailAddresses?.[0]?.emailAddress?.split('@')[0] || '비로그인';
         const email  = user?.emailAddresses?.[0]?.emailAddress || '';
+        // 마스터(관리자) 계정 식별 — 이메일 또는 Clerk user_id 매칭
+        const MASTER_EMAILS = ['rkd687@gmail.com'];
+        const MASTER_IDS = ['user_3EhxWla1QzZmEG19xfFdmnUTUrp'];
+        const isMaster = isLoggedIn && (MASTER_EMAILS.includes(email) || MASTER_IDS.includes(user?.id));
         const avatar = user?.imageUrl
             ? `<img src="${escHtml(user.imageUrl)}" alt="" style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid var(--border);">`
             : `<div style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--purple),var(--blue));display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:#fff;">${(displayName[0]||'?').toUpperCase()}</div>`;
@@ -7713,9 +7717,9 @@
                 <div style="display:flex;align-items:center;gap:16px;padding:4px 0 14px;">
                     ${avatar}
                     <div style="flex:1;min-width:0;">
-                        <div style="font-size:17px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(displayName)}</div>
+                        <div style="font-size:17px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(displayName)}${isMaster ? ' <span style="display:inline-block;vertical-align:2px;margin-left:6px;padding:2px 9px;border-radius:9999px;background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#1a1a1a;font-size:11px;font-weight:800;">👑 마스터</span>' : ''}</div>
                         ${email ? `<div style="font-size:12px;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(email)}</div>` : ''}
-                        <div style="font-size:11px;color:${isLoggedIn ? 'var(--green)' : 'var(--text3)'};margin-top:5px;">${isLoggedIn ? '✓ 로그인됨 · 다기기 동기화 활성' : '비로그인 · 기기 단독 모드'}</div>
+                        <div style="font-size:11px;color:${isMaster ? '#f59e0b' : isLoggedIn ? 'var(--green)' : 'var(--text3)'};margin-top:5px;">${isMaster ? '👑 마스터(관리자) 계정 · 전체 권한' : isLoggedIn ? '✓ 로그인됨 · 다기기 동기화 활성' : '비로그인 · 기기 단독 모드'}</div>
                     </div>
                 </div>
                 ${isLoggedIn ? `
