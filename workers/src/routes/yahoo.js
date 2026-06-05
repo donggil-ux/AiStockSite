@@ -76,8 +76,15 @@ export async function handlePrice(req, env, params) {
             change: r.regularMarketChange,
             changePct: r.regularMarketChangePercent,
             volume: r.regularMarketVolume,
-            preMarket: r.preMarketPrice,
-            postMarket: r.postMarketPrice,
+            // 장외 세션 — 클라 헤더/히어로 가격 동기화에 필요 (price/change/pct 모두 제공)
+            preMarket: r.preMarketPrice,            // 하위호환
+            postMarket: r.postMarketPrice,          // 하위호환
+            preMarketPrice: r.preMarketPrice,
+            preMarketChange: r.preMarketChange,
+            preMarketChangePct: r.preMarketChangePercent,
+            postMarketPrice: r.postMarketPrice,
+            postMarketChange: r.postMarketChange,
+            postMarketChangePct: r.postMarketChangePercent,
             marketState: r.marketState,
             name: r.shortName || r.longName,
         });

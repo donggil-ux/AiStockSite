@@ -658,6 +658,8 @@
                     changeEl.className = 'stock-change ' + (liveChg > 0 ? 'up' : liveChg < 0 ? 'down' : 'flat');
                 }
                 if (priceEl) priceEl.style.color = liveChg > 0 ? 'var(--red)' : liveChg < 0 ? 'var(--blue)' : 'var(--text)';
+                // 상단 컴팩트 헤더도 히어로와 동일 값으로 즉시 동기화 (불일치 방지)
+                try { if (typeof _syncHeaderStock === 'function') _syncHeaderStock(); } catch(_) {}
             }
 
             // 일·주봉 차트 위 배너 — 분석 기준가(정규장 종가) vs 라이브(프리/애프터) 갭 안내 (v649)
@@ -1139,8 +1141,8 @@
 
                                 // 장 외 시간이면 프리/포스트 가격 우선
                                 if (d.marketState && d.marketState !== 'REGULAR') {
-                                    if (d.preMarketPrice != null) { livePrice = d.preMarketPrice; livePct = d.preMarketChangePct; liveChg = null; }
-                                    else if (d.postMarketPrice != null) { livePrice = d.postMarketPrice; livePct = d.postMarketChangePct; liveChg = null; }
+                                    if (d.preMarketPrice != null) { livePrice = d.preMarketPrice; livePct = d.preMarketChangePct; liveChg = (d.preMarketChange != null ? d.preMarketChange : null); }
+                                    else if (d.postMarketPrice != null) { livePrice = d.postMarketPrice; livePct = d.postMarketChangePct; liveChg = (d.postMarketChange != null ? d.postMarketChange : null); }
                                 }
                             }
                         }
@@ -1190,6 +1192,8 @@
                         changeEl.className = 'stock-change ' + (livePct > 0 ? 'up' : livePct < 0 ? 'down' : 'flat');
                         priceEl.style.color = livePct > 0 ? 'var(--red)' : livePct < 0 ? 'var(--blue)' : 'var(--text)';
                     }
+                    // 상단 컴팩트 헤더도 히어로와 동일 값으로 즉시 동기화 (불일치 방지)
+                    try { if (typeof _syncHeaderStock === 'function') _syncHeaderStock(); } catch(_) {}
                 }
 
                 // 차트 마지막 캔들 업데이트
