@@ -47,6 +47,23 @@
         });
     }
 
+    // Clerk 인증 핸드셰이크 파라미터를 현재 URL 에서 제거 (그 외 파라미터는 보존)
+    function _stripClerkUrlParams() {
+        try {
+            const u = new URL(location.href);
+            let changed = false;
+            [...u.searchParams.keys()].forEach(k => {
+                if (k.startsWith('__clerk') || k.startsWith('__dev') || k === '__session') {
+                    u.searchParams.delete(k); changed = true;
+                }
+            });
+            if (changed) {
+                const qs = u.searchParams.toString();
+                history.replaceState(history.state, '', u.pathname + (qs ? '?' + qs : '') + u.hash);
+            }
+        } catch (_) {}
+    }
+
     async function init() {
         try {
             await loadClerkScript();
@@ -84,6 +101,9 @@
                 // 첫 로드 시에도 link 한 번 호출 (다기기 데이터 병합)
                 _linkAccount();
             }
+            // Clerk 가 핸드셰이크 토큰을 이미 소비(→localStorage)했으므로 URL 에서 제거.
+            // 안 그러면 dev 인스턴스에서 __clerk_db_jwt(로그인 토큰)가 주소창·종목상세 URL에 노출됨.
+            _stripClerkUrlParams();
             console.log('[auth] Clerk 활성 — user=', Clerk.user?.id || 'none');
             return true;
         } catch (e) {
