@@ -4188,7 +4188,18 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ticker: sym, categories: cats, overallScore: overall }),
             });
-            if (!res.ok) throw new Error('HTTP ' + res.status);
+            if (!res.ok) {
+                // 서버 에러 본문 파싱 — 사용량 한도(429/503·credit·quota)면 안내형 메시지로 대체
+                let reason = '';
+                try { const eb = await res.json(); reason = (eb && eb.error) || ''; } catch(_) {}
+                const quota = res.status === 429 || res.status === 503 ||
+                    /quota|credit|exhaust|resource|한도|소진/i.test(reason);
+                if (quota) {
+                    cardEl.innerHTML = '<div style="font-size:12px;color:var(--text3);text-align:center;padding:10px 4px;line-height:1.6;">🤖 AI 종합 판단이 일시적으로 중단되었습니다.<br>AI 사용량 한도가 소진되어 잠시 후 다시 시도해주세요.</div>';
+                    return;
+                }
+                throw new Error('HTTP ' + res.status);
+            }
             const ai = await res.json();
             try { sessionStorage.setItem(cKey, JSON.stringify({ ts: Date.now(), data: ai })); } catch(_) {}
             _renderAiSummaryCard(ai);
