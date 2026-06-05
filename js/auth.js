@@ -161,7 +161,40 @@
         if (ls) ls.style.display = 'none';
         document.body.style.overflow = '';
     };
-    // 로그인 페이지 내부 트리거 — Clerk 모달로 위임 (이메일/비번)
+    // 커스텀 이메일/비밀번호 로그인 — Clerk signIn API (모달 없이 직접)
+    window._loginSubmit = async function () {
+        const Clerk = window.Clerk;
+        const errEl = document.getElementById('loginError');
+        const setErr = m => { if (errEl) errEl.textContent = m || ''; };
+        setErr('');
+        if (!Clerk) { setErr('현재 환경에서는 로그인을 사용할 수 없습니다.'); return; }
+        const email = (document.getElementById('loginEmailInput')?.value || '').trim();
+        const pwd = document.getElementById('loginPwdInput')?.value || '';
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setErr('올바른 이메일을 입력해주세요.');
+        if (!pwd) return setErr('비밀번호를 입력해주세요.');
+        const btn = document.getElementById('loginSubmitBtn');
+        if (btn) { btn.disabled = true; btn.textContent = '로그인 중…'; }
+        try {
+            const res = await Clerk.client.signIn.create({ identifier: email, password: pwd });
+            if (res.status === 'complete') {
+                await Clerk.setActive({ session: res.createdSessionId });
+                window.closeLogin();
+                try { window.snack?.('로그인되었습니다', 'success'); } catch (_) {}
+            } else {
+                setErr('로그인이 완료되지 않았습니다. 다시 시도해주세요.');
+            }
+        } catch (e) {
+            // Clerk 에러: 비번 틀림/계정없음 등
+            const msg = (e?.errors?.[0]?.longMessage || e?.errors?.[0]?.message || e?.message || '');
+            setErr(/identifier|not found|couldn't find/i.test(msg) ? '가입되지 않은 이메일입니다.'
+                : /password|incorrect|invalid/i.test(msg) ? '이메일 또는 비밀번호가 올바르지 않습니다.'
+                : (msg || '로그인에 실패했습니다.'));
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = '로그인'; }
+        }
+    };
+
+    // 로그인 페이지 내부 트리거 — Clerk 모달로 위임 (구버전 폴백)
     window._loginOpenClerk = function () {
         const Clerk = window.Clerk;
         if (!Clerk) return alert('Clerk 미초기화');

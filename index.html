@@ -590,13 +590,14 @@
                     <div class="logo">Stock<span>AI</span></div>
                 </div>
 
-                <!-- 이메일 / 비밀번호 (Clerk 모달 트리거) -->
+                <!-- 이메일 / 비밀번호 (직접 입력 — Clerk signIn 연동) -->
                 <div class="login-form">
-                    <input type="email" class="login-input" id="loginEmailInput" placeholder="이메일" autocomplete="email" onfocus="_loginOpenClerk()">
-                    <input type="password" class="login-input" id="loginPwdInput" placeholder="비밀번호" autocomplete="current-password" onfocus="_loginOpenClerk()">
+                    <input type="email" class="login-input" id="loginEmailInput" placeholder="이메일" autocomplete="email" onkeydown="if(event.key==='Enter')_loginSubmit()">
+                    <input type="password" class="login-input" id="loginPwdInput" placeholder="비밀번호" autocomplete="current-password" onkeydown="if(event.key==='Enter')_loginSubmit()">
                 </div>
 
-                <button class="login-submit" onclick="_loginOpenClerk()">로그인</button>
+                <div class="signup-error" id="loginError"></div>
+                <button class="login-submit" id="loginSubmitBtn" onclick="_loginSubmit()">로그인</button>
 
                 <div class="login-links">
                     <button class="login-link" onclick="closeLogin();goReset();">비밀번호 재설정</button>
