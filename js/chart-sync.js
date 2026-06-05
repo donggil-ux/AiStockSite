@@ -1524,7 +1524,13 @@
                 .sort((a, b) => a.time - b.time);
         }
         // M2: _label / text 제거 → 화살표 아이콘만 표시 (텍스트 마커 완전 제거)
-        const _finalMarkers = uniqMarkers.map(({ _label, text, ...rest }) => ({ ...rest, size: 1 }));
+        // 색상 통일: 매수 화살표(arrowUp)=노랑, 매도 화살표(arrowDown)=초록
+        const _finalMarkers = uniqMarkers.map(({ _label, text, ...rest }) => {
+            const m = { ...rest, size: 1 };
+            if (m.shape === 'arrowUp')        m.color = '#FFD400'; // 매수 = 노랑
+            else if (m.shape === 'arrowDown') m.color = '#22C55E'; // 매도 = 초록
+            return m;
+        });
         try {
             if (_finalMarkers && _finalMarkers.length > 0) {
                 lwCandleSeries.setMarkers(_finalMarkers);
