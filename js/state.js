@@ -97,6 +97,7 @@
             '/api/news-reason',
             '/api/earnings-summary',
             '/api/calibration/',
+            '/api/scanner/daily-trading', // 데일리 트레이딩 스캐너 (Workers 전용)
             // ── AI 라우트 (Workers, Gemini REST API) ──
             '/api/scanner/ai-',     // ai-analyze, ai-batch
             '/api/swing/ai-',
@@ -108,6 +109,7 @@
         // (이게 없으면 로컬에서 /api/stats 등이 Express SPA HTML 을 받아 "Unexpected token '<'" 로 깨짐)
         const WORKERS_ONLY = [
             '/api/stats/', '/api/signals/', '/api/admin/', '/api/calibration/', '/api/errors',
+            '/api/scanner/daily-trading',
         ];
         window.API_WORKERS_BASE = WORKERS_BASE;
         // Clerk 세션 토큰 게터 (auth.js 가 채워줌). 비로그인이면 null 반환.

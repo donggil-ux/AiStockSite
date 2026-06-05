@@ -31,6 +31,7 @@ import { calibrateAlgorithm } from './utils/calibration.js';
 import { logError, pruneOldErrors } from './utils/errors.js';
 import { snapshotHealth } from './cron.js';
 import { handleAdminStatus, handleAnalyzeNow } from './routes/admin.js';
+import { handleDailyTradingScan } from './routes/daily-scanner.js';
 import { checkPriceAlerts, earningsReminder, analyzeSignals, resolveSignals } from './cron.js';
 import { json, err } from './utils/validators.js';
 
@@ -112,6 +113,7 @@ const ROUTES = [
     ['GET',    '/api/calibration/status', handleCalibrationStatus],
     ['POST',   '/api/admin/calibrate',    handleCalibrateNow],
     ['POST',   '/api/admin/analyze-now',  handleAnalyzeNow],
+    ['GET',    '/api/scanner/daily-trading', handleDailyTradingScan],
     ['POST',   '/api/scanner/ai-analyze', handleScannerAiAnalyze],
     ['POST',   '/api/scanner/ai-batch',   handleScannerAiBatch],
     ['POST',   '/api/swing/ai-analyze',   handleSwingAiAnalyze],

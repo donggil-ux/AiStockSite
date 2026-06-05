@@ -1984,6 +1984,7 @@
             fav:           goFav,
             top100:        goTop100,
             catalyst:      goCatalyst,
+            dailyTrading:  goDailyTrading,
             leverage:      goLeverage,
         };
         const fn = map[dest];
@@ -2032,6 +2033,7 @@
         document.getElementById('mainContent').style.display = 'none';
         const _t100 = document.getElementById('top100Screen'); if (_t100) _t100.style.display = 'none';
         const _catH = document.getElementById('catalystScreen'); if (_catH) _catH.style.display = 'none';
+        const _dtsH = document.getElementById('dailyTradingScreen'); if (_dtsH) _dtsH.style.display = 'none';
         const _ernH = document.getElementById('earningsScreen'); if (_ernH) _ernH.style.display = 'none';
         const _levH = document.getElementById('leverageScreen'); if (_levH) _levH.style.display = 'none';
         const _posH = document.getElementById('positionScreen'); if (_posH) _posH.style.display = 'none';
@@ -3673,6 +3675,9 @@
         if (t) t.style.display = 'none';
         const q = document.getElementById('headerQNav');
         if (q) q.style.display = '';
+        // 데일리 트레이딩 스캐너 화면 숨김 (다른 화면으로 이동 시 겹침 방지)
+        const _dts = document.getElementById('dailyTradingScreen');
+        if (_dts) _dts.style.display = 'none';
     }
 
     function goSmartMoney() {
@@ -7058,6 +7063,7 @@
         const _levE = document.getElementById('leverageScreen'); if (_levE) _levE.style.display = 'none';
         const _t100E = document.getElementById('top100Screen'); if (_t100E) _t100E.style.display = 'none';
         const _catE  = document.getElementById('catalystScreen'); if (_catE) _catE.style.display = 'none';
+        const _dtsE = document.getElementById('dailyTradingScreen'); if (_dtsE) _dtsE.style.display = 'none';
         const ecoEl = document.getElementById('economicSection');
         if (ecoEl) ecoEl.style.display = 'none';
         const _posE = document.getElementById('positionScreen'); if (_posE) _posE.style.display = 'none';
@@ -7498,6 +7504,117 @@
         updateBnActive('all');
         loadCatalyst(false);
         try { window.scrollTo(0, 0); } catch(e){}
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // 데일리 트레이딩 스캐너 — 실시간 5/15분봉 매수·매도 후보 (A급 이상)
+    // ════════════════════════════════════════════════════════════════
+    window._dailyTf = window._dailyTf || '5m';
+    window._dailySide = window._dailySide || 'all';
+    window._dailyData = null;
+
+    function goDailyTrading() {
+        window._lastScreen = 'dailyTrading';
+        _restoreHeaderChrome();
+        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen']
+            .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+        const ecoEl = document.getElementById('economicSection'); if (ecoEl) ecoEl.style.display = 'none';
+        const thermoEl = document.getElementById('marketThermometer'); if (thermoEl) thermoEl.style.display = 'none';
+        const qnavEl = document.getElementById('headerQNav'); if (qnavEl) qnavEl.style.display = 'none';
+        document.getElementById('mainContent').style.display = 'none';
+        document.getElementById('dailyTradingScreen').style.display = '';  // _restoreHeaderChrome 가 숨긴 뒤 다시 표시
+        window._vsActive = false;
+        document.getElementById('mainHeader')?.classList.remove('stock-loaded');
+        const _fab = document.getElementById('calcFab'); if (_fab) _fab.style.display = 'none';
+        document.getElementById('stockHero').classList.remove('show');
+        document.getElementById('tabNav').classList.remove('show');
+        document.querySelectorAll('.side-nav-item').forEach(b => b.classList.remove('active'));
+        document.getElementById('sideNavDailyBtn')?.classList.add('active');
+        updateBnActive('all');
+        try { _pushRoute('dailyTrading'); } catch(e){}
+        loadDailyTrading(false);
+        try { window.scrollTo(0, 0); } catch(e){}
+    }
+
+    function _dailySetTf(tf) {
+        window._dailyTf = tf;
+        document.querySelectorAll('#dailyTradingScreen .catalyst-tab').forEach(b =>
+            b.classList.toggle('active', b.dataset.dtf === tf));
+        loadDailyTrading(false); // tf 변경 → 재조회
+    }
+    function _dailySetSide(side) {
+        window._dailySide = side;
+        document.querySelectorAll('#dailyTradingScreen .catalyst-filter').forEach(b =>
+            b.classList.toggle('active', b.dataset.dside === side));
+        _renderDailyTrading(); // 필터만 → 재렌더
+    }
+
+    async function loadDailyTrading(force) {
+        const list = document.getElementById('dailyList');
+        if (!list) return;
+        const tf = window._dailyTf || '5m';
+        const cKey = `stockai_daily_${tf}`;
+        if (!force) {
+            try {
+                const hit = JSON.parse(sessionStorage.getItem(cKey));
+                if (hit && Date.now() - hit.ts < 90_000) { window._dailyData = hit.data; _renderDailyTrading(); return; }
+            } catch(_) {}
+        }
+        list.innerHTML = '<div class="catalyst-loading">' + tf.replace('m','분봉') + ' 실시간 스캔 중...</div>';
+        const btn = document.getElementById('dailyRefreshBtn');
+        if (btn) btn.disabled = true;
+        try {
+            const r = await fetch(`/api/scanner/daily-trading?market=US&tf=${tf}`);
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const d = await r.json();
+            window._dailyData = d;
+            try { sessionStorage.setItem(cKey, JSON.stringify({ ts: Date.now(), data: d })); } catch(_) {}
+            _renderDailyTrading();
+        } catch(e) {
+            list.innerHTML = `<div class="catalyst-loading">스캔 실패: ${escHtml(e.message || '')}</div>`;
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    function _renderDailyTrading() {
+        const list = document.getElementById('dailyList');
+        const d = window._dailyData;
+        if (!list || !d) return;
+        const upd = document.getElementById('dailyUpdated');
+        if (upd) upd.textContent = `${d.totalScanned||0}종목 · ${new Date(d.scannedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
+        const side = window._dailySide || 'all';
+        const rows = (d.results || []).filter(r => side === 'all' || r.dir === side);
+        if (!rows.length) {
+            list.innerHTML = `<div class="catalyst-loading" style="padding:32px 16px;line-height:1.6;">조건을 충족하는 종목이 없습니다.<br><span style="font-size:12px;color:var(--text3)">A급 이상 + 거래량 받쳐주는 후보는 장중에 실시간으로 갱신됩니다.</span></div>`;
+            return;
+        }
+        const sigPill = (f) => `<span class="alpha-sig-pill alpha-sig--blue">${escHtml(f)}</span>`;
+        list.innerHTML = rows.map((r, idx) => {
+            const isBuy = r.dir === 'buy';
+            const dirBg = isBuy ? '#FFD400' : '#22C55E';
+            const dirTx = isBuy ? '#000' : '#fff';
+            const dirLabel = isBuy ? '📈 매수' : '📉 매도';
+            const gradeColor = r.grade === 'S' ? '#FFD60A' : '#22C55E';
+            return `<div class="catalyst-card" onclick="quickSearch('${escHtml(r.symbol)}','US')">
+                <div class="catalyst-card-head">
+                    <div class="catalyst-rank">${idx + 1}</div>
+                    <div class="catalyst-id">
+                        <div class="catalyst-sym">${escHtml(r.symbol)}
+                            <span style="display:inline-block;padding:2px 7px;border-radius:6px;background:${dirBg};color:${dirTx};font-size:10px;font-weight:800;margin-left:4px;">${dirLabel}</span>
+                        </div>
+                        <div class="catalyst-name">승률 ${r.winRate}% · RSI ${r.rsi} · 거래량 ${r.rvol}x</div>
+                    </div>
+                    <div class="catalyst-grade" style="background:${gradeColor};color:#000">${escHtml(r.grade)} · ${r.score}</div>
+                </div>
+                <div class="catalyst-meta-row">
+                    <span class="catalyst-meta-cell">💰 $${(r.price||0).toFixed(2)}</span>
+                    <span class="catalyst-meta-cell">📊 거래량 ${r.rvol}x</span>
+                    <span class="catalyst-meta-cell">📐 RSI ${r.rsi}</span>
+                </div>
+                <div class="alpha-signals">${(r.factors||[]).map(sigPill).join('')}</div>
+            </div>`;
+        }).join('');
     }
 
     // ════════════════════════════════════════════════════════════════

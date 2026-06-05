@@ -6361,6 +6361,7 @@
         _xcCloseSymbolModal, _xcSymbolSearch, _xcSymbolKeydown,
         _xcToggleSync, _xcOpenSyncPopover, _xcUpdateSyncUi,
         favSearch, removeFavorite, setTop100Filter, goTop100, goCatalyst, loadCatalyst, _catalystSetFilter, switchCatalystTab, loadVolumeSurge, loadMinervini,
+        goDailyTrading, _dailySetTf, _dailySetSide, loadDailyTrading,
         goProfile, _renderProfileScreen, _profileStatCell,
         _runCatalystAi, _renderCatalystAiExpanded,
         _runScannerAi, _renderScannerAiResult, _alphaAutoBatchAi, _renderAlphaAiMini,

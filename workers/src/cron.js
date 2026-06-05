@@ -6,6 +6,12 @@ import { fetchChartWithFallback } from './routes/yahoo.js';
 import { logError } from './utils/errors.js';
 import { loadAlgorithmConfig, loadBlacklist } from './utils/calibration.js';
 
+// 기본 유니버스 — cron 시그널 분석 + 데일리 트레이딩 스캐너 공용
+export const DEFAULT_UNIVERSE_US = ['NVDA','AAPL','MSFT','AMZN','GOOGL','META','TSLA','AVGO','AMD','NFLX',
+    'PLTR','SMCI','MSTR','COIN','HOOD','RBLX','SHOP','SOFI','RKLB','MARA'];
+export const DEFAULT_UNIVERSE_KR = ['005930.KS','035720.KS','035420.KS','000660.KS','005380.KS',
+    '068270.KS','051910.KS','017670.KS','105560.KS','055550.KS'];
+
 // ─────────────────────────────────────────────────────────────
 // 조용 시간대 (Quiet Hours) — 사용자별 야간 음소거
 // quiet JSON: { enabled: 1, start: 22, end: 7, tz_offset_min: 540 }
@@ -304,7 +310,7 @@ export async function resolveSignals(env) {
  * most_actives(거래량 상위) + day_gainers(상승률 상위) → 단타 적합 종목.
  * 가격/유동성 필터로 페니주·저유동성 제외. US 한정(1차).
  */
-async function _fetchDiscoverySymbols(env, marketHint) {
+export async function _fetchDiscoverySymbols(env, marketHint) {
     if (marketHint === 'KR') return []; // KR 스크리너 추후
     const base = 'https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved'
         + '?formatted=false&lang=en-US&region=US&count=30&scrIds=';
@@ -365,10 +371,7 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
         // 즐겨찾기 + 기본 풀 합치기 (즐겨찾기 우선)
         // 기본 풀 종목은 시그널 발견 시 signal_history 에 INSERT 만 (푸시는 즐겨찾기 한정)
         // → 백테스트 / 시그널 통계 페이지에 누적 데이터 확보 + 푸시 스팸 방지
-        const DEFAULT_UNIVERSE = marketHint === 'KR'
-            ? ['005930.KS','035720.KS','035420.KS','000660.KS','005380.KS','068270.KS','051910.KS','017670.KS','105560.KS','055550.KS']
-            : ['NVDA','AAPL','MSFT','AMZN','GOOGL','META','TSLA','AVGO','AMD','NFLX',
-               'PLTR','SMCI','MSTR','COIN','HOOD','RBLX','SHOP','SOFI','RKLB','MARA'];
+        const DEFAULT_UNIVERSE = marketHint === 'KR' ? DEFAULT_UNIVERSE_KR : DEFAULT_UNIVERSE_US;
         const favSymbols = [...symbolToSubs.keys()];
         const favSet = new Set(favSymbols);
         // 디스커버리 — 당일 활발 종목 동적 발굴 (US)
