@@ -87,7 +87,7 @@ export async function handleDailyTradingScan(req, env) {
             market,
             scannedAt: Date.now(),
         };
-        env.CACHE.put(cacheKey, JSON.stringify(payload), { expirationTtl: CACHE_TTL }).catch(() => {});
+        try { await env.CACHE.put(cacheKey, JSON.stringify(payload), { expirationTtl: CACHE_TTL }); } catch (_) {}
         return json(payload);
     } catch (e) {
         return err(500, e.message);
