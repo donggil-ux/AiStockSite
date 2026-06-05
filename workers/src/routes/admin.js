@@ -1,6 +1,23 @@
 // 운영 모니터링 API — D1/KV 상태, cron 통계, 사용량 요약
 import { json, err } from '../utils/validators.js';
 import { requireAdmin } from '../utils/admin-auth.js';
+import { analyzeSignals } from '../cron.js';
+
+/**
+ * POST /api/admin/analyze-now?market=US
+ * analyzeSignals 수동 트리거 (QA·점검용). 장 마감 시간에도 발굴·분석 동작 확인.
+ * 반환: { subscribers, symbols, favSymbols, dynamic, analyzed, fired, skippedBlacklist }
+ */
+export async function handleAnalyzeNow(req, env) {
+    if (!(await requireAdmin(req, env))) return err(401, 'admin auth required');
+    try {
+        const market = new URL(req.url).searchParams.get('market') || 'US';
+        const result = await analyzeSignals(env, market);
+        return json({ ok: true, market, result });
+    } catch (e) {
+        return err(500, e.message);
+    }
+}
 
 /**
  * GET /api/admin/status

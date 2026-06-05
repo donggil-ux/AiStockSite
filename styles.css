@@ -2294,6 +2294,21 @@
             #mainHeader.stock-loaded #headerLogo{display:none;}
             #mainHeader.stock-loaded .mob-stock-name{display:flex;align-items:center;justify-content:center;gap:5px;flex:1;font-size:15px;font-weight:700;color:var(--text);overflow:hidden;white-space:nowrap;}
 
+            /* ----- 차트 탭: 모바일 좌우 여백 16px 정렬 -----
+               .card 류는 이미 #tabChart .card{margin:2px 16px} 로 16px 인셋됨.
+               아래 비-card 최상위 요소만 16px 가로 마진을 줘서 차트 카드와 동일선상 정렬 */
+            .chart-full-col > #myPositionSlot .mypos-card,
+            .chart-full-col > .group-nav,
+            .chart-full-col > .chart-pager-inline,
+            .chart-full-col > .analysis-group{margin-left:16px;margin-right:16px;}
+            /* 인셋된 그룹 내부 카드는 그룹이 이미 16px 인셋 → 가로 마진 0 (32px 중복 방지)
+               #tabChart .card{margin:2px 16px}(특이도 1,1,0)를 이기려면 ID 포함 필요 */
+            #tabChart .chart-full-col > .analysis-group .card{margin-left:0;margin-right:0;}
+            /* 갱신 상태바 텍스트도 16px 정렬 */
+            .chart-full-col > .analysis-refresh-bar{padding-left:16px;padding-right:16px;}
+            /* 차트 카드는 좌우 여백 없이 full-bleed (#tabChart .card{margin:2px 16px} 무력화) */
+            #tabChart #tvChartCard{margin-left:0;margin-right:0;}
+
             /* ----- Welcome screen ----- */
             .welcome-top{padding:50px 16px 32px;}
             .welcome-screen h2{font-size:22px;}
