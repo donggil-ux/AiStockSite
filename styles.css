@@ -7423,6 +7423,9 @@
 .catalyst-title{font-size:13px;color:var(--text2);margin-bottom:8px;line-height:1.5;font-weight:500;}
 /* 데일리 트레이딩 헤더 제목 — 카드용 .catalyst-title(500)에 덮이지 않게 ID로 700 볼드 고정 */
 #dailyTradingScreen .catalyst-header .catalyst-title{font-size:20px;font-weight:700;color:var(--text1);margin-bottom:0;}
+/* 카탈리스트 스캐너 헤더 — 제목 700 볼드 + 스캔메타/새로고침 버튼 제거 */
+#catalystScreen .catalyst-header .catalyst-title{font-size:20px;font-weight:700;color:var(--text1);}
+#catalystScreen .catalyst-meta{display:none;}
 .catalyst-tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;}
 .catalyst-tag{font-size:10px;font-family:var(--font-data);padding:3px 8px;border-radius:var(--radius-xs);background:rgba(0,128,251,0.10);color:var(--blue);border:1px solid rgba(0,128,251,0.22);font-weight:600;letter-spacing:-0.01em;}
 [data-theme="dark"] .catalyst-tag{color:var(--blue);background:rgba(0,128,251,0.12);}
