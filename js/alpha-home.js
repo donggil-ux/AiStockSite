@@ -2019,7 +2019,17 @@
 
     function goHome() {
         window._lastScreen = 'home';
-        history.replaceState({ view: 'home' }, '', '/');
+        // URL 정리하되 Clerk 인증 핸드셰이크 파라미터(__clerk_db_jwt 등)는 보존
+        // → 안 그러면 dev 인스턴스 배포 도메인에서 세션이 새로고침 시 풀림
+        try {
+            const u = new URL(location.href);
+            const keep = [...u.searchParams].filter(([k]) =>
+                k.startsWith('__clerk') || k.startsWith('__dev') || k === '__session');
+            const qs = keep.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+            history.replaceState({ view: 'home' }, '', qs ? ('/?' + qs) : '/');
+        } catch (_) {
+            history.replaceState({ view: 'home' }, '', '/');
+        }
         const _t = document.getElementById('marketThermometer');
         if (_t && _t.innerHTML.trim()) _t.style.display = '';
         const _q = document.getElementById('headerQNav');
