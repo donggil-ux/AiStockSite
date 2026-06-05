@@ -3735,8 +3735,10 @@
         document.querySelectorAll('.side-nav-item').forEach(b => b.classList.remove('active'));
         updateBnActive('scanner');
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        // 새 알파 스캐너 — 현재 활성 탭의 데이터 로드
-        _alphaSwitchTab(_alphaTab || 'bounce');
+        // 진입 시 항상 맨 왼쪽 탭(과매도)으로 초기화 + 탭 바 왼쪽으로 스크롤
+        _alphaSwitchTab('bounce');
+        const _at = document.getElementById('alphaTabs');
+        if (_at) { _at.scrollLeft = 0; requestAnimationFrame(() => { _at.scrollLeft = 0; }); }
     }
 
     // ═══════════════════════════════════════════════════════════
