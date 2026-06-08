@@ -254,7 +254,7 @@ export function smartDipScanBounce(q, { ts = [], lookback, measuredWin = null } 
 // 과거 데이터 백테스트 — 각 봉에서 신호 발생 시 진입, 이후 HORIZON 봉 내
 // 목표(2R) 도달 vs 손절(-1R) 도달을 시뮬레이션. 봉별 독립 평가(중복 쿨다운).
 // @returns { trades:[{grade,dir,outcome,R}], byGrade:{S,A,B:{n,win,avgR}} }
-export function smartDipBacktest(q, { interval = '5m', spxTrendUp = null, horizon, targetR = TARGET1_R, mode = 'trend', exit = 'fixed', vwapArr = null } = {}) {
+export function smartDipBacktest(q, { interval = '5m', spxTrendUp = null, horizon, targetR = TARGET1_R, mode = 'trend', exit = 'fixed', vwapArr = null, ts = null, skipMidday = false } = {}) {
     const { close = [], high = [], low = [] } = q;
     const N = close.length;
     const trades = [];
@@ -266,6 +266,12 @@ export function smartDipBacktest(q, { interval = '5m', spxTrendUp = null, horizo
 
     for (let i = 60; i < N - 2; i++) {
         if (i < cooldownUntil) continue;
+        // 시간대 필터 — 점심 횡보(15:30~18:30 UTC) 진입 제외
+        if (skipMidday && ts && ts[i]) {
+            const d = new Date(ts[i] * 1000);
+            const m = d.getUTCHours() * 60 + d.getUTCMinutes();
+            if (m >= 930 && m < 1110) continue;
+        }
         let best = null, dir = null, gradeFn = gradeOf;
         if (mode === 'bounce') {
             const b = evalBounce(q, ind, i);
@@ -282,56 +288,66 @@ export function smartDipBacktest(q, { interval = '5m', spxTrendUp = null, horizo
         const lv = tradeLevels(dir, entry, ind.atrArr[i]);
         if (!lv) continue;
         const last = Math.min(N - 1, i + H);
-        let outcome = 'timeout', exitR = 0;
 
-        if (exit === 'trail') {
-            // 트레일링 스톱: +1R 도달 시 본전 이동, 이후 최고점 대비 1.2ATR 추적.
-            let stop = lv.stop, beMoved = false;
-            let peak = entry; // buy=최고가, sell=최저가
-            const trailDist = lv.stopDist;
-            for (let j = i + 1; j <= last; j++) {
-                const hi = high[j], lo = low[j];
-                if (hi == null || lo == null) continue;
-                // 1) 먼저 현재 스톱 히트 검사 (보수적)
-                if (dir === 'buy' ? (lo <= stop) : (hi >= stop)) {
-                    exitR = ((dir === 'buy' ? (stop - entry) : (entry - stop)) / lv.stopDist);
-                    outcome = exitR >= 0 ? 'win' : 'loss'; break;
-                }
-                // 2) 본전 이동 (+1R 도달)
-                if (!beMoved && (dir === 'buy' ? (hi >= entry + lv.stopDist) : (lo <= entry - lv.stopDist))) {
-                    stop = entry; beMoved = true;
-                }
-                // 3) 트레일 (본전 이동 후 최고점 추적)
-                if (beMoved) {
-                    if (dir === 'buy') { peak = Math.max(peak, hi); stop = Math.max(stop, peak - trailDist); }
-                    else               { peak = Math.min(peak, lo); stop = Math.min(stop, peak + trailDist); }
-                }
-            }
-            if (outcome === 'timeout') {
-                const ex = close[last];
-                exitR = +(((dir === 'buy' ? (ex - entry) : (entry - ex)) / lv.stopDist)).toFixed(2);
-            } else exitR = +exitR.toFixed(2);
+        let exitR, outcome;
+        if (exit === 'hybrid') {
+            // 50% 고정 2R 익절 + 50% 트레일링 — 두 포지션 평균 R
+            const r1 = _simFixed(dir, entry, lv, i, last, high, low, close, 2);
+            const r2 = _simTrail(dir, entry, lv, i, last, high, low, close);
+            exitR = +(0.5 * r1.R + 0.5 * r2.R).toFixed(2);
+            outcome = exitR > 0.05 ? 'win' : exitR < -0.05 ? 'loss' : 'timeout';
+        } else if (exit === 'trail') {
+            const r = _simTrail(dir, entry, lv, i, last, high, low, close);
+            exitR = +r.R.toFixed(2); outcome = r.outcome;
         } else {
-            // 고정 목표(targetR) vs 손절(-1R)
-            const tgt = dir === 'buy' ? entry + lv.stopDist * targetR : entry - lv.stopDist * targetR;
-            for (let j = i + 1; j <= last; j++) {
-                const hi = high[j], lo = low[j];
-                if (hi == null || lo == null) continue;
-                if (dir === 'buy') {
-                    if (lo <= lv.stop) { outcome = 'loss'; exitR = -1; break; }
-                    if (hi >= tgt)     { outcome = 'win';  exitR =  targetR; break; }
-                } else {
-                    if (hi >= lv.stop) { outcome = 'loss'; exitR = -1; break; }
-                    if (lo <= tgt)     { outcome = 'win';  exitR =  targetR; break; }
-                }
-            }
-            if (outcome === 'timeout') {
-                const ex = close[last];
-                exitR = +(((dir === 'buy' ? (ex - entry) : (entry - ex)) / lv.stopDist)).toFixed(2);
-            }
+            const r = _simFixed(dir, entry, lv, i, last, high, low, close, targetR);
+            exitR = +r.R.toFixed(2); outcome = r.outcome;
         }
-        trades.push({ grade: gradeFn(best.qs), dir, outcome, R: exitR });
+        // 기간 버킷 (교차검증) — 진입 봉 위치로 초/중/후반 3등분
+        const bucket = Math.min(2, Math.max(0, Math.floor((i - 60) / Math.max(1, (N - 62) / 3))));
+        trades.push({ grade: gradeFn(best.qs), dir, outcome, R: exitR, bucket });
         cooldownUntil = i + Math.ceil(H / 3); // 신호 중복 방지
     }
     return { trades };
+}
+
+// 고정 목표 청산 시뮬레이션 — 목표(targetR) vs 손절(-1R), 동일봉이면 손절 우선
+function _simFixed(dir, entry, lv, i, last, high, low, close, targetR) {
+    const tgt = dir === 'buy' ? entry + lv.stopDist * targetR : entry - lv.stopDist * targetR;
+    for (let j = i + 1; j <= last; j++) {
+        const hi = high[j], lo = low[j];
+        if (hi == null || lo == null) continue;
+        if (dir === 'buy') {
+            if (lo <= lv.stop) return { R: -1, outcome: 'loss' };
+            if (hi >= tgt)     return { R: targetR, outcome: 'win' };
+        } else {
+            if (hi >= lv.stop) return { R: -1, outcome: 'loss' };
+            if (lo <= tgt)     return { R: targetR, outcome: 'win' };
+        }
+    }
+    const ex = close[last];
+    return { R: (dir === 'buy' ? (ex - entry) : (entry - ex)) / lv.stopDist, outcome: 'timeout' };
+}
+
+// 트레일링 청산 시뮬레이션 — +1R 본전 이동 후 최고점 대비 1.2ATR 추적
+function _simTrail(dir, entry, lv, i, last, high, low, close) {
+    let stop = lv.stop, beMoved = false, peak = entry;
+    const trailDist = lv.stopDist;
+    for (let j = i + 1; j <= last; j++) {
+        const hi = high[j], lo = low[j];
+        if (hi == null || lo == null) continue;
+        if (dir === 'buy' ? (lo <= stop) : (hi >= stop)) {
+            const R = (dir === 'buy' ? (stop - entry) : (entry - stop)) / lv.stopDist;
+            return { R, outcome: R >= 0 ? 'win' : 'loss' };
+        }
+        if (!beMoved && (dir === 'buy' ? (hi >= entry + lv.stopDist) : (lo <= entry - lv.stopDist))) {
+            stop = entry; beMoved = true;
+        }
+        if (beMoved) {
+            if (dir === 'buy') { peak = Math.max(peak, hi); stop = Math.max(stop, peak - trailDist); }
+            else               { peak = Math.min(peak, lo); stop = Math.min(stop, peak + trailDist); }
+        }
+    }
+    const ex = close[last];
+    return { R: (dir === 'buy' ? (ex - entry) : (entry - ex)) / lv.stopDist, outcome: 'timeout' };
 }

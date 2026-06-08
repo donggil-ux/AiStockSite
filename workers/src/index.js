@@ -173,7 +173,7 @@ export default {
                 // 데일리 트레이딩 트레일링 백테스트 갱신 — 스캐너 실측 승률 최신 유지
                 (async () => {
                     for (const tf of ['5m', '15m']) {
-                        try { await handleDailyBacktest(new Request(`https://x/api/scanner/daily-backtest?tf=${tf}&exit=trail&force=1`), env); } catch (_) {}
+                        try { await handleDailyBacktest(new Request(`https://x/api/scanner/daily-backtest?tf=${tf}&exit=trail&skipmid=1&force=1`), env); } catch (_) {}
                     }
                 })().then(() => console.log('[cron] backtest refreshed')),
             ];
