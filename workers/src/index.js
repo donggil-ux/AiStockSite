@@ -30,8 +30,9 @@ import { handleCatalystAiAnalyze } from './routes/ai-catalyst.js';
 import { calibrateAlgorithm } from './utils/calibration.js';
 import { logError, pruneOldErrors } from './utils/errors.js';
 import { snapshotHealth } from './cron.js';
-import { handleAdminStatus, handleAnalyzeNow, handleDtForwardTest } from './routes/admin.js';
+import { handleAdminStatus, handleAnalyzeNow, handleDtForwardTest, handleCatForwardTest } from './routes/admin.js';
 import { handleDailyTradingScan, handleDailyBacktest, handleDailyLiveStats, captureDailySignals, resolveDailySignals } from './routes/daily-scanner.js';
+import { handleCatalystLiveStats, captureCatalystSignals, resolveCatalystSignals } from './routes/catalyst-track.js';
 import { checkPriceAlerts, earningsReminder, analyzeSignals, resolveSignals } from './cron.js';
 import { json, err } from './utils/validators.js';
 
@@ -114,9 +115,11 @@ const ROUTES = [
     ['POST',   '/api/admin/calibrate',    handleCalibrateNow],
     ['POST',   '/api/admin/analyze-now',  handleAnalyzeNow],
     ['POST',   '/api/admin/dt-forwardtest', handleDtForwardTest],
+    ['POST',   '/api/admin/cat-forwardtest', handleCatForwardTest],
     ['GET',    '/api/scanner/daily-trading', handleDailyTradingScan],
     ['GET',    '/api/scanner/daily-backtest', handleDailyBacktest],
     ['GET',    '/api/scanner/daily-livestats', handleDailyLiveStats],
+    ['GET',    '/api/catalyst/livestats', handleCatalystLiveStats],
     ['POST',   '/api/scanner/ai-analyze', handleScannerAiAnalyze],
     ['POST',   '/api/scanner/ai-batch',   handleScannerAiBatch],
     ['POST',   '/api/swing/ai-analyze',   handleSwingAiAnalyze],
@@ -163,12 +166,16 @@ export default {
             // 09시 실적 리마인더만 (00시 한국 시그널 cron 과 충돌 방지 — 동시에 fire)
             ctx.waitUntil(earningsReminder(env).then(r => console.log('[cron] earnings', r)));
         }
-        // 매시 :30 — 시그널 결과 매칭 (정확도 추적용) + 데일리 forward-test 해소
+        // 매시 :30 — 시그널 결과 매칭 + 데일리 forward-test 해소 + 카탈리스트 캡처(미국 시간대)
         if (cron === '30 * * * *') {
-            ctx.waitUntil(Promise.all([
+            const jobs = [
                 resolveSignals(env).then(r => console.log('[cron] resolve', r)),
                 resolveDailySignals(env).then(r => console.log('[cron] dt-resolve', r)),
-            ]));
+            ];
+            // 미국 프리장~본장(UTC 11~21시)에만 카탈리스트 신호 캡처 (종목당 1일 1회)
+            const h = new Date(event.scheduledTime || Date.now()).getUTCHours();
+            if (h >= 11 && h <= 21) jobs.push(captureCatalystSignals(env).then(r => console.log('[cron] cat-capture', r)));
+            ctx.waitUntil(Promise.all(jobs));
         }
         // 매일 00:05 — 일별 헬스 스냅샷 + 30일+ 에러 정리 + (일요일이면) 알고리즘 자동 보정
         if (cron === '5 0 * * *') {
@@ -185,6 +192,11 @@ export default {
                 env.DB.prepare('DELETE FROM dt_signals WHERE resolved=1 AND resolved_at < ?')
                     .bind(Date.now() - 180 * 24 * 3600 * 1000).run()
                     .then(r => console.log('[cron] dt-prune', r?.meta?.changes ?? 0)).catch(() => {}),
+                // 카탈리스트 forward-test 해소 (1일/3일 수익률) + 180일+ 정리
+                resolveCatalystSignals(env).then(r => console.log('[cron] cat-resolve', r)).catch(() => {}),
+                env.DB.prepare('DELETE FROM catalyst_signals WHERE resolved=1 AND resolved_at < ?')
+                    .bind(Date.now() - 180 * 24 * 3600 * 1000).run()
+                    .then(r => console.log('[cron] cat-prune', r?.meta?.changes ?? 0)).catch(() => {}),
             ];
             // 일요일 (getUTCDay === 0) 이면 알고리즘 보정도 함께 실행
             if (new Date(event.scheduledTime || Date.now()).getUTCDay() === 0) {

@@ -3,6 +3,7 @@ import { json, err } from '../utils/validators.js';
 import { requireAdmin } from '../utils/admin-auth.js';
 import { analyzeSignals } from '../cron.js';
 import { captureDailySignals, resolveDailySignals } from './daily-scanner.js';
+import { captureCatalystSignals, resolveCatalystSignals } from './catalyst-track.js';
 
 /**
  * POST /api/admin/dt-forwardtest — 데일리 forward-test 캡처+해소 수동 트리거 (QA용)
@@ -12,6 +13,20 @@ export async function handleDtForwardTest(req, env) {
     try {
         const cap = await captureDailySignals(env);
         const res = await resolveDailySignals(env);
+        return json({ ok: true, capture: cap, resolve: res });
+    } catch (e) {
+        return err(500, e.message);
+    }
+}
+
+/**
+ * POST /api/admin/cat-forwardtest — 카탈리스트 forward-test 캡처+해소 수동 트리거 (QA용)
+ */
+export async function handleCatForwardTest(req, env) {
+    if (!(await requireAdmin(req, env))) return err(401, 'admin auth required');
+    try {
+        const cap = await captureCatalystSignals(env);
+        const res = await resolveCatalystSignals(env);
         return json({ ok: true, capture: cap, resolve: res });
     } catch (e) {
         return err(500, e.message);

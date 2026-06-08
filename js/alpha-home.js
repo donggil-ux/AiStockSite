@@ -8053,6 +8053,10 @@
             const d = await r.json();
             _catalystData = d;
             _renderCatalyst(d);
+            // 점수 예측력 실측 통계 (비차단)
+            fetch('/api/catalyst/livestats').then(x => x.ok ? x.json() : null).then(ls => {
+                if (ls) { window._catLiveStats = ls; _renderCatalyst(_catalystData); }
+            }).catch(()=>{});
             const upd = document.getElementById('catalystUpdated');
             if (upd && d.scannedAt) {
                 const dt = new Date(d.scannedAt);
@@ -8347,7 +8351,21 @@
         // 푸터: 제외된 종목 통계 (v666)
         const ex = d._exclusion;
         const exFooter = ex ? `<div class="catalyst-footer">✅ OTC ${ex.otc||0} · SPAC ${ex.spac||0} · 상장폐지·정지 ${(ex.delisted||0)+(ex.halted||0)+(ex.badExchange||0)} · 추격(+10%↑) ${ex.alreadyMoved||0} 자동 제외됨</div>` : '';
-        el.innerHTML = cardsHtml + exFooter;
+        // 점수 예측력 실측 배너 (forward-test) — 점수↑ 가 실제 수익↑ 인가
+        let liveBanner = '';
+        const ls = window._catLiveStats;
+        if (ls) {
+            const o = ls.overall;
+            if (o && o.n >= 1) {
+                const b = ls.byBucket || {};
+                const seg = (lbl, x) => (x && x.n >= 3) ? `${lbl} <b class="${x.avgRet1d>0?'up':x.avgRet1d<0?'down':''}">${x.avgRet1d>=0?'+':''}${x.avgRet1d}%</b>` : '';
+                const parts = [seg('🚨긴급', b.urgent), seg('🔴강한', b.strong), seg('🟠관심', b.watch)].filter(Boolean).join(' · ');
+                liveBanner = `<div class="dt-live">📊 점수 검증 (1일 수익률, ${o.n}건) ${parts || `평균 <b class="${o.avgRet1d>0?'up':'down'}">${o.avgRet1d>=0?'+':''}${o.avgRet1d}%</b>`}${ls.open?` <span class="dt-live-open">(추적중 ${ls.open})</span>`:''}</div>`;
+            } else if (ls.open >= 1) {
+                liveBanner = `<div class="dt-live">📊 점수 예측력 검증 시작 — 추적중 <b>${ls.open}건</b> · 1~3일 후 실제 수익률로 점수가 맞는지 표시됩니다</div>`;
+            }
+        }
+        el.innerHTML = liveBanner + cardsHtml + exFooter;
     }
 
 
