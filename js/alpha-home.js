@@ -7672,17 +7672,17 @@
                         <div class="catalyst-sym">${escHtml(r.symbol)}
                             <span style="display:inline-block;padding:2px 7px;border-radius:6px;background:${dirBg};color:${dirTx};font-size:10px;font-weight:800;margin-left:4px;">${dirLabel}</span>${bounceBadge}${warnBadge}
                         </div>
-                        <div class="catalyst-name">승률 ${r.winRate}%${r.winMeasured ? ' <span style="color:var(--green)">실측</span>' : ''} · 손익비 1:2 · RSI ${r.rsi}</div>
+                        <div class="catalyst-name">승률 ${r.winRate}%${r.winMeasured ? ' <span style="color:var(--green)">실측</span>' : ''} · 트레일링 청산 · RSI ${r.rsi}</div>
                     </div>
                     <div class="catalyst-grade" style="background:${gradeColor};color:#000">${escHtml(r.grade)} · ${r.score}</div>
                 </div>
                 ${qPills.length ? `<div class="alpha-signals" style="margin-bottom:8px">${qPills.join('')}</div>` : ''}
-                ${(r.stop != null && r.target1 != null) ? `
+                ${(r.stop != null && r.be != null) ? `
                 <div class="dt-plan">
                     <div class="dt-plan-cell"><span class="dt-plan-lbl">진입</span><b>$${(r.price||0).toFixed(2)}</b></div>
                     <div class="dt-plan-cell dt-plan-stop"><span class="dt-plan-lbl">손절</span><b>$${r.stop.toFixed(2)}</b><span class="dt-plan-r">-${r.riskPct}%</span></div>
-                    <div class="dt-plan-cell dt-plan-tgt"><span class="dt-plan-lbl">목표 2R</span><b>$${r.target1.toFixed(2)}</b></div>
-                    <div class="dt-plan-cell dt-plan-tgt"><span class="dt-plan-lbl">3R</span><b>$${r.target2.toFixed(2)}</b></div>
+                    <div class="dt-plan-cell dt-plan-be"><span class="dt-plan-lbl">본전이동 +1R</span><b>$${r.be.toFixed(2)}</b></div>
+                    <div class="dt-plan-cell dt-plan-tgt"><span class="dt-plan-lbl">이후 트레일</span><b>1.2 ATR</b></div>
                 </div>` : ''}
                 <div class="alpha-signals">${(r.factors||[]).map(sigPill).join('')}</div>
             </div>`;

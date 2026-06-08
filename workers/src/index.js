@@ -170,6 +170,12 @@ export default {
             const tasks = [
                 snapshotHealth(env).then(r => console.log('[cron] health', r)),
                 pruneOldErrors(env).then(r => console.log('[cron] prune', r)),
+                // 데일리 트레이딩 트레일링 백테스트 갱신 — 스캐너 실측 승률 최신 유지
+                (async () => {
+                    for (const tf of ['5m', '15m']) {
+                        try { await handleDailyBacktest(new Request(`https://x/api/scanner/daily-backtest?tf=${tf}&exit=trail&force=1`), env); } catch (_) {}
+                    }
+                })().then(() => console.log('[cron] backtest refreshed')),
             ];
             // 일요일 (getUTCDay === 0) 이면 알고리즘 보정도 함께 실행
             if (new Date(event.scheduledTime || Date.now()).getUTCDay() === 0) {

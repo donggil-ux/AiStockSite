@@ -141,6 +141,28 @@ export function calcADX(highs, lows, closes, period = 14) {
     return adx;
 }
 
+// VWAP 봉별 시계열 — 거래일(UTC 날짜)별로 누적 리셋. ts(초) 로 일자 경계 감지.
+// 일중 VWAP 은 매 세션 0시 리셋이 정석이므로 단순 누적(calcVWAP)과 다름.
+export function calcVWAPSeries(q, ts) {
+    const { high = [], low = [], close = [], volume = [] } = q;
+    const n = close.length;
+    const out = new Array(n).fill(null);
+    let pv = 0, vol = 0, curDay = null;
+    for (let i = 0; i < n; i++) {
+        const t = ts && ts[i] ? ts[i] : null;
+        // UTC 날짜(일수) 로 세션 경계 — 날짜 바뀌면 누적 리셋
+        const day = t != null ? Math.floor(t / 86400) : curDay;
+        if (curDay === null) curDay = day;
+        else if (day !== curDay) { pv = 0; vol = 0; curDay = day; }
+        const h = high[i], l = low[i], c = close[i], v = volume[i];
+        if (h == null || l == null || c == null || v == null || v <= 0) { out[i] = vol > 0 ? pv / vol : null; continue; }
+        pv += ((h + l + c) / 3) * v;
+        vol += v;
+        out[i] = vol > 0 ? pv / vol : null;
+    }
+    return out;
+}
+
 // ADX 봉별 시계열 — close 배열과 인덱스 정렬(워밍업 구간 null). 백테스트·봉별 평가용.
 export function calcADXSeries(highs, lows, closes, period = 14) {
     const n = closes.length;

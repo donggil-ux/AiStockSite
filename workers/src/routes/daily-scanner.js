@@ -5,7 +5,7 @@
 //   buy  = 상승추세 눌림목 진입 / sell = 하락추세 반등 소진 진입
 //   8개 필터(ADX·HTF추세·거래량회복·양봉/음봉·ATR·SPX환경·RSI·장초반) 통과 종목만.
 import { json, err } from '../utils/validators.js';
-import { calcVWAP } from '../utils/indicators.js';
+import { calcVWAP, calcVWAPSeries } from '../utils/indicators.js';
 import { smartDipScan, smartDipScanBounce, smartDipBacktest } from '../utils/smart-dip.js';
 import { fetchChartWithFallback } from './yahoo.js';
 import { getMarketRegime } from '../utils/market.js';
@@ -14,10 +14,10 @@ import { _fetchDiscoverySymbols, DEFAULT_UNIVERSE_US, DEFAULT_UNIVERSE_KR } from
 const BACKTEST_CACHE_KEY = (tf) => `dailybt:US:${tf}`;
 const BACKTEST_TTL = 6 * 60 * 60; // 6시간 (비용 큰 작업)
 
-// 백테스트 KV에서 등급별 실측 승률 로드 (스캐너 winRate 표시용)
+// 백테스트 KV에서 등급별 실측 승률 로드 (스캐너 winRate 표시용 — 트레일링 청산 기준)
 async function _loadMeasuredWin(env, tf) {
     try {
-        const bt = await env.CACHE.get(BACKTEST_CACHE_KEY(tf), 'json');
+        const bt = await env.CACHE.get(BACKTEST_CACHE_KEY(tf) + ':trail', 'json');
         if (bt?.byGrade) {
             const out = {};
             for (const g of ['S', 'A', 'B']) {
@@ -122,7 +122,7 @@ export async function handleDailyTradingScan(req, env) {
                         adx: sig.adx,
                         atrPct: sig.atrPct,
                         barsAgo: sig.barsAgo,
-                        stop: sig.stop, target1: sig.target1, target2: sig.target2, riskPct: sig.riskPct,
+                        stop: sig.stop, be: sig.be, target1: sig.target1, target2: sig.target2, riskPct: sig.riskPct,
                         winMeasured: sig.winMeasured,
                         session,
                         riskWarn: (regime.regime === 'risk_off' && sig.dir === 'buy' && sig.grade !== 'S' && (sig.mode || 'trend') === 'trend'),
@@ -181,7 +181,10 @@ export async function handleDailyBacktest(req, env) {
         const force = url.searchParams.get('force') === '1';
         const targetR = Math.max(0.5, Math.min(5, parseFloat(url.searchParams.get('target') || '2'))) || 2;
         const mode = url.searchParams.get('mode') === 'bounce' ? 'bounce' : 'trend';
-        const cacheKey = BACKTEST_CACHE_KEY(tf) + (mode === 'bounce' ? ':bounce' : '') + (targetR !== 2 ? `:t${targetR}` : '');
+        const exitMode = url.searchParams.get('exit') === 'trail' ? 'trail' : 'fixed';
+        const useVwap = url.searchParams.get('vwap') === '1';
+        const cacheKey = BACKTEST_CACHE_KEY(tf) + (mode === 'bounce' ? ':bounce' : '')
+            + (exitMode === 'trail' ? ':trail' : '') + (useVwap ? ':vwap' : '') + (targetR !== 2 ? `:t${targetR}` : '');
 
         if (!force) {
             try {
@@ -207,10 +210,12 @@ export async function handleDailyBacktest(req, env) {
             await Promise.all(chunk.map(async (symbol) => {
                 try {
                     const raw = await fetchChartWithFallback(env, symbol, range, tf, 'false');
-                    const q = raw?.chart?.result?.[0]?.indicators?.quote?.[0];
+                    const r0 = raw?.chart?.result?.[0];
+                    const q = r0?.indicators?.quote?.[0];
                     if (!q?.close?.length || q.close.length < 120) return;
                     symbolsOk++;
-                    const { trades } = smartDipBacktest(q, { interval: tf, spxTrendUp, targetR, mode });
+                    const vwapArr = useVwap ? calcVWAPSeries(q, r0?.timestamp || []) : null;
+                    const { trades } = smartDipBacktest(q, { interval: tf, spxTrendUp, targetR, mode, exit: exitMode, vwapArr });
                     for (const t of trades) all.push(t);
                 } catch (_) {}
             }));

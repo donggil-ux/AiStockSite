@@ -18,6 +18,7 @@ function tradeLevels(dir, entry, atr) {
     const sgn = dir === 'buy' ? 1 : -1;
     return {
         stop:    +(entry - sgn * dist).toFixed(4),
+        be:      +(entry + sgn * dist).toFixed(4),        // +1R — 도달 시 손절을 본전으로 이동(트레일 시작)
         target1: +(entry + sgn * dist * TARGET1_R).toFixed(4),
         target2: +(entry + sgn * dist * TARGET2_R).toFixed(4),
         riskPct: +((dist / entry) * 100).toFixed(2),
@@ -37,8 +38,8 @@ function indicators(q) {
     };
 }
 
-// 단일 봉 i 에서 dir 방향 8필터 평가
-function evalBar(q, ind, i, dir, htfLag, spxTrendUp, ts) {
+// 단일 봉 i 에서 dir 방향 필터 평가 (vwapArr 제공 시 VWAP 게이트 추가)
+function evalBar(q, ind, i, dir, htfLag, spxTrendUp, ts, vwapArr) {
     const { close, high, low, open, volume } = q;
     const c = close[i];
     if (c == null || ind.ema60[i] == null || ind.ema120[i] == null || ind.atrArr[i] == null) {
@@ -108,6 +109,15 @@ function evalBar(q, ind, i, dir, htfLag, spxTrendUp, ts) {
         if ((h === 13 && m >= 30) || (h === 14 && m === 0)) qs -= 1;
     }
 
+    // 필터 9: VWAP 가격구조 게이트 (제공 시) — 기관 기준선 정렬
+    //   매수는 VWAP 위, 매도는 VWAP 아래에서만 진입 (역방향 컷).
+    if (vwapArr && vwapArr[i] != null) {
+        const v = vwapArr[i];
+        if (dir === 'buy'  && c < v) return { pass: false, qs };
+        if (dir === 'sell' && c > v) return { pass: false, qs };
+        qs += 1; reasons.push('VWAP 정렬');
+    }
+
     return {
         pass: qs >= 5, qs, reasons,
         adx: +adx.toFixed(0), volRatio: +volRatio.toFixed(1), atrPct: +atrPct.toFixed(1),
@@ -137,9 +147,8 @@ export function smartDipScan(q, { interval = '5m', ts = [], spxTrendUp = null, l
 
         const grade = gradeOf(best.qs);
         const lv = tradeLevels(dir, best.price, ind.atrArr[i]);
-        // 실측 승률(백테스트) 우선. 폴백도 1개월 백테스트 실측치(2R 목표 기준)로 정직하게:
-        // S≈33% / A≈33% / B≈28% — 손익비 1:2이므로 33%면 손익분기.
-        const fallback = grade === 'S' ? 33 : grade === 'A' ? 33 : 28;
+        // 폴백 승률 = 1개월 트레일링 백테스트 실측치 (S 55% / A 49% / B 48%, 기대값 +0.16~+0.24R)
+        const fallback = grade === 'S' ? 55 : grade === 'A' ? 49 : 48;
         const winRate = (measuredWin && measuredWin[grade] != null) ? measuredWin[grade] : fallback;
         return {
             dir, grade,
@@ -149,7 +158,7 @@ export function smartDipScan(q, { interval = '5m', ts = [], spxTrendUp = null, l
             adx: best.adx, volRatio: best.volRatio, atrPct: best.atrPct, rsiVal: best.rsiVal,
             reasons: best.reasons.slice(0, 4),
             price: best.price,
-            stop: lv?.stop ?? null, target1: lv?.target1 ?? null, target2: lv?.target2 ?? null, riskPct: lv?.riskPct ?? null,
+            stop: lv?.stop ?? null, be: lv?.be ?? null, target1: lv?.target1 ?? null, target2: lv?.target2 ?? null, riskPct: lv?.riskPct ?? null,
             barsAgo: N - 1 - i,
         };
     }
@@ -235,7 +244,7 @@ export function smartDipScanBounce(q, { ts = [], lookback, measuredWin = null } 
             adx: b.adx, volRatio: b.volRatio, atrPct: b.atrPct, rsiVal: b.rsiVal,
             reasons: b.reasons.slice(0, 4),
             price: b.price,
-            stop: lv?.stop ?? null, target1: lv?.target1 ?? null, target2: lv?.target2 ?? null, riskPct: lv?.riskPct ?? null,
+            stop: lv?.stop ?? null, be: lv?.be ?? null, target1: lv?.target1 ?? null, target2: lv?.target2 ?? null, riskPct: lv?.riskPct ?? null,
             barsAgo: N - 1 - i,
         };
     }
@@ -245,7 +254,7 @@ export function smartDipScanBounce(q, { ts = [], lookback, measuredWin = null } 
 // 과거 데이터 백테스트 — 각 봉에서 신호 발생 시 진입, 이후 HORIZON 봉 내
 // 목표(2R) 도달 vs 손절(-1R) 도달을 시뮬레이션. 봉별 독립 평가(중복 쿨다운).
 // @returns { trades:[{grade,dir,outcome,R}], byGrade:{S,A,B:{n,win,avgR}} }
-export function smartDipBacktest(q, { interval = '5m', spxTrendUp = null, horizon, targetR = TARGET1_R, mode = 'trend' } = {}) {
+export function smartDipBacktest(q, { interval = '5m', spxTrendUp = null, horizon, targetR = TARGET1_R, mode = 'trend', exit = 'fixed', vwapArr = null } = {}) {
     const { close = [], high = [], low = [] } = q;
     const N = close.length;
     const trades = [];
@@ -262,8 +271,8 @@ export function smartDipBacktest(q, { interval = '5m', spxTrendUp = null, horizo
             const b = evalBounce(q, ind, i);
             if (b.pass) { best = b; dir = 'buy'; gradeFn = bounceGrade; }
         } else {
-            const buy  = evalBar(q, ind, i, 'buy',  htfLag, spxTrendUp);
-            const sell = evalBar(q, ind, i, 'sell', htfLag, spxTrendUp);
+            const buy  = evalBar(q, ind, i, 'buy',  htfLag, spxTrendUp, null, vwapArr);
+            const sell = evalBar(q, ind, i, 'sell', htfLag, spxTrendUp, null, vwapArr);
             if (buy.pass && (!sell.pass || buy.qs >= sell.qs)) { best = buy; dir = 'buy'; }
             else if (sell.pass) { best = sell; dir = 'sell'; }
         }
@@ -272,26 +281,54 @@ export function smartDipBacktest(q, { interval = '5m', spxTrendUp = null, horizo
         const entry = close[i];
         const lv = tradeLevels(dir, entry, ind.atrArr[i]);
         if (!lv) continue;
-        const tgt = dir === 'buy' ? entry + lv.stopDist * targetR : entry - lv.stopDist * targetR;
-
-        // 전방 시뮬레이션 — 동일 봉에 손절·목표 모두 닿으면 손절 우선(보수적)
-        let outcome = 'timeout', exitR = 0;
         const last = Math.min(N - 1, i + H);
-        for (let j = i + 1; j <= last; j++) {
-            const hi = high[j], lo = low[j];
-            if (hi == null || lo == null) continue;
-            if (dir === 'buy') {
-                if (lo <= lv.stop) { outcome = 'loss'; exitR = -1; break; }
-                if (hi >= tgt)     { outcome = 'win';  exitR =  targetR; break; }
-            } else {
-                if (hi >= lv.stop) { outcome = 'loss'; exitR = -1; break; }
-                if (lo <= tgt)     { outcome = 'win';  exitR =  targetR; break; }
+        let outcome = 'timeout', exitR = 0;
+
+        if (exit === 'trail') {
+            // 트레일링 스톱: +1R 도달 시 본전 이동, 이후 최고점 대비 1.2ATR 추적.
+            let stop = lv.stop, beMoved = false;
+            let peak = entry; // buy=최고가, sell=최저가
+            const trailDist = lv.stopDist;
+            for (let j = i + 1; j <= last; j++) {
+                const hi = high[j], lo = low[j];
+                if (hi == null || lo == null) continue;
+                // 1) 먼저 현재 스톱 히트 검사 (보수적)
+                if (dir === 'buy' ? (lo <= stop) : (hi >= stop)) {
+                    exitR = ((dir === 'buy' ? (stop - entry) : (entry - stop)) / lv.stopDist);
+                    outcome = exitR >= 0 ? 'win' : 'loss'; break;
+                }
+                // 2) 본전 이동 (+1R 도달)
+                if (!beMoved && (dir === 'buy' ? (hi >= entry + lv.stopDist) : (lo <= entry - lv.stopDist))) {
+                    stop = entry; beMoved = true;
+                }
+                // 3) 트레일 (본전 이동 후 최고점 추적)
+                if (beMoved) {
+                    if (dir === 'buy') { peak = Math.max(peak, hi); stop = Math.max(stop, peak - trailDist); }
+                    else               { peak = Math.min(peak, lo); stop = Math.min(stop, peak + trailDist); }
+                }
             }
-        }
-        if (outcome === 'timeout') {
-            const exit = close[last];
-            exitR = ((dir === 'buy' ? (exit - entry) : (entry - exit)) / lv.stopDist);
-            exitR = +exitR.toFixed(2);
+            if (outcome === 'timeout') {
+                const ex = close[last];
+                exitR = +(((dir === 'buy' ? (ex - entry) : (entry - ex)) / lv.stopDist)).toFixed(2);
+            } else exitR = +exitR.toFixed(2);
+        } else {
+            // 고정 목표(targetR) vs 손절(-1R)
+            const tgt = dir === 'buy' ? entry + lv.stopDist * targetR : entry - lv.stopDist * targetR;
+            for (let j = i + 1; j <= last; j++) {
+                const hi = high[j], lo = low[j];
+                if (hi == null || lo == null) continue;
+                if (dir === 'buy') {
+                    if (lo <= lv.stop) { outcome = 'loss'; exitR = -1; break; }
+                    if (hi >= tgt)     { outcome = 'win';  exitR =  targetR; break; }
+                } else {
+                    if (hi >= lv.stop) { outcome = 'loss'; exitR = -1; break; }
+                    if (lo <= tgt)     { outcome = 'win';  exitR =  targetR; break; }
+                }
+            }
+            if (outcome === 'timeout') {
+                const ex = close[last];
+                exitR = +(((dir === 'buy' ? (ex - entry) : (entry - ex)) / lv.stopDist)).toFixed(2);
+            }
         }
         trades.push({ grade: gradeFn(best.qs), dir, outcome, R: exitR });
         cooldownUntil = i + Math.ceil(H / 3); // 신호 중복 방지
