@@ -181,6 +181,10 @@ export default {
                         try { await handleDailyBacktest(new Request(`https://x/api/scanner/daily-backtest?tf=${tf}&exit=trail&skipmid=1&force=1`), env); } catch (_) {}
                     }
                 })().then(() => console.log('[cron] backtest refreshed')),
+                // dt_signals 정리 — 180일+ 청산 신호 삭제 (테이블 무한증가 방지)
+                env.DB.prepare('DELETE FROM dt_signals WHERE resolved=1 AND resolved_at < ?')
+                    .bind(Date.now() - 180 * 24 * 3600 * 1000).run()
+                    .then(r => console.log('[cron] dt-prune', r?.meta?.changes ?? 0)).catch(() => {}),
             ];
             // 일요일 (getUTCDay === 0) 이면 알고리즘 보정도 함께 실행
             if (new Date(event.scheduledTime || Date.now()).getUTCDay() === 0) {

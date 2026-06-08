@@ -316,38 +316,48 @@ export async function captureDailySignals(env) {
 export async function resolveDailySignals(env) {
     let resolved = 0, checked = 0;
     try {
-        const open = await env.DB.prepare('SELECT * FROM dt_signals WHERE resolved=0 ORDER BY created_at ASC LIMIT 80').all();
+        const open = await env.DB.prepare('SELECT * FROM dt_signals WHERE resolved=0 ORDER BY created_at ASC LIMIT 120').all();
         const rows = open.results || [];
         checked = rows.length;
+        // 종목+tf 별로 묶어 차트를 1회만 fetch (중복 fetch·서브리퀘스트 한도 방지)
+        const groups = new Map();
         for (const row of rows) {
+            const key = `${row.symbol}|${row.tf}`;
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(row);
+        }
+        for (const [key, grp] of groups) {
             try {
-                const range = row.tf === '15m' ? '1mo' : '5d';
-                const raw = await fetchChartWithFallback(env, row.symbol, range, row.tf, 'false');
+                const [symbol, tf] = key.split('|');
+                const range = tf === '15m' ? '1mo' : '5d';
+                const raw = await fetchChartWithFallback(env, symbol, range, tf, 'false');
                 const r0 = raw?.chart?.result?.[0];
                 const ts = r0?.timestamp || [];
                 const q = r0?.indicators?.quote?.[0];
                 if (!q?.close?.length) continue;
-                // 진입 시각 이후 봉만 (forward)
-                const bars = [];
-                for (let k = 0; k < ts.length; k++) {
-                    if (ts[k] * 1000 <= row.created_at) continue;
-                    if (q.high[k] == null || q.low[k] == null || q.close[k] == null) continue;
-                    bars.push({ high: q.high[k], low: q.low[k], close: q.close[k] });
-                }
-                const horizon = row.tf === '15m' ? 16 : 24;
-                const res = resolveTrailExit({ dir: row.dir, entry: row.entry, stop: row.stop, stopDist: row.stop_dist }, bars, horizon);
-                const ageH = (Date.now() - row.created_at) / 3600000;
-                if (res.resolved) {
-                    await env.DB.prepare('UPDATE dt_signals SET resolved=1, outcome=?, exit_price=?, exit_r=?, resolved_at=? WHERE id=?')
-                        .bind(res.outcome, res.exitPrice, res.exitR, Date.now(), row.id).run();
-                    resolved++;
-                } else if (ageH > 48) {
-                    // 2일+ 미해소(데이터 부족 등) → 마지막가로 강제 timeout
-                    const ex = bars.length ? bars[bars.length - 1].close : row.entry;
-                    const exitR = +(((row.dir === 'buy' ? (ex - row.entry) : (row.entry - ex)) / row.stop_dist)).toFixed(2);
-                    await env.DB.prepare("UPDATE dt_signals SET resolved=1, outcome='timeout', exit_price=?, exit_r=?, resolved_at=? WHERE id=?")
-                        .bind(ex, exitR, Date.now(), row.id).run();
-                    resolved++;
+                const horizon = tf === '15m' ? 16 : 24;
+                for (const row of grp) {
+                    // 진입 시각 이후 봉만 (forward)
+                    const bars = [];
+                    for (let k = 0; k < ts.length; k++) {
+                        if (ts[k] * 1000 <= row.created_at) continue;
+                        if (q.high[k] == null || q.low[k] == null || q.close[k] == null) continue;
+                        bars.push({ high: q.high[k], low: q.low[k], close: q.close[k] });
+                    }
+                    const res = resolveTrailExit({ dir: row.dir, entry: row.entry, stop: row.stop, stopDist: row.stop_dist }, bars, horizon);
+                    const ageH = (Date.now() - row.created_at) / 3600000;
+                    if (res.resolved) {
+                        await env.DB.prepare('UPDATE dt_signals SET resolved=1, outcome=?, exit_price=?, exit_r=?, resolved_at=? WHERE id=?')
+                            .bind(res.outcome, res.exitPrice, res.exitR, Date.now(), row.id).run();
+                        resolved++;
+                    } else if (ageH > 48) {
+                        // 2일+ 미해소(데이터 부족 등) → 마지막가로 강제 timeout
+                        const ex = bars.length ? bars[bars.length - 1].close : row.entry;
+                        const exitR = +(((row.dir === 'buy' ? (ex - row.entry) : (row.entry - ex)) / row.stop_dist)).toFixed(2);
+                        await env.DB.prepare("UPDATE dt_signals SET resolved=1, outcome='timeout', exit_price=?, exit_r=?, resolved_at=? WHERE id=?")
+                            .bind(ex, exitR, Date.now(), row.id).run();
+                        resolved++;
+                    }
                 }
             } catch (_) {}
         }
@@ -358,7 +368,9 @@ export async function resolveDailySignals(env) {
 // GET /api/scanner/daily-livestats — 실전 forward-test 누적 통계
 export async function handleDailyLiveStats(req, env) {
     try {
-        const rows = (await env.DB.prepare('SELECT grade,dir,outcome,exit_r FROM dt_signals WHERE resolved=1').all()).results || [];
+        // 최근 90일 청산분만 — 누적 무한증가 방지 + 최근 성과 반영
+        const since90 = Date.now() - 90 * 24 * 3600 * 1000;
+        const rows = (await env.DB.prepare('SELECT grade,dir,outcome,exit_r FROM dt_signals WHERE resolved=1 AND resolved_at>=?').bind(since90).all()).results || [];
         const openRow = await env.DB.prepare('SELECT COUNT(*) n FROM dt_signals WHERE resolved=0').first();
         const agg = (arr) => {
             const n = arr.length;

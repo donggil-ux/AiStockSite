@@ -147,8 +147,8 @@ export function smartDipScan(q, { interval = '5m', ts = [], spxTrendUp = null, l
 
         const grade = gradeOf(best.qs);
         const lv = tradeLevels(dir, best.price, ind.atrArr[i]);
-        // 폴백 승률 = 1개월 트레일링 백테스트 실측치 (S 55% / A 49% / B 48%, 기대값 +0.16~+0.24R)
-        const fallback = grade === 'S' ? 55 : grade === 'A' ? 49 : 48;
+        // 폴백 승률 = 트레일링+점심필터 백테스트 실측치 (S 52% / A 46% / B 46%, 기대값 +0.27~+0.34R)
+        const fallback = grade === 'S' ? 52 : grade === 'A' ? 46 : 46;
         const winRate = (measuredWin && measuredWin[grade] != null) ? measuredWin[grade] : fallback;
         return {
             dir, grade,
@@ -277,8 +277,9 @@ export function smartDipBacktest(q, { interval = '5m', spxTrendUp = null, horizo
             const b = evalBounce(q, ind, i);
             if (b.pass) { best = b; dir = 'buy'; gradeFn = bounceGrade; }
         } else {
-            const buy  = evalBar(q, ind, i, 'buy',  htfLag, spxTrendUp, null, vwapArr);
-            const sell = evalBar(q, ind, i, 'sell', htfLag, spxTrendUp, null, vwapArr);
+            // ts 전달 — 라이브 스캐너와 동일하게 장초반 노이즈 필터(8) 적용 (정확도 일관성)
+            const buy  = evalBar(q, ind, i, 'buy',  htfLag, spxTrendUp, ts, vwapArr);
+            const sell = evalBar(q, ind, i, 'sell', htfLag, spxTrendUp, ts, vwapArr);
             if (buy.pass && (!sell.pass || buy.qs >= sell.qs)) { best = buy; dir = 'buy'; }
             else if (sell.pass) { best = sell; dir = 'sell'; }
         }
