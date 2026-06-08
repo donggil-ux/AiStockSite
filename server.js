@@ -960,13 +960,20 @@ function _mvDetectSetup(candleData, spxRet) {
     // ── 종합 점수 (0~10) — 상대강도·추세 비중↑ ───────────────────────────
     let totalScore = 0;
     totalScore += (trendTemplateScore / 8) * 3;                 // 트렌드: 0~3
-    totalScore += rsVsSpx >= 30 ? 3.5 : rsVsSpx >= 15 ? 2.5     // 시장초과: 0~3.5 (핵심)
-                : rsVsSpx >= 7 ? 1.5 : 0.7;
+    // 시장초과(RS): 중간 구간(15~40) 우대, 극단(>40)은 과확장 평균회귀라 감점.
+    //   (백테스트 검증: RS>40 = -0.16R 손실, RS 15~40 = +1.4R. 기존 'RS≥30 최고가점'이 역전 원인)
+    totalScore += (rsVsSpx >= 15 && rsVsSpx <= 40) ? 3.5
+                : rsVsSpx >= 7 ? 2.5
+                : rsVsSpx > 40  ? 1.5
+                : 0.7;
     if (isVCP)       totalScore += 1.5;                         // VCP 변동성 수축
     if (volDryUp)    totalScore += 0.5;                         // 베이스 거래량 마름
     if (pivotBroken) totalScore += 1.0;                         // 피벗 돌파
     if (volConfirm)  totalScore += 0.5;                         // 돌파 거래량
-    totalScore = Math.min(10, totalScore);
+    // 과확장 페널티 — MA50 대비 +12%↑ 추격 위험 (백테스트: 12~20% = -0.22R)
+    const extPct = (cur / lm50 - 1) * 100;
+    if (extPct >= 12) totalScore -= 1.0;
+    totalScore = Math.max(0, Math.min(10, totalScore));
 
     // ── 등급 (상향 조정 — 고품질만 상위 등급) ─────────────────────────────
     const grade = totalScore >= 8.5 ? 'S' : totalScore >= 6.5 ? 'A' : totalScore >= 4.5 ? 'B' : 'C';
@@ -977,6 +984,7 @@ function _mvDetectSetup(candleData, spxRet) {
         rsScore: +rsVsSpx.toFixed(1), rsRating, rsVsSpx: +rsVsSpx.toFixed(1), marketBeat: rsVsSpx > 0,
         trendTemplateScore, totalScore: +totalScore.toFixed(1),
         entryPrice: +cur.toFixed(2), stopLoss: +stop.toFixed(2), riskPct: +((risk/cur)*100).toFixed(1),
+        beTrigger: +(cur + risk).toFixed(2),   // +1R 도달 시 손절을 본전 이동 후 1R 트레일 (백테스트: 고정2R +0.14R → 트레일 +0.68R)
         tp1Price: +tp1.toFixed(2), tp2Price: +tp2.toFixed(2), tp3Price: +tp3.toFixed(2),
         atrPct: +((atr/cur)*100).toFixed(1),
         rs1m: +rs1m.toFixed(1), rs3m: +rs3m.toFixed(1), rs6m: +rs6m.toFixed(1),

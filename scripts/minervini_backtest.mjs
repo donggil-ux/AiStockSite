@@ -42,11 +42,15 @@ function mvDetect(candleData, spxRet){
   const risk=cur-stop;
   let ts2=0;
   ts2+=(tts/8)*3;
-  ts2+=rsVsSpx>=30?3.5:rsVsSpx>=15?2.5:rsVsSpx>=7?1.5:0.7;
+  // RS 보상 — 중간 구간(15~40) 우대, 극단(>40) 과확장 감점 (백테스트: 극>40 RS=-0.16R)
+  ts2+= (rsVsSpx>=15&&rsVsSpx<=40)?3.5 : rsVsSpx>=7?2.5 : rsVsSpx>40?1.5 : 0.7;
   if(isVCP)ts2+=1.5; if(volDryUp)ts2+=0.5; if(pivotBroken)ts2+=1.0; if(volConfirm)ts2+=0.5;
-  ts2=Math.min(10,ts2);
+  // 과확장 페널티 (MA50 대비 +12%↑ 추격 위험; 백테스트 12~20%=-0.22R)
+  const _ext=(cur/lm50-1)*100; if(_ext>=12)ts2-=1.0;
+  ts2=Math.max(0,Math.min(10,ts2));
   const grade=ts2>=8.5?'S':ts2>=6.5?'A':ts2>=4.5?'B':'C';
-  return {grade,totalScore:+ts2.toFixed(1),entry:cur,stop,risk,pivotBroken};
+  const ext=(cur/lm50-1)*100; // MA50 대비 과확장 %
+  return {grade,totalScore:+ts2.toFixed(1),entry:cur,stop,risk,pivotBroken,rsVsSpx,ext};
 }
 
 async function yfDay(t){
@@ -103,7 +107,7 @@ const SYMS=['JPM','BAC','WFC','GS','V','MA','WMT','COST','HD','LOW','KO','PEP','
         if(be){peak=Math.max(peak,H[j]);tstop=Math.max(tstop,peak-risk);}
       }
       if(outT==='timeout'){Rt=+(((C[i+HOLD]-entry)/risk)).toFixed(2);}
-      all.push({sym,grade,score:setup.totalScore,outcome,R,outT,Rt});
+      all.push({sym,grade,score:setup.totalScore,rs:setup.rsVsSpx,ext:setup.ext,outcome,R,outT,Rt});
       cnt++; cooldown=i+15; // 신호 후 15봉 쿨다운(중복 방지)
     }
     process.stdout.write(`  ${sym}: ${cnt}건\n`);
@@ -119,4 +123,11 @@ const SYMS=['JPM','BAC','WFC','GS','V','MA','WMT','COST','HD','LOW','KO','PEP','
   // 점수 분위 (예측력 — 트레일링 기준)
   const sorted=[...all].sort((a,b)=>a.score-b.score);const q=Math.floor(sorted.length/4);
   console.log('점수분위(트레일):',{Q1:agg(sorted.slice(0,q),'Rt','outT'),Q2:agg(sorted.slice(q,2*q),'Rt','outT'),Q3:agg(sorted.slice(2*q,3*q),'Rt','outT'),Q4:agg(sorted.slice(3*q),'Rt','outT')});
+  // 진단: RS(시장초과)별 / 과확장(MA50대비)별 트레일링 수익률 — 왜 고점수가 약한가
+  console.log('\n[진단] RS(시장초과)별:',{
+    '저<7':agg(all.filter(t=>t.rs<7),'Rt','outT'),'중7~20':agg(all.filter(t=>t.rs>=7&&t.rs<20),'Rt','outT'),
+    '고20~40':agg(all.filter(t=>t.rs>=20&&t.rs<40),'Rt','outT'),'극>40':agg(all.filter(t=>t.rs>=40),'Rt','outT')});
+  console.log('[진단] 과확장(MA50대비)별:',{
+    '낮<5%':agg(all.filter(t=>t.ext<5),'Rt','outT'),'중5~12%':agg(all.filter(t=>t.ext>=5&&t.ext<12),'Rt','outT'),
+    '높12~20%':agg(all.filter(t=>t.ext>=12&&t.ext<20),'Rt','outT'),'과열>20%':agg(all.filter(t=>t.ext>=20),'Rt','outT')});
 })();
