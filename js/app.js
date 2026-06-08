@@ -6163,9 +6163,10 @@
         bar.style.zIndex = '950';
         bar.classList.remove('hidden');
         document.body.classList.add('stock-pager-active');
-        // `:has()` 미지원 브라우저 폴백 — 바텀 네비 직접 숨김
-        const bn = document.getElementById('bottomNav');
-        if (bn) bn.style.display = 'none';
+        // 바텀 네비 숨김은 CSS `body:has(#mainHeader.stock-loaded) .bottom-nav`가 담당.
+        // (인라인 display:none 직접 설정은 다른 화면 이동 시 잔존해 바텀네비가
+        //  영구히 사라지는 버그가 있어 제거함 — 모든 화면이 stock-loaded를 제거하므로
+        //  CSS만으로 자동 표시/숨김 처리됨)
         const cur = _stockPagerList[_stockPagerIndex] || {};
         bar.querySelector('.spb-symbol').textContent    = cur.symbol || '';
         const nameEl = bar.querySelector('.spb-name');

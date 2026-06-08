@@ -3688,6 +3688,11 @@
         // 데일리 트레이딩 스캐너 화면 숨김 (다른 화면으로 이동 시 겹침 방지)
         const _dts = document.getElementById('dailyTradingScreen');
         if (_dts) _dts.style.display = 'none';
+        // 바텀 네비 복원 — 종목 상세 showStockPager 가 박은 인라인 display:none 해제.
+        // (종목 상세 → 사이드 메뉴로 다른 화면 이동 시 바텀네비가 사라지던 문제)
+        const _bn = document.getElementById('bottomNav');
+        if (_bn) _bn.style.display = '';
+        document.body.classList.remove('stock-pager-active');
     }
 
     function goSmartMoney() {
