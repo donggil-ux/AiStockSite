@@ -7604,7 +7604,7 @@
             const ico = rg.regime === 'favorable' ? '🟢' : rg.regime === 'risk_off' ? '🔴' : '🟡';
             const spy = rg.spyChgPct != null ? `SPY ${rg.spyChgPct >= 0 ? '+' : ''}${rg.spyChgPct}%` : '';
             const vix = rg.vix != null ? `VIX ${rg.vix}` : '';
-            const warn = rg.regime === 'risk_off' ? '<div class="dt-regime-warn">⚠️ 위험 장세 — 매수는 S급만 표시됩니다</div>' : '';
+            const warn = rg.regime === 'risk_off' ? '<div class="dt-regime-warn">⚠️ 위험 장세 — A급 매수 신호는 참고용, S급만 신뢰</div>' : '';
             regimeBanner = `<div class="dt-regime ${cls}">
                 <div class="dt-regime-top"><span>${ico} 오늘의 장세 · <b>${escHtml(rg.label)}</b></span><span class="dt-regime-meta">${spy}${spy&&vix?' · ':''}${vix}</span></div>
                 ${warn}</div>`;
@@ -7623,18 +7623,19 @@
             const dirBg = isBuy ? '#FFD400' : '#22C55E';
             const dirTx = isBuy ? '#000' : '#fff';
             const dirLabel = isBuy ? '📈 매수' : '📉 매도';
-            const gradeColor = r.grade === 'S' ? '#FFD60A' : '#22C55E';
+            const gradeColor = r.grade === 'S' ? '#FFD60A' : r.grade === 'A' ? '#22C55E' : r.riskWarn ? '#FF8C00' : '#64748B';
             // 진입 품질 pill
             const qPills = [];
             if (r.vwapPos) qPills.push(`<span class="alpha-sig-pill ${r.vwapPos==='above'?'alpha-sig--emerald':'alpha-sig--red'}">VWAP ${r.vwapPos==='above'?'위':'아래'}</span>`);
             if (r.adx != null) qPills.push(`<span class="alpha-sig-pill alpha-sig--cyan">ADX ${r.adx}</span>`);
             if (_sessLabel[r.session]) qPills.push(`<span class="alpha-sig-pill alpha-sig--amber">${_sessLabel[r.session]}</span>`);
+            const warnBadge = r.riskWarn ? `<span style="display:inline-block;padding:1px 5px;border-radius:5px;background:#FF8C00;color:#fff;font-size:9px;font-weight:700;margin-left:4px;">⚠️위험</span>` : '';
             return `<div class="catalyst-card" onclick="quickSearch('${escHtml(r.symbol)}','US')">
                 <div class="catalyst-card-head">
                     <div class="catalyst-rank">${idx + 1}</div>
                     <div class="catalyst-id">
                         <div class="catalyst-sym">${escHtml(r.symbol)}
-                            <span style="display:inline-block;padding:2px 7px;border-radius:6px;background:${dirBg};color:${dirTx};font-size:10px;font-weight:800;margin-left:4px;">${dirLabel}</span>
+                            <span style="display:inline-block;padding:2px 7px;border-radius:6px;background:${dirBg};color:${dirTx};font-size:10px;font-weight:800;margin-left:4px;">${dirLabel}</span>${warnBadge}
                         </div>
                         <div class="catalyst-name">승률 ${r.winRate}% · RSI ${r.rsi} · 거래량 ${r.rvol}x</div>
                     </div>
