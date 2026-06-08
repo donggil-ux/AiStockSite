@@ -7613,7 +7613,7 @@
         const side = window._dailySide || 'all';
         const rows = (d.results || []).filter(r => side === 'all' || r.dir === side);
         if (!rows.length) {
-            list.innerHTML = regimeBanner + `<div class="catalyst-loading" style="padding:28px 16px;line-height:1.6;">조건을 충족하는 종목이 없습니다.<br><span style="font-size:12px;color:var(--text3)">A급 + 거래량 + VWAP·ADX 통과 후보는 장중에 실시간 갱신됩니다.</span></div>`;
+            list.innerHTML = regimeBanner + `<div class="catalyst-loading" style="padding:28px 16px;line-height:1.6;">Smart Dip 조건을 충족하는 종목이 없습니다.<br><span style="font-size:12px;color:var(--text3)">추세·거래량·진입봉 8개 필터를 통과한 A급 후보는 장중에 실시간 갱신됩니다.</span></div>`;
             return;
         }
         const sigPill = (f) => `<span class="alpha-sig-pill alpha-sig--blue">${escHtml(f)}</span>`;
@@ -7624,8 +7624,14 @@
             const dirTx = isBuy ? '#000' : '#fff';
             const dirLabel = isBuy ? '📈 매수' : '📉 매도';
             const gradeColor = r.grade === 'S' ? '#FFD60A' : r.grade === 'A' ? '#22C55E' : r.riskWarn ? '#FF8C00' : '#64748B';
+            // 신선도 — barsAgo × 봉길이(분)
+            const _tfMin = (window._dailyTf === '15m') ? 15 : 5;
+            const _ago = (r.barsAgo == null) ? null : r.barsAgo * _tfMin;
+            const freshLabel = _ago == null ? '' : _ago === 0 ? '방금' : `${_ago}분 전`;
+            const freshCls = (_ago != null && _ago <= 5) ? 'alpha-sig--emerald' : 'alpha-sig--amber';
             // 진입 품질 pill
             const qPills = [];
+            if (freshLabel) qPills.push(`<span class="alpha-sig-pill ${freshCls}">🕒 ${freshLabel}</span>`);
             if (r.vwapPos) qPills.push(`<span class="alpha-sig-pill ${r.vwapPos==='above'?'alpha-sig--emerald':'alpha-sig--red'}">VWAP ${r.vwapPos==='above'?'위':'아래'}</span>`);
             if (r.adx != null) qPills.push(`<span class="alpha-sig-pill alpha-sig--cyan">ADX ${r.adx}</span>`);
             if (_sessLabel[r.session]) qPills.push(`<span class="alpha-sig-pill alpha-sig--amber">${_sessLabel[r.session]}</span>`);

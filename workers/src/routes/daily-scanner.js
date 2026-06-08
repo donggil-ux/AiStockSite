@@ -1,25 +1,29 @@
-// 데일리 트레이딩 스캐너 — 실시간 5분/15분봉 매수·매도 후보 (A급 이상, 거래량 확인)
+// 데일리 트레이딩 스캐너 — 실시간 5분/15분봉 매수·매도 후보
 // GET /api/scanner/daily-trading?market=US&tf=5m
 //
-// 기존 cron analyzeSignals 의 스캔 로직(universe→fetch→detectSignal)을 재사용하되,
-// 푸시 없이 후보 리스트만 반환. 거래량(RVOL≥1.2) 받쳐주는 A/S급만.
+// 분석 엔진: Smart Dip v3 (컨플루언스 품질 필터) — 개별 차트 Smart Dip 과 동일 방법론.
+//   buy  = 상승추세 눌림목 진입 / sell = 하락추세 반등 소진 진입
+//   8개 필터(ADX·HTF추세·거래량회복·양봉/음봉·ATR·SPX환경·RSI·장초반) 통과 종목만.
 import { json, err } from '../utils/validators.js';
-import { detectSignal, calcVWAP, calcADX } from '../utils/indicators.js';
+import { calcVWAP } from '../utils/indicators.js';
+import { smartDipScan } from '../utils/smart-dip.js';
 import { fetchChartWithFallback } from './yahoo.js';
-import { loadAlgorithmConfig } from '../utils/calibration.js';
 import { getMarketRegime } from '../utils/market.js';
 import { _fetchDiscoverySymbols, DEFAULT_UNIVERSE_US, DEFAULT_UNIVERSE_KR } from '../cron.js';
 
 const CACHE_TTL = 90; // intraday — 90초
 
-// 최근봉 거래량 / 직전 8봉 평균 (detectSignal 내부와 동일 방식)
-function _rvol(volume) {
-    const i = volume.length - 1;
-    if (i < 1) return 0;
-    const slice = volume.slice(Math.max(0, i - 8), i).filter(v => v != null);
-    const avg = slice.length ? slice.reduce((s, v) => s + v, 0) / slice.length : 0;
-    const cur = volume[i] || 0;
-    return avg > 0 ? cur / avg : 0;
+// 주말·장마감 후 야후가 추가하는 0거래량 빈 봉 제거 (마지막 봉 정확도 보정)
+function _trimTrailing(q, ts) {
+    const vol = q.volume || [];
+    let last = vol.length - 1;
+    while (last > 0 && !vol[last]) last--;
+    if (last >= vol.length - 1) return { q, ts }; // 자를 필요 없음
+    const cut = arr => (arr || []).slice(0, last + 1);
+    return {
+        q: { close: cut(q.close), open: cut(q.open), high: cut(q.high), low: cut(q.low), volume: cut(q.volume) },
+        ts: ts ? ts.slice(0, last + 1) : ts,
+    };
 }
 
 // 미국 세션 단계 — 마지막 봉 ts(초) 의 UTC 시각 기준
@@ -46,22 +50,25 @@ export async function handleDailyTradingScan(req, env) {
             if (cached) return json({ ...cached, _cached: true });
         } catch (_) {}
 
-        const thresholds = await loadAlgorithmConfig(env);
         // 시장 레짐 — US 한정 (KR 은 중립 취급)
         const regime = market === 'KR'
             ? { regime: 'neutral', label: '중립', spyTrend: 'flat', spyChgPct: 0, vix: null, note: 'KR' }
             : await getMarketRegime(env);
+        // Smart Dip 필터 6번(SPX 환경) 입력 — 레짐의 SPY 추세 재사용
+        const spxTrendUp = regime.spyTrend === 'up' ? true : regime.spyTrend === 'down' ? false : null;
 
         // 유니버스 — 기본 풀 + 당일 활발 종목(US 스크리너)
         const base = market === 'KR' ? DEFAULT_UNIVERSE_KR : DEFAULT_UNIVERSE_US;
         const dynamic = await _fetchDiscoverySymbols(env, market);
         const universe = [...new Set([...base, ...dynamic])].slice(0, 40);
 
-        // 15분봉은 1d 범위면 봉 부족(<30) → 5d 사용
-        const range = tf === '15m' ? '5d' : '1d';
+        // 5m·15m 모두 5d — 장 마감·주말에도 300봉 이상 확보 (1d는 주말 3봉뿐)
+        const range = '5d';
 
         const results = [];
         let analyzed = 0;
+        // 필터 단계별 탈락 카운터 (디버깅용)
+        let _dbg = { noData: 0, noPass: 0 };
         // 10개씩 청크 병렬
         const CHUNK = 10;
         for (let k = 0; k < universe.length; k += CHUNK) {
@@ -70,56 +77,61 @@ export async function handleDailyTradingScan(req, env) {
                 try {
                     const raw = await fetchChartWithFallback(env, symbol, range, tf, 'false');
                     const result0 = raw?.chart?.result?.[0];
-                    const q = result0?.indicators?.quote?.[0];
-                    if (!q?.close?.length || q.close.length < 30) return;
+                    const qRaw = result0?.indicators?.quote?.[0];
+                    if (!qRaw?.close?.length || qRaw.close.length < 60) { _dbg.noData++; return; }
+
+                    // 주말·장마감 후 0거래량 빈 봉 제거 → 진짜 마지막 봉 기준 분석
+                    const { q, ts: tts } = _trimTrailing(qRaw, result0?.timestamp);
+                    if (!q?.close?.length || q.close.length < 60) { _dbg.noData++; return; }
+
                     analyzed++;
-                    const sig = detectSignal(q, thresholds);
-                    if (!sig) return;
-                    if (sig.grade !== 'S' && sig.grade !== 'A') return; // A급 이상만
-                    const rvol = _rvol(q.volume || []);
-                    if (rvol < 1.2) return; // 거래량 받쳐주는 종목만
+                    // ── Smart Dip v3 컨플루언스 필터 (개별 차트 Smart Dip 과 동일 엔진) ──
+                    const sig = smartDipScan(q, { interval: tf, ts: tts || [], spxTrendUp });
+                    if (!sig) { _dbg.noPass++; return; }
 
-                    // ── 진입 품질: VWAP 위치 + ADX 추세강도 ──
+                    // VWAP 위치 — 참고용 pill (게이트 아님)
                     const vwap = calcVWAP(q);
-                    const adxV = calcADX(q.high || [], q.low || [], q.close || []);
-                    const price = sig.price;
-                    const vwapPos = (vwap != null) ? (price >= vwap ? 'above' : 'below') : null;
-                    // 매수는 VWAP 위 + ADX≥20, 매도는 VWAP 아래 + ADX≥20 (횡보·반대편 컷)
-                    if (adxV != null && adxV < 20) return;
-                    if (vwapPos === 'below' && sig.dir === 'buy') return;
-                    if (vwapPos === 'above' && sig.dir === 'sell') return;
+                    const vwapPos = (vwap != null) ? (sig.price >= vwap ? 'above' : 'below') : null;
 
-                    // ── 레짐 게이트: 위험 장세엔 약한 매수(A급) 제외, S급·매도는 유지 ──
-                    if (regime.regime === 'risk_off' && sig.dir === 'buy' && sig.grade !== 'S') return;
+                    // ── 레짐 경고: 위험 장세 + 매수 + 비S급 → 경고 태그 (차단 아님) ──
+                    const riskWarn = (regime.regime === 'risk_off' && sig.dir === 'buy' && sig.grade !== 'S');
 
-                    const ts = result0?.timestamp || [];
-                    const session = _session(ts[ts.length - 1]);
+                    const session = _session((tts || [])[(tts || []).length - 1]);
 
                     results.push({
                         symbol,
                         dir: sig.dir,
                         grade: sig.grade,
-                        score: Math.round(sig.score * 10) / 10,
+                        score: sig.qualityScore,
                         winRate: sig.winRate,
-                        factors: sig.factors.slice(0, 4),
+                        factors: sig.reasons,
                         price: sig.price,
-                        rsi: Math.round(sig.rsi),
-                        rvol: Math.round(rvol * 10) / 10,
+                        rsi: sig.rsiVal,
+                        rvol: sig.volRatio,
                         vwapPos,
-                        adx: adxV != null ? Math.round(adxV) : null,
+                        adx: sig.adx,
+                        atrPct: sig.atrPct,
+                        barsAgo: sig.barsAgo,
                         session,
+                        riskWarn,
                     });
                 } catch (_) {}
             }));
         }
 
-        // 점수 내림차순
+        // 점수(컨플루언스) 내림차순
         results.sort((a, b) => b.score - a.score);
 
+        // A급 이상 엄선 (S/A). A+ 가 하나도 없으면 B급이라도 노출 (빈 화면 방지).
+        let curated = results.filter(r => r.grade === 'S' || r.grade === 'A');
+        if (!curated.length) curated = results;
+        curated = curated.slice(0, 20);
+
         const payload = {
-            results,
+            results: curated,
             regime,
             totalScanned: analyzed,
+            totalCandidates: results.length,
             universe: universe.length,
             tf,
             market,
