@@ -329,6 +329,36 @@ function _simFixed(dir, entry, lv, i, last, high, low, close, targetR) {
     return { R: (dir === 'buy' ? (ex - entry) : (entry - ex)) / lv.stopDist, outcome: 'timeout' };
 }
 
+// 실전 forward-test 청산 시뮬레이터 — 진입 이후 봉 배열로 트레일링 청산 결과 산출.
+// dt_signals resolve cron 에서 사용. bars = [{high,low,close}, ...] (진입 다음 봉부터).
+// @returns { resolved, outcome, exitPrice, exitR }  resolved=false 면 아직 진행중.
+export function resolveTrailExit({ dir, entry, stop: initStop, stopDist }, bars, horizon) {
+    if (!bars || !bars.length || !(stopDist > 0)) return { resolved: false };
+    let stop = initStop, beMoved = false, peak = entry;
+    const H = horizon || bars.length;
+    const last = Math.min(bars.length, H);
+    for (let j = 0; j < last; j++) {
+        const hi = bars[j].high, lo = bars[j].low;
+        if (hi == null || lo == null) continue;
+        if (dir === 'buy' ? (lo <= stop) : (hi >= stop)) {
+            const exitR = (dir === 'buy' ? (stop - entry) : (entry - stop)) / stopDist;
+            return { resolved: true, outcome: exitR >= 0 ? 'win' : 'loss', exitPrice: stop, exitR: +exitR.toFixed(2) };
+        }
+        if (!beMoved && (dir === 'buy' ? (hi >= entry + stopDist) : (lo <= entry - stopDist))) { stop = entry; beMoved = true; }
+        if (beMoved) {
+            if (dir === 'buy') { peak = Math.max(peak, hi); stop = Math.max(stop, peak - stopDist); }
+            else               { peak = Math.min(peak, lo); stop = Math.min(stop, peak + stopDist); }
+        }
+    }
+    // 관찰 기간(horizon) 다 지났으면 마지막 종가로 청산, 아니면 아직 진행중
+    if (bars.length >= H) {
+        const ex = bars[last - 1].close;
+        const exitR = +(((dir === 'buy' ? (ex - entry) : (entry - ex)) / stopDist)).toFixed(2);
+        return { resolved: true, outcome: 'timeout', exitPrice: ex, exitR };
+    }
+    return { resolved: false };
+}
+
 // 트레일링 청산 시뮬레이션 — +1R 본전 이동 후 최고점 대비 1.2ATR 추적
 function _simTrail(dir, entry, lv, i, last, high, low, close) {
     let stop = lv.stop, beMoved = false, peak = entry;

@@ -30,8 +30,8 @@ import { handleCatalystAiAnalyze } from './routes/ai-catalyst.js';
 import { calibrateAlgorithm } from './utils/calibration.js';
 import { logError, pruneOldErrors } from './utils/errors.js';
 import { snapshotHealth } from './cron.js';
-import { handleAdminStatus, handleAnalyzeNow } from './routes/admin.js';
-import { handleDailyTradingScan, handleDailyBacktest } from './routes/daily-scanner.js';
+import { handleAdminStatus, handleAnalyzeNow, handleDtForwardTest } from './routes/admin.js';
+import { handleDailyTradingScan, handleDailyBacktest, handleDailyLiveStats, captureDailySignals, resolveDailySignals } from './routes/daily-scanner.js';
 import { checkPriceAlerts, earningsReminder, analyzeSignals, resolveSignals } from './cron.js';
 import { json, err } from './utils/validators.js';
 
@@ -113,8 +113,10 @@ const ROUTES = [
     ['GET',    '/api/calibration/status', handleCalibrationStatus],
     ['POST',   '/api/admin/calibrate',    handleCalibrateNow],
     ['POST',   '/api/admin/analyze-now',  handleAnalyzeNow],
+    ['POST',   '/api/admin/dt-forwardtest', handleDtForwardTest],
     ['GET',    '/api/scanner/daily-trading', handleDailyTradingScan],
     ['GET',    '/api/scanner/daily-backtest', handleDailyBacktest],
+    ['GET',    '/api/scanner/daily-livestats', handleDailyLiveStats],
     ['POST',   '/api/scanner/ai-analyze', handleScannerAiAnalyze],
     ['POST',   '/api/scanner/ai-batch',   handleScannerAiBatch],
     ['POST',   '/api/swing/ai-analyze',   handleSwingAiAnalyze],
@@ -161,9 +163,12 @@ export default {
             // 09시 실적 리마인더만 (00시 한국 시그널 cron 과 충돌 방지 — 동시에 fire)
             ctx.waitUntil(earningsReminder(env).then(r => console.log('[cron] earnings', r)));
         }
-        // 매시 :30 — 시그널 결과 매칭 (정확도 추적용)
+        // 매시 :30 — 시그널 결과 매칭 (정확도 추적용) + 데일리 forward-test 해소
         if (cron === '30 * * * *') {
-            ctx.waitUntil(resolveSignals(env).then(r => console.log('[cron] resolve', r)));
+            ctx.waitUntil(Promise.all([
+                resolveSignals(env).then(r => console.log('[cron] resolve', r)),
+                resolveDailySignals(env).then(r => console.log('[cron] dt-resolve', r)),
+            ]));
         }
         // 매일 00:05 — 일별 헬스 스냅샷 + 30일+ 에러 정리 + (일요일이면) 알고리즘 자동 보정
         if (cron === '5 0 * * *') {
@@ -186,10 +191,13 @@ export default {
         // 5분마다 (시장 시간) 시그널 분석 + 가격 알림 병렬 실행
         if (cron === '*/5 13-21 * * 1-5' || cron === '*/5 0-6 * * 1-5') {
             const market = cron.startsWith('*/5 13') ? 'US' : 'KR';
-            ctx.waitUntil(Promise.all([
+            const jobs = [
                 checkPriceAlerts(env).then(r => console.log(`[cron] ${market} price`, r)),
                 analyzeSignals(env, market).then(r => console.log(`[cron] ${market} signal`, r)),
-            ]));
+            ];
+            // 미국 장중에만 데일리 트레이딩 신호 forward-test 캡처
+            if (market === 'US') jobs.push(captureDailySignals(env).then(r => console.log('[cron] dt-capture', r)));
+            ctx.waitUntil(Promise.all(jobs));
         }
     },
 };

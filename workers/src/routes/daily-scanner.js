@@ -6,10 +6,11 @@
 //   8개 필터(ADX·HTF추세·거래량회복·양봉/음봉·ATR·SPX환경·RSI·장초반) 통과 종목만.
 import { json, err } from '../utils/validators.js';
 import { calcVWAP, calcVWAPSeries } from '../utils/indicators.js';
-import { smartDipScan, smartDipScanBounce, smartDipBacktest } from '../utils/smart-dip.js';
+import { smartDipScan, smartDipScanBounce, smartDipBacktest, resolveTrailExit } from '../utils/smart-dip.js';
 import { fetchChartWithFallback } from './yahoo.js';
 import { getMarketRegime } from '../utils/market.js';
 import { _fetchDiscoverySymbols, DEFAULT_UNIVERSE_US, DEFAULT_UNIVERSE_KR } from '../cron.js';
+import { logError } from '../utils/errors.js';
 
 const BACKTEST_CACHE_KEY = (tf) => `dailybt:US:${tf}`;
 const BACKTEST_TTL = 6 * 60 * 60; // 6시간 (비용 큰 작업)
@@ -271,6 +272,109 @@ export async function handleDailyBacktest(req, env) {
         };
         try { await env.CACHE.put(cacheKey, JSON.stringify(payload), { expirationTtl: BACKTEST_TTL }); } catch (_) {}
         return json(payload);
+    } catch (e) {
+        return err(500, e.message);
+    }
+}
+
+// ════════════════════════════════════════════════════════════════
+// 실전 forward-test — 스캐너가 내보낸 실제 신호의 사후 성과 추적
+//   captureDailySignals: 5분 cron 에서 현재 신호를 dt_signals 에 기록 (중복 방지)
+//   resolveDailySignals: 진행중 신호의 트레일링 청산을 시뮬레이션해 실측 R 기록
+//   handleDailyLiveStats: 누적 실측 승률·평균 R 반환
+// ════════════════════════════════════════════════════════════════
+export async function captureDailySignals(env) {
+    let logged = 0;
+    for (const tf of ['5m', '15m']) {
+        try {
+            const resp = await handleDailyTradingScan(new Request(`https://x/api/scanner/daily-trading?market=US&tf=${tf}`), env);
+            const data = await resp.json();
+            const results = data.results || [];
+            const tfMin = tf === '15m' ? 15 : 5;
+            for (const r of results) {
+                if (r.stop == null || r.price == null) continue;
+                const stopDist = Math.abs(r.price - r.stop);
+                if (!(stopDist > 0)) continue;
+                // 진입 시각 ≈ 스캔시각 − barsAgo×봉길이 (forward 시뮬 시작점)
+                const entryTs = (data.scannedAt || Date.now()) - (r.barsAgo || 0) * tfMin * 60000;
+                // 중복 방지: 같은 종목·방향·tf 신호가 최근 2시간 내 있으면 skip
+                const since = Date.now() - 2 * 3600 * 1000;
+                const dup = await env.DB.prepare(
+                    'SELECT 1 FROM dt_signals WHERE symbol=? AND dir=? AND tf=? AND created_at>? LIMIT 1'
+                ).bind(r.symbol, r.dir, tf, since).first();
+                if (dup) continue;
+                await env.DB.prepare(
+                    'INSERT INTO dt_signals (symbol,tf,dir,mode,grade,score,entry,stop,be,stop_dist,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+                ).bind(r.symbol, tf, r.dir, r.mode || 'trend', r.grade, r.score, r.price, r.stop, r.be ?? null, stopDist, entryTs).run();
+                logged++;
+            }
+        } catch (e) { try { await logError(env, 'captureDailySignals', e.message); } catch (_) {} }
+    }
+    return { logged };
+}
+
+export async function resolveDailySignals(env) {
+    let resolved = 0, checked = 0;
+    try {
+        const open = await env.DB.prepare('SELECT * FROM dt_signals WHERE resolved=0 ORDER BY created_at ASC LIMIT 80').all();
+        const rows = open.results || [];
+        checked = rows.length;
+        for (const row of rows) {
+            try {
+                const range = row.tf === '15m' ? '1mo' : '5d';
+                const raw = await fetchChartWithFallback(env, row.symbol, range, row.tf, 'false');
+                const r0 = raw?.chart?.result?.[0];
+                const ts = r0?.timestamp || [];
+                const q = r0?.indicators?.quote?.[0];
+                if (!q?.close?.length) continue;
+                // 진입 시각 이후 봉만 (forward)
+                const bars = [];
+                for (let k = 0; k < ts.length; k++) {
+                    if (ts[k] * 1000 <= row.created_at) continue;
+                    if (q.high[k] == null || q.low[k] == null || q.close[k] == null) continue;
+                    bars.push({ high: q.high[k], low: q.low[k], close: q.close[k] });
+                }
+                const horizon = row.tf === '15m' ? 16 : 24;
+                const res = resolveTrailExit({ dir: row.dir, entry: row.entry, stop: row.stop, stopDist: row.stop_dist }, bars, horizon);
+                const ageH = (Date.now() - row.created_at) / 3600000;
+                if (res.resolved) {
+                    await env.DB.prepare('UPDATE dt_signals SET resolved=1, outcome=?, exit_price=?, exit_r=?, resolved_at=? WHERE id=?')
+                        .bind(res.outcome, res.exitPrice, res.exitR, Date.now(), row.id).run();
+                    resolved++;
+                } else if (ageH > 48) {
+                    // 2일+ 미해소(데이터 부족 등) → 마지막가로 강제 timeout
+                    const ex = bars.length ? bars[bars.length - 1].close : row.entry;
+                    const exitR = +(((row.dir === 'buy' ? (ex - row.entry) : (row.entry - ex)) / row.stop_dist)).toFixed(2);
+                    await env.DB.prepare("UPDATE dt_signals SET resolved=1, outcome='timeout', exit_price=?, exit_r=?, resolved_at=? WHERE id=?")
+                        .bind(ex, exitR, Date.now(), row.id).run();
+                    resolved++;
+                }
+            } catch (_) {}
+        }
+    } catch (e) { try { await logError(env, 'resolveDailySignals', e.message); } catch (_) {} }
+    return { checked, resolved };
+}
+
+// GET /api/scanner/daily-livestats — 실전 forward-test 누적 통계
+export async function handleDailyLiveStats(req, env) {
+    try {
+        const rows = (await env.DB.prepare('SELECT grade,dir,outcome,exit_r FROM dt_signals WHERE resolved=1').all()).results || [];
+        const openRow = await env.DB.prepare('SELECT COUNT(*) n FROM dt_signals WHERE resolved=0').first();
+        const agg = (arr) => {
+            const n = arr.length;
+            if (!n) return { n: 0, winRate: 0, avgR: 0, wins: 0, losses: 0 };
+            const wins = arr.filter(t => t.outcome === 'win').length;
+            const losses = arr.filter(t => t.outcome === 'loss').length;
+            const sumR = arr.reduce((s, t) => s + (t.exit_r || 0), 0);
+            const decided = wins + losses;
+            return { n, winRate: decided ? Math.round((wins / decided) * 100) : 0, avgR: +(sumR / n).toFixed(2), wins, losses };
+        };
+        return json({
+            open: openRow?.n || 0,
+            overall: agg(rows),
+            byGrade: { S: agg(rows.filter(r => r.grade === 'S')), A: agg(rows.filter(r => r.grade === 'A')), B: agg(rows.filter(r => r.grade === 'B')) },
+            byDir: { buy: agg(rows.filter(r => r.dir === 'buy')), sell: agg(rows.filter(r => r.dir === 'sell')) },
+        });
     } catch (e) {
         return err(500, e.message);
     }

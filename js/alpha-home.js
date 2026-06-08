@@ -7591,6 +7591,10 @@
             window._dailyData = d;
             try { sessionStorage.setItem(cKey, JSON.stringify({ ts: Date.now(), data: d })); } catch(_) {}
             _renderDailyTrading();
+            // 실전 forward-test 성과 (비차단)
+            fetch('/api/scanner/daily-livestats').then(x => x.ok ? x.json() : null).then(ls => {
+                if (ls) { window._dailyLiveStats = ls; _renderDailyTrading(); }
+            }).catch(()=>{});
         } catch(e) {
             list.innerHTML = `<div class="catalyst-loading">스캔 실패: ${escHtml(e.message || '')}</div>`;
         } finally {
@@ -7617,6 +7621,18 @@
             regimeBanner = `<div class="dt-regime ${cls}">
                 <div class="dt-regime-top"><span>${ico} 오늘의 장세 · <b>${escHtml(rg.label)}</b></span><span class="dt-regime-meta">${spy}${spy&&vix?' · ':''}${vix}</span></div>
                 ${warn}</div>`;
+        }
+
+        // 실전 forward-test 성과 배너 (백테스트 아닌 실제 신호 사후 추적)
+        const ls = window._dailyLiveStats;
+        if (ls && ls.overall) {
+            const o = ls.overall;
+            if (o.n >= 1) {
+                const rCls = o.avgR > 0 ? 'up' : o.avgR < 0 ? 'down' : '';
+                regimeBanner += `<div class="dt-live">📊 실전 성과 <b>${o.n}건</b> 청산 · 승률 <b>${o.winRate}%</b> · 평균 <b class="${rCls}">${o.avgR >= 0 ? '+' : ''}${o.avgR}R</b>${ls.open ? ` <span class="dt-live-open">(진행중 ${ls.open})</span>` : ''}</div>`;
+            } else if (ls.open >= 1) {
+                regimeBanner += `<div class="dt-live">📊 실전 추적 시작 — 진행중 <b>${ls.open}건</b> · 청산되면 실측 승률이 표시됩니다</div>`;
+            }
         }
 
         const side = window._dailySide || 'all';
