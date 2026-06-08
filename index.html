@@ -898,9 +898,9 @@
             </div>
             <!-- 매수/매도 필터 -->
             <div class="catalyst-filter-bar">
-                <button class="catalyst-filter active" data-dside="all" onclick="_dailySetSide('all')">전체</button>
-                <button class="catalyst-filter" data-dside="buy" onclick="_dailySetSide('buy')">📈 매수</button>
-                <button class="catalyst-filter" data-dside="sell" onclick="_dailySetSide('sell')">📉 매도</button>
+                <button class="catalyst-filter active" data-dside="all" onclick="_dailySetSide('all')">전체 <span class="catalyst-filter-cnt" id="dsCntAll">0</span></button>
+                <button class="catalyst-filter" data-dside="buy" onclick="_dailySetSide('buy')">📈 매수 <span class="catalyst-filter-cnt" id="dsCntBuy">0</span></button>
+                <button class="catalyst-filter" data-dside="sell" onclick="_dailySetSide('sell')">📉 매도 <span class="catalyst-filter-cnt" id="dsCntSell">0</span></button>
             </div>
             <div class="catalyst-list" id="dailyList">
                 <div class="catalyst-loading">5·15분봉 스캔 중...</div>

@@ -7543,6 +7543,10 @@
         document.querySelectorAll('.side-nav-item').forEach(b => b.classList.remove('active'));
         document.getElementById('sideNavDailyBtn')?.classList.add('active');
         updateBnActive('all');
+        // 진입 시 항상 '전체' 필터로 — 매수 필터에 갇혀 빈 화면 보는 것 방지
+        window._dailySide = 'all';
+        document.querySelectorAll('#dailyTradingScreen .catalyst-filter').forEach(b =>
+            b.classList.toggle('active', b.dataset.dside === 'all'));
         try { _pushRoute('dailyTrading'); } catch(e){}
         loadDailyTrading(false);
         try { window.scrollTo(0, 0); } catch(e){}
@@ -7611,9 +7615,28 @@
         }
 
         const side = window._dailySide || 'all';
-        const rows = (d.results || []).filter(r => side === 'all' || r.dir === side);
+        const all = d.results || [];
+        const nBuy = all.filter(r => r.dir === 'buy').length;
+        const nSell = all.filter(r => r.dir === 'sell').length;
+        // 필터 카운트 배지 갱신
+        const _setCnt = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n; };
+        _setCnt('dsCntAll', all.length); _setCnt('dsCntBuy', nBuy); _setCnt('dsCntSell', nSell);
+
+        const rows = all.filter(r => side === 'all' || r.dir === side);
         if (!rows.length) {
-            list.innerHTML = regimeBanner + `<div class="catalyst-loading" style="padding:28px 16px;line-height:1.6;">Smart Dip 조건을 충족하는 종목이 없습니다.<br><span style="font-size:12px;color:var(--text3)">추세·거래량·진입봉 8개 필터를 통과한 A급 후보는 장중에 실시간 갱신됩니다.</span></div>`;
+            // 필터 인식형 빈 상태 — 왜 비었는지 + 다른 쪽 신호로 유도
+            let msg, sub = '';
+            if (side === 'buy' && nSell > 0) {
+                msg = '지금은 매수 신호가 없습니다';
+                sub = `현재 하락 추세장이라 Smart Dip 매수(눌림목) 조건을 만족하는 종목이 없어요.<br><b style="color:var(--green)">📉 매도 신호 ${nSell}개</b>가 있습니다 — 위 매도 탭을 눌러보세요.`;
+            } else if (side === 'sell' && nBuy > 0) {
+                msg = '지금은 매도 신호가 없습니다';
+                sub = `상승 추세장이라 매도(반등 소진) 조건 종목이 없어요.<br><b style="color:#FFD400">📈 매수 신호 ${nBuy}개</b>가 있습니다 — 위 매수 탭을 눌러보세요.`;
+            } else {
+                msg = 'Smart Dip 조건을 충족하는 종목이 없습니다';
+                sub = '추세·거래량·진입봉 8개 필터를 통과한 A급 후보는 장중에 실시간 갱신됩니다.';
+            }
+            list.innerHTML = regimeBanner + `<div class="catalyst-loading" style="padding:28px 16px;line-height:1.7;">${msg}<br><span style="font-size:12px;color:var(--text3)">${sub}</span></div>`;
             return;
         }
         const sigPill = (f) => `<span class="alpha-sig-pill alpha-sig--blue">${escHtml(f)}</span>`;

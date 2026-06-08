@@ -68,7 +68,7 @@ export async function handleDailyTradingScan(req, env) {
         const results = [];
         let analyzed = 0;
         // 필터 단계별 탈락 카운터 (디버깅용)
-        let _dbg = { noData: 0, noPass: 0 };
+        let _dbg = { noData: 0, noPass: 0, rawBuy: 0, rawSell: 0 };
         // 10개씩 청크 병렬
         const CHUNK = 10;
         for (let k = 0; k < universe.length; k += CHUNK) {
@@ -88,6 +88,7 @@ export async function handleDailyTradingScan(req, env) {
                     // ── Smart Dip v3 컨플루언스 필터 (개별 차트 Smart Dip 과 동일 엔진) ──
                     const sig = smartDipScan(q, { interval: tf, ts: tts || [], spxTrendUp });
                     if (!sig) { _dbg.noPass++; return; }
+                    if (sig.dir === 'buy') _dbg.rawBuy++; else _dbg.rawSell++;
 
                     // VWAP 위치 — 참고용 pill (게이트 아님)
                     const vwap = calcVWAP(q);
@@ -137,6 +138,7 @@ export async function handleDailyTradingScan(req, env) {
             market,
             scannedAt: Date.now(),
         };
+        if (url.searchParams.get('diag') === '1') payload._debug = _dbg;
         try { await env.CACHE.put(cacheKey, JSON.stringify(payload), { expirationTtl: CACHE_TTL }); } catch (_) {}
         return json(payload);
     } catch (e) {
