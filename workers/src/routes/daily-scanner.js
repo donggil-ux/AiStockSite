@@ -145,12 +145,13 @@ export async function handleDailyTradingScan(req, env) {
             }));
         }
 
-        // 점수(컨플루언스) 내림차순
+        // 점수(컨플루언스) 내림차순 — S > A > B 순으로 정렬됨
         results.sort((a, b) => b.score - a.score);
 
-        // A급 이상만 노출 (S/A). 백테스트상 B급은 기대값 음(-) → 제외.
-        let curated = results.filter(r => r.grade === 'S' || r.grade === 'A');
-        curated = curated.slice(0, 20);
+        // B급 이상 노출 (S/A/B). B는 백테스트상 약하므로 UI에서 낮은 등급으로 표시.
+        // 매수 후보가 드문 장세에서도 셋업을 최대한 보여주기 위함.
+        let curated = results.filter(r => r.grade === 'S' || r.grade === 'A' || r.grade === 'B');
+        curated = curated.slice(0, 25);
 
         const payload = {
             results: curated,
