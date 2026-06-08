@@ -141,6 +141,52 @@ export function calcADX(highs, lows, closes, period = 14) {
     return adx;
 }
 
+// ADX 봉별 시계열 — close 배열과 인덱스 정렬(워밍업 구간 null). 백테스트·봉별 평가용.
+export function calcADXSeries(highs, lows, closes, period = 14) {
+    const n = closes.length;
+    const out = new Array(n).fill(null);
+    if (n < period * 2 + 1) return out;
+    const tr = [], plusDM = [], minusDM = [], barOf = []; // tr[k] ↔ 봉 (k+1)
+    for (let i = 1; i < n; i++) {
+        barOf.push(i);
+        if (highs[i] == null || lows[i] == null || closes[i-1] == null || highs[i-1] == null || lows[i-1] == null) {
+            tr.push(0); plusDM.push(0); minusDM.push(0); continue;
+        }
+        const up = highs[i] - highs[i-1];
+        const down = lows[i-1] - lows[i];
+        plusDM.push(up > down && up > 0 ? up : 0);
+        minusDM.push(down > up && down > 0 ? down : 0);
+        tr.push(Math.max(highs[i]-lows[i], Math.abs(highs[i]-closes[i-1]), Math.abs(lows[i]-closes[i-1])));
+    }
+    let atr = 0, pdm = 0, mdm = 0;
+    for (let i = 0; i < period; i++) { atr += tr[i]; pdm += plusDM[i]; mdm += minusDM[i]; }
+    const dx = [], dxBar = [];
+    const pushDX = (k) => {
+        const pDI = atr === 0 ? 0 : 100 * pdm / atr;
+        const mDI = atr === 0 ? 0 : 100 * mdm / atr;
+        const sum = pDI + mDI;
+        dx.push(sum === 0 ? 0 : 100 * Math.abs(pDI - mDI) / sum);
+        dxBar.push(barOf[k]);
+    };
+    pushDX(period - 1); // tr[0..period-1] → 봉 period
+    for (let k = period; k < tr.length; k++) {
+        atr = atr - atr / period + tr[k];
+        pdm = pdm - pdm / period + plusDM[k];
+        mdm = mdm - mdm / period + minusDM[k];
+        pushDX(k);
+    }
+    if (dx.length < period) return out;
+    let adx = 0;
+    for (let i = 0; i < period; i++) adx += dx[i];
+    adx /= period;
+    out[dxBar[period - 1]] = adx;
+    for (let j = period; j < dx.length; j++) {
+        adx = (adx * (period - 1) + dx[j]) / period;
+        out[dxBar[j]] = adx;
+    }
+    return out;
+}
+
 /**
  * 5분봉 시그널 감지 (단순화된 _calcSignalGrade 백엔드 버전)
  *

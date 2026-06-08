@@ -6,10 +6,28 @@
 //   8개 필터(ADX·HTF추세·거래량회복·양봉/음봉·ATR·SPX환경·RSI·장초반) 통과 종목만.
 import { json, err } from '../utils/validators.js';
 import { calcVWAP } from '../utils/indicators.js';
-import { smartDipScan } from '../utils/smart-dip.js';
+import { smartDipScan, smartDipBacktest } from '../utils/smart-dip.js';
 import { fetchChartWithFallback } from './yahoo.js';
 import { getMarketRegime } from '../utils/market.js';
 import { _fetchDiscoverySymbols, DEFAULT_UNIVERSE_US, DEFAULT_UNIVERSE_KR } from '../cron.js';
+
+const BACKTEST_CACHE_KEY = (tf) => `dailybt:US:${tf}`;
+const BACKTEST_TTL = 6 * 60 * 60; // 6시간 (비용 큰 작업)
+
+// 백테스트 KV에서 등급별 실측 승률 로드 (스캐너 winRate 표시용)
+async function _loadMeasuredWin(env, tf) {
+    try {
+        const bt = await env.CACHE.get(BACKTEST_CACHE_KEY(tf), 'json');
+        if (bt?.byGrade) {
+            const out = {};
+            for (const g of ['S', 'A', 'B']) {
+                if (bt.byGrade[g]?.n >= 10) out[g] = bt.byGrade[g].winRate;
+            }
+            return Object.keys(out).length ? out : null;
+        }
+    } catch (_) {}
+    return null;
+}
 
 const CACHE_TTL = 90; // intraday — 90초
 
@@ -56,6 +74,8 @@ export async function handleDailyTradingScan(req, env) {
             : await getMarketRegime(env);
         // Smart Dip 필터 6번(SPX 환경) 입력 — 레짐의 SPY 추세 재사용
         const spxTrendUp = regime.spyTrend === 'up' ? true : regime.spyTrend === 'down' ? false : null;
+        // 백테스트 실측 승률 (있으면 등급 기본값 대신 사용)
+        const measuredWin = await _loadMeasuredWin(env, tf);
 
         // 유니버스 — 기본 풀 + 당일 활발 종목(US 스크리너)
         const base = market === 'KR' ? DEFAULT_UNIVERSE_KR : DEFAULT_UNIVERSE_US;
@@ -86,7 +106,7 @@ export async function handleDailyTradingScan(req, env) {
 
                     analyzed++;
                     // ── Smart Dip v3 컨플루언스 필터 (개별 차트 Smart Dip 과 동일 엔진) ──
-                    const sig = smartDipScan(q, { interval: tf, ts: tts || [], spxTrendUp });
+                    const sig = smartDipScan(q, { interval: tf, ts: tts || [], spxTrendUp, measuredWin });
                     if (!sig) { _dbg.noPass++; return; }
                     if (sig.dir === 'buy') _dbg.rawBuy++; else _dbg.rawSell++;
 
@@ -113,6 +133,11 @@ export async function handleDailyTradingScan(req, env) {
                         adx: sig.adx,
                         atrPct: sig.atrPct,
                         barsAgo: sig.barsAgo,
+                        stop: sig.stop,
+                        target1: sig.target1,
+                        target2: sig.target2,
+                        riskPct: sig.riskPct,
+                        winMeasured: sig.winMeasured,
                         session,
                         riskWarn,
                     });
@@ -123,9 +148,8 @@ export async function handleDailyTradingScan(req, env) {
         // 점수(컨플루언스) 내림차순
         results.sort((a, b) => b.score - a.score);
 
-        // A급 이상 엄선 (S/A). A+ 가 하나도 없으면 B급이라도 노출 (빈 화면 방지).
+        // A급 이상만 노출 (S/A). 백테스트상 B급은 기대값 음(-) → 제외.
         let curated = results.filter(r => r.grade === 'S' || r.grade === 'A');
-        if (!curated.length) curated = results;
         curated = curated.slice(0, 20);
 
         const payload = {
@@ -140,6 +164,90 @@ export async function handleDailyTradingScan(req, env) {
         };
         if (url.searchParams.get('diag') === '1') payload._debug = _dbg;
         try { await env.CACHE.put(cacheKey, JSON.stringify(payload), { expirationTtl: CACHE_TTL }); } catch (_) {}
+        return json(payload);
+    } catch (e) {
+        return err(500, e.message);
+    }
+}
+
+// GET /api/scanner/daily-backtest?market=US&tf=5m[&force=1]
+// 유니버스 종목의 과거 데이터에 Smart Dip 엔진을 돌려 실측 승률·평균 R 산출.
+// 비용이 크므로 6시간 KV 캐시. 결과는 스캐너 winRate 표시에도 재사용됨.
+export async function handleDailyBacktest(req, env) {
+    try {
+        const url = new URL(req.url);
+        const tf = url.searchParams.get('tf') === '15m' ? '15m' : '5m';
+        const force = url.searchParams.get('force') === '1';
+        const targetR = Math.max(0.5, Math.min(5, parseFloat(url.searchParams.get('target') || '2'))) || 2;
+        const cacheKey = BACKTEST_CACHE_KEY(tf) + (targetR !== 2 ? `:t${targetR}` : '');
+
+        if (!force) {
+            try {
+                const cached = await env.CACHE.get(cacheKey, 'json');
+                if (cached) return json({ ...cached, _cached: true });
+            } catch (_) {}
+        }
+
+        const regime = await getMarketRegime(env);
+        const spxTrendUp = regime.spyTrend === 'up' ? true : regime.spyTrend === 'down' ? false : null;
+
+        // 백테스트 유니버스 — 기본 풀만 (안정적 종목), 비용 위해 25개 제한
+        const dynamic = await _fetchDiscoverySymbols(env, 'US');
+        const universe = [...new Set([...DEFAULT_UNIVERSE_US, ...dynamic])].slice(0, 25);
+        // 5m: 1개월(≈30일×78봉) / 15m: 3개월
+        const range = tf === '15m' ? '3mo' : '1mo';
+
+        const all = [];
+        let symbolsOk = 0;
+        const CHUNK = 8;
+        for (let k = 0; k < universe.length; k += CHUNK) {
+            const chunk = universe.slice(k, k + CHUNK);
+            await Promise.all(chunk.map(async (symbol) => {
+                try {
+                    const raw = await fetchChartWithFallback(env, symbol, range, tf, 'false');
+                    const q = raw?.chart?.result?.[0]?.indicators?.quote?.[0];
+                    if (!q?.close?.length || q.close.length < 120) return;
+                    symbolsOk++;
+                    const { trades } = smartDipBacktest(q, { interval: tf, spxTrendUp, targetR });
+                    for (const t of trades) all.push(t);
+                } catch (_) {}
+            }));
+        }
+
+        // 집계
+        const agg = (arr) => {
+            const n = arr.length;
+            if (!n) return { n: 0, winRate: 0, avgR: 0, expectancy: 0, wins: 0, losses: 0, timeouts: 0 };
+            const wins = arr.filter(t => t.outcome === 'win').length;
+            const losses = arr.filter(t => t.outcome === 'loss').length;
+            const timeouts = arr.filter(t => t.outcome === 'timeout').length;
+            const sumR = arr.reduce((s, t) => s + (t.R || 0), 0);
+            // 승률은 목표(2R) 도달 비율 (타임아웃 제외 분모)
+            const decided = wins + losses;
+            return {
+                n,
+                winRate: decided ? Math.round((wins / decided) * 100) : 0,
+                avgR: +(sumR / n).toFixed(2),       // 거래당 평균 손익(R)
+                expectancy: +(sumR / n).toFixed(2),
+                wins, losses, timeouts,
+            };
+        };
+
+        const byGrade = { S: agg(all.filter(t => t.grade === 'S')), A: agg(all.filter(t => t.grade === 'A')), B: agg(all.filter(t => t.grade === 'B')) };
+        const byDir   = { buy: agg(all.filter(t => t.dir === 'buy')), sell: agg(all.filter(t => t.dir === 'sell')) };
+
+        const payload = {
+            tf,
+            overall: agg(all),
+            byGrade,
+            byDir,
+            symbols: symbolsOk,
+            universe: universe.length,
+            range,
+            spxTrendUp,
+            ranAt: Date.now(),
+        };
+        try { await env.CACHE.put(cacheKey, JSON.stringify(payload), { expirationTtl: BACKTEST_TTL }); } catch (_) {}
         return json(payload);
     } catch (e) {
         return err(500, e.message);
