@@ -156,10 +156,96 @@ export function smartDipScan(q, { interval = '5m', ts = [], spxTrendUp = null, l
     return null;
 }
 
+// ── 역추세 반등 매수 (낙폭과대) ────────────────────────────────
+// 추세추종이 아닌 평균회귀: 하락 중 과매도 + 반등 양봉(눌림 바닥)을 매수.
+// 추세 매수가 안 나오는 하락장에서 단기 반등 타점을 잡기 위함.
+function evalBounce(q, ind, i, ts) {
+    const { close, high, low, open, volume } = q;
+    const c = close[i];
+    if (c == null || ind.rsi[i] == null || ind.atrArr[i] == null || ind.ema60[i] == null) return { pass: false, qs: 0 };
+    let qs = 0;
+    const reasons = [];
+
+    // 1) 낙폭과대 맥락 — 가격이 EMA60 아래 (추세 대비 눌림)
+    if (c >= ind.ema60[i]) return { pass: false, qs };
+
+    // 2) RSI 과매도 (핵심 트리거) — 5분봉은 반등 시 RSI 빠르게 회복하므로 42 이하 허용
+    const rsiVal = ind.rsi[i];
+    if (rsiVal >= 42) return { pass: false, qs };
+    qs += rsiVal < 30 ? 2 : rsiVal < 38 ? 1 : 0.5;
+    reasons.push(`RSI ${rsiVal.toFixed(0)} 과매도`);
+
+    // 3) 최근 10봉 누적 낙폭 (충분히 빠졌나)
+    const past = close[Math.max(0, i - 10)];
+    const dropPct = past > 0 ? ((c - past) / past) * 100 : 0;
+    if (dropPct > -1.5) return { pass: false, qs };
+    qs += dropPct < -4 ? 2 : 1;
+    reasons.push(`낙폭 ${dropPct.toFixed(1)}%`);
+
+    // 4) 반등 양봉 + 종가가 봉 상단(저점 매수세 유입 = 낙폭 되돌림)
+    if (!(open[i] != null && close[i] > open[i])) return { pass: false, qs };
+    const rng = high[i] - low[i];
+    const posInRange = rng > 0 ? (close[i] - low[i]) / rng : 0;
+    if (posInRange < 0.5) return { pass: false, qs }; // 종가 하단 = 약한 반등, 칼받기 위험
+    qs += posInRange >= 0.7 ? 1.5 : 1;
+    reasons.push('반등 양봉');
+
+    // 5) 직전 봉 하락 (반전 확인 — 연속 상승의 막판 아님)
+    if (i > 0 && open[i - 1] != null && close[i - 1] < open[i - 1]) { qs += 0.5; }
+
+    // 6) 거래량 (반등에 거래량 실리면 신뢰↑)
+    const volSlice = volume.slice(Math.max(0, i - 20), i).filter(v => v != null && v > 0);
+    const volAvg20 = volSlice.length ? volSlice.reduce((s, v) => s + v, 0) / volSlice.length : 0;
+    const volRatio = volAvg20 > 0 ? (volume[i] || 0) / volAvg20 : 1;
+    if (volRatio < 0.8) return { pass: false, qs };
+    if (volRatio >= 1.5) { qs += 1; reasons.push(`거래량 ${volRatio.toFixed(1)}x`); }
+    else if (volRatio >= 1.0) { qs += 0.5; }
+
+    // 7) ATR 변동성 (반등은 변동성 다소 허용, 8% 초과는 차단)
+    const atrPct = c > 0 ? ((ind.atrArr[i] || 0) / c) * 100 : 0;
+    if (atrPct > 8.0) return { pass: false, qs };
+
+    return {
+        pass: qs >= 3.5, qs, reasons,
+        adx: +(ind.adxArr[i] || 0).toFixed(0), volRatio: +volRatio.toFixed(1),
+        atrPct: +atrPct.toFixed(1), rsiVal: Math.round(rsiVal), price: c,
+    };
+}
+
+function bounceGrade(qs) { return qs >= 5.5 ? 'A' : 'B'; } // 역추세는 최고 A (S 없음)
+
+// 역추세 반등 매수 스캔 (실시간) — 최근 봉에서 첫 통과 셋업 반환
+export function smartDipScanBounce(q, { ts = [], lookback, measuredWin = null } = {}) {
+    const { close = [] } = q;
+    const N = close.length;
+    if (N < 60) return null;
+    const ind = indicators(q);
+    const LB = lookback || 3;
+    for (let i = N - 1; i >= Math.max(60, N - LB); i--) {
+        const b = evalBounce(q, ind, i, ts);
+        if (!b.pass) continue;
+        const grade = bounceGrade(b.qs);
+        const lv = tradeLevels('buy', b.price, ind.atrArr[i]);
+        const fallback = grade === 'A' ? 33 : 29; // 반등 백테스트 실측치(2R 목표 기준)
+        const winRate = (measuredWin && measuredWin['bounce_' + grade] != null) ? measuredWin['bounce_' + grade] : fallback;
+        return {
+            dir: 'buy', mode: 'bounce', grade,
+            qualityScore: +b.qs.toFixed(1),
+            winRate, winMeasured: !!(measuredWin && measuredWin['bounce_' + grade] != null),
+            adx: b.adx, volRatio: b.volRatio, atrPct: b.atrPct, rsiVal: b.rsiVal,
+            reasons: b.reasons.slice(0, 4),
+            price: b.price,
+            stop: lv?.stop ?? null, target1: lv?.target1 ?? null, target2: lv?.target2 ?? null, riskPct: lv?.riskPct ?? null,
+            barsAgo: N - 1 - i,
+        };
+    }
+    return null;
+}
+
 // 과거 데이터 백테스트 — 각 봉에서 신호 발생 시 진입, 이후 HORIZON 봉 내
 // 목표(2R) 도달 vs 손절(-1R) 도달을 시뮬레이션. 봉별 독립 평가(중복 쿨다운).
 // @returns { trades:[{grade,dir,outcome,R}], byGrade:{S,A,B:{n,win,avgR}} }
-export function smartDipBacktest(q, { interval = '5m', spxTrendUp = null, horizon, targetR = TARGET1_R } = {}) {
+export function smartDipBacktest(q, { interval = '5m', spxTrendUp = null, horizon, targetR = TARGET1_R, mode = 'trend' } = {}) {
     const { close = [], high = [], low = [] } = q;
     const N = close.length;
     const trades = [];
@@ -171,11 +257,16 @@ export function smartDipBacktest(q, { interval = '5m', spxTrendUp = null, horizo
 
     for (let i = 60; i < N - 2; i++) {
         if (i < cooldownUntil) continue;
-        const buy  = evalBar(q, ind, i, 'buy',  htfLag, spxTrendUp);
-        const sell = evalBar(q, ind, i, 'sell', htfLag, spxTrendUp);
-        let best = null, dir = null;
-        if (buy.pass && (!sell.pass || buy.qs >= sell.qs)) { best = buy; dir = 'buy'; }
-        else if (sell.pass) { best = sell; dir = 'sell'; }
+        let best = null, dir = null, gradeFn = gradeOf;
+        if (mode === 'bounce') {
+            const b = evalBounce(q, ind, i);
+            if (b.pass) { best = b; dir = 'buy'; gradeFn = bounceGrade; }
+        } else {
+            const buy  = evalBar(q, ind, i, 'buy',  htfLag, spxTrendUp);
+            const sell = evalBar(q, ind, i, 'sell', htfLag, spxTrendUp);
+            if (buy.pass && (!sell.pass || buy.qs >= sell.qs)) { best = buy; dir = 'buy'; }
+            else if (sell.pass) { best = sell; dir = 'sell'; }
+        }
         if (!best) continue;
 
         const entry = close[i];
@@ -202,7 +293,7 @@ export function smartDipBacktest(q, { interval = '5m', spxTrendUp = null, horizo
             exitR = ((dir === 'buy' ? (exit - entry) : (entry - exit)) / lv.stopDist);
             exitR = +exitR.toFixed(2);
         }
-        trades.push({ grade: gradeOf(best.qs), dir, outcome, R: exitR });
+        trades.push({ grade: gradeFn(best.qs), dir, outcome, R: exitR });
         cooldownUntil = i + Math.ceil(H / 3); // 신호 중복 방지
     }
     return { trades };

@@ -6,7 +6,7 @@
 //   8개 필터(ADX·HTF추세·거래량회복·양봉/음봉·ATR·SPX환경·RSI·장초반) 통과 종목만.
 import { json, err } from '../utils/validators.js';
 import { calcVWAP } from '../utils/indicators.js';
-import { smartDipScan, smartDipBacktest } from '../utils/smart-dip.js';
+import { smartDipScan, smartDipScanBounce, smartDipBacktest } from '../utils/smart-dip.js';
 import { fetchChartWithFallback } from './yahoo.js';
 import { getMarketRegime } from '../utils/market.js';
 import { _fetchDiscoverySymbols, DEFAULT_UNIVERSE_US, DEFAULT_UNIVERSE_KR } from '../cron.js';
@@ -88,7 +88,7 @@ export async function handleDailyTradingScan(req, env) {
         const results = [];
         let analyzed = 0;
         // 필터 단계별 탈락 카운터 (디버깅용)
-        let _dbg = { noData: 0, noPass: 0, rawBuy: 0, rawSell: 0 };
+        let _dbg = { noData: 0, noPass: 0, rawBuy: 0, rawSell: 0, bounceAny: 0, bounceA: 0 };
         // 10개씩 청크 병렬
         const CHUNK = 10;
         for (let k = 0; k < universe.length; k += CHUNK) {
@@ -105,23 +105,12 @@ export async function handleDailyTradingScan(req, env) {
                     if (!q?.close?.length || q.close.length < 60) { _dbg.noData++; return; }
 
                     analyzed++;
-                    // ── Smart Dip v3 컨플루언스 필터 (개별 차트 Smart Dip 과 동일 엔진) ──
-                    const sig = smartDipScan(q, { interval: tf, ts: tts || [], spxTrendUp, measuredWin });
-                    if (!sig) { _dbg.noPass++; return; }
-                    if (sig.dir === 'buy') _dbg.rawBuy++; else _dbg.rawSell++;
-
-                    // VWAP 위치 — 참고용 pill (게이트 아님)
                     const vwap = calcVWAP(q);
-                    const vwapPos = (vwap != null) ? (sig.price >= vwap ? 'above' : 'below') : null;
-
-                    // ── 레짐 경고: 위험 장세 + 매수 + 비S급 → 경고 태그 (차단 아님) ──
-                    const riskWarn = (regime.regime === 'risk_off' && sig.dir === 'buy' && sig.grade !== 'S');
-
                     const session = _session((tts || [])[(tts || []).length - 1]);
-
-                    results.push({
+                    const mkResult = (sig) => ({
                         symbol,
                         dir: sig.dir,
+                        mode: sig.mode || 'trend',
                         grade: sig.grade,
                         score: sig.qualityScore,
                         winRate: sig.winRate,
@@ -129,18 +118,29 @@ export async function handleDailyTradingScan(req, env) {
                         price: sig.price,
                         rsi: sig.rsiVal,
                         rvol: sig.volRatio,
-                        vwapPos,
+                        vwapPos: (vwap != null) ? (sig.price >= vwap ? 'above' : 'below') : null,
                         adx: sig.adx,
                         atrPct: sig.atrPct,
                         barsAgo: sig.barsAgo,
-                        stop: sig.stop,
-                        target1: sig.target1,
-                        target2: sig.target2,
-                        riskPct: sig.riskPct,
+                        stop: sig.stop, target1: sig.target1, target2: sig.target2, riskPct: sig.riskPct,
                         winMeasured: sig.winMeasured,
                         session,
-                        riskWarn,
+                        riskWarn: (regime.regime === 'risk_off' && sig.dir === 'buy' && sig.grade !== 'S' && (sig.mode || 'trend') === 'trend'),
                     });
+
+                    // ── 추세 신호 (Smart Dip 추세추종) ──
+                    const trend = smartDipScan(q, { interval: tf, ts: tts || [], spxTrendUp, measuredWin });
+                    if (trend) { results.push(mkResult(trend)); if (trend.dir === 'buy') _dbg.rawBuy++; else _dbg.rawSell++; }
+
+                    // ── 역추세 반등 매수 (독립 실행 — 매도 신호와 무관하게 A급 반등은 추가) ──
+                    // 단, 추세가 이미 '매수'면 중복 방지로 생략.
+                    if (!trend || trend.dir !== 'buy') {
+                        const bounce = smartDipScanBounce(q, { ts: tts || [], measuredWin });
+                        if (bounce) { _dbg.bounceAny++; if (bounce.grade === 'A') _dbg.bounceA++; }
+                        if (bounce && bounce.grade === 'A') { results.push(mkResult(bounce)); _dbg.rawBuy++; }
+                    }
+
+                    if (!trend) _dbg.noPass++;
                 } catch (_) {}
             }));
         }
@@ -180,7 +180,8 @@ export async function handleDailyBacktest(req, env) {
         const tf = url.searchParams.get('tf') === '15m' ? '15m' : '5m';
         const force = url.searchParams.get('force') === '1';
         const targetR = Math.max(0.5, Math.min(5, parseFloat(url.searchParams.get('target') || '2'))) || 2;
-        const cacheKey = BACKTEST_CACHE_KEY(tf) + (targetR !== 2 ? `:t${targetR}` : '');
+        const mode = url.searchParams.get('mode') === 'bounce' ? 'bounce' : 'trend';
+        const cacheKey = BACKTEST_CACHE_KEY(tf) + (mode === 'bounce' ? ':bounce' : '') + (targetR !== 2 ? `:t${targetR}` : '');
 
         if (!force) {
             try {
@@ -209,7 +210,7 @@ export async function handleDailyBacktest(req, env) {
                     const q = raw?.chart?.result?.[0]?.indicators?.quote?.[0];
                     if (!q?.close?.length || q.close.length < 120) return;
                     symbolsOk++;
-                    const { trades } = smartDipBacktest(q, { interval: tf, spxTrendUp, targetR });
+                    const { trades } = smartDipBacktest(q, { interval: tf, spxTrendUp, targetR, mode });
                     for (const t of trades) all.push(t);
                 } catch (_) {}
             }));

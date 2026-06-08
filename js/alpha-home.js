@@ -7664,12 +7664,13 @@
             if (r.adx != null) qPills.push(`<span class="alpha-sig-pill alpha-sig--cyan">ADX ${r.adx}</span>`);
             if (_sessLabel[r.session]) qPills.push(`<span class="alpha-sig-pill alpha-sig--amber">${_sessLabel[r.session]}</span>`);
             const warnBadge = r.riskWarn ? `<span style="display:inline-block;padding:1px 5px;border-radius:5px;background:#FF8C00;color:#fff;font-size:9px;font-weight:700;margin-left:4px;">⚠️위험</span>` : '';
+            const bounceBadge = r.mode === 'bounce' ? `<span style="display:inline-block;padding:1px 5px;border-radius:5px;background:#7C3AED;color:#fff;font-size:9px;font-weight:700;margin-left:4px;">↩️역추세</span>` : '';
             return `<div class="catalyst-card" onclick="quickSearch('${escHtml(r.symbol)}','US')">
                 <div class="catalyst-card-head">
                     <div class="catalyst-rank">${idx + 1}</div>
                     <div class="catalyst-id">
                         <div class="catalyst-sym">${escHtml(r.symbol)}
-                            <span style="display:inline-block;padding:2px 7px;border-radius:6px;background:${dirBg};color:${dirTx};font-size:10px;font-weight:800;margin-left:4px;">${dirLabel}</span>${warnBadge}
+                            <span style="display:inline-block;padding:2px 7px;border-radius:6px;background:${dirBg};color:${dirTx};font-size:10px;font-weight:800;margin-left:4px;">${dirLabel}</span>${bounceBadge}${warnBadge}
                         </div>
                         <div class="catalyst-name">승률 ${r.winRate}%${r.winMeasured ? ' <span style="color:var(--green)">실측</span>' : ''} · 손익비 1:2 · RSI ${r.rsi}</div>
                     </div>
