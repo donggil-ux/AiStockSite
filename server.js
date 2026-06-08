@@ -3863,6 +3863,12 @@ app.get('/api/catalyst/hunter', async (req, res) => {
                 score -= 15;                              // 과열 — 소문에 사고 뉴스에 파는 위험
             }
 
+            // 거래량 미확인 페널티 — 백테스트 검증: 거래량 2배↑ 카탈리스트만 +수익(+0.6~0.8%),
+            //   약한 거래량 공시는 평균 마이너스(노이즈/페이드). 거래량 안 실린 촉매는 강등.
+            const _turnoverWeak = !(turnoverRatio != null && turnoverRatio >= 0.1);
+            if (volRatio < 1.5 && _turnoverWeak) score -= 12;   // 강등 → 약한 신호/탈락
+            else if (volRatio < 2 && _turnoverWeak) score -= 5;
+
             // v693 #3 — 실적발표 임박(D-3) 경고. 제외하지 않고 UI 경고 배지만 부착
             let earningsWarning = false, earningsDaysAway = null;
             const earnTs = q.earningsTimestamp || q.earningsTimestampStart || 0;

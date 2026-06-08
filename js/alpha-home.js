@@ -7970,7 +7970,7 @@
             }
             const guideHtml = `<div class="mv-guide">
                 <strong>🌙 종가 매매 — 시장 대비 강한 리더</strong>
-                <span>장 마감 직전 매수 · 손절 -8% · 목표 2R·3R·5R</span></div>`;
+                <span>장 마감 직전 매수 · +1R서 본전 이동 후 트레일링 (백테스트: 고정목표 대비 우위)</span></div>`;
             const _gc = g => g === 'S' ? '#FFD60A' : g === 'A' ? '#22C55E' : g === 'B' ? '#3B82F6' : '#9CA3AF';
             const _gl = g => g === 'S' ? '최우선' : g === 'A' ? '진입' : g === 'B' ? '소량' : '관망';
             const pct = v => `${v > 0 ? '+' : ''}${v}%`;
@@ -8002,7 +8002,8 @@
                     <div class="catalyst-strategy">
                         <span class="cs-cell entry">진입 $${s.entryPrice.toFixed(2)}</span>
                         <span class="cs-cell stop">손절 $${s.stopLoss}${s.riskPct ? ` (-${s.riskPct}%)` : ''}</span>
-                        <span class="cs-cell tp">목표 $${s.tp1Price} / $${s.tp2Price} / $${s.tp3Price}</span>
+                        ${s.beTrigger ? `<span class="cs-cell be">본전이동 $${s.beTrigger} (+1R)</span>` : ''}
+                        <span class="cs-cell tp">이후 트레일링</span>
                     </div>
                 </div>`;
             }).join('');

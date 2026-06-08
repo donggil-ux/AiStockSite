@@ -97,7 +97,14 @@ async function yfDaily(ticker){
     const ma200=cl.length>=200?cl.slice(-200).reduce((s,v)=>s+v,0)/200:null;
     let rsiAdj=0; if(rsi!=null&&ma200&&entry<ma200&&rsi<=35)rsiAdj=15; else if(rsi!=null&&rsi>=70)rsiAdj=-15;
     const score=e.kw+vScore+rsiAdj;
-    rows.push({ticker:e.ticker, kw:e.kw, vr:+vr.toFixed(1), score, ret1:+ret1.toFixed(2), ret3:+ret3.toFixed(2)});
+    // 프로덕션 규율 재현 — 추격/과확장 제외 판정용 지표
+    const runup5=idx>=5&&closes[idx-5]>0?(entry/closes[idx-5]-1)*100:0;   // 직전 5일 런업
+    const dayChg=closes[idx-1]>0?(entry/closes[idx-1]-1)*100:0;            // 공시일 당일 변동
+    const ma20=cl.length>=20?cl.slice(-20).reduce((s,v)=>s+v,0)/20:entry;
+    const ext20=(entry/ma20-1)*100;                                       // MA20 대비 과확장
+    rows.push({ticker:e.ticker, kw:e.kw, vr:+vr.toFixed(1), score, rsi:rsi!=null?+rsi.toFixed(0):null,
+      runup5:+runup5.toFixed(1), dayChg:+dayChg.toFixed(1), ext20:+ext20.toFixed(1),
+      ret1:+ret1.toFixed(2), ret3:+ret3.toFixed(2)});
   }
   console.log(`\n[결과] 유효 샘플 ${rows.length}건\n`);
   if(!rows.length){console.log('데이터 없음');return;}
@@ -122,4 +129,15 @@ async function yfDaily(ticker){
     const s=stat(rows.filter(r=>r.kw===(t==='high'?30:20))); console.log(`  ${n}: ${s.n}건 | 1일 ${s.r1>=0?'+':''}${s.r1}% | 3일 ${s.r3>=0?'+':''}${s.r3}%`);
   }
   console.log('\n전체:', stat(rows));
+
+  // ── 프로덕션 규율(추격/과확장 제외) 적용 시 수익이 +로 도는가 ──
+  console.log('\n=== 프로덕션 필터 효과 (이미 오른/과확장 제외) ===');
+  const fNoChase = rows.filter(r=>r.dayChg<8 && r.runup5<20);            // 추격 제외
+  const fNoExt   = fNoChase.filter(r=>r.ext20<12);                       // 과확장 제외
+  const fNoHeat  = fNoExt.filter(r=>r.rsi==null||r.rsi<70);              // 과열 제외
+  console.log('  추격제외:', stat(fNoChase));
+  console.log('  +과확장제외:', stat(fNoExt));
+  console.log('  +과열제외(최종):', stat(fNoHeat));
+  // 거래량 받쳐주는 것만 (프로덕션 핵심)
+  console.log('  +거래량2배↑:', stat(fNoHeat.filter(r=>r.vr>=2)));
 })();
