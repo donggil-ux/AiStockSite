@@ -108,8 +108,7 @@ export async function handleDailyTradingScan(req, env) {
                     analyzed++;
                     const vwap = calcVWAP(q);
                     const session = _session((tts || [])[(tts || []).length - 1]);
-                    // 점심 시간대(횡보) 진입 회피 — 백테스트상 +0.13R 개선 (검증됨)
-                    if (session === 'midday') { _dbg.middaySkip++; return; }
+                    // 점심 시간대 필터 제거 — 신호 자체는 내보내고 세션 태그("점심")로 UI에서 표시
                     const mkResult = (sig) => ({
                         symbol,
                         dir: sig.dir,
@@ -156,8 +155,8 @@ export async function handleDailyTradingScan(req, env) {
         let curated = results.filter(r => r.grade === 'S' || r.grade === 'A' || r.grade === 'B');
         curated = curated.slice(0, 25);
 
-        // 결과 0건이고 점심 스킵이 다수면 → 점심 시간대 안내 플래그
-        const middayFiltered = curated.length === 0 && _dbg.middaySkip >= Math.max(5, analyzed * 0.5);
+        // 점심 필터 제거 — middayFiltered는 항상 false (이전 클라 호환용으로 필드는 유지)
+        const middayFiltered = false;
 
         const payload = {
             results: curated,
