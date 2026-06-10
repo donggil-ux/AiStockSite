@@ -6,8 +6,8 @@
 //   - /api/* 기타: 네트워크만 (항상 최신)
 //   - 새 SW 는 waiting 대기 → 사용자가 '새로고침' 토스트 클릭 시에만 활성화
 
-const CACHE_NAME = 'stockai-v1036';
-const API_CACHE = 'stockai-api-v1036';
+const CACHE_NAME = 'stockai-v1037';
+const API_CACHE = 'stockai-api-v1037';
 // API 캐시 최대 항목 수 (Quota 보호) — LRU 방식
 const API_CACHE_MAX = 80;
 
@@ -219,6 +219,10 @@ self.addEventListener('fetch', e => {
 
   // Workers 백엔드 — 차트 데이터는 SWR, 나머지는 네트워크 전용
   if (url.hostname === WORKERS_HOST) {
+    if (url.searchParams.get('_poll') === '1') {
+      e.respondWith(fetch(req));
+      return;
+    }
     if (isSwrApi(url.pathname)) {
       e.respondWith(staleWhileRevalidate(req));
       return;
@@ -232,6 +236,10 @@ self.addEventListener('fetch', e => {
 
   // 같은 origin 의 /api/ — SWR 패턴이면 SWR (Vercel 환경에서 사용 가능)
   if (url.pathname.startsWith('/api/')) {
+    if (url.searchParams.get('_poll') === '1') {
+      e.respondWith(fetch(req));
+      return;
+    }
     if (isSwrApi(url.pathname)) {
       e.respondWith(staleWhileRevalidate(req));
       return;

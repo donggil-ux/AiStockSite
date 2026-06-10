@@ -191,6 +191,7 @@
     window.liveUpdateTimer = null;  // 실시간 가격 업데이트 타이머 (30초)
     window.analysisRefreshTimer = null;  // 분석 자동 갱신 타이머 (5분)
     window.chartSigPollTimer = null;  // 차트 시그널 폴링 타이머 (60초)
+    window._pollLastChartTs = 0;      // 마지막으로 렌더된 캔들 타임스탬프 (실시간 갱신용)
     window._xcCells = {};              // Phase X1-b: 셀별 차트 인스턴스 레지스트리
     window._xcActiveCellId = 'cell1';    // 현재 활성 셀 ID
     // Phase X3: 멀티차트 동기화 설정 (localStorage에서 복원)

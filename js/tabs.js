@@ -942,6 +942,7 @@
     function stopChartSigPoll() {
         if (chartSigPollTimer) { clearInterval(chartSigPollTimer); chartSigPollTimer = null; }
         _lastSigKey = null;
+        _pollLastChartTs = 0;
     }
 
     async function pollChartSignals() {
@@ -1030,10 +1031,18 @@
                     warn('[kiwoom] fallback to yahoo:', ke.message);
                 }
             }
-            // ── Yahoo Finance 폴백 ───────────────────────────────────
-            const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${currentFullSymbol}` +
-                `?range=${currentPeriod}&interval=${currentInterval}&includePrePost=true`;
-            const data = await fetchWithProxy(chartUrl);
+            // ── Yahoo Finance 폴백 — _poll=1 로 SW 캐시 우회 ────────
+            const backendUrl = `${API_BASE}/api/chart/${currentFullSymbol}` +
+                `?range=${currentPeriod}&interval=${currentInterval}&includePrePost=true&_poll=1`;
+            const pCtrl = new AbortController();
+            const pTimer = setTimeout(() => pCtrl.abort(), 8000);
+            let data;
+            try {
+                const r = await fetch(backendUrl, { signal: pCtrl.signal });
+                clearTimeout(pTimer);
+                if (!r.ok) return;
+                data = await r.json();
+            } catch (fe) { clearTimeout(pTimer); return; }
             if (!data?.chart?.result?.[0]) return;
             stockData = data.chart.result[0];
             const ts = stockData.timestamp || [];
@@ -1048,8 +1057,13 @@
             }
             if (!candleData.length) return;
 
-            // 마지막 캔들만 업데이트 → 줌·팬 유지
-            try { lwCandleSeries.update(candleData[candleData.length - 1]); } catch(e) {}
+            // 신규 캔들 전부 update (줌·팬 유지)
+            const threshold = _pollLastChartTs;
+            const toUpdate = threshold
+                ? candleData.filter(c => c.time >= threshold)
+                : [candleData[candleData.length - 1]];
+            toUpdate.forEach(c => { try { lwCandleSeries.update(c); } catch(_) {} });
+            _pollLastChartTs = candleData[candleData.length - 1].time;
 
             const bb = calcBollingerBands(q.close, 4, 2);
             renderChartLiveSignals(candleData, ts, q, bb);
