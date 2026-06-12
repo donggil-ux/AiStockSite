@@ -11825,6 +11825,7 @@
             const _ern = document.getElementById('earningsScreen'); if (_ern) _ern.style.display = 'none';
             const _lev = document.getElementById('leverageScreen'); if (_lev) _lev.style.display = 'none';
             const _pos = document.getElementById('positionScreen'); if (_pos) _pos.style.display = 'none';
+            const _prof = document.getElementById('profileScreen'); if (_prof) _prof.style.display = 'none';
                 window._vsActive = false;
             document.getElementById('stockHero').classList.add('show');
             document.getElementById('tabNav').classList.add('show');
