@@ -407,6 +407,81 @@ const _rlChartDraw   = makeIpRateLimiter(30 * 1000, '차트 그리기는 30초�
 // _rlAiRecommend / _rlHotStocks — 해당 엔드포인트 제거에 따라 함께 삭제됨 (v530)
 
 /**
+ * Alpaca 실시간 봉 데이터 (Yahoo Finance 포맷으로 반환)
+ * GET /api/alpaca/candles?ticker=AAPL&interval=5m&range=1d
+ * 장 중: IEX 실시간 / 장 외: 직전 세션 데이터
+ */
+const _ALPACA_TF = {
+    '1m':'1Min','2m':'2Min','3m':'3Min','5m':'5Min','10m':'10Min',
+    '15m':'15Min','30m':'30Min','60m':'1Hour','1h':'1Hour',
+    '1d':'1Day','1wk':'1Week','1mo':'1Month',
+};
+const _ALPACA_DAYS = {
+    '1d':3,'5d':8,'1mo':35,'3mo':95,'6mo':190,
+    '1y':370,'2y':740,'5y':1830,'ytd':370,
+};
+const _alpacaCandlesCache = {};
+const _ALPACA_CANDLES_TTL = 30 * 1000; // 30초 — 폴링과 동일 주기
+app.get('/api/alpaca/candles', async (req, res) => {
+    const { ticker, interval = '5m', range = '1d' } = req.query;
+    if (!ticker || !validSymbol(ticker.replace(/\..*/, ''))) {
+        return res.status(400).json({ error: 'invalid ticker' });
+    }
+    if (!_alpacaEnabled()) return res.status(503).json({ error: 'alpaca_disabled' });
+    const sym = ticker.replace(/\.(KS|KQ)$/i, '').toUpperCase();
+    if (!_alpacaSafeSymbols([sym]).length) return res.status(400).json({ error: 'symbol not supported' });
+
+    const ck = `${sym}_${interval}_${range}`;
+    const hit = _alpacaCandlesCache[ck];
+    if (hit && Date.now() - hit.ts < _ALPACA_CANDLES_TTL) return res.json(hit.data);
+
+    try {
+        const tf    = _ALPACA_TF[interval] || '1Day';
+        const days  = _ALPACA_DAYS[range]  || 35;
+        const start = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+        const url   = `https://data.alpaca.markets/v2/stocks/bars`
+            + `?symbols=${sym}&timeframe=${tf}&start=${start}&limit=10000&adjustment=split&sort=asc`;
+        const r = await axios.get(url, { headers: _alpacaHeaders(), timeout: 10000, httpAgent, httpsAgent });
+        const bars = r.data?.bars?.[sym] || [];
+        if (!bars.length) return res.status(404).json({ error: 'no_data' });
+
+        const timestamps = bars.map(b => Math.floor(new Date(b.t).getTime() / 1000));
+        const last = bars[bars.length - 1];
+        const prevClose = bars.length > 1 ? bars[bars.length - 2].c : last.c;
+
+        const result = {
+            chart: {
+                result: [{
+                    meta: {
+                        currency: 'USD', symbol: sym,
+                        regularMarketPrice: last.c,
+                        chartPreviousClose: prevClose,
+                        dataGranularity: interval, range,
+                        _source: 'alpaca',
+                    },
+                    timestamp: timestamps,
+                    indicators: {
+                        quote: [{
+                            open:   bars.map(b => b.o),
+                            high:   bars.map(b => b.h),
+                            low:    bars.map(b => b.l),
+                            close:  bars.map(b => b.c),
+                            volume: bars.map(b => b.v || 0),
+                        }],
+                    },
+                }],
+                error: null,
+            },
+        };
+        _alpacaCandlesCache[ck] = { ts: Date.now(), data: result };
+        return res.json(result);
+    } catch (e) {
+        _alpacaHandleError(e, 'alpaca-candles');
+        return res.status(500).json({ error: e.message });
+    }
+});
+
+/**
  * 차트 데이터
  * GET /api/chart/:symbol?range=6mo&interval=1d&includePrePost=false
  */

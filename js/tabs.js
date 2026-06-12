@@ -950,8 +950,47 @@
         // 탭이 백그라운드면 스킵 (네트워크/배터리 절약)
         if (document.hidden) return;
         try {
-            // ── Polygon.io 우선 시도 (미국 종목만) ──────────────────
             const isKR = /\.(KS|KQ)$/i.test(currentFullSymbol);
+
+            // ── Alpaca 실시간 캔들 우선 시도 (미국 종목만) ──────────
+            const _alpacaPollIntervals = new Set(['1m','2m','3m','5m','10m','15m','30m','60m','1h','1d','1wk','1mo']);
+            if (!isKR && _alpacaPollIntervals.has(currentInterval)) {
+                try {
+                    const sym = currentFullSymbol.replace(/\.(KS|KQ)$/i, '');
+                    const ar = await fetch(
+                        `${API_BASE}/api/alpaca/candles?ticker=${encodeURIComponent(sym)}`
+                        + `&interval=${encodeURIComponent(currentInterval)}&range=${encodeURIComponent(currentPeriod)}`
+                    );
+                    if (ar.ok) {
+                        const ad = await ar.json();
+                        const res0 = ad?.chart?.result?.[0];
+                        if (res0?.timestamp?.length > 5) {
+                            stockData = res0;
+                            const ts = res0.timestamp;
+                            const q  = res0.indicators.quote[0];
+                            const candleData = [];
+                            for (let i = 0; i < ts.length; i++) {
+                                const o = q.open[i], h = q.high[i], l = q.low[i], c = q.close[i];
+                                if (o==null||h==null||l==null||c==null) continue;
+                                candleData.push({ time: ts[i], open: o, high: h, low: l, close: c });
+                            }
+                            if (candleData.length > 5) {
+                                const threshold = _pollLastChartTs;
+                                const toUpdate = threshold
+                                    ? candleData.filter(c => c.time >= threshold)
+                                    : [candleData[candleData.length - 1]];
+                                toUpdate.forEach(c => { try { lwCandleSeries.update(c); } catch(_) {} });
+                                _pollLastChartTs = candleData[candleData.length - 1].time;
+                                const bb = calcBollingerBands(q.close, 4, 2);
+                                renderChartLiveSignals(candleData, ts, q, bb);
+                                return; // Alpaca 성공 → 폴백 불필요
+                            }
+                        }
+                    }
+                } catch(_) { /* Alpaca 실패 → Polygon 폴백 */ }
+            }
+
+            // ── Polygon.io 시도 (미국 종목만) ──────────────────
             if (!isKR) {
                 const tfToTimespan = {
                     '1m':'minute','2m':'minute','5m':'minute','15m':'minute',

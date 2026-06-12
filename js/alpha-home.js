@@ -11729,9 +11729,28 @@
             // Yahoo Finance가 직접 제공하지 않는 인터벌(3분/10분/년봉)은 작은 단위로 받아서 클라이언트에서 집계
             const aggCfg = INTERVAL_AGG[interval] || { yahoo: interval, factor: 1 };
             const yahooInterval = aggCfg.yahoo;
-            // includePrePost=true → 프리/애프터마켓 데이터 포함
-            const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${range}&interval=${yahooInterval}&includePrePost=true`;
-            let data = await fetchWithProxy(chartUrl);
+
+            // ── Alpaca 실시간 캔들 우선 시도 (US 인트라데이 + Alpaca가 직접 지원하는 인터벌) ──
+            const _alpacaIntervals = new Set(['1m','2m','3m','5m','10m','15m','30m','60m','1h','1d','1wk','1mo']);
+            const _useAlpaca = currentMarket !== 'KR' && _alpacaIntervals.has(interval);
+            let data;
+            if (_useAlpaca) {
+                try {
+                    const ar = await fetch(`${API_BASE}/api/alpaca/candles?ticker=${encodeURIComponent(currentSymbol)}&interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}`);
+                    if (ar.ok) {
+                        const ad = await ar.json();
+                        if (ad?.chart?.result?.[0]?.timestamp?.length > 5) {
+                            data = ad;
+                        }
+                    }
+                } catch(_) { /* Alpaca 실패 → Yahoo 폴백 */ }
+            }
+
+            // Yahoo Finance 폴백 (includePrePost=true → 프리/애프터마켓 데이터 포함)
+            if (!data) {
+                const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${range}&interval=${yahooInterval}&includePrePost=true`;
+                data = await fetchWithProxy(chartUrl);
+            }
 
             // If KR stock fails with .KS, try .KQ (KOSDAQ)
             if (currentMarket === 'KR' && (!data.chart?.result || data.chart?.error)) {
@@ -11747,12 +11766,28 @@
             stockData = data.chart.result[0];
 
             // 집계 필요한 인터벌(3분/10분/년봉)은 클라이언트에서 N봉 합치기
-            if (aggCfg.factor > 1 && stockData?.indicators?.quote?.[0] && stockData?.timestamp) {
+            // Alpaca는 해당 봉을 직접 반환하므로 집계 불필요
+            if (aggCfg.factor > 1 && stockData.meta?._source !== 'alpaca'
+                    && stockData?.indicators?.quote?.[0] && stockData?.timestamp) {
                 const agg = _aggregateBars(stockData.indicators.quote[0], stockData.timestamp, aggCfg.factor);
                 stockData.indicators.quote[0] = agg.quote;
                 stockData.timestamp = agg.timestamps;
             }
             currentFullSymbol = symbol;  // 실시간 업데이트용 풀 심볼 저장
+
+            // 차트 데이터 소스 뱃지
+            try {
+                const badge = document.getElementById('priceSourceBadge');
+                if (badge) {
+                    if (stockData.meta?._source === 'alpaca') {
+                        badge.style.display = '';
+                        badge.textContent = '⚡ 차트 실시간 (Alpaca)';
+                        badge.style.color = '#22C55E';
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                }
+            } catch(_) {}
 
             // 브라우저 뒤로가기 지원 — popstate 재호출 시에는 skip
             if (!_historySkip) {
