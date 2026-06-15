@@ -1,9 +1,11 @@
 // 가상 매매 포지션 관리 엔진
-// 4분할 매수 / 4분할 익절 / 평단 -2% 손절 / 트레일링 스탑
+// 5분할 매수 / 3단계 분할익절 + 트레일링 / 평단 -2.5% 손절 / 개별주 위주
 
-const TRANCHE_TRIGGERS = [0, 0.9925, 0.985, 0.98]; // 2차·3차·4차 분할 기준 (first_price 비율)
-const STOP_PCT   = 0.98;   // 평균단가 기준 손절
-const TP_PCTS    = [1.03, 1.06, 1.10]; // TP1·TP2·TP3 (avg_price 비율)
+const TRANCHE_TRIGGERS = [0, 0.9925, 0.985, 0.9775, 0.97]; // 2~5차 분할 (first_price 비율, ~0.75% 간격)
+const MAX_TRANCHE = 5;
+const STOP_PCT   = 0.975;  // 평균단가 -2.5% 손절 (개별주 노이즈 감안)
+const TP_PCTS    = [1.03, 1.06, 1.10]; // TP1·TP2·TP3
+const TP_RATIO   = 0.20;   // 분할 익절 시 20% (1/5)씩 — TP3까지 60% 익절, 트레일 40%
 const TRAIL_PCT  = 0.985;  // 고점 대비 트레일링 스탑 (TP1 이후 활성화)
 
 // ── 내부 헬퍼 ────────────────────────────────────────────────────
@@ -182,14 +184,13 @@ async function _manageOne(env, pos, price) {
         return;
     }
 
-    // ── 추가 분할 매수 (2~4차, first_price 기준) ────────────────
-    if (pos.tranche_count < 4) {
-        const nextTrigger = TRANCHE_TRIGGERS[pos.tranche_count]; // 1차=0, 2차=0.9925, ...
+    // ── 추가 분할 매수 (2~5차, first_price 기준) ────────────────
+    if (pos.tranche_count < MAX_TRANCHE) {
+        const nextTrigger = TRANCHE_TRIGGERS[pos.tranche_count];
         if (nextTrigger > 0 && price <= pos.first_price * nextTrigger) {
-            // 계좌 잔고 확인
             const acct = await env.DB.prepare('SELECT balance,position_size FROM paper_account WHERE user_id=?')
                 .bind(pos.user_id).first();
-            const trancheAmount = (acct?.position_size || 4000) / 4;
+            const trancheAmount = (acct?.position_size || 10000) / MAX_TRANCHE;
             if (acct && acct.balance >= trancheAmount) {
                 await paperAddTranche(env, pos, price);
                 // pos 갱신 (이후 TP 체크를 위해)
@@ -203,17 +204,17 @@ async function _manageOne(env, pos, price) {
 
     // ── 분할 익절 체크 ──────────────────────────────────────────
     if (!pos.tp1_done && price >= pos.avg_price * TP_PCTS[0]) {
-        await paperPartialExit(env, pos, price, 'sell_tp1', 0.25);
+        await paperPartialExit(env, pos, price, 'sell_tp1', TP_RATIO);
         const updated = await env.DB.prepare('SELECT * FROM paper_trades WHERE id=?').bind(pos.id).first();
         if (updated) pos = updated;
     }
     if (pos.tp1_done && !pos.tp2_done && price >= pos.avg_price * TP_PCTS[1]) {
-        await paperPartialExit(env, pos, price, 'sell_tp2', 0.25);
+        await paperPartialExit(env, pos, price, 'sell_tp2', TP_RATIO);
         const updated = await env.DB.prepare('SELECT * FROM paper_trades WHERE id=?').bind(pos.id).first();
         if (updated) pos = updated;
     }
     if (pos.tp2_done && !pos.tp3_done && price >= pos.avg_price * TP_PCTS[2]) {
-        await paperPartialExit(env, pos, price, 'sell_tp3', 0.25);
+        await paperPartialExit(env, pos, price, 'sell_tp3', TP_RATIO);
         const updated = await env.DB.prepare('SELECT * FROM paper_trades WHERE id=?').bind(pos.id).first();
         if (updated) pos = updated;
     }

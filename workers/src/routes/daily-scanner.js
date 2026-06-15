@@ -309,17 +309,35 @@ export async function captureDailySignals(env) {
                 ).bind(r.symbol, tf, r.dir, r.mode || 'trend', r.grade, r.score, r.price, r.stop, r.be ?? null, stopDist, entryTs).run();
                 logged++;
 
-                // 가상 매매 — S/A 등급 시그널 발생 시 1차 분할 매수
+                // 가상 매매 — 개별주 위주 S등급 즉시·A등급 score≥7.5 시 1차 분할 매수
                 if ((r.grade === 'S' || r.grade === 'A') && r.price > 0) {
-                    try {
+                    // A등급은 score 7.5 이상만 진입
+                    if (r.grade === 'A' && (r.score || 0) < 7.5) { /* skip */ }
+                    else try {
                         const category = classifySymbol(r.symbol, r.price, r.rvol || 0);
-                        if (category) {
+                        // 레버리지 ETF 제외 — 개별주(large_cap·mid_small)만
+                        if (category && category !== 'leveraged') {
                             const signalId = dtInsert.meta?.last_row_id || null;
                             const accounts = await env.DB.prepare('SELECT * FROM paper_account').all();
+                            // 오늘 UTC 자정
+                            const todayStart = new Date(); todayStart.setUTCHours(0, 0, 0, 0);
                             for (const acct of (accounts.results || [])) {
-                                const tranche = (acct.position_size || 4000) / 4;
+                                // ① 동시 보유 최대 3종목
+                                const openCnt = await env.DB.prepare(
+                                    'SELECT COUNT(*) n FROM paper_trades WHERE user_id=? AND status=\'open\''
+                                ).bind(acct.user_id).first();
+                                if ((openCnt?.n || 0) >= 3) continue;
+                                // ② 일일 수익 $370 달성 or 최대손실 -$500 도달 시 중단
+                                const todayPnl = await env.DB.prepare(
+                                    'SELECT COALESCE(SUM(pnl),0) total FROM paper_fills WHERE user_id=? AND fill_type LIKE \'sell_%\' AND filled_at>=?'
+                                ).bind(acct.user_id, todayStart.getTime()).first();
+                                const todayTotal = todayPnl?.total || 0;
+                                if (todayTotal >= 370) continue;
+                                if (todayTotal <= -500) continue;
+                                // ③ 잔고 확인
+                                const tranche = (acct.position_size || 10000) / 5;
                                 if ((acct.balance || 0) < tranche) continue;
-                                // 같은 종목 오픈 포지션 있으면 스킵
+                                // ④ 같은 종목 오픈 포지션 중복 방지
                                 const existing = await env.DB.prepare(
                                     'SELECT 1 FROM paper_trades WHERE user_id=? AND symbol=? AND status=\'open\' LIMIT 1'
                                 ).bind(acct.user_id, r.symbol).first();

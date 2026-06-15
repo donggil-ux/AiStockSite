@@ -11,7 +11,7 @@ import { json, err } from '../utils/validators.js';
 import { paperClosePosition } from '../utils/paper-engine.js';
 
 const INITIAL_BALANCE  = 100000.0;
-const INITIAL_POS_SIZE = 4000.0;
+const INITIAL_POS_SIZE = 10000.0; // 종목당 $10,000 (5분할 × $2,000)
 
 async function getOrCreateAccount(env, userId) {
     let acct = await env.DB.prepare('SELECT * FROM paper_account WHERE user_id=?').bind(userId).first();

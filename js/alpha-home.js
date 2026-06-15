@@ -7874,8 +7874,13 @@
                 } catch (_) {}
             }));
 
+            const DAILY_TARGET_USD = 370; // 50만원
             const fmt = v => v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(2);
             const fmtDollar = v => v == null ? '—' : (v >= 0 ? '+$' : '-$') + Math.abs(v).toFixed(0);
+
+            // 오늘 실현 손익 (fills 에서 직접 계산 — API에는 없으므로 추정)
+            const todayPnl = d.total_pnl || 0; // 누적 실현 (임시 — 추후 일별 API 분리 가능)
+
             const totalEquity = d.balance + openPos.reduce((s, p) => {
                 const cur = priceMap[p.symbol];
                 if (!cur || !p.total_qty) return s;
@@ -7884,35 +7889,55 @@
             const totalReturn = ((totalEquity - 100000) / 100000 * 100);
             const wr = d.summary?.win_rate;
 
+            // 일일 목표 진행률 바
+            const dailyPct = Math.min(Math.max(todayPnl / DAILY_TARGET_USD, 0), 1);
+            const dailyBarColor = todayPnl < 0 ? 'var(--red)' : todayPnl >= DAILY_TARGET_USD ? 'var(--green)' : 'var(--blue)';
+            const dailyLabel = todayPnl >= DAILY_TARGET_USD ? '✓ 오늘 목표 달성!' : todayPnl < 0 ? `손실 ${fmtDollar(todayPnl)}` : `목표 ${Math.round(dailyPct*100)}%`;
+            const dailyBarHtml = `<div style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px;">
+                    <span>일일 목표 $${DAILY_TARGET_USD} (≈50만원)</span>
+                    <span style="color:${dailyBarColor};font-weight:700;">${dailyLabel}</span>
+                </div>
+                <div style="height:5px;background:var(--bg2);border-radius:3px;overflow:hidden;">
+                    <div style="height:100%;width:${Math.round(dailyPct*100)}%;background:${dailyBarColor};border-radius:3px;transition:width .3s;"></div>
+                </div>
+            </div>`;
+
             let posHtml = '';
             for (const p of openPos) {
                 const cur = priceMap[p.symbol];
                 const unreal = cur && p.total_qty ? ((cur - p.avg_price) / p.avg_price * 100) : null;
+                const unrealAmt = cur && p.total_qty ? (cur - p.avg_price) * p.total_qty : null;
                 const dirLabel = p.dir === 'long' ? '매수' : '매도';
-                const tpBadge = `<span style="font-size:10px;color:var(--text3)">TP${p.tp1_done?'1✓':''} ${p.tp2_done?'2✓':''} ${p.tp3_done?'3✓':''}</span>`;
-                const trancheLabel = `${p.tranche_count}/4분`;
-                posHtml += `<div style="padding:8px 0;border-bottom:1px solid var(--border);">
-                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                        <span style="font-weight:700;font-size:13px;">${escHtml(p.symbol)}</span>
-                        <span style="font-size:11px;padding:1px 6px;background:${p.dir==='long'?'var(--green-bg, rgba(34,197,94,.15))':'var(--red-bg, rgba(239,68,68,.15))'};color:${p.dir==='long'?'var(--green)':'var(--red)'};border-radius:4px;">${dirLabel}</span>
-                        <span style="font-size:11px;color:var(--text3);">${trancheLabel}</span>
+                const tpBadge = [p.tp1_done && 'TP1', p.tp2_done && 'TP2', p.tp3_done && 'TP3'].filter(Boolean).map(t => `<span style="font-size:10px;padding:1px 4px;background:rgba(34,197,94,.15);color:var(--green);border-radius:3px;">${t}✓</span>`).join(' ');
+                const trancheLabel = `${p.tranche_count}/5분`;
+                // 트랜치 진행 도트
+                const dots = Array.from({length:5}, (_,i) => `<span style="width:6px;height:6px;border-radius:50%;display:inline-block;background:${i<p.tranche_count?'var(--blue)':'var(--bg2)'};"></span>`).join('');
+                posHtml += `<div style="padding:9px 0;border-bottom:1px solid var(--border);">
+                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                        <span style="font-weight:700;font-size:14px;">${escHtml(p.symbol)}</span>
+                        <span style="font-size:11px;padding:1px 6px;background:${p.dir==='long'?'rgba(34,197,94,.15)':'rgba(239,68,68,.15)'};color:${p.dir==='long'?'var(--green)':'var(--red)'};border-radius:4px;">${dirLabel}</span>
+                        <span style="display:flex;gap:2px;align-items:center;">${dots}</span>
+                        <span style="font-size:10px;color:var(--text3);">${trancheLabel}</span>
                         ${tpBadge}
                         <span style="margin-left:auto;font-size:13px;font-weight:700;color:${unreal==null?'var(--text3)':unreal>=0?'var(--green)':'var(--red)'}">${unreal==null?'—':fmt(unreal)+'%'}</span>
                     </div>
-                    <div style="display:flex;gap:12px;margin-top:4px;font-size:11px;color:var(--text3);">
+                    <div style="display:flex;gap:10px;margin-top:5px;font-size:11px;color:var(--text3);flex-wrap:wrap;">
                         <span>평단 $${p.avg_price?.toFixed(2)||'—'}</span>
                         <span>현재 ${cur?'$'+cur.toFixed(2):'—'}</span>
                         <span>손절 $${p.stop_price?.toFixed(2)||'—'}</span>
+                        ${unrealAmt!=null?`<span style="color:${unrealAmt>=0?'var(--green)':'var(--red)'};">${unrealAmt>=0?'+$':'-$'}${Math.abs(unrealAmt).toFixed(0)}</span>`:''}
                     </div>
                 </div>`;
             }
-            if (!posHtml) posHtml = `<div style="padding:10px 0;color:var(--text3);font-size:12px;">보유 포지션 없음</div>`;
+            if (!posHtml) posHtml = `<div style="padding:10px 0;color:var(--text3);font-size:12px;">보유 포지션 없음 — 미국 장중 S/A 시그널 발생 시 자동 진입</div>`;
 
             wrap.innerHTML = `<div class="card" style="margin-bottom:12px;">
                 <div class="card-title" style="display:flex;align-items:center;"><span class="dot" style="background:var(--blue)"></span>💹 가상 매매 계좌
                     <button onclick="window._paperReset()" style="margin-left:auto;padding:3px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text3);cursor:pointer;">초기화</button>
                 </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:4px 0 12px;">
+                ${dailyBarHtml}
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 0 12px;">
                     <div style="background:var(--bg2);border-radius:8px;padding:10px 12px;">
                         <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">총 자산</div>
                         <div style="font-size:16px;font-weight:800;">$${totalEquity.toFixed(0)}</div>
@@ -7921,11 +7946,11 @@
                     <div style="background:var(--bg2);border-radius:8px;padding:10px 12px;">
                         <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">현금</div>
                         <div style="font-size:16px;font-weight:800;">$${d.balance.toFixed(0)}</div>
-                        <div style="font-size:11px;color:${d.total_pnl>=0?'var(--green)':'var(--red)'};">실현 ${fmtDollar(d.total_pnl)}</div>
+                        <div style="font-size:11px;color:${d.total_pnl>=0?'var(--green)':'var(--red)'};">누적 실현 ${fmtDollar(d.total_pnl)}</div>
                     </div>
                     <div style="background:var(--bg2);border-radius:8px;padding:10px 12px;">
                         <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">보유 종목</div>
-                        <div style="font-size:16px;font-weight:800;">${d.summary.open_count}종목</div>
+                        <div style="font-size:16px;font-weight:800;">${d.summary.open_count}/3종목</div>
                     </div>
                     <div style="background:var(--bg2);border-radius:8px;padding:10px 12px;">
                         <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">승률</div>
