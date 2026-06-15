@@ -7929,9 +7929,9 @@
                 const unrealAmt = cur && p.total_qty ? (cur - p.avg_price) * p.total_qty : null;
                 const dirLabel = p.dir === 'long' ? '매수' : '매도';
                 const tpBadge = [p.tp1_done && 'TP1', p.tp2_done && 'TP2', p.tp3_done && 'TP3'].filter(Boolean).map(t => `<span style="font-size:10px;padding:1px 4px;background:rgba(34,197,94,.15);color:var(--green);border-radius:3px;">${t}✓</span>`).join(' ');
-                const trancheLabel = `${p.tranche_count}/4분`;
-                // 트랜치 진행 도트 (4분할)
-                const dots = Array.from({length:4}, (_,i) => `<span style="width:6px;height:6px;border-radius:50%;display:inline-block;background:${i<p.tranche_count?'var(--blue)':'var(--bg2)'};"></span>`).join('');
+                const trancheLabel = `${p.tranche_count}/8분`;
+                // 트랜치 진행 도트 (최대 8분할)
+                const dots = Array.from({length:8}, (_,i) => `<span style="width:5px;height:5px;border-radius:50%;display:inline-block;background:${i<p.tranche_count?'var(--blue)':'var(--bg2)'};"></span>`).join('');
                 posHtml += `<div style="padding:9px 0;border-bottom:1px solid var(--border);">
                     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                         <span style="font-weight:700;font-size:14px;">${escHtml(p.symbol)}</span>
@@ -8023,6 +8023,9 @@
                 buy_t3:  { icon: '📥', label: '3차 매수', color: 'var(--text2)' },
                 buy_t4:  { icon: '📥', label: '4차 매수', color: 'var(--text2)' },
                 buy_t5:  { icon: '📥', label: '5차 매수', color: 'var(--text2)' },
+                buy_t6:  { icon: '📥', label: '6차 매수', color: 'var(--text2)' },
+                buy_t7:  { icon: '📥', label: '7차 매수', color: 'var(--text2)' },
+                buy_t8:  { icon: '📥', label: '8차 매수', color: 'var(--text2)' },
                 sell_tp1:    { icon: '✅', label: 'TP1 익절', color: 'var(--green)' },
                 sell_tp2:    { icon: '✅', label: 'TP2 익절', color: 'var(--green)' },
                 sell_tp3:    { icon: '✅', label: 'TP3 익절', color: 'var(--green)' },
