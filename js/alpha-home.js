@@ -520,6 +520,7 @@
         leverage: () => goLeverage(),
         vision: () => goVisionScanner(),
         economic: () => goEconomic(),
+        profile: () => goProfile(),
     };
 
     const _VIEW_TITLES = {
@@ -530,6 +531,7 @@
         leverage:   '레버리지 ETF — StockAI',
         vision:     'AI 차트 판독기 — StockAI',
         economic:   '경제지표 — StockAI',
+        profile:    '마이페이지 — StockAI',
     };
 
     function _setDocTitle(view) {
@@ -2019,6 +2021,7 @@
 
     function goHome() {
         window._lastScreen = 'home';
+        _clearPaperAutoRefresh();
         // URL 정리하되 Clerk 인증 핸드셰이크 파라미터(__clerk_db_jwt 등)는 보존
         // → 안 그러면 dev 인스턴스 배포 도메인에서 세션이 새로고침 시 풀림
         try {
@@ -7715,6 +7718,7 @@
             return;
         }
         window._lastScreen = 'profile';
+        _pushRoute('profile');
         _restoreHeaderChrome();
         ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen',
          'top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen']
@@ -7837,9 +7841,14 @@
         _renderPaperAccountSection();
     }
 
+    let _paperAutoRefreshTimer = null;
+    function _clearPaperAutoRefresh() {
+        if (_paperAutoRefreshTimer) { clearInterval(_paperAutoRefreshTimer); _paperAutoRefreshTimer = null; }
+    }
+
     async function _renderPaperAccountSection() {
         const wrap = document.getElementById('paperAccountSection');
-        if (!wrap) return;
+        if (!wrap) { _clearPaperAutoRefresh(); return; }
         const user = window.Clerk?.user;
         if (!user) {
             wrap.innerHTML = `<div class="card" style="margin-bottom:12px;">
@@ -7967,6 +7976,17 @@
             <div id="paperTradeHistory"></div>`;
             // 체결 내역 비동기 로드
             _loadPaperFills();
+
+            // 3분 자동 갱신 (프로필 화면이 살아있을 때만)
+            _clearPaperAutoRefresh();
+            _paperAutoRefreshTimer = setInterval(() => {
+                const profileVisible = document.getElementById('profileScreen')?.style.display !== 'none';
+                if (profileVisible && document.getElementById('paperAccountSection')) {
+                    _renderPaperAccountSection();
+                } else {
+                    _clearPaperAutoRefresh();
+                }
+            }, 3 * 60 * 1000);
         } catch (e) {
             if (wrap) wrap.innerHTML = `<div class="card" style="margin-bottom:12px;">
                 <div class="card-title"><span class="dot" style="background:var(--blue)"></span>💹 가상 매매 계좌</div>
