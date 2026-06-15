@@ -129,6 +129,7 @@ const ROUTES = [
     // 가상 매매
     ['GET',    '/api/paper/account',        handlePaperTrading],
     ['GET',    '/api/paper/trades',         handlePaperTrading],
+    ['GET',    '/api/paper/fills',          handlePaperTrading],
     ['GET',    '/api/paper/fills/:id',      handlePaperTrading],
     ['POST',   '/api/paper/close/:id',      handlePaperTrading],
     ['POST',   '/api/paper/reset',          handlePaperTrading],

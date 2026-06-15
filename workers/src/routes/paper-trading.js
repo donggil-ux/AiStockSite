@@ -136,6 +136,23 @@ export async function handleResetAccount(req, env) {
     return json({ ok: true, balance: INITIAL_BALANCE });
 }
 
+// ── GET /api/paper/fills (전체 체결 내역, 최근 50건) ───────────
+export async function handleGetAllFills(req, env) {
+    const auth = await verifyClerkJWT(req, env);
+    if (!auth?.userId) return err(401, 'auth required');
+
+    const url   = new URL(req.url);
+    const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 100);
+
+    const res = await env.DB.prepare(
+        `SELECT f.*, t.symbol FROM paper_fills f
+         JOIN paper_trades t ON f.trade_id = t.id
+         WHERE f.user_id = ? ORDER BY f.filled_at DESC LIMIT ?`
+    ).bind(auth.userId, limit).all();
+
+    return json({ fills: res.results || [] });
+}
+
 // ── 디스패처 (index.js 에서 단일 import) ───────────────────────
 export async function handlePaperTrading(req, env, params) {
     const url    = new URL(req.url);
@@ -144,6 +161,7 @@ export async function handlePaperTrading(req, env, params) {
 
     if (method === 'GET'  && path === '/api/paper/account')        return handleGetAccount(req, env);
     if (method === 'GET'  && path === '/api/paper/trades')         return handleGetTrades(req, env);
+    if (method === 'GET'  && path === '/api/paper/fills')          return handleGetAllFills(req, env);
     if (method === 'GET'  && path.startsWith('/api/paper/fills/')) return handleGetFills(req, env, params);
     if (method === 'POST' && path.startsWith('/api/paper/close/')) return handleClosePosition(req, env, params);
     if (method === 'POST' && path === '/api/paper/reset')          return handleResetAccount(req, env);

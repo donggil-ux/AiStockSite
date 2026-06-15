@@ -326,7 +326,7 @@ export async function captureDailySignals(env) {
                                 const openCnt = await env.DB.prepare(
                                     'SELECT COUNT(*) n FROM paper_trades WHERE user_id=? AND status=\'open\''
                                 ).bind(acct.user_id).first();
-                                if ((openCnt?.n || 0) >= 3) continue;
+                                if ((openCnt?.n || 0) >= 5) continue;
                                 // ② 일일 수익 $370 달성 or 최대손실 -$500 도달 시 중단
                                 const todayPnl = await env.DB.prepare(
                                     'SELECT COALESCE(SUM(pnl),0) total FROM paper_fills WHERE user_id=? AND fill_type LIKE \'sell_%\' AND filled_at>=?'

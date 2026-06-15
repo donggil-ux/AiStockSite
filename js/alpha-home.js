@@ -7960,14 +7960,68 @@
                 </div>
                 <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;">보유 포지션</div>
                 ${posHtml}
+                <div style="font-size:12px;font-weight:700;color:var(--text2);margin:14px 0 6px;">체결 내역</div>
+                <div id="paperFillsSection"><div style="color:var(--text3);font-size:12px;padding:6px 0;">불러오는 중…</div></div>
                 <button onclick="_renderPaperTradeHistory()" style="width:100%;margin-top:10px;padding:8px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text2);cursor:pointer;">거래 내역 보기 ›</button>
             </div>
             <div id="paperTradeHistory"></div>`;
+            // 체결 내역 비동기 로드
+            _loadPaperFills();
         } catch (e) {
             if (wrap) wrap.innerHTML = `<div class="card" style="margin-bottom:12px;">
                 <div class="card-title"><span class="dot" style="background:var(--blue)"></span>💹 가상 매매 계좌</div>
                 <div style="padding:8px 0;color:var(--text3);font-size:12px;">로드 실패 — 잠시 후 다시 시도해주세요.</div>
             </div>`;
+        }
+    }
+
+    async function _loadPaperFills() {
+        const sec = document.getElementById('paperFillsSection');
+        if (!sec) return;
+        try {
+            const r = await fetch(`${API_BASE}/api/paper/fills?limit=30`);
+            if (!r.ok) throw new Error();
+            const d = await r.json();
+            const fills = d.fills || [];
+            if (!fills.length) {
+                sec.innerHTML = `<div style="color:var(--text3);font-size:12px;padding:4px 0;">체결 내역 없음</div>`;
+                return;
+            }
+            const fillMeta = {
+                buy_t1:  { icon: '📥', label: '1차 매수', color: 'var(--text2)' },
+                buy_t2:  { icon: '📥', label: '2차 매수', color: 'var(--text2)' },
+                buy_t3:  { icon: '📥', label: '3차 매수', color: 'var(--text2)' },
+                buy_t4:  { icon: '📥', label: '4차 매수', color: 'var(--text2)' },
+                buy_t5:  { icon: '📥', label: '5차 매수', color: 'var(--text2)' },
+                sell_tp1:    { icon: '✅', label: 'TP1 익절', color: 'var(--green)' },
+                sell_tp2:    { icon: '✅', label: 'TP2 익절', color: 'var(--green)' },
+                sell_tp3:    { icon: '✅', label: 'TP3 익절', color: 'var(--green)' },
+                sell_trail:  { icon: '🚀', label: '트레일 청산', color: 'var(--green)' },
+                sell_stop:   { icon: '🔴', label: '손절', color: 'var(--red)' },
+                sell_manual: { icon: '⬜', label: '수동 청산', color: 'var(--text3)' },
+            };
+            const fmtTime = ts => {
+                const d = new Date(ts);
+                return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) + ' ' + d.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
+            };
+            const rows = fills.map(f => {
+                const m = fillMeta[f.fill_type] || { icon: '·', label: f.fill_type, color: 'var(--text3)' };
+                const isSell = f.fill_type.startsWith('sell_');
+                const pnlHtml = isSell && f.pnl != null
+                    ? `<span style="font-size:11px;font-weight:700;color:${f.pnl >= 0 ? 'var(--green)' : 'var(--red)'};">${f.pnl >= 0 ? '+$' : '-$'}${Math.abs(f.pnl).toFixed(0)}</span>`
+                    : `<span style="font-size:11px;color:var(--text3);">$${f.amount?.toFixed(0)||'—'}</span>`;
+                return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;">
+                    <span style="font-size:14px;">${m.icon}</span>
+                    <span style="font-weight:700;min-width:44px;">${escHtml(f.symbol||'')}</span>
+                    <span style="color:${m.color};min-width:72px;">${m.label}</span>
+                    <span style="color:var(--text3);">$${f.price?.toFixed(2)||'—'}</span>
+                    <span style="margin-left:auto;">${pnlHtml}</span>
+                    <span style="color:var(--text3);font-size:10px;white-space:nowrap;">${fmtTime(f.filled_at)}</span>
+                </div>`;
+            }).join('');
+            sec.innerHTML = rows;
+        } catch (_) {
+            if (sec) sec.innerHTML = '';
         }
     }
 
