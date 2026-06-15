@@ -10,7 +10,7 @@ import { smartDipScan, smartDipScanBounce, smartDipBacktest, resolveTrailExit } 
 import { fetchChartWithFallback } from './yahoo.js';
 import { getMarketRegime } from '../utils/market.js';
 import { _fetchDiscoverySymbols, DEFAULT_UNIVERSE_US, DEFAULT_UNIVERSE_KR } from '../cron.js';
-import { paperOpenTrade } from '../utils/paper-engine.js';
+import { paperOpenTrade, TRANCHE1_RATIO } from '../utils/paper-engine.js';
 import { classifySymbol } from '../utils/paper-category.js';
 import { logError } from '../utils/errors.js';
 
@@ -334,8 +334,8 @@ export async function captureDailySignals(env) {
                                 const todayTotal = todayPnl?.total || 0;
                                 if (todayTotal >= 370) continue;
                                 if (todayTotal <= -500) continue;
-                                // ③ 잔고 확인
-                                const tranche = (acct.position_size || 10000) / 5;
+                                // ③ 잔고 확인 (1차 = position_size × 40%)
+                                const tranche = (acct.position_size || 10000) * TRANCHE1_RATIO;
                                 if ((acct.balance || 0) < tranche) continue;
                                 // ④ 같은 종목 오픈 포지션 중복 방지
                                 const existing = await env.DB.prepare(

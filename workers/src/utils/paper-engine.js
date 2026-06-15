@@ -1,8 +1,10 @@
 // 가상 매매 포지션 관리 엔진
-// 5분할 매수 / 3단계 분할익절 + 트레일링 / 평단 -2.5% 손절 / 개별주 위주
+// 4분할 매수 (1차 40% + 2~4차 20%씩) / 3단계 분할익절 + 트레일링 / 평단 -2.5% 손절 / 개별주 위주
 
-const TRANCHE_TRIGGERS = [0, 0.9925, 0.985, 0.9775, 0.97]; // 2~5차 분할 (first_price 비율, ~0.75% 간격)
-const MAX_TRANCHE = 5;
+const TRANCHE_TRIGGERS = [0, 0.99, 0.98, 0.97]; // 2~4차 분할 (first_price 비율, 1% 간격)
+export const MAX_TRANCHE    = 4;
+export const TRANCHE1_RATIO = 0.40; // 1차 매수 40% (예: $10,000 × 0.4 = $4,000)
+// 2~4차 각 20% = (1 - 0.40) / (4 - 1)
 const STOP_PCT   = 0.975;  // 평균단가 -2.5% 손절 (개별주 노이즈 감안)
 const TP_PCTS    = [1.03, 1.06, 1.10]; // TP1·TP2·TP3
 const TP_RATIO   = 0.20;   // 분할 익절 시 20% (1/5)씩 — TP3까지 60% 익절, 트레일 40%
@@ -60,11 +62,11 @@ export async function paperOpenTrade(env, { userId, symbol, category, style, dir
 
 /**
  * 추가 분할 매수 (2차~4차)
+ * @param {number} trancheAmount - 이번 분할 매수 금액 (호출자가 계산해서 전달)
  */
-export async function paperAddTranche(env, trade, price) {
+export async function paperAddTranche(env, trade, price, trancheAmount) {
     const trancheNum = trade.tranche_count + 1;
     const fillType = `buy_t${trancheNum}`;
-    const trancheAmount = trade.total_invested / trade.tranche_count; // 기존 분할당 금액 기준
     const qty = trancheAmount / price;
     const amount = price * qty;
 
@@ -184,15 +186,16 @@ async function _manageOne(env, pos, price) {
         return;
     }
 
-    // ── 추가 분할 매수 (2~5차, first_price 기준) ────────────────
+    // ── 추가 분할 매수 (2~4차, first_price 기준) ────────────────
     if (pos.tranche_count < MAX_TRANCHE) {
         const nextTrigger = TRANCHE_TRIGGERS[pos.tranche_count];
         if (nextTrigger > 0 && price <= pos.first_price * nextTrigger) {
             const acct = await env.DB.prepare('SELECT balance,position_size FROM paper_account WHERE user_id=?')
                 .bind(pos.user_id).first();
-            const trancheAmount = (acct?.position_size || 10000) / MAX_TRANCHE;
+            const posSize = acct?.position_size || 10000;
+            const trancheAmount = (posSize * (1 - TRANCHE1_RATIO)) / (MAX_TRANCHE - 1); // 2~4차 각 20%
             if (acct && acct.balance >= trancheAmount) {
-                await paperAddTranche(env, pos, price);
+                await paperAddTranche(env, pos, price, trancheAmount);
                 // pos 갱신 (이후 TP 체크를 위해)
                 const updated = await env.DB.prepare('SELECT * FROM paper_trades WHERE id=?').bind(pos.id).first();
                 if (updated) pos = updated;
