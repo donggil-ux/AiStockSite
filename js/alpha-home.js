@@ -7826,10 +7826,184 @@
                 </div>
             </div>
 
+            <div id="paperAccountSection"></div>
+
             <div style="text-align:center;padding:16px 0 8px;font-size:11px;color:var(--text3);">
                 StockAI · rkd687@gmail.com
             </div>
         `;
+
+        // 가상 매매 계좌 섹션 비동기 렌더링
+        _renderPaperAccountSection();
+    }
+
+    async function _renderPaperAccountSection() {
+        const wrap = document.getElementById('paperAccountSection');
+        if (!wrap) return;
+        const user = window.Clerk?.user;
+        if (!user) {
+            wrap.innerHTML = `<div class="card" style="margin-bottom:12px;">
+                <div class="card-title"><span class="dot" style="background:var(--blue)"></span>💹 가상 매매 계좌</div>
+                <div style="padding:12px 0;color:var(--text3);font-size:13px;">로그인 후 이용할 수 있습니다.</div>
+            </div>`;
+            return;
+        }
+
+        wrap.innerHTML = `<div class="card" style="margin-bottom:12px;">
+            <div class="card-title"><span class="dot" style="background:var(--blue)"></span>💹 가상 매매 계좌
+                <button onclick="window._paperReset()" style="margin-left:auto;padding:3px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text3);cursor:pointer;">초기화</button>
+            </div>
+            <div style="color:var(--text3);font-size:12px;padding:8px 0;">불러오는 중…</div>
+        </div>`;
+
+        try {
+            const token = await window.getAuthToken?.();
+            const r = await fetch(`${API_BASE}/api/paper/account`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            if (!r.ok) throw new Error('api error');
+            const d = await r.json();
+
+            // 현재가 병렬 조회 (오픈 포지션)
+            const openPos = d.open_positions || [];
+            const priceMap = {};
+            await Promise.allSettled(openPos.map(async p => {
+                try {
+                    const pr = await fetch(`${API_BASE}/api/price/${encodeURIComponent(p.symbol)}`);
+                    if (pr.ok) { const pd = await pr.json(); priceMap[p.symbol] = pd.price || null; }
+                } catch (_) {}
+            }));
+
+            const fmt = v => v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(2);
+            const fmtDollar = v => v == null ? '—' : (v >= 0 ? '+$' : '-$') + Math.abs(v).toFixed(0);
+            const totalEquity = d.balance + openPos.reduce((s, p) => {
+                const cur = priceMap[p.symbol];
+                if (!cur || !p.total_qty) return s;
+                return s + cur * p.total_qty + (p.realized_pnl || 0);
+            }, 0);
+            const totalReturn = ((totalEquity - 100000) / 100000 * 100);
+            const wr = d.summary?.win_rate;
+
+            let posHtml = '';
+            for (const p of openPos) {
+                const cur = priceMap[p.symbol];
+                const unreal = cur && p.total_qty ? ((cur - p.avg_price) / p.avg_price * 100) : null;
+                const dirLabel = p.dir === 'long' ? '매수' : '매도';
+                const tpBadge = `<span style="font-size:10px;color:var(--text3)">TP${p.tp1_done?'1✓':''} ${p.tp2_done?'2✓':''} ${p.tp3_done?'3✓':''}</span>`;
+                const trancheLabel = `${p.tranche_count}/4분`;
+                posHtml += `<div style="padding:8px 0;border-bottom:1px solid var(--border);">
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <span style="font-weight:700;font-size:13px;">${escHtml(p.symbol)}</span>
+                        <span style="font-size:11px;padding:1px 6px;background:${p.dir==='long'?'var(--green-bg, rgba(34,197,94,.15))':'var(--red-bg, rgba(239,68,68,.15))'};color:${p.dir==='long'?'var(--green)':'var(--red)'};border-radius:4px;">${dirLabel}</span>
+                        <span style="font-size:11px;color:var(--text3);">${trancheLabel}</span>
+                        ${tpBadge}
+                        <span style="margin-left:auto;font-size:13px;font-weight:700;color:${unreal==null?'var(--text3)':unreal>=0?'var(--green)':'var(--red)'}">${unreal==null?'—':fmt(unreal)+'%'}</span>
+                    </div>
+                    <div style="display:flex;gap:12px;margin-top:4px;font-size:11px;color:var(--text3);">
+                        <span>평단 $${p.avg_price?.toFixed(2)||'—'}</span>
+                        <span>현재 ${cur?'$'+cur.toFixed(2):'—'}</span>
+                        <span>손절 $${p.stop_price?.toFixed(2)||'—'}</span>
+                    </div>
+                </div>`;
+            }
+            if (!posHtml) posHtml = `<div style="padding:10px 0;color:var(--text3);font-size:12px;">보유 포지션 없음</div>`;
+
+            wrap.innerHTML = `<div class="card" style="margin-bottom:12px;">
+                <div class="card-title" style="display:flex;align-items:center;"><span class="dot" style="background:var(--blue)"></span>💹 가상 매매 계좌
+                    <button onclick="window._paperReset()" style="margin-left:auto;padding:3px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text3);cursor:pointer;">초기화</button>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:4px 0 12px;">
+                    <div style="background:var(--bg2);border-radius:8px;padding:10px 12px;">
+                        <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">총 자산</div>
+                        <div style="font-size:16px;font-weight:800;">$${totalEquity.toFixed(0)}</div>
+                        <div style="font-size:11px;color:${totalReturn>=0?'var(--green)':'var(--red)'};">${fmt(totalReturn)}%</div>
+                    </div>
+                    <div style="background:var(--bg2);border-radius:8px;padding:10px 12px;">
+                        <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">현금</div>
+                        <div style="font-size:16px;font-weight:800;">$${d.balance.toFixed(0)}</div>
+                        <div style="font-size:11px;color:${d.total_pnl>=0?'var(--green)':'var(--red)'};">실현 ${fmtDollar(d.total_pnl)}</div>
+                    </div>
+                    <div style="background:var(--bg2);border-radius:8px;padding:10px 12px;">
+                        <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">보유 종목</div>
+                        <div style="font-size:16px;font-weight:800;">${d.summary.open_count}종목</div>
+                    </div>
+                    <div style="background:var(--bg2);border-radius:8px;padding:10px 12px;">
+                        <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">승률</div>
+                        <div style="font-size:16px;font-weight:800;">${wr!=null?Math.round(wr*100)+'%':'—'}</div>
+                        <div style="font-size:11px;color:var(--text3);">${d.summary.closed_count}건 거래</div>
+                    </div>
+                </div>
+                <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;">보유 포지션</div>
+                ${posHtml}
+                <button onclick="_renderPaperTradeHistory()" style="width:100%;margin-top:10px;padding:8px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text2);cursor:pointer;">거래 내역 보기 ›</button>
+            </div>
+            <div id="paperTradeHistory"></div>`;
+        } catch (e) {
+            if (wrap) wrap.innerHTML = `<div class="card" style="margin-bottom:12px;">
+                <div class="card-title"><span class="dot" style="background:var(--blue)"></span>💹 가상 매매 계좌</div>
+                <div style="padding:8px 0;color:var(--text3);font-size:12px;">로드 실패 — 잠시 후 다시 시도해주세요.</div>
+            </div>`;
+        }
+    }
+
+    window._paperReset = async function() {
+        if (!confirm('가상 매매 계좌를 $100,000으로 초기화할까요? 모든 포지션과 거래내역이 삭제됩니다.')) return;
+        try {
+            const token = await window.getAuthToken?.();
+            const r = await fetch(`${API_BASE}/api/paper/reset`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+            });
+            if (r.ok) { window.snack?.('계좌가 초기화됐습니다', 'success'); _renderPaperAccountSection(); }
+            else window.snack?.('초기화 실패', 'error');
+        } catch (_) { window.snack?.('초기화 실패', 'error'); }
+    };
+
+    window._paperClosePosition = async function(id) {
+        if (!confirm('이 포지션을 현재가로 청산할까요?')) return;
+        try {
+            const token = await window.getAuthToken?.();
+            const r = await fetch(`${API_BASE}/api/paper/close/${id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+            });
+            if (r.ok) { window.snack?.('포지션이 청산됐습니다', 'success'); _renderPaperAccountSection(); }
+            else window.snack?.('청산 실패', 'error');
+        } catch (_) { window.snack?.('청산 실패', 'error'); }
+    };
+
+    async function _renderPaperTradeHistory() {
+        const wrap = document.getElementById('paperTradeHistory');
+        if (!wrap) return;
+        wrap.innerHTML = '<div style="padding:8px 0;color:var(--text3);font-size:12px;">불러오는 중…</div>';
+        try {
+            const token = await window.getAuthToken?.();
+            const r = await fetch(`${API_BASE}/api/paper/trades?limit=20`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            if (!r.ok) throw new Error();
+            const d = await r.json();
+            const trades = d.trades || [];
+            if (!trades.length) { wrap.innerHTML = '<div style="padding:8px 0;color:var(--text3);font-size:12px;">거래 내역 없음</div>'; return; }
+            const fmt = v => v==null?'—':(v>=0?'+$':'-$')+Math.abs(v).toFixed(0);
+            const fmtDate = ts => ts ? new Date(ts).toLocaleDateString('ko-KR',{month:'short',day:'numeric'}) : '—';
+            const rows = trades.map(t => {
+                const pnlColor = (t.realized_pnl||0)>=0?'var(--green)':'var(--red)';
+                const reasonMap = { stop:'손절', tp4_trail:'트레일', manual:'수동', timeout:'만료' };
+                return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;">
+                    <div>
+                        <span style="font-weight:700;">${escHtml(t.symbol)}</span>
+                        <span style="margin-left:6px;color:var(--text3);">${fmtDate(t.created_at)} → ${fmtDate(t.exit_at)}</span>
+                        <span style="margin-left:6px;font-size:10px;padding:1px 5px;background:var(--bg2);border-radius:4px;">${reasonMap[t.close_reason]||t.close_reason||'—'}</span>
+                    </div>
+                    <span style="font-weight:700;color:${pnlColor};">${fmt(t.realized_pnl)}</span>
+                </div>`;
+            }).join('');
+            wrap.innerHTML = `<div class="card" style="margin-bottom:12px;">
+                <div class="card-title"><span class="dot" style="background:var(--yellow)"></span>최근 거래 내역</div>
+                ${rows}
+            </div>`;
+        } catch (_) { wrap.innerHTML = ''; }
     }
 
     function _catalystSetFilter(f) {

@@ -10,6 +10,8 @@ import { smartDipScan, smartDipScanBounce, smartDipBacktest, resolveTrailExit } 
 import { fetchChartWithFallback } from './yahoo.js';
 import { getMarketRegime } from '../utils/market.js';
 import { _fetchDiscoverySymbols, DEFAULT_UNIVERSE_US, DEFAULT_UNIVERSE_KR } from '../cron.js';
+import { paperOpenTrade } from '../utils/paper-engine.js';
+import { classifySymbol } from '../utils/paper-category.js';
 import { logError } from '../utils/errors.js';
 
 const BACKTEST_CACHE_KEY = (tf) => `dailybt:US:${tf}`;
@@ -302,10 +304,38 @@ export async function captureDailySignals(env) {
                     'SELECT 1 FROM dt_signals WHERE symbol=? AND dir=? AND tf=? AND created_at>? LIMIT 1'
                 ).bind(r.symbol, r.dir, tf, since).first();
                 if (dup) continue;
-                await env.DB.prepare(
+                const dtInsert = await env.DB.prepare(
                     'INSERT INTO dt_signals (symbol,tf,dir,mode,grade,score,entry,stop,be,stop_dist,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
                 ).bind(r.symbol, tf, r.dir, r.mode || 'trend', r.grade, r.score, r.price, r.stop, r.be ?? null, stopDist, entryTs).run();
                 logged++;
+
+                // 가상 매매 — S/A 등급 시그널 발생 시 1차 분할 매수
+                if ((r.grade === 'S' || r.grade === 'A') && r.price > 0) {
+                    try {
+                        const category = classifySymbol(r.symbol, r.price, r.rvol || 0);
+                        if (category) {
+                            const signalId = dtInsert.meta?.last_row_id || null;
+                            const accounts = await env.DB.prepare('SELECT * FROM paper_account').all();
+                            for (const acct of (accounts.results || [])) {
+                                const tranche = (acct.position_size || 4000) / 4;
+                                if ((acct.balance || 0) < tranche) continue;
+                                // 같은 종목 오픈 포지션 있으면 스킵
+                                const existing = await env.DB.prepare(
+                                    'SELECT 1 FROM paper_trades WHERE user_id=? AND symbol=? AND status=\'open\' LIMIT 1'
+                                ).bind(acct.user_id, r.symbol).first();
+                                if (existing) continue;
+                                const qty = tranche / r.price;
+                                await paperOpenTrade(env, {
+                                    userId: acct.user_id, symbol: r.symbol, category,
+                                    style: tf === '15m' ? 'swing' : 'day',
+                                    dir: r.dir === 'buy' ? 'long' : 'short',
+                                    price: r.price, qty, signalId,
+                                    grade: r.grade, score: r.score,
+                                });
+                            }
+                        }
+                    } catch (_) {}
+                }
             }
         } catch (e) { try { await logError(env, 'captureDailySignals', e.message); } catch (_) {} }
     }

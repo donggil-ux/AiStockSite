@@ -6,6 +6,7 @@ import { fetchChartWithFallback } from './routes/yahoo.js';
 import { logError } from './utils/errors.js';
 import { loadAlgorithmConfig, loadBlacklist } from './utils/calibration.js';
 import { getMarketRegime } from './utils/market.js';
+import { paperManageAll } from './utils/paper-engine.js';
 
 // 기본 유니버스 — cron 시그널 분석 + 데일리 트레이딩 스캐너 공용
 export const DEFAULT_UNIVERSE_US = ['NVDA','AAPL','MSFT','AMZN','GOOGL','META','TSLA','AVGO','AMD','NFLX',
@@ -488,6 +489,9 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
                 }
             } catch (e) { console.warn('[analyze] fail', symbol, e.message); }
         }
+        // 가상 매매 포지션 관리 (5분 주기: 추가 분할 / TP / 손절 / 트레일)
+        try { await paperManageAll(env); } catch (_) {}
+
         return { subscribers: subs.length, symbols: allSymbols.length, favSymbols: favSymbols.length, dynamic: dynamic.length, analyzed, fired, skippedBlacklist };
     } catch (e) {
         console.error('[cron] analyzeSignals', e.message);
