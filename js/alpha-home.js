@@ -7795,6 +7795,8 @@
                 `}
             </div>
 
+            <div id="paperAccountSection"></div>
+
             <!-- 사용 현황 -->
             <div class="card" style="margin-bottom:12px;">
                 <div class="card-title"><span class="dot" style="background:var(--green)"></span>사용 현황</div>
@@ -7825,8 +7827,6 @@
                     ).join('')}
                 </div>
             </div>
-
-            <div id="paperAccountSection"></div>
 
             <div style="text-align:center;padding:16px 0 8px;font-size:11px;color:var(--text3);">
                 StockAI · rkd687@gmail.com
