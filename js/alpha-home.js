@@ -7712,6 +7712,16 @@
     // 계정/프로필 페이지
     // ════════════════════════════════════════════════════════════════
     function goProfile() {
+        // Clerk.load() 완료 전이면 완료 후 재시도 (새로고침 시 타이밍 이슈 방지)
+        if (!window._clerkReady) {
+            const ready = window.__authReady;
+            if (ready && typeof ready.then === 'function') {
+                ready.then(() => goProfile()).catch(() => { if (typeof window.goLogin === 'function') window.goLogin(); });
+            } else if (typeof window.goLogin === 'function') {
+                window.goLogin();
+            }
+            return;
+        }
         // 비로그인 사용자 → 로그인 페이지로 라우팅 (오늘의집 스타일)
         if (!window.Clerk?.user && typeof window.goLogin === 'function') {
             window.goLogin();

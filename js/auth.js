@@ -104,9 +104,11 @@
             // Clerk 가 핸드셰이크 토큰을 이미 소비(→localStorage)했으므로 URL 에서 제거.
             // 안 그러면 dev 인스턴스에서 __clerk_db_jwt(로그인 토큰)가 주소창·종목상세 URL에 노출됨.
             _stripClerkUrlParams();
+            window._clerkReady = true;
             console.log('[auth] Clerk 활성 — user=', Clerk.user?.id || 'none');
             return true;
         } catch (e) {
+            window._clerkReady = true; // 실패해도 대기 해제 (무한 대기 방지)
             console.warn('[auth] Clerk 초기화 실패', e);
             return false;
         }
