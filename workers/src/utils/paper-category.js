@@ -7,6 +7,7 @@
 export const LEVERAGED_ETFS = new Set([
     'TQQQ','SOXL','UPRO','QLD','SSO','FNGU','LABU','TECL','WEBL',
     'SPXL','UDOW','CURE','DFEN','DPST','HIBL','NAIL','PILL','RETL',
+    'BULZ','NVDL','TSLL','AMZU','MSFU','AAPLU','SOXS',
 ]);
 
 export const LARGE_CAP = new Set([

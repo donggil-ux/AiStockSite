@@ -315,8 +315,8 @@ export async function captureDailySignals(env) {
                     if (r.grade === 'A' && (r.score || 0) < 7.5) { /* skip */ }
                     else try {
                         const category = classifySymbol(r.symbol, r.price, r.rvol || 0);
-                        // 레버리지 ETF 제외 — 개별주(large_cap·mid_small)만
-                        if (category && category !== 'leveraged') {
+                        // leveraged·large_cap·mid_small 모두 진입 허용
+                        if (category) {
                             const signalId = dtInsert.meta?.last_row_id || null;
                             const accounts = await env.DB.prepare('SELECT * FROM paper_account').all();
                             // 오늘 UTC 자정
