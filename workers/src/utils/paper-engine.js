@@ -1,11 +1,13 @@
 // 가상 매매 포지션 관리 엔진
-// 최소 4~최대 8분할 매수 (1차 25% + 2~8차 ~10.7%씩) / 3단계 분할익절 + 트레일링 / 평단 -2.5% 손절
+// 최소 4~최대 8분할 매수 / 피라미드 비중 (1:2:3:4:5:6:7:8) / 3단계 분할익절 + 트레일링 / 평단 -2.5% 손절
 
 const TRANCHE_TRIGGERS = [0, 0.995, 0.990, 0.985, 0.980, 0.975, 0.970, 0.965];
 // 2차:-0.5%  3차:-1%  4차:-1.5%  5차:-2%  6차:-2.5%  7차:-3%  8차:-3.5% (first_price 기준)
-export const MAX_TRANCHE    = 8;
-export const TRANCHE1_RATIO = 0.25; // 1차 매수 25% (예: $10,000 × 0.25 = $2,500)
-// 2~8차: 75% / 7 ≈ 10.7%씩 (~$1,071)
+export const MAX_TRANCHE        = 8;
+// 피라미드 분할 비중: 1차~8차 = 1:2:3:4:5:6:7:8 (하락할수록 더 많이 매수)
+// position_size $10,000 기준: 1차 $278 → 8차 $2,222 (합계 $10,000)
+export const TRANCHE_WEIGHTS    = [1, 2, 3, 4, 5, 6, 7, 8];
+export const TRANCHE_WEIGHT_SUM = 36; // 1+2+...+8
 const STOP_PCT   = 0.975;  // 평균단가 -2.5% 손절 (개별주 노이즈 감안)
 const TP_PCTS    = [1.03, 1.06, 1.10]; // TP1·TP2·TP3
 const TP_RATIO   = 0.20;   // 분할 익절 시 20% (1/5)씩 — TP3까지 60% 익절, 트레일 40%
@@ -187,14 +189,15 @@ async function _manageOne(env, pos, price) {
         return;
     }
 
-    // ── 추가 분할 매수 (2~4차, first_price 기준) ────────────────
+    // ── 추가 분할 매수 (2~8차, first_price 기준, 피라미드 비중) ──
     if (pos.tranche_count < MAX_TRANCHE) {
         const nextTrigger = TRANCHE_TRIGGERS[pos.tranche_count];
         if (nextTrigger > 0 && price <= pos.first_price * nextTrigger) {
             const acct = await env.DB.prepare('SELECT balance,position_size FROM paper_account WHERE user_id=?')
                 .bind(pos.user_id).first();
             const posSize = acct?.position_size || 10000;
-            const trancheAmount = (posSize * (1 - TRANCHE1_RATIO)) / (MAX_TRANCHE - 1); // 2~4차 각 20%
+            // tranche_count = 현재 차수 → 다음 차수 인덱스(0-based)로 비중 조회
+            const trancheAmount = posSize * TRANCHE_WEIGHTS[pos.tranche_count] / TRANCHE_WEIGHT_SUM;
             if (acct && acct.balance >= trancheAmount) {
                 await paperAddTranche(env, pos, price, trancheAmount);
                 // pos 갱신 (이후 TP 체크를 위해)
