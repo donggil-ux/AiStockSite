@@ -8026,12 +8026,13 @@
                 buy_t6:  { icon: '📥', label: '6차 매수', color: 'var(--text2)' },
                 buy_t7:  { icon: '📥', label: '7차 매수', color: 'var(--text2)' },
                 buy_t8:  { icon: '📥', label: '8차 매수', color: 'var(--text2)' },
-                sell_tp1:    { icon: '✅', label: 'TP1 익절', color: 'var(--green)' },
-                sell_tp2:    { icon: '✅', label: 'TP2 익절', color: 'var(--green)' },
-                sell_tp3:    { icon: '✅', label: 'TP3 익절', color: 'var(--green)' },
-                sell_trail:  { icon: '🚀', label: '트레일 청산', color: 'var(--green)' },
-                sell_stop:   { icon: '🔴', label: '손절', color: 'var(--red)' },
-                sell_manual: { icon: '⬜', label: '수동 청산', color: 'var(--text3)' },
+                sell_tp1:       { icon: '✅', label: 'TP1 익절', color: 'var(--green)' },
+                sell_tp2:       { icon: '✅', label: 'TP2 익절', color: 'var(--green)' },
+                sell_tp3:       { icon: '✅', label: 'TP3 익절', color: 'var(--green)' },
+                sell_trail:     { icon: '🚀', label: '트레일 청산', color: 'var(--green)' },
+                sell_be_protect:{ icon: '🛡️', label: '본절보호 청산', color: 'var(--amber, #f59e0b)' },
+                sell_stop:      { icon: '🔴', label: '손절', color: 'var(--red)' },
+                sell_manual:    { icon: '⬜', label: '수동 청산', color: 'var(--text3)' },
             };
             const fmtTime = ts => {
                 const d = new Date(ts);

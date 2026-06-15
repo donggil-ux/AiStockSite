@@ -12,6 +12,8 @@ const STOP_PCT   = 0.975;  // 평균단가 -2.5% 손절 (개별주 노이즈 감
 const TP_PCTS    = [1.03, 1.06, 1.10]; // TP1·TP2·TP3
 const TP_RATIO   = 0.20;   // 분할 익절 시 20% (1/5)씩 — TP3까지 60% 익절, 트레일 40%
 const TRAIL_PCT  = 0.985;  // 고점 대비 트레일링 스탑 (TP1 이후 활성화)
+const BE_PEAK    = 1.02;   // 고점이 avg 대비 +2% 이상 → "수익권 진입" 확정
+const BE_EXIT    = 1.005;  // avg 대비 +0.5% 미만으로 복귀 시 본절 보호 청산
 
 // ── 내부 헬퍼 ────────────────────────────────────────────────────
 
@@ -124,7 +126,11 @@ export async function paperClosePosition(env, trade, price, reason) {
     const pnl  = calcPnl(trade.avg_price, price, qty, trade.dir) + trade.realized_pnl;
     const now  = Date.now();
 
-    const fillType = reason === 'stop' ? 'sell_stop' : reason === 'tp4_trail' ? 'sell_trail' : 'sell_manual';
+    const fillType =
+        reason === 'stop'       ? 'sell_stop' :
+        reason === 'tp4_trail'  ? 'sell_trail' :
+        reason === 'be_protect' ? 'sell_be_protect' :
+        'sell_manual';
 
     await env.DB.prepare(`
         UPDATE paper_trades SET
@@ -183,9 +189,20 @@ async function _manageOne(env, pos, price) {
         pos = { ...pos, peak_price: price };
     }
 
-    // ── 손절 체크 (avg_price × 0.98 이하) ──────────────────────
+    // ── 손절 체크 (avg_price × 0.975 이하) ─────────────────────
     if (pos.avg_price && price <= pos.avg_price * STOP_PCT) {
         await paperClosePosition(env, pos, price, 'stop');
+        return;
+    }
+
+    // ── 수익권 본절 보호 ─────────────────────────────────────────
+    // 고점이 avg 대비 +2% 이상을 찍은 뒤 현재가가 avg+0.5% 미만으로 복귀하면 전량 청산
+    if (
+        pos.avg_price && pos.peak_price &&
+        pos.peak_price >= pos.avg_price * BE_PEAK &&
+        price < pos.avg_price * BE_EXIT
+    ) {
+        await paperClosePosition(env, pos, price, 'be_protect');
         return;
     }
 
