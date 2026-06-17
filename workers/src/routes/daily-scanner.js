@@ -309,7 +309,24 @@ export async function captureDailySignals(env) {
                 ).bind(r.symbol, tf, r.dir, r.mode || 'trend', r.grade, r.score, r.price, r.stop, r.be ?? null, stopDist, entryTs).run();
                 logged++;
 
-                // 가상 자동매매 중단 — 추천 모드 전환 (시그널 기록은 계속)
+                // ── 가상 자동매매 — S급 or (A급+score≥9.0) + RVOL≥2, 매수 시그널만 진입 ──
+                if (r.dir === 'buy' && (r.grade === 'S' || (r.grade === 'A' && r.score >= 9.0)) && (r.rvol || 0) >= 2) {
+                    const category = classifySymbol(r.symbol, r.price, r.rvol);
+                    if (category) {
+                        const dtId = dtInsert.meta?.last_row_id || null;
+                        const accounts = await env.DB.prepare('SELECT user_id, balance, position_size FROM paper_account').all();
+                        for (const acct of (accounts.results || [])) {
+                            if (acct.balance < (acct.position_size || 10000)) continue;
+                            const qty = (acct.position_size || 10000) / r.price;
+                            await paperOpenTrade(env, {
+                                userId: acct.user_id, symbol: r.symbol,
+                                category, style: tf === '1d' ? 'swing' : 'day',
+                                dir: 'long', price: r.price, qty,
+                                signalId: dtId, grade: r.grade, score: r.score,
+                            });
+                        }
+                    }
+                }
             }
         } catch (e) { try { await logError(env, 'captureDailySignals', e.message); } catch (_) {} }
     }

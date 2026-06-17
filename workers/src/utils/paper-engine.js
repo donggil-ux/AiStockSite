@@ -1,19 +1,16 @@
 // 가상 매매 포지션 관리 엔진
-// 최소 4~최대 8분할 매수 / 피라미드 비중 (1:2:3:4:5:6:7:8) / 3단계 분할익절 + 트레일링 / 평단 -2.5% 손절
+// 전문 데일리 트레이더 전략 — 단일 진입 / 타이트 손절 / 빠른 익절 / 승률 60%+ 목표
 
-const TRANCHE_TRIGGERS = [0, 0.995, 0.990, 0.985, 0.980, 0.975, 0.970, 0.965];
-// 2차:-0.5%  3차:-1%  4차:-1.5%  5차:-2%  6차:-2.5%  7차:-3%  8차:-3.5% (first_price 기준)
-export const MAX_TRANCHE        = 8;
-// 피라미드 분할 비중: 1차~8차 = 1:2:3:4:5:6:7:8 (하락할수록 더 많이 매수)
-// position_size $10,000 기준: 1차 $278 → 8차 $2,222 (합계 $10,000)
-export const TRANCHE_WEIGHTS    = [1, 2, 3, 4, 5, 6, 7, 8];
-export const TRANCHE_WEIGHT_SUM = 36; // 1+2+...+8
-const STOP_PCT   = 0.975;  // 평균단가 -2.5% 손절 (개별주 노이즈 감안)
-const TP_PCTS    = [1.03, 1.06, 1.10]; // TP1·TP2·TP3
-const TP_RATIO   = 0.20;   // 분할 익절 시 20% (1/5)씩 — TP3까지 60% 익절, 트레일 40%
-const TRAIL_PCT  = 0.985;  // 고점 대비 트레일링 스탑 (TP1 이후 활성화)
-const BE_PEAK    = 1.02;   // 고점이 avg 대비 +2% 이상 → "수익권 진입" 확정
-const BE_EXIT    = 1.005;  // avg 대비 +0.5% 미만으로 복귀 시 본절 보호 청산
+const TRANCHE_TRIGGERS = [0]; // 단일 진입, 추가 분할 없음
+export const MAX_TRANCHE        = 1;
+export const TRANCHE_WEIGHTS    = [1];
+export const TRANCHE_WEIGHT_SUM = 1;
+const STOP_PCT   = 0.985;  // 평균단가 -1.5% 손절 (타이트)
+const TP_PCTS    = [1.02, 1.05, 1.10]; // TP1 +2% / TP2 +5% / TP3 +10%
+const TP_RATIO   = 0.40;   // 분할 익절 시 40%씩 — TP3까지 120% → 실질 100% 청산
+const TRAIL_PCT  = 0.990;  // 고점 대비 -1% 트레일링 스탑 (TP1 이후 활성화)
+const BE_PEAK    = 1.015;  // 고점이 avg 대비 +1.5% 이상 → "수익권 진입" 확정
+const BE_EXIT    = 1.003;  // avg 대비 +0.3% 미만으로 복귀 시 본절 보호 청산
 
 // ── 내부 헬퍼 ────────────────────────────────────────────────────
 
