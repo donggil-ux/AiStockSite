@@ -213,8 +213,8 @@ export default {
             ctx.waitUntil(Promise.all(tasks));
         }
         // 5분마다 (시장 시간) 시그널 분석 + 가격 알림 병렬 실행
-        if (cron === '*/5 13-21 * * 1-5' || cron === '*/5 0-6 * * 1-5') {
-            const market = cron.startsWith('*/5 13') ? 'US' : 'KR';
+        if (cron === '*/5 8-21 * * 1-5' || cron === '*/5 0-6 * * 1-5') {
+            const market = cron.startsWith('*/5 8') ? 'US' : 'KR';
             const jobs = [
                 checkPriceAlerts(env).then(r => console.log(`[cron] ${market} price`, r)),
                 analyzeSignals(env, market).then(r => console.log(`[cron] ${market} signal`, r)),
