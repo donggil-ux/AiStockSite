@@ -5,9 +5,11 @@
 // null: 매매 제외 (저가주, 급등주)
 
 export const LEVERAGED_ETFS = new Set([
-    'TQQQ','SOXL','UPRO','QLD','SSO','FNGU','LABU','TECL','WEBL',
-    'SPXL','UDOW','CURE','DFEN','DPST','HIBL','NAIL','PILL','RETL',
-    'BULZ','NVDL','TSLL','AMZU','MSFU','AAPLU','SOXS',
+    // 롱 레버리지 (2x/3x)
+    'TQQQ','QLD','SOXL','UPRO','SSO','SPXL','UDOW','FNGU','LABU','TECL','WEBL',
+    'CURE','DFEN','DPST','HIBL','NAIL','PILL','RETL','BULZ','NVDL','TSLL','AMZU',
+    // 역레버리지 (숏 ETF) — 하락장 수익
+    'SQQQ','SPXS','SOXS','QID','SDOW','TECS','SRTY','TZA',
 ]);
 
 export const LARGE_CAP = new Set([

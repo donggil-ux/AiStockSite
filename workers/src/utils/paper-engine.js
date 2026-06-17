@@ -10,7 +10,7 @@ export const MAX_TRANCHE        = 3;
 export const TRANCHE_WEIGHTS    = [1, 2, 3];
 export const TRANCHE_WEIGHT_SUM = 6;
 const STOP_PCT   = 0.985;  // 평균단가 -1.5% 손절 (타이트)
-const TP_PCTS    = [1.02, 1.05, 1.10]; // TP1 +2% / TP2 +5% / TP3 +10%
+const TP_PCTS    = [1.01, 1.03, 1.06]; // TP1 +1% / TP2 +3% / TP3 +6% (데일리 최적화)
 const TP_RATIO   = 0.40;   // 분할 익절 시 40%씩 — TP3까지 120% → 실질 100% 청산
 const TRAIL_PCT  = 0.990;  // 고점 대비 -1% 트레일링 스탑 (TP1 이후 활성화)
 const BE_PEAK    = 1.015;  // 고점이 avg 대비 +1.5% 이상 → "수익권 진입" 확정
@@ -153,7 +153,7 @@ export async function paperClosePosition(env, trade, price, reason) {
 export async function paperManageAll(env) {
     try {
         const openRes = await env.DB.prepare(
-            'SELECT * FROM paper_trades WHERE status=\'open\' ORDER BY created_at ASC LIMIT 50'
+            "SELECT * FROM paper_trades WHERE status='open' ORDER BY created_at ASC LIMIT 50"
         ).all();
         const positions = openRes.results || [];
         if (!positions.length) return;
@@ -161,34 +161,46 @@ export async function paperManageAll(env) {
         // 유니크 심볼 목록으로 현재가 일괄 조회 (crumb 인증 + 프리마켓 포함)
         const symbols = [...new Set(positions.map(p => p.symbol))];
         const prices  = {};
+        const now8h   = Date.now() - 8 * 3600 * 1000; // 8시간 이내 봉만 유효
         await Promise.allSettled(symbols.map(async sym => {
             try {
                 const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=1m&includePrePost=true`;
                 const d = await yfRequest(env.CACHE, url);
                 const result = d?.chart?.result?.[0];
-                // 마지막 실제 close 봉 사용 — regularMarketPrice는 프리마켓 중 어제 종가 반환
-                const closes = result?.indicators?.quote?.[0]?.close || [];
+                const closes     = result?.indicators?.quote?.[0]?.close || [];
+                const timestamps = result?.timestamp || [];
+                // 최근 봉부터 역순 탐색 — 8시간 이내 봉만 신뢰 (프리마켓 전 어제 봉 제외)
                 for (let i = closes.length - 1; i >= 0; i--) {
-                    if (closes[i] != null && closes[i] > 0) { prices[sym] = closes[i]; break; }
+                    if (closes[i] != null && closes[i] > 0) {
+                        const ts = timestamps[i] ? timestamps[i] * 1000 : 0;
+                        if (!ts || ts >= now8h) { prices[sym] = closes[i]; }
+                        break;
+                    }
                 }
-                // fallback: meta 현재가
+                // 봉 없거나 너무 오래됨 → meta 필드 폴백 (프리마켓가 우선)
                 if (!prices[sym]) {
                     const meta = result?.meta;
-                    const p = meta?.regularMarketPrice || meta?.preMarketPrice;
-                    if (p) prices[sym] = p;
+                    const p = meta?.preMarketPrice || meta?.regularMarketPrice;
+                    if (p && p > 0) prices[sym] = p;
                 }
-            } catch (_) {}
+            } catch (e) { console.warn('[paper-price]', sym, e?.message); }
         }));
+
+        console.log('[paper-manage] positions:', positions.length, 'prices:', JSON.stringify(prices));
 
         for (const pos of positions) {
             const price = prices[pos.symbol];
-            if (!price || price <= 0) continue;
+            if (!price || price <= 0) {
+                console.warn('[paper-manage] no price for', pos.symbol, pos.id);
+                continue;
+            }
             try {
                 await _manageOne(env, pos, price);
-            } catch (_) {}
+            } catch (e) { console.warn('[paper-manage] _manageOne err', pos.symbol, e?.message); }
         }
-    } catch (_) {}
+    } catch (e) { console.error('[paperManageAll]', e?.message); }
 }
+
 
 async function _manageOne(env, pos, price) {
     const now = Date.now();
