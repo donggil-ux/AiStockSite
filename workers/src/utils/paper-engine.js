@@ -153,16 +153,26 @@ export async function paperManageAll(env) {
         const positions = openRes.results || [];
         if (!positions.length) return;
 
-        // 유니크 심볼 목록으로 현재가 일괄 조회
+        // 유니크 심볼 목록으로 현재가 일괄 조회 (프리마켓 포함)
         const symbols = [...new Set(positions.map(p => p.symbol))];
         const prices  = {};
         await Promise.allSettled(symbols.map(async sym => {
             try {
-                const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=1m&includePrePost=false`);
+                const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=1m&includePrePost=true`);
                 if (!r.ok) return;
                 const d = await r.json();
-                const meta = d?.chart?.result?.[0]?.meta;
-                if (meta?.regularMarketPrice) prices[sym] = meta.regularMarketPrice;
+                const result = d?.chart?.result?.[0];
+                // 마지막 실제 close 봉 사용 — regularMarketPrice는 프리마켓 중 어제 종가 반환
+                const closes = result?.indicators?.quote?.[0]?.close || [];
+                for (let i = closes.length - 1; i >= 0; i--) {
+                    if (closes[i] != null && closes[i] > 0) { prices[sym] = closes[i]; break; }
+                }
+                // fallback: meta 현재가
+                if (!prices[sym]) {
+                    const meta = result?.meta;
+                    const p = meta?.regularMarketPrice || meta?.preMarketPrice;
+                    if (p) prices[sym] = p;
+                }
             } catch (_) {}
         }));
 
