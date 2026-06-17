@@ -1,6 +1,8 @@
 // 가상 매매 포지션 관리 엔진
 // 전문 데일리 트레이더 전략 — 3분할 피라미드 / 타이트 손절 / 빠른 익절 / 승률 60%+ 목표
 
+import { yfRequest } from './crumb.js';
+
 // 분할 트리거: first_price 기준 (1차 즉시, 2차 -0.5%, 3차 -1.0%)
 const TRANCHE_TRIGGERS = [0, 0.995, 0.990];
 export const MAX_TRANCHE        = 3;
@@ -155,14 +157,13 @@ export async function paperManageAll(env) {
         const positions = openRes.results || [];
         if (!positions.length) return;
 
-        // 유니크 심볼 목록으로 현재가 일괄 조회 (프리마켓 포함)
+        // 유니크 심볼 목록으로 현재가 일괄 조회 (crumb 인증 + 프리마켓 포함)
         const symbols = [...new Set(positions.map(p => p.symbol))];
         const prices  = {};
         await Promise.allSettled(symbols.map(async sym => {
             try {
-                const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=1m&includePrePost=true`);
-                if (!r.ok) return;
-                const d = await r.json();
+                const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=1m&includePrePost=true`;
+                const d = await yfRequest(env.CACHE, url);
                 const result = d?.chart?.result?.[0];
                 // 마지막 실제 close 봉 사용 — regularMarketPrice는 프리마켓 중 어제 종가 반환
                 const closes = result?.indicators?.quote?.[0]?.close || [];
