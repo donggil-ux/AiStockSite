@@ -7943,6 +7943,7 @@
                     </div>
                     <div style="display:flex;gap:10px;margin-top:5px;font-size:11px;color:var(--text3);flex-wrap:wrap;">
                         <span>평단 $${p.avg_price?.toFixed(2)||'—'}</span>
+                        <span>수량 ${p.total_qty!=null?p.total_qty.toFixed(2)+'주':'—'}</span>
                         <span>현재 ${cur?'$'+cur.toFixed(2):'—'}</span>
                         <span>손절 $${p.stop_price?.toFixed(2)||'—'}</span>
                         ${unrealAmt!=null?`<span style="color:${unrealAmt>=0?'var(--green)':'var(--red)'};">${unrealAmt>=0?'+$':'-$'}${Math.abs(unrealAmt).toFixed(0)}</span>`:''}
