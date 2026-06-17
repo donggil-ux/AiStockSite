@@ -489,8 +489,8 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
                 }
             } catch (e) { console.warn('[analyze] fail', symbol, e.message); }
         }
-        // 가상 매매 포지션 관리 (5분 주기: 추가 분할 / TP / 손절 / 트레일)
-        try { await paperManageAll(env); } catch (_) {}
+        // 가상 매매 포지션 관리 — 자동매매 중단 (추천 모드 전환)
+        // try { await paperManageAll(env); } catch (_) {}
 
         return { subscribers: subs.length, symbols: allSymbols.length, favSymbols: favSymbols.length, dynamic: dynamic.length, analyzed, fired, skippedBlacklist };
     } catch (e) {

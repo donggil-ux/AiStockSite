@@ -309,51 +309,7 @@ export async function captureDailySignals(env) {
                 ).bind(r.symbol, tf, r.dir, r.mode || 'trend', r.grade, r.score, r.price, r.stop, r.be ?? null, stopDist, entryTs).run();
                 logged++;
 
-                // 가상 매매 — 개별주 위주 S등급 즉시·A등급 score≥7.5 시 1차 분할 매수
-                if ((r.grade === 'S' || r.grade === 'A') && r.price > 0) {
-                    // A등급은 score 7.5 이상만 진입
-                    if (r.grade === 'A' && (r.score || 0) < 7.5) { /* skip */ }
-                    else try {
-                        const category = classifySymbol(r.symbol, r.price, r.rvol || 0);
-                        // leveraged·large_cap·mid_small 모두 진입 허용
-                        if (category) {
-                            const signalId = dtInsert.meta?.last_row_id || null;
-                            const accounts = await env.DB.prepare('SELECT * FROM paper_account').all();
-                            // 오늘 UTC 자정
-                            const todayStart = new Date(); todayStart.setUTCHours(0, 0, 0, 0);
-                            for (const acct of (accounts.results || [])) {
-                                // ① 동시 보유 최대 3종목
-                                const openCnt = await env.DB.prepare(
-                                    'SELECT COUNT(*) n FROM paper_trades WHERE user_id=? AND status=\'open\''
-                                ).bind(acct.user_id).first();
-                                if ((openCnt?.n || 0) >= 5) continue;
-                                // ② 일일 수익 $370 달성 or 최대손실 -$500 도달 시 중단
-                                const todayPnl = await env.DB.prepare(
-                                    'SELECT COALESCE(SUM(pnl),0) total FROM paper_fills WHERE user_id=? AND fill_type LIKE \'sell_%\' AND filled_at>=?'
-                                ).bind(acct.user_id, todayStart.getTime()).first();
-                                const todayTotal = todayPnl?.total || 0;
-                                if (todayTotal >= 370) continue;
-                                if (todayTotal <= -500) continue;
-                                // ③ 잔고 확인 (1차 = position_size × 1/36, 피라미드 비중)
-                                const tranche = (acct.position_size || 10000) * TRANCHE_WEIGHTS[0] / TRANCHE_WEIGHT_SUM;
-                                if ((acct.balance || 0) < tranche) continue;
-                                // ④ 같은 종목 오픈 포지션 중복 방지
-                                const existing = await env.DB.prepare(
-                                    'SELECT 1 FROM paper_trades WHERE user_id=? AND symbol=? AND status=\'open\' LIMIT 1'
-                                ).bind(acct.user_id, r.symbol).first();
-                                if (existing) continue;
-                                const qty = tranche / r.price;
-                                await paperOpenTrade(env, {
-                                    userId: acct.user_id, symbol: r.symbol, category,
-                                    style: tf === '15m' ? 'swing' : 'day',
-                                    dir: r.dir === 'buy' ? 'long' : 'short',
-                                    price: r.price, qty, signalId,
-                                    grade: r.grade, score: r.score,
-                                });
-                            }
-                        }
-                    } catch (_) {}
-                }
+                // 가상 자동매매 중단 — 추천 모드 전환 (시그널 기록은 계속)
             }
         } catch (e) { try { await logError(env, 'captureDailySignals', e.message); } catch (_) {} }
     }
