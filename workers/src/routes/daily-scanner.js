@@ -310,8 +310,8 @@ export async function captureDailySignals(env) {
                 ).bind(r.symbol, tf, r.dir, r.mode || 'trend', r.grade, r.score, r.price, r.stop, r.be ?? null, stopDist, entryTs).run();
                 logged++;
 
-                // ── 가상 자동매매 — S급 or (A급+score≥9.0) + RVOL≥2, 매수 시그널만 진입 ──
-                if (r.dir === 'buy' && (r.grade === 'S' || (r.grade === 'A' && r.score >= 9.0)) && (r.rvol || 0) >= 2) {
+                // ── 가상 자동매매 — 매수 시그널 + RVOL≥1.5 (등급 무관, 전문 데일리 트레이더) ──
+                if (r.dir === 'buy' && (r.rvol || 0) >= 1.5) {
                     const category = classifySymbol(r.symbol, r.price, r.rvol);
                     if (category) {
                         const dtId = dtInsert.meta?.last_row_id || null;

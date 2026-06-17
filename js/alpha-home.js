@@ -7969,7 +7969,7 @@
                     </div>
                     <div style="background:var(--bg2);border-radius:8px;padding:10px 12px;">
                         <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">보유 종목</div>
-                        <div style="font-size:16px;font-weight:800;">${d.summary.open_count}/5종목</div>
+                        <div style="font-size:16px;font-weight:800;">${d.summary.open_count}종목</div>
                     </div>
                     <div style="background:var(--bg2);border-radius:8px;padding:10px 12px;">
                         <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">승률</div>
