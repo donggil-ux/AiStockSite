@@ -9,12 +9,23 @@ export const MAX_TRANCHE        = 3;
 // 피라미드 비중 1:2:3 — 하락 시 더 많이 매수 (position_size $10,000 기준: $1,667 / $3,333 / $5,000)
 export const TRANCHE_WEIGHTS    = [1, 2, 3];
 export const TRANCHE_WEIGHT_SUM = 6;
-const STOP_PCT   = 0.985;  // 평균단가 -1.5% 손절 (타이트)
-const TP_PCTS    = [1.01, 1.03, 1.06]; // TP1 +1% / TP2 +3% / TP3 +6% (데일리 최적화)
-const TP_RATIO   = 0.40;   // 분할 익절 시 40%씩 — TP3까지 120% → 실질 100% 청산
-const TRAIL_PCT  = 0.990;  // 고점 대비 -1% 트레일링 스탑 (TP1 이후 활성화)
-const BE_PEAK    = 1.015;  // 고점이 avg 대비 +1.5% 이상 → "수익권 진입" 확정
-const BE_EXIT    = 1.010;  // avg 대비 +1% 미만으로 복귀 시 최소 1% 확보 청산
+const STOP_PCT  = 0.985; // TP1 전: avg 대비 -1.5% 손절
+
+// ─── 전문 트레이더 분할 익절 전략 ────────────────────────────────────
+// 단타 (day/5m): 빠른 분할 익절 + 타이트 트레일
+const TP_PCTS_DAY   = [1.008, 1.020, 1.040]; // TP1 +0.8% / TP2 +2% / TP3 +4%
+const TRAIL_DAY     = 0.993;                  // 고점 대비 -0.7%
+
+// 단기 스윙 (swing/15m): 더 큰 목표 + 여유 트레일
+const TP_PCTS_SWING = [1.015, 1.035, 1.070]; // TP1 +1.5% / TP2 +3.5% / TP3 +7%
+const TRAIL_SWING   = 0.990;                  // 고점 대비 -1%
+
+// 분할 매도 비율 — 원본 수량 기준 균등 4분할
+// 25% → 33%(남은량의) → 50%(남은량의) → 나머지 trail
+const TP_RATIOS = [0.25, 0.333, 0.50];
+
+const BE_PEAK = 1.015; // 고점 +1.5% → 수익권 확정 (TP1 미발동 안전망)
+const BE_EXIT = 1.010; // avg+1% 미만 복귀 시 청산
 
 // ── 내부 헬퍼 ────────────────────────────────────────────────────
 
@@ -232,15 +243,19 @@ async function _manageOne(env, pos, price) {
         pos = { ...pos, peak_price: price };
     }
 
-    // ── 손절 체크 (avg_price × 0.975 이하) ─────────────────────
-    if (pos.avg_price && price <= pos.avg_price * STOP_PCT) {
+    // ── 손절 체크 ─────────────────────────────────────────────────
+    // TP1 전: avg -1.5% / TP1 후: DB stop_price(본전·이상)로 손절 상향
+    const stopPx = pos.tp1_done
+        ? (pos.stop_price ?? pos.avg_price)
+        : pos.avg_price * STOP_PCT;
+    if (pos.avg_price && price <= stopPx) {
         await paperClosePosition(env, pos, price, 'stop');
         return;
     }
 
-    // ── 수익권 본절 보호 ─────────────────────────────────────────
-    // 고점이 avg 대비 +2% 이상을 찍은 뒤 현재가가 avg+0.5% 미만으로 복귀하면 전량 청산
+    // ── 수익권 본절 보호 (TP1 미발동 안전망) ────────────────────
     if (
+        !pos.tp1_done &&
         pos.avg_price && pos.peak_price &&
         pos.peak_price >= pos.avg_price * BE_PEAK &&
         price < pos.avg_price * BE_EXIT
@@ -249,18 +264,16 @@ async function _manageOne(env, pos, price) {
         return;
     }
 
-    // ── 추가 분할 매수 (2~8차, first_price 기준, 피라미드 비중) ──
-    if (pos.tranche_count < MAX_TRANCHE) {
+    // ── 추가 분할 매수 (2~3차, first_price 기준, 피라미드 비중) ──
+    if (pos.tranche_count < MAX_TRANCHE && !pos.tp1_done) {
         const nextTrigger = TRANCHE_TRIGGERS[pos.tranche_count];
         if (nextTrigger > 0 && price <= pos.first_price * nextTrigger) {
             const acct = await env.DB.prepare('SELECT balance,position_size FROM paper_account WHERE user_id=?')
                 .bind(pos.user_id).first();
             const posSize = acct?.position_size || 10000;
-            // tranche_count = 현재 차수 → 다음 차수 인덱스(0-based)로 비중 조회
             const trancheAmount = posSize * TRANCHE_WEIGHTS[pos.tranche_count] / TRANCHE_WEIGHT_SUM;
             if (acct && acct.balance >= trancheAmount) {
                 await paperAddTranche(env, pos, price, trancheAmount);
-                // pos 갱신 (이후 TP 체크를 위해)
                 const updated = await env.DB.prepare('SELECT * FROM paper_trades WHERE id=?').bind(pos.id).first();
                 if (updated) pos = updated;
             }
@@ -269,25 +282,35 @@ async function _manageOne(env, pos, price) {
 
     if (!pos.avg_price) return;
 
-    // ── 분할 익절 체크 ──────────────────────────────────────────
-    if (!pos.tp1_done && price >= pos.avg_price * TP_PCTS[0]) {
-        await paperPartialExit(env, pos, price, 'sell_tp1', TP_RATIO);
+    // ── 분할 익절 — 스타일별 목표가 / 25:25:25:25 균등 4분할 ──────
+    const tpPcts   = pos.style === 'swing' ? TP_PCTS_SWING : TP_PCTS_DAY;
+    const trailPct = pos.style === 'swing' ? TRAIL_SWING   : TRAIL_DAY;
+
+    // TP1: 보유량 25% 익절 → 손절가를 본전(avg)으로 이동 (남은 75% 무위험)
+    if (!pos.tp1_done && price >= pos.avg_price * tpPcts[0]) {
+        await paperPartialExit(env, pos, price, 'sell_tp1', TP_RATIOS[0]);
+        await env.DB.prepare('UPDATE paper_trades SET stop_price=?,updated_at=? WHERE id=?')
+            .bind(pos.avg_price, Date.now(), pos.id).run();
         const updated = await env.DB.prepare('SELECT * FROM paper_trades WHERE id=?').bind(pos.id).first();
         if (updated) pos = updated;
     }
-    if (pos.tp1_done && !pos.tp2_done && price >= pos.avg_price * TP_PCTS[1]) {
-        await paperPartialExit(env, pos, price, 'sell_tp2', TP_RATIO);
+    // TP2: 남은량의 33% (원본 ~25%) 익절 → 손절가를 +1%(avg)로 상향
+    if (pos.tp1_done && !pos.tp2_done && price >= pos.avg_price * tpPcts[1]) {
+        await paperPartialExit(env, pos, price, 'sell_tp2', TP_RATIOS[1]);
+        await env.DB.prepare('UPDATE paper_trades SET stop_price=?,updated_at=? WHERE id=?')
+            .bind(pos.avg_price * 1.01, Date.now(), pos.id).run();
         const updated = await env.DB.prepare('SELECT * FROM paper_trades WHERE id=?').bind(pos.id).first();
         if (updated) pos = updated;
     }
-    if (pos.tp2_done && !pos.tp3_done && price >= pos.avg_price * TP_PCTS[2]) {
-        await paperPartialExit(env, pos, price, 'sell_tp3', TP_RATIO);
+    // TP3: 남은량의 50% (원본 ~25%) 익절 → 나머지 ~25% 트레일에 맡김
+    if (pos.tp2_done && !pos.tp3_done && price >= pos.avg_price * tpPcts[2]) {
+        await paperPartialExit(env, pos, price, 'sell_tp3', TP_RATIOS[2]);
         const updated = await env.DB.prepare('SELECT * FROM paper_trades WHERE id=?').bind(pos.id).first();
         if (updated) pos = updated;
     }
 
-    // ── 트레일링 스탑 (TP1 이후, 고점 대비 -1.5%) ──────────────
-    if (pos.tp1_done && pos.peak_price && price <= pos.peak_price * TRAIL_PCT) {
+    // ── 트레일링 스탑 (TP1 이후 활성화, 스타일별 비율) ────────────
+    if (pos.tp1_done && pos.peak_price && price <= pos.peak_price * trailPct) {
         await paperClosePosition(env, pos, price, 'tp4_trail');
     }
 }
