@@ -14,7 +14,7 @@ const TP_PCTS    = [1.02, 1.05, 1.10]; // TP1 +2% / TP2 +5% / TP3 +10%
 const TP_RATIO   = 0.40;   // 분할 익절 시 40%씩 — TP3까지 120% → 실질 100% 청산
 const TRAIL_PCT  = 0.990;  // 고점 대비 -1% 트레일링 스탑 (TP1 이후 활성화)
 const BE_PEAK    = 1.015;  // 고점이 avg 대비 +1.5% 이상 → "수익권 진입" 확정
-const BE_EXIT    = 1.003;  // avg 대비 +0.3% 미만으로 복귀 시 본절 보호 청산
+const BE_EXIT    = 1.010;  // avg 대비 +1% 미만으로 복귀 시 최소 1% 확보 청산
 
 // ── 내부 헬퍼 ────────────────────────────────────────────────────
 
@@ -131,6 +131,7 @@ export async function paperClosePosition(env, trade, price, reason) {
         reason === 'stop'       ? 'sell_stop' :
         reason === 'tp4_trail'  ? 'sell_trail' :
         reason === 'be_protect' ? 'sell_be_protect' :
+        reason === 'eod_close'  ? 'sell_eod' :
         'sell_manual';
 
     await env.DB.prepare(`
@@ -191,6 +192,16 @@ export async function paperManageAll(env) {
 
 async function _manageOne(env, pos, price) {
     const now = Date.now();
+
+    // ── 장 마감 자동 청산 (day 트레이드만) ─────────────────────────
+    // ET 16:00 = UTC 20:00(EDT) / UTC 21:00(EST) → UTC 20:00 이후 청산
+    if (pos.style === 'day') {
+        const utcH = new Date(now).getUTCHours();
+        if (utcH >= 20) {
+            await paperClosePosition(env, pos, price, 'eod_close');
+            return;
+        }
+    }
 
     // 고점 갱신
     if (!pos.peak_price || price > pos.peak_price) {
