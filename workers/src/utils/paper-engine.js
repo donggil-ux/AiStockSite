@@ -132,6 +132,7 @@ export async function paperClosePosition(env, trade, price, reason) {
         reason === 'tp4_trail'  ? 'sell_trail' :
         reason === 'be_protect' ? 'sell_be_protect' :
         reason === 'eod_close'  ? 'sell_eod' :
+        reason === 'timeout'    ? 'sell_timeout' :
         'sell_manual';
 
     await env.DB.prepare(`
@@ -211,6 +212,15 @@ async function _manageOne(env, pos, price) {
         const utcH = new Date(now).getUTCHours();
         if (utcH >= 20) {
             await paperClosePosition(env, pos, price, 'eod_close');
+            return;
+        }
+    }
+
+    // ── 단기 스윙 최대 보유 3일 자동 청산 ──────────────────────────
+    if (pos.style === 'swing') {
+        const ageMs = now - pos.created_at;
+        if (ageMs > 3 * 24 * 3600 * 1000) {
+            await paperClosePosition(env, pos, price, 'timeout');
             return;
         }
     }

@@ -322,7 +322,7 @@ export async function captureDailySignals(env) {
                             const qty = firstAmount / r.price;
                             await paperOpenTrade(env, {
                                 userId: acct.user_id, symbol: r.symbol,
-                                category, style: tf === '1d' ? 'swing' : 'day',
+                                category, style: tf === '15m' ? 'swing' : 'day',  // 5m→단타, 15m→단기스윙
                                 dir: 'long', price: r.price, qty,
                                 signalId: dtId, grade: r.grade, score: r.score,
                             });
