@@ -6,8 +6,8 @@
 //   - /api/* 기타: 네트워크만 (항상 최신)
 //   - 새 SW 는 waiting 대기 → 사용자가 '새로고침' 토스트 클릭 시에만 활성화
 
-const CACHE_NAME = 'stockai-v1037';
-const API_CACHE = 'stockai-api-v1037';
+const CACHE_NAME = 'stockai-v1038';
+const API_CACHE = 'stockai-api-v1038';
 // API 캐시 최대 항목 수 (Quota 보호) — LRU 방식
 const API_CACHE_MAX = 80;
 
@@ -36,7 +36,8 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', e => {
-  // skipWaiting은 여기서 호출하지 않음 — 사용자가 토스트 클릭 시 SKIP_WAITING 메시지로만 활성화
+  // 새 SW 즉시 활성화 — 배포 후 PWA에서도 바로 반영
+  self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS).catch(()=>{}))
   );
