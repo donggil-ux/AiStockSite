@@ -24,8 +24,8 @@ const TRAIL_SWING   = 0.990;                  // 고점 대비 -1%
 // 25% → 33%(남은량의) → 50%(남은량의) → 나머지 trail
 const TP_RATIOS = [0.25, 0.333, 0.50];
 
-const BE_PEAK = 1.015; // 고점 +1.5% → 수익권 확정 (TP1 미발동 안전망)
-const BE_EXIT = 1.010; // avg+1% 미만 복귀 시 청산
+const BE_PEAK = 1.005; // 고점 +0.5% → 수익권 진입 (낮춰서 빠른 보호)
+const BE_EXIT = 1.001; // avg+0.1% 미만 복귀 → 즉시 본전 청산
 
 // ── 내부 헬퍼 ────────────────────────────────────────────────────
 
@@ -253,15 +253,28 @@ async function _manageOne(env, pos, price) {
         return;
     }
 
-    // ── 수익권 본절 보호 (TP1 미발동 안전망) ────────────────────
-    if (
-        !pos.tp1_done &&
-        pos.avg_price && pos.peak_price &&
-        pos.peak_price >= pos.avg_price * BE_PEAK &&
-        price < pos.avg_price * BE_EXIT
-    ) {
-        await paperClosePosition(env, pos, price, 'be_protect');
-        return;
+    // ── 본전 근처 즉시 청산 (TP1 미발동 포지션 보호) ─────────────────
+    if (!pos.tp1_done && pos.avg_price) {
+        const retPct = (price - pos.avg_price) / pos.avg_price;
+
+        // ① 고점 기반: peak +0.5% 이상 찍고 현재 +0.1% 미만 복귀 → 즉시 청산
+        if (
+            pos.peak_price &&
+            pos.peak_price >= pos.avg_price * BE_PEAK &&
+            price < pos.avg_price * BE_EXIT
+        ) {
+            await paperClosePosition(env, pos, price, 'be_protect');
+            return;
+        }
+
+        // ② 시간 기반: 크론 고점 누락 보완 — 일정 시간 경과 후 본전 ±0.3% 내면 청산
+        // (단타 45분 / 스윙 4시간 — 모멘텀 소멸 판단)
+        const ageMin    = (now - pos.created_at) / 60000;
+        const timeLimit = pos.style === 'swing' ? 240 : 45;
+        if (ageMin >= timeLimit && Math.abs(retPct) <= 0.003) {
+            await paperClosePosition(env, pos, price, 'be_protect');
+            return;
+        }
     }
 
     // ── 추가 분할 매수 (2~3차, first_price 기준, 피라미드 비중) ──
