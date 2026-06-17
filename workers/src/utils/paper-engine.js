@@ -1,10 +1,12 @@
 // 가상 매매 포지션 관리 엔진
-// 전문 데일리 트레이더 전략 — 단일 진입 / 타이트 손절 / 빠른 익절 / 승률 60%+ 목표
+// 전문 데일리 트레이더 전략 — 3분할 피라미드 / 타이트 손절 / 빠른 익절 / 승률 60%+ 목표
 
-const TRANCHE_TRIGGERS = [0]; // 단일 진입, 추가 분할 없음
-export const MAX_TRANCHE        = 1;
-export const TRANCHE_WEIGHTS    = [1];
-export const TRANCHE_WEIGHT_SUM = 1;
+// 분할 트리거: first_price 기준 (1차 즉시, 2차 -0.5%, 3차 -1.0%)
+const TRANCHE_TRIGGERS = [0, 0.995, 0.990];
+export const MAX_TRANCHE        = 3;
+// 피라미드 비중 1:2:3 — 하락 시 더 많이 매수 (position_size $10,000 기준: $1,667 / $3,333 / $5,000)
+export const TRANCHE_WEIGHTS    = [1, 2, 3];
+export const TRANCHE_WEIGHT_SUM = 6;
 const STOP_PCT   = 0.985;  // 평균단가 -1.5% 손절 (타이트)
 const TP_PCTS    = [1.02, 1.05, 1.10]; // TP1 +2% / TP2 +5% / TP3 +10%
 const TP_RATIO   = 0.40;   // 분할 익절 시 40%씩 — TP3까지 120% → 실질 100% 청산

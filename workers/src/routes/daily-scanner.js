@@ -318,7 +318,8 @@ export async function captureDailySignals(env) {
                         const accounts = await env.DB.prepare('SELECT user_id, balance, position_size FROM paper_account').all();
                         for (const acct of (accounts.results || [])) {
                             if (acct.balance < (acct.position_size || 10000)) continue;
-                            const qty = (acct.position_size || 10000) / r.price;
+                            const firstAmount = (acct.position_size || 10000) * TRANCHE_WEIGHTS[0] / TRANCHE_WEIGHT_SUM;
+                            const qty = firstAmount / r.price;
                             await paperOpenTrade(env, {
                                 userId: acct.user_id, symbol: r.symbol,
                                 category, style: tf === '1d' ? 'swing' : 'day',

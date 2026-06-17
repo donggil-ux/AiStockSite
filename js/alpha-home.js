@@ -7929,9 +7929,9 @@
                 const unrealAmt = cur && p.total_qty ? (cur - p.avg_price) * p.total_qty : null;
                 const dirLabel = p.dir === 'long' ? '매수' : '매도';
                 const tpBadge = [p.tp1_done && 'TP1', p.tp2_done && 'TP2', p.tp3_done && 'TP3'].filter(Boolean).map(t => `<span style="font-size:10px;padding:1px 4px;background:rgba(34,197,94,.15);color:var(--green);border-radius:3px;">${t}✓</span>`).join(' ');
-                const trancheLabel = `단일진입`;
-                // 트랜치 진행 도트 (단일 진입)
-                const dots = `<span style="width:5px;height:5px;border-radius:50%;display:inline-block;background:${p.tranche_count>=1?'var(--blue)':'var(--bg2)'}"></span>`;
+                const trancheLabel = `${p.tranche_count}/3분`;
+                // 트랜치 진행 도트 (최대 3분할)
+                const dots = Array.from({length:3}, (_,i) => `<span style="width:5px;height:5px;border-radius:50%;display:inline-block;background:${i<p.tranche_count?'var(--blue)':'var(--bg2)'}"></span>`).join('');
                 posHtml += `<div style="padding:9px 0;border-bottom:1px solid var(--border);">
                     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                         <span style="font-weight:700;font-size:14px;">${escHtml(p.symbol)}</span>
