@@ -3872,9 +3872,8 @@
             .vs-feature-chip{font-size:11px;padding:5px 10px;}
             .vs-drag-overlay-inner{padding:28px 32px;}
             .vs-screen-title{font-size:18px;}
-            /* 계정 페이지 모바일 좌우 여백 16px */
+            /* 계정 페이지 모바일 좌우 여백 16px (카드 외부 gap) */
             #profileScreen.vs-screen{padding-left:16px;padding-right:16px;}
-            #profileContent .card{padding:16px;}
         }
 
         /* ============================================================
