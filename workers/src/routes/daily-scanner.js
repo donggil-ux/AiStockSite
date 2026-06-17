@@ -317,8 +317,8 @@ export async function captureDailySignals(env) {
                         const dtId = dtInsert.meta?.last_row_id || null;
                         const accounts = await env.DB.prepare('SELECT user_id, balance, position_size FROM paper_account').all();
                         for (const acct of (accounts.results || [])) {
-                            if (acct.balance < (acct.position_size || 10000)) continue;
-                            const firstAmount = (acct.position_size || 10000) * TRANCHE_WEIGHTS[0] / TRANCHE_WEIGHT_SUM;
+                            const firstAmount = (acct.position_size || 30000) * TRANCHE_WEIGHTS[0] / TRANCHE_WEIGHT_SUM;
+                            if (acct.balance < firstAmount) continue;
                             const qty = firstAmount / r.price;
                             await paperOpenTrade(env, {
                                 userId: acct.user_id, symbol: r.symbol,
