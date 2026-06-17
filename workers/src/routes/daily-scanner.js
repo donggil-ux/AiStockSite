@@ -52,6 +52,7 @@ function _session(tsSec) {
     if (!tsSec) return 'regular';
     const d = new Date(tsSec * 1000);
     const m = d.getUTCHours() * 60 + d.getUTCMinutes(); // UTC 분
+    if (m >= 480 && m < 810) return 'premarket';    // 08:00–13:30 UTC (ET 04:00–09:30 프리마켓)
     if (m >= 810 && m < 870) return 'open_drive';   // 13:30–14:30 UTC (장 초반 30~60분)
     if (m >= 930 && m < 1110) return 'midday';       // 15:30–18:30 UTC (점심 횡보)
     if (m >= 1170 && m <= 1260) return 'power_hour'; // 19:30–21:00 UTC (파워아워)
@@ -98,7 +99,7 @@ export async function handleDailyTradingScan(req, env) {
             const chunk = universe.slice(k, k + CHUNK);
             await Promise.all(chunk.map(async (symbol) => {
                 try {
-                    const raw = await fetchChartWithFallback(env, symbol, range, tf, 'false');
+                    const raw = await fetchChartWithFallback(env, symbol, range, tf, 'true');
                     const result0 = raw?.chart?.result?.[0];
                     const qRaw = result0?.indicators?.quote?.[0];
                     if (!qRaw?.close?.length || qRaw.close.length < 60) { _dbg.noData++; return; }
