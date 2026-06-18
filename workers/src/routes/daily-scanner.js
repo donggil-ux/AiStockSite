@@ -13,6 +13,7 @@ import { _fetchDiscoverySymbols, DEFAULT_UNIVERSE_US, DEFAULT_UNIVERSE_KR } from
 import { paperOpenTrade, TRANCHE_WEIGHTS, TRANCHE_WEIGHT_SUM } from '../utils/paper-engine.js';
 import { classifySymbol } from '../utils/paper-category.js';
 import { getPaperTradeParams } from '../utils/paper-optimizer.js';
+import { getNewsSentiment } from '../utils/news-sentiment.js';
 import { logError } from '../utils/errors.js';
 
 const BACKTEST_CACHE_KEY = (tf) => `dailybt:US:${tf}`;
@@ -124,6 +125,7 @@ export async function handleDailyTradingScan(req, env) {
                         price: sig.price,
                         rsi: sig.rsiVal,
                         rvol: sig.volRatio,
+                        volAvg20: sig.volAvg20 ?? 0,
                         vwapPos: (vwap != null) ? (sig.price >= vwap ? 'above' : 'below') : null,
                         adx: sig.adx,
                         atrPct: sig.atrPct,
@@ -361,34 +363,58 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, todayLossB
     // ③ RVOL 필터 (동적 임계값)
     if ((r.rvol || 0) < (params.min_rvol || 2.0)) return;
 
-    // ④ 종목 카테고리 분류 (없으면 진입 불가)
+    // ④ 거래량 제로 종목 절대 진입 금지
+    // rvol=0 은 현재 거래량 0, volAvg20=0 은 20봉 평균 거래량 없음 (비유동 종목)
+    if (!r.rvol || r.rvol <= 0) return;
+    if ((r.volAvg20 ?? 0) < 1000) {
+        console.log(`[paper] ${r.symbol} 거래량 부족 (volAvg20=${r.volAvg20 ?? 0}) — 진입 스킵`);
+        return;
+    }
+
+    // ⑤ 종목 카테고리 분류 (없으면 진입 불가)
     const category = classifySymbol(r.symbol, r.price, r.rvol);
     if (!category) return;
 
-    // ⑤ 카테고리 스킵 목록 체크
+    // ⑦ 카테고리 스킵 목록 체크
     const categoryKey = `${category}_${tf === '15m' ? 'swing' : 'day'}`;
     if ((params.skip_categories || []).includes(categoryKey)) return;
+
+    // ⑧ 뉴스 감성 체크 — 명확한 부정 이슈면 진입 금지
+    // (KV 30분 캐시 → 동일 종목 반복 스캔 시 API 재호출 없음)
+    try {
+        const ns = await getNewsSentiment(env, r.symbol);
+        if (ns.sentiment === 'negative') {
+            console.log(`[paper] ${r.symbol} 부정 뉴스(${ns.score}) "${ns.headline.slice(0,60)}" — 진입 스킵`);
+            return;
+        }
+        if (ns.sentiment === 'positive') {
+            console.log(`[paper] ${r.symbol} 긍정 뉴스(${ns.score}) "${ns.headline.slice(0,60)}" — 진입 부스트`);
+        }
+    } catch (e) {
+        // 감성 체크 실패 → 중단하지 않고 진입 허용 (차단 오류보다 진입 실패가 나쁨)
+        console.warn(`[paper] ${r.symbol} news-sentiment 오류: ${e.message}`);
+    }
 
     const style    = tf === '15m' ? 'swing' : 'day';
     const maxPos   = params.max_positions || 5;
     const lossLimit = params.daily_loss_limit || 2000;
 
     for (const acct of accounts) {
-        // ⑥ 일일 손실 한도 체크
+        // ⑨ 일일 손실 한도 체크
         const dayLoss = todayLossByUser[acct.user_id] || 0;
         if (dayLoss >= lossLimit) {
             console.log(`[paper] ${acct.user_id} 일일 손실 한도 도달 $${dayLoss.toFixed(0)} — 진입 스킵`);
             continue;
         }
 
-        // ⑦ 최대 포지션 수 체크 + 중복 종목 체크 (1회 DB 조회로 함께 처리)
+        // ⑩ 최대 포지션 수 체크 + 중복 종목 체크 (1회 DB 조회로 함께 처리)
         const openPos = (await env.DB.prepare(
             "SELECT symbol FROM paper_trades WHERE user_id=? AND status='open'"
         ).bind(acct.user_id).all()).results || [];
         if (openPos.length >= maxPos) continue;
         if (openPos.some(p => p.symbol === r.symbol)) continue; // 이미 보유 중
 
-        // ⑧ 잔고 체크
+        // ⑪ 잔고 체크
         const firstAmount = (acct.position_size || 30000) * TRANCHE_WEIGHTS[0] / TRANCHE_WEIGHT_SUM;
         if (acct.balance < firstAmount) continue;
 

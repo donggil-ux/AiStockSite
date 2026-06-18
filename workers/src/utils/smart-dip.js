@@ -122,6 +122,7 @@ function evalBar(q, ind, i, dir, htfLag, spxTrendUp, ts, vwapArr) {
         pass: qs >= 5, qs, reasons,
         adx: +adx.toFixed(0), volRatio: +volRatio.toFixed(1), atrPct: +atrPct.toFixed(1),
         rsiVal: Math.round(rsiVal), price: c,
+        volAvg20: Math.round(volAvg20), // 20봉 평균 거래량 (절대값 필터용)
     };
 }
 
@@ -156,6 +157,7 @@ export function smartDipScan(q, { interval = '5m', ts = [], spxTrendUp = null, l
             winRate,
             winMeasured: !!(measuredWin && measuredWin[grade] != null),
             adx: best.adx, volRatio: best.volRatio, atrPct: best.atrPct, rsiVal: best.rsiVal,
+            volAvg20: best.volAvg20 ?? 0,
             reasons: best.reasons.slice(0, 4),
             price: best.price,
             stop: lv?.stop ?? null, be: lv?.be ?? null, target1: lv?.target1 ?? null, target2: lv?.target2 ?? null, riskPct: lv?.riskPct ?? null,
@@ -218,6 +220,7 @@ function evalBounce(q, ind, i, ts) {
         pass: qs >= 3.5, qs, reasons,
         adx: +(ind.adxArr[i] || 0).toFixed(0), volRatio: +volRatio.toFixed(1),
         atrPct: +atrPct.toFixed(1), rsiVal: Math.round(rsiVal), price: c,
+        volAvg20: Math.round(volAvg20),
     };
 }
 
@@ -242,6 +245,7 @@ export function smartDipScanBounce(q, { ts = [], lookback, measuredWin = null } 
             qualityScore: +b.qs.toFixed(1),
             winRate, winMeasured: !!(measuredWin && measuredWin['bounce_' + grade] != null),
             adx: b.adx, volRatio: b.volRatio, atrPct: b.atrPct, rsiVal: b.rsiVal,
+            volAvg20: b.volAvg20 ?? 0,
             reasons: b.reasons.slice(0, 4),
             price: b.price,
             stop: lv?.stop ?? null, be: lv?.be ?? null, target1: lv?.target1 ?? null, target2: lv?.target2 ?? null, riskPct: lv?.riskPct ?? null,
