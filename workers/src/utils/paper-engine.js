@@ -9,7 +9,7 @@ export const MAX_TRANCHE        = 3;
 // 피라미드 비중 1:2:3 — 하락 시 더 많이 매수 (position_size $10,000 기준: $1,667 / $3,333 / $5,000)
 export const TRANCHE_WEIGHTS    = [1, 2, 3];
 export const TRANCHE_WEIGHT_SUM = 6;
-const STOP_PCT  = 0.985; // TP1 전: avg 대비 -1.5% 손절
+const STOP_FROM_FIRST = 0.980; // 1차 진입가(first_price) 기준 -2% 손절 — 분할 매수해도 불변
 
 // ─── 전문 트레이더 분할 익절 전략 ────────────────────────────────────
 // 단타 (day/5m): 빠른 분할 익절 + 타이트 트레일
@@ -61,7 +61,7 @@ async function addBalance(env, userId, amount) {
 export async function paperOpenTrade(env, { userId, symbol, category, style, dir, price, qty, signalId = null, grade = null, score = null }) {
     const now = Date.now();
     const amount = price * qty;
-    const stop = price * STOP_PCT;
+    const stop = price * STOP_FROM_FIRST; // 1차가 = first_price
 
     const res = await env.DB.prepare(`
         INSERT INTO paper_trades
@@ -90,7 +90,7 @@ export async function paperAddTranche(env, trade, price, trancheAmount) {
     const newTotalQty      = trade.total_qty + qty;
     const newTotalInvested = trade.total_invested + amount;
     const newAvgPrice      = newTotalInvested / newTotalQty;
-    const newStop          = newAvgPrice * STOP_PCT;
+    const newStop          = trade.first_price * STOP_FROM_FIRST; // 분할 추가해도 stop은 1차 진입가 -2% 고정
     const now = Date.now();
 
     await env.DB.prepare(`
@@ -244,10 +244,8 @@ async function _manageOne(env, pos, price) {
     }
 
     // ── 손절 체크 ─────────────────────────────────────────────────
-    // TP1 전: avg -1.5% / TP1 후: DB stop_price(본전·이상)로 손절 상향
-    const stopPx = pos.tp1_done
-        ? (pos.stop_price ?? pos.avg_price)
-        : pos.avg_price * STOP_PCT;
+    // DB stop_price 사용 (항상 first_price -2% / TP1 후 본전·이상으로 상향됨)
+    const stopPx = pos.stop_price ?? pos.avg_price * STOP_FROM_FIRST;
     if (pos.avg_price && price <= stopPx) {
         await paperClosePosition(env, pos, price, 'stop');
         return;
