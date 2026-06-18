@@ -12,6 +12,7 @@ import { getMarketRegime } from '../utils/market.js';
 import { _fetchDiscoverySymbols, DEFAULT_UNIVERSE_US, DEFAULT_UNIVERSE_KR } from '../cron.js';
 import { paperOpenTrade, TRANCHE_WEIGHTS, TRANCHE_WEIGHT_SUM } from '../utils/paper-engine.js';
 import { classifySymbol } from '../utils/paper-category.js';
+import { getPaperTradeParams } from '../utils/paper-optimizer.js';
 import { logError } from '../utils/errors.js';
 
 const BACKTEST_CACHE_KEY = (tf) => `dailybt:US:${tf}`;
@@ -286,6 +287,18 @@ export async function handleDailyBacktest(req, env) {
 //   handleDailyLiveStats: 누적 실측 승률·평균 R 반환
 // ════════════════════════════════════════════════════════════════
 export async function captureDailySignals(env) {
+    // 동적 진입 파라미터 + 계좌 목록은 tf 루프 전에 1회 로드
+    const params   = await getPaperTradeParams(env);
+    const accounts = (await env.DB.prepare('SELECT user_id, balance, position_size FROM paper_account').all()).results || [];
+
+    // 오늘 일일 손실 집계 (per-user): 오늘 UTC 00:00 이후 closed 된 손실 합산
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+    const lossRows = (await env.DB.prepare(
+        "SELECT user_id, SUM(realized_pnl) AS day_loss FROM paper_trades WHERE status='closed' AND realized_pnl<0 AND exit_at>=? GROUP BY user_id"
+    ).bind(todayStart.getTime()).all()).results || [];
+    const todayLossByUser = Object.fromEntries(lossRows.map(r => [r.user_id, Math.abs(r.day_loss || 0)]));
+
     let logged = 0;
     for (const tf of ['5m', '15m']) {
         try {
@@ -310,29 +323,84 @@ export async function captureDailySignals(env) {
                 ).bind(r.symbol, tf, r.dir, r.mode || 'trend', r.grade, r.score, r.price, r.stop, r.be ?? null, stopDist, entryTs).run();
                 logged++;
 
-                // ── 가상 자동매매 — 매수 시그널 + RVOL≥1.5 (등급 무관, 전문 데일리 트레이더) ──
-                if (r.dir === 'buy' && (r.rvol || 0) >= 1.5) {
-                    const category = classifySymbol(r.symbol, r.price, r.rvol);
-                    if (category) {
-                        const dtId = dtInsert.meta?.last_row_id || null;
-                        const accounts = await env.DB.prepare('SELECT user_id, balance, position_size FROM paper_account').all();
-                        for (const acct of (accounts.results || [])) {
-                            const firstAmount = (acct.position_size || 30000) * TRANCHE_WEIGHTS[0] / TRANCHE_WEIGHT_SUM;
-                            if (acct.balance < firstAmount) continue;
-                            const qty = firstAmount / r.price;
-                            await paperOpenTrade(env, {
-                                userId: acct.user_id, symbol: r.symbol,
-                                category, style: tf === '15m' ? 'swing' : 'day',  // 5m→단타, 15m→단기스윙
-                                dir: 'long', price: r.price, qty,
-                                signalId: dtId, grade: r.grade, score: r.score,
-                            });
-                        }
-                    }
+                // ── 가상 자동매매 — 전문 트레이더 진입 필터 ──────────────────────────
+                if (r.dir === 'buy') {
+                    await _tryOpenPaperTrade(env, r, tf, dtInsert.meta?.last_row_id || null, params, accounts, todayLossByUser);
                 }
             }
         } catch (e) { try { await logError(env, 'captureDailySignals', e.message); } catch (_) {} }
     }
     return { logged };
+}
+
+// ── ET 시간 필터: 9:30~9:40 오픈 첫 10분 / 15:30 이후 제외 ────────────────
+function _isGoodEntryTime() {
+    const nowMs = Date.now();
+    // UTC → ET (EDT: -4h, EST: -5h — 단순화: DST 무시하고 -4h 사용)
+    const etH = ((nowMs / 3600000) | 0) % 24 - 4;
+    const etMin = Math.floor(nowMs / 60000) % 60;
+    const etTotalMin = ((etH + 24) % 24) * 60 + etMin;
+    const open  = 9 * 60 + 30;   // 9:30 AM ET
+    const skip  = 9 * 60 + 40;   // 9:40 AM ET (첫 10분 제외)
+    const close = 15 * 60 + 30;  // 3:30 PM ET
+    if (etTotalMin < open)         return false; // 장전
+    if (etTotalMin < skip)         return false; // 첫 10분 — 변동성 과다
+    if (etTotalMin >= close)       return false; // 장마감 30분 전 이후
+    return true;
+}
+
+// ── 전문 트레이더 진입 게이트 — 필터 통과 시에만 paperOpenTrade 호출 ────────
+async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, todayLossByUser) {
+    // ① ET 시간 필터
+    if (!_isGoodEntryTime()) return;
+
+    // ② 등급 필터 (S/A only, 동적으로 조정 가능)
+    const allowedGrades = params.grade_filter || ['S', 'A'];
+    if (!allowedGrades.includes(r.grade)) return;
+
+    // ③ RVOL 필터 (동적 임계값)
+    if ((r.rvol || 0) < (params.min_rvol || 2.0)) return;
+
+    // ④ 종목 카테고리 분류 (없으면 진입 불가)
+    const category = classifySymbol(r.symbol, r.price, r.rvol);
+    if (!category) return;
+
+    // ⑤ 카테고리 스킵 목록 체크
+    const categoryKey = `${category}_${tf === '15m' ? 'swing' : 'day'}`;
+    if ((params.skip_categories || []).includes(categoryKey)) return;
+
+    const style    = tf === '15m' ? 'swing' : 'day';
+    const maxPos   = params.max_positions || 5;
+    const lossLimit = params.daily_loss_limit || 2000;
+
+    for (const acct of accounts) {
+        // ⑥ 일일 손실 한도 체크
+        const dayLoss = todayLossByUser[acct.user_id] || 0;
+        if (dayLoss >= lossLimit) {
+            console.log(`[paper] ${acct.user_id} 일일 손실 한도 도달 $${dayLoss.toFixed(0)} — 진입 스킵`);
+            continue;
+        }
+
+        // ⑦ 최대 포지션 수 체크 + 중복 종목 체크 (1회 DB 조회로 함께 처리)
+        const openPos = (await env.DB.prepare(
+            "SELECT symbol FROM paper_trades WHERE user_id=? AND status='open'"
+        ).bind(acct.user_id).all()).results || [];
+        if (openPos.length >= maxPos) continue;
+        if (openPos.some(p => p.symbol === r.symbol)) continue; // 이미 보유 중
+
+        // ⑧ 잔고 체크
+        const firstAmount = (acct.position_size || 30000) * TRANCHE_WEIGHTS[0] / TRANCHE_WEIGHT_SUM;
+        if (acct.balance < firstAmount) continue;
+
+        const qty = firstAmount / r.price;
+        await paperOpenTrade(env, {
+            userId: acct.user_id, symbol: r.symbol,
+            category, style,
+            dir: 'long', price: r.price, qty,
+            signalId: dtId, grade: r.grade, score: r.score,
+        });
+        console.log(`[paper] open ${r.symbol} ${style} grade=${r.grade} rvol=${(r.rvol||0).toFixed(1)} user=${acct.user_id}`);
+    }
 }
 
 export async function resolveDailySignals(env) {

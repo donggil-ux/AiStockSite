@@ -28,6 +28,7 @@ import { handleScannerAiAnalyze, handleSwingAiAnalyze } from './routes/ai-scanne
 import { handleScannerAiBatch, handleSocialAiAnalyze } from './routes/ai-batch-social.js';
 import { handleCatalystAiAnalyze } from './routes/ai-catalyst.js';
 import { calibrateAlgorithm } from './utils/calibration.js';
+import { paperAutoOptimize } from './utils/paper-optimizer.js';
 import { logError, pruneOldErrors } from './utils/errors.js';
 import { snapshotHealth } from './cron.js';
 import { handleAdminStatus, handleAnalyzeNow, handleDtForwardTest, handleCatForwardTest } from './routes/admin.js';
@@ -209,6 +210,7 @@ export default {
             // 일요일 (getUTCDay === 0) 이면 알고리즘 보정도 함께 실행
             if (new Date(event.scheduledTime || Date.now()).getUTCDay() === 0) {
                 tasks.push(calibrateAlgorithm(env).then(r => console.log('[cron] calibrate', r)));
+                tasks.push(paperAutoOptimize(env).then(r => console.log('[cron] paper-optimize', r?.params)).catch(e => console.error('[cron] paper-optimize err', e.message)));
             }
             ctx.waitUntil(Promise.all(tasks));
         }
