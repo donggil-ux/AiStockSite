@@ -8010,7 +8010,10 @@
         const sec = document.getElementById('paperFillsSection');
         if (!sec) return;
         try {
-            const r = await fetch(`${API_BASE}/api/paper/fills?limit=30`);
+            const token = await window.getAuthToken?.();
+            const r = await fetch(`${API_BASE}/api/paper/fills?limit=30`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
             if (!r.ok) throw new Error();
             const d = await r.json();
             const fills = d.fills || [];
@@ -8105,7 +8108,7 @@
             const fmtDate = ts => ts ? new Date(ts).toLocaleDateString('ko-KR',{month:'short',day:'numeric'}) : '—';
             const rows = trades.map(t => {
                 const pnlColor = (t.realized_pnl||0)>=0?'var(--green)':'var(--red)';
-                const reasonMap = { stop:'손절', tp4_trail:'트레일', manual:'수동', timeout:'만료' };
+                const reasonMap = { stop:'손절', tp4_trail:'트레일', be_protect:'본전보호', eod_close:'장마감', manual:'수동', timeout:'만료' };
                 return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;">
                     <div>
                         <span style="font-weight:700;">${escHtml(t.symbol)}</span>
