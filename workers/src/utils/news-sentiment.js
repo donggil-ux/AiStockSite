@@ -11,18 +11,25 @@ const CACHE_KEY = (sym) => `news-sent:${sym}`;
 const CACHE_TTL = 30 * 60; // 30분 (초)
 
 // ── 부정 키워드 (가중치별) ────────────────────────────────────────────
+// 주의: substring 매칭이므로 단어 경계를 고려한 구체적 표현만 사용
 const NEG_STRONG = [
-    'bankrupt','fraud','scandal','investigation','SEC','DOJ','indicted','ponzi',
-    'recall','crash','collapse','default','criminal','money laundering',
-    '파산','사기','부정','조사','리콜','폭락','기소','횡령','분식',
+    'bankrupt','fraud','scandal',
+    'sec investigation','sec charges','sec fraud','sec probe','sec lawsuit',
+    'doj investigation','doj charges','indicted','ponzi',
+    'accounting fraud','securities fraud',
+    'recall','crash','collapse','default','criminal charges','money laundering',
+    '파산','사기','횡령','분식회계','폭락','기소','증권 사기',
 ];
 const NEG_MILD = [
-    'downgrade','miss','missed','disappoints','disappointing','cuts guidance',
-    'reduces','lowers','layoff','layoffs','downturn','warning','concern',
-    'delay','decline','lawsuit','fine','penalty','overvalued','short','bearish',
-    'loss','losses','revenue fell','profit fell','quarterly loss',
-    '하락','약세','목표주가 하향','실적 미달','매출 감소','순손실','경고',
-    '소송','벌금','구조조정','감원','적자','부진','우려',
+    'downgrade','misses expectations','misses estimates','earnings miss',
+    'disappoints','disappointing','cuts guidance','guidance cut',
+    'reduces forecast','lowers outlook','layoff','layoffs','downturn',
+    'issues warning','raises concern','serious concern',
+    'delay','revenue declined','revenue fell','profit fell','quarterly loss',
+    'operating loss','net loss','sells off','sell-off',
+    'short sellers','short position','bearish',
+    '하락','약세','목표주가 하향','실적 미달','매출 감소','순손실','영업손실',
+    '경고','소송','벌금','구조조정','감원','적자','부진','우려',
 ];
 
 // ── 긍정 키워드 (가중치별) ────────────────────────────────────────────
@@ -33,11 +40,12 @@ const POS_STRONG = [
     '어닝 서프라이즈','신고가','FDA 승인','대형 계약','자사주 매입',
 ];
 const POS_MILD = [
-    'beat','beats','upgrade','outperform','buy rating','raises guidance',
-    'strong','growth','surge','rally','higher','launch','expansion',
-    'revenue growth','profit growth','positive','bullish','raised',
+    'beats estimates','beats expectations','earnings beat','revenue beat',
+    'upgrade','outperform','buy rating','raises guidance','guidance raised',
+    'strong growth','revenue growth','profit growth','bullish outlook',
+    'new contract','product launch','market expansion','raises price target',
     '상승','강세','목표주가 상향','실적 호조','매출 증가','순이익 증가','기대 초과',
-    '성장','호재','계약','흑자','개선',
+    '성장','호재','신규 계약','흑자','실적 개선',
 ];
 
 function _keywordScore(text) {

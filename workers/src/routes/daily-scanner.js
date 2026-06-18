@@ -336,18 +336,22 @@ export async function captureDailySignals(env) {
 }
 
 // ── ET 시간 필터: 9:30~9:40 오픈 첫 10분 / 15:30 이후 제외 ────────────────
+// Intl.DateTimeFormat 사용 → EDT/EST DST 자동 처리
 function _isGoodEntryTime() {
-    const nowMs = Date.now();
-    // UTC → ET (EDT: -4h, EST: -5h — 단순화: DST 무시하고 -4h 사용)
-    const etH = ((nowMs / 3600000) | 0) % 24 - 4;
-    const etMin = Math.floor(nowMs / 60000) % 60;
-    const etTotalMin = ((etH + 24) % 24) * 60 + etMin;
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(now);
+    const etH   = parseInt(parts.find(p => p.type === 'hour').value,   10);
+    const etMin = parseInt(parts.find(p => p.type === 'minute').value, 10);
+    const etTotalMin = etH * 60 + etMin;
     const open  = 9 * 60 + 30;   // 9:30 AM ET
     const skip  = 9 * 60 + 40;   // 9:40 AM ET (첫 10분 제외)
     const close = 15 * 60 + 30;  // 3:30 PM ET
-    if (etTotalMin < open)         return false; // 장전
-    if (etTotalMin < skip)         return false; // 첫 10분 — 변동성 과다
-    if (etTotalMin >= close)       return false; // 장마감 30분 전 이후
+    if (etTotalMin < open)   return false;
+    if (etTotalMin < skip)   return false;
+    if (etTotalMin >= close) return false;
     return true;
 }
 
@@ -363,9 +367,7 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, todayLossB
     // ③ RVOL 필터 (동적 임계값)
     if ((r.rvol || 0) < (params.min_rvol || 2.0)) return;
 
-    // ④ 거래량 제로 종목 절대 진입 금지
-    // rvol=0 은 현재 거래량 0, volAvg20=0 은 20봉 평균 거래량 없음 (비유동 종목)
-    if (!r.rvol || r.rvol <= 0) return;
+    // ④ 거래량 제로 종목 절대 진입 금지 (volAvg20 = 20봉 절대 평균 거래량)
     if ((r.volAvg20 ?? 0) < 1000) {
         console.log(`[paper] ${r.symbol} 거래량 부족 (volAvg20=${r.volAvg20 ?? 0}) — 진입 스킵`);
         return;
