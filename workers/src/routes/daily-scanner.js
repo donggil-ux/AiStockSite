@@ -140,12 +140,12 @@ export async function handleDailyTradingScan(req, env) {
                     const trend = smartDipScan(q, { interval: tf, ts: tts || [], spxTrendUp, measuredWin });
                     if (trend) { results.push(mkResult(trend)); if (trend.dir === 'buy') _dbg.rawBuy++; else _dbg.rawSell++; }
 
-                    // ── 역추세 반등 매수 (독립 실행 — 매도 신호와 무관하게 A급 반등은 추가) ──
+                    // ── 역추세 반등 매수 (독립 실행 — 매도 신호와 무관하게 A/S급 반등은 추가) ──
                     // 단, 추세가 이미 '매수'면 중복 방지로 생략.
                     if (!trend || trend.dir !== 'buy') {
                         const bounce = smartDipScanBounce(q, { ts: tts || [], measuredWin });
-                        if (bounce) { _dbg.bounceAny++; if (bounce.grade === 'A') _dbg.bounceA++; }
-                        if (bounce && bounce.grade === 'A') { results.push(mkResult(bounce)); _dbg.rawBuy++; }
+                        if (bounce) { _dbg.bounceAny++; if (bounce.grade === 'A' || bounce.grade === 'S') _dbg.bounceA++; }
+                        if (bounce && (bounce.grade === 'S' || bounce.grade === 'A')) { results.push(mkResult(bounce)); _dbg.rawBuy++; }
                     }
 
                     if (!trend) _dbg.noPass++;
@@ -335,24 +335,39 @@ export async function captureDailySignals(env) {
     return { logged };
 }
 
-// ── ET 시간 필터: 9:30~9:40 오픈 첫 10분 / 15:30 이후 제외 ────────────────
-// Intl.DateTimeFormat 사용 → EDT/EST DST 자동 처리
-function _isGoodEntryTime() {
-    const now = new Date();
+// ── ET 시각 파싱 헬퍼 ────────────────────────────────────────────────────────
+function _etTotalMin() {
     const parts = new Intl.DateTimeFormat('en-US', {
         timeZone: 'America/New_York',
         hour: '2-digit', minute: '2-digit', hour12: false,
-    }).formatToParts(now);
-    const etH   = parseInt(parts.find(p => p.type === 'hour').value,   10);
-    const etMin = parseInt(parts.find(p => p.type === 'minute').value, 10);
-    const etTotalMin = etH * 60 + etMin;
-    const open  = 9 * 60 + 30;   // 9:30 AM ET
-    const skip  = 9 * 60 + 40;   // 9:40 AM ET (첫 10분 제외)
-    const close = 15 * 60 + 30;  // 3:30 PM ET
-    if (etTotalMin < open)   return false;
-    if (etTotalMin < skip)   return false;
-    if (etTotalMin >= close) return false;
+    }).formatToParts(new Date());
+    const h = parseInt(parts.find(p => p.type === 'hour').value,   10);
+    const m = parseInt(parts.find(p => p.type === 'minute').value, 10);
+    return h * 60 + m;
+}
+
+// ── ET 시간 필터: 9:30~9:40 오픈 첫 10분 / 15:30 이후 제외 ────────────────
+function _isGoodEntryTime() {
+    const etTotalMin = _etTotalMin();
+    const preOpen   = 4 * 60;         // 4:00 AM ET — 프리마켓 시작
+    const skipStart = 9 * 60 + 30;   // 9:30 AM ET — 정규장 오픈 직후 10분 스킵
+    const skipEnd   = 9 * 60 + 40;   // 9:40 AM ET
+    const close     = 15 * 60 + 30;  // 3:30 PM ET
+    if (etTotalMin < preOpen)                                  return false;
+    if (etTotalMin >= skipStart && etTotalMin < skipEnd)       return false;
+    if (etTotalMin >= close)                                   return false;
     return true;
+}
+
+// ── 시간대별 최소 RVOL 임계값 ─────────────────────────────────────────────
+// 점심(11:30~14:00 ET): 거래량 자연 감소 → 0.8로 완화
+// 프리마켓(04:00~09:30 ET): 조용하지만 기회 존재 → 1.0
+// 그 외(오전·파워아워): params.min_rvol 사용
+function _sessionMinRvol(params) {
+    const t = _etTotalMin();
+    if (t >= 11 * 60 + 30 && t < 14 * 60) return 0.8;  // 점심 횡보
+    if (t < 9 * 60 + 30)                  return 1.0;  // 프리마켓
+    return params.min_rvol || 1.5;
 }
 
 // ── 전문 트레이더 진입 게이트 — 필터 통과 시에만 paperOpenTrade 호출 ────────
@@ -364,12 +379,26 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, todayLossB
     const allowedGrades = params.grade_filter || ['S', 'A'];
     if (!allowedGrades.includes(r.grade)) return;
 
-    // ③ RVOL 필터 (동적 임계값)
-    if ((r.rvol || 0) < (params.min_rvol || 2.0)) return;
+    // ③ RVOL 필터 (시간대별 동적 임계값 — 점심 0.8 / 프리마켓 1.0 / 그 외 min_rvol)
+    const minRvol = _sessionMinRvol(params);
+    if ((r.rvol || 0) < minRvol) {
+        console.log(`[paper] ${r.symbol} rvol=${(r.rvol||0).toFixed(1)} < ${minRvol} — 스킵`);
+        return;
+    }
 
     // ④ 거래량 제로 종목 절대 진입 금지 (volAvg20 = 20봉 절대 평균 거래량)
     if ((r.volAvg20 ?? 0) < 1000) {
         console.log(`[paper] ${r.symbol} 거래량 부족 (volAvg20=${r.volAvg20 ?? 0}) — 진입 스킵`);
+        return;
+    }
+
+    // ④.5 신호 신선도 체크 — 모드별 최대 허용 봉수
+    // bounce(눌림목·반등): 3봉(5m:15분) — 타이밍 민감, 늦으면 반등 완료
+    // trend(추세추격): 5봉(5m:25분) — 추세는 지속성 있음
+    const isBounce = (r.mode || 'trend') === 'bounce';
+    const maxBarsAgo = isBounce ? 3 : 5;
+    if ((r.barsAgo ?? 0) > maxBarsAgo) {
+        console.log(`[paper] ${r.symbol} ${r.mode||'trend'} 신호 ${r.barsAgo}봉 전 — 신선도 부족 스킵`);
         return;
     }
 
@@ -395,6 +424,27 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, todayLossB
     } catch (e) {
         // 감성 체크 실패 → 중단하지 않고 진입 허용 (차단 오류보다 진입 실패가 나쁨)
         console.warn(`[paper] ${r.symbol} news-sentiment 오류: ${e.message}`);
+    }
+
+    // ⑧.5 모드별 RSI 진입 기준
+    // bounce(눌림목·반등): RSI > 68이면 이미 반등 완료 → 추격이 됨 → 스킵
+    // trend(추세추격): RSI >= 78 A급 스킵, RSI >= 83 전면 스킵
+    const rsiVal = r.rsi ?? 50;
+    if (isBounce) {
+        if (rsiVal > 68) {
+            console.log(`[paper] ${r.symbol} bounce RSI ${rsiVal.toFixed(0)} — 반등 완료 후 추격 스킵`);
+            return;
+        }
+        console.log(`[paper] ${r.symbol} bounce 신호 RSI ${rsiVal.toFixed(0)} — 눌림목 진입 허용`);
+    } else {
+        if (rsiVal >= 83) {
+            console.log(`[paper] ${r.symbol} trend RSI ${rsiVal.toFixed(0)} 극단 과열 — 전면 스킵`);
+            return;
+        }
+        if (rsiVal >= 78 && r.grade !== 'S') {
+            console.log(`[paper] ${r.symbol} trend A급 RSI ${rsiVal.toFixed(0)} — 추격 스킵 (S급만 허용)`);
+            return;
+        }
     }
 
     const style    = tf === '15m' ? 'swing' : 'day';

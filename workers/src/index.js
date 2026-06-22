@@ -29,6 +29,7 @@ import { handleScannerAiBatch, handleSocialAiAnalyze } from './routes/ai-batch-s
 import { handleCatalystAiAnalyze } from './routes/ai-catalyst.js';
 import { calibrateAlgorithm } from './utils/calibration.js';
 import { paperAutoOptimize } from './utils/paper-optimizer.js';
+import { paperManageAll } from './utils/paper-engine.js';
 import { logError, pruneOldErrors } from './utils/errors.js';
 import { snapshotHealth } from './cron.js';
 import { handleAdminStatus, handleAnalyzeNow, handleDtForwardTest, handleCatForwardTest } from './routes/admin.js';
@@ -221,8 +222,11 @@ export default {
                 checkPriceAlerts(env).then(r => console.log(`[cron] ${market} price`, r)),
                 analyzeSignals(env, market).then(r => console.log(`[cron] ${market} signal`, r)),
             ];
-            // 미국 장중에만 데일리 트레이딩 신호 forward-test 캡처
-            if (market === 'US') jobs.push(captureDailySignals(env).then(r => console.log('[cron] dt-capture', r)));
+            // 미국 장중에만 데일리 트레이딩 신호 캡처 + 포지션 관리 (TP/손절/트레일/EOD)
+            if (market === 'US') {
+                jobs.push(captureDailySignals(env).then(r => console.log('[cron] dt-capture', r)));
+                jobs.push(paperManageAll(env).then(() => console.log('[cron] paper-manage done')).catch(e => console.error('[cron] paper-manage err', e.message)));
+            }
             ctx.waitUntil(Promise.all(jobs));
         }
     },

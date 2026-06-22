@@ -7809,7 +7809,7 @@
                 `}
             </div>
 
-            <div id="paperAccountSection"></div>
+            <div id="paperAccountSection" style="margin-left:-16px;margin-right:-16px;padding-left:0;padding-right:0;"></div>
 
             <!-- 사용 현황 -->
             <div class="card" style="margin-bottom:12px;">

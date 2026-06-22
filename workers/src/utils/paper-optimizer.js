@@ -6,7 +6,7 @@ const PARAM_KEY   = 'paper_trade_params';
 const MIN_SAMPLES = 10; // 통계 유효 최소 건수
 
 export const DEFAULT_PARAMS = {
-    min_rvol:         2.0,      // 최소 RVOL (강한 모멘텀만)
+    min_rvol:         1.5,      // 최소 RVOL (점심 거래량 감소 고려 — 2.0은 오후 A급 시그널 과차단)
     max_positions:    5,        // 최대 동시 오픈 포지션
     daily_loss_limit: 2000,     // 일일 최대 손실 한도 ($)
     grade_filter:     ['S','A'],// 허용 등급 (B 이하 제외)

@@ -9,9 +9,10 @@
 import { verifyClerkJWT } from '../utils/clerk.js';
 import { json, err } from '../utils/validators.js';
 import { paperClosePosition } from '../utils/paper-engine.js';
+import { yfRequest } from '../utils/crumb.js';
 
 const INITIAL_BALANCE  = 100000.0;
-const INITIAL_POS_SIZE = 30000.0; // 종목당 $30,000 (3분할: $5,000 / $10,000 / $15,000)
+const INITIAL_POS_SIZE = 30000.0; // 종목당 $30,000 (2분할: 1차 $20,000 / 2차 $10,000)
 
 async function getOrCreateAccount(env, userId) {
     let acct = await env.DB.prepare('SELECT * FROM paper_account WHERE user_id=?').bind(userId).first();
@@ -107,10 +108,9 @@ export async function handleClosePosition(req, env, params) {
     let price;
     try { price = (await req.json())?.price; } catch (_) {}
     if (!price || price <= 0) {
-        // 현재가 자동 조회
+        // 현재가 자동 조회 — crumb 인증 포함 (raw fetch 는 Yahoo가 가끔 거부)
         try {
-            const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${trade.symbol}?range=1d&interval=1m`);
-            const d = await r.json();
+            const d = await yfRequest(env.CACHE, `https://query1.finance.yahoo.com/v8/finance/chart/${trade.symbol}?range=1d&interval=1m`);
             price = d?.chart?.result?.[0]?.meta?.regularMarketPrice;
         } catch (_) {}
     }
