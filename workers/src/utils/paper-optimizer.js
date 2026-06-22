@@ -11,7 +11,6 @@ export const DEFAULT_PARAMS = {
     daily_loss_limit: 2000,     // 일일 최대 손실 한도 ($)
     grade_filter:     ['S','A'],// 허용 등급 (B 이하 제외)
     skip_categories:  [],       // 성과 부진 카테고리 진입 금지
-    boost_categories: [],       // 성과 우수 카테고리 (향후 비중 확대용)
     updated_at:       0,
 };
 
@@ -81,17 +80,6 @@ export async function paperAutoOptimize(env) {
         GROUP BY close_reason ORDER BY total DESC
     `).bind(since30d).all();
 
-    // ── 시간대별 성과 (ET 기준, 포지션 오픈 시각) ────────────────────
-    const hourRes = await env.DB.prepare(`
-        SELECT
-            CAST(((created_at - 14400000) / 3600000) % 24 AS INTEGER) AS et_hour,
-            COUNT(*) AS total,
-            SUM(CASE WHEN realized_pnl>0 THEN 1 ELSE 0 END) AS wins,
-            ROUND(AVG(realized_pnl),2) AS avg_pnl
-        FROM paper_trades WHERE status='closed' AND created_at>?
-        GROUP BY et_hour ORDER BY avg_pnl DESC
-    `).bind(since30d).all();
-
     // ── 파라미터 도출 ─────────────────────────────────────────────────
     const params = _deriveParams({
         summary, recent,
@@ -111,13 +99,12 @@ export async function paperAutoOptimize(env) {
         catStats:   catRes.results,
         gradeStats: gradeRes.results,
         exitStats:  exitRes.results,
-        hourStats:  hourRes.results,
         params,
     };
 }
 
 function _deriveParams({ summary, recent, catRows, gradeRows, exitRows }) {
-    const p = { ...DEFAULT_PARAMS, skip_categories: [], boost_categories: [] };
+    const p = { ...DEFAULT_PARAMS, skip_categories: [] };
 
     const total = summary?.total || 0;
     if (total < MIN_SAMPLES) {
@@ -166,8 +153,6 @@ function _deriveParams({ summary, recent, catRows, gradeRows, exitRows }) {
         if (wr < 0.35 && row.avg_pnl < -30) {
             p.skip_categories.push(key);
             console.log('[paper-optimize] 스킵:', key, `WR=${(wr*100).toFixed(0)}% avgP&L=${row.avg_pnl}`);
-        } else if (wr > 0.60 && row.avg_pnl > 30) {
-            p.boost_categories.push(key);
         }
     }
 

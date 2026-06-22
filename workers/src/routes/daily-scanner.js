@@ -10,7 +10,7 @@ import { smartDipScan, smartDipScanBounce, smartDipBacktest, resolveTrailExit } 
 import { fetchChartWithFallback } from './yahoo.js';
 import { getMarketRegime } from '../utils/market.js';
 import { _fetchDiscoverySymbols, DEFAULT_UNIVERSE_US, DEFAULT_UNIVERSE_KR } from '../cron.js';
-import { paperOpenTrade, TRANCHE_WEIGHTS, TRANCHE_WEIGHT_SUM } from '../utils/paper-engine.js';
+import { paperOpenTrade, TRANCHE_WEIGHTS, TRANCHE_WEIGHT_SUM, _etTotalMin } from '../utils/paper-engine.js';
 import { classifySymbol } from '../utils/paper-category.js';
 import { getPaperTradeParams } from '../utils/paper-optimizer.js';
 import { getNewsSentiment } from '../utils/news-sentiment.js';
@@ -333,17 +333,6 @@ export async function captureDailySignals(env) {
         } catch (e) { try { await logError(env, 'captureDailySignals', e.message); } catch (_) {} }
     }
     return { logged };
-}
-
-// ── ET 시각 파싱 헬퍼 ────────────────────────────────────────────────────────
-function _etTotalMin() {
-    const parts = new Intl.DateTimeFormat('en-US', {
-        timeZone: 'America/New_York',
-        hour: '2-digit', minute: '2-digit', hour12: false,
-    }).formatToParts(new Date());
-    const h = parseInt(parts.find(p => p.type === 'hour').value,   10);
-    const m = parseInt(parts.find(p => p.type === 'minute').value, 10);
-    return h * 60 + m;
 }
 
 // ── ET 시간 필터: 9:30~9:40 오픈 첫 10분 / 15:30 이후 제외 ────────────────
