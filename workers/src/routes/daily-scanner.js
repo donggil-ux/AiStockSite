@@ -289,9 +289,10 @@ export async function handleDailyBacktest(req, env) {
 //   handleDailyLiveStats: 누적 실측 승률·평균 R 반환
 // ════════════════════════════════════════════════════════════════
 export async function captureDailySignals(env) {
-    // 동적 진입 파라미터 + 계좌 목록은 tf 루프 전에 1회 로드
+    // 동적 진입 파라미터 + 계좌 목록 + 시장 레짐 1회 로드
     const params   = await getPaperTradeParams(env);
     const accounts = (await env.DB.prepare('SELECT user_id, balance, position_size FROM paper_account').all()).results || [];
+    const regime   = await getMarketRegime(env);
 
     // 오늘 일일 손실 집계 (per-user): 오늘 UTC 00:00 이후 closed 된 손실 합산
     const todayStart = new Date();
@@ -327,7 +328,7 @@ export async function captureDailySignals(env) {
 
                 // ── 가상 자동매매 — 전문 트레이더 진입 필터 ──────────────────────────
                 if (r.dir === 'buy') {
-                    await _tryOpenPaperTrade(env, r, tf, dtInsert.meta?.last_row_id || null, params, accounts, todayLossByUser);
+                    await _tryOpenPaperTrade(env, r, tf, dtInsert.meta?.last_row_id || null, params, accounts, todayLossByUser, regime);
                 }
             }
         } catch (e) { try { await logError(env, 'captureDailySignals', e.message); } catch (_) {} }
@@ -354,15 +355,26 @@ function _isGoodEntryTime() {
 // 그 외(오전·파워아워): params.min_rvol 사용
 function _sessionMinRvol(params) {
     const t = _etTotalMin();
-    if (t >= 11 * 60 + 30 && t < 14 * 60) return 0.8;  // 점심 횡보
+    if (t >= 11 * 60 + 30 && t < 14 * 60) return 1.2;  // 점심 횡보 (유동성 저하 — 기준 완화 최소화)
     if (t < 9 * 60 + 30)                  return 1.0;  // 프리마켓
     return params.min_rvol || 1.5;
 }
 
 // ── 전문 트레이더 진입 게이트 — 필터 통과 시에만 paperOpenTrade 호출 ────────
-async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, todayLossByUser) {
+async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, todayLossByUser, regime) {
     // ① ET 시간 필터
     if (!_isGoodEntryTime()) return;
+
+    // ① SPX 레짐 게이트 — risk_off(SPY EMA 하향 or VIX≥25): 롱 전면 금지
+    if (regime?.regime === 'risk_off') {
+        console.log(`[paper] ${r.symbol} risk_off 레짐 — 롱 진입 스킵`);
+        return;
+    }
+    // 당일 SPY -0.5% 이상 하락 시 S급만 허용 (A급 headwind 리스크 차단)
+    if ((regime?.spyChgPct ?? 0) < -0.5 && r.grade !== 'S') {
+        console.log(`[paper] ${r.symbol} SPY ${(regime?.spyChgPct ?? 0).toFixed(2)}% 약세 — A급 스킵`);
+        return;
+    }
 
     // ② 등급 필터 (S/A only, 동적으로 조정 가능)
     const allowedGrades = params.grade_filter || ['S', 'A'];
