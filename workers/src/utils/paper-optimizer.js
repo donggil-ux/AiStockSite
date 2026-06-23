@@ -8,7 +8,7 @@ const MIN_SAMPLES = 10; // 통계 유효 최소 건수
 export const DEFAULT_PARAMS = {
     min_rvol:         1.5,      // 최소 RVOL (점심 거래량 감소 고려 — 2.0은 오후 A급 시그널 과차단)
     max_positions:    5,        // 최대 동시 오픈 포지션
-    daily_loss_limit: 2000,     // 일일 최대 손실 한도 ($)
+    daily_loss_limit: 5000,     // 일일 최대 손실 한도 ($) — 포지션당 $30K 기준 (2K는 과차단)
     grade_filter:     ['S','A'],// 허용 등급 (B 이하 제외)
     skip_categories:  [],       // 성과 부진 카테고리 진입 금지
     updated_at:       0,

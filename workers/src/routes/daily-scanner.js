@@ -336,17 +336,11 @@ export async function captureDailySignals(env) {
     return { logged };
 }
 
-// ── ET 시간 필터: 9:30~9:40 오픈 첫 10분 / 15:30 이후 제외 ────────────────
+// ── ET 시간 필터: 정규장 9:40~15:30 ET만 허용 ────────────────────────────
+// 프리마켓 제외 — Yahoo Finance 프리마켓 가격 데이터 불안정 (가격 괴리 → 손절 슬리피지 과대)
 function _isGoodEntryTime() {
-    const etTotalMin = _etTotalMin();
-    const preOpen   = 4 * 60;         // 4:00 AM ET — 프리마켓 시작
-    const skipStart = 9 * 60 + 30;   // 9:30 AM ET — 정규장 오픈 직후 10분 스킵
-    const skipEnd   = 9 * 60 + 40;   // 9:40 AM ET
-    const close     = 15 * 60 + 30;  // 3:30 PM ET
-    if (etTotalMin < preOpen)                                  return false;
-    if (etTotalMin >= skipStart && etTotalMin < skipEnd)       return false;
-    if (etTotalMin >= close)                                   return false;
-    return true;
+    const et = _etTotalMin();
+    return et >= 9 * 60 + 40 && et < 15 * 60 + 30;
 }
 
 // ── 시간대별 최소 RVOL 임계값 ─────────────────────────────────────────────
@@ -355,8 +349,7 @@ function _isGoodEntryTime() {
 // 그 외(오전·파워아워): params.min_rvol 사용
 function _sessionMinRvol(params) {
     const t = _etTotalMin();
-    if (t >= 11 * 60 + 30 && t < 14 * 60) return 1.2;  // 점심 횡보 (유동성 저하 — 기준 완화 최소화)
-    if (t < 9 * 60 + 30)                  return 1.0;  // 프리마켓
+    if (t >= 11 * 60 + 30 && t < 14 * 60) return 1.2;  // 점심 횡보 (유동성 저하)
     return params.min_rvol || 1.5;
 }
 
