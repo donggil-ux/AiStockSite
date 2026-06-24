@@ -467,7 +467,8 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, todayLossB
         const firstAmount = (acct.position_size || 30000) * TRANCHE_WEIGHTS[0] / TRANCHE_WEIGHT_SUM;
         if (acct.balance < firstAmount) continue;
 
-        const qty = firstAmount / r.price;
+        const qty = Math.floor(firstAmount / r.price);
+        if (qty < 1) continue; // 고가 종목: 1주 미만이면 진입 스킵
         await paperOpenTrade(env, {
             userId: acct.user_id, symbol: r.symbol,
             category, style,

@@ -106,7 +106,8 @@ export async function paperOpenTrade(env, { userId, symbol, category, style, dir
 export async function paperAddTranche(env, trade, price, trancheAmount) {
     const trancheNum = trade.tranche_count + 1;
     const fillType = `buy_t${trancheNum}`;
-    const qty = trancheAmount / price;
+    const qty = Math.floor(trancheAmount / price);
+    if (qty < 1) return; // 1주 미만 — 추가 분할 스킵
     const amount = price * qty;
 
     const newTotalQty      = trade.total_qty + qty;
@@ -138,7 +139,8 @@ export async function paperAddTranche(env, trade, price, trancheAmount) {
  * ratio: 남은 수량의 비율 (0.25 = 25%)
  */
 export async function paperPartialExit(env, trade, price, fillType, ratio) {
-    const qty = trade.total_qty * ratio;
+    const qty = Math.floor(trade.total_qty * ratio);
+    if (qty < 1) return; // 잔량 없으면 스킵
     const amount = price * qty;
     const pnl = calcPnl(trade.avg_price, price, qty, trade.dir);
     const now = Date.now();
