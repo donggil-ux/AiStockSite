@@ -365,11 +365,7 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, todayLossB
         console.log(`[paper] ${r.symbol} risk_off+SPY하락(${spyChg.toFixed(2)}%) — 롱 차단`);
         return;
     }
-    if (regime?.regime === 'risk_off' && r.grade !== 'S') {
-        // risk_off + 오늘 반등 중: S급만 허용
-        console.log(`[paper] ${r.symbol} risk_off 레짐 ${r.grade}급 — S급만 허용`);
-        return;
-    }
+    // risk_off + 오늘 반등 중: S/A 모두 허용
     // favorable/neutral + 당일 SPY -0.5% 이상 하락 시 S급만 허용
     if (spyChg < -0.5 && r.grade !== 'S') {
         console.log(`[paper] ${r.symbol} SPY ${spyChg.toFixed(2)}% — A급 스킵`);
