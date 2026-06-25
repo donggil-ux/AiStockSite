@@ -13,15 +13,21 @@ export const TRANCHE_WEIGHT_SUM = 3;
 // 손절: first_price -0.8% (타이트) — 2차 분할(-0.2%)보다 0.6% 더 낮아야 2차가 먼저 실행됨
 const STOP_FROM_FIRST = 0.992;
 
-// ─── 전문 단타 익절 전략 ─────────────────────────────────────────────
-// 단타 (day/5m): +1% / +2.5% / +5% + 고점 -0.5% 타이트 트레일
-// 리스크 0.8% : 리워드 평균 2.4% → R:R 3:1
-const TP_PCTS_DAY   = [1.010, 1.025, 1.050]; // TP1 +1% / TP2 +2.5% / TP3 +5%
-const TRAIL_DAY     = 0.995;                  // 고점 대비 -0.5%
+// ─── 롱 익절 전략 ────────────────────────────────────────────────────
+// 단타: +1% / +2.5% / +5% + 트레일 -0.5%  (리스크 0.8% → R:R 3:1)
+const TP_PCTS_DAY   = [1.010, 1.025, 1.050];
+const TRAIL_DAY     = 0.995;
+// 스윙: +1.5% / +3.5% / +7% + 트레일 -1%
+const TP_PCTS_SWING = [1.015, 1.035, 1.070];
+const TRAIL_SWING   = 0.990;
 
-// 단기 스윙 (swing/15m): 더 큰 목표 + 여유 트레일
-const TP_PCTS_SWING = [1.015, 1.035, 1.070]; // TP1 +1.5% / TP2 +3.5% / TP3 +7%
-const TRAIL_SWING   = 0.990;                  // 고점 대비 -1%
+// ─── 숏 익절 전략 (짧게 먹기) ────────────────────────────────────────
+// 단타: +0.7% / +1.3% / +2% + 트레일 -0.3%  (손절 0.8% → R:R 1.6:1, 빠른 청산)
+const TP_PCTS_SHORT_DAY   = [1.007, 1.013, 1.020];
+const TRAIL_SHORT_DAY     = 0.997;
+// 스윙: +1% / +2% / +3% + 트레일 -0.5%
+const TP_PCTS_SHORT_SWING = [1.010, 1.020, 1.030];
+const TRAIL_SHORT_SWING   = 0.995;
 
 // 분할 매도 비율 — 원본 수량 기준 균등 4분할
 // 25% → 33%(남은량의) → 50%(남은량의) → 나머지 trail
@@ -377,9 +383,13 @@ async function _manageOne(env, pos, price) {
 
     if (!pos.avg_price) return;
 
-    // ── 분할 익절 — 스타일별 목표가 / 25:25:25:25 균등 4분할 ──────
-    const tpPcts   = pos.style === 'swing' ? TP_PCTS_SWING : TP_PCTS_DAY;
-    const trailPct = pos.style === 'swing' ? TRAIL_SWING   : TRAIL_DAY;
+    // ── 분할 익절 — 롱: 크게 / 숏: 짧게 ────────────────────────────
+    const tpPcts   = isShort
+        ? (pos.style === 'swing' ? TP_PCTS_SHORT_SWING : TP_PCTS_SHORT_DAY)
+        : (pos.style === 'swing' ? TP_PCTS_SWING       : TP_PCTS_DAY);
+    const trailPct = isShort
+        ? (pos.style === 'swing' ? TRAIL_SHORT_SWING : TRAIL_SHORT_DAY)
+        : (pos.style === 'swing' ? TRAIL_SWING       : TRAIL_DAY);
 
     // TP 히트 판정: 롱=가격상승 / 숏=가격하락
     const hitTP = (n) => isShort
