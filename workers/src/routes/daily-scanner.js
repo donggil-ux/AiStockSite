@@ -327,7 +327,7 @@ export async function captureDailySignals(env) {
                 logged++;
 
                 // ── 가상 자동매매 — 전문 트레이더 진입 필터 ──────────────────────────
-                if (r.dir === 'buy') {
+                if (r.dir === 'buy' || r.dir === 'sell') {
                     await _tryOpenPaperTrade(env, r, tf, dtInsert.meta?.last_row_id || null, params, accounts, todayLossByUser, regime);
                 }
             }
@@ -359,17 +359,27 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, todayLossB
     if (!_isGoodEntryTime()) return;
 
     // ① SPX 레짐 게이트
+    const isShortSignal = r.dir === 'sell';
     const spyChg = regime?.spyChgPct ?? 0;
-    if (regime?.regime === 'risk_off' && spyChg <= 0) {
-        // risk_off + 오늘도 하락: 완전 차단
-        console.log(`[paper] ${r.symbol} risk_off+SPY하락(${spyChg.toFixed(2)}%) — 롱 차단`);
-        return;
-    }
-    // risk_off + 오늘 반등 중: S/A 모두 허용
-    // favorable/neutral + 당일 SPY -0.5% 이상 하락 시 S급만 허용
-    if (spyChg < -0.5 && r.grade !== 'S') {
-        console.log(`[paper] ${r.symbol} SPY ${spyChg.toFixed(2)}% — A급 스킵`);
-        return;
+
+    // ① 레짐 게이트 (롱/숏 방향별)
+    if (!isShortSignal) {
+        // 롱: risk_off + SPY 오늘도 하락 → 차단
+        if (regime?.regime === 'risk_off' && spyChg <= 0) {
+            console.log(`[paper] ${r.symbol} risk_off+SPY하락 — 롱 차단`);
+            return;
+        }
+        // favorable/neutral + SPY -0.5% 이상: S급만
+        if (spyChg < -0.5 && r.grade !== 'S') {
+            console.log(`[paper] ${r.symbol} SPY ${spyChg.toFixed(2)}% — A급 롱 스킵`);
+            return;
+        }
+    } else {
+        // 숏: favorable + SPY +0.5% 이상 강세 시 S급만 (상승장 역추세 경고)
+        if (regime?.regime === 'favorable' && spyChg > 0.5 && r.grade !== 'S') {
+            console.log(`[paper] ${r.symbol} favorable+SPY상승 — A급 숏 스킵`);
+            return;
+        }
     }
 
     // ② 등급 필터 (S/A only, 동적으로 조정 가능)
@@ -472,10 +482,10 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, todayLossB
         await paperOpenTrade(env, {
             userId: acct.user_id, symbol: r.symbol,
             category, style,
-            dir: 'long', price: r.price, qty,
+            dir: isShortSignal ? 'short' : 'long', price: r.price, qty,
             signalId: dtId, grade: r.grade, score: r.score,
         });
-        console.log(`[paper] open ${r.symbol} ${style} grade=${r.grade} rvol=${(r.rvol||0).toFixed(1)} user=${acct.user_id}`);
+        console.log(`[paper] open ${r.symbol} ${isShortSignal?'short':'long'} ${style} grade=${r.grade} rvol=${(r.rvol||0).toFixed(1)} user=${acct.user_id}`);
     }
 }
 

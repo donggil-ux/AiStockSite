@@ -72,7 +72,8 @@ function calcPnl(avgPrice, exitPrice, qty, dir) {
 export async function paperOpenTrade(env, { userId, symbol, category, style, dir, price, qty, signalId = null, grade = null, score = null }) {
     const now = Date.now();
     const amount = price * qty;
-    const stop = price * STOP_FROM_FIRST;
+    // 롱: 진입가 -0.8% / 숏: 진입가 +0.8%
+    const stop = dir === 'short' ? price * (2 - STOP_FROM_FIRST) : price * STOP_FROM_FIRST;
 
     const res = await env.DB.prepare(`
         INSERT INTO paper_trades
@@ -313,38 +314,39 @@ async function _manageOne(env, pos, price) {
         }
     }
 
-    // 고점 갱신
-    if (!pos.peak_price || price > pos.peak_price) {
+    const isShort = pos.dir === 'short';
+
+    // 극값 갱신 — 롱: 고점(최고가) / 숏: 저점(최저가)
+    const newPeak = !pos.peak_price || (isShort ? price < pos.peak_price : price > pos.peak_price);
+    if (newPeak) {
         await env.DB.prepare('UPDATE paper_trades SET peak_price=?,updated_at=? WHERE id=?')
             .bind(price, now, pos.id).run();
         pos = { ...pos, peak_price: price };
     }
 
     // ── 손절 체크 ─────────────────────────────────────────────────
-    // DB stop_price 사용 (항상 first_price -2.5% / TP1 후 본전·이상으로 상향됨)
-    const stopPx = pos.stop_price ?? pos.avg_price * STOP_FROM_FIRST;
-    if (pos.avg_price && price <= stopPx) {
+    const stopPx = pos.stop_price ?? (isShort ? pos.avg_price * (2 - STOP_FROM_FIRST) : pos.avg_price * STOP_FROM_FIRST);
+    const hitStop = isShort ? price >= stopPx : price <= stopPx;
+    if (pos.avg_price && hitStop) {
         await paperClosePosition(env, pos, price, 'stop');
         return;
     }
 
     // ── 본전 근처 즉시 청산 (TP1 미발동 포지션 보호) ─────────────────
     if (!pos.tp1_done && pos.avg_price) {
-        const retPct = (price - pos.avg_price) / pos.avg_price;
+        const retPct = (price - pos.avg_price) / pos.avg_price * (isShort ? -1 : 1);
 
-        // ① 고점 기반: peak +0.5% 이상 찍고 현재 +0.1% 미만 복귀 → 즉시 청산
-        if (
-            pos.peak_price &&
-            pos.peak_price >= pos.avg_price * BE_PEAK &&
-            price < pos.avg_price * BE_EXIT
-        ) {
+        // ① 극값 기반: +0.3% 이상 찍고 평단 복귀 → 즉시 청산
+        const peakOk = pos.peak_price && (isShort
+            ? pos.peak_price <= pos.avg_price * (2 - BE_PEAK)   // 숏: 저점 -0.3%
+            : pos.peak_price >= pos.avg_price * BE_PEAK);        // 롱: 고점 +0.3%
+        const exitOk = isShort ? price >= pos.avg_price * BE_EXIT : price < pos.avg_price * BE_EXIT;
+        if (peakOk && exitOk) {
             await paperClosePosition(env, pos, price, 'be_protect');
             return;
         }
 
-        // ② 시간 기반: 크론 고점 누락 보완 — 일정 시간 경과 후 본전 ±0.3% 내면 청산
-        // 단타 30분 / 스윙 4시간. 단타는 정규장 오픈(9:40 ET) 이후에만 동작
-        // → 프리마켓 진입(예: 오전 4시)이 오픈 전 30분 만에 청산되는 문제 방지
+        // ② 시간 기반
         const ageMin        = (now - pos.created_at) / 60000;
         const timeLimit     = pos.style === 'swing' ? 240 : 30;
         const regularOpened = pos.style === 'day' ? _etTotalMin() >= 9 * 60 + 40 : true;
@@ -354,10 +356,13 @@ async function _manageOne(env, pos, price) {
         }
     }
 
-    // ── 추가 분할 매수 (2~4차, first_price 기준, 균등 비중) ──
+    // ── 추가 분할 (2차) — 롱: 하락 시 / 숏: 상승 시 ──────────────
     if (pos.tranche_count < MAX_TRANCHE && !pos.tp1_done) {
         const nextTrigger = TRANCHE_TRIGGERS[pos.tranche_count];
-        if (nextTrigger > 0 && price <= pos.first_price * nextTrigger) {
+        const triggerHit  = isShort
+            ? price >= pos.first_price * (2 - nextTrigger)  // 숏: 진입 후 +0.2% 반등
+            : price <= pos.first_price * nextTrigger;        // 롱: 진입 후 -0.2% 하락
+        if (nextTrigger > 0 && triggerHit) {
             const acct = await env.DB.prepare('SELECT balance,position_size FROM paper_account WHERE user_id=?')
                 .bind(pos.user_id).first();
             const posSize = acct?.position_size || 10000;
@@ -376,31 +381,41 @@ async function _manageOne(env, pos, price) {
     const tpPcts   = pos.style === 'swing' ? TP_PCTS_SWING : TP_PCTS_DAY;
     const trailPct = pos.style === 'swing' ? TRAIL_SWING   : TRAIL_DAY;
 
-    // TP1: 보유량 25% 익절 → 손절가를 본전(avg)으로 이동 (남은 75% 무위험)
-    if (!pos.tp1_done && price >= pos.avg_price * tpPcts[0]) {
+    // TP 히트 판정: 롱=가격상승 / 숏=가격하락
+    const hitTP = (n) => isShort
+        ? price <= pos.avg_price * (2 - tpPcts[n])   // 숏: 하락이 목표
+        : price >= pos.avg_price * tpPcts[n];         // 롱: 상승이 목표
+
+    // TP1: 25% 익절 → 손절가를 본전으로 이동
+    if (!pos.tp1_done && hitTP(0)) {
         await paperPartialExit(env, pos, price, 'sell_tp1', TP_RATIOS[0]);
+        const newStop = isShort ? pos.avg_price * (2 - 1.000) : pos.avg_price; // 숏 본전=avg*(2-1)=avg
         await env.DB.prepare('UPDATE paper_trades SET stop_price=?,updated_at=? WHERE id=?')
-            .bind(pos.avg_price, Date.now(), pos.id).run();
+            .bind(newStop, Date.now(), pos.id).run();
         const updated = await env.DB.prepare('SELECT * FROM paper_trades WHERE id=?').bind(pos.id).first();
         if (updated) pos = updated;
     }
-    // TP2: 남은량의 33% (원본 ~25%) 익절 → 손절가를 +1%(avg)로 상향
-    if (pos.tp1_done && !pos.tp2_done && price >= pos.avg_price * tpPcts[1]) {
+    // TP2: 33% 익절 → 손절가 +1% 상향
+    if (pos.tp1_done && !pos.tp2_done && hitTP(1)) {
         await paperPartialExit(env, pos, price, 'sell_tp2', TP_RATIOS[1]);
+        const newStop = isShort ? pos.avg_price * (2 - 1.010) : pos.avg_price * 1.01;
         await env.DB.prepare('UPDATE paper_trades SET stop_price=?,updated_at=? WHERE id=?')
-            .bind(pos.avg_price * 1.01, Date.now(), pos.id).run();
+            .bind(newStop, Date.now(), pos.id).run();
         const updated = await env.DB.prepare('SELECT * FROM paper_trades WHERE id=?').bind(pos.id).first();
         if (updated) pos = updated;
     }
-    // TP3: 남은량의 50% (원본 ~25%) 익절 → 나머지 ~25% 트레일에 맡김
-    if (pos.tp2_done && !pos.tp3_done && price >= pos.avg_price * tpPcts[2]) {
+    // TP3: 50% 익절 → 나머지 트레일
+    if (pos.tp2_done && !pos.tp3_done && hitTP(2)) {
         await paperPartialExit(env, pos, price, 'sell_tp3', TP_RATIOS[2]);
         const updated = await env.DB.prepare('SELECT * FROM paper_trades WHERE id=?').bind(pos.id).first();
         if (updated) pos = updated;
     }
 
-    // ── 트레일링 스탑 (TP1 이후 활성화, 스타일별 비율) ────────────
-    if (pos.tp1_done && pos.peak_price && price <= pos.peak_price * trailPct) {
-        await paperClosePosition(env, pos, price, 'tp4_trail');
+    // ── 트레일링 스탑 (TP1 이후) — 롱: 고점 -0.5% / 숏: 저점 +0.5% ──
+    if (pos.tp1_done && pos.peak_price) {
+        const hitTrail = isShort
+            ? price >= pos.peak_price / trailPct   // 숏: 저점에서 +0.5% 반등
+            : price <= pos.peak_price * trailPct;  // 롱: 고점에서 -0.5% 하락
+        if (hitTrail) await paperClosePosition(env, pos, price, 'tp4_trail');
     }
 }
