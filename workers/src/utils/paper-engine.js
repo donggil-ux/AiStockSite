@@ -49,8 +49,24 @@ export function _etTotalMin() {
 
 // ── 내부 헬퍼 ────────────────────────────────────────────────────
 
-// 가상 매매 푸시 알림 — fire-and-forget, 실패해도 거래 블록 안 함
+// Telegram 단방향 메시지 — fire-and-forget
+// 환경변수: TELEGRAM_BOT_TOKEN (wrangler secret), TELEGRAM_CHAT_ID (wrangler.toml [vars])
+async function _tg(env, text) {
+    const token  = env.TELEGRAM_BOT_TOKEN;
+    const chatId = env.TELEGRAM_CHAT_ID;
+    if (!token || !chatId) return;
+    try {
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
+        });
+    } catch (_) {}
+}
+
+// 가상 매매 알림 — 웹 푸시 + Telegram 동시 발송, fire-and-forget
 async function notifyPaper(env, userId, title, body) {
+    _tg(env, `<b>${title}</b>\n${body}`); // Telegram: 비동기 fire-and-forget
     try {
         const subs = await env.DB.prepare(
             'SELECT endpoint, p256dh, auth FROM push_subscribers WHERE user_id=?'
@@ -98,9 +114,10 @@ export async function paperOpenTrade(env, { userId, symbol, category, style, dir
                 'UPDATE paper_account SET balance=balance-?,updated_at=? WHERE user_id=?'
             ).bind(amount, now, userId),
         ]);
+        const dirLabel = dir === 'short' ? '숏' : '롱';
         notifyPaper(env, userId,
-            `📈 가상매매 매수`,
-            `${symbol} 1차 진입 $${price.toFixed(2)} | $${amount.toFixed(0)} (${category})`
+            `📈 가상매매 ${dirLabel} 진입 [${grade || '?'}]`,
+            `${symbol} $${price.toFixed(2)} × ${qty}주\n투자금: $${amount.toFixed(0)} | 손절: $${stop.toFixed(2)}\n카테고리: ${category} | 스타일: ${style}`
         );
     }
     return tradeId;
