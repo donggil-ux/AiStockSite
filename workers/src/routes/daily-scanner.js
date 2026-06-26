@@ -114,6 +114,10 @@ export async function handleDailyTradingScan(req, env) {
                     const vwap = calcVWAP(q);
                     const session = _session((tts || [])[(tts || []).length - 1]);
                     // 점심 시간대 필터 제거 — 신호 자체는 내보내고 세션 태그("점심")로 UI에서 표시
+                    // 원칙 5: 파동 확장(추격 금지) 판단용 — 20봉 저점/고점 대비 현재가 이격
+                    const last20c = (q.close || []).filter(v => v != null).slice(-20);
+                    const _low20  = last20c.length ? Math.min(...last20c) : 0;
+                    const _high20 = last20c.length ? Math.max(...last20c) : 0;
                     const mkResult = (sig) => ({
                         symbol,
                         dir: sig.dir,
@@ -134,6 +138,9 @@ export async function handleDailyTradingScan(req, env) {
                         winMeasured: sig.winMeasured,
                         session,
                         riskWarn: (regime.regime === 'risk_off' && sig.dir === 'buy' && sig.grade !== 'S' && (sig.mode || 'trend') === 'trend'),
+                        // 20봉 저점 대비 상승률(%) / 20봉 고점 대비 낙폭(%) — 파동 확장 판단
+                        waveExt:     _low20  > 0 ? +((sig.price - _low20)  / _low20  * 100).toFixed(2) : 0,
+                        waveExtDown: _high20 > 0 ? +(((_high20 - sig.price) / _high20) * 100).toFixed(2) : 0,
                     });
 
                     // ── 추세 신호 (Smart Dip 추세추종) ──
@@ -399,6 +406,13 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, todayLossB
         return;
     }
 
+    // ④.1 거래대금 필터 (원칙 1·2: 기준봉 거래대금 확인 — 최소 $3M per 5m bar ≈ KRW 5B/1분봉)
+    const dollarVol = (r.price || 0) * (r.rvol || 0) * (r.volAvg20 || 0);
+    if (dollarVol < 3_000_000) {
+        console.log(`[paper] ${r.symbol} 거래대금 부족 $${(dollarVol / 1e6).toFixed(1)}M — 스킵`);
+        return;
+    }
+
     // ④.5 신호 신선도 체크 — 모드별 최대 허용 봉수
     // bounce(눌림목·반등): 3봉(5m:15분) — 타이밍 민감, 늦으면 반등 완료
     // trend(추세추격): 5봉(5m:25분) — 추세는 지속성 있음
@@ -450,6 +464,19 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, todayLossB
         }
         if (rsiVal >= 78 && r.grade !== 'S') {
             console.log(`[paper] ${r.symbol} trend A급 RSI ${rsiVal.toFixed(0)} — 추격 스킵 (S급만 허용)`);
+            return;
+        }
+    }
+
+    // ⑧.6 파동 확장 체크 — 추격 금지 (원칙 5: 10% 이상 무쉬 상승/하락 후 trend 진입 금지)
+    // bounce 모드는 이미 눌림목 확인 후 진입 → 제외
+    if (!isBounce) {
+        if (!isShortSignal && (r.waveExt || 0) > 10) {
+            console.log(`[paper] ${r.symbol} 롱 파동 확장 ${(r.waveExt || 0).toFixed(1)}% — 추격 금지`);
+            return;
+        }
+        if (isShortSignal && (r.waveExtDown || 0) > 10) {
+            console.log(`[paper] ${r.symbol} 숏 파동 확장 ${(r.waveExtDown || 0).toFixed(1)}% — 추격 금지`);
             return;
         }
     }
