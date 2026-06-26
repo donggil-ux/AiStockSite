@@ -11,7 +11,7 @@ import { fetchChartWithFallback } from './yahoo.js';
 import { getMarketRegime, getSectorRotation } from '../utils/market.js';
 import { _fetchDiscoverySymbols, DEFAULT_UNIVERSE_US, DEFAULT_UNIVERSE_KR } from '../cron.js';
 import { paperOpenTrade, TRANCHE_WEIGHTS, TRANCHE_WEIGHT_SUM, _etTotalMin } from '../utils/paper-engine.js';
-import { classifySymbol, SECTOR_MAP } from '../utils/paper-category.js';
+import { classifySymbol, SECTOR_MAP, LEVERAGED_ETFS } from '../utils/paper-category.js';
 import { getPaperTradeParams } from '../utils/paper-optimizer.js';
 import { getNewsSentiment } from '../utils/news-sentiment.js';
 import { logError } from '../utils/errors.js';
@@ -372,9 +372,9 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, todayLossB
 
     // ① 레짐 게이트 (롱/숏 방향별)
     if (!isShortSignal) {
-        // 롱: risk_off + SPY 오늘도 하락 → 차단
-        if (regime?.regime === 'risk_off' && spyChg <= 0) {
-            console.log(`[paper] ${r.symbol} risk_off+SPY하락 — 롱 차단`);
+        // 롱: risk_off + SPY -0.3% 이상 하락 시만 차단 (보합은 허용)
+        if (regime?.regime === 'risk_off' && spyChg < -0.3) {
+            console.log(`[paper] ${r.symbol} risk_off+SPY${spyChg.toFixed(2)}% — 롱 차단`);
             return;
         }
         // favorable/neutral + SPY -0.5% 이상: S급만
@@ -395,7 +395,8 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, todayLossB
     if (!allowedGrades.includes(r.grade)) return;
 
     // ③ RVOL 필터 (시간대별 동적 임계값 — 점심 0.8 / 프리마켓 1.0 / 그 외 min_rvol)
-    const minRvol = _sessionMinRvol(params);
+    // 레버리지 ETF는 유동성 특성상 1.2로 완화 (SOXL 등은 rvol=1.0도 충분한 유동성)
+    const minRvol = LEVERAGED_ETFS.has(r.symbol) ? 1.2 : _sessionMinRvol(params);
     if ((r.rvol || 0) < minRvol) {
         console.log(`[paper] ${r.symbol} rvol=${(r.rvol||0).toFixed(1)} < ${minRvol} — 스킵`);
         return;
