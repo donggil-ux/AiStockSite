@@ -33,8 +33,8 @@ const TRAIL_SHORT_SWING   = 0.995;
 // 25% → 33%(남은량의) → 50%(남은량의) → 나머지 trail
 const TP_RATIOS = [0.25, 0.333, 0.50];
 
-const BE_PEAK = 1.003; // 고점 +0.3% → 수익권 진입 확인 (빠른 보호)
-const BE_EXIT = 1.000; // avg 이하 복귀 → 즉시 본전 청산 (0% = 비용 이하)
+const BE_PEAK = 1.006; // 고점 +0.6% → 수익권 진입 확인 (TP1 +1% 전에 닫히지 않도록)
+const BE_EXIT = 0.9985; // avg -0.15% 이하 복귀 → 본전 청산 (약간의 눌림 허용)
 
 // ET 시각 (시×60+분) — Intl DST 자동 처리 (EDT/EST 모두 정확)
 export function _etTotalMin() {
@@ -371,7 +371,7 @@ async function _manageOne(env, pos, price) {
 
         // ② 시간 기반
         const ageMin        = (now - pos.created_at) / 60000;
-        const timeLimit     = pos.style === 'swing' ? 240 : 30;
+        const timeLimit     = pos.style === 'swing' ? 240 : 60;
         const regularOpened = pos.style === 'day' ? _etTotalMin() >= 9 * 60 + 40 : true;
         if (ageMin >= timeLimit && Math.abs(retPct) <= 0.003 && regularOpened) {
             await paperClosePosition(env, pos, price, 'be_protect');
