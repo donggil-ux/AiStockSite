@@ -22,7 +22,7 @@ database_id = "eb508a0a-95a0-4879-963c-dca0ae6eb350"
 # 공개 변수만 여기에. 시크릿(VAPID, Polygon API)은 wrangler secret 으로
 [vars]
 ENV = "production"
-TELEGRAM_CHAT_ID = ""  # 설정 방법: 아래 README 참고 (봇과 대화 후 chat_id 입력)
+TELEGRAM_CHAT_ID = "8028123132"
 
 # ── Cron Triggers ────────────────────────────────────────
 # 시장 시간에만 cron 발동 → 무료 한도 절약 + 알림 노이즈 ↓
