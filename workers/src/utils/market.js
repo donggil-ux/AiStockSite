@@ -64,3 +64,34 @@ export async function getMarketRegime(env) {
         return { ...NEUTRAL, note: 'fetch fail: ' + (e.message || '') };
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// 원칙 11: 섹터 로테이션 — SPDR 11개 섹터 ETF 당일 등락률 순위 (5분 캐시)
+// leading: 상위 40% 섹터, lagging: 하위 40% 섹터
+// ─────────────────────────────────────────────────────────────────────────
+const SECTOR_ROT_KEY = 'sector_rot:v1';
+const SECTOR_ETFS = ['XLK','XLC','XLY','XLF','XLE','XLV','XLI','XLB','XLRE','XLU','XLP'];
+
+export async function getSectorRotation(env) {
+    try {
+        const cached = await env.CACHE.get(SECTOR_ROT_KEY, 'json');
+        if (cached) return cached;
+    } catch (_) {}
+    try {
+        const base = 'https://query1.finance.yahoo.com/v8/finance/chart/';
+        const perf = (await Promise.all(
+            SECTOR_ETFS.map(sym =>
+                yfRequest(env.CACHE, `${base}${sym}?range=1d&interval=5m`)
+                    .then(raw => {
+                        const c = (raw?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter(v => v != null);
+                        return { sym, chg: c.length > 1 ? +((c[c.length-1] - c[0]) / c[0] * 100).toFixed(2) : 0 };
+                    })
+                    .catch(() => ({ sym, chg: 0 }))
+            )
+        )).sort((a, b) => b.chg - a.chg);
+        const cut = Math.ceil(perf.length * 0.4); // top/bottom 40%
+        const out = { leading: perf.slice(0, cut).map(r => r.sym), lagging: perf.slice(-cut).map(r => r.sym), perf };
+        try { await env.CACHE.put(SECTOR_ROT_KEY, JSON.stringify(out), { expirationTtl: CACHE_TTL }); } catch (_) {}
+        return out;
+    } catch (_) { return { leading: [], lagging: [], perf: [] }; }
+}

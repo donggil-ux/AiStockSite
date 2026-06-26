@@ -8,10 +8,10 @@ import { json, err } from '../utils/validators.js';
 import { calcVWAP, calcVWAPSeries } from '../utils/indicators.js';
 import { smartDipScan, smartDipScanBounce, smartDipBacktest, resolveTrailExit } from '../utils/smart-dip.js';
 import { fetchChartWithFallback } from './yahoo.js';
-import { getMarketRegime } from '../utils/market.js';
+import { getMarketRegime, getSectorRotation } from '../utils/market.js';
 import { _fetchDiscoverySymbols, DEFAULT_UNIVERSE_US, DEFAULT_UNIVERSE_KR } from '../cron.js';
 import { paperOpenTrade, TRANCHE_WEIGHTS, TRANCHE_WEIGHT_SUM, _etTotalMin } from '../utils/paper-engine.js';
-import { classifySymbol } from '../utils/paper-category.js';
+import { classifySymbol, SECTOR_MAP } from '../utils/paper-category.js';
 import { getPaperTradeParams } from '../utils/paper-optimizer.js';
 import { getNewsSentiment } from '../utils/news-sentiment.js';
 import { logError } from '../utils/errors.js';
@@ -297,9 +297,10 @@ export async function handleDailyBacktest(req, env) {
 // ════════════════════════════════════════════════════════════════
 export async function captureDailySignals(env) {
     // 동적 진입 파라미터 + 계좌 목록 + 시장 레짐 1회 로드
-    const params   = await getPaperTradeParams(env);
-    const accounts = (await env.DB.prepare('SELECT user_id, balance, position_size FROM paper_account').all()).results || [];
-    const regime   = await getMarketRegime(env);
+    const params     = await getPaperTradeParams(env);
+    const accounts   = (await env.DB.prepare('SELECT user_id, balance, position_size FROM paper_account').all()).results || [];
+    const regime     = await getMarketRegime(env);
+    const sectorRot  = await getSectorRotation(env);
 
     // 오늘 일일 손실 집계 (per-user): 오늘 UTC 00:00 이후 closed 된 손실 합산
     const todayStart = new Date();
@@ -335,7 +336,7 @@ export async function captureDailySignals(env) {
 
                 // ── 가상 자동매매 — 전문 트레이더 진입 필터 ──────────────────────────
                 if (r.dir === 'buy' || r.dir === 'sell') {
-                    await _tryOpenPaperTrade(env, r, tf, dtInsert.meta?.last_row_id || null, params, accounts, todayLossByUser, regime);
+                    await _tryOpenPaperTrade(env, r, tf, dtInsert.meta?.last_row_id || null, params, accounts, todayLossByUser, regime, sectorRot);
                 }
             }
         } catch (e) { try { await logError(env, 'captureDailySignals', e.message); } catch (_) {} }
@@ -361,7 +362,7 @@ function _sessionMinRvol(params) {
 }
 
 // ── 전문 트레이더 진입 게이트 — 필터 통과 시에만 paperOpenTrade 호출 ────────
-async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, todayLossByUser, regime) {
+async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, todayLossByUser, regime, sectorRot) {
     // ① ET 시간 필터
     if (!_isGoodEntryTime()) return;
 
@@ -477,6 +478,20 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, todayLossB
         }
         if (isShortSignal && (r.waveExtDown || 0) > 10) {
             console.log(`[paper] ${r.symbol} 숏 파동 확장 ${(r.waveExtDown || 0).toFixed(1)}% — 추격 금지`);
+            return;
+        }
+    }
+
+    // ⑧.7 섹터 로테이션 필터 (원칙 11): lagging 섹터 A급 롱 차단 / leading 섹터 A급 숏 차단
+    // S급 신호는 섹터 흐름을 이길 수 있는 강도 — 제외
+    const stockSector = SECTOR_MAP[r.symbol] ?? null;
+    if (stockSector && sectorRot) {
+        if (!isShortSignal && sectorRot.lagging?.includes(stockSector) && r.grade !== 'S') {
+            console.log(`[paper] ${r.symbol} 섹터 ${stockSector} 부진 — A급 롱 스킵`);
+            return;
+        }
+        if (isShortSignal && sectorRot.leading?.includes(stockSector) && r.grade !== 'S') {
+            console.log(`[paper] ${r.symbol} 섹터 ${stockSector} 강세 — A급 숏 스킵`);
             return;
         }
     }

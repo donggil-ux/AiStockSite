@@ -11,10 +11,14 @@ import { paperManageAll } from './utils/paper-engine.js';
 // 기본 유니버스 — cron 시그널 분석 + 데일리 트레이딩 스캐너 공용
 export const DEFAULT_UNIVERSE_US = ['NVDA','AAPL','MSFT','AMZN','GOOGL','META','TSLA','AVGO','AMD','NFLX',
     'PLTR','SMCI','MSTR','COIN','HOOD','RBLX','SHOP','SOFI','RKLB','MARA',
-    // 레버리지 ETF (2x/3x 롱) — 고거래량
+    // 레버리지 ETF (2x/3x 롱) — 지수/섹터
     'TQQQ','QLD','SOXL','UPRO','SPXL','SSO','UDOW','FNGU','TECL','NVDL','TSLL',
-    // 역레버리지 ETF (숏) — 하락장 수익
-    'SQQQ','SPXS','SOXS','QID','TECS','SDOW'];
+    // 개별 종목 롱 레버리지 (2x)
+    'AMZU','AAPU','MSFU',
+    // 역레버리지 ETF (숏) — 지수/섹터
+    'SQQQ','SPXS','SOXS','QID','TECS','SDOW',
+    // 개별 종목 숏 레버리지 (2x)
+    'NVDS','TSLS'];
 export const DEFAULT_UNIVERSE_KR = ['005930.KS','035720.KS','035420.KS','000660.KS','005380.KS',
     '068270.KS','051910.KS','017670.KS','105560.KS','055550.KS'];
 

@@ -16,12 +16,38 @@ export const CRYPTO_BLOCKED = new Set([
 ]);
 
 export const LEVERAGED_ETFS = new Set([
-    // 롱 레버리지 (2x/3x)
+    // 롱 레버리지 (2x/3x) — 지수/섹터
     'TQQQ','QLD','SOXL','UPRO','SSO','SPXL','UDOW','FNGU','LABU','TECL','WEBL',
     'CURE','DFEN','DPST','HIBL','NAIL','PILL','RETL','BULZ','NVDL','TSLL','AMZU',
+    // 개별 종목 롱 레버리지 (2x)
+    'AAPU','MSFU',
     // 역레버리지 (숏 ETF) — 하락장 수익
     'SQQQ','SPXS','SOXS','QID','SDOW','TECS','SRTY','TZA',
+    // 개별 종목 숏 레버리지 (2x)
+    'NVDS','TSLS',
 ]);
+
+// 섹터 로테이션 (원칙 11) — 종목 → SPDR 섹터 ETF 매핑
+// null 또는 미포함 = 광범위 시장 ETF → 섹터 필터 제외
+export const SECTOR_MAP = {
+    // XLK — Technology
+    NVDA:'XLK', AAPL:'XLK', MSFT:'XLK', AVGO:'XLK', AMD:'XLK', SMCI:'XLK', PLTR:'XLK',
+    // XLC — Communication
+    GOOGL:'XLC', META:'XLC', NFLX:'XLC',
+    // XLY — Consumer Discretionary
+    TSLA:'XLY', AMZN:'XLY', SHOP:'XLY', RBLX:'XLY',
+    // XLF — Financials
+    COIN:'XLF', HOOD:'XLF', SOFI:'XLF',
+    // XLI — Industrials
+    RKLB:'XLI',
+    // 레버리지 ETF → 기초자산 섹터
+    TQQQ:'XLK', QLD:'XLK', SOXL:'XLK', TECL:'XLK', FNGU:'XLK', BULZ:'XLK',
+    NVDL:'XLK', NVDS:'XLK',
+    SQQQ:'XLK', SOXS:'XLK', TECS:'XLK', QID:'XLK',
+    AAPU:'XLK', MSFU:'XLK',
+    TSLL:'XLY', TSLS:'XLY', AMZU:'XLY',
+    // UPRO/SPXL/SSO/SPXS/UDOW/SDOW → 광범위, 미포함(필터 제외)
+};
 
 export const LARGE_CAP = new Set([
     'AAPL','MSFT','NVDA','GOOGL','GOOG','AMZN','META','TSLA','AMD',
