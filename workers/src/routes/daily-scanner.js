@@ -482,16 +482,18 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, todayLossB
         }
     }
 
-    // ⑧.7 섹터 로테이션 필터 (원칙 11): lagging 섹터 A급 롱 차단 / leading 섹터 A급 숏 차단
-    // S급 신호는 섹터 흐름을 이길 수 있는 강도 — 제외
+    // ⑧.7 섹터 로테이션 필터 (원칙 11)
+    // 상대 순위가 아닌 당일 절대 등락률 기준 — 섹터가 실제로 빠질 때만 A급 롱 차단
+    // ("XLK이 상대적으로 약한 날"에도 NVDA/SOXL은 오를 수 있음)
     const stockSector = SECTOR_MAP[r.symbol] ?? null;
-    if (stockSector && sectorRot) {
-        if (!isShortSignal && sectorRot.lagging?.includes(stockSector) && r.grade !== 'S') {
-            console.log(`[paper] ${r.symbol} 섹터 ${stockSector} 부진 — A급 롱 스킵`);
+    if (stockSector && sectorRot?.perf) {
+        const sectorChg = sectorRot.perf.find(p => p.sym === stockSector)?.chg ?? 0;
+        if (!isShortSignal && sectorChg < 0 && r.grade !== 'S') {
+            console.log(`[paper] ${r.symbol} 섹터 ${stockSector} ${sectorChg.toFixed(2)}% 하락 — A급 롱 스킵`);
             return;
         }
-        if (isShortSignal && sectorRot.leading?.includes(stockSector) && r.grade !== 'S') {
-            console.log(`[paper] ${r.symbol} 섹터 ${stockSector} 강세 — A급 숏 스킵`);
+        if (isShortSignal && sectorChg > 0.5 && r.grade !== 'S') {
+            console.log(`[paper] ${r.symbol} 섹터 ${stockSector} ${sectorChg.toFixed(2)}% 강세 — A급 숏 스킵`);
             return;
         }
     }
