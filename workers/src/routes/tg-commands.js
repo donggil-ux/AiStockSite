@@ -4,6 +4,7 @@ import { paperOpenTrade, paperClosePosition, _tgDirect } from '../utils/paper-en
 import { classifySymbol } from '../utils/paper-category.js';
 import { smartDipScan, smartDipScanBounce } from '../utils/smart-dip.js';
 import { yfRequest } from '../utils/crumb.js';
+import { calcEMA } from '../utils/indicators.js';
 
 export async function handleTgWebhook(req, env) {
     let body;
@@ -46,6 +47,79 @@ export async function handleTgWebhook(req, env) {
     }
 
     return new Response('ok');
+}
+
+// PNG 바이트를 Telegram에 멀티파트 업로드 (URL 방식은 QuickChart가 HTTP 400 반환해 Telegram 거부됨)
+async function _tgPhoto(env, pngBytes, caption) {
+    const token = env.TELEGRAM_BOT_TOKEN;
+    const chatId = env.TELEGRAM_CHAT_ID;
+    try {
+        const form = new FormData();
+        form.append('chat_id', String(chatId));
+        form.append('photo', new Blob([pngBytes], { type: 'image/png' }), 'chart.png');
+        form.append('caption', caption.slice(0, 1020)); // Telegram 캡션 1024자 제한
+        form.append('parse_mode', 'HTML');
+        await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: form });
+    } catch (_) {}
+}
+
+// QuickChart.io POST /chart → PNG 바이트 반환 (HTTP 200, 직접 이미지 바이트)
+async function _generateChart(timestamps, q, symbol, sig) {
+    try {
+        const N = q.close.length;
+        const start = Math.max(0, N - 60);
+        const ema60 = calcEMA(q.close || [], 60);
+        const candleData = [], emaData = [];
+
+        for (let i = start; i < N; i++) {
+            if (q.close[i] == null) continue;
+            const t = (timestamps[i] || 0) * 1000;
+            candleData.push({ x: t, c: +q.close[i].toFixed(3) });
+            if (ema60[i] != null) emaData.push({ x: t, y: +ema60[i].toFixed(3) });
+        }
+        if (candleData.length < 5) return null;
+
+        // chartjs-plugin-annotation v1 (QuickChart 내장)
+        const annotations = [];
+        const addLine = (value, color, label) => annotations.push({
+            type: 'line', mode: 'horizontal', scaleID: 'y-axis-0',
+            value, borderColor: color, borderWidth: 1.5, borderDash: [5, 3],
+            label: { enabled: true, content: label, backgroundColor: 'transparent', fontColor: color, fontSize: 10, position: 'left' },
+        });
+        if (sig?.price)   addLine(+sig.price.toFixed(2),   '#00BFFF', `진입 $${sig.price.toFixed(2)}`);
+        if (sig?.stop)    addLine(+sig.stop.toFixed(2),    '#FF4444', `손절 $${sig.stop.toFixed(2)}`);
+        if (sig?.target1) addLine(+sig.target1.toFixed(2), '#44DD44', `목표 $${sig.target1.toFixed(2)}`);
+
+        // 라인 차트 (종가선 + EMA60) — QuickChart 캔들스틱 미지원으로 대체
+        const closeData = candleData.map(c => ({ x: c.x, y: c.c }));
+        const chartCfg = {
+            type: 'line',
+            data: {
+                datasets: [
+                    { label: symbol, data: closeData, borderColor: '#E8E8E8', borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0 },
+                    { label: 'EMA60', data: emaData, borderColor: '#FFD700', borderWidth: 1.2, pointRadius: 0, fill: false, tension: 0.2 },
+                ],
+            },
+            options: {
+                plugins: {
+                    legend: { display: true, labels: { color: '#aaa', fontSize: 11 } },
+                    annotation: { annotations },
+                },
+                scales: {
+                    x: { type: 'time', grid: { color: '#2a2a3e' }, ticks: { color: '#888', maxTicksLimit: 8 } },
+                    'y-axis-0': { position: 'right', grid: { color: '#2a2a3e' }, ticks: { color: '#888' } },
+                },
+            },
+        };
+
+        const res = await fetch('https://quickchart.io/chart', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chart: chartCfg, width: 900, height: 480, backgroundColor: '#12121e' }),
+        });
+        if (!res.ok) return null;
+        return await res.arrayBuffer();
+    } catch (_) { return null; }
 }
 
 // /v7/finance/quote — handlePrice 와 동일한 URL 패턴 (fields 파라미터 없이 모든 필드 반환)
@@ -180,7 +254,6 @@ async function _liveScan(env, customSymbols) {
 
 async function _analyzeSymbol(env, symbol) {
     try {
-        // 5m 차트 + v7 현재가 병렬 조회
         const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=2d&interval=5m&includePrePost=true`;
         const [data, quoteMap] = await Promise.all([
             yfRequest(env.CACHE, chartUrl),
@@ -189,47 +262,83 @@ async function _analyzeSymbol(env, symbol) {
         const result = data?.chart?.result?.[0];
         if (!result) { await _tgDirect(env, `❌ ${symbol} 차트 데이터 없음`); return; }
 
-        const q = result.indicators?.quote?.[0] || {};
-        const ts = result.timestamp || [];
-        const qt = quoteMap[symbol];
-        const price    = qt?.price || result.meta?.regularMarketPrice || 0;
+        const q   = result.indicators?.quote?.[0] || {};
+        const ts  = result.timestamp || [];
+        const qt  = quoteMap[symbol];
+        const price     = qt?.price || result.meta?.regularMarketPrice || 0;
         const prevClose = qt?.prevClose || result.meta?.chartPreviousClose || 0;
         const chgPct = prevClose > 0 ? ((price - prevClose) / prevClose * 100) : 0;
         const chgStr = (chgPct >= 0 ? '+' : '') + chgPct.toFixed(2) + '%';
 
-        // 추세 + 반등 신호 동시 스캔
         const trend  = smartDipScan(q, { interval: '5m', ts, lookback: 3 });
         const bounce = smartDipScanBounce(q, { ts, lookback: 3 });
-
-        // 더 강한 신호 우선 (qs 기준)
         const sig = (trend && bounce)
             ? (trend.qualityScore >= bounce.qualityScore ? trend : bounce)
             : (trend || bounce);
 
-        const header = `📊 <b>${symbol}</b> @ $${price.toFixed(2)} (${chgStr})`;
-
+        // 신호 없음 — 차트만 전송
         if (!sig) {
-            await _tgDirect(env, `${header}\n\n⚪ 신호 없음 — 조건 미충족`);
+            const ema60 = calcEMA(q.close || [], 60);
+            const lastEma = [...ema60].reverse().find(v => v != null);
+            const emaStr = lastEma ? `EMA60 $${lastEma.toFixed(2)} (가격 ${price > lastEma ? '위 ↑' : '아래 ↓'})` : '';
+            const chartPng = await _generateChart(ts, q, symbol, null);
+            const noSigCaption = `📊 ${symbol} @ $${price.toFixed(2)} (${chgStr})\n\n⚪ 현재 진입 신호 없음\n${emaStr}\n\n조건 미충족 — 관망 권장`;
+            if (chartPng) await _tgPhoto(env, chartPng, noSigCaption);
+            else await _tgDirect(env, `📊 <b>${symbol}</b> @ $${price.toFixed(2)} (${chgStr})\n\n⚪ 신호 없음 — 조건 미충족`);
             return;
         }
 
-        const dirEmoji = sig.dir === 'buy' ? '🟢' : '🔴';
-        const dirLabel = sig.dir === 'buy' ? '매수' : '매도';
-        const modeLabel = sig.mode === 'bounce' ? ' [반등]' : '';
-        const lines = [
-            header,
-            '',
-            `${dirEmoji} ${dirLabel} 신호${modeLabel} [${sig.grade}등급] qs=${sig.qualityScore}`,
-            `• ${sig.reasons.join(' / ')}`,
-            `• ADX ${sig.adx} | RSI ${sig.rsiVal} | 거래량 ${sig.volRatio}x`,
-        ];
-        if (sig.stop)    lines.push(`• 진입 $${sig.price.toFixed(2)} | 손절 $${sig.stop.toFixed(2)} | 목표 $${(sig.target1 || 0).toFixed(2)}`);
-        if (sig.winRate) lines.push(`• 예상 승률 약 ${sig.winRate}% (${sig.barsAgo}봉 전 신호)`);
+        // 매매 계획 계산
+        const dirEmoji  = sig.dir === 'buy' ? '🟢' : '🔴';
+        const dirLabel  = sig.dir === 'buy' ? '매수' : '매도';
+        const modeLabel = sig.mode === 'bounce' ? '[반등]' : '[추세]';
+        const riskAmt   = sig.stop    ? Math.abs(sig.price - sig.stop).toFixed(2) : null;
+        const riskPct   = sig.riskPct ? sig.riskPct.toFixed(1) : null;
+        const gain1Pct  = sig.target1 ? ((Math.abs(sig.target1 - sig.price) / sig.price) * 100).toFixed(1) : null;
+        const gain2Pct  = sig.target2 ? ((Math.abs(sig.target2 - sig.price) / sig.price) * 100).toFixed(1) : null;
+        const rr        = (riskAmt && sig.target1) ? (Math.abs(sig.target1 - sig.price) / +riskAmt).toFixed(1) : null;
+        const timing    = sig.barsAgo === 0 ? '⚡ 현재봉 신호' : `⏱ ${sig.barsAgo}봉 전 (${sig.barsAgo * 5}분 경과)`;
 
-        await _tgDirect(env, lines.join('\n'));
+        // 차트 생성 + 텍스트 캡션 (< 1024자)
+        const captionLines = [
+            `📊 ${symbol} @ $${price.toFixed(2)} (${chgStr}) — 5m`,
+            `${dirEmoji} ${dirLabel} ${modeLabel} [${sig.grade}등급] qs=${sig.qualityScore}  ${timing}`,
+            '',
+            '📍 매매 계획',
+            `  1차 진입   $${sig.price.toFixed(2)}`,
+            riskAmt ? `  손절      $${sig.stop.toFixed(2)}  (-${riskPct}%, 리스크 $${riskAmt}/주)` : null,
+            gain1Pct ? `  1차 목표  $${sig.target1.toFixed(2)}  (+${gain1Pct}%)` : null,
+            gain2Pct ? `  2차 목표  $${sig.target2.toFixed(2)}  (+${gain2Pct}%)` : null,
+            rr ? `  손익비    1 : ${rr}R  |  예상승률 ~${sig.winRate}%` : null,
+            '',
+            `📈 ADX ${sig.adx} | RSI ${sig.rsiVal} | 거래량 ${sig.volRatio}x`,
+            `   ${sig.reasons.join(' / ')}`,
+        ].filter(l => l !== null).join('\n');
+
+        const chartPng = await _generateChart(ts, q, symbol, sig);
+
+        if (chartPng) {
+            await _tgPhoto(env, chartPng, captionLines);
+        } else {
+            // 차트 생성 실패 시 텍스트만 (HTML)
+            await _tgDirect(env, [
+                `📊 <b>${symbol}</b> @ $${price.toFixed(2)} (${chgStr})`,
+                `${dirEmoji} ${dirLabel} ${modeLabel} [${sig.grade}등급] qs=${sig.qualityScore}  ${timing}`,
+                '',
+                '<b>📍 매매 계획</b>',
+                `  1차 진입   $${sig.price.toFixed(2)}`,
+                riskAmt ? `  손절      $${sig.stop.toFixed(2)}  (-${riskPct}%, $${riskAmt}/주)` : null,
+                gain1Pct ? `  1차 목표  $${sig.target1.toFixed(2)}  (+${gain1Pct}%)` : null,
+                gain2Pct ? `  2차 목표  $${sig.target2.toFixed(2)}  (+${gain2Pct}%)` : null,
+                rr ? `  손익비    1 : ${rr}R  |  승률 ~${sig.winRate}%` : null,
+                '',
+                `ADX ${sig.adx} | RSI ${sig.rsiVal} | 거래량 ${sig.volRatio}x`,
+                `${sig.reasons.join(' / ')}`,
+            ].filter(l => l !== null).join('\n'));
+        }
     } catch (e) {
         console.error('[tg-analyze]', symbol, e?.message);
-        await _tgDirect(env, `❌ ${symbol} 분석 오류: ${e?.message?.slice(0, 80) || '알 수 없는 오류'}`);
+        await _tgDirect(env, `❌ ${symbol} 분석 오류: ${e?.message?.slice(0,80) || '알 수 없는 오류'}`);
     }
 }
 
