@@ -200,9 +200,11 @@ async function _analyzeSymbol(env, symbol) {
 
         const trend  = smartDipScan(q, { interval: '5m', ts, lookback: 3 });
         const bounce = smartDipScanBounce(q, { ts, lookback: 3 });
-        const sig = (trend && bounce)
-            ? (trend.qualityScore >= bounce.qualityScore ? trend : bounce)
-            : (trend || bounce);
+        // 분석 명령은 매수(롱) 기회만 표시 — 숏 시그널 제외
+        const trendBuy = trend?.dir === 'buy' ? trend : null;
+        const sig = (trendBuy && bounce)
+            ? (trendBuy.qualityScore >= bounce.qualityScore ? trendBuy : bounce)
+            : (trendBuy || bounce);
 
         // 신호 없음
         if (!sig) {
