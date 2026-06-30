@@ -213,8 +213,9 @@ async function _analyzeSymbol(env, symbol) {
             return;
         }
 
-        const dirEmoji  = sig.dir === 'buy' ? '🟢' : '🔴';
-        const dirLabel  = sig.dir === 'buy' ? '매수' : '매도';
+        const isShort   = sig.dir === 'sell';
+        const dirEmoji  = isShort ? '🔴' : '🟢';
+        const dirLabel  = isShort ? '매도' : '매수';
         const modeLabel = sig.mode === 'bounce' ? '[반등]' : '[추세]';
         const riskPerSh = sig.stop ? Math.abs(sig.price - sig.stop) : null;
         const riskAmt   = riskPerSh ? riskPerSh.toFixed(2) : null;
@@ -239,9 +240,9 @@ async function _analyzeSymbol(env, symbol) {
             '',
             '<b>📍 매매 계획</b>',
             `  1차 진입   $${sig.price.toFixed(2)}`,
-            riskAmt ? `  손절      $${sig.stop.toFixed(2)}  (-${riskPct}%, $${riskAmt}/주)` : null,
-            gain1Pct ? `  1차 목표  $${sig.target1.toFixed(2)}  (+${gain1Pct}%)` : null,
-            gain2Pct ? `  2차 목표  $${sig.target2.toFixed(2)}  (+${gain2Pct}%)` : null,
+            riskAmt ? `  손절      $${sig.stop.toFixed(2)}  (${isShort ? '+' : '-'}${riskPct}%, $${riskAmt}/주)` : null,
+            gain1Pct ? `  1차 목표  $${sig.target1.toFixed(2)}  (${isShort ? '-' : '+'}${gain1Pct}%)` : null,
+            gain2Pct ? `  2차 목표  $${sig.target2.toFixed(2)}  (${isShort ? '-' : '+'}${gain2Pct}%)` : null,
             rr ? `  손익비    1 : ${rr}R  |  예상승률 ~${sig.winRate}%` : null,
             '',
             '<b>📐 비중 계획</b>',
