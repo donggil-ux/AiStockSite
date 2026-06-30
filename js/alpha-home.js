@@ -7789,8 +7789,7 @@
         const btnLabel = document.getElementById('profileBtnLabel');
         if (btnLabel) btnLabel.textContent = isLoggedIn ? (user?.firstName || '계정') : '계정';
 
-        const isDesktop = window.innerWidth >= 640;
-        const leftCol = `
+        container.innerHTML = `
             <!-- 프로필 카드 -->
             <div class="card" style="margin-bottom:12px;">
                 <div style="display:flex;align-items:center;gap:16px;padding:4px 0 14px;">
@@ -7809,6 +7808,9 @@
                 <button style="width:100%;padding:10px;background:var(--blue);border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;" onclick="window.signIn?.()">Google · Apple 로 로그인</button>
                 `}
             </div>
+
+            <div id="paperAccountSection"></div>
+
             <!-- 사용 현황 -->
             <div class="card" style="margin-bottom:12px;">
                 <div class="card-title"><span class="dot" style="background:var(--green)"></span>사용 현황</div>
@@ -7820,6 +7822,7 @@
                 </div>
                 ${lastSignIn ? `<div style="font-size:11px;color:var(--text3);text-align:right;padding-top:6px;">마지막 로그인: ${lastSignIn}</div>` : ''}
             </div>
+
             <!-- 빠른 이동 -->
             <div class="card" style="margin-bottom:12px;">
                 <div class="card-title"><span class="dot" style="background:var(--yellow)"></span>빠른 이동</div>
@@ -7838,19 +7841,11 @@
                     ).join('')}
                 </div>
             </div>
+
             <div style="text-align:center;padding:16px 0 8px;font-size:11px;color:var(--text3);">
                 StockAI · rkd687@gmail.com
-            </div>`;
-
-        if (isDesktop) {
-            container.innerHTML = `
-            <div style="display:grid;grid-template-columns:280px 1fr;gap:16px;align-items:start;">
-                <div>${leftCol}</div>
-                <div><div id="paperAccountSection"></div></div>
-            </div>`;
-        } else {
-            container.innerHTML = `${leftCol}<div id="paperAccountSection"></div>`;
-        }
+            </div>
+        `;
 
         // 가상 매매 계좌 섹션 비동기 렌더링
         _renderPaperAccountSection();
