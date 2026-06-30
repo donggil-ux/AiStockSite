@@ -7809,7 +7809,7 @@
                 `}
             </div>
 
-            <div id="paperAccountSection" style="margin-left:-16px;margin-right:-16px;padding-left:0;padding-right:0;"></div>
+            <div id="paperAccountSection"></div>
 
             <!-- 사용 현황 -->
             <div class="card" style="margin-bottom:12px;">
@@ -7923,7 +7923,7 @@
                 const dirBg = p.dir === 'long' ? 'rgba(59,130,246,.15)' : 'rgba(239,68,68,.15)';
                 const dirClr = p.dir === 'long' ? 'var(--blue)' : 'var(--red)';
                 posHtml += `<div style="display:flex;align-items:center;gap:14px;padding:16px;border-bottom:1px solid var(--border);">
-                    ${_tickerLogo(sym, 44, '12px')}
+                    ${_tickerLogo(sym, 44, '50%')}
                     <div style="flex:1;min-width:0;">
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
                             <div style="display:flex;align-items:center;gap:7px;">
@@ -8049,7 +8049,7 @@
                         ? `<span style="font-size:16px;font-weight:800;color:${pnlVal>=0?'var(--green)':'var(--red)'};">${pnlVal>=0?'+':'-'}$${Math.abs(pnlVal).toFixed(0)}</span>`
                         : `<span style="font-size:16px;font-weight:700;color:var(--text2);">-$${(f.amount||0).toFixed(0)}</span>`;
                     return `<div style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid var(--border);">
-                        ${_tickerLogo(sym, 44, '12px')}
+                        ${_tickerLogo(sym, 44, '50%')}
                         <div style="flex:1;min-width:0;">
                             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
                                 <span style="font-size:16px;font-weight:800;color:var(--text);">${sym}</span>
@@ -8146,7 +8146,7 @@
                     const pctRaw   = t.avg_price && t.total_qty ? (pnl / (t.avg_price * t.total_qty) * 100) : null;
                     const pctText  = pctRaw != null ? (pctRaw >= 0 ? '+' : '') + pctRaw.toFixed(1) + '%' : '';
                     return `<div style="display:flex;align-items:center;gap:14px;padding:16px;border-bottom:1px solid var(--border);">
-                        ${_tickerLogo(sym, 44, '12px')}
+                        ${_tickerLogo(sym, 44, '50%')}
                         <div style="flex:1;min-width:0;">
                             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
                                 <div style="display:flex;align-items:center;gap:7px;">
