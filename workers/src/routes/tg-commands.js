@@ -84,7 +84,7 @@ async function _manualBuy(env, symbol) {
     if (!acct) { await _tgDirect(env, '❌ 계좌 없음'); return; }
 
     const category = classifySymbol(symbol, price, 0) || 'mid_small';
-    const qty = (acct.position_size || 25000) * (2 / 3) / price; // 1차 2/3 트랜쉐
+    const qty = Math.floor((acct.position_size || 25000) * (2 / 3) / price); // 1차 2/3 트랜쉐
 
     const result = await paperOpenTrade(env, {
         userId: acct.user_id, symbol, category, style: 'day',
@@ -173,17 +173,17 @@ async function _liveScan(env, customSymbols) {
 
 async function _analyzeSymbol(env, symbol) {
     try {
-        // 5m 2일치 차트 (≥60봉 확보, 프리/포스트마켓 포함)
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=2d&interval=5m&includePrePost=true`;
-        const data = await yfRequest(env.CACHE, url);
+        // 5m 차트 + v7 현재가 병렬 조회
+        const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=2d&interval=5m&includePrePost=true`;
+        const [data, quoteMap] = await Promise.all([
+            yfRequest(env.CACHE, chartUrl),
+            _quotePrice(env, [symbol]),
+        ]);
         const result = data?.chart?.result?.[0];
         if (!result) { await _tgDirect(env, `❌ ${symbol} 차트 데이터 없음`); return; }
 
         const q = result.indicators?.quote?.[0] || {};
         const ts = result.timestamp || [];
-
-        // v7 quote 에서 정확한 현재가·등락률 가져오기 (차트 조회와 병렬)
-        const quoteMap = await _quotePrice(env, [symbol]);
         const qt = quoteMap[symbol];
         const price    = qt?.price || result.meta?.regularMarketPrice || 0;
         const prevClose = qt?.prevClose || result.meta?.chartPreviousClose || 0;
@@ -248,16 +248,14 @@ async function _sendOverview(env) {
         ).bind('user_3EhxWla1QzZmEG19xfFdmnUTUrp').all(),
     ]);
 
-    // 오픈 포지션 현재가로 미실현 손익 계산
+    // 오픈 포지션 현재가로 미실현 손익 계산 (배치 조회)
     const opens = openRows.results || [];
     let unrealized = 0;
     if (opens.length) {
-        const prices = await Promise.all(opens.map(p => _fetchPrice(env, p.symbol)));
-        opens.forEach((p, i) => {
-            if (prices[i]) {
-                const mult = p.dir === 'short' ? -1 : 1;
-                unrealized += (prices[i] - p.avg_price) * p.total_qty * mult;
-            }
+        const quotes = await _quotePrice(env, opens.map(p => p.symbol));
+        opens.forEach(p => {
+            const cur = quotes[p.symbol]?.price;
+            if (cur) unrealized += (cur - p.avg_price) * p.total_qty * (p.dir === 'short' ? -1 : 1);
         });
     }
 
@@ -304,7 +302,8 @@ async function _sendScanResults(env) {
         const tf   = s.tf === '5m' ? '단타' : '스윙';
         const entry = s.entry ? ` $${Number(s.entry).toFixed(2)}` : '';
         const stop  = s.stop  ? ` 손절$${Number(s.stop).toFixed(2)}` : '';
-        return `${dir} ${s.symbol} [${s.grade}${s.score}/${tf}]${entry}${stop}`;
+        const score = s.score != null ? s.score.toFixed(1) : '';
+        return `${dir} ${s.symbol} [${s.grade}${score}/${tf}]${entry}${stop}`;
     });
     await _tgDirect(env, `📡 오늘 스캔 결과 (${signals.length}건)\n\n${lines.join('\n')}`);
 }
@@ -317,11 +316,11 @@ async function _sendPositions(env) {
     const positions = rows.results || [];
     if (!positions.length) { await _tgDirect(env, '📭 오픈 포지션 없음'); return; }
 
-    // 현재가 병렬 조회
-    const prices = await Promise.all(positions.map(p => _fetchPrice(env, p.symbol)));
+    // 현재가 배치 조회
+    const quotes = await _quotePrice(env, positions.map(p => p.symbol));
 
-    const lines = positions.map((p, i) => {
-        const cur   = prices[i];
+    const lines = positions.map((p) => {
+        const cur   = quotes[p.symbol]?.price;
         const dir   = p.dir === 'short' ? '숏' : '롱';
         const mult  = p.dir === 'short' ? -1 : 1;
         const pnl   = cur ? ((cur - p.avg_price) * p.total_qty * mult).toFixed(0) : null;
