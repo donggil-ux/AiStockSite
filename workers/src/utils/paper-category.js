@@ -27,6 +27,12 @@ export const LEVERAGED_ETFS = new Set([
     'NVDS','TSLS','AMDS','METD','AAPD','MSFD',
 ]);
 
+// 인버스 ETF — 매수 시 실질적으로 시장 하락에 베팅 → risk_off 아니면 진입 금지
+export const INVERSE_ETFS = new Set([
+    'SQQQ','SPXS','SOXS','QID','SDOW','TECS','SRTY','TZA',
+    'NVDS','TSLS','AMDS','METD','AAPD','MSFD',
+]);
+
 // 섹터 로테이션 (원칙 11) — 종목 → SPDR 섹터 ETF 매핑
 // 미포함 = 광범위 시장 ETF → 섹터 필터 제외
 export const SECTOR_MAP = {

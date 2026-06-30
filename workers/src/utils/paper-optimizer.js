@@ -6,12 +6,14 @@ const PARAM_KEY   = 'paper_trade_params';
 const MIN_SAMPLES = 10; // 통계 유효 최소 건수
 
 export const DEFAULT_PARAMS = {
-    min_rvol:         1.5,      // 최소 RVOL (점심 거래량 감소 고려 — 2.0은 오후 A급 시그널 과차단)
-    max_positions:    5,        // 최대 동시 오픈 포지션
-    daily_loss_limit: 10000,    // 일일 최대 손실 한도 ($)
-    grade_filter:     ['S','A'],// 허용 등급 (B 이하 제외)
-    skip_categories:  [],       // 성과 부진 카테고리 진입 금지
-    updated_at:       0,
+    min_rvol:            1.5,      // 최소 RVOL (점심 거래량 감소 고려)
+    max_positions:       6,        // 단타 3 + 스윙 3 = 총 6
+    max_day_positions:   3,        // 단타 시드 50% ($25K×3 → 최대 $50K)
+    max_swing_positions: 3,        // 스윙 시드 50% ($25K×3 → 최대 $50K)
+    daily_loss_limit:    10000,    // 일일 최대 손실 한도 ($)
+    grade_filter:        ['S','A'],// 허용 등급 (B 이하 제외)
+    skip_categories:     [],       // 성과 부진 카테고리 진입 금지
+    updated_at:          0,
 };
 
 /** algorithm_config에서 파라미터 로드 — 없으면 DEFAULT_PARAMS 반환 */

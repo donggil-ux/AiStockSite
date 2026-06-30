@@ -10,8 +10,8 @@ import { smartDipScan, smartDipScanBounce, smartDipBacktest, resolveTrailExit } 
 import { fetchChartWithFallback } from './yahoo.js';
 import { getMarketRegime, getSectorRotation } from '../utils/market.js';
 import { _fetchDiscoverySymbols, DEFAULT_UNIVERSE_US, DEFAULT_UNIVERSE_KR } from '../cron.js';
-import { paperOpenTrade, TRANCHE_WEIGHTS, TRANCHE_WEIGHT_SUM, _etTotalMin } from '../utils/paper-engine.js';
-import { classifySymbol, SECTOR_MAP, LEVERAGED_ETFS } from '../utils/paper-category.js';
+import { paperOpenTrade, _tgDirect, TRANCHE_WEIGHTS, TRANCHE_WEIGHT_SUM, _etTotalMin } from '../utils/paper-engine.js';
+import { classifySymbol, SECTOR_MAP, LEVERAGED_ETFS, INVERSE_ETFS } from '../utils/paper-category.js';
 import { getPaperTradeParams } from '../utils/paper-optimizer.js';
 import { getNewsSentiment } from '../utils/news-sentiment.js';
 import { logError } from '../utils/errors.js';
@@ -78,8 +78,12 @@ export async function handleDailyTradingScan(req, env) {
         const regime = market === 'KR'
             ? { regime: 'neutral', label: '중립', spyTrend: 'flat', spyChgPct: 0, vix: null, note: 'KR' }
             : await getMarketRegime(env);
-        // Smart Dip 필터 6번(SPX 환경) 입력 — 레짐의 SPY 추세 재사용
-        const spxTrendUp = regime.spyTrend === 'up' ? true : regime.spyTrend === 'down' ? false : null;
+        // Smart Dip 필터 6번(SPX 환경) 입력
+        // risk_off(일봉 하향)이어도 오늘 SPY가 실제로 오르고 있으면 neutral 처리
+        // → 스캐너 레벨에서 신호 완전 차단 방지 (진입 게이트는 별도 regime 체크)
+        const spxTrendUp = regime.spyTrend === 'up' ? true
+            : (regime.spyTrend === 'down' && (regime.spyChgPct || 0) <= 0) ? false
+            : null;
         // 백테스트 실측 승률 (있으면 등급 기본값 대신 사용)
         const measuredWin = await _loadMeasuredWin(env, tf);
 
@@ -302,15 +306,8 @@ export async function captureDailySignals(env) {
     const regime     = await getMarketRegime(env);
     const sectorRot  = await getSectorRotation(env);
 
-    // 오늘 일일 손실 집계 (per-user): 오늘 UTC 00:00 이후 closed 된 손실 합산
-    const todayStart = new Date();
-    todayStart.setUTCHours(0, 0, 0, 0);
-    const lossRows = (await env.DB.prepare(
-        "SELECT user_id, SUM(realized_pnl) AS day_loss FROM paper_trades WHERE status='closed' AND realized_pnl<0 AND exit_at>=? GROUP BY user_id"
-    ).bind(todayStart.getTime()).all()).results || [];
-    const todayLossByUser = Object.fromEntries(lossRows.map(r => [r.user_id, Math.abs(r.day_loss || 0)]));
-
     let logged = 0;
+    const pendingNotifies = []; // 진입 알림 — 모든 chart fetch 끝난 뒤 일괄 발송
     for (const tf of ['5m', '15m']) {
         try {
             const resp = await handleDailyTradingScan(new Request(`https://x/api/scanner/daily-trading?market=US&tf=${tf}`), env);
@@ -321,10 +318,8 @@ export async function captureDailySignals(env) {
                 if (r.stop == null || r.price == null) continue;
                 const stopDist = Math.abs(r.price - r.stop);
                 if (!(stopDist > 0)) continue;
-                // 진입 시각 ≈ 스캔시각 − barsAgo×봉길이 (forward 시뮬 시작점)
                 const entryTs = (data.scannedAt || Date.now()) - (r.barsAgo || 0) * tfMin * 60000;
-                // 중복 방지: 같은 종목·방향·tf 신호가 최근 2시간 내 있으면 skip
-                const since = Date.now() - 2 * 3600 * 1000;
+                const since = Date.now() - 30 * 60 * 1000;
                 const dup = await env.DB.prepare(
                     'SELECT 1 FROM dt_signals WHERE symbol=? AND dir=? AND tf=? AND created_at>? LIMIT 1'
                 ).bind(r.symbol, r.dir, tf, since).first();
@@ -334,12 +329,17 @@ export async function captureDailySignals(env) {
                 ).bind(r.symbol, tf, r.dir, r.mode || 'trend', r.grade, r.score, r.price, r.stop, r.be ?? null, stopDist, entryTs).run();
                 logged++;
 
-                // ── 가상 자동매매 — 전문 트레이더 진입 필터 ──────────────────────────
                 if (r.dir === 'buy' || r.dir === 'sell') {
-                    await _tryOpenPaperTrade(env, r, tf, dtInsert.meta?.last_row_id || null, params, accounts, todayLossByUser, regime, sectorRot);
+                    const result = await _tryOpenPaperTrade(env, r, tf, dtInsert.meta?.last_row_id || null, params, accounts, regime, sectorRot);
+                    if (result?.notifyTitle) pendingNotifies.push(result);
                 }
             }
         } catch (e) { try { await logError(env, 'captureDailySignals', e.message); } catch (_) {} }
+    }
+
+    // ── 진입 알림 일괄 발송 — 모든 차트 fetch 완료 후 subrequest 여유 생긴 시점 ──
+    for (const n of pendingNotifies) {
+        try { await _tgDirect(env, `<b>${n.notifyTitle}</b>\n${n.notifyBody}`); } catch (_) {}
     }
     return { logged };
 }
@@ -357,12 +357,12 @@ function _isGoodEntryTime() {
 // 그 외(오전·파워아워): params.min_rvol 사용
 function _sessionMinRvol(params) {
     const t = _etTotalMin();
-    if (t >= 11 * 60 + 30 && t < 14 * 60) return 1.2;  // 점심 횡보 (유동성 저하)
+    if (t >= 11 * 60 + 30 && t < 14 * 60) return 0.8;  // 점심 횡보 — 달러거래량($3M) 필터가 유동성 보장하므로 완화
     return params.min_rvol || 1.5;
 }
 
 // ── 전문 트레이더 진입 게이트 — 필터 통과 시에만 paperOpenTrade 호출 ────────
-async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, todayLossByUser, regime, sectorRot) {
+async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, sectorRot) {
     // ① ET 시간 필터
     if (!_isGoodEntryTime()) return;
 
@@ -383,14 +383,20 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, todayLossB
             return;
         }
     } else {
-        // 숏: favorable + SPY +0.5% 이상 강세 시 S급만 (상승장 역추세 경고)
-        if (regime?.regime === 'favorable' && spyChg > 0.5 && r.grade !== 'S') {
-            console.log(`[paper] ${r.symbol} favorable+SPY상승 — A급 숏 스킵`);
+        // 숏: risk_off(하락장)일 때만 허용 — neutral/favorable에서는 전면 차단
+        if (regime?.regime !== 'risk_off') {
+            console.log(`[paper] ${r.symbol} 숏 — 레짐 ${regime?.regime || 'unknown'} (하락장 아님) — 차단`);
             return;
         }
     }
 
-    // ② 등급 필터 (S/A only, 동적으로 조정 가능)
+    // ② 인버스 ETF — 매수 자체가 시장 하락 베팅 → risk_off 아닐 때 차단
+    if (!isShortSignal && INVERSE_ETFS.has(r.symbol) && regime?.regime !== 'risk_off') {
+        console.log(`[paper] ${r.symbol} 인버스ETF — 하락장 아님(${regime?.regime}) 차단`);
+        return;
+    }
+
+    // ③ 등급 필터 (S/A only, 동적으로 조정 가능)
     const allowedGrades = params.grade_filter || ['S', 'A'];
     if (!allowedGrades.includes(r.grade)) return;
 
@@ -499,38 +505,36 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, todayLossB
         }
     }
 
-    const style    = tf === '15m' ? 'swing' : 'day';
-    const maxPos   = params.max_positions || 5;
-    const lossLimit = params.daily_loss_limit || 2000;
+    const style       = tf === '15m' ? 'swing' : 'day';
+    const maxPos      = params.max_positions      || 6;
+    const maxDayPos   = params.max_day_positions  || 3; // 단타 시드 50% — 3포지션
+    const maxSwingPos = params.max_swing_positions|| 3; // 스윙 시드 50% — 3포지션
 
     for (const acct of accounts) {
-        // ⑨ 일일 손실 한도 체크
-        const dayLoss = todayLossByUser[acct.user_id] || 0;
-        if (dayLoss >= lossLimit) {
-            console.log(`[paper] ${acct.user_id} 일일 손실 한도 도달 $${dayLoss.toFixed(0)} — 진입 스킵`);
-            continue;
-        }
-
-        // ⑩ 최대 포지션 수 체크 + 중복 종목 체크 (1회 DB 조회로 함께 처리)
+        // ⑩ 최대 포지션 수 체크 + 스타일별 한도 + 중복 종목 체크 (1회 DB 조회)
         const openPos = (await env.DB.prepare(
-            "SELECT symbol FROM paper_trades WHERE user_id=? AND status='open'"
+            "SELECT symbol, style FROM paper_trades WHERE user_id=? AND status='open'"
         ).bind(acct.user_id).all()).results || [];
         if (openPos.length >= maxPos) continue;
+        const styleCount = openPos.filter(p => p.style === style).length;
+        if (style === 'day'   && styleCount >= maxDayPos)   continue; // 단타 3개 한도
+        if (style === 'swing' && styleCount >= maxSwingPos)  continue; // 스윙 3개 한도
         if (openPos.some(p => p.symbol === r.symbol)) continue; // 이미 보유 중
 
         // ⑪ 잔고 체크
-        const firstAmount = (acct.position_size || 30000) * TRANCHE_WEIGHTS[0] / TRANCHE_WEIGHT_SUM;
+        const firstAmount = (acct.position_size || 25000) * TRANCHE_WEIGHTS[0] / TRANCHE_WEIGHT_SUM;
         if (acct.balance < firstAmount) continue;
 
         const qty = Math.floor(firstAmount / r.price);
         if (qty < 1) continue; // 고가 종목: 1주 미만이면 진입 스킵
-        await paperOpenTrade(env, {
+        const result = await paperOpenTrade(env, {
             userId: acct.user_id, symbol: r.symbol,
             category, style,
             dir: isShortSignal ? 'short' : 'long', price: r.price, qty,
             signalId: dtId, grade: r.grade, score: r.score,
         });
         console.log(`[paper] open ${r.symbol} ${isShortSignal?'short':'long'} ${style} grade=${r.grade} rvol=${(r.rvol||0).toFixed(1)} user=${acct.user_id}`);
+        if (result?.notifyTitle) return result; // 알림 텍스트를 captureDailySignals로 전달
     }
 }
 

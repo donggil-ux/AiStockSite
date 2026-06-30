@@ -35,6 +35,7 @@ import { snapshotHealth } from './cron.js';
 import { handleAdminStatus, handleAnalyzeNow, handleDtForwardTest, handleCatForwardTest } from './routes/admin.js';
 import { handleDailyTradingScan, handleDailyBacktest, handleDailyLiveStats, captureDailySignals, resolveDailySignals } from './routes/daily-scanner.js';
 import { handlePaperTrading } from './routes/paper-trading.js';
+import { handleTgWebhook } from './routes/tg-commands.js';
 import { handleCatalystLiveStats, captureCatalystSignals, resolveCatalystSignals } from './routes/catalyst-track.js';
 import { checkPriceAlerts, earningsReminder, analyzeSignals, resolveSignals } from './cron.js';
 import { json, err } from './utils/validators.js';
@@ -135,6 +136,8 @@ const ROUTES = [
     ['GET',    '/api/paper/fills/:id',      handlePaperTrading],
     ['POST',   '/api/paper/close/:id',      handlePaperTrading],
     ['POST',   '/api/paper/reset',          handlePaperTrading],
+    // Telegram 봇 웹훅 (수동 매수/매도 명령)
+    ['POST',   '/api/tg-webhook',           handleTgWebhook],
 ];
 
 export default {

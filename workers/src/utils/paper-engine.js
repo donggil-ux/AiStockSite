@@ -33,8 +33,11 @@ const TRAIL_SHORT_SWING   = 0.995;
 // 25% → 33%(남은량의) → 50%(남은량의) → 나머지 trail
 const TP_RATIOS = [0.25, 0.333, 0.50];
 
-const BE_PEAK = 1.006; // 고점 +0.6% → 수익권 진입 확인 (TP1 +1% 전에 닫히지 않도록)
-const BE_EXIT = 0.9985; // avg -0.15% 이하 복귀 → 본전 청산 (약간의 눌림 허용)
+// 롱: 충분히 올라야 발동 (노이즈 필터), 숏: 조금만 반등해도 즉시 잠금
+const BE_PEAK_LONG  = 1.015;  // 롱 고점 +1.5% 이상 찍어야 활성화 (TP1 중간)
+const BE_EXIT_LONG  = 0.995;  // 롱 → 평단 -0.5% 복귀 시 청산 (노이즈 허용)
+const BE_PEAK_SHORT = 1.006;  // 숏 저점 -0.6% (현행 유지)
+const BE_EXIT_SHORT = 1.0005; // 숏 → 평단 +0.05% 복귀 시 즉시 청산
 
 // ET 시각 (시×60+분) — Intl DST 자동 처리 (EDT/EST 모두 정확)
 export function _etTotalMin() {
@@ -51,22 +54,35 @@ export function _etTotalMin() {
 
 // Telegram 단방향 메시지 — fire-and-forget
 // 환경변수: TELEGRAM_BOT_TOKEN (wrangler secret), TELEGRAM_CHAT_ID (wrangler.toml [vars])
+export async function _tgDirect(env, text) { return _tg(env, text); }
+
 async function _tg(env, text) {
     const token  = env.TELEGRAM_BOT_TOKEN;
     const chatId = env.TELEGRAM_CHAT_ID;
-    if (!token || !chatId) return;
+    if (!token || !chatId) { console.warn('[tg] 토큰 또는 chatId 없음'); return; }
+    const send = async () => fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
+        signal: AbortSignal.timeout(5000),
+    });
     try {
-        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
-        });
-    } catch (_) {}
+        let resp = await send();
+        // 429 Too Many Requests (rate limit) → 1.2초 대기 후 1회 재시도
+        if (resp.status === 429) {
+            await new Promise(r => setTimeout(r, 1200));
+            resp = await send();
+        }
+        if (!resp.ok) {
+            const body = await resp.text();
+            console.error('[tg] 전송 실패', resp.status, body.slice(0, 200));
+        }
+    } catch (e) { console.error('[tg] fetch 오류', e?.message); }
 }
 
 // 가상 매매 알림 — 웹 푸시 + Telegram 동시 발송, fire-and-forget
 async function notifyPaper(env, userId, title, body) {
-    _tg(env, `<b>${title}</b>\n${body}`); // Telegram: 비동기 fire-and-forget
+    await _tg(env, `<b>${title}</b>\n${body}`);
     try {
         const subs = await env.DB.prepare(
             'SELECT endpoint, p256dh, auth FROM push_subscribers WHERE user_id=?'
@@ -114,13 +130,16 @@ export async function paperOpenTrade(env, { userId, symbol, category, style, dir
                 'UPDATE paper_account SET balance=balance-?,updated_at=? WHERE user_id=?'
             ).bind(amount, now, userId),
         ]);
-        const dirLabel = dir === 'short' ? '숏' : '롱';
-        notifyPaper(env, userId,
-            `📈 가상매매 ${dirLabel} 진입 [${grade || '?'}]`,
-            `${symbol} $${price.toFixed(2)} × ${qty}주\n투자금: $${amount.toFixed(0)} | 손절: $${stop.toFixed(2)}\n카테고리: ${category} | 스타일: ${style}`
-        );
     }
-    return tradeId;
+    // 알림 텍스트 반환 — 호출자(captureDailySignals)가 모든 chart fetch 끝난 뒤 일괄 발송
+    // (cron subrequest 한도 초과 방지: 차트 fetch 다 쓴 뒤 Telegram 1회 호출)
+    const dirLabel = dir === 'short' ? '숏' : '롱';
+    return {
+        tradeId,
+        notifyTitle: tradeId ? `📈 가상매매 ${dirLabel} 진입 [${grade || '?'}]` : null,
+        notifyBody:  tradeId ? `${symbol} $${price.toFixed(2)} × ${qty}주\n투자금: $${amount.toFixed(0)} | 손절: $${stop.toFixed(2)} | ${style}` : null,
+        userId,
+    };
 }
 
 /**
@@ -152,7 +171,7 @@ export async function paperAddTranche(env, trade, price, trancheAmount) {
             'UPDATE paper_account SET balance=balance-?,updated_at=? WHERE user_id=?'
         ).bind(amount, now, trade.user_id),
     ]);
-    notifyPaper(env, trade.user_id,
+    await notifyPaper(env, trade.user_id,
         `📈 가상매매 추가매수`,
         `${trade.symbol} ${trancheNum}차 분할 $${price.toFixed(2)} | 평단 $${newAvgPrice.toFixed(2)}`
     );
@@ -185,7 +204,7 @@ export async function paperPartialExit(env, trade, price, fillType, ratio) {
     ]);
     const tpLabel = fillType === 'sell_tp1' ? 'TP1' : fillType === 'sell_tp2' ? 'TP2' : 'TP3';
     const pnlStr  = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(0);
-    notifyPaper(env, trade.user_id,
+    await notifyPaper(env, trade.user_id,
         `💰 가상매매 익절`,
         `${trade.symbol} ${tpLabel} $${price.toFixed(2)} | ${pnlStr}`
     );
@@ -231,7 +250,7 @@ export async function paperClosePosition(env, trade, price, reason) {
         timeout:    `⏰ 가상매매 타임아웃 청산`,
     };
     const title = titleMap[reason] || `📋 가상매매 청산`;
-    notifyPaper(env, trade.user_id, title,
+    await notifyPaper(env, trade.user_id, title,
         `${trade.symbol} $${price.toFixed(2)} | ${pnlStr}`
     );
 }
@@ -359,11 +378,14 @@ async function _manageOne(env, pos, price) {
     if (!pos.tp1_done && pos.avg_price) {
         const retPct = (price - pos.avg_price) / pos.avg_price * (isShort ? -1 : 1);
 
-        // ① 극값 기반: +0.3% 이상 찍고 평단 복귀 → 즉시 청산
+        // ① 극값 기반: 충분히 수익 찍고 평단 복귀 → 청산
+        // 롱: +1.5% 이상 찍어야 발동 (노이즈 허용) / 숏: -0.6% 저점 찍으면 즉시 잠금
         const peakOk = pos.peak_price && (isShort
-            ? pos.peak_price <= pos.avg_price * (2 - BE_PEAK)   // 숏: 저점 -0.3%
-            : pos.peak_price >= pos.avg_price * BE_PEAK);        // 롱: 고점 +0.3%
-        const exitOk = isShort ? price >= pos.avg_price * BE_EXIT : price < pos.avg_price * BE_EXIT;
+            ? pos.peak_price <= pos.avg_price * (2 - BE_PEAK_SHORT)
+            : pos.peak_price >= pos.avg_price * BE_PEAK_LONG);
+        const exitOk = isShort
+            ? price >= pos.avg_price * BE_EXIT_SHORT  // 숏: 평단 +0.05% 복귀 시 즉시
+            : price < pos.avg_price * BE_EXIT_LONG;   // 롱: 평단 -0.5% 복귀 시
         if (peakOk && exitOk) {
             await paperClosePosition(env, pos, price, 'be_protect');
             return;

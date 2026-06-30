@@ -2546,6 +2546,17 @@
         showToast('캐시 초기화 완료 — 새로고침합니다');
         setTimeout(() => location.reload(), 800);
     }
+    async function forceUpdate() {
+        closeSideNav();
+        showToast('업데이트 중…');
+        try {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(r => r.unregister()));
+            const keys = await caches.keys();
+            await Promise.all(keys.map(k => caches.delete(k)));
+        } catch(_){}
+        setTimeout(() => location.reload(true), 600);
+    }
 
     // ── 정보 ───────────────────────────────────────────────────
     function _renderSettingsAbout(body) {
@@ -6439,7 +6450,7 @@ setDrawTool, setDrawColor, setDrawWidth, undoDraw, clearAllDrawings, toggleDrawT
         // 통합 설정
         openSettings, closeSettings, setSettingsTab,
         _setSettingsTheme, _setSettingsMarket, _setSettingsCurrency,
-        _clearSigHistoryFromSettings, _clearFavsFromSettings, _clearSwCacheFromSettings,
+        _clearSigHistoryFromSettings, _clearFavsFromSettings, _clearSwCacheFromSettings, forceUpdate,
         _sideNavSearchKey, _sideNavSearchInput,
         _renderRecentSearchStrip, _clickRecentChip, _deleteRecentSearch, _clearAllRecentSearches,
         loadOptionsPopular, _optPopSwitch, _renderOptionsPopular,

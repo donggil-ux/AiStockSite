@@ -74,7 +74,7 @@ function evalBar(q, ind, i, dir, htfLag, spxTrendUp, ts, vwapArr) {
     if (volRecovery)          { qs += 2; reasons.push(`거래량 회복 ${volRatio.toFixed(1)}x`); }
     else if (volRatio >= 1.2) { qs += 1; reasons.push(`거래량 ${volRatio.toFixed(1)}x`); }
 
-    // 필터 4: 직전 봉 과열 방지 + 현재 봉 방향
+    // 필터 4: 직전 봉 과열 방지 + 현재 봉 방향 (소프트 보너스 — 하드 차단 없음)
     if (i > 0 && open[i - 1] != null && open[i - 1] > 0) {
         const prevMove = ((close[i - 1] - open[i - 1]) / open[i - 1]) * 100;
         if (dir === 'buy'  && prevMove < -3) return { pass: false, qs };
@@ -82,8 +82,8 @@ function evalBar(q, ind, i, dir, htfLag, spxTrendUp, ts, vwapArr) {
     }
     if (open[i] != null) {
         const bull = close[i] > open[i];
-        if (dir === 'buy')  { if (bull) { qs += 1; reasons.push('양봉 반등'); } else return { pass: false, qs }; }
-        else                { if (!bull){ qs += 1; reasons.push('음봉 하락'); } else return { pass: false, qs }; }
+        if (dir === 'buy'  && bull)  { qs += 1; reasons.push('양봉 반등'); }
+        if (dir === 'sell' && !bull) { qs += 1; reasons.push('음봉 하락'); }
     }
 
     // 필터 5: ATR 변동성
@@ -127,7 +127,7 @@ function evalBar(q, ind, i, dir, htfLag, spxTrendUp, ts, vwapArr) {
 }
 
 function gradeOf(qs) { return qs >= 8 ? 'S' : qs >= 6 ? 'A' : 'B'; } // pass=qs≥5 → 최소 B
-const _htfLag = (interval) => interval === '15m' ? 4 : interval === '30m' ? 2 : 6;
+const _htfLag = (interval) => interval === '15m' ? 4 : interval === '30m' ? 2 : 3; // 5m: 75분(15봉) 추세 확인 — 기존 150분(30봉)은 반등 구간에서 과차단
 
 // 최근 봉을 스캔해 가장 최근 통과 셋업 반환 (실시간 스캐너용)
 export function smartDipScan(q, { interval = '5m', ts = [], spxTrendUp = null, lookback, measuredWin = null } = {}) {

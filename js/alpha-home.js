@@ -7861,20 +7861,14 @@
         if (!wrap) { _clearPaperAutoRefresh(); return; }
         const user = window.Clerk?.user;
         if (!user) {
-            wrap.innerHTML = `<div class="card" style="margin-bottom:12px;">
-                <div class="card-title"><span class="dot" style="background:var(--blue)"></span>💹 가상 매매 계좌</div>
-                <div style="padding:12px 0;color:var(--text3);font-size:13px;">로그인 후 이용할 수 있습니다.</div>
+            wrap.innerHTML = `<div style="background:var(--bg2);border-radius:16px;padding:16px;margin-bottom:12px;">
+                <div style="font-size:14px;color:var(--text3);">로그인 후 이용할 수 있습니다.</div>
             </div>`;
             return;
         }
-
-        wrap.innerHTML = `<div class="card" style="margin-bottom:12px;">
-            <div class="card-title"><span class="dot" style="background:var(--blue)"></span>💹 가상 매매 계좌
-                <button onclick="window._paperReset()" style="margin-left:auto;padding:3px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text3);cursor:pointer;">초기화</button>
-            </div>
-            <div style="color:var(--text3);font-size:12px;padding:8px 0;">불러오는 중…</div>
+        wrap.innerHTML = `<div style="background:var(--bg2);border-radius:16px;padding:16px;margin-bottom:12px;">
+            <div style="font-size:13px;color:var(--text3);">불러오는 중…</div>
         </div>`;
-
         try {
             const token = await window.getAuthToken?.();
             const r = await fetch(`${API_BASE}/api/paper/account`, {
@@ -7883,7 +7877,6 @@
             if (!r.ok) throw new Error('api error');
             const d = await r.json();
 
-            // 현재가 병렬 조회 (오픈 포지션)
             const openPos = d.open_positions || [];
             const priceMap = {};
             await Promise.allSettled(openPos.map(async p => {
@@ -7893,102 +7886,92 @@
                 } catch (_) {}
             }));
 
-            const DAILY_TARGET_USD = 370; // 50만원
-            const fmt = v => v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(2);
-            const fmtDollar = v => v == null ? '—' : (v >= 0 ? '+$' : '-$') + Math.abs(v).toFixed(0);
-
-            // 오늘 실현 손익 (fills 에서 직접 계산 — API에는 없으므로 추정)
-            const todayPnl = d.total_pnl || 0; // 누적 실현 (임시 — 추후 일별 API 분리 가능)
-
-            const totalEquity = d.balance + openPos.reduce((s, p) => {
+            const SEED = 100000;
+            const unrealizedTotal = openPos.reduce((s, p) => {
                 const cur = priceMap[p.symbol];
                 if (!cur || !p.total_qty) return s;
-                return s + cur * p.total_qty + (p.realized_pnl || 0);
+                const mult = p.dir === 'short' ? -1 : 1;
+                return s + (cur - p.avg_price) * p.total_qty * mult;
             }, 0);
-            const totalReturn = ((totalEquity - 100000) / 100000 * 100);
+            const investedTotal = openPos.reduce((s, p) => s + (p.avg_price || 0) * (p.total_qty || 0), 0);
+            const totalEquity = d.balance + investedTotal + unrealizedTotal;
+            const totalReturn = totalEquity - SEED;
+            const totalRetPct = (totalReturn / SEED * 100);
+            const retColor = totalReturn >= 0 ? 'var(--green)' : 'var(--red)';
+            const retSign = totalReturn >= 0 ? '+' : '';
             const wr = d.summary?.win_rate;
+            const closed = d.summary?.closed_count || 0;
 
-            // 일일 목표 진행률 바
-            const dailyPct = Math.min(Math.max(todayPnl / DAILY_TARGET_USD, 0), 1);
-            const dailyBarColor = todayPnl < 0 ? 'var(--red)' : todayPnl >= DAILY_TARGET_USD ? 'var(--green)' : 'var(--blue)';
-            const dailyLabel = todayPnl >= DAILY_TARGET_USD ? '✓ 오늘 목표 달성!' : todayPnl < 0 ? `손실 ${fmtDollar(todayPnl)}` : `목표 ${Math.round(dailyPct*100)}%`;
-            const dailyBarHtml = `<div style="margin-bottom:12px;">
-                <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px;">
-                    <span>일일 목표 $${DAILY_TARGET_USD} (≈50만원)</span>
-                    <span style="color:${dailyBarColor};font-weight:700;">${dailyLabel}</span>
-                </div>
-                <div style="height:5px;background:var(--bg2);border-radius:3px;overflow:hidden;">
-                    <div style="height:100%;width:${Math.round(dailyPct*100)}%;background:${dailyBarColor};border-radius:3px;transition:width .3s;"></div>
-                </div>
-            </div>`;
+            const statRow = (label, val, valColor = 'var(--text)', sub = '') => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border);">
+                    <span style="font-size:14px;color:var(--text3);">${label}</span>
+                    <div style="text-align:right;">
+                        <div style="font-size:15px;font-weight:700;color:${valColor};">${val}</div>
+                        ${sub ? `<div style="font-size:11px;color:var(--text3);margin-top:2px;">${sub}</div>` : ''}
+                    </div>
+                </div>`;
 
             let posHtml = '';
             for (const p of openPos) {
                 const cur = priceMap[p.symbol];
-                const unreal = cur && p.total_qty ? ((cur - p.avg_price) / p.avg_price * 100) : null;
-                const unrealAmt = cur && p.total_qty ? (cur - p.avg_price) * p.total_qty : null;
+                const mult = p.dir === 'short' ? -1 : 1;
+                const unrealAmt = cur && p.total_qty ? (cur - p.avg_price) * p.total_qty * mult : null;
+                const unrealPct = cur ? ((cur - p.avg_price) / p.avg_price * mult * 100) : null;
+                const pnlColor = unrealAmt == null ? 'var(--text3)' : unrealAmt >= 0 ? 'var(--green)' : 'var(--red)';
+                const sym = escHtml(p.symbol);
                 const dirLabel = p.dir === 'long' ? '매수' : '매도';
-                const tpBadge = [p.tp1_done && 'TP1', p.tp2_done && 'TP2', p.tp3_done && 'TP3'].filter(Boolean).map(t => `<span style="font-size:10px;padding:1px 4px;background:rgba(34,197,94,.15);color:var(--green);border-radius:3px;">${t}✓</span>`).join(' ');
-                const trancheLabel = `${p.tranche_count}/3분`;
-                // 트랜치 진행 도트 (최대 3분할)
-                const dots = Array.from({length:3}, (_,i) => `<span style="width:5px;height:5px;border-radius:50%;display:inline-block;background:${i<p.tranche_count?'var(--blue)':'var(--bg2)'}"></span>`).join('');
-                posHtml += `<div style="padding:9px 0;border-bottom:1px solid var(--border);">
-                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                        <span style="font-weight:700;font-size:14px;">${escHtml(p.symbol)}</span>
-                        <span style="font-size:11px;padding:1px 6px;background:${p.dir==='long'?'rgba(34,197,94,.15)':'rgba(239,68,68,.15)'};color:${p.dir==='long'?'var(--green)':'var(--red)'};border-radius:4px;">${dirLabel}</span>
-                        <span style="display:flex;gap:2px;align-items:center;">${dots}</span>
-                        <span style="font-size:10px;color:var(--text3);">${trancheLabel}</span>
-                        ${tpBadge}
-                        <span style="margin-left:auto;font-size:13px;font-weight:700;color:${unreal==null?'var(--text3)':unreal>=0?'var(--green)':'var(--red)'}">${unreal==null?'—':fmt(unreal)+'%'}</span>
-                    </div>
-                    <div style="display:flex;gap:10px;margin-top:5px;font-size:11px;color:var(--text3);flex-wrap:wrap;">
-                        <span>평단 $${p.avg_price?.toFixed(2)||'—'}</span>
-                        <span>수량 ${p.total_qty!=null?p.total_qty.toFixed(2)+'주':'—'}</span>
-                        <span>현재 ${cur?'$'+cur.toFixed(2):'—'}</span>
-                        <span>손절 $${p.stop_price?.toFixed(2)||'—'}</span>
-                        ${unrealAmt!=null?`<span style="color:${unrealAmt>=0?'var(--green)':'var(--red)'};">${unrealAmt>=0?'+$':'-$'}${Math.abs(unrealAmt).toFixed(0)}</span>`:''}
+                const dirBg = p.dir === 'long' ? 'rgba(59,130,246,.15)' : 'rgba(239,68,68,.15)';
+                const dirClr = p.dir === 'long' ? 'var(--blue)' : 'var(--red)';
+                posHtml += `<div style="display:flex;align-items:center;gap:14px;padding:16px;border-bottom:1px solid var(--border);">
+                    ${_tickerLogo(sym, 44, '12px')}
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+                            <div style="display:flex;align-items:center;gap:7px;">
+                                <span style="font-size:16px;font-weight:800;color:var(--text);">${sym}</span>
+                                <span style="font-size:11px;padding:2px 7px;border-radius:5px;font-weight:700;background:${dirBg};color:${dirClr};">${dirLabel}</span>
+                            </div>
+                            <span style="font-size:17px;font-weight:800;color:${pnlColor};">${unrealAmt!=null?(unrealAmt>=0?'+$':'-$')+Math.abs(unrealAmt).toFixed(0):'—'}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <span style="font-size:13px;color:var(--text3);">평단 $${p.avg_price?.toFixed(2)||'—'} → ${cur?'$'+cur.toFixed(2):'—'}</span>
+                            <span style="font-size:13px;color:${pnlColor};">${unrealPct!=null?(unrealPct>=0?'+':'')+unrealPct.toFixed(2)+'%':'—'}</span>
+                        </div>
                     </div>
                 </div>`;
             }
-            if (!posHtml) posHtml = `<div style="padding:10px 0;color:var(--text3);font-size:12px;">보유 포지션 없음 — 미국 장중 S/A 시그널 발생 시 자동 진입</div>`;
+            if (!posHtml) posHtml = `<div style="padding:16px;color:var(--text3);font-size:13px;text-align:center;">보유 포지션 없음 — 미국 장중 S/A 시그널 발생 시 자동 진입</div>`;
 
-            wrap.innerHTML = `<div class="card" style="margin-bottom:12px;">
-                <div class="card-title" style="display:flex;align-items:center;"><span class="dot" style="background:var(--blue)"></span>💹 가상 매매 계좌
-                    <button onclick="window._paperReset()" style="margin-left:auto;padding:3px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text3);cursor:pointer;">초기화</button>
+            wrap.innerHTML = `
+            <div style="background:var(--bg2);border-radius:16px;overflow:hidden;margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 16px 0;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="width:8px;height:8px;border-radius:50%;background:var(--blue);display:inline-block;flex-shrink:0;"></span>
+                        <span style="font-size:15px;font-weight:800;color:var(--text);">가상 매매 계좌</span>
+                    </div>
+                    <button onclick="window._paperReset()" style="padding:5px 13px;background:transparent;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text3);cursor:pointer;white-space:nowrap;">초기화</button>
                 </div>
-                ${dailyBarHtml}
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 0 12px;">
-                    <div style="background:var(--bg2);border-radius:8px;padding:10px 12px;">
-                        <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">총 자산</div>
-                        <div style="font-size:16px;font-weight:800;">$${totalEquity.toFixed(0)}</div>
-                        <div style="font-size:11px;color:${totalReturn>=0?'var(--green)':'var(--red)'};">${fmt(totalReturn)}%</div>
-                    </div>
-                    <div style="background:var(--bg2);border-radius:8px;padding:10px 12px;">
-                        <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">현금</div>
-                        <div style="font-size:16px;font-weight:800;">$${d.balance.toFixed(0)}</div>
-                        <div style="font-size:11px;color:${d.total_pnl>=0?'var(--green)':'var(--red)'};">누적 실현 ${fmtDollar(d.total_pnl)}</div>
-                    </div>
-                    <div style="background:var(--bg2);border-radius:8px;padding:10px 12px;">
-                        <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">보유 종목</div>
-                        <div style="font-size:16px;font-weight:800;">${d.summary.open_count}종목</div>
-                    </div>
-                    <div style="background:var(--bg2);border-radius:8px;padding:10px 12px;">
-                        <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">승률</div>
-                        <div style="font-size:16px;font-weight:800;">${wr!=null?Math.round(wr*100)+'%':'—'}</div>
-                        <div style="font-size:11px;color:var(--text3);">${d.summary.closed_count}건 거래</div>
-                    </div>
+                <div style="padding:20px 16px 22px;text-align:center;border-bottom:1px solid var(--border);">
+                    <div style="font-size:34px;font-weight:900;color:${retColor};letter-spacing:-1px;">${retSign}${totalRetPct.toFixed(2)}%</div>
+                    <div style="font-size:13px;color:var(--text3);margin-top:6px;">${retSign}$${Math.abs(totalReturn).toFixed(0)} · 시드 $${SEED.toLocaleString()} 대비</div>
                 </div>
-                <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;">보유 포지션</div>
+                ${statRow('총 자산', '$'+Math.round(totalEquity).toLocaleString())}
+                ${statRow('현금 잔고', '$'+Math.round(d.balance).toLocaleString())}
+                ${statRow('누적 실현 손익', (d.total_pnl>=0?'+$':'-$')+Math.abs(d.total_pnl||0).toFixed(0), d.total_pnl>=0?'var(--green)':'var(--red)')}
+                ${statRow('승률', wr!=null?Math.round(wr*100)+'%':'—', 'var(--text)', closed+'건 거래')}
+                <div style="padding:18px 16px 10px;border-top:4px solid var(--border);">
+                    <span style="font-size:13px;font-weight:700;color:var(--text2);">보유 포지션</span>
+                </div>
                 ${posHtml}
-                <div style="font-size:12px;font-weight:700;color:var(--text2);margin:14px 0 6px;">체결 내역</div>
-                <div id="paperFillsSection"><div style="color:var(--text3);font-size:12px;padding:6px 0;">불러오는 중…</div></div>
-                <button onclick="_renderPaperTradeHistory()" style="width:100%;margin-top:10px;padding:8px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text2);cursor:pointer;">거래 내역 보기 ›</button>
+                <div style="padding:18px 16px 10px;border-top:4px solid var(--border);">
+                    <span style="font-size:13px;font-weight:700;color:var(--text2);">최근 체결</span>
+                </div>
+                <div id="paperFillsSection"><div style="padding:16px;color:var(--text3);font-size:13px;">불러오는 중…</div></div>
             </div>
             <div id="paperTradeHistory"></div>`;
-            // 체결 내역 비동기 로드
-            _loadPaperFills();
 
-            // 3분 자동 갱신 (프로필 화면이 살아있을 때만)
+            _loadPaperFills();
+            _renderPaperTradeHistory();
+
             _clearPaperAutoRefresh();
             _paperAutoRefreshTimer = setInterval(() => {
                 const profileVisible = document.getElementById('profileScreen')?.style.display !== 'none';
@@ -7999,11 +7982,21 @@
                 }
             }, 3 * 60 * 1000);
         } catch (e) {
-            if (wrap) wrap.innerHTML = `<div class="card" style="margin-bottom:12px;">
-                <div class="card-title"><span class="dot" style="background:var(--blue)"></span>💹 가상 매매 계좌</div>
-                <div style="padding:8px 0;color:var(--text3);font-size:12px;">로드 실패 — 잠시 후 다시 시도해주세요.</div>
+            if (wrap) wrap.innerHTML = `<div style="background:var(--bg2);border-radius:16px;padding:16px;margin-bottom:12px;">
+                <div style="font-size:13px;color:var(--text3);">로드 실패 — 잠시 후 다시 시도해주세요.</div>
             </div>`;
         }
+    }
+
+    // 종목 로고 — Parqet CDN (기존 스캐너와 동일 소스), 실패 시 이니셜 폴백
+    function _tickerLogo(sym, size = 40, radius = '12px') {
+        const initial = (sym[0] || '?').toUpperCase();
+        const url = `https://assets.parqet.com/logos/symbol/${encodeURIComponent(sym)}?format=png`;
+        const fs = Math.round(size * 0.38);
+        return `<div style="width:${size}px;height:${size}px;border-radius:${radius};overflow:hidden;background:var(--bg2);flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+            <img src="${url}" width="${size}" height="${size}" style="object-fit:contain;"
+                onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'${initial}',style:'font-size:${fs}px;font-weight:900;color:var(--text2);'}))">
+        </div>`;
     }
 
     async function _loadPaperFills() {
@@ -8018,48 +8011,60 @@
             const d = await r.json();
             const fills = d.fills || [];
             if (!fills.length) {
-                sec.innerHTML = `<div style="color:var(--text3);font-size:12px;padding:4px 0;">체결 내역 없음</div>`;
+                sec.innerHTML = `<div style="padding:16px;color:var(--text3);font-size:13px;text-align:center;">체결 내역 없음</div>`;
                 return;
             }
             const fillMeta = {
-                buy_t1:  { icon: '📥', label: '1차 매수', color: 'var(--text2)' },
-                buy_t2:  { icon: '📥', label: '2차 매수', color: 'var(--text2)' },
-                buy_t3:  { icon: '📥', label: '3차 매수', color: 'var(--text2)' },
-                buy_t4:  { icon: '📥', label: '4차 매수', color: 'var(--text2)' },
-                buy_t5:  { icon: '📥', label: '5차 매수', color: 'var(--text2)' },
-                buy_t6:  { icon: '📥', label: '6차 매수', color: 'var(--text2)' },
-                buy_t7:  { icon: '📥', label: '7차 매수', color: 'var(--text2)' },
-                buy_t8:  { icon: '📥', label: '8차 매수', color: 'var(--text2)' },
-                sell_tp1:       { icon: '✅', label: 'TP1 익절', color: 'var(--green)' },
-                sell_tp2:       { icon: '✅', label: 'TP2 익절', color: 'var(--green)' },
-                sell_tp3:       { icon: '✅', label: 'TP3 익절', color: 'var(--green)' },
-                sell_trail:     { icon: '🚀', label: '트레일 청산', color: 'var(--green)' },
-                sell_be_protect:{ icon: '🛡️', label: '본절보호 청산', color: 'var(--amber, #f59e0b)' },
-                sell_eod:       { icon: '🔔', label: '장마감 청산', color: 'var(--text2)' },
-                sell_timeout:   { icon: '⏰', label: '3일 타임아웃', color: 'var(--text3)' },
-                sell_stop:      { icon: '🔴', label: '손절', color: 'var(--red)' },
-                sell_manual:    { icon: '⬜', label: '수동 청산', color: 'var(--text3)' },
+                buy_t1:          { label: '1차 매수',    isBuy: true },
+                buy_t2:          { label: '2차 매수',    isBuy: true },
+                sell_tp1:        { label: 'TP1 익절',    isBuy: false },
+                sell_tp2:        { label: 'TP2 익절',    isBuy: false },
+                sell_tp3:        { label: 'TP3 익절',    isBuy: false },
+                sell_trail:      { label: '트레일 청산', isBuy: false },
+                sell_be_protect: { label: '본전보호',    isBuy: false },
+                sell_eod:        { label: '장마감',      isBuy: false },
+                sell_stop:       { label: '손절',        isBuy: false },
+                sell_manual:     { label: '수동 청산',   isBuy: false },
             };
-            const fmtTime = ts => {
-                const d = new Date(ts);
-                return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) + ' ' + d.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
+            const fmtTime = ts => new Date(ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+            const fmtDate = ts => {
+                const now = new Date(); const d = new Date(ts);
+                const diff = Math.floor((now - d) / 86400000);
+                if (diff === 0) return '오늘';
+                if (diff === 1) return '어제';
+                return d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
             };
-            const rows = fills.map(f => {
-                const m = fillMeta[f.fill_type] || { icon: '·', label: f.fill_type, color: 'var(--text3)' };
-                const isSell = f.fill_type.startsWith('sell_');
-                const pnlHtml = isSell && f.pnl != null
-                    ? `<span style="font-size:11px;font-weight:700;color:${f.pnl >= 0 ? 'var(--green)' : 'var(--red)'};">${f.pnl >= 0 ? '+$' : '-$'}${Math.abs(f.pnl).toFixed(0)}</span>`
-                    : `<span style="font-size:11px;color:var(--text3);">$${f.amount?.toFixed(0)||'—'}</span>`;
-                return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;">
-                    <span style="font-size:14px;">${m.icon}</span>
-                    <span style="font-weight:700;min-width:44px;">${escHtml(f.symbol||'')}</span>
-                    <span style="color:${m.color};min-width:72px;">${m.label}</span>
-                    <span style="color:var(--text3);">$${f.price?.toFixed(2)||'—'}</span>
-                    <span style="margin-left:auto;">${pnlHtml}</span>
-                    <span style="color:var(--text3);font-size:10px;white-space:nowrap;">${fmtTime(f.filled_at)}</span>
-                </div>`;
+            const groups = {};
+            fills.forEach(f => {
+                const key = new Date(f.filled_at).toDateString();
+                (groups[key] = groups[key] || { label: fmtDate(f.filled_at), ts: f.filled_at, items: [] }).items.push(f);
+            });
+            const html = Object.values(groups).map(g => {
+                const items = g.items.map(f => {
+                    const m = fillMeta[f.fill_type] || { label: f.fill_type, isBuy: f.fill_type?.startsWith('buy') };
+                    const isSell = !m.isBuy;
+                    const sym = escHtml(f.symbol || '');
+                    const pnlVal = f.pnl || 0;
+                    const amtHtml = isSell && f.pnl != null
+                        ? `<span style="font-size:16px;font-weight:800;color:${pnlVal>=0?'var(--green)':'var(--red)'};">${pnlVal>=0?'+':'-'}$${Math.abs(pnlVal).toFixed(0)}</span>`
+                        : `<span style="font-size:16px;font-weight:700;color:var(--text2);">-$${(f.amount||0).toFixed(0)}</span>`;
+                    return `<div style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid var(--border);">
+                        ${_tickerLogo(sym, 44, '12px')}
+                        <div style="flex:1;min-width:0;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+                                <span style="font-size:16px;font-weight:800;color:var(--text);">${sym}</span>
+                                ${amtHtml}
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                <span style="font-size:13px;color:var(--text3);">${m.label} · $${f.price?.toFixed(2)||'—'}</span>
+                                <span style="font-size:13px;color:var(--text3);">${fmtTime(f.filled_at)}</span>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('');
+                return `<div style="padding:10px 16px 6px;font-size:12px;font-weight:700;color:var(--text3);">${g.label}</div>${items}`;
             }).join('');
-            sec.innerHTML = rows;
+            sec.innerHTML = html;
         } catch (_) {
             if (sec) sec.innerHTML = '';
         }
@@ -8094,33 +8099,83 @@
     async function _renderPaperTradeHistory() {
         const wrap = document.getElementById('paperTradeHistory');
         if (!wrap) return;
-        wrap.innerHTML = '<div style="padding:8px 0;color:var(--text3);font-size:12px;">불러오는 중…</div>';
         try {
             const token = await window.getAuthToken?.();
-            const r = await fetch(`${API_BASE}/api/paper/trades?limit=20`, {
+            const r = await fetch(`${API_BASE}/api/paper/trades?limit=30`, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
             if (!r.ok) throw new Error();
             const d = await r.json();
             const trades = d.trades || [];
-            if (!trades.length) { wrap.innerHTML = '<div style="padding:8px 0;color:var(--text3);font-size:12px;">거래 내역 없음</div>'; return; }
-            const fmt = v => v==null?'—':(v>=0?'+$':'-$')+Math.abs(v).toFixed(0);
-            const fmtDate = ts => ts ? new Date(ts).toLocaleDateString('ko-KR',{month:'short',day:'numeric'}) : '—';
-            const rows = trades.map(t => {
-                const pnlColor = (t.realized_pnl||0)>=0?'var(--green)':'var(--red)';
-                const reasonMap = { stop:'손절', tp4_trail:'트레일', be_protect:'본전보호', eod_close:'장마감', manual:'수동', timeout:'만료' };
-                return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;">
-                    <div>
-                        <span style="font-weight:700;">${escHtml(t.symbol)}</span>
-                        <span style="margin-left:6px;color:var(--text3);">${fmtDate(t.created_at)} → ${fmtDate(t.exit_at)}</span>
-                        <span style="margin-left:6px;font-size:10px;padding:1px 5px;background:var(--bg2);border-radius:4px;">${reasonMap[t.close_reason]||t.close_reason||'—'}</span>
-                    </div>
-                    <span style="font-weight:700;color:${pnlColor};">${fmt(t.realized_pnl)}</span>
-                </div>`;
+            if (!trades.length) { wrap.innerHTML = ''; return; }
+
+            const reasonMap = {
+                stop:       { label: '손절',        color: 'var(--red)' },
+                tp4_trail:  { label: '트레일 익절',  color: 'var(--green)' },
+                be_protect: { label: '본전보호',     color: '#f59e0b' },
+                eod_close:  { label: '장마감',       color: 'var(--text3)' },
+                manual:     { label: '수동 청산',    color: 'var(--text3)' },
+                timeout:    { label: '만료',         color: 'var(--text3)' },
+            };
+            const fmtDate = ts => {
+                if (!ts) return '—';
+                const now = new Date(); const d = new Date(ts);
+                const diff = Math.floor((now - d) / 86400000);
+                if (diff === 0) return '오늘';
+                if (diff === 1) return '어제';
+                return d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
+            };
+            const fmtTime = ts => ts ? new Date(ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '';
+
+            const groups = {};
+            trades.forEach(t => {
+                const key = new Date(t.exit_at || t.created_at).toDateString();
+                (groups[key] = groups[key] || { label: fmtDate(t.exit_at || t.created_at), items: [] }).items.push(t);
+            });
+
+            const html = Object.values(groups).map(g => {
+                const items = g.items.map(t => {
+                    const pnl      = t.realized_pnl || 0;
+                    const pnlColor = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+                    const pnlText  = (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(0);
+                    const sym      = escHtml(t.symbol || '');
+                    const reason   = reasonMap[t.close_reason] || { label: t.close_reason || '—', color: 'var(--text3)' };
+                    const dirLabel = t.dir === 'long' ? '매수' : '매도';
+                    const dirBg    = t.dir === 'long' ? 'rgba(59,130,246,.15)' : 'rgba(239,68,68,.15)';
+                    const dirClr   = t.dir === 'long' ? 'var(--blue)' : 'var(--red)';
+                    const pctRaw   = t.avg_price && t.total_qty ? (pnl / (t.avg_price * t.total_qty) * 100) : null;
+                    const pctText  = pctRaw != null ? (pctRaw >= 0 ? '+' : '') + pctRaw.toFixed(1) + '%' : '';
+                    return `<div style="display:flex;align-items:center;gap:14px;padding:16px;border-bottom:1px solid var(--border);">
+                        ${_tickerLogo(sym, 44, '12px')}
+                        <div style="flex:1;min-width:0;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+                                <div style="display:flex;align-items:center;gap:7px;">
+                                    <span style="font-size:16px;font-weight:800;color:var(--text);">${sym}</span>
+                                    <span style="font-size:11px;padding:2px 7px;border-radius:5px;font-weight:700;background:${dirBg};color:${dirClr};">${dirLabel}</span>
+                                </div>
+                                <div style="text-align:right;">
+                                    <span style="font-size:17px;font-weight:800;color:${pnlColor};">${pnlText}</span>
+                                    ${pctText ? `<div style="font-size:11px;color:${pnlColor};margin-top:1px;">${pctText}</div>` : ''}
+                                </div>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                <div style="display:flex;align-items:center;gap:6px;">
+                                    <span style="font-size:12px;padding:2px 7px;border-radius:5px;background:var(--bg3,var(--bg));color:${reason.color};font-weight:600;">${reason.label}</span>
+                                    ${t.grade ? `<span style="font-size:12px;color:var(--text3);">${t.grade}등급</span>` : ''}
+                                </div>
+                                <span style="font-size:12px;color:var(--text3);">${fmtTime(t.exit_at)}</span>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('');
+                return `<div style="padding:10px 16px 6px;font-size:12px;font-weight:700;color:var(--text3);">${g.label}</div>${items}`;
             }).join('');
-            wrap.innerHTML = `<div class="card" style="margin-bottom:12px;">
-                <div class="card-title"><span class="dot" style="background:var(--yellow)"></span>최근 거래 내역</div>
-                ${rows}
+
+            wrap.innerHTML = `<div style="background:var(--bg2);border-radius:16px;overflow:hidden;margin-bottom:12px;">
+                <div style="padding:18px 16px 10px;">
+                    <span style="font-size:15px;font-weight:800;color:var(--text);">거래 내역</span>
+                </div>
+                ${html}
             </div>`;
         } catch (_) { wrap.innerHTML = ''; }
     }
