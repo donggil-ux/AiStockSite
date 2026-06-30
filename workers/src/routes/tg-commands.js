@@ -48,18 +48,29 @@ export async function handleTgWebhook(req, env) {
     return new Response('ok');
 }
 
-// 현재가 해석 헬퍼 — 프리마켓 → 포스트마켓 → 정규장 순으로 최신값 반환
-function _latestPrice(meta) {
-    return meta?.preMarketPrice || meta?.postMarketPrice || meta?.regularMarketPrice || 0;
+// /v7/finance/quote — preMarketPrice·postMarketPrice·regularMarketPrice 모두 정확하게 반환
+// /v8/finance/chart 의 meta.regularMarketPrice 는 프리마켓 시간에 전날 종가를 반환해서 부정확
+async function _quotePrice(env, symbols) {
+    try {
+        const syms = Array.isArray(symbols) ? symbols : [symbols];
+        const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${syms.map(encodeURIComponent).join(',')}&fields=regularMarketPrice,preMarketPrice,postMarketPrice,regularMarketPreviousClose,marketState`;
+        const data = await yfRequest(env.CACHE, url);
+        const out = {};
+        for (const q of data?.quoteResponse?.result || []) {
+            out[q.symbol] = {
+                price:     q.preMarketPrice || q.postMarketPrice || q.regularMarketPrice || 0,
+                prevClose: q.regularMarketPreviousClose || 0,
+                state:     q.marketState || 'REGULAR',
+            };
+        }
+        return out;
+    } catch (_) { return {}; }
 }
 
 async function _fetchPrice(env, symbol) {
     try {
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1m&range=1d&includePrePost=true`;
-        const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(5000) });
-        if (!r.ok) return null;
-        const data = await r.json();
-        return _latestPrice(data?.chart?.result?.[0]?.meta) || null;
+        const quotes = await _quotePrice(env, [symbol]);
+        return quotes[symbol]?.price || null;
     } catch (_) { return null; }
 }
 
@@ -115,26 +126,29 @@ async function _liveScan(env, customSymbols) {
     const symbols = customSymbols.length ? customSymbols : DEFAULT_WATCHLIST;
     await _tgDirect(env, `🔍 ${symbols.length}개 종목 스캔 중...`);
 
-    const results = await Promise.allSettled(symbols.map(async sym => {
-        try {
-            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=2d&interval=5m&includePrePost=true`;
-            const data = await yfRequest(env.CACHE, url);
-            const res = data?.chart?.result?.[0];
-            if (!res) return null;
-            const q   = res.indicators?.quote?.[0] || {};
-            const ts  = res.timestamp || [];
-            const price = _latestPrice(res.meta);
-            const trend  = smartDipScan(q, { interval: '5m', ts, lookback: 3 });
-            const bounce = smartDipScanBounce(q, { ts, lookback: 3 });
-            const sig = (trend && bounce)
-                ? (trend.qualityScore >= bounce.qualityScore ? trend : bounce)
-                : (trend || bounce);
-            if (!sig) return null;
-            return { sym, price, sig };
-        } catch (_) { return null; }
-    }));
+    // 차트 분석 (기술적 신호) + 현재가 조회 (v7 quote) 병렬 실행
+    const [chartResults, quotes] = await Promise.all([
+        Promise.allSettled(symbols.map(async sym => {
+            try {
+                const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=2d&interval=5m&includePrePost=true`;
+                const data = await yfRequest(env.CACHE, url);
+                const res = data?.chart?.result?.[0];
+                if (!res) return null;
+                const q  = res.indicators?.quote?.[0] || {};
+                const ts = res.timestamp || [];
+                const trend  = smartDipScan(q, { interval: '5m', ts, lookback: 3 });
+                const bounce = smartDipScanBounce(q, { ts, lookback: 3 });
+                const sig = (trend && bounce)
+                    ? (trend.qualityScore >= bounce.qualityScore ? trend : bounce)
+                    : (trend || bounce);
+                if (!sig) return null;
+                return { sym, sig };
+            } catch (_) { return null; }
+        })),
+        _quotePrice(env, symbols),
+    ]);
 
-    const hits = results
+    const hits = chartResults
         .filter(r => r.status === 'fulfilled' && r.value)
         .map(r => r.value)
         .sort((a, b) => b.sig.qualityScore - a.sig.qualityScore);
@@ -145,12 +159,13 @@ async function _liveScan(env, customSymbols) {
     }
 
     const lines = [`📡 라이브 스캔 (${hits.length}/${symbols.length}건)\n`];
-    for (const { sym, price, sig } of hits.slice(0, 8)) {
+    for (const { sym, sig } of hits.slice(0, 8)) {
+        const price     = quotes[sym]?.price || sig.price;
         const emoji     = sig.dir === 'buy' ? '🟢' : '🔴';
         const modeLabel = sig.mode === 'bounce' ? '[반등]' : '[추세]';
         lines.push(`${emoji} <b>${sym}</b> [${sig.grade}] qs=${sig.qualityScore} ${modeLabel} $${price.toFixed(2)}`);
         lines.push(`   ${sig.reasons.slice(0, 3).join(' / ')}`);
-        if (sig.stop) lines.push(`   진입 $${price.toFixed(2)} | 손절 $${sig.stop.toFixed(2)} | 목표 $${(sig.target1 || 0).toFixed(2)}`);
+        if (sig.stop) lines.push(`   신호가 $${sig.price.toFixed(2)} | 손절 $${sig.stop.toFixed(2)} | 목표 $${(sig.target1 || 0).toFixed(2)}`);
     }
 
     await _tgDirect(env, lines.join('\n'));
@@ -166,9 +181,12 @@ async function _analyzeSymbol(env, symbol) {
 
         const q = result.indicators?.quote?.[0] || {};
         const ts = result.timestamp || [];
-        const meta = result.meta || {};
-        const price = _latestPrice(meta) || q.close?.filter(v => v != null).at(-1) || 0;
-        const prevClose = meta.chartPreviousClose || meta.regularMarketPreviousClose || 0;
+
+        // v7 quote 에서 정확한 현재가·등락률 가져오기 (차트 조회와 병렬)
+        const quoteMap = await _quotePrice(env, [symbol]);
+        const qt = quoteMap[symbol];
+        const price    = qt?.price || result.meta?.regularMarketPrice || 0;
+        const prevClose = qt?.prevClose || result.meta?.chartPreviousClose || 0;
         const chgPct = prevClose > 0 ? ((price - prevClose) / prevClose * 100) : 0;
         const chgStr = (chgPct >= 0 ? '+' : '') + chgPct.toFixed(2) + '%';
 
