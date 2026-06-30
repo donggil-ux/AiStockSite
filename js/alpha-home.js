@@ -8101,7 +8101,7 @@
         if (!wrap) return;
         try {
             const token = await window.getAuthToken?.();
-            const r = await fetch(`${API_BASE}/api/paper/trades?limit=30`, {
+            const r = await fetch(`${API_BASE}/api/paper/trades?limit=200`, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
             if (!r.ok) throw new Error();
@@ -8110,73 +8110,147 @@
             if (!trades.length) { wrap.innerHTML = ''; return; }
 
             const reasonMap = {
-                stop:       { label: '손절',        color: 'var(--red)' },
-                tp4_trail:  { label: '트레일 익절',  color: 'var(--green)' },
-                be_protect: { label: '본전보호',     color: '#f59e0b' },
-                eod_close:  { label: '장마감',       color: 'var(--text3)' },
-                manual:     { label: '수동 청산',    color: 'var(--text3)' },
-                timeout:    { label: '만료',         color: 'var(--text3)' },
+                stop:       { label: '손절',     color: 'var(--red)' },
+                tp4_trail:  { label: '트레일',   color: 'var(--green)' },
+                be_protect: { label: '본전보호', color: '#f59e0b' },
+                eod_close:  { label: '장마감',   color: 'var(--text3)' },
+                manual:     { label: '수동',     color: 'var(--text3)' },
+                timeout:    { label: '만료',     color: 'var(--text3)' },
             };
-            const fmtDate = ts => {
-                if (!ts) return '—';
-                const now = new Date(); const d = new Date(ts);
-                const diff = Math.floor((now - d) / 86400000);
-                if (diff === 0) return '오늘';
-                if (diff === 1) return '어제';
-                return d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
-            };
-            const fmtTime = ts => ts ? new Date(ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '';
 
-            const groups = {};
+            // 날짜별 집계 (YYYY-MM-DD)
+            const byDate = {};
             trades.forEach(t => {
-                const key = new Date(t.exit_at || t.created_at).toDateString();
-                (groups[key] = groups[key] || { label: fmtDate(t.exit_at || t.created_at), items: [] }).items.push(t);
+                const dt = new Date(t.exit_at || t.created_at);
+                const key = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+                if (!byDate[key]) byDate[key] = { pnl: 0, items: [] };
+                byDate[key].pnl += t.realized_pnl || 0;
+                byDate[key].items.push(t);
             });
 
-            const html = Object.values(groups).map(g => {
-                const items = g.items.map(t => {
-                    const pnl      = t.realized_pnl || 0;
-                    const pnlColor = pnl >= 0 ? 'var(--green)' : 'var(--red)';
-                    const pnlText  = (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(0);
-                    const sym      = escHtml(t.symbol || '');
-                    const reason   = reasonMap[t.close_reason] || { label: t.close_reason || '—', color: 'var(--text3)' };
-                    const dirLabel = t.dir === 'long' ? '매수' : '매도';
-                    const dirBg    = t.dir === 'long' ? 'rgba(59,130,246,.15)' : 'rgba(239,68,68,.15)';
-                    const dirClr   = t.dir === 'long' ? 'var(--blue)' : 'var(--red)';
-                    const pctRaw   = t.avg_price && t.total_qty ? (pnl / (t.avg_price * t.total_qty) * 100) : null;
-                    const pctText  = pctRaw != null ? (pctRaw >= 0 ? '+' : '') + pctRaw.toFixed(1) + '%' : '';
-                    return `<div style="display:flex;align-items:center;gap:14px;padding:16px;border-bottom:1px solid var(--border);">
-                        ${_tickerLogo(sym, 44, '50%')}
-                        <div style="flex:1;min-width:0;">
-                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-                                <div style="display:flex;align-items:center;gap:7px;">
-                                    <span style="font-size:16px;font-weight:800;color:var(--text);">${sym}</span>
-                                    <span style="font-size:11px;padding:2px 7px;border-radius:5px;font-weight:700;background:${dirBg};color:${dirClr};">${dirLabel}</span>
-                                </div>
-                                <div style="text-align:right;">
-                                    <span style="font-size:17px;font-weight:800;color:${pnlColor};">${pnlText}</span>
-                                    ${pctText ? `<div style="font-size:11px;color:${pnlColor};margin-top:1px;">${pctText}</div>` : ''}
-                                </div>
+            const today = new Date().toISOString().slice(0, 10);
+            let viewYear  = new Date().getFullYear();
+            let viewMonth = new Date().getMonth(); // 0-indexed
+            let selKey    = null; // 선택된 날짜
+
+            const fmtTime = ts => ts ? new Date(ts).toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' }) : '';
+
+            function tradeItem(t) {
+                const pnl     = t.realized_pnl || 0;
+                const pnlColor = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+                const sym     = escHtml(t.symbol || '');
+                const reason  = reasonMap[t.close_reason] || { label: t.close_reason || '—', color: 'var(--text3)' };
+                const dirLabel = t.dir === 'long' ? '매수' : '매도';
+                const dirBg   = t.dir === 'long' ? 'rgba(59,130,246,.15)' : 'rgba(239,68,68,.15)';
+                const dirClr  = t.dir === 'long' ? 'var(--blue)' : 'var(--red)';
+                const pctRaw  = t.avg_price && t.total_qty ? (pnl / (t.avg_price * t.total_qty) * 100) : null;
+                const pctText = pctRaw != null ? (pctRaw >= 0 ? '+' : '') + pctRaw.toFixed(1) + '%' : '';
+                return `<div style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid var(--border);">
+                    ${_tickerLogo(sym, 44, '50%')}
+                    <div style="flex:1;min-width:0;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+                            <div style="display:flex;align-items:center;gap:7px;">
+                                <span style="font-size:16px;font-weight:800;color:var(--text);">${sym}</span>
+                                <span style="font-size:11px;padding:2px 7px;border-radius:5px;font-weight:700;background:${dirBg};color:${dirClr};">${dirLabel}</span>
                             </div>
-                            <div style="display:flex;justify-content:space-between;align-items:center;">
-                                <div style="display:flex;align-items:center;gap:6px;">
-                                    <span style="font-size:12px;padding:2px 7px;border-radius:5px;background:var(--bg3,var(--bg));color:${reason.color};font-weight:600;">${reason.label}</span>
-                                    ${t.grade ? `<span style="font-size:12px;color:var(--text3);">${t.grade}등급</span>` : ''}
-                                </div>
-                                <span style="font-size:12px;color:var(--text3);">${fmtTime(t.exit_at)}</span>
+                            <div style="text-align:right;">
+                                <div style="font-size:17px;font-weight:800;color:${pnlColor};">${pnl>=0?'+$':'-$'}${Math.abs(pnl).toFixed(0)}</div>
+                                ${pctText ? `<div style="font-size:11px;color:${pnlColor};">${pctText}</div>` : ''}
                             </div>
                         </div>
-                    </div>`;
-                }).join('');
-                return `<div style="padding:10px 16px 6px;font-size:12px;font-weight:700;color:var(--text3);">${g.label}</div>${items}`;
-            }).join('');
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <span style="font-size:12px;padding:2px 7px;border-radius:5px;background:var(--bg3,var(--bg));color:${reason.color};font-weight:600;">${reason.label}</span>
+                            <span style="font-size:12px;color:var(--text3);">${fmtTime(t.exit_at)}</span>
+                        </div>
+                    </div>
+                </div>`;
+            }
 
-            wrap.innerHTML = `<div style="background:var(--bg2);border-radius:16px;overflow:hidden;margin-bottom:12px;">
-                <div style="padding:18px 16px 10px;">
-                    <span style="font-size:15px;font-weight:800;color:var(--text);">거래 내역</span>
-                </div>
-                ${html}
-            </div>`;
+            function render() {
+                const firstDay  = new Date(viewYear, viewMonth, 1).getDay();
+                const lastDate  = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+                // 이달 거래
+                const monthPrefix = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-`;
+                const monthTrades = trades.filter(t => {
+                    const dt = new Date(t.exit_at || t.created_at);
+                    return dt.getFullYear() === viewYear && dt.getMonth() === viewMonth;
+                });
+                const monthPnl = monthTrades.reduce((s, t) => s + (t.realized_pnl || 0), 0);
+
+                // 표시할 거래 목록
+                const listTrades = selKey && byDate[selKey] ? byDate[selKey].items : monthTrades;
+                const listLabel  = selKey
+                    ? `${selKey.slice(5).replace('-','/')} 거래 (${listTrades.length}건)`
+                    : `${viewMonth+1}월 전체 (${monthTrades.length}건)`;
+
+                // 캘린더 셀
+                let cells = Array(firstDay).fill('<div></div>').join('');
+                for (let day = 1; day <= lastDate; day++) {
+                    const key     = `${monthPrefix}${String(day).padStart(2,'0')}`;
+                    const data    = byDate[key];
+                    const isSel   = selKey === key;
+                    const isToday = today === key;
+                    const pnl     = data?.pnl || 0;
+                    const pnlColor = pnl > 0 ? '#22c55e' : '#ef4444';
+                    const dotDay  = new Date(viewYear, viewMonth, day).getDay();
+                    const numColor = isSel ? '#fff' : isToday ? 'var(--blue)' : dotDay === 0 ? '#ef4444' : dotDay === 6 ? '#60a5fa' : 'var(--text)';
+
+                    cells += `<div onclick="window._paperCalClick('${key}')" style="text-align:center;padding:4px 1px;cursor:${data?'pointer':'default'};min-height:54px;">
+                        <div style="width:28px;height:28px;border-radius:50%;margin:0 auto;display:flex;align-items:center;justify-content:center;
+                            background:${isSel?'var(--blue)':isToday?'rgba(59,130,246,.12)':'transparent'};
+                            font-size:13px;font-weight:${isToday||isSel?'800':'500'};color:${numColor};">${day}</div>
+                        ${data ? `<div style="font-size:9px;font-weight:700;color:${isSel?'rgba(255,255,255,.9)':pnlColor};margin-top:3px;line-height:1.2;">${pnl>=0?'+':''}$${Math.abs(pnl).toFixed(0)}</div>
+                        <div style="font-size:8px;color:${isSel?'rgba(255,255,255,.6)':'var(--text3)'};margin-top:1px;">${data.items.length}건</div>` : ''}
+                    </div>`;
+                }
+
+                wrap.innerHTML = `<div style="background:var(--bg2);border-radius:16px;overflow:hidden;margin-bottom:12px;">
+                    <!-- 월 네비게이션 -->
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 16px 12px;">
+                        <button onclick="window._paperCalNav(-1)" style="width:34px;height:34px;border:none;background:var(--bg3,var(--bg));border-radius:50%;cursor:pointer;font-size:18px;color:var(--text);display:flex;align-items:center;justify-content:center;">‹</button>
+                        <span style="font-size:16px;font-weight:800;color:var(--text);">${viewYear}년 ${viewMonth+1}월</span>
+                        <button onclick="window._paperCalNav(1)" style="width:34px;height:34px;border:none;background:var(--bg3,var(--bg));border-radius:50%;cursor:pointer;font-size:18px;color:var(--text);display:flex;align-items:center;justify-content:center;">›</button>
+                    </div>
+                    <!-- 요일 헤더 -->
+                    <div style="display:grid;grid-template-columns:repeat(7,1fr);padding:0 8px 4px;">
+                        ${['일','월','화','수','목','금','토'].map((w,i)=>`<div style="text-align:center;font-size:11px;font-weight:700;padding:2px 0;color:${i===0?'#ef4444':i===6?'#60a5fa':'var(--text3)'};">${w}</div>`).join('')}
+                    </div>
+                    <!-- 날짜 그리드 -->
+                    <div style="display:grid;grid-template-columns:repeat(7,1fr);padding:0 8px 4px;gap:1px;">
+                        ${cells}
+                    </div>
+                    <!-- 월 실현손익 요약 -->
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-top:1px solid var(--border);">
+                        <span style="font-size:13px;color:var(--text3);">${viewMonth+1}월 실현손익</span>
+                        <span style="font-size:16px;font-weight:800;color:${monthPnl>=0?'var(--green)':'var(--red)'};">${monthPnl>=0?'+$':'-$'}${Math.abs(monthPnl).toFixed(0)}</span>
+                    </div>
+                    <!-- 거래 목록 헤더 -->
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px 10px;border-top:4px solid var(--border);">
+                        <span style="font-size:13px;font-weight:700;color:var(--text2);">${listLabel}</span>
+                        ${selKey ? `<button onclick="window._paperCalClick(null)" style="font-size:12px;color:var(--blue);background:none;border:none;cursor:pointer;padding:0;">전체보기</button>` : ''}
+                    </div>
+                    <!-- 거래 목록 -->
+                    ${listTrades.length
+                        ? listTrades.map(tradeItem).join('')
+                        : `<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;">이달 거래 없음</div>`
+                    }
+                </div>`;
+            }
+
+            window._paperCalNav = dir => {
+                viewMonth += dir;
+                if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+                if (viewMonth < 0)  { viewMonth = 11; viewYear--; }
+                selKey = null;
+                render();
+            };
+            window._paperCalClick = key => {
+                selKey = (selKey === key || !key) ? null : key;
+                render();
+            };
+
+            render();
         } catch (_) { wrap.innerHTML = ''; }
     }
 
