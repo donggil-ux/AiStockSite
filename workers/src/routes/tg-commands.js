@@ -2,6 +2,8 @@
 // 보안: chatId 검증 (env.TELEGRAM_CHAT_ID 만 허용)
 import { paperOpenTrade, paperClosePosition, _tgDirect } from '../utils/paper-engine.js';
 import { classifySymbol } from '../utils/paper-category.js';
+import { smartDipScan, smartDipScanBounce } from '../utils/smart-dip.js';
+import { yfRequest } from '../utils/crumb.js';
 
 export async function handleTgWebhook(req, env) {
     let body;
@@ -28,9 +30,11 @@ export async function handleTgWebhook(req, env) {
             await _manualBuy(env, symbol);
         } else if ((cmd === '매도' || cmd === '/매도') && symbol) {
             await _manualSell(env, symbol);
+        } else if ((cmd === '분석' || cmd === '/분석') && symbol) {
+            await _analyzeSymbol(env, symbol);
         } else {
             await _tgDirect(env,
-                '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ'
+                '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ\n• 분석 NVDA — 매매 관점 분석'
             );
         }
     } catch (e) {
@@ -88,6 +92,58 @@ async function _manualSell(env, symbol) {
     await paperClosePosition(env, trade, price, 'manual');
     const pnl = ((price - trade.avg_price) * trade.total_qty * (trade.dir === 'short' ? -1 : 1)).toFixed(0);
     await _tgDirect(env, `✅ ${symbol} 수동 매도 @ $${price.toFixed(2)}\n손익: ${pnl > 0 ? '+' : ''}$${pnl}`);
+}
+
+async function _analyzeSymbol(env, symbol) {
+    try {
+        // 5m 2일치 차트 (≥60봉 확보)
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=2d&interval=5m`;
+        const data = await yfRequest(env.CACHE, url);
+        const result = data?.chart?.result?.[0];
+        if (!result) { await _tgDirect(env, `❌ ${symbol} 차트 데이터 없음`); return; }
+
+        const q = result.indicators?.quote?.[0] || {};
+        const ts = result.timestamp || [];
+        const meta = result.meta || {};
+        const price = meta.regularMarketPrice || q.close?.[q.close.length - 1] || 0;
+        const prevClose = meta.chartPreviousClose || meta.previousClose || 0;
+        const chgPct = prevClose > 0 ? ((price - prevClose) / prevClose * 100) : 0;
+        const chgStr = (chgPct >= 0 ? '+' : '') + chgPct.toFixed(2) + '%';
+
+        // 추세 + 반등 신호 동시 스캔
+        const trend  = smartDipScan(q, { interval: '5m', ts, lookback: 3 });
+        const bounce = smartDipScanBounce(q, { ts, lookback: 3 });
+
+        // 더 강한 신호 우선 (qs 기준)
+        const sig = (trend && bounce)
+            ? (trend.qualityScore >= bounce.qualityScore ? trend : bounce)
+            : (trend || bounce);
+
+        const header = `📊 <b>${symbol}</b> @ $${price.toFixed(2)} (${chgStr})`;
+
+        if (!sig) {
+            await _tgDirect(env, `${header}\n\n⚪ 신호 없음 — 조건 미충족`);
+            return;
+        }
+
+        const dirEmoji = sig.dir === 'buy' ? '🟢' : '🔴';
+        const dirLabel = sig.dir === 'buy' ? '매수' : '매도';
+        const modeLabel = sig.mode === 'bounce' ? ' [반등]' : '';
+        const lines = [
+            header,
+            '',
+            `${dirEmoji} ${dirLabel} 신호${modeLabel} [${sig.grade}등급] qs=${sig.qualityScore}`,
+            `• ${sig.reasons.join(' / ')}`,
+            `• ADX ${sig.adx} | RSI ${sig.rsiVal} | 거래량 ${sig.volRatio}x`,
+        ];
+        if (sig.stop)    lines.push(`• 진입 $${sig.price.toFixed(2)} | 손절 $${sig.stop.toFixed(2)} | 목표 $${(sig.target1 || 0).toFixed(2)}`);
+        if (sig.winRate) lines.push(`• 예상 승률 약 ${sig.winRate}% (${sig.barsAgo}봉 전 신호)`);
+
+        await _tgDirect(env, lines.join('\n'));
+    } catch (e) {
+        console.error('[tg-analyze]', symbol, e?.message);
+        await _tgDirect(env, `❌ ${symbol} 분석 오류: ${e?.message?.slice(0, 80) || '알 수 없는 오류'}`);
+    }
 }
 
 async function _sendOverview(env) {
