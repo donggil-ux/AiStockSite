@@ -100,10 +100,8 @@ async function _manualBuy(env, symbol) {
         dir: 'long', price, qty, signalId: null, grade: 'M', score: null,
     });
 
-    if (result?.notifyTitle) {
-        await _tgDirect(env, `<b>${result.notifyTitle}</b>\n${result.notifyBody}`);
-    } else {
-        await _tgDirect(env, `✅ ${symbol} 수동 매수 완료 @ $${price.toFixed(2)}`);
+    if (!result?.tradeId) {
+        await _tgDirect(env, `❌ ${symbol} 수동 매수 실패`);
     }
 }
 

@@ -131,15 +131,14 @@ export async function paperOpenTrade(env, { userId, symbol, category, style, dir
             ).bind(amount, now, userId),
         ]);
     }
-    // 알림 텍스트 반환 — 호출자(captureDailySignals)가 모든 chart fetch 끝난 뒤 일괄 발송
-    // (cron subrequest 한도 초과 방지: 차트 fetch 다 쓴 뒤 Telegram 1회 호출)
     const dirLabel = dir === 'short' ? '숏' : '롱';
-    return {
-        tradeId,
-        notifyTitle: tradeId ? `📈 가상매매 ${dirLabel} 진입 [${grade || '?'}]` : null,
-        notifyBody:  tradeId ? `${symbol} $${price.toFixed(2)} × ${qty}주\n투자금: $${amount.toFixed(0)} | 손절: $${stop.toFixed(2)} | ${style}` : null,
-        userId,
-    };
+    if (tradeId) {
+        await notifyPaper(env, userId,
+            `📈 가상매매 ${dirLabel} 진입 [${grade || '?'}]`,
+            `${symbol} $${price.toFixed(2)} × ${qty}주\n투자금: $${amount.toFixed(0)} | 손절: $${stop.toFixed(2)} | ${style}`
+        );
+    }
+    return { tradeId, userId };
 }
 
 /**

@@ -307,7 +307,6 @@ export async function captureDailySignals(env) {
     const sectorRot  = await getSectorRotation(env);
 
     let logged = 0;
-    const pendingNotifies = []; // 진입 알림 — 모든 chart fetch 끝난 뒤 일괄 발송
     for (const tf of ['5m', '15m']) {
         try {
             const resp = await handleDailyTradingScan(new Request(`https://x/api/scanner/daily-trading?market=US&tf=${tf}`), env);
@@ -330,17 +329,12 @@ export async function captureDailySignals(env) {
                 logged++;
 
                 if (r.dir === 'buy' || r.dir === 'sell') {
-                    const result = await _tryOpenPaperTrade(env, r, tf, dtInsert.meta?.last_row_id || null, params, accounts, regime, sectorRot);
-                    if (result?.notifyTitle) pendingNotifies.push(result);
+                    await _tryOpenPaperTrade(env, r, tf, dtInsert.meta?.last_row_id || null, params, accounts, regime, sectorRot);
                 }
             }
         } catch (e) { try { await logError(env, 'captureDailySignals', e.message); } catch (_) {} }
     }
 
-    // ── 진입 알림 일괄 발송 — 모든 차트 fetch 완료 후 subrequest 여유 생긴 시점 ──
-    for (const n of pendingNotifies) {
-        try { await _tgDirect(env, `<b>${n.notifyTitle}</b>\n${n.notifyBody}`); } catch (_) {}
-    }
     return { logged };
 }
 
@@ -534,7 +528,7 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
             signalId: dtId, grade: r.grade, score: r.score,
         });
         console.log(`[paper] open ${r.symbol} ${isShortSignal?'short':'long'} ${style} grade=${r.grade} rvol=${(r.rvol||0).toFixed(1)} user=${acct.user_id}`);
-        if (result?.notifyTitle) return result; // 알림 텍스트를 captureDailySignals로 전달
+        // 알림은 paperOpenTrade 내부에서 직접 발송됨
     }
 }
 
