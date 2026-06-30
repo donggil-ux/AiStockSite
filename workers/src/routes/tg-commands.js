@@ -57,12 +57,17 @@ async function _quotePrice(env, symbols) {
         const data = await yfRequest(env.CACHE, url);
         const out = {};
         for (const q of data?.quoteResponse?.result || []) {
-            // 프리마켓 → 포스트마켓 → 정규장 순 (handlePrice 참고)
-            const price = q.preMarketPrice || q.postMarketPrice || q.regularMarketPrice || 0;
+            const state = q.marketState || 'REGULAR';
+            // 시장 상태에 맞는 현재가 선택 (프리/포스트마켓 가격이 정규장 중에도 필드에 남아있음)
+            const price = state === 'PRE'
+                ? (q.preMarketPrice || q.regularMarketPrice || 0)
+                : (state === 'POST' || state === 'POSTPOST')
+                ? (q.postMarketPrice || q.regularMarketPrice || 0)
+                : (q.regularMarketPrice || 0);
             out[q.symbol] = {
                 price,
                 prevClose: q.regularMarketPreviousClose || 0,
-                state:     q.marketState || 'REGULAR',
+                state,
             };
         }
         return out;
