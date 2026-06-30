@@ -7962,14 +7962,9 @@
                     <span style="font-size:13px;font-weight:700;color:var(--text2);">보유 포지션</span>
                 </div>
                 ${posHtml}
-                <div style="padding:18px 16px 10px;border-top:4px solid var(--border);">
-                    <span style="font-size:13px;font-weight:700;color:var(--text2);">최근 체결</span>
-                </div>
-                <div id="paperFillsSection"><div style="padding:16px;color:var(--text3);font-size:13px;">불러오는 중…</div></div>
             </div>
             <div id="paperTradeHistory"></div>`;
 
-            _loadPaperFills();
             _renderPaperTradeHistory();
 
             _clearPaperAutoRefresh();
@@ -8101,140 +8096,145 @@
         if (!wrap) return;
         try {
             const token = await window.getAuthToken?.();
-            const r = await fetch(`${API_BASE}/api/paper/trades?limit=200`, {
-                headers: token ? { Authorization: `Bearer ${token}` } : {},
-            });
-            if (!r.ok) throw new Error();
-            const d = await r.json();
-            const trades = d.trades || [];
-            if (!trades.length) { wrap.innerHTML = ''; return; }
+            const [tradesRes, fillsRes] = await Promise.all([
+                fetch(`${API_BASE}/api/paper/trades?limit=200`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+                fetch(`${API_BASE}/api/paper/fills?limit=200`,  { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+            ]);
+            const trades = tradesRes.ok ? (await tradesRes.json()).trades || [] : [];
+            const fills  = fillsRes.ok  ? (await fillsRes.json()).fills   || [] : [];
+            if (!trades.length && !fills.length) { wrap.innerHTML = ''; return; }
 
-            const reasonMap = {
-                stop:       { label: '손절',     color: 'var(--red)' },
-                tp4_trail:  { label: '트레일',   color: 'var(--green)' },
-                be_protect: { label: '본전보호', color: '#f59e0b' },
-                eod_close:  { label: '장마감',   color: 'var(--text3)' },
-                manual:     { label: '수동',     color: 'var(--text3)' },
-                timeout:    { label: '만료',     color: 'var(--text3)' },
-            };
+            // 날짜 키 헬퍼
+            const dateKey = ts => { const d = new Date(ts); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 
-            // 날짜별 집계 (YYYY-MM-DD)
+            // 캘린더용: 날짜별 trades 집계 (실현 PnL + 건수)
             const byDate = {};
             trades.forEach(t => {
-                const dt = new Date(t.exit_at || t.created_at);
-                const key = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
-                if (!byDate[key]) byDate[key] = { pnl: 0, items: [] };
-                byDate[key].pnl += t.realized_pnl || 0;
-                byDate[key].items.push(t);
+                const k = dateKey(t.exit_at || t.created_at);
+                if (!byDate[k]) byDate[k] = { pnl: 0, count: 0 };
+                byDate[k].pnl   += t.realized_pnl || 0;
+                byDate[k].count += 1;
             });
 
-            const today = new Date().toISOString().slice(0, 10);
-            let viewYear  = new Date().getFullYear();
-            let viewMonth = new Date().getMonth(); // 0-indexed
-            let selKey    = null; // 선택된 날짜
+            // 체결내역용: 날짜별 fills 집계
+            const fillsByDate = {};
+            fills.forEach(f => {
+                const k = dateKey(f.filled_at);
+                (fillsByDate[k] = fillsByDate[k] || []).push(f);
+            });
 
-            const fmtTime = ts => ts ? new Date(ts).toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' }) : '';
+            const fillMeta = {
+                buy_t1:          { label: '1차 매수',    isBuy: true },
+                buy_t2:          { label: '2차 매수',    isBuy: true },
+                buy_t3:          { label: '3차 매수',    isBuy: true },
+                buy_t4:          { label: '4차 매수',    isBuy: true },
+                sell_tp1:        { label: 'TP1 익절',    isBuy: false },
+                sell_tp2:        { label: 'TP2 익절',    isBuy: false },
+                sell_tp3:        { label: 'TP3 익절',    isBuy: false },
+                sell_trail:      { label: '트레일',      isBuy: false },
+                sell_be_protect: { label: '본전보호',    isBuy: false },
+                sell_eod:        { label: '장마감',      isBuy: false },
+                sell_stop:       { label: '손절',        isBuy: false },
+                sell_manual:     { label: '수동',        isBuy: false },
+            };
 
-            function tradeItem(t) {
-                const pnl     = t.realized_pnl || 0;
-                const pnlColor = pnl >= 0 ? 'var(--green)' : 'var(--red)';
-                const sym     = escHtml(t.symbol || '');
-                const reason  = reasonMap[t.close_reason] || { label: t.close_reason || '—', color: 'var(--text3)' };
-                const dirLabel = t.dir === 'long' ? '매수' : '매도';
-                const dirBg   = t.dir === 'long' ? 'rgba(59,130,246,.15)' : 'rgba(239,68,68,.15)';
-                const dirClr  = t.dir === 'long' ? 'var(--blue)' : 'var(--red)';
-                const pctRaw  = t.avg_price && t.total_qty ? (pnl / (t.avg_price * t.total_qty) * 100) : null;
-                const pctText = pctRaw != null ? (pctRaw >= 0 ? '+' : '') + pctRaw.toFixed(1) + '%' : '';
+            const fmtTime = ts => ts ? new Date(ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '';
+
+            function fillItem(f) {
+                const m      = fillMeta[f.fill_type] || { label: f.fill_type || '—', isBuy: f.fill_type?.startsWith('buy') };
+                const sym    = escHtml(f.symbol || '');
+                const pnlVal = f.pnl || 0;
+                const isSell = !m.isBuy;
+                const badgeBg  = m.isBuy ? 'rgba(59,130,246,.15)' : pnlVal >= 0 ? 'rgba(34,197,94,.15)' : 'rgba(239,68,68,.15)';
+                const badgeClr = m.isBuy ? 'var(--blue)'           : pnlVal >= 0 ? 'var(--green)'         : 'var(--red)';
+                const amtHtml  = isSell && f.pnl != null
+                    ? `<div style="font-size:17px;font-weight:800;color:${pnlVal>=0?'var(--green)':'var(--red)'};">${pnlVal>=0?'+$':'-$'}${Math.abs(pnlVal).toFixed(0)}</div>`
+                    : `<div style="font-size:17px;font-weight:700;color:var(--text2);">-$${(f.amount||0).toFixed(0)}</div>`;
                 return `<div style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid var(--border);">
                     ${_tickerLogo(sym, 44, '50%')}
                     <div style="flex:1;min-width:0;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                             <div style="display:flex;align-items:center;gap:7px;">
                                 <span style="font-size:16px;font-weight:800;color:var(--text);">${sym}</span>
-                                <span style="font-size:11px;padding:2px 7px;border-radius:5px;font-weight:700;background:${dirBg};color:${dirClr};">${dirLabel}</span>
+                                <span style="font-size:11px;padding:2px 7px;border-radius:5px;font-weight:700;background:${badgeBg};color:${badgeClr};">${m.label}</span>
                             </div>
-                            <div style="text-align:right;">
-                                <div style="font-size:17px;font-weight:800;color:${pnlColor};">${pnl>=0?'+$':'-$'}${Math.abs(pnl).toFixed(0)}</div>
-                                ${pctText ? `<div style="font-size:11px;color:${pnlColor};">${pctText}</div>` : ''}
-                            </div>
+                            ${amtHtml}
                         </div>
                         <div style="display:flex;justify-content:space-between;align-items:center;">
-                            <span style="font-size:12px;padding:2px 7px;border-radius:5px;background:var(--bg3,var(--bg));color:${reason.color};font-weight:600;">${reason.label}</span>
-                            <span style="font-size:12px;color:var(--text3);">${fmtTime(t.exit_at)}</span>
+                            <span style="font-size:12px;color:var(--text3);">$${f.price?.toFixed(2)||'—'} × ${f.qty?.toFixed(4)||'—'}</span>
+                            <span style="font-size:12px;color:var(--text3);">${fmtTime(f.filled_at)}</span>
                         </div>
                     </div>
                 </div>`;
             }
 
+            const today = new Date().toISOString().slice(0, 10);
+            let viewYear  = new Date().getFullYear();
+            let viewMonth = new Date().getMonth();
+            let selKey    = null;
+
             function render() {
-                const firstDay  = new Date(viewYear, viewMonth, 1).getDay();
-                const lastDate  = new Date(viewYear, viewMonth + 1, 0).getDate();
-
-                // 이달 거래
+                const firstDay   = new Date(viewYear, viewMonth, 1).getDay();
+                const lastDate   = new Date(viewYear, viewMonth + 1, 0).getDate();
                 const monthPrefix = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-`;
-                const monthTrades = trades.filter(t => {
-                    const dt = new Date(t.exit_at || t.created_at);
-                    return dt.getFullYear() === viewYear && dt.getMonth() === viewMonth;
-                });
-                const monthPnl = monthTrades.reduce((s, t) => s + (t.realized_pnl || 0), 0);
-
-                // 표시할 거래 목록
-                const listTrades = selKey && byDate[selKey] ? byDate[selKey].items : monthTrades;
-                const listLabel  = selKey
-                    ? `${selKey.slice(5).replace('-','/')} 거래 (${listTrades.length}건)`
-                    : `${viewMonth+1}월 전체 (${monthTrades.length}건)`;
+                const monthPnl   = trades
+                    .filter(t => { const d = new Date(t.exit_at||t.created_at); return d.getFullYear()===viewYear && d.getMonth()===viewMonth; })
+                    .reduce((s, t) => s + (t.realized_pnl||0), 0);
 
                 // 캘린더 셀
                 let cells = Array(firstDay).fill('<div></div>').join('');
                 for (let day = 1; day <= lastDate; day++) {
-                    const key     = `${monthPrefix}${String(day).padStart(2,'0')}`;
-                    const data    = byDate[key];
-                    const isSel   = selKey === key;
+                    const key    = `${monthPrefix}${String(day).padStart(2,'0')}`;
+                    const data   = byDate[key];
+                    const isSel  = selKey === key;
                     const isToday = today === key;
-                    const pnl     = data?.pnl || 0;
-                    const pnlColor = pnl > 0 ? '#22c55e' : '#ef4444';
-                    const dotDay  = new Date(viewYear, viewMonth, day).getDay();
-                    const numColor = isSel ? '#fff' : isToday ? 'var(--blue)' : dotDay === 0 ? '#ef4444' : dotDay === 6 ? '#60a5fa' : 'var(--text)';
-
-                    cells += `<div onclick="window._paperCalClick('${key}')" style="text-align:center;padding:4px 1px;cursor:${data?'pointer':'default'};min-height:54px;">
+                    const pnl    = data?.pnl || 0;
+                    const pnlClr = pnl >= 0 ? '#22c55e' : '#ef4444';
+                    const dow    = new Date(viewYear, viewMonth, day).getDay();
+                    const numClr = isSel ? '#fff' : isToday ? 'var(--blue)' : dow===0 ? '#ef4444' : dow===6 ? '#60a5fa' : 'var(--text)';
+                    cells += `<div onclick="window._paperCalClick('${key}')" style="text-align:center;padding:4px 1px;cursor:${data||fillsByDate[key]?'pointer':'default'};min-height:54px;">
                         <div style="width:28px;height:28px;border-radius:50%;margin:0 auto;display:flex;align-items:center;justify-content:center;
                             background:${isSel?'var(--blue)':isToday?'rgba(59,130,246,.12)':'transparent'};
-                            font-size:13px;font-weight:${isToday||isSel?'800':'500'};color:${numColor};">${day}</div>
-                        ${data ? `<div style="font-size:9px;font-weight:700;color:${isSel?'rgba(255,255,255,.9)':pnlColor};margin-top:3px;line-height:1.2;">${pnl>=0?'+':''}$${Math.abs(pnl).toFixed(0)}</div>
-                        <div style="font-size:8px;color:${isSel?'rgba(255,255,255,.6)':'var(--text3)'};margin-top:1px;">${data.items.length}건</div>` : ''}
+                            font-size:13px;font-weight:${isToday||isSel?'800':'500'};color:${numClr};">${day}</div>
+                        ${data ? `<div style="font-size:9px;font-weight:700;color:${isSel?'rgba(255,255,255,.9)':pnlClr};margin-top:3px;line-height:1.2;">${pnl>=0?'+':''}$${Math.abs(pnl).toFixed(0)}</div>
+                        <div style="font-size:8px;color:${isSel?'rgba(255,255,255,.6)':'var(--text3)'};margin-top:1px;">${data.count}건</div>` : ''}
                     </div>`;
                 }
 
+                // 체결내역 목록
+                let listFills, listLabel;
+                if (selKey) {
+                    listFills = fillsByDate[selKey] || [];
+                    listLabel = `${selKey.slice(5).replace('-','/')} 체결 (${listFills.length}건)`;
+                } else {
+                    // 이달 fills
+                    listFills = fills.filter(f => { const d = new Date(f.filled_at); return d.getFullYear()===viewYear && d.getMonth()===viewMonth; });
+                    listLabel = `${viewMonth+1}월 체결 (${listFills.length}건)`;
+                }
+
                 wrap.innerHTML = `<div style="background:var(--bg2);border-radius:16px;overflow:hidden;margin-bottom:12px;">
-                    <!-- 월 네비게이션 -->
                     <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 16px 12px;">
                         <button onclick="window._paperCalNav(-1)" style="width:34px;height:34px;border:none;background:var(--bg3,var(--bg));border-radius:50%;cursor:pointer;font-size:18px;color:var(--text);display:flex;align-items:center;justify-content:center;">‹</button>
                         <span style="font-size:16px;font-weight:800;color:var(--text);">${viewYear}년 ${viewMonth+1}월</span>
                         <button onclick="window._paperCalNav(1)" style="width:34px;height:34px;border:none;background:var(--bg3,var(--bg));border-radius:50%;cursor:pointer;font-size:18px;color:var(--text);display:flex;align-items:center;justify-content:center;">›</button>
                     </div>
-                    <!-- 요일 헤더 -->
                     <div style="display:grid;grid-template-columns:repeat(7,1fr);padding:0 8px 4px;">
                         ${['일','월','화','수','목','금','토'].map((w,i)=>`<div style="text-align:center;font-size:11px;font-weight:700;padding:2px 0;color:${i===0?'#ef4444':i===6?'#60a5fa':'var(--text3)'};">${w}</div>`).join('')}
                     </div>
-                    <!-- 날짜 그리드 -->
                     <div style="display:grid;grid-template-columns:repeat(7,1fr);padding:0 8px 4px;gap:1px;">
                         ${cells}
                     </div>
-                    <!-- 월 실현손익 요약 -->
                     <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-top:1px solid var(--border);">
                         <span style="font-size:13px;color:var(--text3);">${viewMonth+1}월 실현손익</span>
                         <span style="font-size:16px;font-weight:800;color:${monthPnl>=0?'var(--green)':'var(--red)'};">${monthPnl>=0?'+$':'-$'}${Math.abs(monthPnl).toFixed(0)}</span>
                     </div>
-                    <!-- 거래 목록 헤더 -->
                     <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px 10px;border-top:4px solid var(--border);">
                         <span style="font-size:13px;font-weight:700;color:var(--text2);">${listLabel}</span>
                         ${selKey ? `<button onclick="window._paperCalClick(null)" style="font-size:12px;color:var(--blue);background:none;border:none;cursor:pointer;padding:0;">전체보기</button>` : ''}
                     </div>
-                    <!-- 거래 목록 -->
-                    ${listTrades.length
-                        ? listTrades.map(tradeItem).join('')
-                        : `<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;">이달 거래 없음</div>`
-                    }
+                    ${listFills.length
+                        ? listFills.map(fillItem).join('')
+                        : `<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px;">체결 내역 없음</div>`}
                 </div>`;
             }
 
@@ -8242,14 +8242,9 @@
                 viewMonth += dir;
                 if (viewMonth > 11) { viewMonth = 0; viewYear++; }
                 if (viewMonth < 0)  { viewMonth = 11; viewYear--; }
-                selKey = null;
-                render();
+                selKey = null; render();
             };
-            window._paperCalClick = key => {
-                selKey = (selKey === key || !key) ? null : key;
-                render();
-            };
-
+            window._paperCalClick = key => { selKey = (selKey===key||!key) ? null : key; render(); };
             render();
         } catch (_) { wrap.innerHTML = ''; }
     }
