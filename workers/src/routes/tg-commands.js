@@ -17,31 +17,38 @@ export async function handleTgWebhook(req, env) {
     const [cmd, sym] = text.split(/\s+/);
     const symbol = sym?.toUpperCase();
 
-    if (cmd === '현황' || cmd === '/현황') {
-        await _sendOverview(env);
-    } else if (cmd === '포지션' || cmd === '/포지션') {
-        await _sendPositions(env);
-    } else if (cmd === '스캔' || cmd === '/스캔') {
-        await _sendScanResults(env);
-    } else if ((cmd === '매수' || cmd === '/매수') && symbol) {
-        await _manualBuy(env, symbol);
-    } else if ((cmd === '매도' || cmd === '/매도') && symbol) {
-        await _manualSell(env, symbol);
-    } else {
-        await _tgDirect(env,
-            '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ'
-        );
+    try {
+        if (cmd === '현황' || cmd === '/현황') {
+            await _sendOverview(env);
+        } else if (cmd === '포지션' || cmd === '/포지션') {
+            await _sendPositions(env);
+        } else if (cmd === '스캔' || cmd === '/스캔') {
+            await _sendScanResults(env);
+        } else if ((cmd === '매수' || cmd === '/매수') && symbol) {
+            await _manualBuy(env, symbol);
+        } else if ((cmd === '매도' || cmd === '/매도') && symbol) {
+            await _manualSell(env, symbol);
+        } else {
+            await _tgDirect(env,
+                '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ'
+            );
+        }
+    } catch (e) {
+        console.error('[tg-webhook] cmd error', cmd, e?.message);
+        try { await _tgDirect(env, `⚠️ 오류 발생: ${e?.message?.slice(0,100) || '알 수 없는 오류'}`); } catch (_) {}
     }
 
     return new Response('ok');
 }
 
 async function _fetchPrice(env, symbol) {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1m&range=1d`;
-    const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(5000) });
-    if (!r.ok) return null;
-    const data = await r.json();
-    return data?.chart?.result?.[0]?.meta?.regularMarketPrice ?? null;
+    try {
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1m&range=1d`;
+        const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(5000) });
+        if (!r.ok) return null;
+        const data = await r.json();
+        return data?.chart?.result?.[0]?.meta?.regularMarketPrice ?? null;
+    } catch (_) { return null; }
 }
 
 async function _manualBuy(env, symbol) {
