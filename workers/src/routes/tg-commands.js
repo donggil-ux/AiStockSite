@@ -183,9 +183,11 @@ async function _liveScan(env, customSymbols) {
 async function _analyzeSymbol(env, symbol) {
     try {
         const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=2d&interval=5m&includePrePost=true`;
-        const [data, quoteMap] = await Promise.all([
+        const [data, quoteMap, acct] = await Promise.all([
             yfRequest(env.CACHE, chartUrl),
             _quotePrice(env, [symbol]),
+            env.DB.prepare("SELECT balance, position_size FROM paper_account WHERE user_id=?")
+                .bind('user_3EhxWla1QzZmEG19xfFdmnUTUrp').first(),
         ]);
         const result = data?.chart?.result?.[0];
         if (!result) { await _tgDirect(env, `❌ ${symbol} 차트 데이터 없음`); return; }
@@ -216,12 +218,22 @@ async function _analyzeSymbol(env, symbol) {
         const dirEmoji  = sig.dir === 'buy' ? '🟢' : '🔴';
         const dirLabel  = sig.dir === 'buy' ? '매수' : '매도';
         const modeLabel = sig.mode === 'bounce' ? '[반등]' : '[추세]';
-        const riskAmt   = sig.stop    ? Math.abs(sig.price - sig.stop).toFixed(2) : null;
+        const riskPerSh = sig.stop ? Math.abs(sig.price - sig.stop) : null;
+        const riskAmt   = riskPerSh ? riskPerSh.toFixed(2) : null;
         const riskPct   = sig.riskPct ? sig.riskPct.toFixed(1) : null;
         const gain1Pct  = sig.target1 ? ((Math.abs(sig.target1 - sig.price) / sig.price) * 100).toFixed(1) : null;
         const gain2Pct  = sig.target2 ? ((Math.abs(sig.target2 - sig.price) / sig.price) * 100).toFixed(1) : null;
-        const rr        = (riskAmt && sig.target1) ? (Math.abs(sig.target1 - sig.price) / +riskAmt).toFixed(1) : null;
+        const rr        = (riskPerSh && sig.target1) ? (Math.abs(sig.target1 - sig.price) / riskPerSh).toFixed(1) : null;
         const timing    = sig.barsAgo === 0 ? '⚡ 현재봉 신호' : `⏱ ${sig.barsAgo}봉 전 (${sig.barsAgo * 5}분 경과)`;
+
+        // 비중 계획: 계좌 position_size 기준 (1차 = 1/4)
+        const posSize   = acct?.position_size || 4000;
+        const balance   = acct?.balance || 100000;
+        const tranche1  = posSize / 4;
+        const qty1      = sig.price > 0 ? Math.floor(tranche1 / sig.price) : 0;
+        const invest1   = qty1 * sig.price;
+        const riskTotal = riskPerSh && qty1 ? (riskPerSh * qty1).toFixed(0) : null;
+        const riskOfBal = riskTotal ? ((+riskTotal / balance) * 100).toFixed(2) : null;
 
         await _tgDirect(env, [
             `📊 <b>${symbol}</b> @ $${price.toFixed(2)} (${chgStr})`,
@@ -229,10 +241,16 @@ async function _analyzeSymbol(env, symbol) {
             '',
             '<b>📍 매매 계획</b>',
             `  1차 진입   $${sig.price.toFixed(2)}`,
-            riskAmt ? `  손절      $${sig.stop.toFixed(2)}  (-${riskPct}%, 리스크 $${riskAmt}/주)` : null,
+            riskAmt ? `  손절      $${sig.stop.toFixed(2)}  (-${riskPct}%, $${riskAmt}/주)` : null,
             gain1Pct ? `  1차 목표  $${sig.target1.toFixed(2)}  (+${gain1Pct}%)` : null,
             gain2Pct ? `  2차 목표  $${sig.target2.toFixed(2)}  (+${gain2Pct}%)` : null,
             rr ? `  손익비    1 : ${rr}R  |  예상승률 ~${sig.winRate}%` : null,
+            '',
+            '<b>📐 비중 계획</b>',
+            qty1 ? `  1차 수량   ${qty1}주  (투자금 $${invest1.toFixed(0)})` : null,
+            riskTotal ? `  1차 리스크  $${riskTotal}  (자본의 ${riskOfBal}%)` : null,
+            `  2~4차     각 ${qty1}주 추가 (추가 하락 시)`,
+            `  총 한도   ${qty1 * 4}주  ($${(qty1 * 4 * sig.price).toFixed(0)})`,
             '',
             `📈 ADX ${sig.adx} | RSI ${sig.rsiVal} | 거래량 ${sig.volRatio}x`,
             `   ${sig.reasons.join(' / ')}`,
@@ -327,7 +345,7 @@ async function _sendScanResults(env) {
 
 async function _sendPositions(env) {
     const rows = await env.DB.prepare(
-        "SELECT symbol,dir,avg_price,total_qty,total_invested,realized_pnl,style FROM paper_trades WHERE user_id=? AND status='open' ORDER BY created_at DESC"
+        "SELECT symbol,dir,avg_price,total_qty,total_invested,realized_pnl,style,tranche_count,stop_price FROM paper_trades WHERE user_id=? AND status='open' ORDER BY created_at DESC"
     ).bind('user_3EhxWla1QzZmEG19xfFdmnUTUrp').all();
 
     const positions = rows.results || [];
@@ -337,15 +355,21 @@ async function _sendPositions(env) {
     const quotes = await _quotePrice(env, positions.map(p => p.symbol));
 
     const lines = positions.map((p) => {
-        const cur   = quotes[p.symbol]?.price;
-        const dir   = p.dir === 'short' ? '숏' : '롱';
-        const mult  = p.dir === 'short' ? -1 : 1;
-        const pnl   = cur ? ((cur - p.avg_price) * p.total_qty * mult).toFixed(0) : null;
+        const cur    = quotes[p.symbol]?.price;
+        const dir    = p.dir === 'short' ? '숏' : '롱';
+        const mult   = p.dir === 'short' ? -1 : 1;
+        const qty    = p.total_qty ? p.total_qty.toFixed(0) : '?';
+        const pnl    = cur ? ((cur - p.avg_price) * p.total_qty * mult).toFixed(0) : null;
         const chgPct = cur ? ((cur - p.avg_price) / p.avg_price * mult * 100).toFixed(2) : null;
-        const sign  = pnl > 0 ? '+' : '';
-        const curStr = cur ? `현재$${cur.toFixed(2)} (${sign}${chgPct}%)` : '현재가 조회실패';
-        const pnlStr = pnl != null ? ` | 미실현 ${sign}$${pnl}` : '';
-        return `• ${p.symbol} ${dir} [${p.style}]\n  평단 $${p.avg_price.toFixed(2)} → ${curStr}${pnlStr}`;
+        const sign   = pnl > 0 ? '+' : '';
+        const curStr = cur ? `$${cur.toFixed(2)} (${sign}${chgPct}%)` : '조회실패';
+        const pnlStr = pnl != null ? `미실현 ${sign}$${pnl}` : '';
+        const stopStr = p.stop_price ? `손절 $${p.stop_price.toFixed(2)}` : '';
+        return [
+            `• <b>${p.symbol}</b> ${dir} [${p.style}]  ${p.tranche_count ?? 1}/4분할  |  <b>${qty}주</b>`,
+            `  평단 $${p.avg_price.toFixed(2)}  →  현재 ${curStr}`,
+            [pnlStr, stopStr].filter(Boolean).join('  |  '),
+        ].filter(Boolean).join('\n');
     });
     await _tgDirect(env, `📊 오픈 포지션 (${positions.length}건)\n\n${lines.join('\n\n')}`);
 }
