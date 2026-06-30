@@ -32,9 +32,12 @@ export async function handleTgWebhook(req, env) {
             await _manualSell(env, symbol);
         } else if ((cmd === '분석' || cmd === '/분석') && symbol) {
             await _analyzeSymbol(env, symbol);
+        } else if (cmd === '스캐너' || cmd === '/스캐너') {
+            const customSymbols = text.split(/\s+/).slice(1).map(s => s.toUpperCase()).filter(Boolean);
+            await _liveScan(env, customSymbols);
         } else {
             await _tgDirect(env,
-                '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ\n• 분석 NVDA — 매매 관점 분석'
+                '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ\n• 분석 NVDA — 종목 분석\n• 스캐너 — 실시간 매수 스캔 (스캐너 NVDA TSLA 로 직접 지정 가능)'
             );
         }
     } catch (e) {
@@ -92,6 +95,60 @@ async function _manualSell(env, symbol) {
     await paperClosePosition(env, trade, price, 'manual');
     const pnl = ((price - trade.avg_price) * trade.total_qty * (trade.dir === 'short' ? -1 : 1)).toFixed(0);
     await _tgDirect(env, `✅ ${symbol} 수동 매도 @ $${price.toFixed(2)}\n손익: ${pnl > 0 ? '+' : ''}$${pnl}`);
+}
+
+const DEFAULT_WATCHLIST = [
+    // 레버리지 ETF
+    'TQQQ','SOXL','UPRO','QLD','FNGU','TECL','LABU',
+    // 대형주
+    'NVDA','AAPL','MSFT','META','GOOGL','AMZN','TSLA','AMD','AVGO',
+    // 개별 성장주
+    'PLTR','COIN','RKLB','SHOP','SMCI',
+];
+
+async function _liveScan(env, customSymbols) {
+    const symbols = customSymbols.length ? customSymbols : DEFAULT_WATCHLIST;
+    await _tgDirect(env, `🔍 ${symbols.length}개 종목 스캔 중...`);
+
+    const results = await Promise.allSettled(symbols.map(async sym => {
+        try {
+            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=2d&interval=5m`;
+            const data = await yfRequest(env.CACHE, url);
+            const res = data?.chart?.result?.[0];
+            if (!res) return null;
+            const q   = res.indicators?.quote?.[0] || {};
+            const ts  = res.timestamp || [];
+            const price = res.meta?.regularMarketPrice || 0;
+            const trend  = smartDipScan(q, { interval: '5m', ts, lookback: 3 });
+            const bounce = smartDipScanBounce(q, { ts, lookback: 3 });
+            const sig = (trend && bounce)
+                ? (trend.qualityScore >= bounce.qualityScore ? trend : bounce)
+                : (trend || bounce);
+            if (!sig) return null;
+            return { sym, price, sig };
+        } catch (_) { return null; }
+    }));
+
+    const hits = results
+        .filter(r => r.status === 'fulfilled' && r.value)
+        .map(r => r.value)
+        .sort((a, b) => b.sig.qualityScore - a.sig.qualityScore);
+
+    if (!hits.length) {
+        await _tgDirect(env, `📭 현재 매수 적합 종목 없음 (${symbols.length}개 스캔)`);
+        return;
+    }
+
+    const lines = [`📡 라이브 스캔 (${hits.length}/${symbols.length}건)\n`];
+    for (const { sym, price, sig } of hits.slice(0, 8)) {
+        const emoji     = sig.dir === 'buy' ? '🟢' : '🔴';
+        const modeLabel = sig.mode === 'bounce' ? '[반등]' : '[추세]';
+        lines.push(`${emoji} <b>${sym}</b> [${sig.grade}] qs=${sig.qualityScore} ${modeLabel} $${price.toFixed(2)}`);
+        lines.push(`   ${sig.reasons.slice(0, 3).join(' / ')}`);
+        if (sig.stop) lines.push(`   진입 $${price.toFixed(2)} | 손절 $${sig.stop.toFixed(2)} | 목표 $${(sig.target1 || 0).toFixed(2)}`);
+    }
+
+    await _tgDirect(env, lines.join('\n'));
 }
 
 async function _analyzeSymbol(env, symbol) {
