@@ -48,17 +48,19 @@ export async function handleTgWebhook(req, env) {
     return new Response('ok');
 }
 
-// /v7/finance/quote — preMarketPrice·postMarketPrice·regularMarketPrice 모두 정확하게 반환
-// /v8/finance/chart 의 meta.regularMarketPrice 는 프리마켓 시간에 전날 종가를 반환해서 부정확
+// /v7/finance/quote — handlePrice 와 동일한 URL 패턴 (fields 파라미터 없이 모든 필드 반환)
+// fields= 를 추가하면 preMarketPrice 등이 누락될 수 있고 캐시 키도 달라짐
 async function _quotePrice(env, symbols) {
     try {
         const syms = Array.isArray(symbols) ? symbols : [symbols];
-        const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${syms.map(encodeURIComponent).join(',')}&fields=regularMarketPrice,preMarketPrice,postMarketPrice,regularMarketPreviousClose,marketState`;
+        const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${syms.map(encodeURIComponent).join(',')}`;
         const data = await yfRequest(env.CACHE, url);
         const out = {};
         for (const q of data?.quoteResponse?.result || []) {
+            // 프리마켓 → 포스트마켓 → 정규장 순 (handlePrice 참고)
+            const price = q.preMarketPrice || q.postMarketPrice || q.regularMarketPrice || 0;
             out[q.symbol] = {
-                price:     q.preMarketPrice || q.postMarketPrice || q.regularMarketPrice || 0,
+                price,
                 prevClose: q.regularMarketPreviousClose || 0,
                 state:     q.marketState || 'REGULAR',
             };
