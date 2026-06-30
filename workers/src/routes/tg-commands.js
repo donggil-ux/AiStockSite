@@ -48,13 +48,18 @@ export async function handleTgWebhook(req, env) {
     return new Response('ok');
 }
 
+// 현재가 해석 헬퍼 — 프리마켓 → 포스트마켓 → 정규장 순으로 최신값 반환
+function _latestPrice(meta) {
+    return meta?.preMarketPrice || meta?.postMarketPrice || meta?.regularMarketPrice || 0;
+}
+
 async function _fetchPrice(env, symbol) {
     try {
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1m&range=1d`;
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1m&range=1d&includePrePost=true`;
         const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(5000) });
         if (!r.ok) return null;
         const data = await r.json();
-        return data?.chart?.result?.[0]?.meta?.regularMarketPrice ?? null;
+        return _latestPrice(data?.chart?.result?.[0]?.meta) || null;
     } catch (_) { return null; }
 }
 
@@ -112,13 +117,13 @@ async function _liveScan(env, customSymbols) {
 
     const results = await Promise.allSettled(symbols.map(async sym => {
         try {
-            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=2d&interval=5m`;
+            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=2d&interval=5m&includePrePost=true`;
             const data = await yfRequest(env.CACHE, url);
             const res = data?.chart?.result?.[0];
             if (!res) return null;
             const q   = res.indicators?.quote?.[0] || {};
             const ts  = res.timestamp || [];
-            const price = res.meta?.regularMarketPrice || 0;
+            const price = _latestPrice(res.meta);
             const trend  = smartDipScan(q, { interval: '5m', ts, lookback: 3 });
             const bounce = smartDipScanBounce(q, { ts, lookback: 3 });
             const sig = (trend && bounce)
@@ -153,8 +158,8 @@ async function _liveScan(env, customSymbols) {
 
 async function _analyzeSymbol(env, symbol) {
     try {
-        // 5m 2일치 차트 (≥60봉 확보)
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=2d&interval=5m`;
+        // 5m 2일치 차트 (≥60봉 확보, 프리/포스트마켓 포함)
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=2d&interval=5m&includePrePost=true`;
         const data = await yfRequest(env.CACHE, url);
         const result = data?.chart?.result?.[0];
         if (!result) { await _tgDirect(env, `❌ ${symbol} 차트 데이터 없음`); return; }
@@ -162,8 +167,8 @@ async function _analyzeSymbol(env, symbol) {
         const q = result.indicators?.quote?.[0] || {};
         const ts = result.timestamp || [];
         const meta = result.meta || {};
-        const price = meta.regularMarketPrice || q.close?.[q.close.length - 1] || 0;
-        const prevClose = meta.chartPreviousClose || meta.previousClose || 0;
+        const price = _latestPrice(meta) || q.close?.filter(v => v != null).at(-1) || 0;
+        const prevClose = meta.chartPreviousClose || meta.regularMarketPreviousClose || 0;
         const chgPct = prevClose > 0 ? ((price - prevClose) / prevClose * 100) : 0;
         const chgStr = (chgPct >= 0 ? '+' : '') + chgPct.toFixed(2) + '%';
 
