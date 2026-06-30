@@ -156,7 +156,9 @@ export async function paperAddTranche(env, trade, price, trancheAmount) {
     const newTotalQty      = trade.total_qty + qty;
     const newTotalInvested = trade.total_invested + amount;
     const newAvgPrice      = newTotalInvested / newTotalQty;
-    const newStop          = trade.first_price * STOP_FROM_FIRST;
+    const newStop = trade.dir === 'short'
+        ? trade.first_price * (2 - STOP_FROM_FIRST)
+        : trade.first_price * STOP_FROM_FIRST;
     const now = Date.now();
 
     // batch — trade 갱신 + fill 삽입 + 잔고 차감을 원자적으로 실행
