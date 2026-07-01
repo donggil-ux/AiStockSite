@@ -5,6 +5,7 @@ import { classifySymbol } from '../utils/paper-category.js';
 import { smartDipScan, smartDipScanBounce } from '../utils/smart-dip.js';
 import { yfRequest } from '../utils/crumb.js';
 import { calcEMA, calcRSI, calcADXSeries, lastVal } from '../utils/indicators.js';
+import { getNewsSentiment } from '../utils/news-sentiment.js';
 
 // 단일 타임프레임 추세 관점 — EMA20/60 정렬 + RSI + ADX (간단 요약용, 매매 시그널 아님)
 function _tfPerspective(q) {
@@ -24,13 +25,25 @@ function _tfPerspective(q) {
     return { trend, rsi: rsiVal != null ? Math.round(rsiVal) : null, adx: adxVal != null ? Math.round(adxVal) : null };
 }
 
-// 타임프레임별 차트 조회 (실패 시 null)
-async function _fetchTfQuote(env, symbol, range, interval) {
+// 타임프레임별 차트 조회 (실패 시 null) — { q, ts } 반환
+async function _fetchTfData(env, symbol, range, interval) {
     try {
         const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`;
         const data = await yfRequest(env.CACHE, url);
-        return data?.chart?.result?.[0]?.indicators?.quote?.[0] || null;
+        const result = data?.chart?.result?.[0];
+        if (!result) return null;
+        return { q: result.indicators?.quote?.[0] || {}, ts: result.timestamp || [] };
     } catch (_) { return null; }
+}
+
+// 매수(롱) 시그널만 반환 — smartDipScan(추세) + smartDipScanBounce(반등) 중 우수한 쪽
+function _tfBuySignal(q, ts, interval) {
+    const trend  = smartDipScan(q, { interval, ts, lookback: 3 });
+    const bounce = smartDipScanBounce(q, { ts, lookback: 3 });
+    const trendBuy = trend?.dir === 'buy' ? trend : null;
+    return (trendBuy && bounce)
+        ? (trendBuy.qualityScore >= bounce.qualityScore ? trendBuy : bounce)
+        : (trendBuy || bounce);
 }
 
 export async function handleTgWebhook(req, env) {
@@ -234,14 +247,15 @@ async function _liveScan(env, customSymbols) {
 async function _analyzeSymbol(env, symbol) {
     try {
         const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=2d&interval=5m&includePrePost=true`;
-        const [data, quoteMap, acct, dailyQ, q15, q60] = await Promise.all([
+        const [data, quoteMap, acct, daily, tf15, tf60, news] = await Promise.all([
             yfRequest(env.CACHE, chartUrl),
             _quotePrice(env, [symbol]),
             env.DB.prepare("SELECT balance, position_size FROM paper_account WHERE user_id=?")
                 .bind('user_3EhxWla1QzZmEG19xfFdmnUTUrp').first(),
-            _fetchTfQuote(env, symbol, '6mo', '1d'),
-            _fetchTfQuote(env, symbol, '1mo', '15m'),
-            _fetchTfQuote(env, symbol, '3mo', '60m'),
+            _fetchTfData(env, symbol, '6mo', '1d'),
+            _fetchTfData(env, symbol, '1mo', '15m'),
+            _fetchTfData(env, symbol, '3mo', '60m'),
+            getNewsSentiment(env, symbol).catch(() => null),
         ]);
         const result = data?.chart?.result?.[0];
         if (!result) { await _tgDirect(env, `❌ ${symbol} 차트 데이터 없음`); return; }
@@ -254,30 +268,48 @@ async function _analyzeSymbol(env, symbol) {
         const chgPct = prevClose > 0 ? ((price - prevClose) / prevClose * 100) : 0;
         const chgStr = (chgPct >= 0 ? '+' : '') + chgPct.toFixed(2) + '%';
 
-        const trend  = smartDipScan(q, { interval: '5m', ts, lookback: 3 });
-        const bounce = smartDipScanBounce(q, { ts, lookback: 3 });
-        // 분석 명령은 매수(롱) 기회만 표시 — 숏 시그널 제외
-        const trendBuy = trend?.dir === 'buy' ? trend : null;
-        const sig = (trendBuy && bounce)
-            ? (trendBuy.qualityScore >= bounce.qualityScore ? trendBuy : bounce)
-            : (trendBuy || bounce);
+        const sig = _tfBuySignal(q, ts, '5m');
 
-        // 멀티 타임프레임 관점 — 일봉/60분/15분/5분 추세 정렬 요약
-        const tfDefs = [['일봉', dailyQ], ['60분', q60], ['15분', q15], ['5분', q]];
-        const tfLines = tfDefs.map(([label, tq]) => {
-            const p = tq ? _tfPerspective(tq) : null;
+        // 멀티 타임프레임 관점 — 일봉/60분/15분/5분 추세 + (신호 발생 시) 진입/손절/목표 요약
+        // 5분봉은 위 sig 재사용, 나머지는 각자 데이터로 동일 엔진(smartDipScan) 재적용
+        const tfDefs = [
+            ['일봉', daily, '1d'],
+            ['60분', tf60,  '60m'],
+            ['15분', tf15,  '15m'],
+            ['5분',  { q, ts }, '5m'],
+        ];
+        const tfLines = tfDefs.map(([label, tf, interval]) => {
+            if (!tf) return `  ${label}   데이터 부족`;
+            const p = _tfPerspective(tf.q);
             if (!p) return `  ${label}   데이터 부족`;
             const arrow = p.trend === '상승' ? '↑' : p.trend === '하락' ? '↓' : '→';
-            return `  ${label}   ${p.trend}${arrow}  RSI ${p.rsi ?? '-'}  ADX ${p.adx ?? '-'}`;
+            const base = `  ${label}   ${p.trend}${arrow}  RSI ${p.rsi ?? '-'}  ADX ${p.adx ?? '-'}`;
+            const tfSig = interval === '5m' ? sig : _tfBuySignal(tf.q, tf.ts, interval);
+            if (!tfSig) return `${base}  | 신호없음`;
+            return `${base}  | 🟢진입$${tfSig.price.toFixed(2)} 손절$${tfSig.stop.toFixed(2)} 목표$${tfSig.target1.toFixed(2)} [${tfSig.grade}]`;
         });
         const mtfBlock = ['<b>🕐 멀티 타임프레임 관점</b>', ...tfLines].join('\n');
+
+        // 뉴스 감성 — 매매 관점 참고용
+        const newsEmoji = news?.sentiment === 'positive' ? '🟢' : news?.sentiment === 'negative' ? '🔴' : '⚪';
+        const newsBlock = news?.headline
+            ? `<b>📰 뉴스</b>\n  ${newsEmoji} ${news.sentiment} — ${news.headline}`
+            : null;
 
         // 신호 없음
         if (!sig) {
             const ema60 = calcEMA(q.close || [], 60);
             const lastEma = [...ema60].reverse().find(v => v != null);
             const emaStr = lastEma ? `EMA60 $${lastEma.toFixed(2)} (가격 ${price > lastEma ? '위 ↑' : '아래 ↓'})` : '';
-            await _tgDirect(env, `📊 <b>${symbol}</b> @ $${price.toFixed(2)} (${chgStr})\n${emaStr}\n\n${mtfBlock}\n\n⚪ 신호 없음 — 조건 미충족, 관망 권장`);
+            await _tgDirect(env, [
+                `📊 <b>${symbol}</b> @ $${price.toFixed(2)} (${chgStr})`,
+                emaStr,
+                '',
+                mtfBlock,
+                newsBlock ? '' : null, newsBlock,
+                '',
+                '⚪ 신호 없음 — 조건 미충족, 관망 권장',
+            ].filter(l => l !== null).join('\n'));
             return;
         }
 
@@ -323,6 +355,7 @@ async function _analyzeSymbol(env, symbol) {
             '',
             `📈 ADX ${sig.adx} | RSI ${sig.rsiVal} | 거래량 ${sig.volRatio}x`,
             `   ${sig.reasons.join(' / ')}`,
+            newsBlock ? '' : null, newsBlock,
         ].filter(l => l !== null).join('\n'));
     } catch (e) {
         console.error('[tg-analyze]', symbol, e?.message);
