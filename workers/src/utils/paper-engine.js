@@ -295,14 +295,21 @@ export async function paperManageAll(env) {
             } catch (e) { console.warn('[paper-price]', sym, e?.message); }
         }));
 
-        // 2차 폴백: 차트 fetch 실패 심볼 → v7 quote API (장마감 후 regularMarketPrice 더 안정적)
+        // 2차 폴백: 차트 fetch 실패 심볼 → v7 quote API (marketState 기반 프리/포스트 가격 선택)
         const failedSyms = symbols.filter(s => !prices[s]);
         if (failedSyms.length) {
             try {
-                const qUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${failedSyms.join(',')}&fields=regularMarketPrice`;
+                const qUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${failedSyms.join(',')}`;
                 const qd = await yfRequest(env.CACHE, qUrl);
                 for (const q of (qd?.quoteResponse?.result || [])) {
-                    if (q.symbol && q.regularMarketPrice > 0) prices[q.symbol] = q.regularMarketPrice;
+                    if (!q.symbol) continue;
+                    const state = q.marketState || 'REGULAR';
+                    const p = state === 'PRE'
+                        ? (q.preMarketPrice || q.regularMarketPrice || 0)
+                        : (state === 'POST' || state === 'POSTPOST')
+                        ? (q.postMarketPrice || q.regularMarketPrice || 0)
+                        : (q.regularMarketPrice || 0);
+                    if (p > 0) prices[q.symbol] = p;
                 }
             } catch (e) { console.warn('[paper-price] quote fallback', e?.message); }
         }
