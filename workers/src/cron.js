@@ -388,7 +388,15 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
         const favSet = new Set(favSymbols);
         // 디스커버리 — 당일 활발 종목 동적 발굴 (US)
         const dynamic = await _fetchDiscoverySymbols(env, marketHint);
-        const allSymbols = [...new Set([...favSymbols, ...DEFAULT_UNIVERSE, ...dynamic])].slice(0, 50);
+        // Cloudflare Workers 무료 플랜(요청당 서브리퀘스트 50개 한도) 대응:
+        // 즐겨찾기(사용자 알림 직결)는 매 틱 전량 스캔. 기본 풀+디스커버리는 가상매매보다
+        // 우선순위가 낮은 "알림용" 스캔이므로, 15분 경계 틱(dt-capture의 15m 스캔과 동일 주기)에만
+        // 최대 10개까지만 실행 — 예산을 가상매매·포지션관리에 최대한 양보.
+        const isFifteenBoundary = new Date().getUTCMinutes() % 15 === 0;
+        const restPool = isFifteenBoundary
+            ? [...new Set([...DEFAULT_UNIVERSE, ...dynamic])].filter(s => !favSet.has(s)).slice(0, 10)
+            : [];
+        const allSymbols = [...new Set([...favSymbols, ...restPool])].slice(0, 50);
         if (!allSymbols.length) return { subscribers: subs.length, marketHint, fired: 0 };
 
         // 디스커버리 푸시 대상 구독자 (discovery 토글 ON + 조용시간 아님 + 시장필터)

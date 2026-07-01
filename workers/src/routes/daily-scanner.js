@@ -65,7 +65,8 @@ export async function handleDailyTradingScan(req, env) {
     try {
         const url = new URL(req.url);
         const market = url.searchParams.get('market') === 'KR' ? 'KR' : 'US';
-        const tf = url.searchParams.get('tf') === '15m' ? '15m' : '5m';
+        const tfParam = url.searchParams.get('tf');
+        const tf = (tfParam === '15m' || tfParam === '1d') ? tfParam : '5m';
         const cacheKey = `dailyscan:${market}:${tf}`;
 
         // KV 캐시 (90초)
@@ -88,12 +89,15 @@ export async function handleDailyTradingScan(req, env) {
         const measuredWin = await _loadMeasuredWin(env, tf);
 
         // 유니버스 — 기본 풀 + 당일 활발 종목(US 스크리너)
+        // Cloudflare Workers 무료 플랜: 요청당 서브리퀘스트 50개 한도 — 가상매매(우선순위 최상위)가
+        // 이 스캔에서 예산을 다 못 쓰게 20개로 축소 (기존 40개는 폴백 포함 최대 80회 fetch로 한도 초과 원인).
         const base = market === 'KR' ? DEFAULT_UNIVERSE_KR : DEFAULT_UNIVERSE_US;
         const dynamic = await _fetchDiscoverySymbols(env, market);
-        const universe = [...new Set([...base, ...dynamic])].slice(0, 40);
+        // dynamic(당일 활발 종목)을 우선 배치 — base가 47개라 뒤에 두면 20개 컷에서 항상 밀려남
+        const universe = [...new Set([...dynamic, ...base])].slice(0, 20);
 
-        // 5m·15m 모두 5d — 장 마감·주말에도 300봉 이상 확보 (1d는 주말 3봉뿐)
-        const range = '5d';
+        // 5m: 5d(300봉+ 확보) / 1d: 2y(EMA120·ADX14 계산에 최소 120봉 필요 — 6개월 미만이면 부족)
+        const range = tf === '1d' ? '2y' : '5d';
 
         const results = [];
         let analyzed = 0;
@@ -200,7 +204,8 @@ export async function handleDailyTradingScan(req, env) {
 export async function handleDailyBacktest(req, env) {
     try {
         const url = new URL(req.url);
-        const tf = url.searchParams.get('tf') === '15m' ? '15m' : '5m';
+        const tfParam = url.searchParams.get('tf');
+        const tf = (tfParam === '15m' || tfParam === '1d') ? tfParam : '5m';
         const force = url.searchParams.get('force') === '1';
         const targetR = Math.max(0.5, Math.min(5, parseFloat(url.searchParams.get('target') || '2'))) || 2;
         const mode = url.searchParams.get('mode') === 'bounce' ? 'bounce' : 'trend';
@@ -225,8 +230,8 @@ export async function handleDailyBacktest(req, env) {
         // 백테스트 유니버스 — 기본 풀만 (안정적 종목), 비용 위해 25개 제한
         const dynamic = await _fetchDiscoverySymbols(env, 'US');
         const universe = [...new Set([...DEFAULT_UNIVERSE_US, ...dynamic])].slice(0, 25);
-        // 5m: 1개월(≈30일×78봉) / 15m: 3개월
-        const range = tf === '15m' ? '3mo' : '1mo';
+        // 5m: 1개월(≈30일×78봉) / 15m: 3개월 / 1d: 5년(표본 확보)
+        const range = tf === '15m' ? '3mo' : tf === '1d' ? '5y' : '1mo';
 
         const all = [];
         let symbolsOk = 0;
@@ -306,13 +311,20 @@ export async function captureDailySignals(env) {
     const regime     = await getMarketRegime(env);
     const sectorRot  = await getSectorRotation(env);
 
+    // 일봉 캔들은 하루 1번만 마감됨 — 5분마다 재스캔은 낭비이자 서브리퀘스트 한도 초과 원인.
+    // ET 10:00(개장 30분 후) 틱에서만 1d 스캔 실행 — 단기 스윙(수일 보유) 신호용.
+    // 고정 UTC 시각 대신 _etTotalMin() 사용 — DST(서머타임) 전환 시에도 항상 정확히 ET 10:00에 맞춤.
+    const etMin = _etTotalMin();
+    const isDailyScanTime = etMin >= 600 && etMin < 605;
+    const timeframes = isDailyScanTime ? ['5m', '1d'] : ['5m'];
+
     let logged = 0;
-    for (const tf of ['5m', '15m']) {
+    for (const tf of timeframes) {
         try {
             const resp = await handleDailyTradingScan(new Request(`https://x/api/scanner/daily-trading?market=US&tf=${tf}`), env);
             const data = await resp.json();
             const results = data.results || [];
-            const tfMin = tf === '15m' ? 15 : 5;
+            const tfMin = tf === '1d' ? 1440 : 5;
             for (const r of results) {
                 try {
                     if (r.stop == null || r.price == null) continue;
@@ -426,8 +438,9 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
     // ④.5 신호 신선도 체크 — 모드별 최대 허용 봉수
     // bounce(눌림목·반등): 3봉(5m:15분) — 타이밍 민감, 늦으면 반등 완료
     // trend(추세추격): 5봉(5m:25분) — 추세는 지속성 있음
+    // 1d: 1봉(=1거래일) — 하루 지난 일봉 신호는 이미 가격이 움직여 진입 의미 퇴색
     const isBounce = (r.mode || 'trend') === 'bounce';
-    const maxBarsAgo = isBounce ? 3 : 5;
+    const maxBarsAgo = tf === '1d' ? 1 : (isBounce ? 3 : 5);
     if ((r.barsAgo ?? 0) > maxBarsAgo) {
         console.log(`[paper] ${r.symbol} ${r.mode||'trend'} 신호 ${r.barsAgo}봉 전 — 신선도 부족 스킵`);
         return;
@@ -438,7 +451,7 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
     if (!category) return;
 
     // ⑦ 카테고리 스킵 목록 체크
-    const categoryKey = `${category}_${tf === '15m' ? 'swing' : 'day'}`;
+    const categoryKey = `${category}_${tf === '1d' ? 'swing' : 'day'}`;
     if ((params.skip_categories || []).includes(categoryKey)) return;
 
     // ⑧ 뉴스 감성 체크 — 명확한 부정 이슈면 진입 금지
@@ -507,7 +520,7 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
         }
     }
 
-    const style       = tf === '15m' ? 'swing' : 'day';
+    const style       = tf === '1d' ? 'swing' : 'day';
     const maxPos      = params.max_positions      || 6;
     const maxDayPos   = params.max_day_positions  || 3; // 단타 시드 50% — 3포지션
     const maxSwingPos = params.max_swing_positions|| 3; // 스윙 시드 50% — 3포지션
@@ -556,13 +569,14 @@ export async function resolveDailySignals(env) {
         for (const [key, grp] of groups) {
             try {
                 const [symbol, tf] = key.split('|');
-                const range = tf === '15m' ? '1mo' : '5d';
+                const range = tf === '15m' ? '1mo' : tf === '1d' ? '2y' : '5d';
                 const raw = await fetchChartWithFallback(env, symbol, range, tf, 'false');
                 const r0 = raw?.chart?.result?.[0];
                 const ts = r0?.timestamp || [];
                 const q = r0?.indicators?.quote?.[0];
                 if (!q?.close?.length) continue;
-                const horizon = tf === '15m' ? 16 : 24;
+                // 1d: 20거래일(≈1개월) 관찰 — 단기 스윙 목표 도달까지 여유 필요
+                const horizon = tf === '15m' ? 16 : tf === '1d' ? 20 : 24;
                 for (const row of grp) {
                     // 진입 시각 이후 봉만 (forward)
                     const bars = [];
@@ -577,8 +591,9 @@ export async function resolveDailySignals(env) {
                         await env.DB.prepare('UPDATE dt_signals SET resolved=1, outcome=?, exit_price=?, exit_r=?, resolved_at=? WHERE id=?')
                             .bind(res.outcome, res.exitPrice, res.exitR, Date.now(), row.id).run();
                         resolved++;
-                    } else if (ageH > 48) {
-                        // 2일+ 미해소(데이터 부족 등) → 마지막가로 강제 timeout
+                    } else if (ageH > (tf === '1d' ? 30 * 24 : 48)) {
+                        // 일봉은 20거래일 관찰에 최소 한 달 필요 — 48시간 기준을 그대로 쓰면 항상 조기 timeout됨
+                        // 2일(또는 1d: 30일)+ 미해소(데이터 부족 등) → 마지막가로 강제 timeout
                         const ex = bars.length ? bars[bars.length - 1].close : row.entry;
                         const exitR = +(((row.dir === 'buy' ? (ex - row.entry) : (row.entry - ex)) / row.stop_dist)).toFixed(2);
                         await env.DB.prepare("UPDATE dt_signals SET resolved=1, outcome='timeout', exit_price=?, exit_r=?, resolved_at=? WHERE id=?")

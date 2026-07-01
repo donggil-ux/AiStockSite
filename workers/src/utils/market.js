@@ -4,7 +4,10 @@ import { yfRequest } from './crumb.js';
 import { calcEMA } from './indicators.js';
 
 const CACHE_KEY = 'regime:US';
-const CACHE_TTL = 300; // 5분
+// Cloudflare Workers 무료 플랜: 요청당 서브리퀘스트 50개 한도.
+// 5분 캐시는 5분 주기 크론과 거의 항상 딱 만료돼 매 틱마다 재요청(레짐 2개+섹터 11개=13개) 발생 →
+// 15분으로 늘려 3틱 중 1번만 재요청하도록 절감.
+const CACHE_TTL = 900; // 15분
 
 const NEUTRAL = { regime: 'neutral', label: '중립', spyTrend: 'flat', spyChgPct: 0, vix: null, note: '판정 보류' };
 

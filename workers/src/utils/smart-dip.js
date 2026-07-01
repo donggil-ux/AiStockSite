@@ -265,7 +265,7 @@ export function smartDipBacktest(q, { interval = '5m', spxTrendUp = null, horizo
     if (N < 80) return { trades };
     const ind = indicators(q);
     const htfLag = _htfLag(interval);
-    const H = horizon || (interval === '15m' ? 16 : 24); // 목표/손절 관찰 봉수
+    const H = horizon || (interval === '15m' ? 16 : interval === '1d' ? 20 : 24); // 목표/손절 관찰 봉수
     let cooldownUntil = -1;
 
     for (let i = 60; i < N - 2; i++) {

@@ -361,10 +361,12 @@ async function _manageOne(env, pos, price) {
         return;
     }
 
-    // ── 단기 스윙 최대 보유 3일 자동 청산 ──────────────────────────
+    // ── 단기 스윙(일봉 기반) 최대 보유 15일 자동 청산 ──────────────────
+    // 기존 3일은 15분봉 기반 스윙(사실상 인트라데이) 기준 — 일봉 ATR 손절/목표는
+    // 훨씬 폭이 넓어 도달까지 더 걸림. 15거래일(~3주) 유예로 확장.
     if (pos.style === 'swing') {
         const ageMs = now - pos.created_at;
-        if (ageMs > 3 * 24 * 3600 * 1000) {
+        if (ageMs > 15 * 24 * 3600 * 1000) {
             await paperClosePosition(env, pos, price, 'timeout');
             return;
         }
@@ -405,9 +407,9 @@ async function _manageOne(env, pos, price) {
             return;
         }
 
-        // ② 시간 기반
+        // ② 시간 기반 — 스윙(일봉)은 3일(4320분)간 무변동이어야 방치 판단, 단타는 기존 60분 유지
         const ageMin        = (now - pos.created_at) / 60000;
-        const timeLimit     = pos.style === 'swing' ? 240 : 60;
+        const timeLimit     = pos.style === 'swing' ? 4320 : 60;
         const regularOpened = pos.style === 'day' ? _etTotalMin() >= 9 * 60 + 40 : true;
         if (ageMin >= timeLimit && Math.abs(retPct) <= 0.003 && regularOpened) {
             await paperClosePosition(env, pos, price, 'be_protect');
