@@ -521,6 +521,8 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
     }
 
     const style       = tf === '1d' ? 'swing' : 'day';
+    // 단타(5m) 실진입 중단 — 중단기 스윙(1d) 위주로 운용. 5m 스캔 자체는 dt_signals 통계 목적으로 계속 유지.
+    if (style === 'day') return;
     const maxPos      = params.max_positions      || 6;
     const maxDayPos   = params.max_day_positions  || 3; // 단타 시드 50% — 3포지션
     const maxSwingPos = params.max_swing_positions|| 3; // 스윙 시드 50% — 3포지션
@@ -547,6 +549,8 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
             category, style,
             dir: isShortSignal ? 'short' : 'long', price: r.price, qty,
             signalId: dtId, grade: r.grade, score: r.score,
+            // 스윙(일봉)은 신호의 ATR 기준 손절 사용 — 고정 -0.8%로는 일봉 변동폭에 바로 청산됨
+            stopPrice: r.stop,
         });
         console.log(`[paper] open ${r.symbol} ${isShortSignal?'short':'long'} ${style} grade=${r.grade} rvol=${(r.rvol||0).toFixed(1)} user=${acct.user_id}`);
         // 알림은 paperOpenTrade 내부에서 직접 발송됨

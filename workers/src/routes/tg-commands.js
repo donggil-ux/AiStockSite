@@ -47,6 +47,41 @@ function _tfBuySignal(q, ts, interval) {
         : (trendBuy || bounce);
 }
 
+// 옵션 체인 요약 — 최근월물 콜/풋 미결제약정(OI)·거래량 + 맥스페인(옵션 매도자에게 가장 유리한 가격)
+// 맥스페인: 상장된 각 행사가 K에 만기가 도래한다고 가정했을 때 옵션 보유자 총 정산액이
+// 최소가 되는 K를 찾음 (콜은 K 아래 strike, 풋은 K 위 strike 가 각각 내가격으로 계산됨)
+async function _fetchOptionsSummary(env, symbol) {
+    try {
+        const url = `https://query1.finance.yahoo.com/v7/finance/options/${encodeURIComponent(symbol)}`;
+        const data = await yfRequest(env.CACHE, url);
+        const opt = data?.optionChain?.result?.[0]?.options?.[0];
+        if (!opt) return null;
+        const calls = opt.calls || [];
+        const puts  = opt.puts || [];
+        if (!calls.length && !puts.length) return null;
+
+        const callOI  = calls.reduce((s, c) => s + (c.openInterest || 0), 0);
+        const putOI   = puts.reduce((s, p) => s + (p.openInterest || 0), 0);
+        const callVol = calls.reduce((s, c) => s + (c.volume || 0), 0);
+        const putVol  = puts.reduce((s, p) => s + (p.volume || 0), 0);
+
+        const strikes = [...new Set([...calls.map(c => c.strike), ...puts.map(p => p.strike)])].filter(k => k > 0);
+        let maxPain = null, minPayout = Infinity;
+        for (const k of strikes) {
+            let payout = 0;
+            for (const c of calls) if (c.strike < k) payout += (k - c.strike) * (c.openInterest || 0);
+            for (const p of puts)  if (p.strike > k) payout += (p.strike - k) * (p.openInterest || 0);
+            if (payout < minPayout) { minPayout = payout; maxPain = k; }
+        }
+
+        return {
+            expiry: opt.expirationDate ? new Date(opt.expirationDate * 1000).toISOString().slice(0, 10) : null,
+            maxPain, callOI, putOI, callVol, putVol,
+            pcRatioOI: callOI > 0 ? +(putOI / callOI).toFixed(2) : null,
+        };
+    } catch (_) { return null; }
+}
+
 export async function handleTgWebhook(req, env) {
     let body;
     try { body = await req.json(); } catch { return new Response('ok'); }
@@ -250,7 +285,7 @@ async function _liveScan(env, customSymbols) {
 async function _analyzeSymbol(env, symbol) {
     try {
         const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=2d&interval=5m&includePrePost=true`;
-        const [data, quoteMap, acct, daily, tf15, tf60, news] = await Promise.all([
+        const [data, quoteMap, acct, daily, tf15, tf60, news, options] = await Promise.all([
             yfRequest(env.CACHE, chartUrl),
             _quotePrice(env, [symbol]),
             env.DB.prepare("SELECT balance, position_size FROM paper_account WHERE user_id=?")
@@ -259,6 +294,7 @@ async function _analyzeSymbol(env, symbol) {
             _fetchTfData(env, symbol, '1mo', '15m'),
             _fetchTfData(env, symbol, '3mo', '60m'),
             getNewsSentiment(env, symbol).catch(() => null),
+            _fetchOptionsSummary(env, symbol).catch(() => null),
         ]);
         const result = data?.chart?.result?.[0];
         if (!result) { await _tgDirect(env, `❌ ${symbol} 차트 데이터 없음`); return; }
@@ -299,6 +335,13 @@ async function _analyzeSymbol(env, symbol) {
             ? `<b>📰 뉴스</b>\n  ${newsEmoji} ${news.sentiment} — ${news.headline}`
             : null;
 
+        // 옵션 현황 — 맥스페인 + 콜/풋 미결제약정 비교
+        const optionsBlock = options ? [
+            `<b>🎯 옵션 현황</b> (만기 ${options.expiry || '-'})`,
+            `  맥스페인 $${options.maxPain?.toFixed(2) ?? '-'}  (현재가 ${price > (options.maxPain || 0) ? '위 ↑' : '아래 ↓'})`,
+            `  콜 OI ${options.callOI.toLocaleString()}  |  풋 OI ${options.putOI.toLocaleString()}  → ${options.callOI >= options.putOI ? '콜' : '풋'} 우세 (P/C ${options.pcRatioOI ?? '-'})`,
+        ].join('\n') : null;
+
         // 신호 없음
         if (!sig) {
             const ema60 = calcEMA(q.close || [], 60);
@@ -310,6 +353,7 @@ async function _analyzeSymbol(env, symbol) {
                 '',
                 mtfBlock,
                 newsBlock ? '' : null, newsBlock,
+                optionsBlock ? '' : null, optionsBlock,
                 '',
                 '⚪ 신호 없음 — 조건 미충족, 관망 권장',
             ].filter(l => l !== null).join('\n'));
@@ -359,6 +403,7 @@ async function _analyzeSymbol(env, symbol) {
             `📈 ADX ${sig.adx} | RSI ${sig.rsiVal} | 거래량 ${sig.volRatio}x`,
             `   ${sig.reasons.join(' / ')}`,
             newsBlock ? '' : null, newsBlock,
+            optionsBlock ? '' : null, optionsBlock,
         ].filter(l => l !== null).join('\n'));
     } catch (e) {
         console.error('[tg-analyze]', symbol, e?.message);

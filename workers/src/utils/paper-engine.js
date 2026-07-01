@@ -113,11 +113,15 @@ export async function isSymbolBlocked(env, symbol) {
 /**
  * 1차 분할 진입 — 새 paper_trade 생성
  */
-export async function paperOpenTrade(env, { userId, symbol, category, style, dir, price, qty, signalId = null, grade = null, score = null }) {
+export async function paperOpenTrade(env, { userId, symbol, category, style, dir, price, qty, signalId = null, grade = null, score = null, stopPrice = null }) {
     const now = Date.now();
     const amount = price * qty;
-    // 롱: 진입가 -0.8% / 숏: 진입가 +0.8%
-    const stop = dir === 'short' ? price * (2 - STOP_FROM_FIRST) : price * STOP_FROM_FIRST;
+    // 기본: 롱 진입가 -0.8% / 숏 진입가 +0.8% (단타용 타이트 손절)
+    // stopPrice 제공 시(스윙/일봉 신호의 ATR 기준 손절) 방향이 올바르면 그대로 사용 —
+    // 일봉 변동폭엔 고정 -0.8%가 너무 타이트해 정상 노이즈에도 바로 청산되기 때문.
+    const fixedStop = dir === 'short' ? price * (2 - STOP_FROM_FIRST) : price * STOP_FROM_FIRST;
+    const stopValid = stopPrice > 0 && (dir === 'short' ? stopPrice > price : stopPrice < price);
+    const stop = stopValid ? stopPrice : fixedStop;
 
     const res = await env.DB.prepare(`
         INSERT INTO paper_trades
@@ -361,12 +365,12 @@ async function _manageOne(env, pos, price) {
         return;
     }
 
-    // ── 단기 스윙(일봉 기반) 최대 보유 15일 자동 청산 ──────────────────
-    // 기존 3일은 15분봉 기반 스윙(사실상 인트라데이) 기준 — 일봉 ATR 손절/목표는
-    // 훨씬 폭이 넓어 도달까지 더 걸림. 15거래일(~3주) 유예로 확장.
+    // ── 중단기 스윙(일봉 기반) 최대 보유 45일 자동 청산 ──────────────────
+    // "최대한 길게 가져간다" 방침 — 손절/트레일링 스탑에 걸리지 않는 한 억지로 빨리 안 끊음.
+    // 그래도 무기한 방치는 계좌 회전 막으니 45거래일(~2개월) 상한은 유지.
     if (pos.style === 'swing') {
         const ageMs = now - pos.created_at;
-        if (ageMs > 15 * 24 * 3600 * 1000) {
+        if (ageMs > 45 * 24 * 3600 * 1000) {
             await paperClosePosition(env, pos, price, 'timeout');
             return;
         }
@@ -407,9 +411,10 @@ async function _manageOne(env, pos, price) {
             return;
         }
 
-        // ② 시간 기반 — 스윙(일봉)은 3일(4320분)간 무변동이어야 방치 판단, 단타는 기존 60분 유지
+        // ② 시간 기반 — 스윙(일봉)은 7일(10080분)간 무변동이어야 방치 판단, 단타는 기존 60분 유지
+        // "최대한 길게" 방침 — 며칠 횡보는 정상 범주로 보고 조기 청산하지 않음
         const ageMin        = (now - pos.created_at) / 60000;
-        const timeLimit     = pos.style === 'swing' ? 4320 : 60;
+        const timeLimit     = pos.style === 'swing' ? 10080 : 60;
         const regularOpened = pos.style === 'day' ? _etTotalMin() >= 9 * 60 + 40 : true;
         if (ageMin >= timeLimit && Math.abs(retPct) <= 0.003 && regularOpened) {
             await paperClosePosition(env, pos, price, 'be_protect');
