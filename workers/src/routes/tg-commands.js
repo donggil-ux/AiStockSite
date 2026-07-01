@@ -1,6 +1,6 @@
 // Telegram 봇 명령어 처리 — 매수/매도/포지션 조회
 // 보안: chatId 검증 (env.TELEGRAM_CHAT_ID 만 허용)
-import { paperOpenTrade, paperClosePosition, _tgDirect } from '../utils/paper-engine.js';
+import { paperOpenTrade, paperClosePosition, _tgDirect, isSymbolBlocked } from '../utils/paper-engine.js';
 import { classifySymbol } from '../utils/paper-category.js';
 import { smartDipScan, smartDipScanBounce } from '../utils/smart-dip.js';
 import { yfRequest } from '../utils/crumb.js';
@@ -36,9 +36,15 @@ export async function handleTgWebhook(req, env) {
         } else if (cmd === '스캐너' || cmd === '/스캐너') {
             const customSymbols = text.split(/\s+/).slice(1).map(s => s.toUpperCase()).filter(Boolean);
             await _liveScan(env, customSymbols);
+        } else if ((cmd === '금지' || cmd === '/금지') && symbol) {
+            await _blockSymbol(env, symbol);
+        } else if ((cmd === '금지해제' || cmd === '/금지해제') && symbol) {
+            await _unblockSymbol(env, symbol);
+        } else if (cmd === '금지목록' || cmd === '/금지목록') {
+            await _sendBlocklist(env);
         } else {
             await _tgDirect(env,
-                '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ\n• 분석 NVDA — 종목 분석\n• 스캐너 — 실시간 매수 스캔 (스캐너 NVDA TSLA 로 직접 지정 가능)'
+                '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ\n• 분석 NVDA — 종목 분석\n• 스캐너 — 실시간 매수 스캔 (스캐너 NVDA TSLA 로 직접 지정 가능)\n• 금지 TQQQ — 매매 금지 등록\n• 금지해제 TQQQ\n• 금지목록 — 금지 종목 조회'
             );
         }
     } catch (e) {
@@ -83,7 +89,27 @@ async function _fetchPrice(env, symbol) {
     } catch (_) { return null; }
 }
 
+async function _blockSymbol(env, symbol) {
+    await env.DB.prepare('INSERT OR IGNORE INTO paper_blocklist (symbol, added_at) VALUES (?, ?)')
+        .bind(symbol, Date.now()).run();
+    await _tgDirect(env, `🚫 ${symbol} 매매 금지 등록됨`);
+}
+
+async function _unblockSymbol(env, symbol) {
+    await env.DB.prepare('DELETE FROM paper_blocklist WHERE symbol=?').bind(symbol).run();
+    await _tgDirect(env, `✅ ${symbol} 매매 금지 해제됨`);
+}
+
+async function _sendBlocklist(env) {
+    const rows = await env.DB.prepare('SELECT symbol FROM paper_blocklist ORDER BY added_at DESC').all();
+    const symbols = (rows.results || []).map(r => r.symbol);
+    if (!symbols.length) { await _tgDirect(env, '📭 금지 종목 없음'); return; }
+    await _tgDirect(env, `🚫 금지 종목 (${symbols.length}건)\n${symbols.join(', ')}`);
+}
+
 async function _manualBuy(env, symbol) {
+    if (await isSymbolBlocked(env, symbol)) { await _tgDirect(env, `🚫 ${symbol} 매매 금지 종목`); return; }
+
     const price = await _fetchPrice(env, symbol);
     if (!price) { await _tgDirect(env, `❌ ${symbol} 현재가 조회 실패`); return; }
 

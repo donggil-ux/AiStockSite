@@ -10,7 +10,7 @@ import { smartDipScan, smartDipScanBounce, smartDipBacktest, resolveTrailExit } 
 import { fetchChartWithFallback } from './yahoo.js';
 import { getMarketRegime, getSectorRotation } from '../utils/market.js';
 import { _fetchDiscoverySymbols, DEFAULT_UNIVERSE_US, DEFAULT_UNIVERSE_KR } from '../cron.js';
-import { paperOpenTrade, _tgDirect, TRANCHE_WEIGHTS, TRANCHE_WEIGHT_SUM, _etTotalMin } from '../utils/paper-engine.js';
+import { paperOpenTrade, _tgDirect, TRANCHE_WEIGHTS, TRANCHE_WEIGHT_SUM, _etTotalMin, isSymbolBlocked } from '../utils/paper-engine.js';
 import { classifySymbol, SECTOR_MAP, LEVERAGED_ETFS, INVERSE_ETFS } from '../utils/paper-category.js';
 import { getPaperTradeParams } from '../utils/paper-optimizer.js';
 import { getNewsSentiment } from '../utils/news-sentiment.js';
@@ -359,6 +359,9 @@ function _sessionMinRvol(params) {
 async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, sectorRot) {
     // ① ET 시간 필터
     if (!_isGoodEntryTime()) return;
+
+    // ① 매매 금지 종목 차단
+    if (await isSymbolBlocked(env, r.symbol)) return;
 
     // ① SPX 레짐 게이트
     const isShortSignal = r.dir === 'sell';

@@ -104,6 +104,12 @@ function calcPnl(avgPrice, exitPrice, qty, dir) {
 
 // ── 공개 API ─────────────────────────────────────────────────────
 
+// 매매 금지 종목 여부 확인 — 자동/수동 매수 진입 전 게이트
+export async function isSymbolBlocked(env, symbol) {
+    const row = await env.DB.prepare('SELECT 1 FROM paper_blocklist WHERE symbol=?').bind(symbol).first();
+    return !!row;
+}
+
 /**
  * 1차 분할 진입 — 새 paper_trade 생성
  */
