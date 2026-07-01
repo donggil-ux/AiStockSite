@@ -4,7 +4,34 @@ import { paperOpenTrade, paperClosePosition, _tgDirect, isSymbolBlocked } from '
 import { classifySymbol } from '../utils/paper-category.js';
 import { smartDipScan, smartDipScanBounce } from '../utils/smart-dip.js';
 import { yfRequest } from '../utils/crumb.js';
-import { calcEMA } from '../utils/indicators.js';
+import { calcEMA, calcRSI, calcADXSeries, lastVal } from '../utils/indicators.js';
+
+// 단일 타임프레임 추세 관점 — EMA20/60 정렬 + RSI + ADX (간단 요약용, 매매 시그널 아님)
+function _tfPerspective(q) {
+    const { close = [], high = [], low = [] } = q;
+    if (close.length < 30) return null;
+    const c = lastVal(close);
+    if (c == null) return null;
+    const e20 = lastVal(calcEMA(close, 20));
+    const e60 = lastVal(calcEMA(close, 60));
+    const rsiVal = lastVal(calcRSI(close, 14));
+    const adxVal = lastVal(calcADXSeries(high, low, close, 14));
+    let trend = '횡보';
+    if (e20 != null && e60 != null) {
+        if (c > e20 && e20 > e60) trend = '상승';
+        else if (c < e20 && e20 < e60) trend = '하락';
+    }
+    return { trend, rsi: rsiVal != null ? Math.round(rsiVal) : null, adx: adxVal != null ? Math.round(adxVal) : null };
+}
+
+// 타임프레임별 차트 조회 (실패 시 null)
+async function _fetchTfQuote(env, symbol, range, interval) {
+    try {
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`;
+        const data = await yfRequest(env.CACHE, url);
+        return data?.chart?.result?.[0]?.indicators?.quote?.[0] || null;
+    } catch (_) { return null; }
+}
 
 export async function handleTgWebhook(req, env) {
     let body;
@@ -207,11 +234,14 @@ async function _liveScan(env, customSymbols) {
 async function _analyzeSymbol(env, symbol) {
     try {
         const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=2d&interval=5m&includePrePost=true`;
-        const [data, quoteMap, acct] = await Promise.all([
+        const [data, quoteMap, acct, dailyQ, q15, q60] = await Promise.all([
             yfRequest(env.CACHE, chartUrl),
             _quotePrice(env, [symbol]),
             env.DB.prepare("SELECT balance, position_size FROM paper_account WHERE user_id=?")
                 .bind('user_3EhxWla1QzZmEG19xfFdmnUTUrp').first(),
+            _fetchTfQuote(env, symbol, '6mo', '1d'),
+            _fetchTfQuote(env, symbol, '1mo', '15m'),
+            _fetchTfQuote(env, symbol, '3mo', '60m'),
         ]);
         const result = data?.chart?.result?.[0];
         if (!result) { await _tgDirect(env, `❌ ${symbol} 차트 데이터 없음`); return; }
@@ -232,12 +262,22 @@ async function _analyzeSymbol(env, symbol) {
             ? (trendBuy.qualityScore >= bounce.qualityScore ? trendBuy : bounce)
             : (trendBuy || bounce);
 
+        // 멀티 타임프레임 관점 — 일봉/60분/15분/5분 추세 정렬 요약
+        const tfDefs = [['일봉', dailyQ], ['60분', q60], ['15분', q15], ['5분', q]];
+        const tfLines = tfDefs.map(([label, tq]) => {
+            const p = tq ? _tfPerspective(tq) : null;
+            if (!p) return `  ${label}   데이터 부족`;
+            const arrow = p.trend === '상승' ? '↑' : p.trend === '하락' ? '↓' : '→';
+            return `  ${label}   ${p.trend}${arrow}  RSI ${p.rsi ?? '-'}  ADX ${p.adx ?? '-'}`;
+        });
+        const mtfBlock = ['<b>🕐 멀티 타임프레임 관점</b>', ...tfLines].join('\n');
+
         // 신호 없음
         if (!sig) {
             const ema60 = calcEMA(q.close || [], 60);
             const lastEma = [...ema60].reverse().find(v => v != null);
             const emaStr = lastEma ? `EMA60 $${lastEma.toFixed(2)} (가격 ${price > lastEma ? '위 ↑' : '아래 ↓'})` : '';
-            await _tgDirect(env, `📊 <b>${symbol}</b> @ $${price.toFixed(2)} (${chgStr})\n${emaStr}\n\n⚪ 신호 없음 — 조건 미충족, 관망 권장`);
+            await _tgDirect(env, `📊 <b>${symbol}</b> @ $${price.toFixed(2)} (${chgStr})\n${emaStr}\n\n${mtfBlock}\n\n⚪ 신호 없음 — 조건 미충족, 관망 권장`);
             return;
         }
 
@@ -265,6 +305,8 @@ async function _analyzeSymbol(env, symbol) {
         await _tgDirect(env, [
             `📊 <b>${symbol}</b> @ $${price.toFixed(2)} (${chgStr})`,
             `${dirEmoji} ${dirLabel} ${modeLabel} [${sig.grade}등급] qs=${sig.qualityScore}  ${timing}`,
+            '',
+            mtfBlock,
             '',
             '<b>📍 매매 계획</b>',
             `  1차 진입   $${sig.price.toFixed(2)}`,
