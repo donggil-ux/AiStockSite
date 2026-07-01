@@ -6,6 +6,7 @@ import { smartDipScan, smartDipScanBounce } from '../utils/smart-dip.js';
 import { yfRequest } from '../utils/crumb.js';
 import { calcEMA, calcRSI, calcADXSeries, lastVal } from '../utils/indicators.js';
 import { getNewsSentiment } from '../utils/news-sentiment.js';
+import { sendDailyHealthSummary } from './daily-scanner.js';
 
 // 단일 타임프레임 추세 관점 — EMA20/60 정렬 + RSI + ADX (간단 요약용, 매매 시그널 아님)
 function _tfPerspective(q) {
@@ -82,9 +83,11 @@ export async function handleTgWebhook(req, env) {
             await _unblockSymbol(env, symbol);
         } else if (cmd === '금지목록' || cmd === '/금지목록') {
             await _sendBlocklist(env);
+        } else if (cmd === '리포트' || cmd === '/리포트') {
+            await sendDailyHealthSummary(env);
         } else {
             await _tgDirect(env,
-                '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ\n• 분석 NVDA — 종목 분석\n• 스캐너 — 실시간 매수 스캔 (스캐너 NVDA TSLA 로 직접 지정 가능)\n• 금지 TQQQ — 매매 금지 등록\n• 금지해제 TQQQ\n• 금지목록 — 금지 종목 조회'
+                '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ\n• 분석 NVDA — 종목 분석\n• 스캐너 — 실시간 매수 스캔 (스캐너 NVDA TSLA 로 직접 지정 가능)\n• 금지 TQQQ — 매매 금지 등록\n• 금지해제 TQQQ\n• 금지목록 — 금지 종목 조회\n• 리포트 — 오늘 시그널/매매/오류 요약 (매일 US 장마감 후 자동 발송)'
             );
         }
     } catch (e) {

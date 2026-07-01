@@ -314,22 +314,27 @@ export async function captureDailySignals(env) {
             const results = data.results || [];
             const tfMin = tf === '15m' ? 15 : 5;
             for (const r of results) {
-                if (r.stop == null || r.price == null) continue;
-                const stopDist = Math.abs(r.price - r.stop);
-                if (!(stopDist > 0)) continue;
-                const entryTs = (data.scannedAt || Date.now()) - (r.barsAgo || 0) * tfMin * 60000;
-                const since = Date.now() - 30 * 60 * 1000;
-                const dup = await env.DB.prepare(
-                    'SELECT 1 FROM dt_signals WHERE symbol=? AND dir=? AND tf=? AND created_at>? LIMIT 1'
-                ).bind(r.symbol, r.dir, tf, since).first();
-                if (dup) continue;
-                const dtInsert = await env.DB.prepare(
-                    'INSERT INTO dt_signals (symbol,tf,dir,mode,grade,score,entry,stop,be,stop_dist,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
-                ).bind(r.symbol, tf, r.dir, r.mode || 'trend', r.grade, r.score, r.price, r.stop, r.be ?? null, stopDist, entryTs).run();
-                logged++;
+                try {
+                    if (r.stop == null || r.price == null) continue;
+                    const stopDist = Math.abs(r.price - r.stop);
+                    if (!(stopDist > 0)) continue;
+                    const entryTs = (data.scannedAt || Date.now()) - (r.barsAgo || 0) * tfMin * 60000;
+                    const since = Date.now() - 30 * 60 * 1000;
+                    const dup = await env.DB.prepare(
+                        'SELECT 1 FROM dt_signals WHERE symbol=? AND dir=? AND tf=? AND created_at>? LIMIT 1'
+                    ).bind(r.symbol, r.dir, tf, since).first();
+                    if (dup) continue;
+                    const dtInsert = await env.DB.prepare(
+                        'INSERT INTO dt_signals (symbol,tf,dir,mode,grade,score,entry,stop,be,stop_dist,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+                    ).bind(r.symbol, tf, r.dir, r.mode || 'trend', r.grade, r.score, r.price, r.stop, r.be ?? null, stopDist, entryTs).run();
+                    logged++;
 
-                if (r.dir === 'buy' || r.dir === 'sell') {
-                    await _tryOpenPaperTrade(env, r, tf, dtInsert.meta?.last_row_id || null, params, accounts, regime, sectorRot);
+                    if (r.dir === 'buy' || r.dir === 'sell') {
+                        await _tryOpenPaperTrade(env, r, tf, dtInsert.meta?.last_row_id || null, params, accounts, regime, sectorRot);
+                    }
+                } catch (e) {
+                    // 한 종목 처리 실패가 나머지 후보 전체를 막지 않도록 개별 격리
+                    console.warn('[dt-capture] symbol err', r?.symbol, e?.message);
                 }
             }
         } catch (e) { try { await logError(env, 'captureDailySignals', e.message); } catch (_) {} }
@@ -611,5 +616,46 @@ export async function handleDailyLiveStats(req, env) {
         });
     } catch (e) {
         return err(500, e.message);
+    }
+}
+
+// ── 일일 헬스 리포트 — 미국 장마감 직후 텔레그램 자동 발송 ─────────────────
+// 목적: "시그널은 있었는데 매매가 0건" 같은 이상 상황을 사용자가 묻기 전에 먼저 알림.
+export async function sendDailyHealthSummary(env) {
+    try {
+        const dayStart = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00Z').getTime();
+
+        const [sigRow, openedRow, closedRow, openNowRow, acct, errRow] = await Promise.all([
+            env.DB.prepare("SELECT COUNT(*) n FROM dt_signals WHERE created_at>=? AND grade IN ('S','A') AND dir IN ('buy','sell')").bind(dayStart).first(),
+            env.DB.prepare('SELECT COUNT(*) n FROM paper_trades WHERE created_at>=?').bind(dayStart).first(),
+            env.DB.prepare("SELECT COUNT(*) n, COALESCE(SUM(realized_pnl),0) pnl FROM paper_trades WHERE status='closed' AND exit_at>=?").bind(dayStart).first(),
+            env.DB.prepare("SELECT COUNT(*) n FROM paper_trades WHERE status='open'").first(),
+            env.DB.prepare('SELECT balance, total_pnl FROM paper_account WHERE user_id=?').bind('user_3EhxWla1QzZmEG19xfFdmnUTUrp').first(),
+            env.DB.prepare("SELECT COUNT(*) n FROM errors WHERE created_at>=? AND severity IN ('error','fatal')").bind(dayStart).first(),
+        ]);
+
+        const signals = sigRow?.n || 0;
+        const opened  = openedRow?.n || 0;
+        const closed  = closedRow?.n || 0;
+        const pnl     = (closedRow?.pnl || 0).toFixed(0);
+        const errors  = errRow?.n || 0;
+
+        const lines = [
+            `📋 <b>일일 리포트</b> (${new Date().toISOString().slice(0, 10)})`,
+            `시그널(S/A) ${signals}건  |  매매 진입 ${opened}건  |  청산 ${closed}건 (${pnl >= 0 ? '+' : ''}$${pnl})`,
+            `현재 보유 ${openNowRow?.n || 0}종목  |  계좌 $${(acct?.balance || 0).toFixed(0)} (누적 ${acct?.total_pnl >= 0 ? '+' : ''}$${(acct?.total_pnl || 0).toFixed(0)})`,
+            `오류 로그 ${errors}건`,
+        ];
+        // 이상 징후 — 시그널은 있었는데 매매 진입이 0건인 경우 (오늘 겪은 subrequest 초과 같은 문제 조기 발견용)
+        if (signals > 0 && opened === 0) {
+            lines.push('', '⚠️ S/A급 시그널이 있었는데 매매 진입 0건 — 점검 필요');
+        }
+        if (errors > 0) {
+            lines.push('', `⚠️ 오류 로그 ${errors}건 발생 — /admin 에서 확인 권장`);
+        }
+
+        await _tgDirect(env, lines.join('\n'));
+    } catch (e) {
+        console.error('[daily-health]', e?.message);
     }
 }

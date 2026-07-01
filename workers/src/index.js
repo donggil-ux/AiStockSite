@@ -33,7 +33,7 @@ import { paperManageAll } from './utils/paper-engine.js';
 import { logError, pruneOldErrors } from './utils/errors.js';
 import { snapshotHealth } from './cron.js';
 import { handleAdminStatus, handleAnalyzeNow, handleDtForwardTest, handleCatForwardTest } from './routes/admin.js';
-import { handleDailyTradingScan, handleDailyBacktest, handleDailyLiveStats, captureDailySignals, resolveDailySignals } from './routes/daily-scanner.js';
+import { handleDailyTradingScan, handleDailyBacktest, handleDailyLiveStats, captureDailySignals, resolveDailySignals, sendDailyHealthSummary } from './routes/daily-scanner.js';
 import { handlePaperTrading } from './routes/paper-trading.js';
 import { handleTgWebhook } from './routes/tg-commands.js';
 import { handleCatalystLiveStats, captureCatalystSignals, resolveCatalystSignals } from './routes/catalyst-track.js';
@@ -218,19 +218,34 @@ export default {
             }
             ctx.waitUntil(Promise.all(tasks));
         }
-        // 5분마다 (시장 시간) 시그널 분석 + 가격 알림 병렬 실행
+        // 5분마다 (시장 시간) 시그널 분석 + 가격 알림
+        // 가상매매(캡처+포지션관리)를 먼저 순차 실행 — Workers subrequest 한도를 실거래 관련
+        // 작업이 먼저 확보하도록 함. 그 뒤 일반 스캔(알림용, 우선순위 낮음)을 실행.
+        // 병렬로 다 같이 돌리면 50종목 스캔이 한도를 다 써버려 가상매매 진입이 조용히 막힘.
         if (cron === '*/5 8-21 * * 1-5' || cron === '*/5 0-6 * * 1-5') {
             const market = cron.startsWith('*/5 8') ? 'US' : 'KR';
-            const jobs = [
-                checkPriceAlerts(env).then(r => console.log(`[cron] ${market} price`, r)),
-                analyzeSignals(env, market).then(r => console.log(`[cron] ${market} signal`, r)),
-            ];
-            // 미국 장중에만 데일리 트레이딩 신호 캡처 + 포지션 관리 (TP/손절/트레일/EOD)
-            if (market === 'US') {
-                jobs.push(captureDailySignals(env).then(r => console.log('[cron] dt-capture', r)));
-                jobs.push(paperManageAll(env).then(() => console.log('[cron] paper-manage done')).catch(e => console.error('[cron] paper-manage err', e.message)));
-            }
-            ctx.waitUntil(Promise.all(jobs));
+            ctx.waitUntil((async () => {
+                if (market === 'US') {
+                    try { console.log('[cron] dt-capture', await captureDailySignals(env)); }
+                    catch (e) { console.error('[cron] dt-capture err', e.message); }
+                    try { await paperManageAll(env); console.log('[cron] paper-manage done'); }
+                    catch (e) { console.error('[cron] paper-manage err', e.message); }
+                }
+                try { console.log(`[cron] ${market} price`, await checkPriceAlerts(env)); }
+                catch (e) { console.error('[cron] price err', e.message); }
+                try { console.log(`[cron] ${market} signal`, await analyzeSignals(env, market)); }
+                catch (e) { console.error('[cron] signal err', e.message); }
+
+                // 미국 정규장 마감 직후(이 cron의 마지막 틱, UTC 21:55) — 일일 리포트 발송
+                // 신규 cron 트리거 추가 없이(플랜당 5개 한도) 기존 5분 주기의 특정 틱에서 실행
+                if (market === 'US') {
+                    const d = new Date(event.scheduledTime || Date.now());
+                    if (d.getUTCHours() === 21 && d.getUTCMinutes() >= 55) {
+                        try { await sendDailyHealthSummary(env); console.log('[cron] daily-health done'); }
+                        catch (e) { console.error('[cron] daily-health err', e.message); }
+                    }
+                }
+            })());
         }
     },
 };
