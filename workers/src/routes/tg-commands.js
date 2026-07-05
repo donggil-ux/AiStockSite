@@ -7,6 +7,7 @@ import { yfRequest } from '../utils/crumb.js';
 import { calcEMA, calcRSI, calcADXSeries, lastVal } from '../utils/indicators.js';
 import { getNewsSentiment } from '../utils/news-sentiment.js';
 import { sendDailyHealthSummary } from './daily-scanner.js';
+import { getCachedSectorHeat } from '../utils/sector-heat.js';
 
 // 단일 타임프레임 추세 관점 — EMA20/60 정렬 + RSI + ADX (간단 요약용, 매매 시그널 아님)
 function _tfPerspective(q) {
@@ -120,9 +121,13 @@ export async function handleTgWebhook(req, env) {
             await _sendBlocklist(env);
         } else if (cmd === '리포트' || cmd === '/리포트') {
             await sendDailyHealthSummary(env);
+        } else if (cmd === '업종대세' || cmd === '/업종대세') {
+            await _sendSectorHeat(env);
+        } else if (cmd === '성장주' || cmd === '/성장주') {
+            await _sendGrowthPicks(env, sym?.toUpperCase());
         } else {
             await _tgDirect(env,
-                '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ\n• 분석 NVDA — 종목 분석\n• 스캐너 — 실시간 매수 스캔 (스캐너 NVDA TSLA 로 직접 지정 가능)\n• 금지 TQQQ — 매매 금지 등록\n• 금지해제 TQQQ\n• 금지목록 — 금지 종목 조회\n• 리포트 — 오늘 시그널/매매/오류 요약 (매일 US 장마감 후 자동 발송)'
+                '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ\n• 분석 NVDA — 종목 분석\n• 스캐너 — 실시간 매수 스캔 (스캐너 NVDA TSLA 로 직접 지정 가능)\n• 금지 TQQQ — 매매 금지 등록\n• 금지해제 TQQQ\n• 금지목록 — 금지 종목 조회\n• 리포트 — 오늘 시그널/매매/오류 요약 (매일 US 장마감 후 자동 발송)\n• 업종대세 — 요즘 뜨는 섹터 랭킹\n• 성장주 [섹터ETF] — 성장주 발굴 추천 (예: 성장주 XLK)'
             );
         }
     } catch (e) {
@@ -183,6 +188,43 @@ async function _sendBlocklist(env) {
     const symbols = (rows.results || []).map(r => r.symbol);
     if (!symbols.length) { await _tgDirect(env, '📭 금지 종목 없음'); return; }
     await _tgDirect(env, `🚫 금지 종목 (${symbols.length}건)\n${symbols.join(', ')}`);
+}
+
+// 업종대세 — 섹터/테마 히트 랭킹 (D1 읽기 전용, 즉시 응답)
+async function _sendSectorHeat(env) {
+    const rows = await getCachedSectorHeat(env);
+    if (!rows.length) { await _tgDirect(env, '📭 섹터 히트 데이터 없음 (다음 크론 이후 다시 시도)'); return; }
+
+    const arrow = (v) => v > 0 ? '↑' : v < 0 ? '↓' : '→';
+    const lines = rows.map(r =>
+        `${r.heat_rank <= 3 ? '🔥' : r.heat_rank >= 9 ? '🧊' : '·'} ${r.heat_rank}위 ${r.sector_label}(${r.sector_etf})  ` +
+        `점수 ${r.heat_score}  |  1개월 ${r.perf_1mo >= 0 ? '+' : ''}${r.perf_1mo}%${arrow(r.perf_1mo)}  |  상대강도 ${r.rel_strength >= 0 ? '+' : ''}${r.rel_strength}%p`
+    );
+    await _tgDirect(env, [`<b>🌡️ 업종 대세 랭킹</b> (${rows[0]?.snapshot_date || ''})`, '', ...lines].join('\n'));
+}
+
+// 성장주 [섹터ETF] — 성장주 발굴 추천 (D1 읽기 전용)
+async function _sendGrowthPicks(env, sectorFilter) {
+    const latest = await env.DB.prepare('SELECT MAX(snapshot_date) d FROM growth_recommendations').first();
+    if (!latest?.d) { await _tgDirect(env, '📭 성장주 추천 데이터 없음 (다음 크론 이후 다시 시도)'); return; }
+
+    const rows = sectorFilter
+        ? await env.DB.prepare('SELECT * FROM growth_recommendations WHERE snapshot_date=? AND sector_etf=? ORDER BY composite_score DESC LIMIT 10').bind(latest.d, sectorFilter).all()
+        : await env.DB.prepare('SELECT * FROM growth_recommendations WHERE snapshot_date=? ORDER BY composite_score DESC LIMIT 10').bind(latest.d).all();
+    const picks = rows.results || [];
+    if (!picks.length) { await _tgDirect(env, `📭 ${sectorFilter ? sectorFilter + ' 섹터에 ' : ''}추천 결과 없음`); return; }
+
+    const emoji = (rec) => rec === 'buy' ? '🟢' : rec === 'sell' ? '🔴' : '🟡';
+    const label = (rec) => rec === 'buy' ? '매수' : rec === 'sell' ? '매도' : '관망';
+    const lines = picks.map(p => {
+        const reasons = (() => { try { return JSON.parse(p.reasons_json || '[]'); } catch (_) { return []; } })();
+        return `${emoji(p.recommendation)} <b>${p.symbol}</b> [${p.confidence}] ${label(p.recommendation)} · 종합 ${p.composite_score}점\n  ${reasons.slice(0, 4).join(' · ')}`;
+    });
+    await _tgDirect(env, [
+        `<b>🌱 성장주 발굴</b> (${latest.d}${sectorFilter ? `, ${sectorFilter}` : ''})`,
+        '',
+        ...lines,
+    ].join('\n'));
 }
 
 async function _manualBuy(env, symbol) {

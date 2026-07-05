@@ -38,6 +38,8 @@ import { handlePaperTrading } from './routes/paper-trading.js';
 import { handleTgWebhook } from './routes/tg-commands.js';
 import { handleCatalystLiveStats, captureCatalystSignals, resolveCatalystSignals } from './routes/catalyst-track.js';
 import { checkPriceAlerts, earningsReminder, analyzeSignals, resolveSignals } from './cron.js';
+import { runDailyGrowthScan } from './utils/growth-scorer.js';
+import { handleGrowthSectorHeat, handleGrowthRecommendations, handleGrowthCompany, handleGrowthScanNow } from './routes/growth.js';
 import { json, err } from './utils/validators.js';
 
 // CORS — 환경변수 ALLOWED_ORIGINS (콤마 구분) 에 등록된 origin 만 허용.
@@ -129,6 +131,11 @@ const ROUTES = [
     ['POST',   '/api/swing/ai-analyze',   handleSwingAiAnalyze],
     ['POST',   '/api/social/ai-analyze',  handleSocialAiAnalyze],
     ['POST',   '/api/catalyst/ai-analyze', handleCatalystAiAnalyze],
+    // 성장주 발굴 (D1 읽기 전용)
+    ['GET',    '/api/growth/sector-heat',     handleGrowthSectorHeat],
+    ['GET',    '/api/growth/recommendations', handleGrowthRecommendations],
+    ['GET',    '/api/growth/company/:symbol', handleGrowthCompany],
+    ['POST',   '/api/admin/growth-scan-now',  handleGrowthScanNow],
     // 가상 매매
     ['GET',    '/api/paper/account',        handlePaperTrading],
     ['GET',    '/api/paper/trades',         handlePaperTrading],
@@ -210,6 +217,11 @@ export default {
                 env.DB.prepare('DELETE FROM catalyst_signals WHERE resolved=1 AND resolved_at < ?')
                     .bind(Date.now() - 180 * 24 * 3600 * 1000).run()
                     .then(r => console.log('[cron] cat-prune', r?.meta?.changes ?? 0)).catch(() => {}),
+                // 성장주 발굴 레이어 — 섹터 히트(매일) + 종목 스크리닝(회전 배치, 독립 실패 격리)
+                runDailyGrowthScan(env).then(r => console.log('[cron] growth-scan', r)).catch(e => console.error('[cron] growth-scan err', e.message)),
+                env.DB.prepare('DELETE FROM growth_recommendations WHERE created_at < ?')
+                    .bind(Date.now() - 180 * 24 * 3600 * 1000).run()
+                    .then(r => console.log('[cron] growth-prune', r?.meta?.changes ?? 0)).catch(() => {}),
             ];
             // 일요일 (getUTCDay === 0) 이면 알고리즘 보정도 함께 실행
             if (new Date(event.scheduledTime || Date.now()).getUTCDay() === 0) {

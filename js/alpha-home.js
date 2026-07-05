@@ -1988,6 +1988,7 @@
             catalyst:      goCatalyst,
             dailyTrading:  goDailyTrading,
             leverage:      goLeverage,
+            growth:        goGrowth,
         };
         const fn = map[dest];
         if (typeof fn === 'function') fn();
@@ -2008,6 +2009,7 @@
         const _lev3 = document.getElementById('leverageScreen'); if (_lev3) _lev3.style.display = 'none';
         const _t100F = document.getElementById('top100Screen'); if (_t100F) _t100F.style.display = 'none';
         const _catF  = document.getElementById('catalystScreen'); if (_catF) _catF.style.display = 'none';
+        const _growF = document.getElementById('growthScreen'); if (_growF) _growF.style.display = 'none';
         document.getElementById('favScreen').style.display = '';
         window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded'); const _fab=document.getElementById('calcFab'); if(_fab)_fab.style.display='none';
@@ -2046,6 +2048,7 @@
         document.getElementById('mainContent').style.display = 'none';
         const _t100 = document.getElementById('top100Screen'); if (_t100) _t100.style.display = 'none';
         const _catH = document.getElementById('catalystScreen'); if (_catH) _catH.style.display = 'none';
+        const _growH = document.getElementById('growthScreen'); if (_growH) _growH.style.display = 'none';
         const _dtsH = document.getElementById('dailyTradingScreen'); if (_dtsH) _dtsH.style.display = 'none';
         const _ernH = document.getElementById('earningsScreen'); if (_ernH) _ernH.style.display = 'none';
         const _levH = document.getElementById('leverageScreen'); if (_levH) _levH.style.display = 'none';
@@ -2083,6 +2086,9 @@
         // 홈 화면 진입 시 알파 스캐너 로드
         if (typeof loadAlphaHomePreview === 'function') {
             loadAlphaHomePreview();
+        }
+        if (typeof loadGrowthHomePreview === 'function') {
+            loadGrowthHomePreview();
         }
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -3711,6 +3717,7 @@
         const _lev1 = document.getElementById('leverageScreen'); if (_lev1) _lev1.style.display = 'none';
         const _t100SM = document.getElementById('top100Screen'); if (_t100SM) _t100SM.style.display = 'none';
         document.getElementById('catalystScreen')?.style && (document.getElementById('catalystScreen').style.display = 'none');
+        document.getElementById('growthScreen')?.style && (document.getElementById('growthScreen').style.display = 'none');
         const _posSM = document.getElementById('positionScreen'); if (_posSM) _posSM.style.display = 'none';
         document.getElementById('smartMoneyScreen').style.display = '';
         window._vsActive = false;
@@ -3744,6 +3751,7 @@
         const _lev2 = document.getElementById('leverageScreen'); if (_lev2) _lev2.style.display = 'none';
         const _t100S = document.getElementById('top100Screen'); if (_t100S) _t100S.style.display = 'none';
         const _catS  = document.getElementById('catalystScreen'); if (_catS) _catS.style.display = 'none';
+        const _growS = document.getElementById('growthScreen'); if (_growS) _growS.style.display = 'none';
         document.getElementById('alphaScannerScreen').style.display = '';
         window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded'); const _fab=document.getElementById('calcFab'); if(_fab)_fab.style.display='none';
@@ -6946,7 +6954,7 @@
     // ── 내 포지션 탭 ─────────────────────────────────────────────
     function goMyPosition() {
         window._lastScreen = 'position';
-        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','leverageScreen','top100Screen','catalystScreen','earningsScreen'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
+        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','leverageScreen','top100Screen','catalystScreen','earningsScreen','growthScreen'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
         const mc=document.getElementById('mainContent'); if(mc) mc.style.display='none';
         const eco=document.getElementById('economicSection'); if(eco) eco.style.display='none';
         const thermo=document.getElementById('marketThermometer'); if(thermo) thermo.style.display='none';
@@ -7083,6 +7091,7 @@
         const _levE = document.getElementById('leverageScreen'); if (_levE) _levE.style.display = 'none';
         const _t100E = document.getElementById('top100Screen'); if (_t100E) _t100E.style.display = 'none';
         const _catE  = document.getElementById('catalystScreen'); if (_catE) _catE.style.display = 'none';
+        const _growE = document.getElementById('growthScreen'); if (_growE) _growE.style.display = 'none';
         const _dtsE = document.getElementById('dailyTradingScreen'); if (_dtsE) _dtsE.style.display = 'none';
         const ecoEl = document.getElementById('economicSection');
         if (ecoEl) ecoEl.style.display = 'none';
@@ -7481,6 +7490,7 @@
         const _ern = document.getElementById('earningsScreen'); if (_ern) _ern.style.display = 'none';
         const _lev = document.getElementById('leverageScreen'); if (_lev) _lev.style.display = 'none';
         const _cat = document.getElementById('catalystScreen'); if (_cat) _cat.style.display = 'none';
+        const _grow = document.getElementById('growthScreen'); if (_grow) _grow.style.display = 'none';
         const ecoEl = document.getElementById('economicSection');
         if (ecoEl) ecoEl.style.display = 'none';
         const _posT = document.getElementById('positionScreen'); if (_posT) _posT.style.display = 'none';
@@ -7510,7 +7520,7 @@
     function goCatalyst() {
         window._lastScreen = 'catalyst';
         _restoreHeaderChrome();
-        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen']
+        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen','growthScreen']
             .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
         const ecoEl = document.getElementById('economicSection'); if (ecoEl) ecoEl.style.display = 'none';
         const thermoEl = document.getElementById('marketThermometer'); if (thermoEl) thermoEl.style.display = 'none';
@@ -7527,6 +7537,133 @@
     }
 
     // ════════════════════════════════════════════════════════════════
+    // 성장주 발굴 — 업종 모멘텀 + 재무성장 + 수급흐름 + 뉴스 종합 추천 (D1 사전계산, 즉시 응답)
+    // ════════════════════════════════════════════════════════════════
+    let _growthData = null;
+    let _growthSectorFilter = null;
+
+    function goGrowth() {
+        window._lastScreen = 'growth';
+        _restoreHeaderChrome();
+        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen','growthScreen']
+            .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+        const ecoEl = document.getElementById('economicSection'); if (ecoEl) ecoEl.style.display = 'none';
+        const thermoEl = document.getElementById('marketThermometer'); if (thermoEl) thermoEl.style.display = 'none';
+        const qnavEl = document.getElementById('headerQNav'); if (qnavEl) qnavEl.style.display = 'none';
+        document.getElementById('growthScreen').style.display = '';
+        window._vsActive = false;
+        document.getElementById('mainHeader')?.classList.remove('stock-loaded');
+        const _fab = document.getElementById('calcFab'); if (_fab) _fab.style.display = 'none';
+        document.getElementById('stockHero').classList.remove('show');
+        document.getElementById('tabNav').classList.remove('show');
+        updateBnActive('all');
+        _growthSectorFilter = null;
+        loadGrowth(false);
+        try { window.scrollTo(0, 0); } catch(e){}
+    }
+
+    async function loadGrowth(forceRefresh) {
+        const listEl = document.getElementById('growthList');
+        if (!listEl) return;
+        if (!_growthData || forceRefresh) {
+            listEl.innerHTML = '<div class="catalyst-loading">성장주 데이터 불러오는 중...</div>';
+        }
+        try {
+            const [heatRes, recRes] = await Promise.all([
+                fetch('/api/growth/sector-heat').then(r => r.ok ? r.json() : null),
+                fetch('/api/growth/recommendations?limit=50').then(r => r.ok ? r.json() : null),
+            ]);
+            _growthData = { sectors: heatRes?.sectors || [], recommendations: recRes?.recommendations || [], snapshotDate: recRes?.snapshotDate };
+            const updEl = document.getElementById('growthUpdated');
+            if (updEl) updEl.textContent = _growthData.snapshotDate ? `기준일 ${_growthData.snapshotDate}` : '';
+            _renderGrowth(_growthData);
+        } catch (e) {
+            warn('[growth]', e);
+            listEl.innerHTML = '<div class="catalyst-empty">성장주 데이터 조회 실패</div>';
+        }
+    }
+
+    function _growthSetFilter(sectorEtf) {
+        _growthSectorFilter = sectorEtf;
+        if (_growthData) _renderGrowth(_growthData);
+    }
+
+    function _renderGrowth(data) {
+        const stripEl = document.getElementById('growthSectorStrip');
+        const listEl = document.getElementById('growthList');
+        if (!stripEl || !listEl) return;
+
+        // 섹터 히트 스트립 — 클릭 시 아래 목록 필터 (기존 catalyst-filter 버튼 스타일 재사용)
+        const sectors = data.sectors || [];
+        if (sectors.length) {
+            let stripHtml = `<button class="catalyst-filter${_growthSectorFilter == null ? ' active' : ''}" onclick="_growthSetFilter(null)">전체</button>`;
+            stripHtml += sectors.map(s => {
+                const active = _growthSectorFilter === s.sector_etf ? ' active' : '';
+                const arrow = s.perf_1mo > 0 ? '↑' : s.perf_1mo < 0 ? '↓' : '→';
+                return `<button class="catalyst-filter${active}" onclick="_growthSetFilter('${s.sector_etf}')">${s.heat_rank <= 3 ? '🔥' : ''}${escHtml(s.sector_label)} ${s.heat_score}${arrow}</button>`;
+            }).join('');
+            stripEl.innerHTML = stripHtml;
+        } else {
+            stripEl.innerHTML = '';
+        }
+
+        const picks = (data.recommendations || []).filter(r => !_growthSectorFilter || r.sector_etf === _growthSectorFilter);
+        if (!picks.length) {
+            listEl.innerHTML = '<div class="catalyst-empty">추천 데이터 없음 — 다음 크론 이후 다시 확인해주세요.</div>';
+            return;
+        }
+
+        const gradeColor = (g) => g === 'S' ? '#FFD60A' : g === 'A' ? '#22C55E' : g === 'B' ? '#64748B' : '#94A3B8';
+        const recEmoji = (rec) => rec === 'buy' ? '🟢' : rec === 'sell' ? '🔴' : '🟡';
+        const recLabel = (rec) => rec === 'buy' ? '매수' : rec === 'sell' ? '매도' : '관망';
+
+        listEl.innerHTML = picks.map(p => {
+            const reasons = Array.isArray(p.reasons) ? p.reasons : (() => { try { return JSON.parse(p.reasons_json || '[]'); } catch (_) { return []; } })();
+            return `
+                <div class="catalyst-card" onclick="quickSearch('${p.symbol}','US')">
+                    <div class="catalyst-grade" style="background:${gradeColor(p.confidence)};color:#fff">${escHtml(p.confidence)} · ${p.composite_score}</div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:700;">${recEmoji(p.recommendation)} ${escHtml(p.symbol)} — ${recLabel(p.recommendation)}</div>
+                        <div style="font-size:12px;color:var(--text-secondary,#888);margin-top:2px;">${reasons.slice(0, 4).map(escHtml).join(' · ')}</div>
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
+    // 홈 화면 성장주 발굴 미리보기 — 상위 5개만 간략히, 전체는 goGrowth()에서
+    async function loadGrowthHomePreview() {
+        const listEl = document.getElementById('growthHomeList');
+        if (!listEl) return;
+        try {
+            const r = await fetch('/api/growth/recommendations?limit=5');
+            if (!r.ok) throw new Error('http ' + r.status);
+            const d = await r.json();
+            const picks = d.recommendations || [];
+            if (!picks.length) {
+                listEl.innerHTML = '<div class="catalyst-empty">추천 데이터 준비 중 — 잠시 후 다시 확인해주세요.</div>';
+                return;
+            }
+            const gradeColor = (g) => g === 'S' ? '#FFD60A' : g === 'A' ? '#22C55E' : g === 'B' ? '#64748B' : '#94A3B8';
+            const recEmoji = (rec) => rec === 'buy' ? '🟢' : rec === 'sell' ? '🔴' : '🟡';
+            const recLabel = (rec) => rec === 'buy' ? '매수' : rec === 'sell' ? '매도' : '관망';
+            listEl.innerHTML = picks.map(p => {
+                const reasons = Array.isArray(p.reasons) ? p.reasons : (() => { try { return JSON.parse(p.reasons_json || '[]'); } catch (_) { return []; } })();
+                return `
+                    <div class="catalyst-card" onclick="quickSearch('${p.symbol}','US')">
+                        <div class="catalyst-grade" style="background:${gradeColor(p.confidence)};color:#fff">${escHtml(p.confidence)} · ${p.composite_score}</div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-weight:700;">${recEmoji(p.recommendation)} ${escHtml(p.symbol)} — ${recLabel(p.recommendation)}</div>
+                            <div style="font-size:12px;color:var(--text-secondary,#888);margin-top:2px;">${reasons.slice(0, 3).map(escHtml).join(' · ')}</div>
+                        </div>
+                    </div>`;
+            }).join('');
+        } catch (e) {
+            warn('[growth-home]', e);
+            listEl.innerHTML = '<div class="catalyst-empty">불러오기 실패</div>';
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════
     // 데일리 트레이딩 스캐너 — 실시간 5/15분봉 매수·매도 후보 (A급 이상)
     // ════════════════════════════════════════════════════════════════
     window._dailyTf = window._dailyTf || '5m';
@@ -7536,7 +7673,7 @@
     function goDailyTrading() {
         window._lastScreen = 'dailyTrading';
         _restoreHeaderChrome();
-        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen']
+        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen','growthScreen']
             .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
         const ecoEl = document.getElementById('economicSection'); if (ecoEl) ecoEl.style.display = 'none';
         const thermoEl = document.getElementById('marketThermometer'); if (thermoEl) thermoEl.style.display = 'none';
@@ -7731,7 +7868,7 @@
         _pushRoute('profile');
         _restoreHeaderChrome();
         ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen',
-         'top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen']
+         'top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen','growthScreen']
             .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
         const ecoEl = document.getElementById('economicSection'); if (ecoEl) ecoEl.style.display = 'none';
         const thermoEl = document.getElementById('marketThermometer'); if (thermoEl) thermoEl.style.display = 'none';
@@ -12239,6 +12376,7 @@
             const _eco = document.getElementById('economicSection'); if (_eco) _eco.style.display = 'none';
             const _t100 = document.getElementById('top100Screen'); if (_t100) _t100.style.display = 'none';
             const _cat = document.getElementById('catalystScreen'); if (_cat) _cat.style.display = 'none';
+            const _grow = document.getElementById('growthScreen'); if (_grow) _grow.style.display = 'none';
             const _ern = document.getElementById('earningsScreen'); if (_ern) _ern.style.display = 'none';
             const _lev = document.getElementById('leverageScreen'); if (_lev) _lev.style.display = 'none';
             const _pos = document.getElementById('positionScreen'); if (_pos) _pos.style.display = 'none';

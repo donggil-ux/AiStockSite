@@ -92,6 +92,11 @@
                     <span class="side-nav-item-text">카탈리스트</span>
                     <span class="side-nav-item-sub">SEC EDGAR</span>
                 </button>
+                <button class="side-nav-item" id="sideNavGrowthBtn" onclick="goGrowth();closeSideNav();">
+                    <span class="side-nav-item-icon"><i class="ri-seedling-fill"></i></span>
+                    <span class="side-nav-item-text">성장주 발굴</span>
+                    <span class="side-nav-item-sub">업종+재무+수급</span>
+                </button>
                 <button class="side-nav-item" id="sideNavStatsBtn" onclick="openSignalStats();closeSideNav();">
                     <span class="side-nav-item-icon"><i class="ri-line-chart-fill"></i></span>
                     <span class="side-nav-item-text">시그널 통계</span>
@@ -229,11 +234,25 @@
             </div>
         </section>
 
+        <!-- 성장주 발굴 프리뷰 (알파 스캐너 바로 아래 — 신규 기능 노출) -->
+        <section class="home-section" id="growthHomeSection">
+            <div class="home-section-header">
+                <div class="home-section-title">성장주 발굴
+                    <span class="hs-badge green">NEW</span>
+                </div>
+                <button class="home-section-more" onclick="goGrowth()">전체 보기</button>
+            </div>
+            <div class="home-section-sub" id="growthHomeSub">업종 모멘텀 · 재무성장 · 수급흐름 종합 추천</div>
+            <div id="growthHomeList" class="alpha-card-list">
+                <div class="top100-loading">데이터를 불러오는 중...</div>
+            </div>
+        </section>
+
         <!-- ════════════════════════════════════════
              OVERSOLD & DEEP VALUE RADAR DASHBOARD
              ════════════════════════════════════════ -->
 
-        <!-- 오늘의 실적발표 + AI 어닝콜 요약 (레이더 바로 아래) -->
+        <!-- 오늘의 실적발표 + AI 어닝콜 요약 -->
         <section id="earnHomeSection" class="home-section" style="display:none">
             <div class="home-section-header">
                 <div class="home-section-title">실적발표 브리핑
@@ -246,12 +265,6 @@
         </section>
 
         <!-- 핫 종목 섹션 — 제거됨 (홈에 미노출 + /api/hot-stocks Gemini 낭비 차단) -->
-
-        <!-- 최근 본 종목 (최상단) -->
-        <section id="recentSection" class="home-section" style="display:none;margin-top:16px">
-            <div class="hs-label">최근 본 종목</div>
-            <div class="recent-wrap" id="recentWrap"></div>
-        </section>
 
         <!-- 섹션 2: 프리마켓 스캐너 -->
         <section id="premarketScanner" class="home-section" style="display:none">
@@ -291,6 +304,12 @@
                 <div class="home-section-sub" id="volAlertSub"></div>
             </div>
             <div class="vol-alert-list" id="volAlertList"></div>
+        </section>
+
+        <!-- 최근 본 종목 (참고용 — 실행 우선순위가 낮아 아래로 이동) -->
+        <section id="recentSection" class="home-section" style="display:none">
+            <div class="hs-label">최근 본 종목</div>
+            <div class="recent-wrap" id="recentWrap"></div>
         </section>
 
         <!-- Vision Scanner 진입 카드 (홈에서 숨김) -->
@@ -878,6 +897,26 @@
             </div>
             <div id="catalystMinerviniTab" class="catalyst-tab-content" style="display:none">
                 <div class="catalyst-list" id="minerviniList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 성장주 발굴 ===== goGrowth() -->
+    <div id="growthScreen" style="display:none;">
+        <div class="catalyst-section">
+            <div class="catalyst-header">
+                <div>
+                    <div class="catalyst-title">성장주 발굴</div>
+                    <div class="catalyst-sub">업종 모멘텀 · 재무성장 · 수급흐름 · 뉴스 종합 추천</div>
+                </div>
+                <div class="catalyst-meta">
+                    <span class="catalyst-updated" id="growthUpdated"></span>
+                    <button class="catalyst-refresh" id="growthRefreshBtn" onclick="loadGrowth(true)" title="새로고침">🔄</button>
+                </div>
+            </div>
+            <div class="catalyst-filter-bar" id="growthSectorStrip"></div>
+            <div class="catalyst-list" id="growthList">
+                <div class="catalyst-loading">성장주 데이터 불러오는 중...</div>
             </div>
         </div>
     </div>

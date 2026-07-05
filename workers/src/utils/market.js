@@ -73,7 +73,7 @@ export async function getMarketRegime(env) {
 // leading: 상위 40% 섹터, lagging: 하위 40% 섹터
 // ─────────────────────────────────────────────────────────────────────────
 const SECTOR_ROT_KEY = 'sector_rot:v1';
-const SECTOR_ETFS = ['XLK','XLC','XLY','XLF','XLE','XLV','XLI','XLB','XLRE','XLU','XLP'];
+export const SECTOR_ETFS = ['XLK','XLC','XLY','XLF','XLE','XLV','XLI','XLB','XLRE','XLU','XLP'];
 
 export async function getSectorRotation(env) {
     try {
