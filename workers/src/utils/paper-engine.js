@@ -102,6 +102,20 @@ function calcPnl(avgPrice, exitPrice, qty, dir) {
     return sign * (exitPrice - avgPrice) * qty;
 }
 
+// 단타/스윙 자본 풀 분리 — 스타일별로 잔고·포지션사이즈가 서로 다른 컬럼을 씀
+function _balanceField(style)  { return style === 'day' ? 'day_balance' : 'swing_balance'; }
+function _posSizeField(style)  { return style === 'day' ? 'day_position_size' : 'swing_position_size'; }
+
+// 잔고 증감 SQL 2문 — 스타일별 풀 갱신 + balance(day+swing 합계) 동기화.
+// D1 .batch()는 순차 트랜잭션이라 두번째 문이 첫번째 문의 결과를 그대로 봄.
+function _balanceDeltaStmts(env, userId, style, delta, now) {
+    const field = _balanceField(style);
+    return [
+        env.DB.prepare(`UPDATE paper_account SET ${field}=${field}+?,updated_at=? WHERE user_id=?`).bind(delta, now, userId),
+        env.DB.prepare('UPDATE paper_account SET balance=day_balance+swing_balance WHERE user_id=?').bind(userId),
+    ];
+}
+
 // ── 공개 API ─────────────────────────────────────────────────────
 
 // 매매 금지 종목 여부 확인 — 자동/수동 매수 진입 전 게이트
@@ -136,9 +150,7 @@ export async function paperOpenTrade(env, { userId, symbol, category, style, dir
             env.DB.prepare(
                 'INSERT INTO paper_fills (trade_id,user_id,fill_type,price,qty,amount,pnl,filled_at) VALUES (?,?,?,?,?,?,0,?)'
             ).bind(tradeId, userId, 'buy_t1', price, qty, amount, now),
-            env.DB.prepare(
-                'UPDATE paper_account SET balance=balance-?,updated_at=? WHERE user_id=?'
-            ).bind(amount, now, userId),
+            ..._balanceDeltaStmts(env, userId, style, -amount, now),
         ]);
     }
     const dirLabel = dir === 'short' ? '숏' : '롱';
@@ -178,9 +190,7 @@ export async function paperAddTranche(env, trade, price, trancheAmount) {
         env.DB.prepare(
             'INSERT INTO paper_fills (trade_id,user_id,fill_type,price,qty,amount,pnl,filled_at) VALUES (?,?,?,?,?,?,0,?)'
         ).bind(trade.id, trade.user_id, fillType, price, qty, amount, now),
-        env.DB.prepare(
-            'UPDATE paper_account SET balance=balance-?,updated_at=? WHERE user_id=?'
-        ).bind(amount, now, trade.user_id),
+        ..._balanceDeltaStmts(env, trade.user_id, trade.style, -amount, now),
     ]);
     await notifyPaper(env, trade.user_id,
         `📈 가상매매 추가매수`,
@@ -209,9 +219,10 @@ export async function paperPartialExit(env, trade, price, fillType, ratio) {
         env.DB.prepare(
             'INSERT INTO paper_fills (trade_id,user_id,fill_type,price,qty,amount,pnl,filled_at) VALUES (?,?,?,?,?,?,?,?)'
         ).bind(trade.id, trade.user_id, fillType, price, qty, amount, pnl, now),
+        ..._balanceDeltaStmts(env, trade.user_id, trade.style, amount, now),
         env.DB.prepare(
-            'UPDATE paper_account SET balance=balance+?,total_pnl=total_pnl+?,updated_at=? WHERE user_id=?'
-        ).bind(amount, pnl, now, trade.user_id),
+            'UPDATE paper_account SET total_pnl=total_pnl+?,updated_at=? WHERE user_id=?'
+        ).bind(pnl, now, trade.user_id),
     ]);
     const tpLabel = fillType === 'sell_tp1' ? 'TP1' : fillType === 'sell_tp2' ? 'TP2' : 'TP3';
     const pnlStr  = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(0);
@@ -247,9 +258,10 @@ export async function paperClosePosition(env, trade, price, reason) {
         env.DB.prepare(
             'INSERT INTO paper_fills (trade_id,user_id,fill_type,price,qty,amount,pnl,filled_at) VALUES (?,?,?,?,?,?,?,?)'
         ).bind(trade.id, trade.user_id, fillType, price, qty, amount, thisPnl, now),
+        ..._balanceDeltaStmts(env, trade.user_id, trade.style, amount, now),
         env.DB.prepare(
-            'UPDATE paper_account SET balance=balance+?,total_pnl=total_pnl+?,updated_at=? WHERE user_id=?'
-        ).bind(amount, thisPnl, now, trade.user_id),
+            'UPDATE paper_account SET total_pnl=total_pnl+?,updated_at=? WHERE user_id=?'
+        ).bind(thisPnl, now, trade.user_id),
     ]);
 
     const pnlStr = (totalPnl >= 0 ? '+' : '') + '$' + totalPnl.toFixed(0);
@@ -326,22 +338,9 @@ export async function paperManageAll(env) {
 
         console.log('[paper-manage] positions:', positions.length, 'prices:', JSON.stringify(prices));
 
-        const isEOD = _etTotalMin() >= 16 * 60; // ET 16:00 이후 = 정규장 마감 (DST 자동)
+        // 단타도 이제 최대 3일 보유(당일 강제청산 폐지) — day/swing 동일하게 _manageOne 에서 관리.
         for (const pos of positions) {
             let price = prices[pos.symbol];
-
-            // day 트레이드 + 장마감(ET 16:00 이후): 가격 없어도 avg_price 폴백으로 EOD 강제 청산
-            // → crumb 만료·데이터 지연으로 가격 못 받아도 자정까지 끌리지 않도록
-            if (pos.style === 'day' && isEOD) {
-                const closePrice = (price && price > 0) ? price : pos.avg_price;
-                if (closePrice && closePrice > 0) {
-                    try { await _manageOne(env, pos, closePrice); }
-                    catch (e) { console.warn('[paper-manage] eod err', pos.symbol, e?.message); }
-                } else {
-                    console.warn('[paper-manage] EOD 가격 없음(avg도 없음)', pos.symbol, pos.id);
-                }
-                continue; // 장마감 후 day 포지션은 반드시 여기서 처리 종료
-            }
 
             if (!price || price <= 0) {
                 console.warn('[paper-manage] no price for', pos.symbol, pos.id);
@@ -358,11 +357,14 @@ export async function paperManageAll(env) {
 async function _manageOne(env, pos, price) {
     const now = Date.now();
 
-    // ── 장 마감 자동 청산 (day 트레이드만) — Intl DST 자동 처리 ──────
-    // UTC 20 고정값은 EST(겨울)에서 3 PM ET로 1시간 조기 청산됨 → Intl로 수정
-    if (pos.style === 'day' && _etTotalMin() >= 16 * 60) {
-        await paperClosePosition(env, pos, price, 'eod_close');
-        return;
+    // ── 단타 최대 보유 3일 자동 청산 ──────────────────────────────────
+    // 사용자 지시: 단타는 당일 강제청산 대신 최대 3일까지 보유, 그 이후는 반드시 매도.
+    if (pos.style === 'day') {
+        const ageMs = now - pos.created_at;
+        if (ageMs > 3 * 24 * 3600 * 1000) {
+            await paperClosePosition(env, pos, price, 'timeout');
+            return;
+        }
     }
 
     // ── 중단기 스윙(일봉 기반) 최대 보유 45일 자동 청산 ──────────────────
@@ -429,11 +431,12 @@ async function _manageOne(env, pos, price) {
             ? price >= pos.first_price * (2 - nextTrigger)  // 숏: 진입 후 +0.2% 반등
             : price <= pos.first_price * nextTrigger;        // 롱: 진입 후 -0.2% 하락
         if (nextTrigger > 0 && triggerHit) {
-            const acct = await env.DB.prepare('SELECT balance,position_size FROM paper_account WHERE user_id=?')
+            const acct = await env.DB.prepare('SELECT day_balance,day_position_size,swing_balance,swing_position_size FROM paper_account WHERE user_id=?')
                 .bind(pos.user_id).first();
-            const posSize = acct?.position_size || 10000;
+            const posSize = acct?.[_posSizeField(pos.style)] || (pos.style === 'day' ? 10000 : 23000);
+            const poolBalance = acct?.[_balanceField(pos.style)] || 0;
             const trancheAmount = posSize * TRANCHE_WEIGHTS[pos.tranche_count] / TRANCHE_WEIGHT_SUM;
-            if (acct && acct.balance >= trancheAmount) {
+            if (acct && poolBalance >= trancheAmount) {
                 await paperAddTranche(env, pos, price, trancheAmount);
                 const updated = await env.DB.prepare('SELECT * FROM paper_trades WHERE id=?').bind(pos.id).first();
                 if (updated) pos = updated;

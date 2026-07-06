@@ -11,17 +11,26 @@ import { json, err } from '../utils/validators.js';
 import { paperClosePosition } from '../utils/paper-engine.js';
 import { yfRequest } from '../utils/crumb.js';
 
-const INITIAL_BALANCE  = 100000.0;
-const INITIAL_POS_SIZE = 30000.0; // 종목당 $30,000 (2분할: 1차 $20,000 / 2차 $10,000)
+// 단타(day)/스윙(swing) 자본 풀 분리 — 단타 3천만원, 나머지는 중단기 스윙
+const INITIAL_BALANCE      = 100000.0;
+const INITIAL_DAY_BALANCE  = 30000.0;
+const INITIAL_SWING_BALANCE = 70000.0;
+const INITIAL_DAY_POS_SIZE  = 10000.0; // 단타 3포지션 한도 기준 (30000/3)
+const INITIAL_SWING_POS_SIZE = 23000.0; // 스윙 3포지션 한도 기준 (70000/3, 여유 소폭 남김)
 
 async function getOrCreateAccount(env, userId) {
     let acct = await env.DB.prepare('SELECT * FROM paper_account WHERE user_id=?').bind(userId).first();
     if (!acct) {
         const now = Date.now();
         await env.DB.prepare(
-            'INSERT INTO paper_account (user_id,balance,position_size,total_pnl,updated_at) VALUES (?,?,?,0,?)'
-        ).bind(userId, INITIAL_BALANCE, INITIAL_POS_SIZE, now).run();
-        acct = { user_id: userId, balance: INITIAL_BALANCE, position_size: INITIAL_POS_SIZE, total_pnl: 0, updated_at: now };
+            'INSERT INTO paper_account (user_id,balance,position_size,day_balance,day_position_size,swing_balance,swing_position_size,total_pnl,updated_at) VALUES (?,?,?,?,?,?,?,0,?)'
+        ).bind(userId, INITIAL_BALANCE, INITIAL_DAY_POS_SIZE, INITIAL_DAY_BALANCE, INITIAL_DAY_POS_SIZE, INITIAL_SWING_BALANCE, INITIAL_SWING_POS_SIZE, now).run();
+        acct = {
+            user_id: userId, balance: INITIAL_BALANCE, position_size: INITIAL_DAY_POS_SIZE,
+            day_balance: INITIAL_DAY_BALANCE, day_position_size: INITIAL_DAY_POS_SIZE,
+            swing_balance: INITIAL_SWING_BALANCE, swing_position_size: INITIAL_SWING_POS_SIZE,
+            total_pnl: 0, updated_at: now,
+        };
     }
     return acct;
 }
@@ -47,6 +56,10 @@ export async function handleGetAccount(req, env) {
     return json({
         balance:       acct.balance,
         position_size: acct.position_size,
+        day_balance:         acct.day_balance,
+        day_position_size:   acct.day_position_size,
+        swing_balance:       acct.swing_balance,
+        swing_position_size: acct.swing_position_size,
         total_pnl:     acct.total_pnl,
         open_positions: open,
         summary: {
@@ -130,10 +143,10 @@ export async function handleResetAccount(req, env) {
     await env.DB.prepare('DELETE FROM paper_fills WHERE user_id=?').bind(auth.userId).run();
     await env.DB.prepare('DELETE FROM paper_trades WHERE user_id=?').bind(auth.userId).run();
     await env.DB.prepare(
-        'INSERT OR REPLACE INTO paper_account (user_id,balance,position_size,total_pnl,updated_at) VALUES (?,?,?,0,?)'
-    ).bind(auth.userId, INITIAL_BALANCE, INITIAL_POS_SIZE, now).run();
+        'INSERT OR REPLACE INTO paper_account (user_id,balance,position_size,day_balance,day_position_size,swing_balance,swing_position_size,total_pnl,updated_at) VALUES (?,?,?,?,?,?,?,0,?)'
+    ).bind(auth.userId, INITIAL_BALANCE, INITIAL_DAY_POS_SIZE, INITIAL_DAY_BALANCE, INITIAL_DAY_POS_SIZE, INITIAL_SWING_BALANCE, INITIAL_SWING_POS_SIZE, now).run();
 
-    return json({ ok: true, balance: INITIAL_BALANCE });
+    return json({ ok: true, balance: INITIAL_BALANCE, day_balance: INITIAL_DAY_BALANCE, swing_balance: INITIAL_SWING_BALANCE });
 }
 
 // ── GET /api/paper/fills (전체 체결 내역, 최근 50건) ───────────

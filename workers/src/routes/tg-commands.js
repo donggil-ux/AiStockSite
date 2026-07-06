@@ -239,7 +239,7 @@ async function _manualBuy(env, symbol) {
     if (!acct) { await _tgDirect(env, '❌ 계좌 없음'); return; }
 
     const category = classifySymbol(symbol, price, 0) || 'mid_small';
-    const qty = Math.floor((acct.position_size || 25000) * (2 / 3) / price); // 1차 2/3 트랜쉐
+    const qty = Math.floor((acct.day_position_size || 10000) * (2 / 3) / price); // 1차 2/3 트랜쉐 (단타 풀)
 
     const result = await paperOpenTrade(env, {
         userId: acct.user_id, symbol, category, style: 'day',
@@ -330,7 +330,7 @@ async function _analyzeSymbol(env, symbol) {
         const [data, quoteMap, acct, daily, tf15, tf60, news, options] = await Promise.all([
             yfRequest(env.CACHE, chartUrl),
             _quotePrice(env, [symbol]),
-            env.DB.prepare("SELECT balance, position_size FROM paper_account WHERE user_id=?")
+            env.DB.prepare("SELECT day_balance, day_position_size FROM paper_account WHERE user_id=?")
                 .bind('user_3EhxWla1QzZmEG19xfFdmnUTUrp').first(),
             _fetchTfData(env, symbol, '6mo', '1d'),
             _fetchTfData(env, symbol, '1mo', '15m'),
@@ -414,9 +414,9 @@ async function _analyzeSymbol(env, symbol) {
         const rr        = (riskPerSh && sig.target1) ? (Math.abs(sig.target1 - sig.price) / riskPerSh).toFixed(1) : null;
         const timing    = sig.barsAgo === 0 ? '⚡ 현재봉 신호' : `⏱ ${sig.barsAgo}봉 전 (${sig.barsAgo * 5}분 경과)`;
 
-        // 비중 계획: 계좌 position_size 기준 (1차 = 1/4)
-        const posSize   = acct?.position_size || 4000;
-        const balance   = acct?.balance || 100000;
+        // 비중 계획: 단타(day) 자본 풀 기준 (1차 = 1/4) — 이 분석은 5분봉(단타) 신호
+        const posSize   = acct?.day_position_size || 10000;
+        const balance   = acct?.day_balance || 30000;
         const tranche1  = posSize / 4;
         const qty1      = sig.price > 0 ? Math.floor(tranche1 / sig.price) : 0;
         const invest1   = qty1 * sig.price;

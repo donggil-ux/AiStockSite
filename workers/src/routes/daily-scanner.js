@@ -307,7 +307,7 @@ export async function handleDailyBacktest(req, env) {
 export async function captureDailySignals(env) {
     // 동적 진입 파라미터 + 계좌 목록 + 시장 레짐 1회 로드
     const params     = await getPaperTradeParams(env);
-    const accounts   = (await env.DB.prepare('SELECT user_id, balance, position_size FROM paper_account').all()).results || [];
+    const accounts   = (await env.DB.prepare('SELECT user_id, day_balance, day_position_size, swing_balance, swing_position_size FROM paper_account').all()).results || [];
     const regime     = await getMarketRegime(env);
     const sectorRot  = await getSectorRotation(env);
 
@@ -521,11 +521,10 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
     }
 
     const style       = tf === '1d' ? 'swing' : 'day';
-    // 단타(5m) 실진입 중단 — 중단기 스윙(1d) 위주로 운용. 5m 스캔 자체는 dt_signals 통계 목적으로 계속 유지.
-    if (style === 'day') return;
+    // 단타(day) 자본 3천만원 / 스윙(swing) 자본 나머지로 분리 운용 — 단타도 다시 실진입.
     const maxPos      = params.max_positions      || 6;
-    const maxDayPos   = params.max_day_positions  || 3; // 단타 시드 50% — 3포지션
-    const maxSwingPos = params.max_swing_positions|| 3; // 스윙 시드 50% — 3포지션
+    const maxDayPos   = params.max_day_positions  || 3; // 단타 3포지션
+    const maxSwingPos = params.max_swing_positions|| 3; // 스윙 3포지션
 
     for (const acct of accounts) {
         // ⑩ 최대 포지션 수 체크 + 스타일별 한도 + 중복 종목 체크 (1회 DB 조회)
@@ -538,9 +537,11 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
         if (style === 'swing' && styleCount >= maxSwingPos)  continue; // 스윙 3개 한도
         if (openPos.some(p => p.symbol === r.symbol)) continue; // 이미 보유 중
 
-        // ⑪ 잔고 체크
-        const firstAmount = (acct.position_size || 25000) * TRANCHE_WEIGHTS[0] / TRANCHE_WEIGHT_SUM;
-        if (acct.balance < firstAmount) continue;
+        // ⑪ 잔고 체크 — 단타/스윙 각자 풀에서 확인
+        const posSize     = (style === 'day' ? acct.day_position_size : acct.swing_position_size) || (style === 'day' ? 10000 : 23000);
+        const poolBalance = (style === 'day' ? acct.day_balance : acct.swing_balance) || 0;
+        const firstAmount = posSize * TRANCHE_WEIGHTS[0] / TRANCHE_WEIGHT_SUM;
+        if (poolBalance < firstAmount) continue;
 
         const qty = Math.floor(firstAmount / r.price);
         if (qty < 1) continue; // 고가 종목: 1주 미만이면 진입 스킵
@@ -549,8 +550,8 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
             category, style,
             dir: isShortSignal ? 'short' : 'long', price: r.price, qty,
             signalId: dtId, grade: r.grade, score: r.score,
-            // 스윙(일봉)은 신호의 ATR 기준 손절 사용 — 고정 -0.8%로는 일봉 변동폭에 바로 청산됨
-            stopPrice: r.stop,
+            // 스윙(일봉)만 신호의 ATR 기준 손절 사용 — 단타는 기존 고정 -0.8% 유지
+            stopPrice: style === 'swing' ? r.stop : null,
         });
         console.log(`[paper] open ${r.symbol} ${isShortSignal?'short':'long'} ${style} grade=${r.grade} rvol=${(r.rvol||0).toFixed(1)} user=${acct.user_id}`);
         // 알림은 paperOpenTrade 내부에서 직접 발송됨
