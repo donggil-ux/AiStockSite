@@ -11,12 +11,12 @@ import { json, err } from '../utils/validators.js';
 import { paperClosePosition } from '../utils/paper-engine.js';
 import { yfRequest } from '../utils/crumb.js';
 
-// 단타(day)/스윙(swing) 자본 풀 분리 — 단타 3천만원, 나머지는 중단기 스윙
+// 단타(day)/스윙(swing) 자본 풀 분리 — 단타 4천만원, 스윙(중단기) 6천만원
 const INITIAL_BALANCE      = 100000.0;
-const INITIAL_DAY_BALANCE  = 30000.0;
-const INITIAL_SWING_BALANCE = 70000.0;
-const INITIAL_DAY_POS_SIZE  = 10000.0; // 단타 3포지션 한도 기준 (30000/3)
-const INITIAL_SWING_POS_SIZE = 23000.0; // 스윙 3포지션 한도 기준 (70000/3, 여유 소폭 남김)
+const INITIAL_DAY_BALANCE  = 40000.0;
+const INITIAL_SWING_BALANCE = 60000.0;
+const INITIAL_DAY_POS_SIZE  = 13333.0; // 단타 3포지션 한도 기준 (40000/3)
+const INITIAL_SWING_POS_SIZE = 20000.0; // 스윙 3포지션 한도 기준 (60000/3)
 
 async function getOrCreateAccount(env, userId) {
     let acct = await env.DB.prepare('SELECT * FROM paper_account WHERE user_id=?').bind(userId).first();

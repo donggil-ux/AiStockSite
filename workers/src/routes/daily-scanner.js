@@ -94,7 +94,9 @@ export async function handleDailyTradingScan(req, env) {
         const base = market === 'KR' ? DEFAULT_UNIVERSE_KR : DEFAULT_UNIVERSE_US;
         const dynamic = await _fetchDiscoverySymbols(env, market);
         // dynamic(당일 활발 종목)을 우선 배치 — base가 47개라 뒤에 두면 20개 컷에서 항상 밀려남
-        const universe = [...new Set([...dynamic, ...base])].slice(0, 20);
+        // 1d는 하루 1틱만 도는 저빈도 스캔이라 예산 여유가 있어 유니버스를 넓힘(스윙 후보가 너무 적었음)
+        const universeCap = tf === '1d' ? 50 : 20;
+        const universe = [...new Set([...dynamic, ...base])].slice(0, universeCap);
 
         // 5m: 5d(300봉+ 확보) / 1d: 2y(EMA120·ADX14 계산에 최소 120봉 필요 — 6개월 미만이면 부족)
         const range = tf === '1d' ? '2y' : '5d';
@@ -316,7 +318,9 @@ export async function captureDailySignals(env) {
     // 고정 UTC 시각 대신 _etTotalMin() 사용 — DST(서머타임) 전환 시에도 항상 정확히 ET 10:00에 맞춤.
     const etMin = _etTotalMin();
     const isDailyScanTime = etMin >= 600 && etMin < 605;
-    const timeframes = isDailyScanTime ? ['5m', '1d'] : ['5m'];
+    // 1d 유니버스를 50개로 넓힌 만큼, 같은 틱에 5m까지 같이 돌리면 예산 초과 위험 —
+    // 이 틱만 5m을 건너뛴다(하루 288틱 중 1틱 스킵은 단타 시그널 손실 영향 미미).
+    const timeframes = isDailyScanTime ? ['1d'] : ['5m'];
 
     let logged = 0;
     for (const tf of timeframes) {
