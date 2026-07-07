@@ -28,14 +28,14 @@ export async function callGemini(env, prompt, opts = {}) {
     const responseMimeType = opts.responseMimeType || 'application/json';
 
     const url = `${GEMINI_BASE}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
+    const generationConfig = { temperature, maxOutputTokens };
+    // Google Search grounding(tools) 사용 시 responseMimeType(JSON 강제)과 병행 불가 — 그라운딩 요청이면 생략
+    if (!opts.tools) generationConfig.responseMimeType = responseMimeType;
     const body = {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-            temperature,
-            maxOutputTokens,
-            responseMimeType,
-        },
+        generationConfig,
     };
+    if (opts.tools) body.tools = opts.tools;
 
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);

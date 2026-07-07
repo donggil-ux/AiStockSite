@@ -12,6 +12,7 @@ export const DEFAULT_PARAMS = {
     max_swing_positions: 3,        // 스윙 시드 50% ($25K×3 → 최대 $50K)
     daily_loss_limit:    10000,    // 일일 최대 손실 한도 ($)
     grade_filter:        ['S','A'],// 허용 등급 (B 이하 제외)
+    sell_grade_filter:   ['S'],    // 숏(매도) 전용 등급 필터 — 숏은 등급 불문 승률이 낮아 기본 S만 허용
     skip_categories:     [],       // 성과 부진 카테고리 진입 금지
     updated_at:          0,
 };
@@ -72,6 +73,15 @@ export async function paperAutoOptimize(env) {
         GROUP BY grade ORDER BY avg_pnl DESC
     `).bind(since30d).all();
 
+    // ── 방향(dir) × 등급별 성과 — 숏(매도) 품질 필터 조정용 ─────────────
+    const dirRes = await env.DB.prepare(`
+        SELECT dir, grade, COUNT(*) AS total,
+            SUM(CASE WHEN realized_pnl>0 THEN 1 ELSE 0 END) AS wins,
+            ROUND(AVG(realized_pnl),2) AS avg_pnl
+        FROM paper_trades WHERE status='closed' AND created_at>?
+        GROUP BY dir, grade ORDER BY total DESC
+    `).bind(since30d).all();
+
     // ── 청산 유형별 (손절/익절/trail/timeout 비율) ────────────────────
     const exitRes = await env.DB.prepare(`
         SELECT close_reason,
@@ -88,6 +98,7 @@ export async function paperAutoOptimize(env) {
         catRows:   catRes.results   || [],
         gradeRows: gradeRes.results || [],
         exitRows:  exitRes.results  || [],
+        dirRows:   dirRes.results   || [],
     });
 
     await env.DB.prepare(
@@ -100,12 +111,13 @@ export async function paperAutoOptimize(env) {
         summary, recent,
         catStats:   catRes.results,
         gradeStats: gradeRes.results,
+        dirStats:   dirRes.results,
         exitStats:  exitRes.results,
         params,
     };
 }
 
-function _deriveParams({ summary, recent, catRows, gradeRows, exitRows }) {
+function _deriveParams({ summary, recent, catRows, gradeRows, exitRows, dirRows }) {
     const p = { ...DEFAULT_PARAMS, skip_categories: [] };
 
     const total = summary?.total || 0;
@@ -162,6 +174,23 @@ function _deriveParams({ summary, recent, catRows, gradeRows, exitRows }) {
     const gradeB = gradeRows.find(r => r.grade === 'B');
     if (gradeB && gradeB.total >= MIN_SAMPLES && gradeB.avg_pnl < -20) {
         p.grade_filter = ['S', 'A']; // 이미 기본값이지만 명시
+    }
+
+    // ── 숏(매도) 전용 등급 필터 — 기본은 S등급만 허용, 체결 데이터가 쌓여
+    //    A등급 숏이 실제로 성과가 괜찮으면 완화 (30일 신호 데이터 기준 숏은 등급 불문 승률이 낮았음)
+    const shortRows  = (dirRows || []).filter(r => r.dir === 'short');
+    const shortTotal = shortRows.reduce((s, r) => s + r.total, 0);
+    p.sell_grade_filter = ['S'];
+    if (shortTotal >= MIN_SAMPLES) {
+        const shortWins = shortRows.reduce((s, r) => s + r.wins, 0);
+        const shortWr    = shortWins / shortTotal;
+        const shortAGrade = shortRows.find(r => r.grade === 'A');
+        if (shortWr >= 0.5 && shortAGrade && shortAGrade.total >= MIN_SAMPLES && shortAGrade.avg_pnl > 0) {
+            p.sell_grade_filter = ['S', 'A'];
+            console.log('[paper-optimize] 숏 성과 개선(승률', (shortWr*100).toFixed(0)+'%) — A등급 숏 허용');
+        } else {
+            console.log('[paper-optimize] 숏 승률', (shortWr*100).toFixed(0)+'% — S등급만 허용 유지');
+        }
     }
 
     p.updated_at = Date.now();

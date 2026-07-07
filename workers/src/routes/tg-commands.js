@@ -8,6 +8,7 @@ import { calcEMA, calcRSI, calcADXSeries, lastVal } from '../utils/indicators.js
 import { getNewsSentiment } from '../utils/news-sentiment.js';
 import { sendDailyHealthSummary } from './daily-scanner.js';
 import { getCachedSectorHeat } from '../utils/sector-heat.js';
+import { callGemini } from '../utils/gemini.js';
 
 // 단일 타임프레임 추세 관점 — EMA20/60 정렬 + RSI + ADX (간단 요약용, 매매 시그널 아님)
 function _tfPerspective(q) {
@@ -125,9 +126,11 @@ export async function handleTgWebhook(req, env) {
             await _sendSectorHeat(env);
         } else if (cmd === '성장주' || cmd === '/성장주') {
             await _sendGrowthPicks(env, sym?.toUpperCase());
+        } else if ((cmd === '기업리포트' || cmd === '/기업리포트') && symbol) {
+            await _stockReport(env, symbol);
         } else {
             await _tgDirect(env,
-                '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ\n• 분석 NVDA — 종목 분석\n• 스캐너 — 실시간 매수 스캔 (스캐너 NVDA TSLA 로 직접 지정 가능)\n• 금지 TQQQ — 매매 금지 등록\n• 금지해제 TQQQ\n• 금지목록 — 금지 종목 조회\n• 리포트 — 오늘 시그널/매매/오류 요약 (매일 US 장마감 후 자동 발송)\n• 업종대세 — 요즘 뜨는 섹터 랭킹\n• 성장주 [섹터ETF] — 성장주 발굴 추천 (예: 성장주 XLK)'
+                '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ\n• 분석 NVDA — 종목 분석\n• 스캐너 — 실시간 매수 스캔 (스캐너 NVDA TSLA 로 직접 지정 가능)\n• 금지 TQQQ — 매매 금지 등록\n• 금지해제 TQQQ\n• 금지목록 — 금지 종목 조회\n• 리포트 — 오늘 시그널/매매/오류 요약 (매일 US 장마감 후 자동 발송)\n• 업종대세 — 요즘 뜨는 섹터 랭킹\n• 성장주 [섹터ETF] — 성장주 발굴 추천 (예: 성장주 XLK)\n• 기업리포트 NVDA — 웹검색 기반 종목 리포트 (기업개요/실적/밸류에이션/리스크 등)'
             );
         }
     } catch (e) {
@@ -450,6 +453,87 @@ async function _analyzeSymbol(env, symbol) {
     } catch (e) {
         console.error('[tg-analyze]', symbol, e?.message);
         await _tgDirect(env, `❌ ${symbol} 분석 오류: ${e?.message?.slice(0,80) || '알 수 없는 오류'}`);
+    }
+}
+
+// 웹검색 그라운딩 기반 종목 리포트 프롬프트 (기업개요~출처 10개 섹션)
+function _buildStockReportPrompt(symbol) {
+    return `너는 미국 주식 투자자를 위한 "종목 리포트 작성 어시스턴트"다.
+입력 종목(또는 티커): ${symbol}
+반드시 웹 검색을 수행한 뒤 최신 데이터를 기반으로 리포트를 작성한다.
+
+[검색 원칙]
+- 반드시 웹 검색을 수행한 뒤 작성한다. 최신 데이터가 확인되지 않으면 추정하지 않는다.
+- 오래된 학습 데이터를 최신 정보처럼 작성하지 않는다. 최근 30일 이내 정보를 우선 사용한다.
+- 정보가 서로 다르면 기업 공시 > 거래소 > 기업 IR > 신뢰도 높은 금융매체 순으로 우선한다.
+- 루머는 반드시 "미확인 정보"라고 표시한다.
+
+[기준일]
+- 리포트 최상단에 "기준일 : YYYY-MM-DD (한국시간)" 형식으로 작성한다.
+- 모든 수치에는 가능한 경우 (YYYY-MM-DD 기준)을 함께 표기한다.
+- 최신 데이터가 확인되지 않는 항목은 "최신 데이터 확인 불가 (마지막 확인 : YYYY-MM-DD)"라고 작성한다.
+
+[리포트 구성 — 아래 순서와 제목을 그대로 사용]
+# 1. 기업 개요 — 종목명/티커/상장시장/산업·섹터/사업 한 줄 요약/주요 제품·서비스/시가총액 (표)
+# 2. 최근 주가 동향 — 현재가/전일 대비/시가총액/거래대금/1개월·3개월·1년 수익률 (표) + 거래량 급증·기술적 움직임 설명
+# 3. 최근 주요 뉴스 (최대 5개) — 각 뉴스마다 날짜/제목 요약(원문 복사 금지)/내용 요약/주가 영향(긍정·부정·중립)/영향 이유
+# 4. 밸류에이션 — PER/PBR/PSR/EV·EBITDA/배당수익률/ROE/ROA (표), 산업 평균 대비 높음·평균·낮음 설명
+# 5. 실적 — 최근 분기 매출/영업이익/순이익/EPS/전년 대비 성장률/컨센서스 대비 (표), 최근 4개 분기 흐름, 실적 발표 예정일
+# 6. 투자 포인트 — 현재 시장이 주목하는 핵심 포인트 3~5가지
+# 7. 리스크 — 산업/기업 고유/경쟁사/규제/실적 리스크 등 최소 3가지, 근거와 함께
+# 8. 매크로 영향 — 금리/환율/유가/원자재/정책/섹터 순환이 해당 기업에 주는 영향
+# 9. 핵심 체크리스트 — 강점 3가지/약점 3가지/기회/위협 (표), 마지막에 반드시 "본 리포트는 투자 판단을 위한 정보 정리이며, 특정 종목의 매수·매도를 권유하지 않습니다." 포함
+# 10. 출처 — 매체명/기사 제목/날짜, 기업공시>거래소>기업IR>Reuters>Bloomberg>CNBC>Investing>Yahoo Finance 순 우선
+
+[작성 스타일]
+- 존댓말 사용, 과장 금지, "무조건"/"확실하다" 같은 표현 금지, 객관적 표현, 초보 투자자도 이해할 수 있게 쉽게 설명
+- 표를 적극 활용하고 마크다운 표 문법(|---|) 사용, 굵게 표시는 **텍스트** 사용
+- 절대 목표주가를 제시하지 않는다. 절대 매수·매도를 추천하지 않는다.
+- 확인되지 않은 정보는 사실처럼 작성하지 않는다. 검색 결과가 부족하면 부족하다고 명시한다.`;
+}
+
+// Gemini 마크다운(** 굵게) → 텔레그램 HTML, HTML 특수문자 이스케이프
+function _mdToTgHtml(text) {
+    return text
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+}
+
+// 텔레그램 sendMessage 4096자 제한 대응 — 줄 단위로 잘라 여러 메시지로 순차 발송
+async function _sendLongTg(env, text, maxLen = 3500) {
+    const lines = text.split('\n');
+    let chunk = '';
+    for (const line of lines) {
+        const next = chunk ? `${chunk}\n${line}` : line;
+        if (next.length > maxLen && chunk) {
+            await _tgDirect(env, chunk);
+            chunk = line;
+        } else {
+            chunk = next;
+        }
+    }
+    if (chunk) await _tgDirect(env, chunk);
+}
+
+async function _stockReport(env, symbol) {
+    await _tgDirect(env, `⏳ ${symbol} 종목 리포트 생성 중... (웹 검색 포함, 다소 시간 소요될 수 있음)`);
+    try {
+        const result = await callGemini(env, _buildStockReportPrompt(symbol), {
+            model: 'gemini-3.1-flash-lite',
+            temperature: 0.3,
+            maxOutputTokens: 8192,
+            responseMimeType: 'text/plain',
+            tools: [{ google_search: {} }],
+            timeoutMs: 45_000,
+        });
+        if (!result.ok || !result.text) {
+            await _tgDirect(env, `❌ ${symbol} 리포트 생성 실패: ${result.error || '응답 없음'}`);
+            return;
+        }
+        await _sendLongTg(env, _mdToTgHtml(result.text));
+    } catch (e) {
+        console.error('[tg-report]', symbol, e?.message);
+        await _tgDirect(env, `❌ ${symbol} 리포트 오류: ${e?.message?.slice(0,80) || '알 수 없는 오류'}`);
     }
 }
 

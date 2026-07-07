@@ -418,6 +418,14 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
     const allowedGrades = params.grade_filter || ['S', 'A'];
     if (!allowedGrades.includes(r.grade)) return;
 
+    // ③.5 숏(매도) 전용 등급 필터 — 30일 신호 데이터상 숏은 등급 불문 승률이 매수보다 크게 낮음
+    // (B등급 숏 33% vs B등급 매수 46.5%, A등급 숏 41% vs A등급 매수 48.1%) → 기본 S등급만 허용
+    const allowedSellGrades = params.sell_grade_filter || ['S'];
+    if (isShortSignal && !allowedSellGrades.includes(r.grade)) {
+        console.log(`[paper] ${r.symbol} 숏 ${r.grade}등급 — 매도 등급 필터 미충족(허용: ${allowedSellGrades.join('/')})`);
+        return;
+    }
+
     // ③ RVOL 필터 (시간대별 동적 임계값 — 점심 0.8 / 프리마켓 1.0 / 그 외 min_rvol)
     // 레버리지 ETF는 유동성 특성상 1.2로 완화 (SOXL 등은 rvol=1.0도 충분한 유동성)
     const minRvol = LEVERAGED_ETFS.has(r.symbol) ? 1.2 : _sessionMinRvol(params);
