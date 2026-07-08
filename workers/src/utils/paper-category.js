@@ -33,6 +33,18 @@ export const INVERSE_ETFS = new Set([
     'NVDS','TSLS','AMDS','METD','AAPD','MSFD',
 ]);
 
+// 개별 종목 → 실제 존재하는 2배 레버리지 롱/인버스 ETF 매핑
+// 가상매매도 실제로 살 수 있는 상품으로만 체결하기 위함 — 개별 종목 공매도(숏) 대신 인버스 ETF 매수,
+// 레버리지 롱 신호는 해당 ETF 매수. 매핑에 없는 종목은 매매 자체를 스킵한다 (daily-scanner.js 참고).
+export const STOCK_ETF_MAP = {
+    NVDA: { long: 'NVDL', short: 'NVDS' },
+    TSLA: { long: 'TSLL', short: 'TSLS' },
+    AMD:  { long: 'AMDL', short: 'AMDS' },
+    META: { long: 'METL', short: 'METD' },
+    AAPL: { long: 'AAPU', short: 'AAPD' },
+    MSFT: { long: 'MSFU', short: 'MSFD' },
+};
+
 // 섹터 로테이션 (원칙 11) — 종목 → SPDR 섹터 ETF 매핑
 // 미포함 = 광범위 시장 ETF → 섹터 필터 제외
 export const SECTOR_MAP = {

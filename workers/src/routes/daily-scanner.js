@@ -11,10 +11,11 @@ import { fetchChartWithFallback } from './yahoo.js';
 import { getMarketRegime, getSectorRotation } from '../utils/market.js';
 import { _fetchDiscoverySymbols, DEFAULT_UNIVERSE_US, DEFAULT_UNIVERSE_KR } from '../cron.js';
 import { paperOpenTrade, _tgDirect, TRANCHE_WEIGHTS, TRANCHE_WEIGHT_SUM, _etTotalMin, isSymbolBlocked } from '../utils/paper-engine.js';
-import { classifySymbol, SECTOR_MAP, LEVERAGED_ETFS, INVERSE_ETFS } from '../utils/paper-category.js';
+import { classifySymbol, SECTOR_MAP, LEVERAGED_ETFS, INVERSE_ETFS, STOCK_ETF_MAP } from '../utils/paper-category.js';
 import { getPaperTradeParams } from '../utils/paper-optimizer.js';
 import { getNewsSentiment } from '../utils/news-sentiment.js';
 import { logError } from '../utils/errors.js';
+import { yfRequest } from '../utils/crumb.js';
 
 const BACKTEST_CACHE_KEY = (tf) => `dailybt:US:${tf}`;
 const BACKTEST_TTL = 6 * 60 * 60; // 6시간 (비용 큰 작업)
@@ -359,6 +360,48 @@ export async function captureDailySignals(env) {
     return { logged };
 }
 
+// ETF 현재가 조회 — 개별 종목 신호를 레버리지/인버스 ETF로 치환해 체결할 때 사용
+async function _fetchEtfPrice(env, symbol) {
+    try {
+        const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
+        const data = await yfRequest(env.CACHE, url);
+        return data?.quoteResponse?.result?.[0]?.regularMarketPrice || null;
+    } catch (_) { return null; }
+}
+
+// STOCK_ETF_MAP(정적 목록)에 없는 종목의 레버리지/인버스 ETF를 Yahoo Finance 검색으로 동적 탐색.
+// 종목명 + 레버리지("2X"/"1.5X"/"1.25X") + 방향(Bull·Long / Bear·Inverse·Short) 키워드가
+// 모두 일치하는 ETF만 채택 — 엉뚱한 종목 오매칭 방지. 결과는 KV에 7일 캐싱(서브리퀘스트 절약).
+async function _searchLeveragedEtf(env, symbol, isShort) {
+    const cacheKey = `etfmap:${symbol}:${isShort ? 'short' : 'long'}`;
+    try {
+        const cached = await env.CACHE.get(cacheKey);
+        if (cached != null) return cached === 'none' ? null : cached;
+    } catch (_) {}
+
+    let found = null;
+    try {
+        const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(symbol)}&quotesCount=20&newsCount=0&enableFuzzyQuery=false`;
+        const data = await yfRequest(env.CACHE, url);
+        const quotes = data?.quotes || [];
+        const symbolWord = new RegExp(`\\b${symbol}\\b`, 'i');
+        const leverageKw = /\b(2X|1\.5X|1\.25X)\b/i;
+        const dirKw = isShort ? /\b(bear|inverse|short)\b/i : /\b(bull|long)\b/i;
+        for (const q of quotes) {
+            if (q.quoteType !== 'ETF') continue;
+            const name = `${q.shortname || ''} ${q.longname || ''}`;
+            if (!symbolWord.test(name) || !leverageKw.test(name) || !dirKw.test(name)) continue;
+            found = q.symbol;
+            break;
+        }
+    } catch (e) {
+        console.warn(`[paper] ${symbol} ETF 검색 실패`, e?.message);
+    }
+
+    try { await env.CACHE.put(cacheKey, found || 'none', { expirationTtl: 7 * 86400 }); } catch (_) {}
+    return found;
+}
+
 // ── ET 시간 필터: 정규장 9:40~15:30 ET만 허용 ────────────────────────────
 // 프리마켓 제외 — Yahoo Finance 프리마켓 가격 데이터 불안정 (가격 괴리 → 손절 슬리피지 과대)
 function _isGoodEntryTime() {
@@ -458,8 +501,33 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
         return;
     }
 
+    // ④.7 개별 종목 → 실제 존재하는 레버리지/인버스 ETF로 치환해서 체결
+    // (개별 종목 공매도·레버리지 매수는 실제 계좌에서 불가능한 경우가 많아, 실제로 살 수 있는 ETF로 대체.
+    //  대응 ETF가 없는 종목은 매매 자체를 스킵한다 — 이미 ETF 자체 신호면 그대로 체결)
+    const isAlreadyEtf = LEVERAGED_ETFS.has(r.symbol) || INVERSE_ETFS.has(r.symbol);
+    let tradeSymbol = r.symbol;
+    let tradePrice  = r.price;
+    let tradeDir    = isShortSignal ? 'short' : 'long';
+    if (!isAlreadyEtf) {
+        const etfPair = STOCK_ETF_MAP[r.symbol];
+        const mappedSymbol = etfPair
+            ? (isShortSignal ? etfPair.short : etfPair.long)
+            : await _searchLeveragedEtf(env, r.symbol, isShortSignal); // 정적 목록에 없으면 동적 검색
+        if (!mappedSymbol) {
+            console.log(`[paper] ${r.symbol} 개별종목 — 대응 레버리지/인버스 ETF 없음, 스킵`);
+            return;
+        }
+        tradeSymbol = mappedSymbol;
+        tradeDir = 'long'; // ETF는 항상 매수로 체결 (인버스 ETF 매수 = 하락 베팅)
+        tradePrice = await _fetchEtfPrice(env, tradeSymbol);
+        if (!tradePrice) {
+            console.log(`[paper] ${tradeSymbol} 시세 조회 실패 — 스킵`);
+            return;
+        }
+    }
+
     // ⑤ 종목 카테고리 분류 (없으면 진입 불가)
-    const category = classifySymbol(r.symbol, r.price, r.rvol);
+    const category = classifySymbol(tradeSymbol, tradePrice, r.rvol);
     if (!category) return;
 
     // ⑦ 카테고리 스킵 목록 체크
@@ -547,7 +615,7 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
         const styleCount = openPos.filter(p => p.style === style).length;
         if (style === 'day'   && styleCount >= maxDayPos)   continue; // 단타 3개 한도
         if (style === 'swing' && styleCount >= maxSwingPos)  continue; // 스윙 3개 한도
-        if (openPos.some(p => p.symbol === r.symbol)) continue; // 이미 보유 중
+        if (openPos.some(p => p.symbol === tradeSymbol)) continue; // 이미 보유 중
 
         // ⑪ 잔고 체크 — 단타/스윙 각자 풀에서 확인
         const posSize     = (style === 'day' ? acct.day_position_size : acct.swing_position_size) || (style === 'day' ? 10000 : 23000);
@@ -555,17 +623,17 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
         const firstAmount = posSize * TRANCHE_WEIGHTS[0] / TRANCHE_WEIGHT_SUM;
         if (poolBalance < firstAmount) continue;
 
-        const qty = Math.floor(firstAmount / r.price);
+        const qty = Math.floor(firstAmount / tradePrice);
         if (qty < 1) continue; // 고가 종목: 1주 미만이면 진입 스킵
         const result = await paperOpenTrade(env, {
-            userId: acct.user_id, symbol: r.symbol,
+            userId: acct.user_id, symbol: tradeSymbol,
             category, style,
-            dir: isShortSignal ? 'short' : 'long', price: r.price, qty,
+            dir: tradeDir, price: tradePrice, qty,
             signalId: dtId, grade: r.grade, score: r.score,
-            // 스윙(일봉)만 신호의 ATR 기준 손절 사용 — 단타는 기존 고정 -0.8% 유지
-            stopPrice: style === 'swing' ? r.stop : null,
+            // 스윙(일봉)만 신호의 ATR 기준 손절 사용 (ETF 치환 시엔 가격 스케일이 달라 고정 손절 사용)
+            stopPrice: (style === 'swing' && isAlreadyEtf) ? r.stop : null,
         });
-        console.log(`[paper] open ${r.symbol} ${isShortSignal?'short':'long'} ${style} grade=${r.grade} rvol=${(r.rvol||0).toFixed(1)} user=${acct.user_id}`);
+        console.log(`[paper] open ${tradeSymbol}(신호:${r.symbol}) ${tradeDir} ${style} grade=${r.grade} rvol=${(r.rvol||0).toFixed(1)} user=${acct.user_id}`);
         // 알림은 paperOpenTrade 내부에서 직접 발송됨
     }
 }
