@@ -418,9 +418,9 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
     const allowedGrades = params.grade_filter || ['S', 'A'];
     if (!allowedGrades.includes(r.grade)) return;
 
-    // ③.5 숏(매도) 전용 등급 필터 — 30일 신호 데이터상 숏은 등급 불문 승률이 매수보다 크게 낮음
-    // (B등급 숏 33% vs B등급 매수 46.5%, A등급 숏 41% vs A등급 매수 48.1%) → 기본 S등급만 허용
-    const allowedSellGrades = params.sell_grade_filter || ['S'];
+    // ③.5 숏(매도) 전용 등급 필터 — 기본은 매수와 동일 S/A 허용,
+    // 실제 체결 데이터로 A등급 숏 성과가 부진하다고 확인되면 paper-optimizer가 자동으로 S만 허용하게 강화
+    const allowedSellGrades = params.sell_grade_filter || ['S', 'A'];
     if (isShortSignal && !allowedSellGrades.includes(r.grade)) {
         console.log(`[paper] ${r.symbol} 숏 ${r.grade}등급 — 매도 등급 필터 미충족(허용: ${allowedSellGrades.join('/')})`);
         return;

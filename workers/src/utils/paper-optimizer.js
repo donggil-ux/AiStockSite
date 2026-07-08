@@ -12,7 +12,7 @@ export const DEFAULT_PARAMS = {
     max_swing_positions: 3,        // 스윙 시드 50% ($25K×3 → 최대 $50K)
     daily_loss_limit:    10000,    // 일일 최대 손실 한도 ($)
     grade_filter:        ['S','A'],// 허용 등급 (B 이하 제외)
-    sell_grade_filter:   ['S'],    // 숏(매도) 전용 등급 필터 — 숏은 등급 불문 승률이 낮아 기본 S만 허용
+    sell_grade_filter:   ['S','A'],// 숏(매도) 전용 등급 필터 — 기본은 롱과 동일 S/A, 성과 부진 시 자동으로 S만으로 강화
     skip_categories:     [],       // 성과 부진 카테고리 진입 금지
     updated_at:          0,
 };
@@ -176,20 +176,20 @@ function _deriveParams({ summary, recent, catRows, gradeRows, exitRows, dirRows 
         p.grade_filter = ['S', 'A']; // 이미 기본값이지만 명시
     }
 
-    // ── 숏(매도) 전용 등급 필터 — 기본은 S등급만 허용, 체결 데이터가 쌓여
-    //    A등급 숏이 실제로 성과가 괜찮으면 완화 (30일 신호 데이터 기준 숏은 등급 불문 승률이 낮았음)
+    // ── 숏(매도) 전용 등급 필터 — 기본은 롱과 동일하게 S/A 허용,
+    //    실제 체결 데이터가 쌓였는데 A등급 숏 성과가 뚜렷이 나쁘면 자동으로 S만으로 강화
     const shortRows  = (dirRows || []).filter(r => r.dir === 'short');
     const shortTotal = shortRows.reduce((s, r) => s + r.total, 0);
-    p.sell_grade_filter = ['S'];
+    p.sell_grade_filter = ['S', 'A'];
     if (shortTotal >= MIN_SAMPLES) {
         const shortWins = shortRows.reduce((s, r) => s + r.wins, 0);
         const shortWr    = shortWins / shortTotal;
         const shortAGrade = shortRows.find(r => r.grade === 'A');
-        if (shortWr >= 0.5 && shortAGrade && shortAGrade.total >= MIN_SAMPLES && shortAGrade.avg_pnl > 0) {
-            p.sell_grade_filter = ['S', 'A'];
-            console.log('[paper-optimize] 숏 성과 개선(승률', (shortWr*100).toFixed(0)+'%) — A등급 숏 허용');
+        if (shortAGrade && shortAGrade.total >= MIN_SAMPLES && (shortAGrade.avg_pnl < 0 || shortWr < 0.35)) {
+            p.sell_grade_filter = ['S'];
+            console.log('[paper-optimize] 숏 A등급 성과 부진(승률', (shortWr*100).toFixed(0)+'%) — S등급만 허용으로 강화');
         } else {
-            console.log('[paper-optimize] 숏 승률', (shortWr*100).toFixed(0)+'% — S등급만 허용 유지');
+            console.log('[paper-optimize] 숏 승률', (shortWr*100).toFixed(0)+'% — S/A 허용 유지');
         }
     }
 
