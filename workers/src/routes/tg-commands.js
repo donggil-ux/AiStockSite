@@ -128,9 +128,11 @@ export async function handleTgWebhook(req, env) {
             await _sendGrowthPicks(env, sym?.toUpperCase());
         } else if ((cmd === '기업리포트' || cmd === '/기업리포트') && symbol) {
             await _stockReport(env, symbol);
+        } else if ((cmd === '승률' || cmd === '/승률') && symbol) {
+            await _symbolWinRate(env, symbol);
         } else {
             await _tgDirect(env,
-                '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ\n• 분석 NVDA — 종목 분석\n• 스캐너 — 실시간 매수 스캔 (스캐너 NVDA TSLA 로 직접 지정 가능)\n• 금지 TQQQ — 매매 금지 등록\n• 금지해제 TQQQ\n• 금지목록 — 금지 종목 조회\n• 리포트 — 오늘 시그널/매매/오류 요약 (매일 US 장마감 후 자동 발송)\n• 업종대세 — 요즘 뜨는 섹터 랭킹\n• 성장주 [섹터ETF] — 성장주 발굴 추천 (예: 성장주 XLK)\n• 기업리포트 NVDA — 웹검색 기반 종목 리포트 (기업개요/실적/밸류에이션/리스크 등)'
+                '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ\n• 분석 NVDA — 종목 분석\n• 스캐너 — 실시간 매수 스캔 (스캐너 NVDA TSLA 로 직접 지정 가능)\n• 금지 TQQQ — 매매 금지 등록\n• 금지해제 TQQQ\n• 금지목록 — 금지 종목 조회\n• 리포트 — 오늘 시그널/매매/오류 요약 (매일 US 장마감 후 자동 발송)\n• 업종대세 — 요즘 뜨는 섹터 랭킹\n• 성장주 [섹터ETF] — 성장주 발굴 추천 (예: 성장주 XLK)\n• 기업리포트 NVDA — 웹검색 기반 종목 리포트 (기업개요/실적/밸류에이션/리스크 등)\n• 승률 AAL — 해당 종목 체결 이력 승률/손익 조회'
             );
         }
     } catch (e) {
@@ -535,6 +537,33 @@ async function _stockReport(env, symbol) {
         console.error('[tg-report]', symbol, e?.message);
         await _tgDirect(env, `❌ ${symbol} 리포트 오류: ${e?.message?.slice(0,80) || '알 수 없는 오류'}`);
     }
+}
+
+// 승률 AAL — 해당 종목(정확히 이 티커로 체결된 것만) 승률/손익 조회
+async function _symbolWinRate(env, symbol) {
+    const rows = await env.DB.prepare(
+        "SELECT realized_pnl, dir, created_at FROM paper_trades WHERE symbol=? AND status='closed' ORDER BY created_at DESC"
+    ).bind(symbol).all();
+    const trades = rows.results || [];
+    if (!trades.length) {
+        await _tgDirect(env, `📭 ${symbol} 체결 이력 없음 (해당 티커로 청산 완료된 거래 없음)`);
+        return;
+    }
+
+    const wins   = trades.filter(t => t.realized_pnl > 0);
+    const losses = trades.filter(t => t.realized_pnl <= 0);
+    const totalWin  = wins.reduce((s, t) => s + t.realized_pnl, 0);
+    const totalLoss = losses.reduce((s, t) => s + t.realized_pnl, 0); // 음수 합
+    const netPnl  = totalWin + totalLoss;
+    const winRate = (wins.length / trades.length * 100).toFixed(1);
+
+    await _tgDirect(env, [
+        `<b>📊 ${symbol} 매매 성과</b> (${trades.length}건 청산)`,
+        `승률: ${winRate}% (${wins.length}승 ${losses.length}패)`,
+        `총 수익: +$${totalWin.toFixed(0)}`,
+        `총 손실: $${totalLoss.toFixed(0)}`,
+        `순손익: ${netPnl >= 0 ? '+' : ''}$${netPnl.toFixed(0)}`,
+    ].join('\n'));
 }
 
 async function _sendOverview(env) {

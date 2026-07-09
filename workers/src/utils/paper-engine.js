@@ -3,6 +3,7 @@
 
 import { yfRequest } from './crumb.js';
 import { sendPush } from './vapid.js';
+import { LEVERAGED_ETFS, INVERSE_ETFS } from './paper-category.js';
 
 // 전문 단타 진입: 1차(67%) 즉시, 2차(33%) -0.2% 눌림 확인
 // 물타기 금지 — 손절은 빠르고, 이기는 매매는 길게
@@ -153,10 +154,10 @@ export async function paperOpenTrade(env, { userId, symbol, category, style, dir
             ..._balanceDeltaStmts(env, userId, style, -amount, now),
         ]);
     }
-    const dirLabel = dir === 'short' ? '숏' : '롱';
+    const isEtf = LEVERAGED_ETFS.has(symbol) || INVERSE_ETFS.has(symbol);
     if (tradeId) {
         await notifyPaper(env, userId,
-            `📈 가상매매 ${dirLabel} 진입 [${grade || '?'}]`,
+            `📈 가상매매 진입 [${grade || '?'}]${isEtf ? ' (ETF)' : ''}`,
             `${symbol} $${price.toFixed(2)} × ${qty}주\n투자금: $${amount.toFixed(0)} | 손절: $${stop.toFixed(2)} | ${style}`
         );
     }
