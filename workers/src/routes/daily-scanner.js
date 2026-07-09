@@ -360,12 +360,14 @@ export async function captureDailySignals(env) {
     return { logged };
 }
 
-// ETF 현재가 조회 — 개별 종목 신호를 레버리지/인버스 ETF로 치환해 체결할 때 사용
-async function _fetchEtfPrice(env, symbol) {
+// ETF 현재가 + 평균거래량 조회 — 개별 종목 신호를 레버리지/인버스 ETF로 우선 체결할 때 유동성 판단용
+async function _fetchEtfQuote(env, symbol) {
     try {
         const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
         const data = await yfRequest(env.CACHE, url);
-        return data?.quoteResponse?.result?.[0]?.regularMarketPrice || null;
+        const q = data?.quoteResponse?.result?.[0];
+        if (!q?.regularMarketPrice) return null;
+        return { price: q.regularMarketPrice, volume: q.averageDailyVolume3Month || q.regularMarketVolume || 0 };
     } catch (_) { return null; }
 }
 
@@ -501,33 +503,8 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
         return;
     }
 
-    // ④.7 개별 종목 → 실제 존재하는 레버리지/인버스 ETF로 치환해서 체결
-    // (개별 종목 공매도·레버리지 매수는 실제 계좌에서 불가능한 경우가 많아, 실제로 살 수 있는 ETF로 대체.
-    //  대응 ETF가 없는 종목은 매매 자체를 스킵한다 — 이미 ETF 자체 신호면 그대로 체결)
-    const isAlreadyEtf = LEVERAGED_ETFS.has(r.symbol) || INVERSE_ETFS.has(r.symbol);
-    let tradeSymbol = r.symbol;
-    let tradePrice  = r.price;
-    let tradeDir    = isShortSignal ? 'short' : 'long';
-    if (!isAlreadyEtf) {
-        const etfPair = STOCK_ETF_MAP[r.symbol];
-        const mappedSymbol = etfPair
-            ? (isShortSignal ? etfPair.short : etfPair.long)
-            : await _searchLeveragedEtf(env, r.symbol, isShortSignal); // 정적 목록에 없으면 동적 검색
-        if (!mappedSymbol) {
-            console.log(`[paper] ${r.symbol} 개별종목 — 대응 레버리지/인버스 ETF 없음, 스킵`);
-            return;
-        }
-        tradeSymbol = mappedSymbol;
-        tradeDir = 'long'; // ETF는 항상 매수로 체결 (인버스 ETF 매수 = 하락 베팅)
-        tradePrice = await _fetchEtfPrice(env, tradeSymbol);
-        if (!tradePrice) {
-            console.log(`[paper] ${tradeSymbol} 시세 조회 실패 — 스킵`);
-            return;
-        }
-    }
-
     // ⑤ 종목 카테고리 분류 (없으면 진입 불가)
-    const category = classifySymbol(tradeSymbol, tradePrice, r.rvol);
+    const category = classifySymbol(r.symbol, r.price, r.rvol);
     if (!category) return;
 
     // ⑦ 카테고리 스킵 목록 체크
@@ -606,35 +583,64 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
     const maxDayPos   = params.max_day_positions  || 3; // 단타 3포지션
     const maxSwingPos = params.max_swing_positions|| 3; // 스윙 3포지션
 
+    // 매매 우선순위: ① 대응 레버리지/인버스 ETF가 실제 존재하고 유동성(거래대금 $3M 이상)이 충분하면 ETF 매매
+    //              ② ETF가 없거나 유동성이 부족하면 개별 종목 매매 — 항상 1개 포지션만 연다
+    const isAlreadyEtf = LEVERAGED_ETFS.has(r.symbol) || INVERSE_ETFS.has(r.symbol);
+    let leg = { symbol: r.symbol, dir: isShortSignal ? 'short' : 'long', price: r.price, category, stopPrice: style === 'swing' ? r.stop : null };
+
+    if (!isAlreadyEtf) {
+        const etfPair = STOCK_ETF_MAP[r.symbol];
+        const etfSymbol = etfPair
+            ? (isShortSignal ? etfPair.short : etfPair.long)
+            : await _searchLeveragedEtf(env, r.symbol, isShortSignal); // 정적 목록에 없으면 동적 검색
+        if (etfSymbol) {
+            const etfQuote = await _fetchEtfQuote(env, etfSymbol);
+            const etfDollarVol = etfQuote ? etfQuote.price * etfQuote.volume : 0;
+            if (etfQuote && etfDollarVol >= 3_000_000) {
+                leg = { symbol: etfSymbol, dir: 'long', price: etfQuote.price, category: classifySymbol(etfSymbol, etfQuote.price, r.rvol) || 'leveraged', stopPrice: null };
+                console.log(`[paper] ${r.symbol} → ETF ${etfSymbol} 1순위 매매 (거래대금 $${(etfDollarVol/1e6).toFixed(1)}M)`);
+            } else {
+                console.log(`[paper] ${etfSymbol} 유동성 부족(${etfQuote ? '$'+(etfDollarVol/1e6).toFixed(1)+'M' : '조회실패'}) — 개별종목(${r.symbol}) 2순위 매매`);
+            }
+        }
+    }
+    const legs = [leg];
+
     for (const acct of accounts) {
-        // ⑩ 최대 포지션 수 체크 + 스타일별 한도 + 중복 종목 체크 (1회 DB 조회)
-        const openPos = (await env.DB.prepare(
-            "SELECT symbol, style FROM paper_trades WHERE user_id=? AND status='open'"
-        ).bind(acct.user_id).all()).results || [];
-        if (openPos.length >= maxPos) continue;
-        const styleCount = openPos.filter(p => p.style === style).length;
-        if (style === 'day'   && styleCount >= maxDayPos)   continue; // 단타 3개 한도
-        if (style === 'swing' && styleCount >= maxSwingPos)  continue; // 스윙 3개 한도
-        if (openPos.some(p => p.symbol === tradeSymbol)) continue; // 이미 보유 중
+        for (const leg of legs) {
+            // ⑦ 카테고리 스킵 목록 체크 (리그별)
+            const legCategoryKey = `${leg.category}_${tf === '1d' ? 'swing' : 'day'}`;
+            if ((params.skip_categories || []).includes(legCategoryKey)) continue;
 
-        // ⑪ 잔고 체크 — 단타/스윙 각자 풀에서 확인
-        const posSize     = (style === 'day' ? acct.day_position_size : acct.swing_position_size) || (style === 'day' ? 10000 : 23000);
-        const poolBalance = (style === 'day' ? acct.day_balance : acct.swing_balance) || 0;
-        const firstAmount = posSize * TRANCHE_WEIGHTS[0] / TRANCHE_WEIGHT_SUM;
-        if (poolBalance < firstAmount) continue;
+            // ⑩ 최대 포지션 수 체크 + 스타일별 한도 + 중복 종목 체크 (리그마다 최신 상태 재조회 — 직전 리그가 슬롯을 채웠을 수 있음)
+            const openPos = (await env.DB.prepare(
+                "SELECT symbol, style FROM paper_trades WHERE user_id=? AND status='open'"
+            ).bind(acct.user_id).all()).results || [];
+            if (openPos.length >= maxPos) continue;
+            const styleCount = openPos.filter(p => p.style === style).length;
+            if (style === 'day'   && styleCount >= maxDayPos)   continue; // 단타 3개 한도
+            if (style === 'swing' && styleCount >= maxSwingPos)  continue; // 스윙 3개 한도
+            if (openPos.some(p => p.symbol === leg.symbol)) continue; // 이미 보유 중
 
-        const qty = Math.floor(firstAmount / tradePrice);
-        if (qty < 1) continue; // 고가 종목: 1주 미만이면 진입 스킵
-        const result = await paperOpenTrade(env, {
-            userId: acct.user_id, symbol: tradeSymbol,
-            category, style,
-            dir: tradeDir, price: tradePrice, qty,
-            signalId: dtId, grade: r.grade, score: r.score,
-            // 스윙(일봉)만 신호의 ATR 기준 손절 사용 (ETF 치환 시엔 가격 스케일이 달라 고정 손절 사용)
-            stopPrice: (style === 'swing' && isAlreadyEtf) ? r.stop : null,
-        });
-        console.log(`[paper] open ${tradeSymbol}(신호:${r.symbol}) ${tradeDir} ${style} grade=${r.grade} rvol=${(r.rvol||0).toFixed(1)} user=${acct.user_id}`);
-        // 알림은 paperOpenTrade 내부에서 직접 발송됨
+            // ⑪ 잔고 체크 — 단타/스윙 각자 풀에서 확인
+            const posSize     = (style === 'day' ? acct.day_position_size : acct.swing_position_size) || (style === 'day' ? 10000 : 23000);
+            const poolBalance = (style === 'day' ? acct.day_balance : acct.swing_balance) || 0;
+            const firstAmount = posSize * TRANCHE_WEIGHTS[0] / TRANCHE_WEIGHT_SUM;
+            if (poolBalance < firstAmount) continue;
+
+            const qty = Math.floor(firstAmount / leg.price);
+            if (qty < 1) continue; // 고가 종목: 1주 미만이면 진입 스킵
+            await paperOpenTrade(env, {
+                userId: acct.user_id, symbol: leg.symbol,
+                category: leg.category, style,
+                dir: leg.dir, price: leg.price, qty,
+                signalId: dtId, grade: r.grade, score: r.score,
+                stopPrice: leg.stopPrice,
+            });
+            const tag = leg.symbol !== r.symbol ? ` (연동:${r.symbol})` : '';
+            console.log(`[paper] open ${leg.symbol}${tag} ${leg.dir} ${style} grade=${r.grade} rvol=${(r.rvol||0).toFixed(1)} user=${acct.user_id}`);
+            // 알림은 paperOpenTrade 내부에서 직접 발송됨
+        }
     }
 }
 
