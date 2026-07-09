@@ -636,6 +636,7 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
                 dir: leg.dir, price: leg.price, qty,
                 signalId: dtId, grade: r.grade, score: r.score,
                 stopPrice: leg.stopPrice,
+                reason: (r.factors || []).join(' / ') || null,
             });
             const tag = leg.symbol !== r.symbol ? ` (연동:${r.symbol})` : '';
             console.log(`[paper] open ${leg.symbol}${tag} ${leg.dir} ${style} grade=${r.grade} rvol=${(r.rvol||0).toFixed(1)} user=${acct.user_id}`);

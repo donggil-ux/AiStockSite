@@ -128,7 +128,7 @@ export async function isSymbolBlocked(env, symbol) {
 /**
  * 1차 분할 진입 — 새 paper_trade 생성
  */
-export async function paperOpenTrade(env, { userId, symbol, category, style, dir, price, qty, signalId = null, grade = null, score = null, stopPrice = null }) {
+export async function paperOpenTrade(env, { userId, symbol, category, style, dir, price, qty, signalId = null, grade = null, score = null, stopPrice = null, reason = null }) {
     const now = Date.now();
     const amount = price * qty;
     // 기본: 롱 진입가 -0.8% / 숏 진입가 +0.8% (단타용 타이트 손절)
@@ -158,7 +158,8 @@ export async function paperOpenTrade(env, { userId, symbol, category, style, dir
     if (tradeId) {
         await notifyPaper(env, userId,
             `📈 가상매매 진입 [${grade || '?'}]${isEtf ? ' (ETF)' : ''}`,
-            `${symbol} $${price.toFixed(2)} × ${qty}주\n투자금: $${amount.toFixed(0)} | 손절: $${stop.toFixed(2)} | ${style}`
+            `${symbol} $${price.toFixed(2)} × ${qty}주\n투자금: $${amount.toFixed(0)} | 손절: $${stop.toFixed(2)} | ${style}` +
+            (reason ? `\n사유: ${reason}` : '')
         );
     }
     return { tradeId, userId };
