@@ -5,7 +5,7 @@
 //   buy  = 상승추세 눌림목 진입 / sell = 하락추세 반등 소진 진입
 //   8개 필터(ADX·HTF추세·거래량회복·양봉/음봉·ATR·SPX환경·RSI·장초반) 통과 종목만.
 import { json, err } from '../utils/validators.js';
-import { calcVWAP, calcVWAPSeries } from '../utils/indicators.js';
+import { calcVWAPSeries } from '../utils/indicators.js';
 import { smartDipScan, smartDipScanBounce, smartDipBacktest, resolveTrailExit } from '../utils/smart-dip.js';
 import { fetchChartWithFallback } from './yahoo.js';
 import { getMarketRegime, getSectorRotation } from '../utils/market.js';
@@ -122,7 +122,10 @@ export async function handleDailyTradingScan(req, env) {
                     if (!q?.close?.length || q.close.length < 60) { _dbg.noData++; return; }
 
                     analyzed++;
-                    const vwap = calcVWAP(q);
+                    // 세션(당일) 기준 VWAP 배열 — evalBar의 VWAP 정렬 게이트에 실제로 연결
+                    // (기존엔 calcVWAP(q)로 vwapPos 표시만 하고 진입 필터엔 연결이 안 되어 있었음)
+                    const vwapArr = calcVWAPSeries(q, tts || []);
+                    const vwap = vwapArr[vwapArr.length - 1];
                     const session = _session((tts || [])[(tts || []).length - 1]);
                     // 점심 시간대 필터 제거 — 신호 자체는 내보내고 세션 태그("점심")로 UI에서 표시
                     // 원칙 5: 파동 확장(추격 금지) 판단용 — 20봉 저점/고점 대비 현재가 이격
@@ -155,7 +158,7 @@ export async function handleDailyTradingScan(req, env) {
                     });
 
                     // ── 추세 신호 (Smart Dip 추세추종) ──
-                    const trend = smartDipScan(q, { interval: tf, ts: tts || [], spxTrendUp, measuredWin });
+                    const trend = smartDipScan(q, { interval: tf, ts: tts || [], spxTrendUp, measuredWin, vwapArr });
                     if (trend) { results.push(mkResult(trend)); if (trend.dir === 'buy') _dbg.rawBuy++; else _dbg.rawSell++; }
 
                     // ── 역추세 반등 매수 (독립 실행 — 매도 신호와 무관하게 A/S급 반등은 추가) ──
