@@ -354,7 +354,7 @@ export async function captureDailySignals(env) {
                     console.warn('[dt-capture] symbol err', r?.symbol, e?.message);
                 }
             }
-        } catch (e) { try { await logError(env, 'captureDailySignals', e.message); } catch (_) {} }
+        } catch (e) { try { await logError(env, { source: 'captureDailySignals', message: e.message, stack: e.stack }); } catch (_) {} }
     }
 
     return { logged };
@@ -695,7 +695,7 @@ export async function resolveDailySignals(env) {
                 }
             } catch (_) {}
         }
-    } catch (e) { try { await logError(env, 'resolveDailySignals', e.message); } catch (_) {} }
+    } catch (e) { try { await logError(env, { source: 'resolveDailySignals', message: e.message, stack: e.stack }); } catch (_) {} }
     return { checked, resolved };
 }
 

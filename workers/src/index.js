@@ -28,11 +28,12 @@ import { handleScannerAiAnalyze, handleSwingAiAnalyze } from './routes/ai-scanne
 import { handleScannerAiBatch, handleSocialAiAnalyze } from './routes/ai-batch-social.js';
 import { handleCatalystAiAnalyze } from './routes/ai-catalyst.js';
 import { calibrateAlgorithm } from './utils/calibration.js';
-import { paperAutoOptimize } from './utils/paper-optimizer.js';
+import { paperAutoOptimize, paperHealthCheck, cronWatchdog } from './utils/paper-optimizer.js';
 import { paperManageAll } from './utils/paper-engine.js';
 import { logError, pruneOldErrors } from './utils/errors.js';
 import { snapshotHealth } from './cron.js';
 import { handleAdminStatus, handleAnalyzeNow, handleDtForwardTest, handleCatForwardTest } from './routes/admin.js';
+import { requireAdmin } from './utils/admin-auth.js';
 import { handleDailyTradingScan, handleDailyBacktest, handleDailyLiveStats, captureDailySignals, resolveDailySignals, sendDailyHealthSummary } from './routes/daily-scanner.js';
 import { handlePaperTrading } from './routes/paper-trading.js';
 import { handleTgWebhook } from './routes/tg-commands.js';
@@ -122,6 +123,7 @@ const ROUTES = [
     ['POST',   '/api/admin/analyze-now',  handleAnalyzeNow],
     ['POST',   '/api/admin/dt-forwardtest', handleDtForwardTest],
     ['POST',   '/api/admin/cat-forwardtest', handleCatForwardTest],
+    ['POST',   '/api/admin/run-five-min-job', handleRunFiveMinJob],
     ['GET',    '/api/scanner/daily-trading', handleDailyTradingScan],
     ['GET',    '/api/scanner/daily-backtest', handleDailyBacktest],
     ['GET',    '/api/scanner/daily-livestats', handleDailyLiveStats],
@@ -195,6 +197,8 @@ export default {
             // 미국 프리장~본장(UTC 11~21시)에만 카탈리스트 신호 캡처 (종목당 1일 1회)
             const h = new Date(event.scheduledTime || Date.now()).getUTCHours();
             if (h >= 11 && h <= 21) jobs.push(captureCatalystSignals(env).then(r => console.log('[cron] cat-capture', r)));
+            // 5분 크론(*/5 8-21) 워치독 — 별개 트리거에서 그 크론의 생사를 감시
+            jobs.push(cronWatchdog(env).then(r => console.log('[cron] watchdog', r)).catch(e => console.error('[cron] watchdog err', e.message)));
             ctx.waitUntil(Promise.all(jobs));
         }
         // 매일 00:05 — 일별 헬스 스냅샷 + 30일+ 에러 정리 + (일요일이면) 알고리즘 자동 보정
@@ -236,28 +240,55 @@ export default {
         // 병렬로 다 같이 돌리면 50종목 스캔이 한도를 다 써버려 가상매매 진입이 조용히 막힘.
         if (cron === '*/5 8-21 * * 1-5' || cron === '*/5 0-6 * * 1-5') {
             const market = cron.startsWith('*/5 8') ? 'US' : 'KR';
-            ctx.waitUntil((async () => {
-                if (market === 'US') {
-                    try { console.log('[cron] dt-capture', await captureDailySignals(env)); }
-                    catch (e) { console.error('[cron] dt-capture err', e.message); }
-                    try { await paperManageAll(env); console.log('[cron] paper-manage done'); }
-                    catch (e) { console.error('[cron] paper-manage err', e.message); }
-                }
-                try { console.log(`[cron] ${market} price`, await checkPriceAlerts(env)); }
-                catch (e) { console.error('[cron] price err', e.message); }
-                try { console.log(`[cron] ${market} signal`, await analyzeSignals(env, market)); }
-                catch (e) { console.error('[cron] signal err', e.message); }
-
-                // 미국 정규장 마감 직후(이 cron의 마지막 틱, UTC 21:55) — 일일 리포트 발송
-                // 신규 cron 트리거 추가 없이(플랜당 5개 한도) 기존 5분 주기의 특정 틱에서 실행
-                if (market === 'US') {
-                    const d = new Date(event.scheduledTime || Date.now());
-                    if (d.getUTCHours() === 21 && d.getUTCMinutes() >= 55) {
-                        try { await sendDailyHealthSummary(env); console.log('[cron] daily-health done'); }
-                        catch (e) { console.error('[cron] daily-health err', e.message); }
-                    }
-                }
-            })());
+            ctx.waitUntil(runFiveMinJob(env, market, event.scheduledTime || Date.now()));
         }
     },
 };
+
+// 5분 크론(*/5 8-21, */5 0-6)이 실제로 하는 일 — scheduled()와 /api/admin/run-five-min-job(외부 크론 우회용)이 공유
+// Cloudflare Cron Triggers가 원인불명으로 발화를 멈추는 문제가 있어, 외부 크론 서비스(cron-job.org 등)가
+// 이 함수를 도는 관리자 API를 5분마다 호출하는 방식으로도 동일하게 동작하도록 로직을 분리했다.
+export async function runFiveMinJob(env, market, scheduledTime = Date.now()) {
+    if (market === 'US') {
+        try { console.log('[cron] dt-capture', await captureDailySignals(env)); }
+        catch (e) {
+            console.error('[cron] dt-capture err', e.message);
+            try { await logError(env, { source: 'captureDailySignals', message: e.message, stack: e.stack }); } catch (_) {}
+        }
+        try { await paperManageAll(env); console.log('[cron] paper-manage done'); }
+        catch (e) {
+            console.error('[cron] paper-manage err', e.message);
+            try { await logError(env, { source: 'paper-manage', message: e.message, stack: e.stack }); } catch (_) {}
+        }
+        // 가상매매 정지 자동 진단 (1시간에 한 번만 실제 실행 — 함수 내부 KV 게이트)
+        try { const h = await paperHealthCheck(env); if (!h.skipped) console.log('[cron] paper-health', h); }
+        catch (e) { console.error('[cron] paper-health err', e.message); }
+    }
+    try { console.log(`[cron] ${market} price`, await checkPriceAlerts(env)); }
+    catch (e) { console.error('[cron] price err', e.message); }
+    try { console.log(`[cron] ${market} signal`, await analyzeSignals(env, market)); }
+    catch (e) { console.error('[cron] signal err', e.message); }
+
+    // 미국 정규장 마감 직후(이 cron의 마지막 틱, UTC 21:55) — 일일 리포트 발송
+    // 신규 cron 트리거 추가 없이(플랜당 5개 한도) 기존 5분 주기의 특정 틱에서 실행
+    if (market === 'US') {
+        const d = new Date(scheduledTime);
+        if (d.getUTCHours() === 21 && d.getUTCMinutes() >= 55) {
+            try { await sendDailyHealthSummary(env); console.log('[cron] daily-health done'); }
+            catch (e) { console.error('[cron] daily-health err', e.message); }
+        }
+    }
+}
+
+// POST /api/admin/run-five-min-job?market=US — Cloudflare Cron Triggers가 발화를 멈추는 문제의
+// 외부 크론 우회용 (cron-job.org 등에서 5분마다 호출). ADMIN_TOKEN 헤더 필수.
+async function handleRunFiveMinJob(req, env) {
+    if (!(await requireAdmin(req, env))) return err(401, 'admin auth required');
+    const market = new URL(req.url).searchParams.get('market') || 'US';
+    try {
+        await runFiveMinJob(env, market);
+        return json({ ok: true, market });
+    } catch (e) {
+        return err(500, e.message);
+    }
+}

@@ -2,8 +2,14 @@
 // 매주 일요일 cron 호출 → algorithm_config 저장
 // captureDailySignals에서 로드해 진입 기준으로 사용
 
+import { _tgDirect } from './paper-engine.js';
+
 const PARAM_KEY   = 'paper_trade_params';
 const MIN_SAMPLES = 10; // 통계 유효 최소 건수
+const HEALTH_CHECK_KEY      = 'paper_health_last_check'; // KV — 마지막 진단 실행 시각
+const HEALTH_CHECK_INTERVAL = 60 * 60 * 1000;            // 1시간에 한 번만 진단 (5분 크론에 얹혀서 호출되므로 자체 게이트 필요)
+const WATCHDOG_ALERT_KEY      = 'cron_watchdog_last_alert'; // KV — 워치독 알림 중복 방지
+const WATCHDOG_ALERT_COOLDOWN = 2 * 60 * 60 * 1000;         // 같은 문제로 2시간 내 재알림 안 함
 
 export const DEFAULT_PARAMS = {
     min_rvol:            1.5,      // 최소 RVOL (점심 거래량 감소 고려)
@@ -195,4 +201,121 @@ function _deriveParams({ summary, recent, catRows, gradeRows, exitRows, dirRows 
 
     p.updated_at = Date.now();
     return p;
+}
+
+/**
+ * 가상매매가 멈춘 이유를 자동 진단 (5분 크론에 얹혀 호출되지만 1시간에 한 번만 실제 실행 — KV 게이트)
+ *
+ * 최근 2시간 기준:
+ *  - 매매가 있었다면 정상 → 아무것도 안 함
+ *  - 매매 0건 + 최근 오류(captureDailySignals 등) 있음 → 코드/API 문제로 보고 알림만 (자동 수정 안 함 — 안전하지 않음)
+ *  - 매매 0건 + S/A 등급 신호도 0~2건 → 그냥 조용한 장, 알림 없음
+ *  - 매매 0건 + S/A 등급 신호는 3건 이상인데 매매가 안 됨 → 필터가 신호를 막고 있다고 보고
+ *    RVOL/등급 필터를 기본값 쪽으로 완화 + 텔레그램 알림
+ */
+export async function paperHealthCheck(env) {
+    try {
+        const now = Date.now();
+        if (env.CACHE) {
+            const last = await env.CACHE.get(HEALTH_CHECK_KEY);
+            if (last && now - Number(last) < HEALTH_CHECK_INTERVAL) return { skipped: true };
+            await env.CACHE.put(HEALTH_CHECK_KEY, String(now));
+        }
+
+        const since = now - 2 * 60 * 60 * 1000; // 최근 2시간
+
+        const [tradeCount, sigRows, errRows] = await Promise.all([
+            env.DB.prepare("SELECT COUNT(*) c FROM paper_trades WHERE created_at>?").bind(since).first(),
+            env.DB.prepare("SELECT grade, COUNT(*) c FROM dt_signals WHERE created_at>? AND grade IN ('S','A') GROUP BY grade").bind(since).all(),
+            env.DB.prepare(
+                "SELECT source, message, COUNT(*) c FROM errors WHERE created_at>? AND source IN ('captureDailySignals','resolveDailySignals','paper-manage') GROUP BY source, message ORDER BY c DESC LIMIT 5"
+            ).bind(since).all(),
+        ]);
+
+        if ((tradeCount?.c || 0) > 0) return { ok: true, reason: 'trading_normally' };
+
+        const errors = errRows.results || [];
+        if (errors.length) {
+            const summary = errors.map(e => `${e.source}: ${e.message.slice(0, 100)} (${e.c}회)`).join('\n');
+            await _tgDirect(env,
+                `⚠️ <b>가상매매 진단: 오류 감지</b>\n최근 2시간 매매 0건 + 아래 오류 발생\n${summary}\n→ 코드 문제로 보여 자동 조정하지 않았습니다. 확인이 필요합니다.`
+            );
+            return { problem: 'error', errors };
+        }
+
+        const sigTotal = (sigRows.results || []).reduce((s, r) => s + r.c, 0);
+        if (sigTotal < 3) return { ok: true, reason: 'quiet_market' }; // 조용한 장 — 알림 없음
+
+        // 신호는 있는데 매매가 안 됨 — 필터를 기본값 쪽으로 완화
+        const params  = await getPaperTradeParams(env);
+        const relaxed = { ...params };
+        const changed = [];
+
+        if (relaxed.min_rvol > DEFAULT_PARAMS.min_rvol) {
+            const next = Math.max(DEFAULT_PARAMS.min_rvol, +(relaxed.min_rvol - 0.3).toFixed(2));
+            changed.push(`RVOL 기준 ${relaxed.min_rvol} → ${next}`);
+            relaxed.min_rvol = next;
+        }
+        if (relaxed.grade_filter.length < DEFAULT_PARAMS.grade_filter.length) {
+            changed.push(`등급 필터 [${relaxed.grade_filter.join('/')}] → [${DEFAULT_PARAMS.grade_filter.join('/')}]`);
+            relaxed.grade_filter = [...DEFAULT_PARAMS.grade_filter];
+        }
+        if ((relaxed.sell_grade_filter || []).length < DEFAULT_PARAMS.sell_grade_filter.length) {
+            changed.push(`숏 등급 필터 [${(relaxed.sell_grade_filter||[]).join('/')}] → [${DEFAULT_PARAMS.sell_grade_filter.join('/')}]`);
+            relaxed.sell_grade_filter = [...DEFAULT_PARAMS.sell_grade_filter];
+        }
+
+        if (!changed.length) {
+            await _tgDirect(env,
+                `ℹ️ <b>가상매매 진단</b>\n최근 2시간 S/A등급 신호 ${sigTotal}건 있었지만 매매 0건 — 기준이 이미 기본값이라 자동 조정할 게 없습니다. 레짐 게이트·유동성 등 다른 조건 때문일 수 있습니다.`
+            );
+            return { problem: 'blocked', autoFixed: false, sigTotal };
+        }
+
+        relaxed.updated_at = now;
+        await env.DB.prepare(
+            "INSERT OR REPLACE INTO algorithm_config (key,value,updated_at) VALUES (?,?,?)"
+        ).bind(PARAM_KEY, JSON.stringify(relaxed), now).run();
+
+        await _tgDirect(env,
+            `🔧 <b>가상매매 진단: 필터 자동 완화</b>\n최근 2시간 S/A등급 신호 ${sigTotal}건인데 매매 0건 → 기준을 기본값 쪽으로 완화했습니다\n${changed.join('\n')}`
+        );
+        return { problem: 'blocked', autoFixed: true, changed, sigTotal };
+    } catch (e) {
+        console.error('[paper-health]', e.message);
+        return { error: e.message };
+    }
+}
+
+/**
+ * 5분 크론(8-21시, 5분마다) 워치독 — 별도로 살아있는 매시 :30 크론에서 호출.
+ * Cloudflare 쪽에서 그 크론 자체가 통째로 발화를 멈추면 paperHealthCheck도 같이 죽으므로,
+ * 완전히 다른 트리거에서 "최근 신호 캡처(dt_signals)가 있었는지"만 확인해 크론 자체의 생사를 감시한다.
+ */
+export async function cronWatchdog(env) {
+    try {
+        const now = new Date();
+        const h = now.getUTCHours();
+        const day = now.getUTCDay();
+        if (day === 0 || day === 6) return { skipped: 'weekend' };
+        if (h < 8 || h > 21) return { skipped: 'off_hours' }; // 5분 크론이 도는 시간대(UTC 8~21)만 검사
+
+        const since = Date.now() - 65 * 60 * 1000; // 최근 65분 (워치독 실행 간격 60분 + 여유 5분)
+        const row = await env.DB.prepare("SELECT COUNT(*) c FROM dt_signals WHERE created_at>?").bind(since).first();
+        if ((row?.c || 0) > 0) return { ok: true };
+
+        if (env.CACHE) {
+            const last = await env.CACHE.get(WATCHDOG_ALERT_KEY);
+            if (last && Date.now() - Number(last) < WATCHDOG_ALERT_COOLDOWN) return { alerted_recently: true };
+            await env.CACHE.put(WATCHDOG_ALERT_KEY, String(Date.now()));
+        }
+
+        await _tgDirect(env,
+            `🚨 <b>5분 크론 정지 감지</b>\n최근 65분간 신호 캡처(dt_signals) 0건 — */5 8-21 크론이 죽었을 가능성이 큽니다.\nCloudflare 대시보드 확인 또는 wrangler.toml 크론 재등록(제거 후 재배포 → 재추가 후 재배포)이 필요합니다.`
+        );
+        return { alerted: true };
+    } catch (e) {
+        console.error('[cron-watchdog]', e.message);
+        return { error: e.message };
+    }
 }
