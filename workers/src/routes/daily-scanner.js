@@ -345,8 +345,9 @@ export async function captureDailySignals(env) {
                     ).bind(r.symbol, r.dir, tf, since).first();
                     if (dup) continue;
                     const dtInsert = await env.DB.prepare(
-                        'INSERT INTO dt_signals (symbol,tf,dir,mode,grade,score,entry,stop,be,stop_dist,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
-                    ).bind(r.symbol, tf, r.dir, r.mode || 'trend', r.grade, r.score, r.price, r.stop, r.be ?? null, stopDist, entryTs).run();
+                        'INSERT INTO dt_signals (symbol,tf,dir,mode,grade,score,entry,stop,be,stop_dist,created_at,adx,rsi,vol_ratio,atr_pct) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+                    ).bind(r.symbol, tf, r.dir, r.mode || 'trend', r.grade, r.score, r.price, r.stop, r.be ?? null, stopDist, entryTs,
+                        r.adx ?? null, r.rsi ?? null, r.rvol ?? null, r.atrPct ?? null).run();
                     logged++;
 
                     if (r.dir === 'buy' || r.dir === 'sell') {
