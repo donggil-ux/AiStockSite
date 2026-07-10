@@ -12,7 +12,7 @@ const WATCHDOG_ALERT_KEY      = 'cron_watchdog_last_alert'; // KV — 워치독 
 const WATCHDOG_ALERT_COOLDOWN = 2 * 60 * 60 * 1000;         // 같은 문제로 2시간 내 재알림 안 함
 
 export const DEFAULT_PARAMS = {
-    min_rvol:            1.5,      // 최소 RVOL (점심 거래량 감소 고려)
+    min_rvol:            1.0,      // 최소 RVOL (사용자 요청으로 완화 — 거래량 다소 부족해도 진입 허용)
     max_positions:       6,        // 단타 3 + 스윙 3 = 총 6
     max_day_positions:   3,        // 단타 시드 50% ($25K×3 → 최대 $50K)
     max_swing_positions: 3,        // 스윙 시드 50% ($25K×3 → 최대 $50K)
@@ -135,18 +135,18 @@ function _deriveParams({ summary, recent, catRows, gradeRows, exitRows, dirRows 
     const winRate = summary.wins / total;
     console.log('[paper-optimize] 30일 승률:', (winRate*100).toFixed(1)+'%', '총손익:', summary.total_pnl);
 
-    // ── RVOL 기준 동적 조정 ────────────────────────────────────────
-    if      (winRate < 0.35) p.min_rvol = 3.0;  // 35% 미만: 매우 강한 신호만
-    else if (winRate < 0.45) p.min_rvol = 2.5;  // 45% 미만: 기준 상향
-    else if (winRate < 0.55) p.min_rvol = 2.0;  // 정상 범위
-    else if (winRate > 0.65) p.min_rvol = 1.8;  // 잘 되고 있으면 약간 완화
-    else                     p.min_rvol = 2.0;
+    // ── RVOL 기준 동적 조정 (기본값 1.0으로 완화됨에 맞춰 전체 밴드 하향 재조정) ──
+    if      (winRate < 0.35) p.min_rvol = 2.5;  // 35% 미만: 매우 강한 신호만
+    else if (winRate < 0.45) p.min_rvol = 2.0;  // 45% 미만: 기준 상향
+    else if (winRate < 0.55) p.min_rvol = 1.5;  // 정상 범위
+    else if (winRate > 0.65) p.min_rvol = 1.0;  // 잘 되고 있으면 기본값까지 완화
+    else                     p.min_rvol = 1.5;
 
     // 최근 7일이 특히 나쁘면 즉시 기준 강화
     if (recent?.total >= 5) {
         const recentWr = recent.wins / recent.total;
         if (recentWr < 0.35) {
-            p.min_rvol         = Math.max(p.min_rvol, 3.0);
+            p.min_rvol         = Math.max(p.min_rvol, 2.5);
             p.daily_loss_limit = 1500;
             console.log('[paper-optimize] 최근 7일 부진 — 기준 강화:', p.min_rvol);
         }
@@ -158,7 +158,7 @@ function _deriveParams({ summary, recent, catRows, gradeRows, exitRows, dirRows 
     if (stopRow && totalExit >= MIN_SAMPLES) {
         const stopRatio = stopRow.total / totalExit;
         if (stopRatio > 0.55) {
-            p.min_rvol         = Math.max(p.min_rvol, 2.5);
+            p.min_rvol         = Math.max(p.min_rvol, 2.0);
             p.daily_loss_limit = Math.min(p.daily_loss_limit, 1500);
             p.grade_filter     = ['S'];  // A 등급도 잠시 제외
             console.log('[paper-optimize] 손절 비율', (stopRatio*100).toFixed(0)+'% — S 등급만 허용');
