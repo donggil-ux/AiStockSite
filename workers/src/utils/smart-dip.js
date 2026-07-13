@@ -118,6 +118,23 @@ function evalBar(q, ind, i, dir, htfLag, spxTrendUp, ts, vwapArr) {
         qs += 1; reasons.push('VWAP 정렬');
     }
 
+    // 필터 10: EQH/EQL 유동성 스윕 (Smart Money Concepts) — 소프트 보너스, 하드 차단 없음
+    //   직전 20봉 고점/저점을 "살짝 뚫었다가 종가는 다시 안으로 마감"하는 손절사냥 후 반전 패턴.
+    //   파동확장(waveExt) 필터는 "얼마나 움직였나"를 보는 거고, 이건 "특정 레벨을 뚫고 되돌렸나"를 보는 거라 중복 아님.
+    const SWEEP_LB = 20;
+    if (i >= SWEEP_LB) {
+        const priorHighs = high.slice(i - SWEEP_LB, i).filter(v => v != null);
+        const priorLows  = low.slice(i - SWEEP_LB, i).filter(v => v != null);
+        if (dir === 'sell' && priorHighs.length && high[i] != null) {
+            const priorHigh = Math.max(...priorHighs);
+            if (high[i] > priorHigh && c < priorHigh) { qs += 1.5; reasons.push('EQH 유동성 스윕'); }
+        }
+        if (dir === 'buy' && priorLows.length && low[i] != null) {
+            const priorLow = Math.min(...priorLows);
+            if (low[i] < priorLow && c > priorLow) { qs += 1.5; reasons.push('EQL 유동성 스윕'); }
+        }
+    }
+
     return {
         pass: qs >= 5, qs, reasons,
         adx: +adx.toFixed(0), volRatio: +volRatio.toFixed(1), atrPct: +atrPct.toFixed(1),
@@ -158,7 +175,7 @@ export function smartDipScan(q, { interval = '5m', ts = [], spxTrendUp = null, l
             winMeasured: !!(measuredWin && measuredWin[grade] != null),
             adx: best.adx, volRatio: best.volRatio, atrPct: best.atrPct, rsiVal: best.rsiVal,
             volAvg20: best.volAvg20 ?? 0,
-            reasons: best.reasons.slice(0, 4),
+            reasons: best.reasons.slice(0, 5),
             price: best.price,
             stop: lv?.stop ?? null, be: lv?.be ?? null, target1: lv?.target1 ?? null, target2: lv?.target2 ?? null, riskPct: lv?.riskPct ?? null,
             barsAgo: N - 1 - i,
@@ -216,6 +233,17 @@ function evalBounce(q, ind, i, ts) {
     const atrPct = c > 0 ? ((ind.atrArr[i] || 0) / c) * 100 : 0;
     if (atrPct > 8.0) return { pass: false, qs };
 
+    // 8) EQL 유동성 스윕 (Smart Money Concepts) — 직전 저점을 살짝 뚫었다가 종가는 다시 위로 마감
+    //    (단순 "낙폭 %"이 아니라 특정 지지 레벨을 정확히 스탑헌팅했는지 확인 — 소프트 보너스)
+    const SWEEP_LB = 20;
+    if (i >= SWEEP_LB) {
+        const priorLows = low.slice(i - SWEEP_LB, i).filter(v => v != null);
+        if (priorLows.length && low[i] != null) {
+            const priorLow = Math.min(...priorLows);
+            if (low[i] < priorLow && c > priorLow) { qs += 1; reasons.push('EQL 유동성 스윕'); }
+        }
+    }
+
     return {
         pass: qs >= 3.5, qs, reasons,
         adx: +(ind.adxArr[i] || 0).toFixed(0), volRatio: +volRatio.toFixed(1),
@@ -246,7 +274,7 @@ export function smartDipScanBounce(q, { ts = [], lookback, measuredWin = null } 
             winRate, winMeasured: !!(measuredWin && measuredWin['bounce_' + grade] != null),
             adx: b.adx, volRatio: b.volRatio, atrPct: b.atrPct, rsiVal: b.rsiVal,
             volAvg20: b.volAvg20 ?? 0,
-            reasons: b.reasons.slice(0, 4),
+            reasons: b.reasons.slice(0, 5),
             price: b.price,
             stop: lv?.stop ?? null, be: lv?.be ?? null, target1: lv?.target1 ?? null, target2: lv?.target2 ?? null, riskPct: lv?.riskPct ?? null,
             barsAgo: N - 1 - i,
