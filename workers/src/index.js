@@ -245,10 +245,28 @@ export default {
     },
 };
 
+// 원래 Cloudflare 크론 문자열("*/5 8-21 * * 1-5" 등) 자체에 요일(1-5=월~금) 제한이 박혀있어서
+// 코드가 요일을 따로 검사할 필요가 없었음. 그런데 외부 크론(cron-job.org)은 요일 제한 없이
+// 매일 5분마다 호출하도록 설정돼 있어서, 주말에도 이 함수가 그대로 실행되어 장 닫힌 날에
+// 가상매매가 도는 문제가 있었음 — 코드 레벨에서 직접 요일·시간대를 검사해 방어한다.
+function _isMarketWindowOpen(market) {
+    const now = new Date();
+    const day = now.getUTCDay(); // 0=일, 6=토
+    if (day === 0 || day === 6) return false; // 주말 전면 차단
+    const h = now.getUTCHours();
+    if (market === 'US') return h >= 8 && h <= 21;  // 미국 프리마켓+정규장 (UTC 08:00~21:55)
+    if (market === 'KR') return h >= 0 && h <= 6;   // 한국 정규장 (UTC 00:00~06:55)
+    return true;
+}
+
 // 5분 크론(*/5 8-21, */5 0-6)이 실제로 하는 일 — scheduled()와 /api/admin/run-five-min-job(외부 크론 우회용)이 공유
 // Cloudflare Cron Triggers가 원인불명으로 발화를 멈추는 문제가 있어, 외부 크론 서비스(cron-job.org 등)가
 // 이 함수를 도는 관리자 API를 5분마다 호출하는 방식으로도 동일하게 동작하도록 로직을 분리했다.
 export async function runFiveMinJob(env, market, scheduledTime = Date.now()) {
+    if (!_isMarketWindowOpen(market)) {
+        console.log(`[cron] ${market} 장 시간 아님(주말/장외) — 스킵`);
+        return { skipped: 'market_closed' };
+    }
     if (market === 'US') {
         try { console.log('[cron] dt-capture', await captureDailySignals(env)); }
         catch (e) {
