@@ -634,10 +634,10 @@ async function _sendScanResults(env) {
         LIMIT 40
     `).bind(since).all();
 
-    // 같은 종목·방향·가격대의 반복 신호(5분마다 재포착되는 동일 시그널)는 중복 제거 — 최신 것만 유지
+    // 같은 종목·방향의 반복 신호(가격이 조금씩 바뀌며 5분마다 재포착됨)는 종목당 최신 것 하나만 유지
     const seen = new Set();
     const signals = (rows.results || []).filter(s => {
-        const key = `${s.symbol}|${s.dir}|${s.entry}|${s.stop}`;
+        const key = `${s.symbol}|${s.dir}`;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
