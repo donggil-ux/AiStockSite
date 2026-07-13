@@ -379,7 +379,7 @@ async function _analyzeSymbol(env, symbol) {
         // 뉴스 감성 — 매매 관점 참고용
         const newsEmoji = news?.sentiment === 'positive' ? '🟢' : news?.sentiment === 'negative' ? '🔴' : '⚪';
         const newsBlock = news?.headline
-            ? `<b>📰 뉴스</b>\n  ${newsEmoji} ${news.sentiment} — ${news.headline}`
+            ? `<b>📰 뉴스</b>\n  ${newsEmoji} ${news.sentiment} — ${news.headlineKo || news.headline}`
             : null;
 
         // 옵션 현황 — 맥스페인 + 콜/풋 미결제약정 비교

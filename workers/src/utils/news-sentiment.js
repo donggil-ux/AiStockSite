@@ -6,6 +6,7 @@
 // 반환: { sentiment: 'positive'|'neutral'|'negative', score, headline }
 
 import { callGemini } from './gemini.js';
+import { yfRequest } from './crumb.js';
 
 const CACHE_KEY = (sym) => `news-sent:${sym}`;
 const CACHE_TTL = 30 * 60; // 30분 (초)
@@ -80,17 +81,13 @@ async function _fetchHeadline(env, symbol) {
             }
         } catch {}
     }
-    // 2차: Yahoo Finance search
+    // 2차: Yahoo Finance search (크럼/쿠키 인증 — 생 fetch는 Cloudflare Workers IP에서 차단되는 경우가 있어 yfRequest 사용)
     try {
-        const r = await fetch(
-            `https://query1.finance.yahoo.com/v1/finance/search?q=${symbol}&quotesCount=0&newsCount=1&enableFuzzyQuery=false`,
-            { headers: { 'User-Agent': 'Mozilla/5.0 StockAI/1.0' }, cf: { cacheTtl: 600 }, signal: AbortSignal.timeout(4000) }
+        const d = await yfRequest(env.CACHE,
+            `https://query1.finance.yahoo.com/v1/finance/search?q=${symbol}&quotesCount=0&newsCount=1&enableFuzzyQuery=false`
         );
-        if (r.ok) {
-            const d = await r.json();
-            const h = d?.news?.[0]?.title;
-            if (h) return String(h).trim();
-        }
+        const h = d?.news?.[0]?.title;
+        if (h) return String(h).trim();
     } catch {}
     // 3차: Google News RSS
     try {
@@ -110,8 +107,25 @@ async function _fetchHeadline(env, symbol) {
     return '';
 }
 
+// 영→한 번역 — 구글 번역 비공식 엔드포인트 (API 키 불필요, earnings.js와 동일 패턴)
+async function _translateToKo(text) {
+    if (!text) return text;
+    try {
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ko&dt=t&q=${encodeURIComponent(text)}`;
+        const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 StockAI/1.0' }, cf: { cacheTtl: 3600 }, signal: AbortSignal.timeout(4000) });
+        if (!r.ok) return text;
+        const data = await r.json();
+        const parts = data?.[0];
+        if (Array.isArray(parts)) {
+            const out = parts.map(p => p?.[0] || '').join('');
+            if (out) return out;
+        }
+    } catch {}
+    return text;
+}
+
 /** 종목 뉴스 감성 분석 (KV 캐시 30분)
- * @returns { sentiment: 'positive'|'neutral'|'negative', score: number, headline: string }
+ * @returns { sentiment: 'positive'|'neutral'|'negative', score: number, headline: string, headlineKo: string }
  */
 export async function getNewsSentiment(env, symbol) {
     // KV 캐시 확인
@@ -123,7 +137,7 @@ export async function getNewsSentiment(env, symbol) {
     const headline = await _fetchHeadline(env, symbol);
     if (!headline) {
         // 헤드라인 없으면 neutral (거래 막지 않음)
-        return { sentiment: 'neutral', score: 0, headline: '' };
+        return { sentiment: 'neutral', score: 0, headline: '', headlineKo: '' };
     }
 
     let score = _keywordScore(headline);
@@ -146,7 +160,9 @@ export async function getNewsSentiment(env, symbol) {
         } catch {}
     }
 
-    const result = { sentiment, score, headline: headline.slice(0, 120) };
+    const headlineTrimmed = headline.slice(0, 120);
+    const headlineKo = await _translateToKo(headlineTrimmed);
+    const result = { sentiment, score, headline: headlineTrimmed, headlineKo };
 
     // KV 저장 (fire-and-forget)
     try {
