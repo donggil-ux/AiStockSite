@@ -245,14 +245,68 @@ export default {
     },
 };
 
+// NYSE/NASDAQ 휴장일 — 연도 넣으면 그 해의 관측일을 직접 계산 (매년 하드코딩 안 해도 됨).
+// 토요일 낙일 → 전 금요일, 일요일 낙일 → 다음 월요일로 대체 관측 (미국 연방 공휴일 규칙).
+// 부활절(Good Friday)만 계산이 필요해 Meeus/Jones/Butcher 알고리즘 사용.
+function _usMarketHolidays(year) {
+    const nthWeekday = (month, weekday, n) => {
+        let d = new Date(Date.UTC(year, month, 1));
+        let count = 0;
+        while (true) {
+            if (d.getUTCDay() === weekday) { count++; if (count === n) return d; }
+            d.setUTCDate(d.getUTCDate() + 1);
+        }
+    };
+    const lastWeekday = (month, weekday) => {
+        let d = new Date(Date.UTC(year, month + 1, 0)); // 해당 월 마지막 날
+        while (d.getUTCDay() !== weekday) d.setUTCDate(d.getUTCDate() - 1);
+        return d;
+    };
+    const easter = () => {
+        const a = year % 19, b = Math.floor(year / 100), c = year % 100;
+        const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+        const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+        const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7;
+        const m = Math.floor((a + 11 * h + 22 * l) / 451);
+        const month = Math.floor((h + l - 7 * m + 114) / 31) - 1;
+        const day = ((h + l - 7 * m + 114) % 31) + 1;
+        return new Date(Date.UTC(year, month, day));
+    };
+    const observed = (d) => { // 연방 공휴일 대체관측 규칙
+        const day = d.getUTCDay();
+        if (day === 6) { const nd = new Date(d); nd.setUTCDate(nd.getUTCDate() - 1); return nd; }
+        if (day === 0) { const nd = new Date(d); nd.setUTCDate(nd.getUTCDate() + 1); return nd; }
+        return d;
+    };
+    const fmt = (d) => d.toISOString().slice(0, 10);
+    const goodFriday = easter(); goodFriday.setUTCDate(goodFriday.getUTCDate() - 2);
+    return new Set([
+        fmt(observed(new Date(Date.UTC(year, 0, 1)))),  // 신정
+        fmt(nthWeekday(0, 1, 3)),                        // MLK Day (1월 3번째 월)
+        fmt(nthWeekday(1, 1, 3)),                        // 대통령의 날 (2월 3번째 월)
+        fmt(goodFriday),                                 // 성금요일
+        fmt(lastWeekday(4, 1)),                          // 메모리얼 데이 (5월 마지막 월)
+        fmt(observed(new Date(Date.UTC(year, 5, 19)))),  // 준틴스
+        fmt(observed(new Date(Date.UTC(year, 6, 4)))),   // 독립기념일
+        fmt(nthWeekday(8, 1, 1)),                        // 노동절 (9월 1번째 월)
+        fmt(nthWeekday(10, 4, 4)),                       // 추수감사절 (11월 4번째 목)
+        fmt(observed(new Date(Date.UTC(year, 11, 25)))), // 크리스마스
+    ]);
+}
+
 // 원래 Cloudflare 크론 문자열("*/5 8-21 * * 1-5" 등) 자체에 요일(1-5=월~금) 제한이 박혀있어서
 // 코드가 요일을 따로 검사할 필요가 없었음. 그런데 외부 크론(cron-job.org)은 요일 제한 없이
-// 매일 5분마다 호출하도록 설정돼 있어서, 주말에도 이 함수가 그대로 실행되어 장 닫힌 날에
-// 가상매매가 도는 문제가 있었음 — 코드 레벨에서 직접 요일·시간대를 검사해 방어한다.
+// 매일 5분마다 호출하도록 설정돼 있어서, 주말/휴장일에도 이 함수가 그대로 실행되어 장 닫힌 날에
+// 가상매매가 도는 문제가 있었음 — 코드 레벨에서 직접 요일·휴장일·시간대를 검사해 방어한다.
+// (한국 증시 휴장일은 별도 캘린더가 필요해 아직 미반영 — 요일만 체크)
 function _isMarketWindowOpen(market) {
     const now = new Date();
     const day = now.getUTCDay(); // 0=일, 6=토
     if (day === 0 || day === 6) return false; // 주말 전면 차단
+    if (market === 'US') {
+        const dateStr = now.toISOString().slice(0, 10);
+        if (_usMarketHolidays(now.getUTCFullYear()).has(dateStr)) return false; // 미국 휴장일 차단
+    }
     const h = now.getUTCHours();
     if (market === 'US') return h >= 8 && h <= 21;  // 미국 프리마켓+정규장 (UTC 08:00~21:55)
     if (market === 'KR') return h >= 0 && h <= 6;   // 한국 정규장 (UTC 00:00~06:55)
