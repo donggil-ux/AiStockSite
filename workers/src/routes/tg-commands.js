@@ -631,21 +631,36 @@ async function _sendScanResults(env) {
         FROM dt_signals
         WHERE created_at > ? AND grade IN ('S','A')
         ORDER BY created_at DESC
-        LIMIT 20
+        LIMIT 40
     `).bind(since).all();
 
     const signals = rows.results || [];
     if (!signals.length) { await _tgDirect(env, '📭 최근 8시간 S/A 시그널 없음'); return; }
 
-    const lines = signals.map(s => {
-        const dir  = s.dir === 'buy' ? '🟢매수' : '🔴매도';
-        const tf   = s.tf === '5m' ? '단타' : '스윙';
+    const fmtLine = (s) => {
+        const tf    = s.tf === '5m' ? '단타' : '스윙';
         const entry = s.entry ? ` $${Number(s.entry).toFixed(2)}` : '';
         const stop  = s.stop  ? ` 손절$${Number(s.stop).toFixed(2)}` : '';
         const score = s.score != null ? s.score.toFixed(1) : '';
-        return `${dir} ${s.symbol} [${s.grade}${score}/${tf}]${entry}${stop}`;
-    });
-    await _tgDirect(env, `📡 오늘 스캔 결과 (${signals.length}건)\n\n${lines.join('\n')}`);
+        return `  ${s.symbol}${entry}${stop} [${score}/${tf}]`;
+    };
+
+    // 등급(S→A) × 방향(매수→매도) 순서로 그룹핑
+    const groups = [
+        ['S', 'buy',  '🌟 S등급 매수'],
+        ['S', 'sell', '🌟 S등급 매도'],
+        ['A', 'buy',  '🅰️ A등급 매수'],
+        ['A', 'sell', '🅰️ A등급 매도'],
+    ];
+    const sections = groups
+        .map(([grade, dir, title]) => {
+            const items = signals.filter(s => s.grade === grade && s.dir === dir);
+            if (!items.length) return null;
+            return `<b>${title}</b> (${items.length}건)\n${items.map(fmtLine).join('\n')}`;
+        })
+        .filter(Boolean);
+
+    await _tgDirect(env, `📡 오늘 스캔 결과 (${signals.length}건, 최근 8시간)\n\n${sections.join('\n\n')}`);
 }
 
 async function _sendPositions(env) {
