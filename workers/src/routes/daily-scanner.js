@@ -483,9 +483,13 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
         return;
     }
 
-    // ④ 거래량 제로 종목 절대 진입 금지 (volAvg20 = 20봉 절대 평균 거래량)
-    if ((r.volAvg20 ?? 0) < 1000) {
-        console.log(`[paper] ${r.symbol} 거래량 부족 (volAvg20=${r.volAvg20 ?? 0}) — 진입 스킵`);
+    // ④ 절대 거래량 필터 — 가격과 무관하게 하루 100만주 이상 거래되는 종목만 (5분봉 78개/일 환산)
+    // volAvg20 = 20봉 평균 거래량(절대 주수)
+    const MIN_DAILY_VOLUME = 1_000_000;
+    const BARS_PER_DAY = 78; // 정규장 6.5시간 / 5분
+    const minBarVolume = MIN_DAILY_VOLUME / BARS_PER_DAY;
+    if ((r.volAvg20 ?? 0) < minBarVolume) {
+        console.log(`[paper] ${r.symbol} 거래량 부족 (volAvg20=${r.volAvg20 ?? 0} < ${minBarVolume.toFixed(0)}) — 진입 스킵`);
         return;
     }
 
