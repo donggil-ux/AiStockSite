@@ -395,28 +395,69 @@ async function _analyzeSymbol(env, symbol) {
             const lastEma = [...ema60].reverse().find(v => v != null);
             const emaStr = lastEma ? `EMA60 $${lastEma.toFixed(2)} (가격 ${price > lastEma ? '위 ↑' : '아래 ↓'})` : '';
 
-            // 매수 관점(상위 타임프레임 상승 정렬) 있으면 눌림목 1차 매수가 제안 — EMA20 기준
-            // (Smart Dip 엔진의 "상승추세 눌림목 진입" 철학과 동일한 기준을 신호 미발생 시에도 미리 안내)
+            // 종합 롱/숏 관점 — 멀티타임프레임 추세 + RSI 극단 + 뉴스 + 옵션 포지셔닝을 점수화.
+            // 신호가 아직 안 떴을 때도 "지금 이 시점에서 어느 쪽이 우세한지 + 왜"를 미리 안내.
             const pDaily = daily ? _tfPerspective(daily.q) : null;
             const p60    = tf60  ? _tfPerspective(tf60.q)  : null;
             const p15    = tf15  ? _tfPerspective(tf15.q)  : null;
             const p5     = _tfPerspective(q);
-            let buyIdeaBlock = null;
-            if (pDaily?.trend === '상승' && p60?.trend === '상승') {
-                const lines = ['<b>💡 매수 관점 — 눌림목 1차 매수가 관심</b>'];
+
+            let biasScore = 0;
+            const biasReasons = [];
+            const addTrend = (label, p, weight) => {
+                if (!p) return;
+                if (p.trend === '상승') { biasScore += weight; biasReasons.push(`${label} 상승추세 (+${weight})`); }
+                else if (p.trend === '하락') { biasScore -= weight; biasReasons.push(`${label} 하락추세 (-${weight})`); }
+            };
+            addTrend('일봉', pDaily, 2);
+            addTrend('60분봉', p60, 1.5);
+            addTrend('15분봉', p15, 1);
+            addTrend('5분봉', p5, 0.5);
+
+            if (pDaily?.rsi != null) {
+                if (pDaily.rsi >= 75) { biasScore -= 1; biasReasons.push(`일봉 RSI ${pDaily.rsi} 과매수 경계 (-1)`); }
+                else if (pDaily.rsi <= 25) { biasScore += 1; biasReasons.push(`일봉 RSI ${pDaily.rsi} 과매도 반등기대 (+1)`); }
+            }
+            if (news?.sentiment === 'positive') { biasScore += 1; biasReasons.push('뉴스 긍정 (+1)'); }
+            else if (news?.sentiment === 'negative') { biasScore -= 1; biasReasons.push('뉴스 부정 (-1)'); }
+
+            if (options?.pcRatioOI != null) {
+                if (options.pcRatioOI <= 0.7) { biasScore += 0.5; biasReasons.push(`옵션 콜 우세 P/C ${options.pcRatioOI} (+0.5)`); }
+                else if (options.pcRatioOI >= 1.3) { biasScore -= 0.5; biasReasons.push(`옵션 풋 우세 P/C ${options.pcRatioOI} (-0.5)`); }
+            }
+
+            const biasLabel = biasScore >= 2 ? '🟢 롱(매수) 관점 우세' : biasScore <= -2 ? '🔴 숏(매도) 관점 우세' : '⚪ 중립 — 방향성 불분명';
+            const biasBlock = [
+                `<b>🧭 종합 관점: ${biasLabel}</b> (스코어 ${biasScore.toFixed(1)})`,
+                ...(biasReasons.length ? biasReasons.map(r => `  · ${r}`) : ['  · 뚜렷한 근거 부족 — 관망 권장']),
+            ].join('\n');
+
+            // 관점에 맞춰 눌림목(롱) / 반등(숏) 1차 관심가 — EMA20 기준 (Smart Dip 엔진과 동일 철학)
+            let watchBlock = null;
+            if (biasScore >= 2) {
+                const lines = ['<b>💡 눌림목 1차 매수 관심가</b>'];
                 if (p5?.ema20)  lines.push(`  5분봉 EMA20   $${p5.ema20.toFixed(2)}`);
                 if (p15?.ema20) lines.push(`  15분봉 EMA20  $${p15.ema20.toFixed(2)}`);
                 if (p60?.ema20) lines.push(`  60분봉 EMA20  $${p60.ema20.toFixed(2)}`);
                 lines.push('  ※ 참고용 관심가 — 실제 진입은 거래량·RSI 등 확인 후 신호 발생 시 권장');
-                buyIdeaBlock = lines.join('\n');
+                watchBlock = lines.join('\n');
+            } else if (biasScore <= -2) {
+                const lines = ['<b>💡 반등 시 1차 매도 관심가</b>'];
+                if (p5?.ema20)  lines.push(`  5분봉 EMA20   $${p5.ema20.toFixed(2)}`);
+                if (p15?.ema20) lines.push(`  15분봉 EMA20  $${p15.ema20.toFixed(2)}`);
+                if (p60?.ema20) lines.push(`  60분봉 EMA20  $${p60.ema20.toFixed(2)}`);
+                lines.push('  ※ 참고용 관심가 — 실제 진입은 거래량·RSI 등 확인 후 신호 발생 시 권장');
+                watchBlock = lines.join('\n');
             }
 
             await _tgDirect(env, [
                 `📊 <b>${symbol}</b> @ $${price.toFixed(2)} (${chgStr})`,
                 emaStr,
                 '',
+                biasBlock,
+                '',
                 mtfBlock,
-                buyIdeaBlock ? '' : null, buyIdeaBlock,
+                watchBlock ? '' : null, watchBlock,
                 newsBlock ? '' : null, newsBlock,
                 optionsBlock ? '' : null, optionsBlock,
                 '',
