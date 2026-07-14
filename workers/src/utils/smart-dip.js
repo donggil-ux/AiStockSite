@@ -283,6 +283,89 @@ export function smartDipScanBounce(q, { ts = [], lookback, measuredWin = null } 
     return null;
 }
 
+// ── 종가베팅 (장 마감 강세 마감 종목 매수 → 익일 시가 청산) ──────────────
+// 장중 추세추종/반등과 다른 별개 전략: 오늘 하루 강하게 올라 당일 고점 근처에서
+// 마감하는 종목 = 오버나이트 모멘텀 이어질 가능성. 손절/트레일 없이 익일 시가에 그대로 청산.
+function evalCloseBet(q, ind, i, ts) {
+    const { close, high, low, open, volume } = q;
+    const c = close[i];
+    if (c == null || ind.ema60[i] == null) return { pass: false, qs: 0 };
+
+    // 당일 시작 봉 인덱스 탐색 (ts의 UTC 날짜 기준)
+    const today = ts && ts[i] ? Math.floor(ts[i] / 86400) : null;
+    let startIdx = i;
+    if (today != null && ts) {
+        while (startIdx > 0 && ts[startIdx - 1] != null && Math.floor(ts[startIdx - 1] / 86400) === today) startIdx--;
+    } else {
+        startIdx = Math.max(0, i - 77); // ts 없으면 최근 78봉(하루치)으로 폴백
+    }
+    if (startIdx >= i) return { pass: false, qs: 0 };
+
+    const dayOpen = open[startIdx];
+    const highs = high.slice(startIdx, i + 1).filter(v => v != null);
+    const lows  = low.slice(startIdx, i + 1).filter(v => v != null);
+    if (!dayOpen || dayOpen <= 0 || !highs.length || !lows.length) return { pass: false, qs: 0 };
+    const dayHigh = Math.max(...highs);
+    const dayLow  = Math.min(...lows);
+
+    let qs = 0;
+    const reasons = [];
+
+    // 1) 당일 등락률 — 충분히 강세로 올라야 함 (최소 +2%)
+    const chgPct = ((c - dayOpen) / dayOpen) * 100;
+    if (chgPct < 2.0) return { pass: false, qs };
+    qs += chgPct >= 5 ? 2 : 1;
+    reasons.push(`당일 +${chgPct.toFixed(1)}%`);
+
+    // 2) 당일 고점 근처 마감 (상단 15% 이내) — 종가가 약하면 다음날 갭다운 위험
+    const rng = dayHigh - dayLow;
+    const posInRange = rng > 0 ? (c - dayLow) / rng : 1;
+    if (posInRange < 0.85) return { pass: false, qs };
+    qs += posInRange >= 0.95 ? 2 : 1;
+    reasons.push(`당일고점 대비 ${(posInRange * 100).toFixed(0)}%`);
+
+    // 3) 거래량 확인 — 진짜 강세인지(거래량 실림) 확인
+    const volSlice = volume.slice(Math.max(0, startIdx - 20), startIdx).filter(v => v != null && v > 0);
+    const volAvg20 = volSlice.length ? volSlice.reduce((s, v) => s + v, 0) / volSlice.length : 0;
+    const volRatio = volAvg20 > 0 ? (volume[i] || 0) / volAvg20 : 1;
+    if (volRatio < 1.2) return { pass: false, qs };
+    qs += volRatio >= 2 ? 2 : 1;
+    reasons.push(`거래량 ${volRatio.toFixed(1)}x`);
+
+    // 4) 상승추세 컨텍스트 (EMA60 위)
+    if (c > ind.ema60[i]) { qs += 1; reasons.push('EMA60 위'); }
+
+    return {
+        pass: qs >= 4, qs, reasons,
+        volRatio: +volRatio.toFixed(1), price: c,
+        volAvg20: Math.round(volAvg20), chgPct: +chgPct.toFixed(1),
+    };
+}
+
+function closeBetGrade(qs) { return qs >= 6 ? 'S' : qs >= 5 ? 'A' : 'B'; }
+
+// 종가베팅 스캔 — 장 마감 직전 틱에서 호출. 손절은 고정 -3%(오버나이트 갭 리스크 보호), 목표 없음(익일 시가 청산).
+export function smartDipScanCloseBet(q, { ts = [] } = {}) {
+    const { close = [] } = q;
+    const N = close.length;
+    if (N < 20) return null;
+    const ind = indicators(q);
+    const i = N - 1; // 마지막(현재) 봉만 평가 — 장마감 직전 스냅샷
+    const b = evalCloseBet(q, ind, i, ts);
+    if (!b.pass) return null;
+    const grade = closeBetGrade(b.qs);
+    const stopDist = b.price * 0.03;
+    return {
+        dir: 'buy', mode: 'closebet', grade,
+        qualityScore: +b.qs.toFixed(1),
+        volRatio: b.volRatio, volAvg20: b.volAvg20 ?? 0,
+        reasons: b.reasons.slice(0, 5),
+        price: b.price,
+        stop: +(b.price - stopDist).toFixed(4),
+        barsAgo: 0,
+    };
+}
+
 // 과거 데이터 백테스트 — 각 봉에서 신호 발생 시 진입, 이후 HORIZON 봉 내
 // 목표(2R) 도달 vs 손절(-1R) 도달을 시뮬레이션. 봉별 독립 평가(중복 쿨다운).
 // @returns { trades:[{grade,dir,outcome,R}], byGrade:{S,A,B:{n,win,avgR}} }

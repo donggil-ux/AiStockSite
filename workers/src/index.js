@@ -34,7 +34,7 @@ import { logError, pruneOldErrors } from './utils/errors.js';
 import { snapshotHealth } from './cron.js';
 import { handleAdminStatus, handleAnalyzeNow, handleDtForwardTest, handleCatForwardTest } from './routes/admin.js';
 import { requireAdmin } from './utils/admin-auth.js';
-import { handleDailyTradingScan, handleDailyBacktest, handleDailyLiveStats, captureDailySignals, resolveDailySignals, sendDailyHealthSummary } from './routes/daily-scanner.js';
+import { handleDailyTradingScan, handleDailyBacktest, handleDailyLiveStats, captureDailySignals, resolveDailySignals, sendDailyHealthSummary, captureCloseBetSignals } from './routes/daily-scanner.js';
 import { handlePaperTrading } from './routes/paper-trading.js';
 import { handleTgWebhook } from './routes/tg-commands.js';
 import { handleCatalystLiveStats, captureCatalystSignals, resolveCatalystSignals } from './routes/catalyst-track.js';
@@ -335,6 +335,9 @@ export async function runFiveMinJob(env, market, scheduledTime = Date.now()) {
         // 가상매매 정지 자동 진단 (1시간에 한 번만 실제 실행 — 함수 내부 KV 게이트)
         try { const h = await paperHealthCheck(env); if (!h.skipped) console.log('[cron] paper-health', h); }
         catch (e) { console.error('[cron] paper-health err', e.message); }
+        // 종가베팅 — 장마감 직전(ET 15:55~16:00) 한 틱에서만 실제 실행 (함수 내부 시간 게이트)
+        try { const cb = await captureCloseBetSignals(env); if (!cb.skipped) console.log('[cron] closebet', cb); }
+        catch (e) { console.error('[cron] closebet err', e.message); }
     }
     try { console.log(`[cron] ${market} price`, await checkPriceAlerts(env)); }
     catch (e) { console.error('[cron] price err', e.message); }

@@ -51,6 +51,11 @@ export function _etTotalMin() {
     return h * 60 + m;
 }
 
+// ET 날짜 문자열(YYYY-MM-DD) — 종가베팅 포지션이 "다음 거래일"에 접어들었는지 판단용
+function _etDateStr(ms) {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date(ms));
+}
+
 // ── 내부 헬퍼 ────────────────────────────────────────────────────
 
 // Telegram 단방향 메시지 — fire-and-forget
@@ -104,8 +109,9 @@ function calcPnl(avgPrice, exitPrice, qty, dir) {
 }
 
 // 단타/스윙 자본 풀 분리 — 스타일별로 잔고·포지션사이즈가 서로 다른 컬럼을 씀
-function _balanceField(style)  { return style === 'day' ? 'day_balance' : 'swing_balance'; }
-function _posSizeField(style)  { return style === 'day' ? 'day_position_size' : 'swing_position_size'; }
+// closebet(종가베팅)은 단타 풀을 공유 (별도 풀 없음)
+function _balanceField(style)  { return (style === 'day' || style === 'closebet') ? 'day_balance' : 'swing_balance'; }
+function _posSizeField(style)  { return (style === 'day' || style === 'closebet') ? 'day_position_size' : 'swing_position_size'; }
 
 // 잔고 증감 SQL 2문 — 스타일별 풀 갱신 + balance(day+swing 합계) 동기화.
 // D1 .batch()는 순차 트랜잭션이라 두번째 문이 첫번째 문의 결과를 그대로 봄.
@@ -245,11 +251,12 @@ export async function paperClosePosition(env, trade, price, reason) {
     const now     = Date.now();
 
     const fillType =
-        reason === 'stop'       ? 'sell_stop' :
-        reason === 'tp4_trail'  ? 'sell_trail' :
-        reason === 'be_protect' ? 'sell_be_protect' :
-        reason === 'eod_close'  ? 'sell_eod' :
-        reason === 'timeout'    ? 'sell_timeout' :
+        reason === 'stop'          ? 'sell_stop' :
+        reason === 'tp4_trail'     ? 'sell_trail' :
+        reason === 'be_protect'    ? 'sell_be_protect' :
+        reason === 'eod_close'     ? 'sell_eod' :
+        reason === 'timeout'       ? 'sell_timeout' :
+        reason === 'overnight_exit' ? 'sell_overnight' :
         'sell_manual';
 
     // batch — 4개 문을 원자적으로 실행 (부분 실패로 fill 누락·잔고 불일치 방지)
@@ -268,11 +275,12 @@ export async function paperClosePosition(env, trade, price, reason) {
 
     const pnlStr = (totalPnl >= 0 ? '+' : '') + '$' + totalPnl.toFixed(0);
     const titleMap = {
-        stop:       `🔴 가상매매 손절`,
-        tp4_trail:  `✅ 가상매매 트레일 청산`,
-        be_protect: `🛡 가상매매 본전 청산`,
-        eod_close:  `🔔 가상매매 장마감 청산`,
-        timeout:    `⏰ 가상매매 타임아웃 청산`,
+        stop:           `🔴 가상매매 손절`,
+        tp4_trail:      `✅ 가상매매 트레일 청산`,
+        be_protect:     `🛡 가상매매 본전 청산`,
+        eod_close:      `🔔 가상매매 장마감 청산`,
+        timeout:        `⏰ 가상매매 타임아웃 청산`,
+        overnight_exit: `🌙 가상매매 익일시가 청산`,
     };
     const title = titleMap[reason] || `📋 가상매매 청산`;
     await notifyPaper(env, trade.user_id, title,
@@ -358,6 +366,16 @@ export async function paperManageAll(env) {
 
 async function _manageOne(env, pos, price) {
     const now = Date.now();
+
+    // ── 종가베팅 — 익일 정규장 시가(ET 9:30) 이후 첫 틱에서 무조건 청산 ──────
+    // 수익/손실 무관하게 오버나이트 베팅 종료 (아래 손절 로직보다 먼저 실행되므로,
+    // 갭다운으로 손절가 아래에서 열렸어도 이 체크가 실제 현재가로 먼저 청산 처리함).
+    if (pos.style === 'closebet') {
+        if (_etDateStr(pos.created_at) !== _etDateStr(now) && _etTotalMin() >= 9 * 60 + 30) {
+            await paperClosePosition(env, pos, price, 'overnight_exit');
+            return;
+        }
+    }
 
     // ── 단타 최대 보유 3일 자동 청산 ──────────────────────────────────
     // 사용자 지시: 단타는 당일 강제청산 대신 최대 3일까지 보유, 그 이후는 반드시 매도.

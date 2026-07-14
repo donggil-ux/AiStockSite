@@ -6,7 +6,7 @@
 //   8개 필터(ADX·HTF추세·거래량회복·양봉/음봉·ATR·SPX환경·RSI·장초반) 통과 종목만.
 import { json, err } from '../utils/validators.js';
 import { calcVWAPSeries } from '../utils/indicators.js';
-import { smartDipScan, smartDipScanBounce, smartDipBacktest, resolveTrailExit } from '../utils/smart-dip.js';
+import { smartDipScan, smartDipScanBounce, smartDipBacktest, resolveTrailExit, smartDipScanCloseBet } from '../utils/smart-dip.js';
 import { fetchChartWithFallback } from './yahoo.js';
 import { getMarketRegime, getSectorRotation } from '../utils/market.js';
 import { _fetchDiscoverySymbols, DEFAULT_UNIVERSE_US, DEFAULT_UNIVERSE_KR } from '../cron.js';
@@ -362,6 +362,73 @@ export async function captureDailySignals(env) {
     }
 
     return { logged };
+}
+
+// ── 종가베팅 — 장마감 직전(ET 15:55~16:00) 한 틱에서만 실행 ──────────────────
+// 당일 강세로 고점 근처 마감하는 종목을 매수 → 익일 시가에 그대로 청산(오버나이트 모멘텀 베팅).
+// 장중 추세추종(captureDailySignals)과는 별개 전략 — 서브리퀘스트 예산 보호를 위해
+// 개별 종목 위주 소규모 유니버스(레버리지·인버스 ETF 제외 20개)만 스캔.
+const CLOSEBET_MAX_POS = 2; // 동시 보유 최대 2개
+export async function captureCloseBetSignals(env) {
+    const etMin = _etTotalMin();
+    if (etMin < 955 || etMin >= 960) return { skipped: 'not_close_window' }; // ET 15:55~16:00 한 틱만
+
+    const openCount = (await env.DB.prepare(
+        "SELECT COUNT(*) c FROM paper_trades WHERE status='open' AND style='closebet'"
+    ).first())?.c || 0;
+    if (openCount >= CLOSEBET_MAX_POS) return { skipped: 'max_positions' };
+
+    const acct = await env.DB.prepare(
+        "SELECT user_id, day_balance, day_position_size FROM paper_account"
+    ).first();
+    if (!acct) return { skipped: 'no_account' };
+
+    const universe = DEFAULT_UNIVERSE_US.filter(s => !LEVERAGED_ETFS.has(s) && !INVERSE_ETFS.has(s)).slice(0, 20);
+    const candidates = [];
+    const CHUNK = 10;
+    for (let k = 0; k < universe.length; k += CHUNK) {
+        const chunk = universe.slice(k, k + CHUNK);
+        await Promise.all(chunk.map(async (symbol) => {
+            try {
+                if (await isSymbolBlocked(env, symbol)) return;
+                const raw = await fetchChartWithFallback(env, symbol, '2d', '5m', 'true');
+                const result0 = raw?.chart?.result?.[0];
+                const qRaw = result0?.indicators?.quote?.[0];
+                if (!qRaw?.close?.length) return;
+                const { q, ts: tts } = _trimTrailing(qRaw, result0?.timestamp);
+                if (!q?.close?.length) return;
+                const sig = smartDipScanCloseBet(q, { ts: tts || [] });
+                if (sig) candidates.push({ symbol, sig });
+            } catch (_) {}
+        }));
+    }
+    if (!candidates.length) return { logged: 0 };
+
+    // 등급 높은 순 정렬 — 남은 슬롯만큼만 진입
+    candidates.sort((a, b) => b.sig.qualityScore - a.sig.qualityScore);
+    const slots = CLOSEBET_MAX_POS - openCount;
+    let opened = 0;
+    for (const { symbol, sig } of candidates.slice(0, slots)) {
+        const dup = await env.DB.prepare(
+            "SELECT 1 FROM paper_trades WHERE user_id=? AND symbol=? AND status='open'"
+        ).bind(acct.user_id, symbol).first();
+        if (dup) continue;
+
+        const posSize = acct.day_position_size || 10000;
+        const amount  = posSize * TRANCHE_WEIGHTS[0] / TRANCHE_WEIGHT_SUM;
+        const qty     = Math.floor(amount / sig.price);
+        if (qty < 1) continue;
+
+        const category = classifySymbol(symbol, sig.price, sig.volRatio) || 'mid_small';
+        await paperOpenTrade(env, {
+            userId: acct.user_id, symbol, category, style: 'closebet',
+            dir: 'long', price: sig.price, qty,
+            grade: sig.grade, score: sig.qualityScore, stopPrice: sig.stop,
+            reason: (sig.reasons || []).join(' / '),
+        });
+        opened++;
+    }
+    return { logged: candidates.length, opened };
 }
 
 // ETF 현재가 + 평균거래량 조회 — 개별 종목 신호를 레버리지/인버스 ETF로 우선 체결할 때 유동성 판단용
