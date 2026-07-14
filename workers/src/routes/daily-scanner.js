@@ -475,20 +475,29 @@ async function _searchLeveragedEtf(env, symbol, isShort) {
     return found;
 }
 
-// ── ET 시간 필터: 정규장 9:40~15:30 ET만 허용 ────────────────────────────
-// 프리마켓 제외 — Yahoo Finance 프리마켓 가격 데이터 불안정 (가격 괴리 → 손절 슬리피지 과대)
+// ── ET 시간 필터: 프리마켓 7:00 ~ 정규장 마감 15:30 ET 허용 ────────────────
+// 프리마켓 4:00~7:00은 거래량이 거의 없어 여전히 제외 (Yahoo 프리마켓 가격 불안정 →
+// 손절 슬리피지 과대 우려). 7:00 이후는 실리는 편이라 사용자 요청으로 허용,
+// 대신 아래 프리마켓 전용 등급 필터(S만 허용)로 리스크를 보완한다.
 function _isGoodEntryTime() {
     const et = _etTotalMin();
-    return et >= 9 * 60 + 40 && et < 15 * 60 + 30;
+    return et >= 7 * 60 && et < 15 * 60 + 30;
+}
+
+// 프리마켓 시간대(장 정식 개장 9:30 이전)인지 — 데이터 신뢰도가 정규장보다 낮아 등급 필터 강화용
+function _isPreMarket() {
+    const et = _etTotalMin();
+    return et < 9 * 60 + 30;
 }
 
 // ── 시간대별 최소 RVOL 임계값 ─────────────────────────────────────────────
 // 점심(11:30~14:00 ET): 거래량 자연 감소 → 0.8로 완화
-// 프리마켓(04:00~09:30 ET): 조용하지만 기회 존재 → 1.0
+// 프리마켓(07:00~09:30 ET): 정규장보다 데이터 신뢰도 낮아 1.5로 강화 (S등급 전용 필터와 이중 보완)
 // 그 외(오전·파워아워): params.min_rvol 사용
 function _sessionMinRvol(params) {
     const t = _etTotalMin();
     if (t >= 11 * 60 + 30 && t < 14 * 60) return 0.8;  // 점심 횡보 — 달러거래량($3M) 필터가 유동성 보장하므로 완화
+    if (t < 9 * 60 + 30) return 1.5;                    // 프리마켓 — 얇은 거래량 노이즈 방지
     return params.min_rvol || 1.5;
 }
 
@@ -539,6 +548,12 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
     const allowedSellGrades = params.sell_grade_filter || ['S', 'A'];
     if (isShortSignal && !allowedSellGrades.includes(r.grade)) {
         console.log(`[paper] ${r.symbol} 숏 ${r.grade}등급 — 매도 등급 필터 미충족(허용: ${allowedSellGrades.join('/')})`);
+        return;
+    }
+
+    // ③.6 프리마켓 전용 등급 필터 — 데이터 신뢰도가 낮은 시간대라 S등급만 허용 (안전판)
+    if (_isPreMarket() && r.grade !== 'S') {
+        console.log(`[paper] ${r.symbol} 프리마켓 ${r.grade}등급 — S등급만 허용, 스킵`);
         return;
     }
 
