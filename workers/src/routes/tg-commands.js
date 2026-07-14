@@ -84,6 +84,26 @@ async function _fetchOptionsSummary(env, symbol) {
     } catch (_) { return null; }
 }
 
+// 애널리스트 목표주가/추천등급 평균 (Yahoo Finance financialData 모듈)
+const _RECO_KO = {
+    strong_buy: '적극매수', buy: '매수', hold: '보유', sell: '매도', strong_sell: '적극매도', none: '없음',
+};
+async function _fetchAnalystData(env, symbol) {
+    try {
+        const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=financialData`;
+        const data = await yfRequest(env.CACHE, url);
+        const fd = data?.quoteSummary?.result?.[0]?.financialData;
+        if (!fd || fd.targetMeanPrice?.raw == null) return null;
+        return {
+            targetMean: fd.targetMeanPrice?.raw ?? null,
+            targetHigh: fd.targetHighPrice?.raw ?? null,
+            targetLow: fd.targetLowPrice?.raw ?? null,
+            numAnalysts: fd.numberOfAnalystOpinions?.raw ?? null,
+            recoKey: fd.recommendationKey || null,
+        };
+    } catch (_) { return null; }
+}
+
 export async function handleTgWebhook(req, env) {
     let body;
     try { body = await req.json(); } catch { return new Response('ok'); }
@@ -332,7 +352,7 @@ async function _liveScan(env, customSymbols) {
 async function _analyzeSymbol(env, symbol) {
     try {
         const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=2d&interval=5m&includePrePost=true`;
-        const [data, quoteMap, acct, daily, tf15, tf60, news, options] = await Promise.all([
+        const [data, quoteMap, acct, daily, tf15, tf60, news, options, analyst] = await Promise.all([
             yfRequest(env.CACHE, chartUrl),
             _quotePrice(env, [symbol]),
             env.DB.prepare("SELECT day_balance, day_position_size FROM paper_account WHERE user_id=?")
@@ -342,6 +362,7 @@ async function _analyzeSymbol(env, symbol) {
             _fetchTfData(env, symbol, '3mo', '60m'),
             getNewsSentiment(env, symbol).catch(() => null),
             _fetchOptionsSummary(env, symbol).catch(() => null),
+            _fetchAnalystData(env, symbol).catch(() => null),
         ]);
         const result = data?.chart?.result?.[0];
         if (!result) { await _tgDirect(env, `❌ ${symbol} 차트 데이터 없음`); return; }
@@ -388,6 +409,18 @@ async function _analyzeSymbol(env, symbol) {
             `  맥스페인 $${options.maxPain?.toFixed(2) ?? '-'}  (현재가 ${price > (options.maxPain || 0) ? '위 ↑' : '아래 ↓'})`,
             `  콜 OI ${options.callOI.toLocaleString()}  |  풋 OI ${options.putOI.toLocaleString()}  → ${options.callOI >= options.putOI ? '콜' : '풋'} 우세 (P/C ${options.pcRatioOI ?? '-'})`,
         ].join('\n') : null;
+
+        // 애널리스트 평균 — 목표주가(평균/최고/최저) + 추천등급
+        const analystBlock = analyst ? (() => {
+            const upside = analyst.targetMean != null && price > 0
+                ? (((analyst.targetMean - price) / price) * 100).toFixed(1) : null;
+            const reco = _RECO_KO[analyst.recoKey] || analyst.recoKey || '-';
+            return [
+                `<b>🏦 애널리스트 평균</b> (${analyst.numAnalysts ?? '-'}개 기관)`,
+                `  목표주가 평균 $${analyst.targetMean?.toFixed(2) ?? '-'}` + (upside != null ? `  (현재가 대비 ${upside >= 0 ? '+' : ''}${upside}%)` : ''),
+                `  범위 $${analyst.targetLow?.toFixed(2) ?? '-'} ~ $${analyst.targetHigh?.toFixed(2) ?? '-'}  |  추천등급: ${reco}`,
+            ].join('\n');
+        })() : null;
 
         // 신호 없음
         if (!sig) {
@@ -460,6 +493,7 @@ async function _analyzeSymbol(env, symbol) {
                 watchBlock ? '' : null, watchBlock,
                 newsBlock ? '' : null, newsBlock,
                 optionsBlock ? '' : null, optionsBlock,
+                analystBlock ? '' : null, analystBlock,
                 '',
                 '⚪ 신호 없음 — 조건 미충족, 관망 권장',
             ].filter(l => l !== null).join('\n'));
@@ -510,6 +544,7 @@ async function _analyzeSymbol(env, symbol) {
             `   ${sig.reasons.join(' / ')}`,
             newsBlock ? '' : null, newsBlock,
             optionsBlock ? '' : null, optionsBlock,
+            analystBlock ? '' : null, analystBlock,
         ].filter(l => l !== null).join('\n'));
     } catch (e) {
         console.error('[tg-analyze]', symbol, e?.message);
