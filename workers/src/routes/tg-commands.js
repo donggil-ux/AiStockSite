@@ -25,7 +25,7 @@ function _tfPerspective(q) {
         if (c > e20 && e20 > e60) trend = '상승';
         else if (c < e20 && e20 < e60) trend = '하락';
     }
-    return { trend, rsi: rsiVal != null ? Math.round(rsiVal) : null, adx: adxVal != null ? Math.round(adxVal) : null };
+    return { trend, rsi: rsiVal != null ? Math.round(rsiVal) : null, adx: adxVal != null ? Math.round(adxVal) : null, ema20: e20, ema60: e60 };
 }
 
 // 타임프레임별 차트 조회 (실패 시 null) — { q, ts } 반환
@@ -394,11 +394,29 @@ async function _analyzeSymbol(env, symbol) {
             const ema60 = calcEMA(q.close || [], 60);
             const lastEma = [...ema60].reverse().find(v => v != null);
             const emaStr = lastEma ? `EMA60 $${lastEma.toFixed(2)} (가격 ${price > lastEma ? '위 ↑' : '아래 ↓'})` : '';
+
+            // 매수 관점(상위 타임프레임 상승 정렬) 있으면 눌림목 1차 매수가 제안 — EMA20 기준
+            // (Smart Dip 엔진의 "상승추세 눌림목 진입" 철학과 동일한 기준을 신호 미발생 시에도 미리 안내)
+            const pDaily = daily ? _tfPerspective(daily.q) : null;
+            const p60    = tf60  ? _tfPerspective(tf60.q)  : null;
+            const p15    = tf15  ? _tfPerspective(tf15.q)  : null;
+            const p5     = _tfPerspective(q);
+            let buyIdeaBlock = null;
+            if (pDaily?.trend === '상승' && p60?.trend === '상승') {
+                const lines = ['<b>💡 매수 관점 — 눌림목 1차 매수가 관심</b>'];
+                if (p5?.ema20)  lines.push(`  5분봉 EMA20   $${p5.ema20.toFixed(2)}`);
+                if (p15?.ema20) lines.push(`  15분봉 EMA20  $${p15.ema20.toFixed(2)}`);
+                if (p60?.ema20) lines.push(`  60분봉 EMA20  $${p60.ema20.toFixed(2)}`);
+                lines.push('  ※ 참고용 관심가 — 실제 진입은 거래량·RSI 등 확인 후 신호 발생 시 권장');
+                buyIdeaBlock = lines.join('\n');
+            }
+
             await _tgDirect(env, [
                 `📊 <b>${symbol}</b> @ $${price.toFixed(2)} (${chgStr})`,
                 emaStr,
                 '',
                 mtfBlock,
+                buyIdeaBlock ? '' : null, buyIdeaBlock,
                 newsBlock ? '' : null, newsBlock,
                 optionsBlock ? '' : null, optionsBlock,
                 '',
