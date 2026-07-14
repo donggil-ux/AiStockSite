@@ -558,9 +558,9 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
         return;
     }
 
-    // ③.7 일일 거래횟수 과다 방지 — 오늘 10건 이상 체결됐으면 그 다음부턴 S등급(진짜 확실한 자리)만 허용
+    // ③.7 일일 거래횟수 과다 방지 — 오늘 15건 이상 체결됐으면 그 다음부턴 S등급(진짜 확실한 자리)만 허용
     // 사용자 지시: "정말 먹을자리 아니면 안 하도록" — 과잉매매 방지
-    const DAILY_TRADE_CAP = 10;
+    const DAILY_TRADE_CAP = 15;
     const etDayStartMs = Date.now() - _etTotalMin() * 60 * 1000; // 오늘 ET 자정 근사치
     const todayTradeCount = (await env.DB.prepare(
         "SELECT COUNT(*) c FROM paper_trades WHERE created_at >= ?"
