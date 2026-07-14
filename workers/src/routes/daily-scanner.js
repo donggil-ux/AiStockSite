@@ -558,6 +558,18 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
         return;
     }
 
+    // ③.7 일일 거래횟수 과다 방지 — 오늘 10건 이상 체결됐으면 그 다음부턴 S등급(진짜 확실한 자리)만 허용
+    // 사용자 지시: "정말 먹을자리 아니면 안 하도록" — 과잉매매 방지
+    const DAILY_TRADE_CAP = 10;
+    const etDayStartMs = Date.now() - _etTotalMin() * 60 * 1000; // 오늘 ET 자정 근사치
+    const todayTradeCount = (await env.DB.prepare(
+        "SELECT COUNT(*) c FROM paper_trades WHERE created_at >= ?"
+    ).bind(etDayStartMs).first())?.c || 0;
+    if (todayTradeCount >= DAILY_TRADE_CAP && r.grade !== 'S') {
+        console.log(`[paper] ${r.symbol} 오늘 ${todayTradeCount}건째 — S등급만 허용, ${r.grade}등급 스킵`);
+        return;
+    }
+
     // ③ RVOL 필터 (시간대별 동적 임계값 — 점심 0.8 / 프리마켓 1.0 / 그 외 min_rvol)
     // 레버리지 ETF는 유동성 특성상 1.2로 완화 (SOXL 등은 rvol=1.0도 충분한 유동성)
     const minRvol = LEVERAGED_ETFS.has(r.symbol) ? 1.2 : _sessionMinRvol(params);
