@@ -134,7 +134,7 @@ export async function isSymbolBlocked(env, symbol) {
 /**
  * 1차 분할 진입 — 새 paper_trade 생성
  */
-export async function paperOpenTrade(env, { userId, symbol, category, style, dir, price, qty, signalId = null, grade = null, score = null, stopPrice = null, reason = null }) {
+export async function paperOpenTrade(env, { userId, symbol, category, style, dir, price, qty, signalId = null, grade = null, score = null, stopPrice = null, reason = null, mode = null, outlookDir = null }) {
     const now = Date.now();
     const amount = price * qty;
     // 기본: 롱 진입가 -0.8% / 숏 진입가 +0.8% (단타용 타이트 손절)
@@ -162,10 +162,28 @@ export async function paperOpenTrade(env, { userId, symbol, category, style, dir
     }
     const isEtf = LEVERAGED_ETFS.has(symbol) || INVERSE_ETFS.has(symbol);
     if (tradeId) {
+        // 관점 — 원래 신호의 방향(outlookDir, ETF 우회 체결 시 실제 체결 dir과 다를 수 있음)과
+        // 모드(추세/반등/종가베팅)를 조합해 "왜 이 방향으로 들어갔는지"를 한 줄로 설명.
+        // mode가 없으면(수동 매수 등) 관점 줄 자체를 생략 — 억지로 추정하지 않음.
+        let outlookLine = '';
+        if (mode) {
+            const viewDir = outlookDir || dir;
+            const outlookMap = {
+                'long_trend':    '상승추세 눌림목 진입 — 추세 지속 시 추가 상승 기대',
+                'long_bounce':   '과매도 반등 진입 — 낙폭과대 이후 단기 반등 기대',
+                'long_closebet': '당일 강세 마감 — 오버나이트 모멘텀 지속 기대 (익일 시가 청산 예정)',
+                'short_trend':   '하락추세 반등소진 진입 — 추세 지속 시 추가 하락 기대',
+            };
+            const outlookKey = `${viewDir === 'short' ? 'short' : 'long'}_${mode}`;
+            const outlook = outlookMap[outlookKey] || (viewDir === 'short' ? '하락 관점 진입' : '상승 관점 진입');
+            outlookLine = `\n관점: ${outlook}`;
+        }
+
         await notifyPaper(env, userId,
             `📈 가상매매 진입 [${grade || '?'}]${isEtf ? ' (ETF)' : ''}`,
             `${symbol} $${price.toFixed(2)} × ${qty}주\n투자금: $${amount.toFixed(0)} | 손절: $${stop.toFixed(2)} | ${style}` +
-            (reason ? `\n사유: ${reason}` : '')
+            outlookLine +
+            (reason ? `\n근거: ${reason}` : '')
         );
     }
     return { tradeId, userId };

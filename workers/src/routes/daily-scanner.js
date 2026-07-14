@@ -425,6 +425,7 @@ export async function captureCloseBetSignals(env) {
             dir: 'long', price: sig.price, qty,
             grade: sig.grade, score: sig.qualityScore, stopPrice: sig.stop,
             reason: (sig.reasons || []).join(' / '),
+            mode: 'closebet', outlookDir: 'long',
         });
         opened++;
     }
@@ -727,6 +728,8 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
                 signalId: dtId, grade: r.grade, score: r.score,
                 stopPrice: leg.stopPrice,
                 reason: (r.factors || []).join(' / ') || null,
+                mode: r.mode || 'trend',
+                outlookDir: isShortSignal ? 'short' : 'long',
             });
             const tag = leg.symbol !== r.symbol ? ` (연동:${r.symbol})` : '';
             console.log(`[paper] open ${leg.symbol}${tag} ${leg.dir} ${style} grade=${r.grade} rvol=${(r.rvol||0).toFixed(1)} user=${acct.user_id}`);
