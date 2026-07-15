@@ -14,7 +14,8 @@ const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta';
  * Gemini API 호출
  * @param {Object} env - Workers env (GEMINI_API_KEY 필수)
  * @param {string} prompt - 프롬프트 전체
- * @param {Object} opts - { model, temperature, maxOutputTokens, responseMimeType, timeoutMs }
+ * @param {Object} opts - { model, temperature, maxOutputTokens, responseMimeType, timeoutMs, image }
+ * @param {Object} [opts.image] - { mimeType, dataBase64 } — 첨부 시 멀티모달(이미지+텍스트) 요청
  * @returns { ok, text, tokensIn, tokensOut, model, error? }
  */
 export async function callGemini(env, prompt, opts = {}) {
@@ -31,8 +32,12 @@ export async function callGemini(env, prompt, opts = {}) {
     const generationConfig = { temperature, maxOutputTokens };
     // Google Search grounding(tools) 사용 시 responseMimeType(JSON 강제)과 병행 불가 — 그라운딩 요청이면 생략
     if (!opts.tools) generationConfig.responseMimeType = responseMimeType;
+    const parts = [{ text: prompt }];
+    if (opts.image?.dataBase64) {
+        parts.push({ inline_data: { mime_type: opts.image.mimeType || 'image/jpeg', data: opts.image.dataBase64 } });
+    }
     const body = {
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        contents: [{ role: 'user', parts }],
         generationConfig,
     };
     if (opts.tools) body.tools = opts.tools;

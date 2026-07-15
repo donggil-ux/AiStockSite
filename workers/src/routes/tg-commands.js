@@ -8,7 +8,7 @@ import { calcEMA, calcRSI, calcADXSeries, calcATR, lastVal } from '../utils/indi
 import { getNewsSentiment } from '../utils/news-sentiment.js';
 import { sendDailyHealthSummary } from './daily-scanner.js';
 import { getCachedSectorHeat } from '../utils/sector-heat.js';
-import { callGemini } from '../utils/gemini.js';
+import { callGemini, extractJsonFromResponse } from '../utils/gemini.js';
 
 // 단일 타임프레임 추세 관점 — EMA20/60 정렬 + RSI + ADX (간단 요약용, 매매 시그널 아님)
 function _tfPerspective(q) {
@@ -104,6 +104,102 @@ async function _fetchAnalystData(env, symbol) {
     } catch (_) { return null; }
 }
 
+// ArrayBuffer → base64 (Workers엔 Buffer 없음, 큰 이미지 콜스택 방지 위해 청크 처리)
+function _arrayBufferToBase64(buf) {
+    const bytes = new Uint8Array(buf);
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
+}
+
+// 텔레그램이 보관 중인 사진 파일을 다운로드 — getFile로 경로 조회 후 실제 바이트 fetch
+async function _tgDownloadPhoto(env, fileId) {
+    const token = env.TELEGRAM_BOT_TOKEN;
+    if (!token) return null;
+    try {
+        const infoRes = await fetch(`https://api.telegram.org/bot${token}/getFile?file_id=${encodeURIComponent(fileId)}`);
+        const info = await infoRes.json();
+        const filePath = info?.result?.file_path;
+        if (!filePath) return null;
+        const fileRes = await fetch(`https://api.telegram.org/file/bot${token}/${filePath}`);
+        if (!fileRes.ok) return null;
+        const buf = await fileRes.arrayBuffer();
+        const mimeType = fileRes.headers.get('content-type') || 'image/jpeg';
+        return { dataBase64: _arrayBufferToBase64(buf), mimeType };
+    } catch (_) { return null; }
+}
+
+// 사용자가 직접 보유 중인 종목(미국주) 스크린샷 분석 — 페이퍼 트레이딩 DB와 무관한 1회성 요청.
+// 1) Gemini Vision으로 티커/평단가/보유수량 추출 → 2) 실제 야후 차트로 EMA20/ATR 분할매수 관점 산출.
+async function _analyzePhotoPosition(env, msg) {
+    const photos = msg.photo || [];
+    if (!photos.length) return;
+    const best = photos[photos.length - 1]; // 가장 높은 해상도
+    const image = await _tgDownloadPhoto(env, best.file_id);
+    if (!image) { await _tgDirect(env, '⚠ 사진 다운로드 실패 — 다시 시도해주세요'); return; }
+
+    const prompt = [
+        '다음은 사용자가 텔레그램으로 보낸 스크린샷입니다. 미국 주식 보유 화면 또는 차트 화면으로 추정됩니다.',
+        '이미지에서 아래 정보를 최대한 정확히 추출해서 JSON으로만 답하세요 (설명 문장 없이 JSON만):',
+        '{',
+        '  "isStockImage": 이 이미지가 주식/차트/보유내역 관련 화면이 맞는지 boolean,',
+        '  "symbol": "미국 주식 티커(예: AAPL). 회사명만 보이면 실제 티커로 유추. 확신 없으면 null",',
+        '  "avgPrice": 평균매입가 숫자(통화기호·콤마 제외, 못 찾으면 null),',
+        '  "quantity": 보유수량 숫자(못 찾으면 null)',
+        '}',
+    ].join('\n');
+
+    const result = await callGemini(env, prompt, { image, maxOutputTokens: 512 });
+    if (!result.ok) { await _tgDirect(env, `⚠ 이미지 분석 실패: ${result.error || '알 수 없는 오류'}`); return; }
+    const parsed = extractJsonFromResponse(result.text);
+    const symbol = parsed?.symbol ? String(parsed.symbol).toUpperCase().trim() : null;
+    if (!parsed?.isStockImage || !symbol) {
+        await _tgDirect(env, '⚠ 이미지에서 종목을 인식하지 못했습니다. 티커·평단가가 잘 보이는 스크린샷으로 다시 시도해주세요.');
+        return;
+    }
+
+    const quotes = await _quotePrice(env, [symbol]);
+    const cur = quotes[symbol]?.price;
+    if (!cur) {
+        await _tgDirect(env, `⚠ "${symbol}" 시세 조회 실패 — 티커 인식이 틀렸을 수 있습니다.`);
+        return;
+    }
+
+    const avgPrice = typeof parsed.avgPrice === 'number' && parsed.avgPrice > 0 ? parsed.avgPrice : null;
+    const quantity = typeof parsed.quantity === 'number' && parsed.quantity > 0 ? parsed.quantity : null;
+    const chgPct = avgPrice ? ((cur - avgPrice) / avgPrice * 100).toFixed(2) : null;
+
+    // 일봉 기준으로 분석 (개인 보유 종목은 단타보다 스윙 성격으로 가정)
+    const advice = await _trancheAdvice(env, { dir: 'long', style: 'swing', symbol }, cur);
+
+    const lines = [
+        `📸 <b>${symbol}</b> 이미지 분석 결과`,
+        `현재가 $${cur.toFixed(2)}`,
+        avgPrice
+            ? `인식된 보유정보: 평단 $${avgPrice.toFixed(2)}${quantity ? ` / ${quantity}주` : ''} (${chgPct > 0 ? '+' : ''}${chgPct}%)`
+            : '평단가·수량은 이미지에서 인식되지 않음',
+        '',
+    ];
+    if (advice) {
+        lines.push(`💡 <b>분할매수 관점</b> (일봉 기준)`);
+        lines.push(`  추가매수 관심가 $${advice.recPrice.toFixed(2)} (${advice.recPct > 0 ? '+' : ''}${advice.recPct.toFixed(1)}%, ${advice.basis})`);
+        if (avgPrice && quantity) {
+            const invested = avgPrice * quantity;
+            const addAmount = invested * (TRANCHE_WEIGHTS[1] / TRANCHE_WEIGHTS[0]); // 기존 2:1 분할 비중 재사용 → 2차는 1차의 절반
+            const addQty = Math.floor(addAmount / advice.recPrice);
+            lines.push(`  참고 추가금액 약 $${addAmount.toFixed(0)} (~${addQty}주, 기존 투자금의 약 ${(TRANCHE_WEIGHTS[1] / TRANCHE_WEIGHTS[0] * 100).toFixed(0)}%)`);
+        }
+    } else {
+        lines.push('💡 뚜렷한 추가매수 관심가 산출 실패 — 데이터 부족 또는 추세 불명확');
+    }
+    lines.push('', '⚠ 이미지 인식 + 자동 분석 기반이라 오차 가능 — 실제 매매 전 직접 확인 권장');
+
+    await _tgDirect(env, lines.join('\n'));
+}
+
 export async function handleTgWebhook(req, env) {
     let body;
     try { body = await req.json(); } catch { return new Response('ok'); }
@@ -113,6 +209,11 @@ export async function handleTgWebhook(req, env) {
 
     const chatId = String(msg.chat?.id || '');
     if (chatId !== String(env.TELEGRAM_CHAT_ID)) return new Response('ok'); // 타인 차단
+
+    if (msg.photo?.length) {
+        try { await _analyzePhotoPosition(env, msg); } catch (e) { console.error('[tg photo]', e?.message); }
+        return new Response('ok');
+    }
 
     const text = (msg.text || '').trim();
     const [cmd, sym] = text.split(/\s+/);
