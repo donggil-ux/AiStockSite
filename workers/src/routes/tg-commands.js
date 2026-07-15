@@ -388,6 +388,9 @@ async function _analyzeSymbol(env, symbol) {
             ['15분', tf15,  '15m'],
             ['5분',  { q, ts }, '5m'],
         ];
+        // EMA20 관심가는 "그 타임프레임 자체가 상승/하락 추세일 때 + 현재가와 너무 안 멀 때"만 의미 있음
+        // (하락추세인 타임프레임에서 훨씬 위에 있는 EMA20을 "매수 관심가"라고 보여주는 건 오해 소지 큼)
+        const EMA_MAX_DIST_PCT = 8; // 현재가 대비 8% 이상 벌어지면 근시일 내 관심가로 부적절 판단
         const tfLines = tfDefs.map(([label, tf, interval]) => {
             if (!tf) return `  ${label}   데이터 부족`;
             const p = _tfPerspective(tf.q);
@@ -396,8 +399,11 @@ async function _analyzeSymbol(env, symbol) {
             const base = `  ${label}   ${p.trend}${arrow}  RSI ${p.rsi ?? '-'}  ADX ${p.adx ?? '-'}`;
             const tfSig = interval === '5m' ? sig : _tfBuySignal(tf.q, tf.ts, interval);
             if (!tfSig) {
-                // 신호 없으면 타임프레임별 1차 매수 관심가(EMA20, 눌림목 기준)를 대신 표시
-                return p.ema20 ? `${base}  | 1차매수관심 $${p.ema20.toFixed(2)}` : `${base}  | 신호없음`;
+                const emaDistPct = p.ema20 && price > 0 ? Math.abs(p.ema20 - price) / price * 100 : null;
+                const emaUsable = p.ema20 && emaDistPct != null && emaDistPct <= EMA_MAX_DIST_PCT;
+                if (emaUsable && p.trend === '상승') return `${base}  | 1차매수관심 $${p.ema20.toFixed(2)}`;
+                if (emaUsable && p.trend === '하락') return `${base}  | 1차매도관심 $${p.ema20.toFixed(2)}`;
+                return `${base}  | 신호없음`;
             }
             return `${base}  | 🟢진입$${tfSig.price.toFixed(2)} 손절$${tfSig.stop.toFixed(2)} 목표$${tfSig.target1.toFixed(2)} [${tfSig.grade}]`;
         });
@@ -471,26 +477,26 @@ async function _analyzeSymbol(env, symbol) {
                 ...(biasReasons.length ? biasReasons.map(r => `  · ${r}`) : ['  · 뚜렷한 근거 부족 — 관망 권장']),
             ].join('\n');
 
-            // 눌림목(롱) 매수 관심가 + 반등(숏) 매도 관심가 — EMA20 기준, 관점과 무관하게 항상 둘 다 표시
-            // (Smart Dip 엔진과 동일 철학 — 지지 매수/저항 매도 자리를 양방향으로 같이 안내)
-            const hasEma = p5?.ema20 || p15?.ema20 || p60?.ema20;
+            // 눌림목(롱) 매수 관심가 + 반등(숏) 매도 관심가 — EMA20 기준.
+            // 그 타임프레임 자체가 상승추세일 때만 매수 관심가로, 하락추세일 때만 매도 관심가로 채택.
+            // (하락추세 타임프레임의 EMA20은 위에서 눌려 내려오는 중이라 "매수 관심가"로 보여주면 오해 소지)
+            // 현재가와 8% 넘게 벌어진 값도 근시일 내 관심가로 부적절하다고 보고 제외.
+            const tfPoints = [['5분봉', p5], ['15분봉', p15], ['60분봉', p60]];
+            const usable = ([, p]) => p?.ema20 && price > 0 && Math.abs(p.ema20 - price) / price * 100 <= EMA_MAX_DIST_PCT;
+            const buyPoints  = tfPoints.filter(t => usable(t) && t[1].trend === '상승');
+            const sellPoints = tfPoints.filter(t => usable(t) && t[1].trend === '하락');
+
             let watchBlock = null;
-            if (hasEma) {
-                const buyLines = ['<b>💡 눌림목 1차 매수 관심가</b>'];
-                if (p5?.ema20)  buyLines.push(`  5분봉 EMA20   $${p5.ema20.toFixed(2)}`);
-                if (p15?.ema20) buyLines.push(`  15분봉 EMA20  $${p15.ema20.toFixed(2)}`);
-                if (p60?.ema20) buyLines.push(`  60분봉 EMA20  $${p60.ema20.toFixed(2)}`);
-
-                const sellLines = ['<b>💡 반등 시 1차 매도 관심가</b>'];
-                if (p5?.ema20)  sellLines.push(`  5분봉 EMA20   $${p5.ema20.toFixed(2)}`);
-                if (p15?.ema20) sellLines.push(`  15분봉 EMA20  $${p15.ema20.toFixed(2)}`);
-                if (p60?.ema20) sellLines.push(`  60분봉 EMA20  $${p60.ema20.toFixed(2)}`);
-
-                watchBlock = [
-                    buyLines.join('\n'),
-                    sellLines.join('\n'),
-                    '※ 참고용 관심가 — 실제 진입은 거래량·RSI 등 확인 후 신호 발생 시 권장',
-                ].join('\n\n');
+            if (buyPoints.length || sellPoints.length) {
+                const parts = [];
+                if (buyPoints.length) {
+                    parts.push(['<b>💡 눌림목 1차 매수 관심가</b>', ...buyPoints.map(([label, p]) => `  ${label} EMA20  $${p.ema20.toFixed(2)}`)].join('\n'));
+                }
+                if (sellPoints.length) {
+                    parts.push(['<b>💡 반등 시 1차 매도 관심가</b>', ...sellPoints.map(([label, p]) => `  ${label} EMA20  $${p.ema20.toFixed(2)}`)].join('\n'));
+                }
+                parts.push('※ 참고용 관심가 — 실제 진입은 거래량·RSI 등 확인 후 신호 발생 시 권장');
+                watchBlock = parts.join('\n\n');
             }
 
             await _tgDirect(env, [
