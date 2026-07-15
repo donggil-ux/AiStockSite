@@ -127,8 +127,9 @@ async function _tgDownloadPhoto(env, fileId) {
         const fileRes = await fetch(`https://api.telegram.org/file/bot${token}/${filePath}`);
         if (!fileRes.ok) return null;
         const buf = await fileRes.arrayBuffer();
-        const mimeType = fileRes.headers.get('content-type') || 'image/jpeg';
-        return { dataBase64: _arrayBufferToBase64(buf), mimeType };
+        // 텔레그램 파일 서버는 Content-Type을 application/octet-stream으로 내려줄 때가 많음 —
+        // 사진(photo)은 텔레그램이 항상 JPEG로 변환해 저장하므로 고정값 사용.
+        return { dataBase64: _arrayBufferToBase64(buf), mimeType: 'image/jpeg' };
     } catch (_) { return null; }
 }
 
