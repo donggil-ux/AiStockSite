@@ -471,22 +471,26 @@ async function _analyzeSymbol(env, symbol) {
                 ...(biasReasons.length ? biasReasons.map(r => `  · ${r}`) : ['  · 뚜렷한 근거 부족 — 관망 권장']),
             ].join('\n');
 
-            // 관점에 맞춰 눌림목(롱) / 반등(숏) 1차 관심가 — EMA20 기준 (Smart Dip 엔진과 동일 철학)
+            // 눌림목(롱) 매수 관심가 + 반등(숏) 매도 관심가 — EMA20 기준, 관점과 무관하게 항상 둘 다 표시
+            // (Smart Dip 엔진과 동일 철학 — 지지 매수/저항 매도 자리를 양방향으로 같이 안내)
+            const hasEma = p5?.ema20 || p15?.ema20 || p60?.ema20;
             let watchBlock = null;
-            if (biasScore >= 2) {
-                const lines = ['<b>💡 눌림목 1차 매수 관심가</b>'];
-                if (p5?.ema20)  lines.push(`  5분봉 EMA20   $${p5.ema20.toFixed(2)}`);
-                if (p15?.ema20) lines.push(`  15분봉 EMA20  $${p15.ema20.toFixed(2)}`);
-                if (p60?.ema20) lines.push(`  60분봉 EMA20  $${p60.ema20.toFixed(2)}`);
-                lines.push('  ※ 참고용 관심가 — 실제 진입은 거래량·RSI 등 확인 후 신호 발생 시 권장');
-                watchBlock = lines.join('\n');
-            } else if (biasScore <= -2) {
-                const lines = ['<b>💡 반등 시 1차 매도 관심가</b>'];
-                if (p5?.ema20)  lines.push(`  5분봉 EMA20   $${p5.ema20.toFixed(2)}`);
-                if (p15?.ema20) lines.push(`  15분봉 EMA20  $${p15.ema20.toFixed(2)}`);
-                if (p60?.ema20) lines.push(`  60분봉 EMA20  $${p60.ema20.toFixed(2)}`);
-                lines.push('  ※ 참고용 관심가 — 실제 진입은 거래량·RSI 등 확인 후 신호 발생 시 권장');
-                watchBlock = lines.join('\n');
+            if (hasEma) {
+                const buyLines = ['<b>💡 눌림목 1차 매수 관심가</b>'];
+                if (p5?.ema20)  buyLines.push(`  5분봉 EMA20   $${p5.ema20.toFixed(2)}`);
+                if (p15?.ema20) buyLines.push(`  15분봉 EMA20  $${p15.ema20.toFixed(2)}`);
+                if (p60?.ema20) buyLines.push(`  60분봉 EMA20  $${p60.ema20.toFixed(2)}`);
+
+                const sellLines = ['<b>💡 반등 시 1차 매도 관심가</b>'];
+                if (p5?.ema20)  sellLines.push(`  5분봉 EMA20   $${p5.ema20.toFixed(2)}`);
+                if (p15?.ema20) sellLines.push(`  15분봉 EMA20  $${p15.ema20.toFixed(2)}`);
+                if (p60?.ema20) sellLines.push(`  60분봉 EMA20  $${p60.ema20.toFixed(2)}`);
+
+                watchBlock = [
+                    buyLines.join('\n'),
+                    sellLines.join('\n'),
+                    '※ 참고용 관심가 — 실제 진입은 거래량·RSI 등 확인 후 신호 발생 시 권장',
+                ].join('\n\n');
             }
 
             await _tgDirect(env, [
