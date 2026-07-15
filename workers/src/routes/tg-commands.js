@@ -401,8 +401,8 @@ async function _analyzeSymbol(env, symbol) {
             if (!tfSig) {
                 const emaDistPct = p.ema20 && price > 0 ? Math.abs(p.ema20 - price) / price * 100 : null;
                 const emaUsable = p.ema20 && emaDistPct != null && emaDistPct <= EMA_MAX_DIST_PCT;
-                if (emaUsable && p.trend === '상승') return `${base}  | 1차매수관심 $${p.ema20.toFixed(2)}`;
-                if (emaUsable && p.trend === '하락') return `${base}  | 1차매도관심 $${p.ema20.toFixed(2)}`;
+                if (emaUsable && p.trend === '상승' && p.ema20 < price) return `${base}  | 1차매수관심 $${p.ema20.toFixed(2)}`;
+                if (emaUsable && p.trend === '하락' && p.ema20 > price) return `${base}  | 1차매도관심 $${p.ema20.toFixed(2)}`;
                 return `${base}  | 신호없음`;
             }
             return `${base}  | 🟢진입$${tfSig.price.toFixed(2)} 손절$${tfSig.stop.toFixed(2)} 목표$${tfSig.target1.toFixed(2)} [${tfSig.grade}]`;
@@ -481,10 +481,13 @@ async function _analyzeSymbol(env, symbol) {
             // 그 타임프레임 자체가 상승추세일 때만 매수 관심가로, 하락추세일 때만 매도 관심가로 채택.
             // (하락추세 타임프레임의 EMA20은 위에서 눌려 내려오는 중이라 "매수 관심가"로 보여주면 오해 소지)
             // 현재가와 8% 넘게 벌어진 값도 근시일 내 관심가로 부적절하다고 보고 제외.
+            // EMA20은 해당 봉이 마감된 시점 기준 값이라, 그 사이 실시간가가 더 움직인 경우
+            // (특히 SOXL 같은 변동성 큰 레버리지 ETF) 이미 뚫고 지나간 값이 나올 수 있음 —
+            // 매수 관심가는 반드시 현재가보다 낮아야, 매도 관심가는 반드시 현재가보다 높아야 의미가 있음.
             const tfPoints = [['5분봉', p5], ['15분봉', p15], ['60분봉', p60]];
             const usable = ([, p]) => p?.ema20 && price > 0 && Math.abs(p.ema20 - price) / price * 100 <= EMA_MAX_DIST_PCT;
-            const buyPoints  = tfPoints.filter(t => usable(t) && t[1].trend === '상승');
-            const sellPoints = tfPoints.filter(t => usable(t) && t[1].trend === '하락');
+            const buyPoints  = tfPoints.filter(t => usable(t) && t[1].trend === '상승' && t[1].ema20 < price);
+            const sellPoints = tfPoints.filter(t => usable(t) && t[1].trend === '하락' && t[1].ema20 > price);
 
             let watchBlock = null;
             if (buyPoints.length || sellPoints.length) {
