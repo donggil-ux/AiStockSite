@@ -725,6 +725,17 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
             if (style === 'swing' && styleCount >= maxSwingPos)  continue; // 스윙 3개 한도
             if (openPos.some(p => p.symbol === leg.symbol)) continue; // 이미 보유 중
 
+            // ⑩.5 손절 쿨다운 — 같은 종목이 최근 2시간 내 손절당했으면 재진입 금지
+            // (동일 저항/지지 레벨에서 손절→30분 뒤 재진입→또 손절 반복되는 휩소 패턴 방지)
+            const STOP_COOLDOWN_MS = 2 * 3600 * 1000;
+            const recentStop = await env.DB.prepare(
+                "SELECT 1 FROM paper_trades WHERE symbol=? AND status='closed' AND close_reason='stop' AND exit_at > ? LIMIT 1"
+            ).bind(leg.symbol, Date.now() - STOP_COOLDOWN_MS).first();
+            if (recentStop) {
+                console.log(`[paper] ${leg.symbol} 최근 2시간 내 손절 이력 — 재진입 쿨다운, 스킵`);
+                continue;
+            }
+
             // ⑪ 잔고 체크 — 단타/스윙 각자 풀에서 확인
             const posSize     = (style === 'day' ? acct.day_position_size : acct.swing_position_size) || (style === 'day' ? 10000 : 23000);
             const poolBalance = (style === 'day' ? acct.day_balance : acct.swing_balance) || 0;
