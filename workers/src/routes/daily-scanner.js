@@ -588,12 +588,9 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
         return;
     }
 
-    // ④.1 거래대금 필터 (원칙 1·2: 기준봉 거래대금 확인 — 최소 $3M per 5m bar ≈ KRW 5B/1분봉)
-    const dollarVol = (r.price || 0) * (r.rvol || 0) * (r.volAvg20 || 0);
-    if (dollarVol < 3_000_000) {
-        console.log(`[paper] ${r.symbol} 거래대금 부족 $${(dollarVol / 1e6).toFixed(1)}M — 스킵`);
-        return;
-    }
+    // (구 ④.1 달러 거래대금 $3M 필터는 제거됨 — 사용자 지시: "가격과 무관하게 순수 거래량만" 기준으로
+    //  통일. 위 ④ 절대 거래량(하루 100만주) 필터가 저가주도 걸러내지 않으면서 유동성을 보장함.
+    //  이 필터가 남아있으면 MNSO처럼 거래량은 충분해도 저가라서 부당하게 걸러지는 문제가 있었음.)
 
     // ④.5 신호 신선도 체크 — 모드별 최대 허용 봉수
     // bounce(눌림목·반등): 3봉(5m:15분) — 타이밍 민감, 늦으면 반등 완료
