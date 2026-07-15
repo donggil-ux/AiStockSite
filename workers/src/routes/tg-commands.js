@@ -4,7 +4,7 @@ import { paperOpenTrade, paperClosePosition, _tgDirect, isSymbolBlocked, MAX_TRA
 import { classifySymbol } from '../utils/paper-category.js';
 import { smartDipScan, smartDipScanBounce } from '../utils/smart-dip.js';
 import { yfRequest } from '../utils/crumb.js';
-import { calcEMA, calcRSI, calcADXSeries, lastVal } from '../utils/indicators.js';
+import { calcEMA, calcRSI, calcADXSeries, calcATR, lastVal } from '../utils/indicators.js';
 import { getNewsSentiment } from '../utils/news-sentiment.js';
 import { sendDailyHealthSummary } from './daily-scanner.js';
 import { getCachedSectorHeat } from '../utils/sector-heat.js';
@@ -783,6 +783,46 @@ async function _sendScanResults(env) {
     await _tgDirect(env, `📡 오늘 스캔 결과 (${signals.length}건, 최근 8시간)\n\n${sections.join('\n\n')}`);
 }
 
+// 추가 매수 참고가 산출 — 자동매매 엔진 규칙(고정 -0.2%)과 무관한 참고용 분석.
+// 롱 기준: 상승추세가 살아있으면 EMA20 눌림목을, 아니면 ATR(14) 변동성 눌림 폭을 지지 기준으로 사용.
+// 숏은 방향만 반대로 적용(EMA20 반등 저항 / ATR 반등 폭).
+async function _trancheAdvice(env, pos, cur) {
+    if (!cur || cur <= 0) return null;
+    try {
+        const isShort  = pos.dir === 'short';
+        const interval = pos.style === 'swing' ? '1d' : '15m';
+        const range    = pos.style === 'swing' ? '6mo' : '1mo';
+        const tf = await _fetchTfData(env, pos.symbol, range, interval);
+        if (!tf) return null;
+        const { close = [], high = [], low = [] } = tf.q;
+        if (close.length < 30) return null;
+
+        const e20 = lastVal(calcEMA(close, 20));
+        const e60 = lastVal(calcEMA(close, 60));
+        const atr = lastVal(calcATR(high, low, close, 14));
+
+        let recPrice = null, basis = null;
+        if (!isShort) {
+            if (e20 != null && e60 != null && e20 < cur && e20 > e60) {
+                recPrice = e20; basis = 'EMA20 눌림목 지지';
+            } else if (atr > 0) {
+                recPrice = cur - atr; basis = 'ATR(14) 변동성 눌림';
+            }
+            if (recPrice == null || recPrice <= 0 || recPrice >= cur) return null;
+        } else {
+            if (e20 != null && e60 != null && e20 > cur && e20 < e60) {
+                recPrice = e20; basis = 'EMA20 반등 저항';
+            } else if (atr > 0) {
+                recPrice = cur + atr; basis = 'ATR(14) 변동성 반등';
+            }
+            if (recPrice == null || recPrice <= cur) return null;
+        }
+
+        const recPct = (recPrice - cur) / cur * 100;
+        return { recPrice, recPct, basis };
+    } catch (_) { return null; }
+}
+
 async function _sendPositions(env) {
     const rows = await env.DB.prepare(
         "SELECT symbol,dir,avg_price,total_qty,total_invested,realized_pnl,style,tranche_count,stop_price,tp1_done,first_price FROM paper_trades WHERE user_id=? AND status='open' ORDER BY created_at DESC"
@@ -793,8 +833,11 @@ async function _sendPositions(env) {
 
     // 현재가 배치 조회
     const quotes = await _quotePrice(env, positions.map(p => p.symbol));
+    const acct = await env.DB.prepare(
+        'SELECT day_position_size,swing_position_size FROM paper_account WHERE user_id=?'
+    ).bind('user_3EhxWla1QzZmEG19xfFdmnUTUrp').first();
 
-    const lines = positions.map((p) => {
+    const lines = await Promise.all(positions.map(async (p) => {
         const cur    = quotes[p.symbol]?.price;
         const isShort = p.dir === 'short';
         const dir    = isShort ? '숏' : '롱';
@@ -821,11 +864,24 @@ async function _sendPositions(env) {
             trancheStr += ' (1차익절 완료, 추가분할 종료)';
         }
 
+        let adviceStr = null;
+        if (trancheCount < MAX_TRANCHE && !p.tp1_done && cur) {
+            const advice = await _trancheAdvice(env, p, cur);
+            if (advice) {
+                const posSizeField = (p.style === 'day' || p.style === 'closebet') ? 'day_position_size' : 'swing_position_size';
+                const posSize = acct?.[posSizeField] || (p.style === 'day' ? 10000 : 23000);
+                const amount = posSize * TRANCHE_WEIGHTS[trancheCount] / TRANCHE_WEIGHT_SUM;
+                const addQty = Math.floor(amount / advice.recPrice);
+                adviceStr = `  💡 전문가 참고: 추가매수 관심가 $${advice.recPrice.toFixed(2)} (${advice.recPct > 0 ? '+' : ''}${advice.recPct.toFixed(1)}%, ${advice.basis}) | 참고금액 $${amount.toFixed(0)} (~${addQty}주)`;
+            }
+        }
+
         return [
             `• <b>${p.symbol}</b> ${dir} [${p.style}]  ${trancheStr}  |  <b>${qty}주</b>`,
             `  평단 $${p.avg_price.toFixed(2)}  →  현재 ${curStr}`,
             [pnlStr, stopStr].filter(Boolean).join('  |  '),
+            adviceStr,
         ].filter(Boolean).join('\n');
-    });
+    }));
     await _tgDirect(env, `📊 오픈 포지션 (${positions.length}건)\n\n${lines.join('\n\n')}`);
 }
