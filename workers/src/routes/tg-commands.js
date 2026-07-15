@@ -209,10 +209,13 @@ async function _unblockSymbol(env, symbol) {
 }
 
 async function _sendBlocklist(env) {
-    const rows = await env.DB.prepare('SELECT symbol FROM paper_blocklist ORDER BY added_at DESC').all();
-    const symbols = (rows.results || []).map(r => r.symbol);
-    if (!symbols.length) { await _tgDirect(env, '📭 금지 종목 없음'); return; }
-    await _tgDirect(env, `🚫 금지 종목 (${symbols.length}건)\n${symbols.join(', ')}`);
+    const rows = await env.DB.prepare('SELECT symbol, expires_at FROM paper_blocklist ORDER BY added_at DESC').all();
+    const list = rows.results || [];
+    if (!list.length) { await _tgDirect(env, '📭 금지 종목 없음'); return; }
+    const lines = list.map(r => r.expires_at
+        ? `${r.symbol} (~${new Date(r.expires_at).toISOString().slice(0, 10)}까지)`
+        : r.symbol);
+    await _tgDirect(env, `🚫 금지 종목 (${list.length}건)\n${lines.join(', ')}`);
 }
 
 // 업종대세 — 섹터/테마 히트 랭킹 (D1 읽기 전용, 즉시 응답)

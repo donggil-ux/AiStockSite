@@ -126,9 +126,15 @@ function _balanceDeltaStmts(env, userId, style, delta, now) {
 // ── 공개 API ─────────────────────────────────────────────────────
 
 // 매매 금지 종목 여부 확인 — 자동/수동 매수 진입 전 게이트
+// expires_at이 지났으면 자동 해제(행 삭제)하고 금지 아님으로 처리
 export async function isSymbolBlocked(env, symbol) {
-    const row = await env.DB.prepare('SELECT 1 FROM paper_blocklist WHERE symbol=?').bind(symbol).first();
-    return !!row;
+    const row = await env.DB.prepare('SELECT expires_at FROM paper_blocklist WHERE symbol=?').bind(symbol).first();
+    if (!row) return false;
+    if (row.expires_at != null && row.expires_at <= Date.now()) {
+        try { await env.DB.prepare('DELETE FROM paper_blocklist WHERE symbol=?').bind(symbol).run(); } catch (_) {}
+        return false;
+    }
+    return true;
 }
 
 /**
