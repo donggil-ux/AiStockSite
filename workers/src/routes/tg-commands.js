@@ -395,7 +395,10 @@ async function _analyzeSymbol(env, symbol) {
             const arrow = p.trend === '상승' ? '↑' : p.trend === '하락' ? '↓' : '→';
             const base = `  ${label}   ${p.trend}${arrow}  RSI ${p.rsi ?? '-'}  ADX ${p.adx ?? '-'}`;
             const tfSig = interval === '5m' ? sig : _tfBuySignal(tf.q, tf.ts, interval);
-            if (!tfSig) return `${base}  | 신호없음`;
+            if (!tfSig) {
+                // 신호 없으면 타임프레임별 1차 매수 관심가(EMA20, 눌림목 기준)를 대신 표시
+                return p.ema20 ? `${base}  | 1차매수관심 $${p.ema20.toFixed(2)}` : `${base}  | 신호없음`;
+            }
             return `${base}  | 🟢진입$${tfSig.price.toFixed(2)} 손절$${tfSig.stop.toFixed(2)} 목표$${tfSig.target1.toFixed(2)} [${tfSig.grade}]`;
         });
         const mtfBlock = ['<b>🕐 멀티 타임프레임 관점</b>', ...tfLines].join('\n');
