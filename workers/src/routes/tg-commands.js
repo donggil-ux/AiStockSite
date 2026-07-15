@@ -1,6 +1,6 @@
 // Telegram 봇 명령어 처리 — 매수/매도/포지션 조회
 // 보안: chatId 검증 (env.TELEGRAM_CHAT_ID 만 허용)
-import { paperOpenTrade, paperClosePosition, _tgDirect, isSymbolBlocked } from '../utils/paper-engine.js';
+import { paperOpenTrade, paperClosePosition, _tgDirect, isSymbolBlocked, MAX_TRANCHE, TRANCHE_TRIGGERS } from '../utils/paper-engine.js';
 import { classifySymbol } from '../utils/paper-category.js';
 import { smartDipScan, smartDipScanBounce } from '../utils/smart-dip.js';
 import { yfRequest } from '../utils/crumb.js';
@@ -785,7 +785,7 @@ async function _sendScanResults(env) {
 
 async function _sendPositions(env) {
     const rows = await env.DB.prepare(
-        "SELECT symbol,dir,avg_price,total_qty,total_invested,realized_pnl,style,tranche_count,stop_price FROM paper_trades WHERE user_id=? AND status='open' ORDER BY created_at DESC"
+        "SELECT symbol,dir,avg_price,total_qty,total_invested,realized_pnl,style,tranche_count,stop_price,tp1_done,first_price FROM paper_trades WHERE user_id=? AND status='open' ORDER BY created_at DESC"
     ).bind('user_3EhxWla1QzZmEG19xfFdmnUTUrp').all();
 
     const positions = rows.results || [];
@@ -796,8 +796,9 @@ async function _sendPositions(env) {
 
     const lines = positions.map((p) => {
         const cur    = quotes[p.symbol]?.price;
-        const dir    = p.dir === 'short' ? '숏' : '롱';
-        const mult   = p.dir === 'short' ? -1 : 1;
+        const isShort = p.dir === 'short';
+        const dir    = isShort ? '숏' : '롱';
+        const mult   = isShort ? -1 : 1;
         const qty    = p.total_qty ? p.total_qty.toFixed(0) : '?';
         const pnl    = cur ? ((cur - p.avg_price) * p.total_qty * mult).toFixed(0) : null;
         const chgPct = cur ? ((cur - p.avg_price) / p.avg_price * mult * 100).toFixed(2) : null;
@@ -805,8 +806,23 @@ async function _sendPositions(env) {
         const curStr = cur ? `$${cur.toFixed(2)} (${sign}${chgPct}%)` : '조회실패';
         const pnlStr = pnl != null ? `미실현 ${sign}$${pnl}` : '';
         const stopStr = p.stop_price ? `손절 $${p.stop_price.toFixed(2)}` : '';
+
+        const trancheCount = p.tranche_count || 1;
+        let trancheStr = `${trancheCount}/${MAX_TRANCHE}분할`;
+        if (trancheCount < MAX_TRANCHE && !p.tp1_done) {
+            const nextTrigger = TRANCHE_TRIGGERS[trancheCount];
+            if (nextTrigger > 0) {
+                const nextPrice = isShort
+                    ? p.first_price * (2 - nextTrigger)
+                    : p.first_price * nextTrigger;
+                trancheStr += ` (다음 $${nextPrice.toFixed(2)})`;
+            }
+        } else if (trancheCount < MAX_TRANCHE && p.tp1_done) {
+            trancheStr += ' (1차익절 완료, 추가분할 종료)';
+        }
+
         return [
-            `• <b>${p.symbol}</b> ${dir} [${p.style}]  ${p.tranche_count ?? 1}/4분할  |  <b>${qty}주</b>`,
+            `• <b>${p.symbol}</b> ${dir} [${p.style}]  ${trancheStr}  |  <b>${qty}주</b>`,
             `  평단 $${p.avg_price.toFixed(2)}  →  현재 ${curStr}`,
             [pnlStr, stopStr].filter(Boolean).join('  |  '),
         ].filter(Boolean).join('\n');

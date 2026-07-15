@@ -7,7 +7,7 @@ import { LEVERAGED_ETFS, INVERSE_ETFS } from './paper-category.js';
 
 // 전문 단타 진입: 1차(67%) 즉시, 2차(33%) -0.2% 눌림 확인
 // 물타기 금지 — 손절은 빠르고, 이기는 매매는 길게
-const TRANCHE_TRIGGERS = [0, 0.998]; // 1차 즉시, 2차 -0.2%
+export const TRANCHE_TRIGGERS = [0, 0.998]; // 1차 즉시, 2차 -0.2%
 export const MAX_TRANCHE        = 2;
 export const TRANCHE_WEIGHTS    = [2, 1]; // 1차 2유닛(67%), 2차 1유닛(33%)
 export const TRANCHE_WEIGHT_SUM = 3;
