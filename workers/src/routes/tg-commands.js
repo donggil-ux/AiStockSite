@@ -892,12 +892,17 @@ async function _trancheAdvice(env, pos, cur) {
     if (!cur || cur <= 0) return null;
     try {
         const isShort  = pos.dir === 'short';
-        const interval = pos.style === 'swing' ? '1d' : '15m';
-        const range    = pos.style === 'swing' ? '6mo' : '1mo';
-        const tf = await _fetchTfData(env, pos.symbol, range, interval);
-        if (!tf) return null;
-        const { close = [], high = [], low = [] } = tf.q;
-        if (close.length < 30) return null;
+        let interval = pos.style === 'swing' ? '1d' : '15m';
+        let range    = pos.style === 'swing' ? '6mo' : '1mo';
+        let tf = await _fetchTfData(env, pos.symbol, range, interval);
+        let { close = [], high = [], low = [] } = tf?.q || {};
+        // 신규 상장 등으로 일봉 데이터가 30개 미만이면 60분봉으로 대체 시도 (같은 기간이라도 바 개수 확보)
+        if (close.filter(v => v != null).length < 30 && interval === '1d') {
+            interval = '60m'; range = '1mo';
+            tf = await _fetchTfData(env, pos.symbol, range, interval);
+            ({ close = [], high = [], low = [] } = tf?.q || {});
+        }
+        if (!tf || close.filter(v => v != null).length < 30) return null;
 
         const e20 = lastVal(calcEMA(close, 20));
         const e60 = lastVal(calcEMA(close, 60));
@@ -921,6 +926,7 @@ async function _trancheAdvice(env, pos, cur) {
         }
 
         const recPct = (recPrice - cur) / cur * 100;
+        if (interval === '60m' && pos.style === 'swing') basis += ' · 일봉 데이터 부족으로 60분봉 대체';
         return { recPrice, recPct, basis };
     } catch (_) { return null; }
 }
