@@ -2,7 +2,7 @@
 // 보안: chatId 검증 (env.TELEGRAM_CHAT_ID 만 허용)
 import { paperOpenTrade, paperClosePosition, _tgDirect, isSymbolBlocked, MAX_TRANCHE, TRANCHE_TRIGGERS, TRANCHE_WEIGHTS, TRANCHE_WEIGHT_SUM } from '../utils/paper-engine.js';
 import { classifySymbol } from '../utils/paper-category.js';
-import { smartDipScan, smartDipScanBounce } from '../utils/smart-dip.js';
+import { smartDipScan, smartDipScanBounce, smartDipDiagnose } from '../utils/smart-dip.js';
 import { yfRequest } from '../utils/crumb.js';
 import { calcEMA, calcRSI, calcADXSeries, calcATR, lastVal } from '../utils/indicators.js';
 import { getNewsSentiment } from '../utils/news-sentiment.js';
@@ -604,6 +604,24 @@ async function _analyzeSymbol(env, symbol) {
                 watchBlock = parts.join('\n\n');
             }
 
+            // 심층 진단 — 5분봉 신호가 왜 안 뜨는지, 어떤 조건이 얼마나 부족한지 그대로 노출.
+            // "꼭 사고 싶은데 신호가 없다" 케이스에서 관망 권장 한 줄 대신 구체적 근거를 보여주기 위함.
+            const diag = smartDipDiagnose(q, { interval: '5m', ts });
+            let diagBlock = null;
+            if (diag) {
+                const fmt = (label, d, threshold) => {
+                    const status = d.pass ? '✅ 조건 충족' : (d.failReason || `조건 미달 (${d.need}점 부족)`);
+                    const passedStr = d.reasons.length ? `충족 요소: ${d.reasons.join(', ')}` : '충족된 요소 없음';
+                    return `  <b>${label}</b> ${d.qs}/${threshold}점 — ${status}\n    ${passedStr}`;
+                };
+                diagBlock = [
+                    '<b>🔬 심층 진단</b> (5분봉 최근 봉 기준 — 신호 미충족 원인)',
+                    fmt('매수(추세)', diag.buy, 5),
+                    fmt('매도(추세)', diag.sell, 5),
+                    fmt('매수(반등)', diag.bounce, 3.5),
+                ].join('\n');
+            }
+
             await _tgDirect(env, [
                 `📊 <b>${symbol}</b> @ $${price.toFixed(2)} (${chgStr})`,
                 emaStr,
@@ -615,6 +633,7 @@ async function _analyzeSymbol(env, symbol) {
                 newsBlock ? '' : null, newsBlock,
                 optionsBlock ? '' : null, optionsBlock,
                 analystBlock ? '' : null, analystBlock,
+                diagBlock ? '' : null, diagBlock,
                 '',
                 '⚪ 신호 없음 — 조건 미충족, 관망 권장',
             ].filter(l => l !== null).join('\n'));

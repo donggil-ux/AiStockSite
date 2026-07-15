@@ -43,14 +43,14 @@ function evalBar(q, ind, i, dir, htfLag, spxTrendUp, ts, vwapArr) {
     const { close, high, low, open, volume } = q;
     const c = close[i];
     if (c == null || ind.ema60[i] == null || ind.ema120[i] == null || ind.atrArr[i] == null) {
-        return { pass: false, qs: 0 };
+        return { pass: false, qs: 0, failReason: '데이터 부족(가격/EMA/ATR 계산 불가)' };
     }
     let qs = 0;
     const reasons = [];
 
     // 필터 1: ADX 추세강도 (봉별 실제 ADX)
     const adx = ind.adxArr[i];
-    if (adx == null || adx < 20) return { pass: false, qs };
+    if (adx == null || adx < 20) return { pass: false, qs, failReason: `ADX ${adx != null ? adx.toFixed(0) : '?'} (기준 20 미만 — 추세 강도 부족)` };
     qs += adx >= 35 ? 2 : 1;
     reasons.push(`ADX ${adx.toFixed(0)}`);
 
@@ -59,8 +59,8 @@ function evalBar(q, ind, i, dir, htfLag, spxTrendUp, ts, vwapArr) {
     const e120prev = ind.ema120[Math.max(0, i - htfLag * 10)];
     const htfUp = e60prev != null && e120prev != null && ind.ema60[i] > e60prev && ind.ema120[i] > e120prev;
     const htfDn = e60prev != null && e120prev != null && ind.ema60[i] < e60prev && ind.ema120[i] < e120prev;
-    if (dir === 'buy'  && !htfUp) return { pass: false, qs };
-    if (dir === 'sell' && !htfDn) return { pass: false, qs };
+    if (dir === 'buy'  && !htfUp) return { pass: false, qs, failReason: '상위추세(EMA60/120) 상승 정렬 안 됨' };
+    if (dir === 'sell' && !htfDn) return { pass: false, qs, failReason: '상위추세(EMA60/120) 하락 정렬 안 됨' };
     qs += 2;
     reasons.push(dir === 'buy' ? '상위추세 상승' : '상위추세 하락');
 
@@ -70,15 +70,15 @@ function evalBar(q, ind, i, dir, htfLag, spxTrendUp, ts, vwapArr) {
     const volRatio = volAvg20 > 0 ? (volume[i] || 0) / volAvg20 : 1;
     const volPrevR = volAvg20 > 0 ? (volume[i - 1] || 0) / volAvg20 : 1;
     const volRecovery = volPrevR < 1.0 && volRatio > 1.2;
-    if (volRatio < 0.8) return { pass: false, qs };
+    if (volRatio < 0.8) return { pass: false, qs, failReason: `거래량 ${volRatio.toFixed(1)}x (기준 0.8x 미만 — 거래량 부족)` };
     if (volRecovery)          { qs += 2; reasons.push(`거래량 회복 ${volRatio.toFixed(1)}x`); }
     else if (volRatio >= 1.2) { qs += 1; reasons.push(`거래량 ${volRatio.toFixed(1)}x`); }
 
     // 필터 4: 직전 봉 과열 방지 + 현재 봉 방향 (소프트 보너스 — 하드 차단 없음)
     if (i > 0 && open[i - 1] != null && open[i - 1] > 0) {
         const prevMove = ((close[i - 1] - open[i - 1]) / open[i - 1]) * 100;
-        if (dir === 'buy'  && prevMove < -3) return { pass: false, qs };
-        if (dir === 'sell' && prevMove >  3) return { pass: false, qs };
+        if (dir === 'buy'  && prevMove < -3) return { pass: false, qs, failReason: `직전봉 급락 ${prevMove.toFixed(1)}% (과열 방지 컷)` };
+        if (dir === 'sell' && prevMove >  3) return { pass: false, qs, failReason: `직전봉 급등 ${prevMove.toFixed(1)}% (과열 방지 컷)` };
     }
     if (open[i] != null) {
         const bull = close[i] > open[i];
@@ -88,7 +88,7 @@ function evalBar(q, ind, i, dir, htfLag, spxTrendUp, ts, vwapArr) {
 
     // 필터 5: ATR 변동성
     const atrPct = c > 0 ? ((ind.atrArr[i] || 0) / c) * 100 : 0;
-    if (atrPct > 5.0) return { pass: false, qs };
+    if (atrPct > 5.0) return { pass: false, qs, failReason: `ATR ${atrPct.toFixed(1)}% (변동성 과다, 기준 5% 초과)` };
     if (atrPct >= 1.0 && atrPct <= 3.0) { qs += 1; reasons.push(`ATR ${atrPct.toFixed(1)}%`); }
 
     // 필터 6: S&P 500 환경
@@ -97,8 +97,8 @@ function evalBar(q, ind, i, dir, htfLag, spxTrendUp, ts, vwapArr) {
 
     // 필터 7: RSI 위치
     const rsiVal = ind.rsi[i] != null ? ind.rsi[i] : 50;
-    if (dir === 'buy'  && rsiVal > 75) return { pass: false, qs };
-    if (dir === 'sell' && rsiVal < 25) return { pass: false, qs };
+    if (dir === 'buy'  && rsiVal > 75) return { pass: false, qs, failReason: `RSI ${rsiVal.toFixed(0)} 과매수(75 초과)` };
+    if (dir === 'sell' && rsiVal < 25) return { pass: false, qs, failReason: `RSI ${rsiVal.toFixed(0)} 과매도(25 미만)` };
     if (dir === 'buy'  && rsiVal >= 40 && rsiVal <= 65) { qs += 1; reasons.push(`RSI ${rsiVal.toFixed(0)}`); }
     if (dir === 'sell' && rsiVal >= 35 && rsiVal <= 60) { qs += 1; reasons.push(`RSI ${rsiVal.toFixed(0)}`); }
 
@@ -113,8 +113,8 @@ function evalBar(q, ind, i, dir, htfLag, spxTrendUp, ts, vwapArr) {
     //   매수는 VWAP 위, 매도는 VWAP 아래에서만 진입 (역방향 컷).
     if (vwapArr && vwapArr[i] != null) {
         const v = vwapArr[i];
-        if (dir === 'buy'  && c < v) return { pass: false, qs };
-        if (dir === 'sell' && c > v) return { pass: false, qs };
+        if (dir === 'buy'  && c < v) return { pass: false, qs, failReason: 'VWAP 아래 (기관 기준선 하회)' };
+        if (dir === 'sell' && c > v) return { pass: false, qs, failReason: 'VWAP 위 (기관 기준선 상회)' };
         qs += 1; reasons.push('VWAP 정렬');
     }
 
@@ -137,6 +137,7 @@ function evalBar(q, ind, i, dir, htfLag, spxTrendUp, ts, vwapArr) {
 
     return {
         pass: qs >= 5, qs, reasons,
+        failReason: qs < 5 ? `종합 점수 ${qs.toFixed(1)} (기준 5.0 미달)` : null,
         adx: +adx.toFixed(0), volRatio: +volRatio.toFixed(1), atrPct: +atrPct.toFixed(1),
         rsiVal: Math.round(rsiVal), price: c,
         volAvg20: Math.round(volAvg20), // 20봉 평균 거래량 (절대값 필터용)
@@ -184,37 +185,67 @@ export function smartDipScan(q, { interval = '5m', ts = [], spxTrendUp = null, l
     return null;
 }
 
+// 최근 봉 하나를 평가해 통과 여부와 무관하게 점수·통과사유·미달사유를 그대로 반환 — "왜 신호가 안 뜨는지" 진단용.
+// smartDipScan/smartDipScanBounce는 통과(pass) 못 하면 아예 null을 반환해 원인이 사라지므로,
+// 매수 확신은 있는데 신호가 안 잡히는 종목을 딥다이브할 때 이 함수로 근거를 보여준다.
+export function smartDipDiagnose(q, { interval = '5m', ts = [], spxTrendUp = null, vwapArr = null } = {}) {
+    const { close = [] } = q;
+    const N = close.length;
+    if (N < 60) return null;
+    // 최근 봉이 아직 형성 중이라 close가 null일 수 있음 — 마지막으로 유효한 봉까지 거슬러 올라감
+    let i = N - 1;
+    while (i > 0 && close[i] == null) i--;
+    if (i < 60) return null;
+    const ind = indicators(q);
+    const htfLag = _htfLag(interval);
+    const buy    = evalBar(q, ind, i, 'buy',  htfLag, spxTrendUp, ts, vwapArr);
+    const sell   = evalBar(q, ind, i, 'sell', htfLag, spxTrendUp, ts, vwapArr);
+    const bounce = evalBounce(q, ind, i, ts);
+    const pack = (r, threshold) => ({
+        pass: !!r.pass,
+        qs: +((r.qs || 0).toFixed(1)),
+        need: Math.max(0, +((threshold - (r.qs || 0)).toFixed(1))),
+        reasons: r.reasons || [],
+        failReason: r.failReason || null,
+    });
+    return {
+        buy: pack(buy, 5),
+        sell: pack(sell, 5),
+        bounce: pack(bounce, 3.5),
+    };
+}
+
 // ── 역추세 반등 매수 (낙폭과대) ────────────────────────────────
 // 추세추종이 아닌 평균회귀: 하락 중 과매도 + 반등 양봉(눌림 바닥)을 매수.
 // 추세 매수가 안 나오는 하락장에서 단기 반등 타점을 잡기 위함.
 function evalBounce(q, ind, i, ts) {
     const { close, high, low, open, volume } = q;
     const c = close[i];
-    if (c == null || ind.rsi[i] == null || ind.atrArr[i] == null || ind.ema60[i] == null) return { pass: false, qs: 0 };
+    if (c == null || ind.rsi[i] == null || ind.atrArr[i] == null || ind.ema60[i] == null) return { pass: false, qs: 0, failReason: '데이터 부족(가격/RSI/ATR 계산 불가)' };
     let qs = 0;
     const reasons = [];
 
     // 1) 낙폭과대 맥락 — 가격이 EMA60 아래 (추세 대비 눌림)
-    if (c >= ind.ema60[i]) return { pass: false, qs };
+    if (c >= ind.ema60[i]) return { pass: false, qs, failReason: 'EMA60 위 — 눌림목 맥락 아님(낙폭과대 아님)' };
 
     // 2) RSI 과매도 (핵심 트리거) — 5분봉은 반등 시 RSI 빠르게 회복하므로 42 이하 허용
     const rsiVal = ind.rsi[i];
-    if (rsiVal >= 42) return { pass: false, qs };
+    if (rsiVal >= 42) return { pass: false, qs, failReason: `RSI ${rsiVal.toFixed(0)} (기준 42 이상 — 아직 과매도 아님)` };
     qs += rsiVal < 30 ? 2 : rsiVal < 38 ? 1 : 0.5;
     reasons.push(`RSI ${rsiVal.toFixed(0)} 과매도`);
 
     // 3) 최근 10봉 누적 낙폭 (충분히 빠졌나)
     const past = close[Math.max(0, i - 10)];
     const dropPct = past > 0 ? ((c - past) / past) * 100 : 0;
-    if (dropPct > -1.5) return { pass: false, qs };
+    if (dropPct > -1.5) return { pass: false, qs, failReason: `낙폭 ${dropPct.toFixed(1)}% (기준 -1.5% 미만 — 아직 덜 빠짐)` };
     qs += dropPct < -4 ? 2 : 1;
     reasons.push(`낙폭 ${dropPct.toFixed(1)}%`);
 
     // 4) 반등 양봉 + 종가가 봉 상단(저점 매수세 유입 = 낙폭 되돌림)
-    if (!(open[i] != null && close[i] > open[i])) return { pass: false, qs };
+    if (!(open[i] != null && close[i] > open[i])) return { pass: false, qs, failReason: '아직 반등 양봉 없음 (음봉 지속)' };
     const rng = high[i] - low[i];
     const posInRange = rng > 0 ? (close[i] - low[i]) / rng : 0;
-    if (posInRange < 0.5) return { pass: false, qs }; // 종가 하단 = 약한 반등, 칼받기 위험
+    if (posInRange < 0.5) return { pass: false, qs, failReason: `종가 위치 봉 하단(${(posInRange*100).toFixed(0)}%) — 반등 약함` }; // 종가 하단 = 약한 반등, 칼받기 위험
     qs += posInRange >= 0.7 ? 1.5 : 1;
     reasons.push('반등 양봉');
 
@@ -225,13 +256,13 @@ function evalBounce(q, ind, i, ts) {
     const volSlice = volume.slice(Math.max(0, i - 20), i).filter(v => v != null && v > 0);
     const volAvg20 = volSlice.length ? volSlice.reduce((s, v) => s + v, 0) / volSlice.length : 0;
     const volRatio = volAvg20 > 0 ? (volume[i] || 0) / volAvg20 : 1;
-    if (volRatio < 0.8) return { pass: false, qs };
+    if (volRatio < 0.8) return { pass: false, qs, failReason: `거래량 ${volRatio.toFixed(1)}x (기준 0.8x 미만)` };
     if (volRatio >= 1.5) { qs += 1; reasons.push(`거래량 ${volRatio.toFixed(1)}x`); }
     else if (volRatio >= 1.0) { qs += 0.5; }
 
     // 7) ATR 변동성 (반등은 변동성 다소 허용, 8% 초과는 차단)
     const atrPct = c > 0 ? ((ind.atrArr[i] || 0) / c) * 100 : 0;
-    if (atrPct > 8.0) return { pass: false, qs };
+    if (atrPct > 8.0) return { pass: false, qs, failReason: `ATR ${atrPct.toFixed(1)}% (변동성 과다, 기준 8% 초과)` };
 
     // 8) EQL 유동성 스윕 (Smart Money Concepts) — 직전 저점을 살짝 뚫었다가 종가는 다시 위로 마감
     //    (단순 "낙폭 %"이 아니라 특정 지지 레벨을 정확히 스탑헌팅했는지 확인 — 소프트 보너스)
@@ -246,6 +277,7 @@ function evalBounce(q, ind, i, ts) {
 
     return {
         pass: qs >= 3.5, qs, reasons,
+        failReason: qs < 3.5 ? `종합 점수 ${qs.toFixed(1)} (기준 3.5 미달)` : null,
         adx: +(ind.adxArr[i] || 0).toFixed(0), volRatio: +volRatio.toFixed(1),
         atrPct: +atrPct.toFixed(1), rsiVal: Math.round(rsiVal), price: c,
         volAvg20: Math.round(volAvg20),
