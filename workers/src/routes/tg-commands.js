@@ -664,11 +664,11 @@ async function _symbolWinRate(env, symbol) {
 }
 
 async function _sendOverview(env) {
-    const SEED = 100000;
-
     const acct = await env.DB.prepare(
-        "SELECT balance, total_pnl FROM paper_account WHERE user_id=?"
+        "SELECT balance, total_pnl, seed_amount FROM paper_account WHERE user_id=?"
     ).bind('user_3EhxWla1QzZmEG19xfFdmnUTUrp').first();
+    // seed_amount 미설정(과거 계정 등) 폴백 — balance-total_pnl로 역산 (오픈 포지션 없을 때만 정확)
+    const SEED = acct?.seed_amount ?? ((acct?.balance ?? 100000) - (acct?.total_pnl ?? 0));
 
     const [stats, openRows] = await Promise.all([
         env.DB.prepare(`
