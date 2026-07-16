@@ -7588,6 +7588,38 @@
         if (_growthData) _renderGrowth(_growthData);
     }
 
+    // ── 성장주 카드 공통 유틸 (등급 색상 · 매수/매도 라벨) — 홈 미리보기 · 전체보기 공용 ──
+    function _growthGradeColor(g) {
+        return g === 'S' ? '#FFD60A' : g === 'A' ? '#22C55E' : g === 'B' ? '#64748B' : '#94A3B8';
+    }
+    function _growthRecEmoji(rec) { return rec === 'buy' ? '🟢' : rec === 'sell' ? '🔴' : '🟡'; }
+    function _growthRecLabel(rec) { return rec === 'buy' ? '매수' : rec === 'sell' ? '매도' : '관망'; }
+
+    // ── 성장주 발굴 공통 행 렌더러 — p: 추천 레코드, idx: 0-based 랭크, maxReasons: 캡션에 보여줄 근거 개수
+    function _growthRowHtml(p, idx, maxReasons) {
+        const sym = p.symbol || '';
+        const bg = _growthGradeColor(p.confidence);
+        const fg = p.confidence === 'S' ? '#1A1A1A' : '#fff'; // 골드(S) 배경엔 다크 텍스트로 대비 확보
+        const reasons = Array.isArray(p.reasons) ? p.reasons : (() => { try { return JSON.parse(p.reasons_json || '[]'); } catch (_) { return []; } })();
+        const logoUrl = `https://assets.parqet.com/logos/symbol/${encodeURIComponent(sym)}?format=png`;
+        const fb = sym.slice(0, 2);
+        return `<div class="ghr-row" onclick="quickSearch('${sym}','US')">
+            <span class="ghr-rank">${idx + 1}</span>
+            <div class="tlogo-wrap ghr-logo">
+                <img class="tlogo" src="${logoUrl}" alt="${sym}" loading="lazy" onerror="this.outerHTML='<span class=\\'tlogo tlogo-fb\\'>${fb}</span>'">
+                <span class="tlogo-flag">🇺🇸</span>
+            </div>
+            <div class="ghr-info">
+                <div class="ghr-sym-row">
+                    <span class="ghr-sym">${escHtml(sym)}</span>
+                    <span class="ghr-rec ghr-rec-${escHtml(p.recommendation)}">${_growthRecEmoji(p.recommendation)} ${_growthRecLabel(p.recommendation)}</span>
+                </div>
+                <div class="ghr-reason">${reasons.slice(0, maxReasons).map(escHtml).join(' · ')}</div>
+            </div>
+            <div class="ghr-grade" style="background:${bg};color:${fg}">${escHtml(p.confidence)}<span class="ghr-score">${p.composite_score}</span></div>
+        </div>`;
+    }
+
     function _renderGrowth(data) {
         const stripEl = document.getElementById('growthSectorStrip');
         const listEl = document.getElementById('growthList');
@@ -7613,21 +7645,7 @@
             return;
         }
 
-        const gradeColor = (g) => g === 'S' ? '#FFD60A' : g === 'A' ? '#22C55E' : g === 'B' ? '#64748B' : '#94A3B8';
-        const recEmoji = (rec) => rec === 'buy' ? '🟢' : rec === 'sell' ? '🔴' : '🟡';
-        const recLabel = (rec) => rec === 'buy' ? '매수' : rec === 'sell' ? '매도' : '관망';
-
-        listEl.innerHTML = picks.map(p => {
-            const reasons = Array.isArray(p.reasons) ? p.reasons : (() => { try { return JSON.parse(p.reasons_json || '[]'); } catch (_) { return []; } })();
-            return `
-                <div class="catalyst-card" onclick="quickSearch('${p.symbol}','US')">
-                    <div class="catalyst-grade" style="background:${gradeColor(p.confidence)};color:#fff">${escHtml(p.confidence)} · ${p.composite_score}</div>
-                    <div style="flex:1;min-width:0;">
-                        <div style="font-weight:700;">${recEmoji(p.recommendation)} ${escHtml(p.symbol)} — ${recLabel(p.recommendation)}</div>
-                        <div style="font-size:12px;color:var(--text-secondary,#888);margin-top:2px;">${reasons.slice(0, 4).map(escHtml).join(' · ')}</div>
-                    </div>
-                </div>`;
-        }).join('');
+        listEl.innerHTML = picks.map((p, i) => _growthRowHtml(p, i, 4)).join('');
     }
 
     // 홈 화면 성장주 발굴 미리보기 — 상위 5개만 간략히, 전체는 goGrowth()에서
@@ -7643,20 +7661,7 @@
                 listEl.innerHTML = '<div class="catalyst-empty">추천 데이터 준비 중 — 잠시 후 다시 확인해주세요.</div>';
                 return;
             }
-            const gradeColor = (g) => g === 'S' ? '#FFD60A' : g === 'A' ? '#22C55E' : g === 'B' ? '#64748B' : '#94A3B8';
-            const recEmoji = (rec) => rec === 'buy' ? '🟢' : rec === 'sell' ? '🔴' : '🟡';
-            const recLabel = (rec) => rec === 'buy' ? '매수' : rec === 'sell' ? '매도' : '관망';
-            listEl.innerHTML = picks.map(p => {
-                const reasons = Array.isArray(p.reasons) ? p.reasons : (() => { try { return JSON.parse(p.reasons_json || '[]'); } catch (_) { return []; } })();
-                return `
-                    <div class="catalyst-card" onclick="quickSearch('${p.symbol}','US')">
-                        <div class="catalyst-grade" style="background:${gradeColor(p.confidence)};color:#fff">${escHtml(p.confidence)} · ${p.composite_score}</div>
-                        <div style="flex:1;min-width:0;">
-                            <div style="font-weight:700;">${recEmoji(p.recommendation)} ${escHtml(p.symbol)} — ${recLabel(p.recommendation)}</div>
-                            <div style="font-size:12px;color:var(--text-secondary,#888);margin-top:2px;">${reasons.slice(0, 3).map(escHtml).join(' · ')}</div>
-                        </div>
-                    </div>`;
-            }).join('');
+            listEl.innerHTML = picks.map((p, i) => _growthRowHtml(p, i, 2)).join('');
         } catch (e) {
             warn('[growth-home]', e);
             listEl.innerHTML = '<div class="catalyst-empty">불러오기 실패</div>';

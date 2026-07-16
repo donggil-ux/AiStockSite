@@ -7863,6 +7863,54 @@
     .ahr-pill{font-size:9px;padding:2px 5px;}
 }
 
+/* ── 성장주 발굴 컴팩트 리스트 행 (홈 미리보기 + 전체보기 공용) ── */
+.alpha-card-list:has(.ghr-row),
+.catalyst-list:has(.ghr-row){gap:0;}
+.ghr-row{
+    display:grid;
+    grid-template-columns:22px 36px minmax(0,1fr) auto;
+    column-gap:12px;
+    align-items:center;
+    padding:11px 4px;
+    border-bottom:1px solid rgba(0,0,0,0.04);
+    cursor:pointer;
+    transition:background .15s;
+    min-width:0;
+}
+[data-theme="dark"] .ghr-row{border-bottom:1px solid rgba(255,255,255,0.06);}
+.ghr-row:hover{background:var(--bg3);}
+.ghr-row:last-child{border-bottom:none;}
+
+.ghr-rank{font-size:13px;font-weight:500;color:var(--text2);text-align:center;font-variant-numeric:tabular-nums;}
+
+.ghr-logo{width:36px!important;height:36px!important;flex-shrink:0;}
+.ghr-logo .tlogo,.ghr-logo .tlogo-fb{width:36px!important;height:36px!important;border-radius:var(--radius-full);}
+
+.ghr-info{display:flex;flex-direction:column;gap:2px;min-width:0;justify-content:center;}
+.ghr-sym-row{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;min-width:0;overflow:hidden;}
+.ghr-sym{font-size:14px;font-weight:700;color:var(--text);letter-spacing:-0.01em;white-space:nowrap;}
+.ghr-rec{font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0;}
+.ghr-rec-buy{color:var(--green);}
+.ghr-rec-sell{color:var(--red);}
+.ghr-rec-hold{color:var(--yellow);}
+.ghr-reason{font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+.ghr-grade{
+    font-size:12px;font-weight:700;font-family:var(--font-data);
+    padding:3px 9px;border-radius:var(--radius-full);
+    display:flex;align-items:center;gap:4px;
+    white-space:nowrap;flex-shrink:0;
+}
+.ghr-score{font-size:11px;font-weight:600;opacity:.85;}
+
+@media(max-width:480px){
+    .ghr-row{grid-template-columns:18px 32px minmax(0,1fr) auto;column-gap:10px;padding:9px 2px;}
+    .ghr-sym{font-size:13px;}
+    .ghr-rec{font-size:10px;}
+    .ghr-grade{font-size:11px;padding:2px 7px;}
+    .ghr-score{font-size:10px;}
+}
+
 /* ═══ 6번 역피라미딩 분할매수 — R:R 카드 섹션 ═══════════════════ */
 .split-rr-section{margin-top:16px;padding-top:14px;border-top:1px solid var(--border);}
 .split-rr-title{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;}
