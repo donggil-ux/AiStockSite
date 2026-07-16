@@ -76,10 +76,19 @@ async function _fetchOptionsSummary(env, symbol) {
             if (payout < minPayout) { minPayout = payout; maxPain = k; }
         }
 
+        // 콜/풋 미결제약정(OI)이 어느 행사가에 몰려있는지 상위 2개 — 지지/저항 참고용
+        const topByOI = (arr) => [...arr]
+            .filter(x => (x.openInterest || 0) > 0)
+            .sort((a, b) => (b.openInterest || 0) - (a.openInterest || 0))
+            .slice(0, 2)
+            .map(x => ({ strike: x.strike, oi: x.openInterest }));
+
         return {
             expiry: opt.expirationDate ? new Date(opt.expirationDate * 1000).toISOString().slice(0, 10) : null,
             maxPain, callOI, putOI, callVol, putVol,
             pcRatioOI: callOI > 0 ? +(putOI / callOI).toFixed(2) : null,
+            topCallStrikes: topByOI(calls),
+            topPutStrikes: topByOI(puts),
         };
     } catch (_) { return null; }
 }
@@ -517,11 +526,16 @@ async function _analyzeSymbol(env, symbol) {
             ? `<b>📰 뉴스</b>\n  ${newsEmoji} ${news.sentiment} — ${news.headlineKo || news.headline}`
             : null;
 
-        // 옵션 현황 — 맥스페인 + 콜/풋 미결제약정 비교
+        // 옵션 현황 — 맥스페인 + 콜/풋 미결제약정 비교 + 행사가별 집중 구간(지지/저항 참고)
+        const fmtStrikes = (list) => list.length
+            ? list.map(s => `$${s.strike.toFixed(2)}(${s.oi.toLocaleString()})`).join(', ')
+            : '-';
         const optionsBlock = options ? [
             `<b>🎯 옵션 현황</b> (만기 ${options.expiry || '-'})`,
             `  맥스페인 $${options.maxPain?.toFixed(2) ?? '-'}  (현재가 ${price > (options.maxPain || 0) ? '위 ↑' : '아래 ↓'})`,
             `  콜 OI ${options.callOI.toLocaleString()}  |  풋 OI ${options.putOI.toLocaleString()}  → ${options.callOI >= options.putOI ? '콜' : '풋'} 우세 (P/C ${options.pcRatioOI ?? '-'})`,
+            `  콜 집중가(저항 참고) ${fmtStrikes(options.topCallStrikes)}`,
+            `  풋 집중가(지지 참고) ${fmtStrikes(options.topPutStrikes)}`,
         ].join('\n') : null;
 
         // 애널리스트 평균 — 목표주가(평균/최고/최저) + 추천등급
