@@ -8023,7 +8023,8 @@
                 } catch (_) {}
             }));
 
-            const SEED = 100000;
+            // seed_amount 미설정(과거 계정 등) 폴백 — balance-total_pnl로 역산 (텔레그램 _sendOverview와 동일 로직)
+            const SEED = d.seed_amount ?? ((d.balance ?? 100000) - (d.total_pnl ?? 0));
             const unrealizedTotal = openPos.reduce((s, p) => {
                 const cur = priceMap[p.symbol];
                 if (!cur || !p.total_qty) return s;

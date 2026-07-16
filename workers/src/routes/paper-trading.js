@@ -61,6 +61,7 @@ export async function handleGetAccount(req, env) {
         swing_balance:       acct.swing_balance,
         swing_position_size: acct.swing_position_size,
         total_pnl:     acct.total_pnl,
+        seed_amount:   acct.seed_amount,
         open_positions: open,
         summary: {
             open_count:   open.length,
