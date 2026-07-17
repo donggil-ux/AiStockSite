@@ -8,6 +8,7 @@ import { calcEMA, calcRSI, calcADXSeries, calcATR, lastVal } from '../utils/indi
 import { getNewsSentiment } from '../utils/news-sentiment.js';
 import { sendDailyHealthSummary } from './daily-scanner.js';
 import { getCachedSectorHeat } from '../utils/sector-heat.js';
+import { getMarketRegime } from '../utils/market.js';
 import { callGemini, extractJsonFromResponse } from '../utils/gemini.js';
 
 // 단일 타임프레임 추세 관점 — EMA20/60 정렬 + RSI + ADX (간단 요약용, 매매 시그널 아님)
@@ -305,9 +306,11 @@ export async function handleTgWebhook(req, env) {
             } else {
                 await _manualHoldingAdvice(env, holdSymbol, avgPrice, amount);
             }
+        } else if (cmd === '관망' || cmd === '/관망') {
+            await _sendWatchStatus(env);
         } else {
             await _tgDirect(env,
-                '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ\n• 분석 NVDA — 종목 분석\n• 스캐너 — 실시간 매수 스캔 (스캐너 NVDA TSLA 로 직접 지정 가능)\n• 금지 TQQQ — 매매 금지 등록\n• 금지해제 TQQQ\n• 금지목록 — 금지 종목 조회\n• 리포트 — 오늘 시그널/매매/오류 요약 (매일 US 장마감 후 자동 발송)\n• 업종대세 — 요즘 뜨는 섹터 랭킹\n• 성장주 [섹터ETF] — 성장주 발굴 추천 (예: 성장주 XLK)\n• 기업리포트 NVDA — 웹검색 기반 종목 리포트 (기업개요/실적/밸류에이션/리스크 등)\n• 승률 AAL — 해당 종목 체결 이력 승률/손익 조회\n• 보유 RAM 22.57 2000 — 직접 입력한 보유종목 분할매수 관점 (종목/평단가/투자금)'
+                '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ\n• 분석 NVDA — 종목 분석\n• 스캐너 — 실시간 매수 스캔 (스캐너 NVDA TSLA 로 직접 지정 가능)\n• 금지 TQQQ — 매매 금지 등록\n• 금지해제 TQQQ\n• 금지목록 — 금지 종목 조회\n• 리포트 — 오늘 시그널/매매/오류 요약 (매일 US 장마감 후 자동 발송)\n• 업종대세 — 요즘 뜨는 섹터 랭킹\n• 성장주 [섹터ETF] — 성장주 발굴 추천 (예: 성장주 XLK)\n• 기업리포트 NVDA — 웹검색 기반 종목 리포트 (기업개요/실적/밸류에이션/리스크 등)\n• 승률 AAL — 해당 종목 체결 이력 승률/손익 조회\n• 보유 RAM 22.57 2000 — 직접 입력한 보유종목 분할매수 관점 (종목/평단가/투자금)\n• 관망 — 지금 매매가 왜 없는지(시장 레짐/진입 게이트 상태) 확인'
             );
         }
     } catch (e) {
@@ -1006,6 +1009,39 @@ async function _trancheAdvice(env, pos, cur) {
         if (interval === '60m' && pos.style === 'swing') basis += ' · 일봉 데이터 부족으로 60분봉 대체';
         return { recPrice, recPct, basis };
     } catch (_) { return null; }
+}
+
+// 지금 왜 매매가 없는지 — 시장 레짐 게이트(daily-scanner.js _tryOpenPaperTrade와 동일 조건) 그대로 재현해서 설명.
+// "신호는 뜨는데 진입이 안 된다"는 문의에 대해 관망(정상 필터링)인지 확인해주기 위함.
+async function _sendWatchStatus(env) {
+    const regime = await getMarketRegime(env);
+    const openRes = await env.DB.prepare(
+        "SELECT style, COUNT(*) n FROM paper_trades WHERE user_id=? AND status='open' GROUP BY style"
+    ).bind('user_3EhxWla1QzZmEG19xfFdmnUTUrp').all();
+    const openByStyle = {};
+    for (const row of (openRes.results || [])) openByStyle[row.style] = row.n;
+
+    // _tryOpenPaperTrade(daily-scanner.js)의 ① 레짐 게이트와 정확히 동일한 조건
+    const longBlocked = regime.regime === 'risk_off' && regime.spyChgPct < -0.3;
+    const longSOnly   = !longBlocked && regime.spyChgPct < -0.5;
+    const shortBlocked = regime.regime !== 'risk_off';
+
+    const regimeEmoji = regime.regime === 'risk_off' ? '🔴' : regime.regime === 'favorable' ? '🟢' : '⚪';
+    const lines = [
+        `${regimeEmoji} <b>현재 시장 레짐: ${regime.label}</b>`,
+        `  SPY ${regime.spyChgPct > 0 ? '+' : ''}${regime.spyChgPct}%  ·  VIX ${regime.vix ?? '-'}  ·  추세 ${regime.spyTrend === 'up' ? '상승' : regime.spyTrend === 'down' ? '하락' : '횡보'}`,
+        `  ${regime.note}`,
+        '',
+        `📊 포지션 슬롯: 단타 ${openByStyle.day || 0}/3  ·  스윙 ${openByStyle.swing || 0}/3`,
+        '',
+        `매수(롱) 진입: ${longBlocked ? '🔴 전면 차단 (위험레짐 + SPY 약세)' : longSOnly ? '🟡 S등급만 허용' : '🟢 정상 (S/A등급 통과 시 진입)'}`,
+        `매도(숏) 진입: ${shortBlocked ? '🔴 차단 (하락장 아님 — risk_off 때만 허용)' : '🟢 정상 (S/A등급 통과 시 진입)'}`,
+        '',
+        (longBlocked || shortBlocked)
+            ? '📭 신호는 뜨는데 매매가 안 되는 건 대부분 이 레짐 필터 때문입니다 — 관망은 정상 동작입니다.'
+            : '✅ 지금은 정상 진입 가능 상태입니다 — 등급 조건 통과하는 신호가 없으면 관망일 수 있습니다.',
+    ];
+    await _tgDirect(env, lines.join('\n'));
 }
 
 async function _sendPositions(env) {
