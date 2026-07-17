@@ -8281,7 +8281,11 @@
                 sell_manual:     { label: '수동',        isBuy: false },
             };
 
-            const fmtTime = ts => ts ? new Date(ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '';
+            const fmtTime = ts => {
+                if (!ts) return '';
+                const d = new Date(ts);
+                return `${d.getMonth() + 1}/${d.getDate()} ${d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}`;
+            };
 
             function fillItem(f) {
                 const m      = fillMeta[f.fill_type] || { label: f.fill_type || '—', isBuy: f.fill_type?.startsWith('buy') };
