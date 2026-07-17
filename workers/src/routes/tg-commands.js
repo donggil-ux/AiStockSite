@@ -142,6 +142,51 @@ async function _tgDownloadPhoto(env, fileId) {
     } catch (_) { return null; }
 }
 
+// 분할매수 관점 안내 블록 — 사진 분석/직접 입력(보유 명령) 공용.
+// avgPrice/quantity가 있으면 참고 추가금액(기존 투자금의 2:1 비중 중 2차분)까지 같이 계산.
+async function _buildTrancheAdviceBlock(env, symbol, cur, avgPrice, quantity) {
+    const advice = await _trancheAdvice(env, { dir: 'long', style: 'swing', symbol }, cur);
+    const lines = [];
+    if (advice) {
+        lines.push(`💡 <b>분할매수 관점</b> (일봉 기준)`);
+        lines.push(`  추가매수 관심가 $${advice.recPrice.toFixed(2)} (${advice.recPct > 0 ? '+' : ''}${advice.recPct.toFixed(1)}%, ${advice.basis})`);
+        if (avgPrice && quantity) {
+            const invested = avgPrice * quantity;
+            const addAmount = invested * (TRANCHE_WEIGHTS[1] / TRANCHE_WEIGHTS[0]); // 기존 2:1 분할 비중 재사용 → 2차는 1차의 절반
+            const addQty = Math.floor(addAmount / advice.recPrice);
+            lines.push(`  참고 추가금액 약 $${addAmount.toFixed(0)} (~${addQty}주, 기존 투자금의 약 ${(TRANCHE_WEIGHTS[1] / TRANCHE_WEIGHTS[0] * 100).toFixed(0)}%)`);
+        }
+    } else {
+        lines.push('💡 뚜렷한 추가매수 관심가 산출 실패 — 데이터 부족 또는 추세 불명확');
+    }
+    return lines.join('\n');
+}
+
+// 사용자가 텔레그램에 직접 타이핑한 보유정보(종목/평단가/금액) 분석 — 사진 없이 텍스트로 입력.
+async function _manualHoldingAdvice(env, symbol, avgPrice, amount) {
+    const quotes = await _quotePrice(env, [symbol]);
+    const cur = quotes[symbol]?.price;
+    if (!cur) {
+        await _tgDirect(env, `⚠ "${symbol}" 시세 조회 실패 — 티커를 확인해주세요.`);
+        return;
+    }
+
+    const quantity = amount / avgPrice;
+    const chgPct = ((cur - avgPrice) / avgPrice * 100).toFixed(2);
+    const adviceBlock = await _buildTrancheAdviceBlock(env, symbol, cur, avgPrice, quantity);
+
+    const lines = [
+        `📋 <b>${symbol}</b> 보유 분석`,
+        `현재가 $${cur.toFixed(2)}`,
+        `평단 $${avgPrice.toFixed(2)} / 약 ${quantity.toFixed(2)}주 (투자금 $${amount.toFixed(0)}) (${chgPct > 0 ? '+' : ''}${chgPct}%)`,
+        '',
+        adviceBlock,
+        '',
+        '⚠ 참고용 분석 — 실제 매매 전 직접 확인 권장',
+    ];
+    await _tgDirect(env, lines.join('\n'));
+}
+
 // 사용자가 직접 보유 중인 종목(미국주) 스크린샷 분석 — 페이퍼 트레이딩 DB와 무관한 1회성 요청.
 // 1) Gemini Vision으로 티커/평단가/보유수량 추출 → 2) 실제 야후 차트로 EMA20/ATR 분할매수 관점 산출.
 async function _analyzePhotoPosition(env, msg) {
@@ -182,8 +227,7 @@ async function _analyzePhotoPosition(env, msg) {
     const quantity = typeof parsed.quantity === 'number' && parsed.quantity > 0 ? parsed.quantity : null;
     const chgPct = avgPrice ? ((cur - avgPrice) / avgPrice * 100).toFixed(2) : null;
 
-    // 일봉 기준으로 분석 (개인 보유 종목은 단타보다 스윙 성격으로 가정)
-    const advice = await _trancheAdvice(env, { dir: 'long', style: 'swing', symbol }, cur);
+    const adviceBlock = await _buildTrancheAdviceBlock(env, symbol, cur, avgPrice, quantity);
 
     const lines = [
         `📸 <b>${symbol}</b> 이미지 분석 결과`,
@@ -192,20 +236,10 @@ async function _analyzePhotoPosition(env, msg) {
             ? `인식된 보유정보: 평단 $${avgPrice.toFixed(2)}${quantity ? ` / ${quantity}주` : ''} (${chgPct > 0 ? '+' : ''}${chgPct}%)`
             : '평단가·수량은 이미지에서 인식되지 않음',
         '',
+        adviceBlock,
+        '',
+        '⚠ 이미지 인식 + 자동 분석 기반이라 오차 가능 — 실제 매매 전 직접 확인 권장',
     ];
-    if (advice) {
-        lines.push(`💡 <b>분할매수 관점</b> (일봉 기준)`);
-        lines.push(`  추가매수 관심가 $${advice.recPrice.toFixed(2)} (${advice.recPct > 0 ? '+' : ''}${advice.recPct.toFixed(1)}%, ${advice.basis})`);
-        if (avgPrice && quantity) {
-            const invested = avgPrice * quantity;
-            const addAmount = invested * (TRANCHE_WEIGHTS[1] / TRANCHE_WEIGHTS[0]); // 기존 2:1 분할 비중 재사용 → 2차는 1차의 절반
-            const addQty = Math.floor(addAmount / advice.recPrice);
-            lines.push(`  참고 추가금액 약 $${addAmount.toFixed(0)} (~${addQty}주, 기존 투자금의 약 ${(TRANCHE_WEIGHTS[1] / TRANCHE_WEIGHTS[0] * 100).toFixed(0)}%)`);
-        }
-    } else {
-        lines.push('💡 뚜렷한 추가매수 관심가 산출 실패 — 데이터 부족 또는 추세 불명확');
-    }
-    lines.push('', '⚠ 이미지 인식 + 자동 분석 기반이라 오차 가능 — 실제 매매 전 직접 확인 권장');
 
     await _tgDirect(env, lines.join('\n'));
 }
@@ -261,9 +295,19 @@ export async function handleTgWebhook(req, env) {
             await _stockReport(env, symbol);
         } else if ((cmd === '승률' || cmd === '/승률') && symbol) {
             await _symbolWinRate(env, symbol);
+        } else if (cmd === '보유' || cmd === '/보유') {
+            const parts = text.split(/\s+/).slice(1);
+            const holdSymbol = parts[0]?.toUpperCase();
+            const avgPrice = parseFloat(parts[1]);
+            const amount = parseFloat(parts[2]);
+            if (!holdSymbol || !(avgPrice > 0) || !(amount > 0)) {
+                await _tgDirect(env, '사용법: 보유 종목 평단가 금액\n예: 보유 RAM 22.57 2000  (평단 $22.57, 총 투자금 $2,000)');
+            } else {
+                await _manualHoldingAdvice(env, holdSymbol, avgPrice, amount);
+            }
         } else {
             await _tgDirect(env,
-                '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ\n• 분석 NVDA — 종목 분석\n• 스캐너 — 실시간 매수 스캔 (스캐너 NVDA TSLA 로 직접 지정 가능)\n• 금지 TQQQ — 매매 금지 등록\n• 금지해제 TQQQ\n• 금지목록 — 금지 종목 조회\n• 리포트 — 오늘 시그널/매매/오류 요약 (매일 US 장마감 후 자동 발송)\n• 업종대세 — 요즘 뜨는 섹터 랭킹\n• 성장주 [섹터ETF] — 성장주 발굴 추천 (예: 성장주 XLK)\n• 기업리포트 NVDA — 웹검색 기반 종목 리포트 (기업개요/실적/밸류에이션/리스크 등)\n• 승률 AAL — 해당 종목 체결 이력 승률/손익 조회'
+                '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ\n• 분석 NVDA — 종목 분석\n• 스캐너 — 실시간 매수 스캔 (스캐너 NVDA TSLA 로 직접 지정 가능)\n• 금지 TQQQ — 매매 금지 등록\n• 금지해제 TQQQ\n• 금지목록 — 금지 종목 조회\n• 리포트 — 오늘 시그널/매매/오류 요약 (매일 US 장마감 후 자동 발송)\n• 업종대세 — 요즘 뜨는 섹터 랭킹\n• 성장주 [섹터ETF] — 성장주 발굴 추천 (예: 성장주 XLK)\n• 기업리포트 NVDA — 웹검색 기반 종목 리포트 (기업개요/실적/밸류에이션/리스크 등)\n• 승률 AAL — 해당 종목 체결 이력 승률/손익 조회\n• 보유 RAM 22.57 2000 — 직접 입력한 보유종목 분할매수 관점 (종목/평단가/투자금)'
             );
         }
     } catch (e) {
