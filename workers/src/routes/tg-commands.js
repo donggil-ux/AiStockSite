@@ -114,6 +114,26 @@ async function _fetchAnalystData(env, symbol) {
     } catch (_) { return null; }
 }
 
+// 공매도 잔고 현황 (Yahoo Finance defaultKeyStatistics 모듈 — 통상 반월 지연 데이터)
+async function _fetchShortInterest(env, symbol) {
+    try {
+        const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=defaultKeyStatistics`;
+        const data = await yfRequest(env.CACHE, url);
+        const ks = data?.quoteSummary?.result?.[0]?.defaultKeyStatistics;
+        if (!ks || ks.sharesShort?.raw == null) return null;
+        const shares = ks.sharesShort.raw;
+        const priorShares = ks.sharesShortPriorMonth?.raw ?? null;
+        return {
+            shares,
+            priorShares,
+            chgPct: priorShares > 0 ? ((shares - priorShares) / priorShares * 100) : null,
+            daysToCover: ks.shortRatio?.raw ?? null,
+            pctOfFloat: ks.shortPercentOfFloat?.raw != null ? ks.shortPercentOfFloat.raw * 100 : null,
+            asOf: ks.dateShortInterest?.raw ? new Date(ks.dateShortInterest.raw * 1000).toISOString().slice(0, 10) : null,
+        };
+    } catch (_) { return null; }
+}
+
 // ArrayBuffer → base64 (Workers엔 Buffer 없음, 큰 이미지 콜스택 방지 위해 청크 처리)
 function _arrayBufferToBase64(buf) {
     const bytes = new Uint8Array(buf);
@@ -513,7 +533,7 @@ async function _liveScan(env, customSymbols) {
 async function _analyzeSymbol(env, symbol) {
     try {
         const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=2d&interval=5m&includePrePost=true`;
-        const [data, quoteMap, acct, daily, tf15, tf60, news, options, analyst] = await Promise.all([
+        const [data, quoteMap, acct, daily, tf15, tf60, news, options, analyst, shortInt] = await Promise.all([
             yfRequest(env.CACHE, chartUrl),
             _quotePrice(env, [symbol]),
             env.DB.prepare("SELECT day_balance, day_position_size FROM paper_account WHERE user_id=?")
@@ -524,6 +544,7 @@ async function _analyzeSymbol(env, symbol) {
             getNewsSentiment(env, symbol).catch(() => null),
             _fetchOptionsSummary(env, symbol).catch(() => null),
             _fetchAnalystData(env, symbol).catch(() => null),
+            _fetchShortInterest(env, symbol).catch(() => null),
         ]);
         const result = data?.chart?.result?.[0];
         if (!result) { await _tgDirect(env, `❌ ${symbol} 차트 데이터 없음`); return; }
@@ -596,6 +617,16 @@ async function _analyzeSymbol(env, symbol) {
                 `  범위 $${analyst.targetLow?.toFixed(2) ?? '-'} ~ $${analyst.targetHigh?.toFixed(2) ?? '-'}  |  추천등급: ${reco}`,
             ].join('\n');
         })() : null;
+
+        // 공매도 잔고 — 유통주식 대비 비중 + 전월 대비 증감 (반월 지연 데이터, 통상 거래소 정산 주기)
+        const shortInterestBlock = shortInt ? [
+            `<b>📉 공매도 잔고</b> (${shortInt.asOf || '-'} 기준)`,
+            `  잔고 ${(shortInt.shares / 1e6).toFixed(2)}M주` + (shortInt.pctOfFloat != null ? `  (유통주식의 ${shortInt.pctOfFloat.toFixed(1)}%)` : ''),
+            [
+                shortInt.chgPct != null ? `전월 대비 ${shortInt.chgPct >= 0 ? '+' : ''}${shortInt.chgPct.toFixed(1)}%` : null,
+                shortInt.daysToCover != null ? `숏레이쇼 ${shortInt.daysToCover.toFixed(1)}일` : null,
+            ].filter(Boolean).map(s => `  ${s}`).join('\n'),
+        ].filter(Boolean).join('\n') : null;
 
         // 신호 없음
         if (!sig) {
@@ -694,6 +725,7 @@ async function _analyzeSymbol(env, symbol) {
                 newsBlock ? '' : null, newsBlock,
                 optionsBlock ? '' : null, optionsBlock,
                 analystBlock ? '' : null, analystBlock,
+                shortInterestBlock ? '' : null, shortInterestBlock,
                 diagBlock ? '' : null, diagBlock,
                 '',
                 '⚪ 신호 없음 — 조건 미충족, 관망 권장',
@@ -746,6 +778,7 @@ async function _analyzeSymbol(env, symbol) {
             newsBlock ? '' : null, newsBlock,
             optionsBlock ? '' : null, optionsBlock,
             analystBlock ? '' : null, analystBlock,
+            shortInterestBlock ? '' : null, shortInterestBlock,
         ].filter(l => l !== null).join('\n'));
     } catch (e) {
         console.error('[tg-analyze]', symbol, e?.message);
