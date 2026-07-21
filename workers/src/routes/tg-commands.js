@@ -429,21 +429,40 @@ async function _sendTodayEarnings(env) {
     const parsed = rows.map(r => ({
         symbol: r.symbol,
         name: r.name?.trim() || r.symbol,
+        rawTime: r.time,
         timeLabel: timeKo(r.time),
         eps: r.epsForecast && r.epsForecast !== 'N/A' ? r.epsForecast : null,
         marketCap: parseFloat(String(r.marketCap || '').replace(/[$,]/g, '')) || 0,
-    })).sort((a, b) => b.marketCap - a.marketCap);
+    }));
+
+    // 이미 발표됐을 시간대는 제외 — 장전(BMO)은 정규장 개장(9:30 ET) 이후, 장마감후(AMC)는
+    // 정규장 마감(16:00 ET) 이후면 이미 발표됐다고 보고 리스트에서 뺌.
+    const etMin = _etTotalMin();
+    const isPastOpen  = etMin >= 9 * 60 + 30;
+    const isPastClose = etMin >= 16 * 60;
+    const pending = parsed.filter(r => {
+        if (r.rawTime === 'time-pre-market' && isPastOpen) return false;
+        if (r.rawTime === 'time-after-hours' && isPastClose) return false;
+        return true;
+    });
+    const alreadyReported = parsed.length - pending.length;
+    pending.sort((a, b) => b.marketCap - a.marketCap);
+
+    if (!pending.length) {
+        await _tgDirect(env, `📭 오늘(${dateStr}) 남은 실적 발표 예정 기업 없음 (총 ${parsed.length}개 중 ${alreadyReported}개는 이미 발표됨)`);
+        return;
+    }
 
     const TOP_N = 15;
-    const top = parsed.slice(0, TOP_N);
+    const top = pending.slice(0, TOP_N);
     const fmtCap = (v) => v >= 1e12 ? `$${(v / 1e12).toFixed(1)}조` : v >= 1e9 ? `$${(v / 1e9).toFixed(0)}B` : v > 0 ? `$${(v / 1e6).toFixed(0)}M` : '-';
     const lines = top.map(r =>
         `  <b>${r.symbol}</b> ${r.name}  ·  ${r.timeLabel}${r.eps ? `  ·  예상 EPS ${r.eps}` : ''}  ·  시총 ${fmtCap(r.marketCap)}`
     );
 
-    const rest = parsed.length - top.length;
+    const rest = pending.length - top.length;
     await _tgDirect(env, [
-        `📅 <b>오늘(${dateStr}) 실적 발표 예정</b> (총 ${parsed.length}개, 시총 상위 ${top.length}개)`,
+        `📅 <b>오늘(${dateStr}) 실적 발표 예정</b> (아직 안 한 것만, 시총 상위 ${top.length}/${pending.length}개${alreadyReported ? ` · 이미 발표된 ${alreadyReported}개 제외` : ''})`,
         '',
         ...lines,
         rest > 0 ? `\n외 ${rest}개 더 (소형주 위주)` : '',
