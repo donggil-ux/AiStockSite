@@ -441,9 +441,12 @@ async function _manageOne(env, pos, price) {
     }
 
     // ── 손절 체크 ─────────────────────────────────────────────────
+    // 프리마켓(ET 9:30 이전)은 거래량이 얇아 가격 노이즈로 손절이 잘못 걸리기 쉬움 —
+    // 이 시간대엔 손절 체크를 보류하고, 정규장 개장(9:30) 이후 첫 틱부터 평소처럼 즉시 재개.
+    const isPreMarketNow = _etTotalMin() < 9 * 60 + 30;
     const stopPx = pos.stop_price ?? (isShort ? pos.avg_price * (2 - STOP_FROM_FIRST) : pos.avg_price * STOP_FROM_FIRST);
     const hitStop = isShort ? price >= stopPx : price <= stopPx;
-    if (pos.avg_price && hitStop) {
+    if (pos.avg_price && hitStop && !isPreMarketNow) {
         await paperClosePosition(env, pos, price, 'stop');
         return;
     }
