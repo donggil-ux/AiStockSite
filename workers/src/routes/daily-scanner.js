@@ -708,6 +708,15 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
             }
         }
     }
+
+    // 사용자 지시: 숏은 반드시 인버스 ETF 매수로만 진입 — 개별 종목 공매도 금지.
+    // 위에서 인버스 ETF 매칭/유동성 확보에 실패해 leg가 여전히 원래 종목의 'short'로 남아있으면
+    // (롱과 달리) 개별종목 폴백 없이 이 신호는 그냥 스킵.
+    if (isShortSignal && !isAlreadyEtf && leg.dir === 'short') {
+        console.log(`[paper] ${r.symbol} 숏 — 인버스 ETF 없음/유동성 부족, 개별종목 공매도 금지 정책으로 스킵`);
+        return;
+    }
+
     const legs = [leg];
 
     for (const acct of accounts) {
