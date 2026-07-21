@@ -1112,7 +1112,7 @@ async function _sendTodayResults(env) {
         const dirLabel = t.dir === 'short' ? '숏' : '롱';
         const reason = closedReasonKo[t.close_reason] || t.close_reason || '-';
         const holdMin = ((t.exit_at - t.created_at) / 60000).toFixed(0);
-        return `  ${win ? '✅' : '❌'} <b>${t.symbol}</b> ${dirLabel}[${t.style}]  ${win ? '+' : ''}$${(t.realized_pnl || 0).toFixed(0)}  (${reason}, ${holdMin}분 보유)`;
+        return `  ${win ? '✅' : '❌'} <b>${t.symbol}</b> ${dirLabel}[${t.style}]  ${win ? '+' : '-'}$${Math.abs(t.realized_pnl || 0).toFixed(0)}  (${reason}, ${holdMin}분 보유)`;
     });
 
     // 오늘 진입했지만 아직 열려있는 건 (오늘 청산분과 별도)
@@ -1128,7 +1128,7 @@ async function _sendTodayResults(env) {
 
     const lines = [
         `📋 <b>오늘 가상매매 결과</b> (${new Date().toISOString().slice(0, 10)})`,
-        `진입 ${opened.length}건  |  청산 ${closed.length}건 (${winRate != null ? `승률 ${winRate}%` : '청산 없음'})  |  실현손익 ${totalPnl >= 0 ? '+' : ''}$${totalPnl.toFixed(0)}`,
+        `진입 ${opened.length}건  |  청산 ${closed.length}건 (${winRate != null ? `승률 ${winRate}%` : '청산 없음'})  |  실현손익 ${totalPnl >= 0 ? '+' : '-'}$${Math.abs(totalPnl).toFixed(0)}`,
         '',
     ];
     if (closedLines.length) {
