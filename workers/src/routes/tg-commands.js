@@ -1,6 +1,6 @@
 // Telegram 봇 명령어 처리 — 매수/매도/포지션 조회
 // 보안: chatId 검증 (env.TELEGRAM_CHAT_ID 만 허용)
-import { paperOpenTrade, paperClosePosition, _tgDirect, isSymbolBlocked, MAX_TRANCHE, TRANCHE_TRIGGERS, TRANCHE_WEIGHTS, TRANCHE_WEIGHT_SUM } from '../utils/paper-engine.js';
+import { paperOpenTrade, paperClosePosition, _tgDirect, isSymbolBlocked, MAX_TRANCHE, TRANCHE_TRIGGERS, TRANCHE_WEIGHTS, TRANCHE_WEIGHT_SUM, _etTotalMin } from '../utils/paper-engine.js';
 import { classifySymbol } from '../utils/paper-category.js';
 import { smartDipScan, smartDipScanBounce, smartDipDiagnose } from '../utils/smart-dip.js';
 import { yfRequest } from '../utils/crumb.js';
@@ -328,9 +328,11 @@ export async function handleTgWebhook(req, env) {
             }
         } else if (cmd === '관망' || cmd === '/관망') {
             await _sendWatchStatus(env);
+        } else if (cmd === '오늘' || cmd === '/오늘') {
+            await _sendTodayResults(env);
         } else {
             await _tgDirect(env,
-                '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ\n• 분석 NVDA — 종목 분석\n• 스캐너 — 실시간 매수 스캔 (스캐너 NVDA TSLA 로 직접 지정 가능)\n• 금지 TQQQ — 매매 금지 등록\n• 금지해제 TQQQ\n• 금지목록 — 금지 종목 조회\n• 리포트 — 오늘 시그널/매매/오류 요약 (매일 US 장마감 후 자동 발송)\n• 업종대세 — 요즘 뜨는 섹터 랭킹\n• 성장주 [섹터ETF] — 성장주 발굴 추천 (예: 성장주 XLK)\n• 기업리포트 NVDA — 웹검색 기반 종목 리포트 (기업개요/실적/밸류에이션/리스크 등)\n• 승률 AAL — 해당 종목 체결 이력 승률/손익 조회\n• 보유 RAM 22.57 2000 — 직접 입력한 보유종목 분할매수 관점 (종목/평단가/투자금)\n• 관망 — 지금 매매가 왜 없는지(시장 레짐/진입 게이트 상태) 확인'
+                '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ\n• 분석 NVDA — 종목 분석\n• 스캐너 — 실시간 매수 스캔 (스캐너 NVDA TSLA 로 직접 지정 가능)\n• 금지 TQQQ — 매매 금지 등록\n• 금지해제 TQQQ\n• 금지목록 — 금지 종목 조회\n• 리포트 — 오늘 시그널/매매/오류 요약 (매일 US 장마감 후 자동 발송)\n• 업종대세 — 요즘 뜨는 섹터 랭킹\n• 성장주 [섹터ETF] — 성장주 발굴 추천 (예: 성장주 XLK)\n• 기업리포트 NVDA — 웹검색 기반 종목 리포트 (기업개요/실적/밸류에이션/리스크 등)\n• 승률 AAL — 해당 종목 체결 이력 승률/손익 조회\n• 보유 RAM 22.57 2000 — 직접 입력한 보유종목 분할매수 관점 (종목/평단가/투자금)\n• 관망 — 지금 매매가 왜 없는지(시장 레짐/진입 게이트 상태) 확인\n• 오늘 — 오늘 진입/청산된 가상매매 결과를 종목별로 정리'
             );
         }
     } catch (e) {
@@ -1074,6 +1076,68 @@ async function _sendWatchStatus(env) {
             ? '📭 신호는 뜨는데 매매가 안 되는 건 대부분 이 레짐 필터 때문입니다 — 관망은 정상 동작입니다.'
             : '✅ 지금은 정상 진입 가능 상태입니다 — 등급 조건 통과하는 신호가 없으면 관망일 수 있습니다.',
     ];
+    await _tgDirect(env, lines.join('\n'));
+}
+
+// 당일(ET 기준) 가상매매 결과 정리 — 오늘 진입/청산된 건을 종목별로 나열 + 오늘자 승률/손익 집계.
+// 기존 "리포트"(sendDailyHealthSummary)는 운영 상태 점검용 요약이라 종목별 상세가 없음 — 이건 그 상세 버전.
+async function _sendTodayResults(env) {
+    const userId = 'user_3EhxWla1QzZmEG19xfFdmnUTUrp';
+    const dayStartMs = Date.now() - _etTotalMin() * 60 * 1000; // 오늘 ET 자정 근사치
+
+    const [openedRes, closedRes] = await Promise.all([
+        env.DB.prepare(
+            "SELECT symbol,dir,style,grade,avg_price,total_qty,status,created_at FROM paper_trades WHERE user_id=? AND created_at>=? ORDER BY created_at ASC"
+        ).bind(userId, dayStartMs).all(),
+        env.DB.prepare(
+            "SELECT symbol,dir,style,grade,avg_price,realized_pnl,close_reason,created_at,exit_at FROM paper_trades WHERE user_id=? AND status='closed' AND exit_at>=? ORDER BY exit_at ASC"
+        ).bind(userId, dayStartMs).all(),
+    ]);
+
+    const opened = openedRes.results || [];
+    const closed = closedRes.results || [];
+    if (!opened.length && !closed.length) {
+        await _tgDirect(env, '📋 오늘 가상매매 결과 없음 — 진입/청산 내역이 없습니다.');
+        return;
+    }
+
+    const closedReasonKo = {
+        stop: '손절', tp1_trail: '트레일링', tp2_trail: '트레일링', tp3_trail: '트레일링', tp4_trail: '트레일링',
+        be_protect: '본전보호', timeout: '보유기간만료', overnight_exit: '익일시가청산', manual: '수동청산',
+    };
+
+    // 오늘 청산된 건 — 심볼/방향/손익/사유
+    const closedLines = closed.map(t => {
+        const win = (t.realized_pnl || 0) >= 0;
+        const dirLabel = t.dir === 'short' ? '숏' : '롱';
+        const reason = closedReasonKo[t.close_reason] || t.close_reason || '-';
+        const holdMin = ((t.exit_at - t.created_at) / 60000).toFixed(0);
+        return `  ${win ? '✅' : '❌'} <b>${t.symbol}</b> ${dirLabel}[${t.style}]  ${win ? '+' : ''}$${(t.realized_pnl || 0).toFixed(0)}  (${reason}, ${holdMin}분 보유)`;
+    });
+
+    // 오늘 진입했지만 아직 열려있는 건 (오늘 청산분과 별도)
+    const stillOpen = opened.filter(t => t.status === 'open');
+    const openLines = stillOpen.map(t => {
+        const dirLabel = t.dir === 'short' ? '숏' : '롱';
+        return `  🔵 <b>${t.symbol}</b> ${dirLabel}[${t.style}] [${t.grade}]  평단 $${t.avg_price?.toFixed(2) ?? '-'}  (보유중)`;
+    });
+
+    const wins = closed.filter(t => (t.realized_pnl || 0) >= 0).length;
+    const winRate = closed.length ? Math.round((wins / closed.length) * 100) : null;
+    const totalPnl = closed.reduce((s, t) => s + (t.realized_pnl || 0), 0);
+
+    const lines = [
+        `📋 <b>오늘 가상매매 결과</b> (${new Date().toISOString().slice(0, 10)})`,
+        `진입 ${opened.length}건  |  청산 ${closed.length}건 (${winRate != null ? `승률 ${winRate}%` : '청산 없음'})  |  실현손익 ${totalPnl >= 0 ? '+' : ''}$${totalPnl.toFixed(0)}`,
+        '',
+    ];
+    if (closedLines.length) {
+        lines.push('<b>✅/❌ 오늘 청산</b>', ...closedLines, '');
+    }
+    if (openLines.length) {
+        lines.push('<b>🔵 오늘 진입 후 보유중</b>', ...openLines);
+    }
+
     await _tgDirect(env, lines.join('\n'));
 }
 
