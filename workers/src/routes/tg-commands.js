@@ -330,9 +330,11 @@ export async function handleTgWebhook(req, env) {
             await _sendWatchStatus(env);
         } else if (cmd === '오늘' || cmd === '/오늘') {
             await _sendTodayResults(env);
+        } else if (cmd === '실적' || cmd === '/실적') {
+            await _sendTodayEarnings(env);
         } else {
             await _tgDirect(env,
-                '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ\n• 분석 NVDA — 종목 분석\n• 스캐너 — 실시간 매수 스캔 (스캐너 NVDA TSLA 로 직접 지정 가능)\n• 금지 TQQQ — 매매 금지 등록\n• 금지해제 TQQQ\n• 금지목록 — 금지 종목 조회\n• 리포트 — 오늘 시그널/매매/오류 요약 (매일 US 장마감 후 자동 발송)\n• 업종대세 — 요즘 뜨는 섹터 랭킹\n• 성장주 [섹터ETF] — 성장주 발굴 추천 (예: 성장주 XLK)\n• 기업리포트 NVDA — 웹검색 기반 종목 리포트 (기업개요/실적/밸류에이션/리스크 등)\n• 승률 AAL — 해당 종목 체결 이력 승률/손익 조회\n• 보유 RAM 22.57 2000 — 직접 입력한 보유종목 분할매수 관점 (종목/평단가/투자금)\n• 관망 — 지금 매매가 왜 없는지(시장 레짐/진입 게이트 상태) 확인\n• 오늘 — 오늘 진입/청산된 가상매매 결과를 종목별로 정리'
+                '사용법:\n• 현황 — 전체 수익률\n• 스캔 — 오늘 시그널 목록\n• 포지션 — 보유 포지션\n• 매수 TQQQ\n• 매도 TQQQ\n• 분석 NVDA — 종목 분석\n• 스캐너 — 실시간 매수 스캔 (스캐너 NVDA TSLA 로 직접 지정 가능)\n• 금지 TQQQ — 매매 금지 등록\n• 금지해제 TQQQ\n• 금지목록 — 금지 종목 조회\n• 리포트 — 오늘 시그널/매매/오류 요약 (매일 US 장마감 후 자동 발송)\n• 업종대세 — 요즘 뜨는 섹터 랭킹\n• 성장주 [섹터ETF] — 성장주 발굴 추천 (예: 성장주 XLK)\n• 기업리포트 NVDA — 웹검색 기반 종목 리포트 (기업개요/실적/밸류에이션/리스크 등)\n• 승률 AAL — 해당 종목 체결 이력 승률/손익 조회\n• 보유 RAM 22.57 2000 — 직접 입력한 보유종목 분할매수 관점 (종목/평단가/투자금)\n• 관망 — 지금 매매가 왜 없는지(시장 레짐/진입 게이트 상태) 확인\n• 오늘 — 오늘 진입/청산된 가상매매 결과를 종목별로 정리\n• 실적 — 오늘 실적 발표 예정 기업 목록(시총 상위)'
             );
         }
     } catch (e) {
@@ -399,6 +401,55 @@ async function _sendBlocklist(env) {
 }
 
 // 업종대세 — 섹터/테마 히트 랭킹 (D1 읽기 전용, 즉시 응답)
+// 오늘(ET 기준) 실적 발표 예정 기업 — NASDAQ 공개 캘린더 API (단일 요청, 개별 종목 스캔 불필요)
+async function _fetchTodayEarnings(env) {
+    const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
+    const url = `https://api.nasdaq.com/api/calendar/earnings?date=${dateStr}`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' } });
+    if (!res.ok) throw new Error(`nasdaq ${res.status}`);
+    const data = await res.json();
+    const rows = data?.data?.rows || [];
+    return { dateStr, rows };
+}
+
+async function _sendTodayEarnings(env) {
+    let dateStr, rows;
+    try {
+        ({ dateStr, rows } = await _fetchTodayEarnings(env));
+    } catch (e) {
+        await _tgDirect(env, `⚠ 실적 캘린더 조회 실패: ${e?.message?.slice(0, 100) || '알 수 없는 오류'}`);
+        return;
+    }
+    if (!rows.length) {
+        await _tgDirect(env, `📭 오늘(${dateStr}) 실적 발표 예정 기업 없음`);
+        return;
+    }
+
+    const timeKo = (t) => t === 'time-pre-market' ? '장전(BMO)' : t === 'time-after-hours' ? '장마감후(AMC)' : '시간미정';
+    const parsed = rows.map(r => ({
+        symbol: r.symbol,
+        name: r.name?.trim() || r.symbol,
+        timeLabel: timeKo(r.time),
+        eps: r.epsForecast && r.epsForecast !== 'N/A' ? r.epsForecast : null,
+        marketCap: parseFloat(String(r.marketCap || '').replace(/[$,]/g, '')) || 0,
+    })).sort((a, b) => b.marketCap - a.marketCap);
+
+    const TOP_N = 15;
+    const top = parsed.slice(0, TOP_N);
+    const fmtCap = (v) => v >= 1e12 ? `$${(v / 1e12).toFixed(1)}조` : v >= 1e9 ? `$${(v / 1e9).toFixed(0)}B` : v > 0 ? `$${(v / 1e6).toFixed(0)}M` : '-';
+    const lines = top.map(r =>
+        `  <b>${r.symbol}</b> ${r.name}  ·  ${r.timeLabel}${r.eps ? `  ·  예상 EPS ${r.eps}` : ''}  ·  시총 ${fmtCap(r.marketCap)}`
+    );
+
+    const rest = parsed.length - top.length;
+    await _tgDirect(env, [
+        `📅 <b>오늘(${dateStr}) 실적 발표 예정</b> (총 ${parsed.length}개, 시총 상위 ${top.length}개)`,
+        '',
+        ...lines,
+        rest > 0 ? `\n외 ${rest}개 더 (소형주 위주)` : '',
+    ].filter(Boolean).join('\n'));
+}
+
 async function _sendSectorHeat(env) {
     const rows = await getCachedSectorHeat(env);
     if (!rows.length) { await _tgDirect(env, '📭 섹터 히트 데이터 없음 (다음 크론 이후 다시 시도)'); return; }
