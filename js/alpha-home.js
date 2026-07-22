@@ -7787,9 +7787,10 @@
                     tooltip: { enabled: false, external: _heatmapTooltipHandler },
                 },
                 onClick(evt, elements) {
-                    if (!elements.length) return;
-                    const el = _heatmapChart.data.datasets[0].data[elements[0].index];
-                    const symbol = el?.l === 1 ? el?._data?.children?.[0]?.symbol : null;
+                    // 그룹(섹터) 박스와 리프(종목) 박스가 겹치므로 elements[0]이 그룹일 수 있음 — 리프를 찾아야 함
+                    const data = _heatmapChart.data.datasets[0].data;
+                    const leafEl = elements.map(e => data[e.index]).find(d => d?.l === 1);
+                    const symbol = leafEl?._data?.children?.[0]?.symbol;
                     if (symbol) quickSearch(symbol, 'US');
                 },
             },
@@ -7812,8 +7813,9 @@
             chart.canvas.parentNode.appendChild(_heatmapTooltipEl);
         }
         const el = _heatmapTooltipEl;
-        const raw = tooltip.dataPoints?.[0]?.raw;
-        const stock = raw?.l === 1 ? raw._data?.children?.[0] : null;
+        // 그룹(섹터) 박스와 리프(종목) 박스가 같은 지점에서 겹치므로 dataPoints[0]은 그룹일 수 있음 — 리프를 찾아야 함
+        const leaf = (tooltip.dataPoints || []).find(dp => dp.raw?.l === 1)?.raw;
+        const stock = leaf?._data?.children?.[0] || null;
         if (tooltip.opacity === 0 || !stock) { el.style.opacity = 0; return; }
 
         const siblings = _heatmapFlat
