@@ -29,7 +29,7 @@ import { handleScannerAiBatch, handleSocialAiAnalyze } from './routes/ai-batch-s
 import { handleCatalystAiAnalyze } from './routes/ai-catalyst.js';
 import { calibrateAlgorithm } from './utils/calibration.js';
 import { paperAutoOptimize, paperHealthCheck, cronWatchdog } from './utils/paper-optimizer.js';
-import { paperManageAll } from './utils/paper-engine.js';
+import { paperManageAll, _tgDirect } from './utils/paper-engine.js';
 import { logError, pruneOldErrors } from './utils/errors.js';
 import { snapshotHealth } from './cron.js';
 import { handleAdminStatus, handleAnalyzeNow, handleDtForwardTest, handleCatForwardTest } from './routes/admin.js';
@@ -361,8 +361,9 @@ export async function runFiveMinJob(env, market, scheduledTime = Date.now()) {
         try { const cb = await captureCloseBetSignals(env); if (!cb.skipped) console.log('[cron] closebet', cb); }
         catch (e) {
             console.error('[cron] closebet err', e.message);
-            // 콘솔 로그만으로는 하루 한 번뿐인 이 틱이 실패해도 나중에 확인할 방법이 없어서 D1에도 남김
+            // 콘솔 로그만으로는 하루 한 번뿐인 이 틱이 실패해도 나중에 확인할 방법이 없어서 D1 + 텔레그램에도 남김
             try { await logError(env, { source: 'closebet', message: e.message, stack: e.stack }); } catch (_) {}
+            try { await _tgDirect(env, `⚠️ 종가베팅 스캔 실패: ${e.message}`); } catch (_) {}
         }
     }
     try { console.log(`[cron] ${market} price`, await checkPriceAlerts(env)); }
