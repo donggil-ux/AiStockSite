@@ -931,7 +931,17 @@
     <div id="heatmapScreen" style="display:none;">
         <div class="catalyst-section">
             <div class="ht-filterbar">
-                <span class="ht-filter-market">미국 주식 전체</span>
+                <div class="ht-market-dd" id="heatmapMarketDd">
+                    <button class="ht-market-dd-btn" onclick="_heatmapToggleMarketDd(event)" type="button">
+                        <span id="heatmapMarketDdLabel">미국 주식 전체</span>
+                        <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="2 4 6 8 10 4"/></svg>
+                    </button>
+                    <div class="ht-market-dd-menu" id="heatmapMarketDdMenu" style="display:none;">
+                        <button class="ht-market-dd-item active" data-market="all" onclick="_heatmapSetMarket('all')">미국 주식 전체</button>
+                        <button class="ht-market-dd-item" data-market="nyse" onclick="_heatmapSetMarket('nyse')">NYSE</button>
+                        <button class="ht-market-dd-item" data-market="nasdaq" onclick="_heatmapSetMarket('nasdaq')">Nasdaq</button>
+                    </div>
+                </div>
                 <div class="catalyst-tabs ht-filter-tabs" id="heatmapRangeTabs">
                     <button class="catalyst-tab active" data-range="1d" onclick="_heatmapSetRange('1d')">1일</button>
                     <button class="catalyst-tab" data-range="1w" disabled title="더 많은 날짜 데이터가 쌓이면 지원 예정">1주</button>

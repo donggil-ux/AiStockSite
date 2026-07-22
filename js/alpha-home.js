@@ -7663,6 +7663,7 @@
     let _heatmapFlat = [];     // 현재 렌더된 평탄화 종목 배열 (툴팁의 섹터 동료 목록 조회용)
     let _heatmapTooltipEl = null;
     let _heatmapExtHours = false; // "시간외 거래 포함" 토글 — true면 프리/포스트마켓 반영 등락률 사용
+    let _heatmapMarket = 'all';   // 'all' | 'nyse' | 'nasdaq'
 
     // ponytail: 기간 탭(1주~3년)은 D1에 스냅샷이 하루치(오늘)뿐이라 아직 계산 불가 — 데이터 없는 값을 지어내지 않고
     //   HTML에서 disabled 처리해둠. 크론이 며칠 쌓이면 snapshot_date 과거 조회로 활성화 가능.
@@ -7675,6 +7676,42 @@
         _heatmapExtHours = checked;
         _renderHeatmapChart();
     }
+
+    // Yahoo exchange 코드 → 버킷 (NMS/NGM/NGA/NCM=나스닥, NYQ/ASE=뉴욕 — server.js의 기존 미국거래소 화이트리스트와 동일)
+    const _NASDAQ_EXCHANGES = new Set(['NMS', 'NGM', 'NGA', 'NCM']);
+    const _NYSE_EXCHANGES = new Set(['NYQ', 'ASE']);
+    function _heatmapMarketMatch(exchange) {
+        if (_heatmapMarket === 'all') return true;
+        if (_heatmapMarket === 'nasdaq') return _NASDAQ_EXCHANGES.has(exchange);
+        if (_heatmapMarket === 'nyse') return _NYSE_EXCHANGES.has(exchange);
+        return true;
+    }
+
+    const _HEATMAP_MARKET_LABEL = { all: '미국 주식 전체', nyse: 'NYSE', nasdaq: 'Nasdaq' };
+    function _heatmapSetMarket(market) {
+        _heatmapMarket = market;
+        const label = document.getElementById('heatmapMarketDdLabel');
+        if (label) label.textContent = _HEATMAP_MARKET_LABEL[market] || market;
+        document.querySelectorAll('#heatmapMarketDdMenu .ht-market-dd-item').forEach(b =>
+            b.classList.toggle('active', b.dataset.market === market));
+        _heatmapCloseMarketDd();
+        _renderHeatmapChart();
+    }
+
+    function _heatmapToggleMarketDd(ev) {
+        if (ev) ev.stopPropagation();
+        const menu = document.getElementById('heatmapMarketDdMenu');
+        if (!menu) return;
+        menu.style.display = (menu.style.display === 'none' || !menu.style.display) ? 'flex' : 'none';
+    }
+    function _heatmapCloseMarketDd() {
+        const menu = document.getElementById('heatmapMarketDdMenu');
+        if (menu) menu.style.display = 'none';
+    }
+    document.addEventListener('click', (e) => {
+        const dd = document.getElementById('heatmapMarketDd');
+        if (dd && !dd.contains(e.target)) _heatmapCloseMarketDd();
+    });
 
     function _heatmapPct(stock) {
         return _heatmapExtHours ? (stock.extChangePct ?? stock.changePct) : stock.changePct;
@@ -7750,6 +7787,7 @@
         const flat = [];
         for (const s of _heatmapData.sectors || []) {
             for (const st of s.stocks || []) {
+                if (!_heatmapMarketMatch(st.exchange)) continue;
                 flat.push({
                     sectorLabel: s.sectorLabel,
                     symbol: st.symbol,

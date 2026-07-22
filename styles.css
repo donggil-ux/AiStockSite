@@ -7407,7 +7407,12 @@
 .catalyst-loading,.catalyst-empty{padding:40px 16px;text-align:center;color:var(--text2);font-size:14px;}
 /* 섹터 히트맵 — 상단 필터 바 (기간 탭 + 시간외 거래 토글) */
 .ht-filterbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:0 16px 10px;}
-.ht-filter-market{font-size:12.5px;font-weight:600;color:var(--text2);flex-shrink:0;}
+.ht-market-dd{position:relative;flex-shrink:0;}
+.ht-market-dd-btn{display:flex;align-items:center;gap:4px;padding:5px 10px;border:1px solid var(--border);background:var(--bg2);color:var(--text2);border-radius:var(--radius-md);font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;}
+.ht-market-dd-menu{position:absolute;top:calc(100% + 4px);left:0;z-index:20;min-width:140px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:0 12px 32px rgba(0,0,0,.25);padding:4px;display:flex;flex-direction:column;}
+.ht-market-dd-item{padding:8px 10px;border:none;background:transparent;color:var(--text2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;text-align:left;cursor:pointer;}
+.ht-market-dd-item:hover{background:var(--bg3);}
+.ht-market-dd-item.active{color:var(--blue);font-weight:700;}
 .ht-filter-tabs{flex:1 1 auto;min-width:0;}
 .ht-filter-tabs .catalyst-tab:disabled{opacity:.35;cursor:not-allowed;}
 .ht-filter-toggle{display:flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0;}
