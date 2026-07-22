@@ -7853,6 +7853,7 @@
                         display: true,
                         color: '#fff',
                         font: { size: 15, weight: 'bold' }, // 기존 12 → 15 (+25%)
+                        overflow: 'fit', // 박스가 라벨보다 작으면 폰트를 비례 축소(Chart.js treemap 내장 기능) — 기본값 'cut'은 그냥 잘림
                         formatter(c) {
                             if (c.raw?.l !== 1) return '';
                             const stock = c.raw._data.children[0];
