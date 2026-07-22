@@ -3704,6 +3704,7 @@
         const _bn = document.getElementById('bottomNav');
         if (_bn) _bn.style.display = '';
         document.body.classList.remove('stock-pager-active');
+        document.body.classList.remove('heatmap-wide'); // 히트맵 외 화면으로 이동 시 와이드 레이아웃 해제
     }
 
     function goSmartMoney() {
@@ -7727,6 +7728,7 @@
         const qnavEl = document.getElementById('headerQNav'); if (qnavEl) qnavEl.style.display = 'none';
         document.getElementById('mainContent').style.display = 'none';
         document.getElementById('heatmapScreen').style.display = '';
+        document.body.classList.add('heatmap-wide'); // 데스크탑에서 트리맵을 .app(1140px) 밖으로 넓게 — _restoreHeaderChrome()에서 해제
         // stopAlpacaWS()의 onclose가 5초 후 currentSymbol이 그대로면 자동 재연결하므로, 반드시 먼저 비워야 함
         currentSymbol = '';
         if (typeof stopAlpacaWS === 'function') stopAlpacaWS();
