@@ -10,6 +10,10 @@ const HEALTH_CHECK_KEY      = 'paper_health_last_check'; // KV — 마지막 진
 const HEALTH_CHECK_INTERVAL = 60 * 60 * 1000;            // 1시간에 한 번만 진단 (5분 크론에 얹혀서 호출되므로 자체 게이트 필요)
 const WATCHDOG_ALERT_KEY      = 'cron_watchdog_last_alert'; // KV — 워치독 알림 중복 방지
 const WATCHDOG_ALERT_COOLDOWN = 2 * 60 * 60 * 1000;         // 같은 문제로 2시간 내 재알림 안 함
+// index.js runFiveMinJob()이 매 틱 시작 시 쓰는 KV 락 키(형식 반드시 동일하게 유지) —
+// dt_signals가 조용해도 이게 최근이면 "크론은 살아있는데 신규 시그널이 없었을 뿐"으로 판단
+const FIVE_MIN_HEARTBEAT_KEY      = '5min-lock:US';
+const FIVE_MIN_HEARTBEAT_FRESH_MS = 10 * 60 * 1000; // 10분 이내면 살아있다고 봄
 
 export const DEFAULT_PARAMS = {
     min_rvol:            1.0,      // 최소 RVOL (사용자 요청으로 완화 — 거래량 다소 부족해도 진입 허용)
@@ -290,7 +294,10 @@ export async function paperHealthCheck(env) {
 /**
  * 5분 크론(8-21시, 5분마다) 워치독 — 별도로 살아있는 매시 :30 크론에서 호출.
  * Cloudflare 쪽에서 그 크론 자체가 통째로 발화를 멈추면 paperHealthCheck도 같이 죽으므로,
- * 완전히 다른 트리거에서 "최근 신호 캡처(dt_signals)가 있었는지"만 확인해 크론 자체의 생사를 감시한다.
+ * 완전히 다른 트리거에서 감시한다. 1차로 "최근 신호 캡처(dt_signals)가 있었는지"를 보되,
+ * 조용해도 크론 자체가 진짜 살아있으면(하트비트 최근) 오탐으로 보고 알림을 보내지 않는다 —
+ * 신규 S/A급 시그널이 없는 조용한 장(예: 오후 횡보)에서도 dt_signals는 며칠씩 조용할 수 있어서
+ * dt_signals 하나만 보면 "크론 죽음"과 "그냥 조용함"을 구분 못 함.
  */
 export async function cronWatchdog(env) {
     try {
@@ -303,6 +310,13 @@ export async function cronWatchdog(env) {
         const since = Date.now() - 65 * 60 * 1000; // 최근 65분 (워치독 실행 간격 60분 + 여유 5분)
         const row = await env.DB.prepare("SELECT COUNT(*) c FROM dt_signals WHERE created_at>?").bind(since).first();
         if ((row?.c || 0) > 0) return { ok: true };
+
+        if (env.CACHE) {
+            const heartbeat = await env.CACHE.get(FIVE_MIN_HEARTBEAT_KEY);
+            if (heartbeat && Date.now() - Number(heartbeat) < FIVE_MIN_HEARTBEAT_FRESH_MS) {
+                return { ok: true, quiet_signals: true }; // 크론은 최근에도 돌았음 — 그냥 조용한 구간
+            }
+        }
 
         if (env.CACHE) {
             const last = await env.CACHE.get(WATCHDOG_ALERT_KEY);
