@@ -423,7 +423,7 @@ export async function captureCloseBetSignals(env) {
         await paperOpenTrade(env, {
             userId: acct.user_id, symbol, category, style: 'closebet',
             dir: 'long', price: sig.price, qty,
-            grade: sig.grade, score: sig.qualityScore, stopPrice: sig.stop,
+            grade: sig.grade, score: sig.qualityScore, stopPrice: null, // 전 종목 공통 고정 -3% 손절로 통일
             reason: (sig.reasons || []).join(' / '),
             mode: 'closebet', outlookDir: 'long',
         });
@@ -686,11 +686,9 @@ async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, se
     // 매매 우선순위: ① 대응 레버리지/인버스 ETF가 실제 존재하고 유동성(거래대금 $3M 이상)이 충분하면 ETF 매매
     //              ② ETF가 없거나 유동성이 부족하면 개별 종목 매매 — 항상 1개 포지션만 연다
     const isAlreadyEtf = LEVERAGED_ETFS.has(r.symbol) || INVERSE_ETFS.has(r.symbol);
-    // 손절가: 신호의 ATR 기반 손절(r.stop, ATR×1.2)을 day/swing 모두 사용.
-    // 예전엔 day만 고정 -0.8%로 대체했는데, 종목 변동성(ATR)을 무시해서
-    // ATR이 큰 종목은 정상 노이즈에도 바로 손절당하는 문제가 있었음 —
-    // paperOpenTrade의 stopValid 검증이 방향 이상 시 자동으로 -0.8% 폴백하니 안전망은 유지됨.
-    let leg = { symbol: r.symbol, dir: isShortSignal ? 'short' : 'long', price: r.price, category, stopPrice: r.stop };
+    // 손절가: ATR 기반 변동 손절 대신 전 종목 공통 고정 -3%(paper-engine.js STOP_FROM_FIRST)로 통일 —
+    // stopPrice를 null로 두면 paperOpenTrade가 자동으로 고정 -3% 손절을 적용함.
+    let leg = { symbol: r.symbol, dir: isShortSignal ? 'short' : 'long', price: r.price, category, stopPrice: null };
 
     if (!isAlreadyEtf) {
         const etfPair = STOCK_ETF_MAP[r.symbol];

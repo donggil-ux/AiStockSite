@@ -517,7 +517,7 @@ async function _manualBuy(env, symbol) {
     if (!acct) { await _tgDirect(env, '❌ 계좌 없음'); return; }
 
     const category = classifySymbol(symbol, price, 0) || 'mid_small';
-    const qty = Math.floor((acct.day_position_size || 10000) * (2 / 3) / price); // 1차 2/3 트랜쉐 (단타 풀)
+    const qty = Math.floor((acct.day_position_size || 10000) * (TRANCHE_WEIGHTS[0] / TRANCHE_WEIGHT_SUM) / price); // 1차 트랜쉐 (단타 풀)
 
     const result = await paperOpenTrade(env, {
         userId: acct.user_id, symbol, category, style: 'day',

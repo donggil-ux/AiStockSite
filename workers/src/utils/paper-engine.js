@@ -1,18 +1,18 @@
 // 가상 매매 포지션 관리 엔진
-// 전문 단타 트레이더 전략 — 2분할 확인 진입 / 타이트 손절 -0.8% / R:R 3:1 목표
+// 전문 단타 트레이더 전략 — 3분할 확인 진입 / 손절 -3% / R:R 3:1 목표
 
 import { yfRequest } from './crumb.js';
 import { sendPush } from './vapid.js';
 import { LEVERAGED_ETFS, INVERSE_ETFS } from './paper-category.js';
 
-// 전문 단타 진입: 1차(67%) 즉시, 2차(33%) -0.2% 눌림 확인
-// 물타기 금지 — 손절은 빠르고, 이기는 매매는 길게
-export const TRANCHE_TRIGGERS = [0, 0.998]; // 1차 즉시, 2차 -0.2%
-export const MAX_TRANCHE        = 2;
-export const TRANCHE_WEIGHTS    = [2, 1]; // 1차 2유닛(67%), 2차 1유닛(33%)
-export const TRANCHE_WEIGHT_SUM = 3;
-// 손절: first_price -0.8% (타이트) — 2차 분할(-0.2%)보다 0.6% 더 낮아야 2차가 먼저 실행됨
-const STOP_FROM_FIRST = 0.992;
+// 3분할 진입: 1차(50%) 즉시, 2차(25%) -0.2% 눌림, 3차(25%) -1.5% 추가 눌림
+// 3차까지 채운 뒤에도 더 빠지면 first_price -3%에서 손절 (물타기는 3번까지만 허용)
+export const TRANCHE_TRIGGERS = [0, 0.998, 0.985]; // 1차 즉시, 2차 -0.2%, 3차 -1.5%
+export const MAX_TRANCHE        = 3;
+export const TRANCHE_WEIGHTS    = [2, 1, 1]; // 1차 2유닛(50%), 2차 1유닛(25%), 3차 1유닛(25%)
+export const TRANCHE_WEIGHT_SUM = 4;
+// 손절: first_price -3% — 3차 분할(-1.5%)보다 더 낮아야 3차가 먼저 실행됨
+const STOP_FROM_FIRST = 0.97;
 
 // ─── 롱 익절 전략 ────────────────────────────────────────────────────
 // 단타: +1% / +2.5% / +5% + 트레일 -0.5%  (리스크 0.8% → R:R 3:1)
