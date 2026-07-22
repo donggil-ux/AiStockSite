@@ -7730,6 +7730,8 @@
                 flat.push({
                     sectorLabel: s.sectorLabel,
                     symbol: st.symbol,
+                    companyName: st.company_name,
+                    price: st.price,
                     value: st.market_cap || 1,
                     changePct: st.day_change_pct,
                 });
@@ -7777,7 +7779,20 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        filter: (item) => item.raw?.l === 1,
+                        callbacks: {
+                            title: (items) => items[0]?.raw?._data?.children?.[0]?.companyName || items[0]?.raw?._data?.children?.[0]?.symbol || '',
+                            label(item) {
+                                const d = item.raw._data.children[0];
+                                const chg = d.changePct != null ? `${d.changePct >= 0 ? '+' : ''}${d.changePct.toFixed(2)}%` : '';
+                                return [`${d.symbol} ${d.price != null ? '$' + d.price.toFixed(2) : ''} ${chg}`.trim()];
+                            },
+                        },
+                    },
+                },
                 onClick(evt, elements) {
                     if (!elements.length) return;
                     const el = _heatmapChart.data.datasets[0].data[elements[0].index];
