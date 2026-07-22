@@ -7718,6 +7718,18 @@
         return _heatmapExtHours ? (stock.extChangePct ?? stock.changePct) : stock.changePct;
     }
 
+    // 캔버스 wrap 을 헤더/필터바 아래 남는 뷰포트 높이만큼 채움 — 고정 vh 대신 실측
+    // (헤더 높이가 브레이크포인트마다 달라 CSS calc()로는 정확한 매직넘버를 잡기 어려움)
+    function _heatmapFitHeight() {
+        const wrap = document.getElementById('heatmapCanvasWrap');
+        if (!wrap || document.getElementById('heatmapScreen').style.display === 'none') return;
+        const top = wrap.getBoundingClientRect().top;
+        const sectionBottomPad = 32; // .catalyst-section 하단 패딩
+        const h = Math.max(420, window.innerHeight - top - sectionBottomPad - 8);
+        wrap.style.height = h + 'px';
+    }
+    window.addEventListener('resize', () => _heatmapFitHeight(), { passive: true });
+
     function goHeatmap() {
         window._lastScreen = 'heatmap';
         _restoreHeaderChrome();
@@ -7738,6 +7750,7 @@
         document.getElementById('stockHero').classList.remove('show');
         document.getElementById('tabNav').classList.remove('show');
         updateBnActive('all');
+        _heatmapFitHeight();
         loadHeatmap(false);
         try { window.scrollTo(0, 0); } catch (e) {}
     }
