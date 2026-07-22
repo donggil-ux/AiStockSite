@@ -41,6 +41,8 @@ import { handleCatalystLiveStats, captureCatalystSignals, resolveCatalystSignals
 import { checkPriceAlerts, earningsReminder, analyzeSignals, resolveSignals } from './cron.js';
 import { runDailyGrowthScan } from './utils/growth-scorer.js';
 import { handleGrowthSectorHeat, handleGrowthRecommendations, handleGrowthCompany, handleGrowthScanNow } from './routes/growth.js';
+import { handleHeatmap, handleHeatmapScanNow } from './routes/heatmap.js';
+import { getStockHeatmap } from './utils/stock-heatmap.js';
 import { json, err } from './utils/validators.js';
 
 // CORS — 환경변수 ALLOWED_ORIGINS (콤마 구분) 에 등록된 origin 만 허용.
@@ -138,6 +140,9 @@ const ROUTES = [
     ['GET',    '/api/growth/recommendations', handleGrowthRecommendations],
     ['GET',    '/api/growth/company/:symbol', handleGrowthCompany],
     ['POST',   '/api/admin/growth-scan-now',  handleGrowthScanNow],
+    // 섹터 히트맵 (D1 읽기 전용)
+    ['GET',    '/api/heatmap',                 handleHeatmap],
+    ['POST',   '/api/admin/heatmap-scan-now',  handleHeatmapScanNow],
     // 가상 매매
     ['GET',    '/api/paper/account',        handlePaperTrading],
     ['GET',    '/api/paper/trades',         handlePaperTrading],
@@ -226,6 +231,11 @@ export default {
                 env.DB.prepare('DELETE FROM growth_recommendations WHERE created_at < ?')
                     .bind(Date.now() - 180 * 24 * 3600 * 1000).run()
                     .then(r => console.log('[cron] growth-prune', r?.meta?.changes ?? 0)).catch(() => {}),
+                // 섹터 히트맵 — 종목 레벨 시총/등락률 갱신 (배치 시세 조회, ~3회 요청)
+                getStockHeatmap(env).then(r => console.log('[cron] stock-heatmap', r.length)).catch(e => console.error('[cron] stock-heatmap err', e.message)),
+                env.DB.prepare('DELETE FROM stock_heatmap WHERE created_at < ?')
+                    .bind(Date.now() - 30 * 24 * 3600 * 1000).run()
+                    .then(r => console.log('[cron] heatmap-prune', r?.meta?.changes ?? 0)).catch(() => {}),
             ];
             // 일요일 (getUTCDay === 0) 이면 알고리즘 보정도 함께 실행
             if (new Date(event.scheduledTime || Date.now()).getUTCDay() === 0) {
