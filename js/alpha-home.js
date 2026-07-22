@@ -7660,6 +7660,8 @@
     // ════════════════════════════════════════════════════════════════
     let _heatmapData = null;   // { snapshotDate, sectors: [{sectorEtf, sectorLabel, heatScore, stocks:[...]}] }
     let _heatmapChart = null;
+    let _heatmapFlat = [];     // 현재 렌더된 평탄화 종목 배열 (툴팁의 섹터 동료 목록 조회용)
+    let _heatmapTooltipEl = null;
 
     function goHeatmap() {
         window._lastScreen = 'heatmap';
@@ -7738,6 +7740,7 @@
             }
         }
 
+        _heatmapFlat = flat;
         if (_heatmapChart) { _heatmapChart.destroy(); _heatmapChart = null; }
         const ctx = canvasEl.getContext('2d');
         _heatmapChart = new Chart(ctx, {
@@ -7781,17 +7784,7 @@
                 maintainAspectRatio: false,
                 plugins: {
                     legend: { display: false },
-                    tooltip: {
-                        filter: (item) => item.raw?.l === 1,
-                        callbacks: {
-                            title: (items) => items[0]?.raw?._data?.children?.[0]?.companyName || items[0]?.raw?._data?.children?.[0]?.symbol || '',
-                            label(item) {
-                                const d = item.raw._data.children[0];
-                                const chg = d.changePct != null ? `${d.changePct >= 0 ? '+' : ''}${d.changePct.toFixed(2)}%` : '';
-                                return [`${d.symbol} ${d.price != null ? '$' + d.price.toFixed(2) : ''} ${chg}`.trim()];
-                            },
-                        },
-                    },
+                    tooltip: { enabled: false, external: _heatmapTooltipHandler },
                 },
                 onClick(evt, elements) {
                     if (!elements.length) return;
@@ -7801,6 +7794,57 @@
                 },
             },
         });
+    }
+
+    // 히트맵 커스텀 호버 카드 — 섹터명 + 종목 상세 + 같은 섹터 동료 목록
+    // ponytail: 스파크라인/서브업종(예: "Technology Equipment") 분리는 데이터가 없어 생략.
+    //   스파크라인은 종목당 인트라데이 시세 추가 조회가 필요해 크론 서브리퀘스트 예산(50개)을 넘길 수 있음 —
+    //   필요하면 호버 시점에 심볼별로 지연 로딩(fetchRace)하는 방식으로 추가 가능.
+    function _pctStr(pct) {
+        return pct != null ? `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%` : '—';
+    }
+
+    function _heatmapTooltipHandler(context) {
+        const { chart, tooltip } = context;
+        if (!_heatmapTooltipEl) {
+            _heatmapTooltipEl = document.createElement('div');
+            _heatmapTooltipEl.className = 'heatmap-tooltip';
+            chart.canvas.parentNode.appendChild(_heatmapTooltipEl);
+        }
+        const el = _heatmapTooltipEl;
+        const raw = tooltip.dataPoints?.[0]?.raw;
+        const stock = raw?.l === 1 ? raw._data?.children?.[0] : null;
+        if (tooltip.opacity === 0 || !stock) { el.style.opacity = 0; return; }
+
+        const siblings = _heatmapFlat
+            .filter(s => s.sectorLabel === stock.sectorLabel)
+            .sort((a, b) => (b.value || 0) - (a.value || 0));
+
+        el.innerHTML = `
+            <div class="ht-head">${stock.sectorLabel}</div>
+            <div class="ht-main">
+                <div class="ht-main-top">
+                    <span class="ht-main-sym">${stock.symbol}</span>
+                    <span class="ht-chg-badge ${stock.changePct >= 0 ? 'up' : 'down'}">${_pctStr(stock.changePct)}</span>
+                </div>
+                <div class="ht-main-name">${stock.companyName || ''}</div>
+                <div class="ht-main-price">${stock.price != null ? '$' + stock.price.toFixed(2) : ''}</div>
+            </div>
+            <div class="ht-list">${siblings.map(s => `
+                <div class="ht-row${s.symbol === stock.symbol ? ' active' : ''}">
+                    <span class="ht-row-sym">${s.symbol}</span>
+                    <span class="ht-row-price">${s.price != null ? '$' + s.price.toFixed(2) : '—'}</span>
+                    <span class="ht-row-chg ${s.changePct >= 0 ? 'up' : 'down'}">${_pctStr(s.changePct)}</span>
+                </div>`).join('')}</div>
+        `;
+        el.style.opacity = 1;
+
+        const parentW = chart.canvas.parentNode.clientWidth;
+        const tw = 260;
+        let x = chart.canvas.offsetLeft + tooltip.caretX + 14;
+        if (x + tw > parentW) x = chart.canvas.offsetLeft + tooltip.caretX - tw - 14;
+        el.style.left = Math.max(0, x) + 'px';
+        el.style.top = (chart.canvas.offsetTop + tooltip.caretY + 10) + 'px';
     }
 
     // 홈 화면 성장주 발굴 미리보기 — 상위 5개만 간략히, 전체는 goGrowth()에서
