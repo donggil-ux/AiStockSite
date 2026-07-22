@@ -28,6 +28,7 @@
     <meta name="clerk-publishable-key" content="pk_test_cmVsYXhpbmctY29sdC0yNS5jbGVyay5hY2NvdW50cy5kZXYk">
     <title>StockAI - 주식 종목 분석</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@2.3.0/dist/chartjs-chart-treemap.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js"></script>
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
@@ -96,6 +97,11 @@
                     <span class="side-nav-item-icon"><i class="ri-seedling-fill"></i></span>
                     <span class="side-nav-item-text">성장주 발굴</span>
                     <span class="side-nav-item-sub">업종+재무+수급</span>
+                </button>
+                <button class="side-nav-item" id="sideNavHeatmapBtn" onclick="goHeatmap();closeSideNav();">
+                    <span class="side-nav-item-icon"><i class="ri-grid-fill"></i></span>
+                    <span class="side-nav-item-text">섹터 히트맵</span>
+                    <span class="side-nav-item-sub">시총·등락률</span>
                 </button>
                 <button class="side-nav-item" id="sideNavStatsBtn" onclick="openSignalStats();closeSideNav();">
                     <span class="side-nav-item-icon"><i class="ri-line-chart-fill"></i></span>
@@ -918,6 +924,26 @@
             <div class="catalyst-list" id="growthList">
                 <div class="catalyst-loading">성장주 데이터 불러오는 중...</div>
             </div>
+        </div>
+    </div>
+
+    <!-- ===== 섹터 히트맵 ===== goHeatmap() -->
+    <div id="heatmapScreen" style="display:none;">
+        <div class="catalyst-section">
+            <div class="catalyst-header">
+                <div>
+                    <div class="catalyst-title" id="heatmapTitle">섹터 히트맵</div>
+                    <div class="catalyst-sub">시가총액 크기 · 등락률 색상 (클릭해서 종목 상세 보기)</div>
+                </div>
+                <div class="catalyst-meta">
+                    <span class="catalyst-updated" id="heatmapUpdated"></span>
+                    <button class="catalyst-refresh" id="heatmapRefreshBtn" onclick="loadHeatmap(true)" title="새로고침">🔄</button>
+                </div>
+            </div>
+            <div style="position:relative;width:100%;height:60vh;min-height:420px;padding:0 12px 12px;box-sizing:border-box;">
+                <canvas id="heatmapCanvas"></canvas>
+            </div>
+            <div class="catalyst-empty" id="heatmapEmpty" style="display:none;">히트맵 데이터 준비 중 — 다음 크론 이후 다시 확인해주세요.</div>
         </div>
     </div>
 

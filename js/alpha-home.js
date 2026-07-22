@@ -2010,6 +2010,7 @@
         const _t100F = document.getElementById('top100Screen'); if (_t100F) _t100F.style.display = 'none';
         const _catF  = document.getElementById('catalystScreen'); if (_catF) _catF.style.display = 'none';
         const _growF = document.getElementById('growthScreen'); if (_growF) _growF.style.display = 'none';
+        const _heatF = document.getElementById('heatmapScreen'); if (_heatF) _heatF.style.display = 'none';
         document.getElementById('favScreen').style.display = '';
         window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded'); const _fab=document.getElementById('calcFab'); if(_fab)_fab.style.display='none';
@@ -2049,6 +2050,7 @@
         const _t100 = document.getElementById('top100Screen'); if (_t100) _t100.style.display = 'none';
         const _catH = document.getElementById('catalystScreen'); if (_catH) _catH.style.display = 'none';
         const _growH = document.getElementById('growthScreen'); if (_growH) _growH.style.display = 'none';
+        const _heatH = document.getElementById('heatmapScreen'); if (_heatH) _heatH.style.display = 'none';
         const _dtsH = document.getElementById('dailyTradingScreen'); if (_dtsH) _dtsH.style.display = 'none';
         const _ernH = document.getElementById('earningsScreen'); if (_ernH) _ernH.style.display = 'none';
         const _levH = document.getElementById('leverageScreen'); if (_levH) _levH.style.display = 'none';
@@ -3718,6 +3720,7 @@
         const _t100SM = document.getElementById('top100Screen'); if (_t100SM) _t100SM.style.display = 'none';
         document.getElementById('catalystScreen')?.style && (document.getElementById('catalystScreen').style.display = 'none');
         document.getElementById('growthScreen')?.style && (document.getElementById('growthScreen').style.display = 'none');
+        document.getElementById('heatmapScreen')?.style && (document.getElementById('heatmapScreen').style.display = 'none');
         const _posSM = document.getElementById('positionScreen'); if (_posSM) _posSM.style.display = 'none';
         document.getElementById('smartMoneyScreen').style.display = '';
         window._vsActive = false;
@@ -3752,6 +3755,7 @@
         const _t100S = document.getElementById('top100Screen'); if (_t100S) _t100S.style.display = 'none';
         const _catS  = document.getElementById('catalystScreen'); if (_catS) _catS.style.display = 'none';
         const _growS = document.getElementById('growthScreen'); if (_growS) _growS.style.display = 'none';
+        const _heatS = document.getElementById('heatmapScreen'); if (_heatS) _heatS.style.display = 'none';
         document.getElementById('alphaScannerScreen').style.display = '';
         window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded'); const _fab=document.getElementById('calcFab'); if(_fab)_fab.style.display='none';
@@ -6954,7 +6958,7 @@
     // ── 내 포지션 탭 ─────────────────────────────────────────────
     function goMyPosition() {
         window._lastScreen = 'position';
-        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','leverageScreen','top100Screen','catalystScreen','earningsScreen','growthScreen'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
+        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','leverageScreen','top100Screen','catalystScreen','earningsScreen','growthScreen','heatmapScreen'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
         const mc=document.getElementById('mainContent'); if(mc) mc.style.display='none';
         const eco=document.getElementById('economicSection'); if(eco) eco.style.display='none';
         const thermo=document.getElementById('marketThermometer'); if(thermo) thermo.style.display='none';
@@ -7092,6 +7096,7 @@
         const _t100E = document.getElementById('top100Screen'); if (_t100E) _t100E.style.display = 'none';
         const _catE  = document.getElementById('catalystScreen'); if (_catE) _catE.style.display = 'none';
         const _growE = document.getElementById('growthScreen'); if (_growE) _growE.style.display = 'none';
+        const _heatE = document.getElementById('heatmapScreen'); if (_heatE) _heatE.style.display = 'none';
         const _dtsE = document.getElementById('dailyTradingScreen'); if (_dtsE) _dtsE.style.display = 'none';
         const ecoEl = document.getElementById('economicSection');
         if (ecoEl) ecoEl.style.display = 'none';
@@ -7491,6 +7496,7 @@
         const _lev = document.getElementById('leverageScreen'); if (_lev) _lev.style.display = 'none';
         const _cat = document.getElementById('catalystScreen'); if (_cat) _cat.style.display = 'none';
         const _grow = document.getElementById('growthScreen'); if (_grow) _grow.style.display = 'none';
+        const _heat = document.getElementById('heatmapScreen'); if (_heat) _heat.style.display = 'none';
         const ecoEl = document.getElementById('economicSection');
         if (ecoEl) ecoEl.style.display = 'none';
         const _posT = document.getElementById('positionScreen'); if (_posT) _posT.style.display = 'none';
@@ -7520,7 +7526,7 @@
     function goCatalyst() {
         window._lastScreen = 'catalyst';
         _restoreHeaderChrome();
-        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen','growthScreen']
+        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen','growthScreen','heatmapScreen']
             .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
         const ecoEl = document.getElementById('economicSection'); if (ecoEl) ecoEl.style.display = 'none';
         const thermoEl = document.getElementById('marketThermometer'); if (thermoEl) thermoEl.style.display = 'none';
@@ -7545,7 +7551,7 @@
     function goGrowth() {
         window._lastScreen = 'growth';
         _restoreHeaderChrome();
-        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen','growthScreen']
+        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen','growthScreen','heatmapScreen']
             .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
         const ecoEl = document.getElementById('economicSection'); if (ecoEl) ecoEl.style.display = 'none';
         const thermoEl = document.getElementById('marketThermometer'); if (thermoEl) thermoEl.style.display = 'none';
@@ -7648,6 +7654,140 @@
         listEl.innerHTML = picks.map((p, i) => _growthRowHtml(p, i, 4)).join('');
     }
 
+    // ════════════════════════════════════════════════════════════════
+    // 섹터 히트맵 — 시총 크기 + 등락률 색상 트리맵 (Chart.js treemap groups 기능으로
+    // 섹터 헤더 + 종목 박스를 한 화면에 동시 표시 — valley.town 스타일)
+    // ════════════════════════════════════════════════════════════════
+    let _heatmapData = null;   // { snapshotDate, sectors: [{sectorEtf, sectorLabel, heatScore, stocks:[...]}] }
+    let _heatmapChart = null;
+
+    function goHeatmap() {
+        window._lastScreen = 'heatmap';
+        _restoreHeaderChrome();
+        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen','growthScreen','heatmapScreen']
+            .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+        const ecoEl = document.getElementById('economicSection'); if (ecoEl) ecoEl.style.display = 'none';
+        const thermoEl = document.getElementById('marketThermometer'); if (thermoEl) thermoEl.style.display = 'none';
+        const qnavEl = document.getElementById('headerQNav'); if (qnavEl) qnavEl.style.display = 'none';
+        document.getElementById('heatmapScreen').style.display = '';
+        window._vsActive = false;
+        document.getElementById('mainHeader')?.classList.remove('stock-loaded');
+        const _fab = document.getElementById('calcFab'); if (_fab) _fab.style.display = 'none';
+        document.getElementById('stockHero').classList.remove('show');
+        document.getElementById('tabNav').classList.remove('show');
+        updateBnActive('all');
+        loadHeatmap(false);
+        try { window.scrollTo(0, 0); } catch (e) {}
+    }
+
+    async function loadHeatmap(forceRefresh) {
+        const emptyEl = document.getElementById('heatmapEmpty');
+        const canvasEl = document.getElementById('heatmapCanvas');
+        if (!canvasEl) return;
+        if (!_heatmapData || forceRefresh) {
+            try {
+                const r = await fetch('/api/heatmap');
+                if (!r.ok) throw new Error('http ' + r.status);
+                _heatmapData = await r.json();
+            } catch (e) {
+                warn('[heatmap]', e);
+                if (emptyEl) { emptyEl.style.display = ''; emptyEl.textContent = '히트맵 데이터 조회 실패'; }
+                return;
+            }
+        }
+        const updEl = document.getElementById('heatmapUpdated');
+        if (updEl) updEl.textContent = _heatmapData.snapshotDate ? `기준일 ${_heatmapData.snapshotDate}` : '';
+
+        const sectors = _heatmapData.sectors || [];
+        if (!sectors.length) {
+            if (emptyEl) emptyEl.style.display = '';
+            return;
+        }
+        if (emptyEl) emptyEl.style.display = 'none';
+        _renderHeatmapChart();
+    }
+
+    // 등락률(%) → 빨강(하락)~초록(상승) 색상 보간, 0%는 어둡게 (±3% clamp, valley.town 스타일)
+    function _heatColor(pct) {
+        const p = pct == null ? 0 : Math.max(-3, Math.min(3, pct));
+        const t = Math.sign(p) * Math.pow(Math.abs(p) / 3, 0.55); // 작은 변동도 잘 보이도록 완만한 지수 보정
+        if (t >= 0) {
+            return `rgb(${Math.round(38 - 18 * t)}, ${Math.round(45 + 110 * t)}, ${Math.round(48 - 8 * t)})`;
+        }
+        const a = -t;
+        return `rgb(${Math.round(45 + 105 * a)}, ${Math.round(30 - 10 * a)}, ${Math.round(32 - 10 * a)})`;
+    }
+
+    // 모든 섹터의 모든 종목을 한 배열로 평탄화 — Chart.js treemap의 groups:['sectorLabel','symbol']
+    // 기능으로 섹터 헤더 + 종목 리프 박스를 클릭/드릴다운 없이 한 화면에 동시 렌더링
+    function _renderHeatmapChart() {
+        const canvasEl = document.getElementById('heatmapCanvas');
+        if (!canvasEl || !_heatmapData) return;
+
+        const flat = [];
+        for (const s of _heatmapData.sectors || []) {
+            for (const st of s.stocks || []) {
+                flat.push({
+                    sectorLabel: s.sectorLabel,
+                    symbol: st.symbol,
+                    value: st.market_cap || 1,
+                    changePct: st.day_change_pct,
+                });
+            }
+        }
+
+        if (_heatmapChart) { _heatmapChart.destroy(); _heatmapChart = null; }
+        const ctx = canvasEl.getContext('2d');
+        _heatmapChart = new Chart(ctx, {
+            type: 'treemap',
+            data: {
+                datasets: [{
+                    tree: flat,
+                    key: 'value',
+                    groups: ['sectorLabel', 'symbol'],
+                    spacing: 1.5,
+                    borderWidth: (c) => c.raw?.l === 1 ? 1 : 2,
+                    borderColor: (c) => c.raw?.l === 1 ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.5)',
+                    backgroundColor(c) {
+                        const raw = c.raw;
+                        if (!raw) return 'rgba(150,150,150,0.5)';
+                        if (raw.l === 1) return _heatColor(raw._data?.children?.[0]?.changePct);
+                        return '#1a1f26'; // 섹터 헤더 스트립 배경 (어두운 톤으로 구분)
+                    },
+                    labels: {
+                        display: true,
+                        color: '#fff',
+                        font: { size: 12, weight: 'bold' },
+                        formatter(c) {
+                            if (c.raw?.l !== 1) return '';
+                            const chg = c.raw?._data?.children?.[0]?.changePct;
+                            const chgStr = chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '';
+                            return [c.raw._data.children[0].symbol, chgStr];
+                        },
+                    },
+                    captions: {
+                        display: true,
+                        color: '#d1d5db',
+                        font: { size: 12, weight: 'bold' },
+                        align: 'left',
+                        formatter: (c) => c.raw?.g || '',
+                    },
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                onClick(evt, elements) {
+                    if (!elements.length) return;
+                    const el = _heatmapChart.data.datasets[0].data[elements[0].index];
+                    const symbol = el?.l === 1 ? el?._data?.children?.[0]?.symbol : null;
+                    if (symbol) quickSearch(symbol, 'US');
+                },
+            },
+        });
+    }
+
     // 홈 화면 성장주 발굴 미리보기 — 상위 5개만 간략히, 전체는 goGrowth()에서
     async function loadGrowthHomePreview() {
         const listEl = document.getElementById('growthHomeList');
@@ -7678,7 +7818,7 @@
     function goDailyTrading() {
         window._lastScreen = 'dailyTrading';
         _restoreHeaderChrome();
-        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen','growthScreen']
+        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen','growthScreen','heatmapScreen']
             .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
         const ecoEl = document.getElementById('economicSection'); if (ecoEl) ecoEl.style.display = 'none';
         const thermoEl = document.getElementById('marketThermometer'); if (thermoEl) thermoEl.style.display = 'none';
@@ -7873,7 +8013,7 @@
         _pushRoute('profile');
         _restoreHeaderChrome();
         ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen',
-         'top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen','growthScreen']
+         'top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen','growthScreen','heatmapScreen']
             .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
         const ecoEl = document.getElementById('economicSection'); if (ecoEl) ecoEl.style.display = 'none';
         const thermoEl = document.getElementById('marketThermometer'); if (thermoEl) thermoEl.style.display = 'none';
@@ -12387,6 +12527,7 @@
             const _t100 = document.getElementById('top100Screen'); if (_t100) _t100.style.display = 'none';
             const _cat = document.getElementById('catalystScreen'); if (_cat) _cat.style.display = 'none';
             const _grow = document.getElementById('growthScreen'); if (_grow) _grow.style.display = 'none';
+            const _heat = document.getElementById('heatmapScreen'); if (_heat) _heat.style.display = 'none';
             const _ern = document.getElementById('earningsScreen'); if (_ern) _ern.style.display = 'none';
             const _lev = document.getElementById('leverageScreen'); if (_lev) _lev.style.display = 'none';
             const _pos = document.getElementById('positionScreen'); if (_pos) _pos.style.display = 'none';
