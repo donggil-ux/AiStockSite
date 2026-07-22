@@ -359,7 +359,11 @@ export async function runFiveMinJob(env, market, scheduledTime = Date.now()) {
         catch (e) { console.error('[cron] paper-health err', e.message); }
         // 종가베팅 — 장마감 직전(ET 15:55~16:00) 한 틱에서만 실제 실행 (함수 내부 시간 게이트)
         try { const cb = await captureCloseBetSignals(env); if (!cb.skipped) console.log('[cron] closebet', cb); }
-        catch (e) { console.error('[cron] closebet err', e.message); }
+        catch (e) {
+            console.error('[cron] closebet err', e.message);
+            // 콘솔 로그만으로는 하루 한 번뿐인 이 틱이 실패해도 나중에 확인할 방법이 없어서 D1에도 남김
+            try { await logError(env, { source: 'closebet', message: e.message, stack: e.stack }); } catch (_) {}
+        }
     }
     try { console.log(`[cron] ${market} price`, await checkPriceAlerts(env)); }
     catch (e) { console.error('[cron] price err', e.message); }
