@@ -6959,7 +6959,7 @@
     // ── 내 포지션 탭 ─────────────────────────────────────────────
     function goMyPosition() {
         window._lastScreen = 'position';
-        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','leverageScreen','top100Screen','catalystScreen','earningsScreen','growthScreen','heatmapScreen'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
+        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','leverageScreen','top100Screen','catalystScreen','earningsScreen','growthScreen','heatmapScreen','profileScreen'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
         const mc=document.getElementById('mainContent'); if(mc) mc.style.display='none';
         const eco=document.getElementById('economicSection'); if(eco) eco.style.display='none';
         const thermo=document.getElementById('marketThermometer'); if(thermo) thermo.style.display='none';
@@ -7527,7 +7527,7 @@
     function goCatalyst() {
         window._lastScreen = 'catalyst';
         _restoreHeaderChrome();
-        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen','growthScreen','heatmapScreen']
+        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen','growthScreen','heatmapScreen','profileScreen']
             .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
         const ecoEl = document.getElementById('economicSection'); if (ecoEl) ecoEl.style.display = 'none';
         const thermoEl = document.getElementById('marketThermometer'); if (thermoEl) thermoEl.style.display = 'none';
@@ -7552,7 +7552,7 @@
     function goGrowth() {
         window._lastScreen = 'growth';
         _restoreHeaderChrome();
-        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen','growthScreen','heatmapScreen']
+        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen','growthScreen','heatmapScreen','profileScreen']
             .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
         const ecoEl = document.getElementById('economicSection'); if (ecoEl) ecoEl.style.display = 'none';
         const thermoEl = document.getElementById('marketThermometer'); if (thermoEl) thermoEl.style.display = 'none';
@@ -7733,7 +7733,7 @@
     function goHeatmap() {
         window._lastScreen = 'heatmap';
         _restoreHeaderChrome();
-        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen','growthScreen','heatmapScreen']
+        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen','growthScreen','heatmapScreen','profileScreen']
             .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
         const ecoEl = document.getElementById('economicSection'); if (ecoEl) ecoEl.style.display = 'none';
         const thermoEl = document.getElementById('marketThermometer'); if (thermoEl) thermoEl.style.display = 'none';
@@ -7965,7 +7965,7 @@
     function goDailyTrading() {
         window._lastScreen = 'dailyTrading';
         _restoreHeaderChrome();
-        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen','growthScreen','heatmapScreen']
+        ['welcomeScreen','smartMoneyScreen','alphaScannerScreen','favScreen','visionScannerScreen','top100Screen','earningsScreen','leverageScreen','catalystScreen','positionScreen','growthScreen','heatmapScreen','profileScreen']
             .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
         const ecoEl = document.getElementById('economicSection'); if (ecoEl) ecoEl.style.display = 'none';
         const thermoEl = document.getElementById('marketThermometer'); if (thermoEl) thermoEl.style.display = 'none';
