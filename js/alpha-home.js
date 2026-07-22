@@ -3705,6 +3705,7 @@
         if (_bn) _bn.style.display = '';
         document.body.classList.remove('stock-pager-active');
         document.body.classList.remove('heatmap-wide'); // 히트맵 외 화면으로 이동 시 와이드 레이아웃 해제
+        if (_heatmapRefreshTimer) { clearInterval(_heatmapRefreshTimer); _heatmapRefreshTimer = null; } // 히트맵 자동 새로고침도 정지
     }
 
     function goSmartMoney() {
@@ -7665,6 +7666,7 @@
     let _heatmapTooltipEl = null;
     let _heatmapExtHours = false; // "시간외 거래 포함" 토글 — true면 프리/포스트마켓 반영 등락률 사용
     let _heatmapMarket = 'all';   // 'all' | 'nyse' | 'nasdaq'
+    let _heatmapRefreshTimer = null; // 1분마다 자동 새로고침 — 화면 벗어나면 _restoreHeaderChrome()에서 정지
 
     // ponytail: 기간 탭(1주~3년)은 D1에 스냅샷이 하루치(오늘)뿐이라 아직 계산 불가 — 데이터 없는 값을 지어내지 않고
     //   HTML에서 disabled 처리해둠. 크론이 며칠 쌓이면 snapshot_date 과거 조회로 활성화 가능.
@@ -7752,6 +7754,8 @@
         updateBnActive('all');
         _heatmapFitHeight();
         loadHeatmap(false);
+        if (_heatmapRefreshTimer) clearInterval(_heatmapRefreshTimer);
+        _heatmapRefreshTimer = setInterval(() => loadHeatmap(true), 60000); // 1분마다 실시간 새로고침
         try { window.scrollTo(0, 0); } catch (e) {}
     }
 
@@ -7848,7 +7852,7 @@
                     labels: {
                         display: true,
                         color: '#fff',
-                        font: { size: 12, weight: 'bold' },
+                        font: { size: 15, weight: 'bold' }, // 기존 12 → 15 (+25%)
                         formatter(c) {
                             if (c.raw?.l !== 1) return '';
                             const stock = c.raw._data.children[0];
@@ -7858,7 +7862,7 @@
                     captions: {
                         display: true,
                         color: '#d1d5db',
-                        font: { size: 12, weight: 'bold' },
+                        font: { size: 15, weight: 'bold' }, // 기존 12 → 15 (+25%)
                         align: 'left',
                         formatter: (c) => c.raw?.g || '',
                     },
