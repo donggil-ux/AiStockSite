@@ -331,6 +331,18 @@ export async function runFiveMinJob(env, market, scheduledTime = Date.now()) {
         console.log(`[cron] ${market} 장 시간 아님(주말/장외) — 스킵`);
         return { skipped: 'market_closed' };
     }
+    // Cloudflare Cron Trigger와 외부 크론(cron-job.org)이 같은 5분 틱에 둘 다 호출하면
+    // 가상매매/알림이 중복 실행돼 텔레그램 매매 메시지가 2번씩 나감 —
+    // 직전 실행이 90초 이내면 같은 틱으로 보고 스킵 (paperHealthCheck 와 동일한 KV 게이트 패턴)
+    if (env.CACHE) {
+        const lockKey = `5min-lock:${market}`;
+        const last = await env.CACHE.get(lockKey);
+        if (last && scheduledTime - Number(last) < 90 * 1000) {
+            console.log(`[cron] ${market} 5분틱 중복 호출 스킵 (직전 실행 ${scheduledTime - Number(last)}ms 전)`);
+            return { skipped: 'duplicate_tick' };
+        }
+        await env.CACHE.put(lockKey, String(scheduledTime), { expirationTtl: 240 });
+    }
     if (market === 'US') {
         try { console.log('[cron] dt-capture', await captureDailySignals(env)); }
         catch (e) {
