@@ -7662,6 +7662,23 @@
     let _heatmapChart = null;
     let _heatmapFlat = [];     // 현재 렌더된 평탄화 종목 배열 (툴팁의 섹터 동료 목록 조회용)
     let _heatmapTooltipEl = null;
+    let _heatmapExtHours = false; // "시간외 거래 포함" 토글 — true면 프리/포스트마켓 반영 등락률 사용
+
+    // ponytail: 기간 탭(1주~3년)은 D1에 스냅샷이 하루치(오늘)뿐이라 아직 계산 불가 — 데이터 없는 값을 지어내지 않고
+    //   HTML에서 disabled 처리해둠. 크론이 며칠 쌓이면 snapshot_date 과거 조회로 활성화 가능.
+    function _heatmapSetRange(range) {
+        document.querySelectorAll('#heatmapRangeTabs .catalyst-tab').forEach(b =>
+            b.classList.toggle('active', b.dataset.range === range));
+    }
+
+    function _heatmapToggleExtHours(checked) {
+        _heatmapExtHours = checked;
+        _renderHeatmapChart();
+    }
+
+    function _heatmapPct(stock) {
+        return _heatmapExtHours ? (stock.extChangePct ?? stock.changePct) : stock.changePct;
+    }
 
     function goHeatmap() {
         window._lastScreen = 'heatmap';
@@ -7671,7 +7688,11 @@
         const ecoEl = document.getElementById('economicSection'); if (ecoEl) ecoEl.style.display = 'none';
         const thermoEl = document.getElementById('marketThermometer'); if (thermoEl) thermoEl.style.display = 'none';
         const qnavEl = document.getElementById('headerQNav'); if (qnavEl) qnavEl.style.display = 'none';
+        document.getElementById('mainContent').style.display = 'none';
         document.getElementById('heatmapScreen').style.display = '';
+        // stopAlpacaWS()의 onclose가 5초 후 currentSymbol이 그대로면 자동 재연결하므로, 반드시 먼저 비워야 함
+        currentSymbol = '';
+        if (typeof stopAlpacaWS === 'function') stopAlpacaWS();
         window._vsActive = false;
         document.getElementById('mainHeader')?.classList.remove('stock-loaded');
         const _fab = document.getElementById('calcFab'); if (_fab) _fab.style.display = 'none';
@@ -7736,6 +7757,7 @@
                     price: st.price,
                     value: st.market_cap || 1,
                     changePct: st.day_change_pct,
+                    extChangePct: st.ext_change_pct,
                 });
             }
         }
@@ -7756,7 +7778,7 @@
                     backgroundColor(c) {
                         const raw = c.raw;
                         if (!raw) return 'rgba(150,150,150,0.5)';
-                        if (raw.l === 1) return _heatColor(raw._data?.children?.[0]?.changePct);
+                        if (raw.l === 1) return _heatColor(_heatmapPct(raw._data?.children?.[0] || {}));
                         return '#1a1f26'; // 섹터 헤더 스트립 배경 (어두운 톤으로 구분)
                     },
                     labels: {
@@ -7765,9 +7787,8 @@
                         font: { size: 12, weight: 'bold' },
                         formatter(c) {
                             if (c.raw?.l !== 1) return '';
-                            const chg = c.raw?._data?.children?.[0]?.changePct;
-                            const chgStr = chg != null ? `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%` : '';
-                            return [c.raw._data.children[0].symbol, chgStr];
+                            const stock = c.raw._data.children[0];
+                            return [stock.symbol, _pctStr(_heatmapPct(stock))];
                         },
                     },
                     captions: {
@@ -7822,22 +7843,23 @@
             .filter(s => s.sectorLabel === stock.sectorLabel)
             .sort((a, b) => (b.value || 0) - (a.value || 0));
 
+        const mainPct = _heatmapPct(stock);
         el.innerHTML = `
             <div class="ht-head">${stock.sectorLabel}</div>
             <div class="ht-main">
                 <div class="ht-main-top">
                     <span class="ht-main-sym">${stock.symbol}</span>
-                    <span class="ht-chg-badge ${stock.changePct >= 0 ? 'up' : 'down'}">${_pctStr(stock.changePct)}</span>
+                    <span class="ht-chg-badge ${mainPct >= 0 ? 'up' : 'down'}">${_pctStr(mainPct)}</span>
                 </div>
                 <div class="ht-main-name">${stock.companyName || ''}</div>
                 <div class="ht-main-price">${stock.price != null ? '$' + stock.price.toFixed(2) : ''}</div>
             </div>
-            <div class="ht-list">${siblings.map(s => `
+            <div class="ht-list">${siblings.map(s => { const p = _heatmapPct(s); return `
                 <div class="ht-row${s.symbol === stock.symbol ? ' active' : ''}">
                     <span class="ht-row-sym">${s.symbol}</span>
                     <span class="ht-row-price">${s.price != null ? '$' + s.price.toFixed(2) : '—'}</span>
-                    <span class="ht-row-chg ${s.changePct >= 0 ? 'up' : 'down'}">${_pctStr(s.changePct)}</span>
-                </div>`).join('')}</div>
+                    <span class="ht-row-chg ${p >= 0 ? 'up' : 'down'}">${_pctStr(p)}</span>
+                </div>`; }).join('')}</div>
         `;
         el.style.opacity = 1;
 

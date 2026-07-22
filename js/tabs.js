@@ -753,6 +753,10 @@
     // ========================================
     function stopAlpacaWS() {
         if (_alpacaWs) {
+            // onclose/onerror를 먼저 떼어내지 않으면 close() 직후 발생하는 close 이벤트가
+            // "WS 끊김" 뱃지를 다시 그리거나 재연결 타이머를 예약해버림 (의도적 종료이므로 둘 다 불필요)
+            _alpacaWs.onclose = null;
+            _alpacaWs.onerror = null;
             try { _alpacaWs.close(); } catch(e) {}
             _alpacaWs = null;
         }

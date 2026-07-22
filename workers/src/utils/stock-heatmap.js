@@ -27,6 +27,8 @@ export async function getStockHeatmap(env) {
                 companyName: meta.name || q.shortName || q.symbol,
                 marketCap: q.marketCap ?? null,
                 dayChangePct: q.regularMarketChangePercent ?? null,
+                // "시간외 거래 포함" 토글용 — 프리/포스트마켓이 열려있으면 그 등락률(전일 종가 대비), 아니면 정규장과 동일
+                extChangePct: q.postMarketChangePercent ?? q.preMarketChangePercent ?? q.regularMarketChangePercent ?? null,
                 price: q.regularMarketPrice ?? null,
             });
         }
@@ -36,12 +38,13 @@ export async function getStockHeatmap(env) {
     const snapshotDate = new Date().toISOString().slice(0, 10);
     const now = Date.now();
     await env.DB.batch(rows.map(r => env.DB.prepare(`
-        INSERT INTO stock_heatmap (snapshot_date,symbol,sector_etf,company_name,market_cap,day_change_pct,price,created_at)
-        VALUES (?,?,?,?,?,?,?,?)
+        INSERT INTO stock_heatmap (snapshot_date,symbol,sector_etf,company_name,market_cap,day_change_pct,ext_change_pct,price,created_at)
+        VALUES (?,?,?,?,?,?,?,?,?)
         ON CONFLICT(snapshot_date,symbol) DO UPDATE SET
           sector_etf=excluded.sector_etf, company_name=excluded.company_name,
-          market_cap=excluded.market_cap, day_change_pct=excluded.day_change_pct, price=excluded.price
-    `).bind(snapshotDate, r.symbol, r.sectorEtf, r.companyName, r.marketCap, r.dayChangePct, r.price, now)));
+          market_cap=excluded.market_cap, day_change_pct=excluded.day_change_pct,
+          ext_change_pct=excluded.ext_change_pct, price=excluded.price
+    `).bind(snapshotDate, r.symbol, r.sectorEtf, r.companyName, r.marketCap, r.dayChangePct, r.extChangePct, r.price, now)));
 
     return rows;
 }
