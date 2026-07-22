@@ -7413,7 +7413,7 @@
 .ht-market-dd-item{padding:8px 10px;border:none;background:transparent;color:var(--text2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;text-align:left;cursor:pointer;}
 .ht-market-dd-item:hover{background:var(--bg3);}
 .ht-market-dd-item.active{color:var(--blue);font-weight:700;}
-.ht-filter-tabs{flex:1 1 auto;min-width:0;}
+.ht-filter-tabs{flex:0 0 auto;} /* 알파 스캐너 탭처럼 내용만큼만 — 늘어나서 빈 회색 여백 생기지 않게 */
 .ht-filter-tabs .catalyst-tab:disabled{opacity:.35;cursor:not-allowed;}
 .ht-filter-toggle{display:flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0;}
 .ht-filter-toggle input{position:absolute;opacity:0;width:0;height:0;}
