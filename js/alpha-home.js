@@ -7800,6 +7800,17 @@
             }
         }
 
+        // 필터 결과가 0개인 경우("데이터 자체가 없음"과 구분) — 안내 문구만 보여주고 캔버스는 유지(전체로 되돌리면 다시 그려짐)
+        const emptyEl = document.getElementById('heatmapEmpty');
+        if (emptyEl) {
+            if (!flat.length && _heatmapMarket !== 'all') {
+                emptyEl.style.display = '';
+                emptyEl.textContent = `${_HEATMAP_MARKET_LABEL[_heatmapMarket]} 종목 데이터가 아직 없습니다 — 다음 갱신 이후 다시 확인해주세요.`;
+            } else {
+                emptyEl.style.display = 'none';
+            }
+        }
+
         _heatmapFlat = flat;
         if (_heatmapChart) { _heatmapChart.destroy(); _heatmapChart = null; }
         const ctx = canvasEl.getContext('2d');
