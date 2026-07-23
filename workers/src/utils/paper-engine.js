@@ -5,12 +5,13 @@ import { yfRequest } from './crumb.js';
 import { sendPush } from './vapid.js';
 import { LEVERAGED_ETFS, INVERSE_ETFS } from './paper-category.js';
 
-// 3분할 진입: 1차(50%) 즉시, 2차(25%) -0.2% 눌림, 3차(25%) -1.5% 추가 눌림
+// 3분할 진입(1:3:6 비중) — 1차(10%) 즉시, 2차(30%) -0.2% 눌림, 3차(60%) -1.5% 추가 눌림
+// 눌릴수록 더 크게 태우는 방식 — 최적가(3차)에 가장 큰 비중이 실림
 // 3차까지 채운 뒤에도 더 빠지면 first_price -3%에서 손절 (물타기는 3번까지만 허용)
 export const TRANCHE_TRIGGERS = [0, 0.998, 0.985]; // 1차 즉시, 2차 -0.2%, 3차 -1.5%
 export const MAX_TRANCHE        = 3;
-export const TRANCHE_WEIGHTS    = [2, 1, 1]; // 1차 2유닛(50%), 2차 1유닛(25%), 3차 1유닛(25%)
-export const TRANCHE_WEIGHT_SUM = 4;
+export const TRANCHE_WEIGHTS    = [1, 3, 6]; // 1차 1유닛(10%), 2차 3유닛(30%), 3차 6유닛(60%)
+export const TRANCHE_WEIGHT_SUM = 10;
 // 손절: first_price -3% — 3차 분할(-1.5%)보다 더 낮아야 3차가 먼저 실행됨
 const STOP_FROM_FIRST = 0.97;
 
