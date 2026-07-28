@@ -588,6 +588,7 @@
         history.replaceState({ view: 'home' }, '', location.href);
         // URL 의 ?s= 또는 ?view= 가 있으면 해당 화면으로 복원
         setTimeout(() => { try { _restoreFromUrl(); } catch(_) {} }, 0);
+        try { _initPortfolioSidebar(); } catch(_) {}
 
         const inp = document.getElementById('searchInput');
         if (!inp) return;
@@ -8285,14 +8286,20 @@
         _renderPaperAccountSection();
     }
 
-    let _paperAutoRefreshTimer = null;
-    function _clearPaperAutoRefresh() {
-        if (_paperAutoRefreshTimer) { clearInterval(_paperAutoRefreshTimer); _paperAutoRefreshTimer = null; }
+    // 계정 요약 섹션(프로필 화면 / 데스크톱 포트폴리오 사이드바)이 각자 독립적으로
+    // 자동 새로고침해야 해서 accountId별로 타이머를 따로 관리 (단일 변수면 두 번째
+    // 호출이 첫 번째 인스턴스의 타이머를 지워버림).
+    const _paperAutoRefreshTimers = {};
+    function _clearPaperAutoRefresh(accountId = 'paperAccountSection') {
+        if (_paperAutoRefreshTimers[accountId]) { clearInterval(_paperAutoRefreshTimers[accountId]); delete _paperAutoRefreshTimers[accountId]; }
     }
 
-    async function _renderPaperAccountSection() {
-        const wrap = document.getElementById('paperAccountSection');
-        if (!wrap) { _clearPaperAutoRefresh(); return; }
+    // accountId/historyId — 렌더링 대상 컨테이너 (기본값은 기존 프로필 화면과 동일).
+    // simpleFills=true면 체결내역을 캘린더형(_renderPaperTradeHistory) 대신 간단한
+    // 최신순 목록(_loadPaperFills)으로 표시 — 사이드바처럼 좁은 공간에 적합.
+    async function _renderPaperAccountSection(accountId = 'paperAccountSection', historyId = 'paperTradeHistory', simpleFills = false) {
+        const wrap = document.getElementById(accountId);
+        if (!wrap) { _clearPaperAutoRefresh(accountId); return; }
         const user = window.Clerk?.user;
         if (!user) {
             wrap.innerHTML = `<div style="background:var(--bg2);border-radius:16px;padding:16px;margin-bottom:12px;">
@@ -8398,17 +8405,19 @@
                 </div>
                 ${posHtml}
             </div>
-            <div id="paperTradeHistory"></div>`;
+            <div id="${historyId}"></div>`;
 
-            _renderPaperTradeHistory();
+            if (simpleFills) _loadPaperFills(historyId);
+            else _renderPaperTradeHistory(historyId);
 
-            _clearPaperAutoRefresh();
-            _paperAutoRefreshTimer = setInterval(() => {
-                const profileVisible = document.getElementById('profileScreen')?.style.display !== 'none';
-                if (profileVisible && document.getElementById('paperAccountSection')) {
-                    _renderPaperAccountSection();
+            _clearPaperAutoRefresh(accountId);
+            _paperAutoRefreshTimers[accountId] = setInterval(() => {
+                const el = document.getElementById(accountId);
+                // offsetParent가 null이면 조상 어딘가 display:none — 화면 전환/사이드바 숨김 모두 이걸로 판별 가능
+                if (el && el.offsetParent !== null) {
+                    _renderPaperAccountSection(accountId, historyId, simpleFills);
                 } else {
-                    _clearPaperAutoRefresh();
+                    _clearPaperAutoRefresh(accountId);
                 }
             }, 3 * 60 * 1000);
         } catch (e) {
@@ -8429,8 +8438,8 @@
         </div>`;
     }
 
-    async function _loadPaperFills() {
-        const sec = document.getElementById('paperFillsSection');
+    async function _loadPaperFills(containerId = 'paperFillsSection') {
+        const sec = document.getElementById(containerId);
         if (!sec) return;
         try {
             const token = await window.getAuthToken?.();
@@ -8498,6 +8507,32 @@
         } catch (_) {
             if (sec) sec.innerHTML = '';
         }
+    }
+
+    // ── 데스크톱 전용 포트폴리오 사이드바 (≥1600px) ────────────────────
+    // 토스증권 데스크톱 웹처럼 화면 우측에 항상 고정 표시되는 계좌 요약 +
+    // 보유 포지션 + 최근 체결내역. 좁은 화면에서는 CSS로 완전히 숨김(styles.css).
+    // 기존 프로필 화면의 _renderPaperAccountSection/_loadPaperFills를 그대로
+    // 재사용 — 별도 렌더링 로직을 새로 만들지 않음.
+    let _portfolioSidebarStarted = false;
+    function _startPortfolioSidebar() {
+        if (_portfolioSidebarStarted) return;
+        _portfolioSidebarStarted = true;
+        const go = () => _renderPaperAccountSection('portfolioSidebarAccount', 'portfolioSidebarHistory', true);
+        const ready = window.__authReady;
+        if (ready && typeof ready.then === 'function') ready.then(go).catch(go);
+        else go();
+    }
+    function _onResizeCheckPortfolioSidebar() {
+        if (window.innerWidth >= 1600) {
+            _startPortfolioSidebar();
+            window.removeEventListener('resize', _onResizeCheckPortfolioSidebar);
+        }
+    }
+    function _initPortfolioSidebar() {
+        if (!document.getElementById('portfolioSidebarAccount')) return;
+        if (window.innerWidth >= 1600) _startPortfolioSidebar();
+        else window.addEventListener('resize', _onResizeCheckPortfolioSidebar);
     }
 
     window._paperReset = async function() {

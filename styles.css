@@ -12050,3 +12050,20 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
     .calib-row .calib-value, .calib-row .calib-thresholds{ text-align: left; }
     .calib-thresholds{ gap: 8px; }
 }
+
+/* ════ 데스크톱 전용 포트폴리오 사이드바 (토스증권 스타일) ════
+   .app는 어떤 화면에서도 max-width:1140px로 고정돼 있어(다른 브레이크포인트 규칙 참고),
+   PC 사이드 내비(84px, 901px+)까지 감안해도 1600px 이상 화면에는 오른쪽에 항상
+   남는 여백이 있음 — 그 여백에 사이드바를 얹는 방식이라 .app 레이아웃은 전혀 안 건드림.
+   좁은 화면에서는 완전히 숨김(display:none 기본값). */
+#portfolioSidebar{ display:none; }
+@media (min-width: 1600px){
+    body{ padding-right: 404px; } /* 84px(아이콘 내비) + 320px(사이드바) */
+    #portfolioSidebar{
+        display:block;
+        position:fixed; top:0; right:84px; bottom:0;
+        width:320px; overflow-y:auto;
+        background:var(--bg); border-left:1px solid var(--border);
+        z-index:800;
+    }
+}

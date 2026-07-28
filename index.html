@@ -2583,6 +2583,15 @@
 <!-- ===== 바텀 내비게이션 (app.js initBottomNav()가 렌더링) ===== -->
 <nav class="bottom-nav" id="bottomNav"></nav>
 
+<!-- ===== 데스크톱 전용 포트폴리오 사이드바 (≥1600px, 우측 아이콘 내비 안쪽 고정) =====
+     토스증권 데스크톱 웹처럼 화면 어떤 탭을 보고 있든 항상 표시 — alpha-home.js
+     _initPortfolioSidebar()가 채움, 좁은 화면에서는 styles.css로 완전히 숨김 -->
+<aside id="portfolioSidebar">
+    <div id="portfolioSidebarAccount" style="padding:16px 14px;">
+        <div style="padding:20px 0;text-align:center;color:var(--text3);font-size:13px;">불러오는 중…</div>
+    </div>
+</aside>
+
 <!-- 🔍 분할차트 셀 종목 선택 모달 -->
 <div id="xcSymbolModal" class="mob-search-modal" style="display:none;z-index:1300;">
     <div class="mob-search-header">
