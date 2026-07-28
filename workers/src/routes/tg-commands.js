@@ -1,6 +1,6 @@
 // Telegram 봇 명령어 처리 — 매수/매도/포지션 조회
 // 보안: chatId 검증 (env.TELEGRAM_CHAT_ID 만 허용)
-import { paperOpenTrade, paperClosePosition, _tgDirect, isSymbolBlocked, MAX_TRANCHE, TRANCHE_TRIGGERS, TRANCHE_WEIGHTS, TRANCHE_WEIGHT_SUM, _etTotalMin } from '../utils/paper-engine.js';
+import { paperOpenTrade, paperClosePosition, _tgDirect, isSymbolBlocked, MAX_TRANCHE, TRANCHE_TRIGGERS, TRANCHE_WEIGHTS, TRANCHE_WEIGHT_SUM, _etTotalMin, _trancheCfg } from '../utils/paper-engine.js';
 import { classifySymbol } from '../utils/paper-category.js';
 import { smartDipScan, smartDipScanBounce, smartDipDiagnose } from '../utils/smart-dip.js';
 import { yfRequest } from '../utils/crumb.js';
@@ -164,18 +164,19 @@ async function _tgDownloadPhoto(env, fileId) {
 }
 
 // 분할매수 관점 안내 블록 — 사진 분석/직접 입력(보유 명령) 공용.
-// avgPrice/quantity가 있으면 참고 추가금액(기존 투자금의 2:1 비중 중 2차분)까지 같이 계산.
+// avgPrice/quantity가 있으면 참고 추가금액(스윙 4분할 중 2차분)까지 같이 계산.
 async function _buildTrancheAdviceBlock(env, symbol, cur, avgPrice, quantity) {
     const advice = await _trancheAdvice(env, { dir: 'long', style: 'swing', symbol }, cur);
     const lines = [];
     if (advice) {
+        const tcfg = _trancheCfg('swing');
         lines.push(`💡 <b>분할매수 관점</b> (일봉 기준)`);
         lines.push(`  추가매수 관심가 $${advice.recPrice.toFixed(2)} (${advice.recPct > 0 ? '+' : ''}${advice.recPct.toFixed(1)}%, ${advice.basis})`);
         if (avgPrice && quantity) {
             const invested = avgPrice * quantity;
-            const addAmount = invested * (TRANCHE_WEIGHTS[1] / TRANCHE_WEIGHTS[0]); // 기존 2:1 분할 비중 재사용 → 2차는 1차의 절반
+            const addAmount = invested * (tcfg.weights[1] / tcfg.weights[0]); // 스윙 2차/1차 비중
             const addQty = Math.floor(addAmount / advice.recPrice);
-            lines.push(`  참고 추가금액 약 $${addAmount.toFixed(0)} (~${addQty}주, 기존 투자금의 약 ${(TRANCHE_WEIGHTS[1] / TRANCHE_WEIGHTS[0] * 100).toFixed(0)}%)`);
+            lines.push(`  참고 추가금액 약 $${addAmount.toFixed(0)} (~${addQty}주, 기존 투자금의 약 ${(tcfg.weights[1] / tcfg.weights[0] * 100).toFixed(0)}%)`);
         }
     } else {
         lines.push('💡 뚜렷한 추가매수 관심가 산출 실패 — 데이터 부족 또는 추세 불명확');
@@ -1238,27 +1239,28 @@ async function _sendPositions(env) {
         const pnlStr = pnl != null ? `미실현 ${sign}$${pnl}` : '';
         const stopStr = p.stop_price ? `손절 $${p.stop_price.toFixed(2)}` : '';
 
+        const tcfg = _trancheCfg(p.style);
         const trancheCount = p.tranche_count || 1;
-        let trancheStr = `${trancheCount}/${MAX_TRANCHE}분할`;
-        if (trancheCount < MAX_TRANCHE && !p.tp1_done) {
-            const nextTrigger = TRANCHE_TRIGGERS[trancheCount];
+        let trancheStr = `${trancheCount}/${tcfg.max}분할`;
+        if (trancheCount < tcfg.max && !p.tp1_done) {
+            const nextTrigger = tcfg.triggers[trancheCount];
             if (nextTrigger > 0) {
                 const nextPrice = isShort
                     ? p.first_price * (2 - nextTrigger)
                     : p.first_price * nextTrigger;
                 trancheStr += ` (다음 $${nextPrice.toFixed(2)})`;
             }
-        } else if (trancheCount < MAX_TRANCHE && p.tp1_done) {
+        } else if (trancheCount < tcfg.max && p.tp1_done) {
             trancheStr += ' (1차익절 완료, 추가분할 종료)';
         }
 
         let adviceStr = null;
-        if (trancheCount < MAX_TRANCHE && !p.tp1_done && cur) {
+        if (trancheCount < tcfg.max && !p.tp1_done && cur) {
             const advice = await _trancheAdvice(env, p, cur);
             if (advice) {
                 const posSizeField = (p.style === 'day' || p.style === 'closebet') ? 'day_position_size' : 'swing_position_size';
                 const posSize = acct?.[posSizeField] || (p.style === 'day' ? 10000 : 23000);
-                const amount = posSize * TRANCHE_WEIGHTS[trancheCount] / TRANCHE_WEIGHT_SUM;
+                const amount = posSize * tcfg.weights[trancheCount] / tcfg.sum;
                 const addQty = Math.floor(amount / advice.recPrice);
                 adviceStr = `  💡 전문가 참고: 추가매수 관심가 $${advice.recPrice.toFixed(2)} (${advice.recPct > 0 ? '+' : ''}${advice.recPct.toFixed(1)}%, ${advice.basis}) | 참고금액 $${amount.toFixed(0)} (~${addQty}주)`;
             }

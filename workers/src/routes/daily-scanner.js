@@ -10,7 +10,7 @@ import { smartDipScan, smartDipScanBounce, smartDipBacktest, resolveTrailExit, s
 import { fetchChartWithFallback } from './yahoo.js';
 import { getMarketRegime, getSectorRotation } from '../utils/market.js';
 import { _fetchDiscoverySymbols, DEFAULT_UNIVERSE_US, DEFAULT_UNIVERSE_KR } from '../cron.js';
-import { paperOpenTrade, _tgDirect, TRANCHE_WEIGHTS, TRANCHE_WEIGHT_SUM, _etTotalMin, isSymbolBlocked } from '../utils/paper-engine.js';
+import { paperOpenTrade, _tgDirect, TRANCHE_WEIGHTS, TRANCHE_WEIGHT_SUM, _etTotalMin, isSymbolBlocked, _trancheCfg } from '../utils/paper-engine.js';
 import { classifySymbol, SECTOR_MAP, LEVERAGED_ETFS, INVERSE_ETFS, STOCK_ETF_MAP } from '../utils/paper-category.js';
 import { getPaperTradeParams } from '../utils/paper-optimizer.js';
 import { getNewsSentiment } from '../utils/news-sentiment.js';
@@ -432,6 +432,82 @@ export async function captureCloseBetSignals(env) {
     return { logged: candidates.length, opened };
 }
 
+// ── 스윙 종가 전용 진입 — 장마감 직전(ET 15:55~16:00) 한 틱에서만 실행 ──────────
+// 스윙(1주일+ 보유 전제)은 더 이상 장중 반복 스캔(_tryOpenPaperTrade의 tf==='1d' 분기,
+// 아래서 차단됨)에서 진입하지 않고, 하루 한 번 마감 직전 일봉을 분석해 진입한다.
+// closebet과 같은 시간 창을 쓰지만 별개 전략(오버나이트 청산 아님, 4분할로 보유) —
+// 서브리퀘스트 예산 보호를 위해 closebet과 동일하게 20종목 유니버스로 제한.
+const SWING_CLOSE_MAX_POS = 3; // max_swing_positions 기본값과 동일
+export async function captureSwingCloseSignals(env) {
+    const etMin = _etTotalMin();
+    if (etMin < 955 || etMin >= 960) return { skipped: 'not_close_window' }; // ET 15:55~16:00 한 틱만
+
+    const openCount = (await env.DB.prepare(
+        "SELECT COUNT(*) c FROM paper_trades WHERE status='open' AND style='swing'"
+    ).first())?.c || 0;
+    if (openCount >= SWING_CLOSE_MAX_POS) return { skipped: 'max_positions' };
+
+    const acct = await env.DB.prepare(
+        "SELECT user_id, swing_balance, swing_position_size FROM paper_account"
+    ).first();
+    if (!acct) return { skipped: 'no_account' };
+
+    const regime = await getMarketRegime(env);
+    const spxTrendUp = regime?.spyTrend === 'up' ? true : regime?.spyTrend === 'down' ? false : null;
+
+    const universe = DEFAULT_UNIVERSE_US.slice(0, 20);
+    const candidates = [];
+    const CHUNK = 10;
+    for (let k = 0; k < universe.length; k += CHUNK) {
+        const chunk = universe.slice(k, k + CHUNK);
+        await Promise.all(chunk.map(async (symbol) => {
+            try {
+                if (await isSymbolBlocked(env, symbol)) return;
+                const raw = await fetchChartWithFallback(env, symbol, '2y', '1d', 'false');
+                const result0 = raw?.chart?.result?.[0];
+                const qRaw = result0?.indicators?.quote?.[0];
+                if (!qRaw?.close?.length) return;
+                const { q, ts: tts } = _trimTrailing(qRaw, result0?.timestamp);
+                if (!q?.close?.length) return;
+                const sig = smartDipScan(q, { interval: '1d', ts: tts || [], spxTrendUp });
+                // 1주일+ 보유할 확신이 필요 — B등급은 제외하고 S/A만, 롱만(v1, 숏은 인버스 ETF
+                // 라우팅이 추가로 필요해 이번엔 스코프 제외)
+                if (sig && sig.dir === 'buy' && (sig.grade === 'S' || sig.grade === 'A')) {
+                    candidates.push({ symbol, sig });
+                }
+            } catch (_) {}
+        }));
+    }
+    if (!candidates.length) return { logged: 0 };
+
+    candidates.sort((a, b) => b.sig.qualityScore - a.sig.qualityScore);
+    const slots = SWING_CLOSE_MAX_POS - openCount;
+    let opened = 0;
+    const tcfg = _trancheCfg('swing');
+    for (const { symbol, sig } of candidates.slice(0, slots)) {
+        const dup = await env.DB.prepare(
+            "SELECT 1 FROM paper_trades WHERE user_id=? AND symbol=? AND status='open'"
+        ).bind(acct.user_id, symbol).first();
+        if (dup) continue;
+
+        const posSize = acct.swing_position_size || 23000;
+        const amount  = posSize * tcfg.weights[0] / tcfg.sum;
+        const qty     = Math.floor(amount / sig.price);
+        if (qty < 1) continue;
+
+        const category = classifySymbol(symbol, sig.price, sig.volRatio) || 'mid_small';
+        await paperOpenTrade(env, {
+            userId: acct.user_id, symbol, category, style: 'swing',
+            dir: 'long', price: sig.price, qty,
+            grade: sig.grade, score: sig.qualityScore, stopPrice: sig.stop,
+            reason: (sig.reasons || []).join(' / '),
+            mode: 'long_trend', outlookDir: 'long',
+        });
+        opened++;
+    }
+    return { logged: candidates.length, opened };
+}
+
 // ETF 현재가 + 평균거래량 조회 — 개별 종목 신호를 레버리지/인버스 ETF로 우선 체결할 때 유동성 판단용
 async function _fetchEtfQuote(env, symbol) {
     try {
@@ -504,6 +580,11 @@ function _sessionMinRvol(params) {
 
 // ── 전문 트레이더 진입 게이트 — 필터 통과 시에만 paperOpenTrade 호출 ────────
 async function _tryOpenPaperTrade(env, r, tf, dtId, params, accounts, regime, sectorRot) {
+    // 스윙 신규 진입은 이제 종가 전용 스캔(captureSwingCloseSignals)에서만 연다 —
+    // 이 함수(장중 반복 스캔)는 day만 진입시키고, 1d 신호는 dt_signals 기록(정확도
+    // 추적용, 이 함수 호출 전에 이미 INSERT 완료됨)만 남긴다.
+    if (tf === '1d') return;
+
     // ① ET 시간 필터
     if (!_isGoodEntryTime()) return;
 

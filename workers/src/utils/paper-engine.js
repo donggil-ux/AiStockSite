@@ -5,15 +5,39 @@ import { yfRequest } from './crumb.js';
 import { sendPush } from './vapid.js';
 import { LEVERAGED_ETFS, INVERSE_ETFS } from './paper-category.js';
 
-// 3분할 진입(1:3:6 비중) — 1차(10%) 즉시, 2차(30%) -0.2% 눌림, 3차(60%) -1.5% 추가 눌림
-// 눌릴수록 더 크게 태우는 방식 — 최적가(3차)에 가장 큰 비중이 실림
+// ── 단타(day): 3분할 진입(1:3:6 비중) — 1차(10%) 즉시, 2차(30%) -0.2% 눌림, 3차(60%) -1.5% 추가 눌림
+// 눌릴수록 더 크게 태우는 방식 — 최적가(3차)에 가장 큰 비중이 실림. 5분봉 스케일 눌림폭.
 // 3차까지 채운 뒤에도 더 빠지면 first_price -3%에서 손절 (물타기는 3번까지만 허용)
-export const TRANCHE_TRIGGERS = [0, 0.998, 0.985]; // 1차 즉시, 2차 -0.2%, 3차 -1.5%
-export const MAX_TRANCHE        = 3;
-export const TRANCHE_WEIGHTS    = [1, 3, 6]; // 1차 1유닛(10%), 2차 3유닛(30%), 3차 6유닛(60%)
-export const TRANCHE_WEIGHT_SUM = 10;
-// 손절: first_price -3% — 3차 분할(-1.5%)보다 더 낮아야 3차가 먼저 실행됨
-const STOP_FROM_FIRST = 0.97;
+export const TRANCHE_TRIGGERS_DAY   = [0, 0.998, 0.985]; // 1차 즉시, 2차 -0.2%, 3차 -1.5%
+export const MAX_TRANCHE_DAY        = 3;
+export const TRANCHE_WEIGHTS_DAY    = [1, 3, 6]; // 10%/30%/60%
+export const TRANCHE_WEIGHT_SUM_DAY = 10;
+const STOP_FROM_FIRST_DAY = 0.97; // -3% (3차 -1.5%보다 더 낮아야 3차가 먼저 실행됨)
+
+// ── 스윙(swing): 4분할, 일봉 스케일 눌림폭 — 최소 1주일 이상 보유를 전제로 한
+// 종가 전용 진입(daily-scanner.js captureSwingCloseSignals)과 짝을 이룸.
+// 트리거가 5분봉 대비 훨씬 넓어진 만큼(-1.5%/-3.5%/-5.5%), 손절도 4차보다
+// 낮은 -6%로 별도 확장 — 단타의 -3% 손절을 그대로 쓰면 4차 트리거보다 손절이
+// 얕아 4차 분할이 실행될 기회조차 없이 먼저 손절돼 버림.
+export const TRANCHE_TRIGGERS_SWING   = [0, 0.985, 0.965, 0.945]; // 1차 즉시, 2차 -1.5%, 3차 -3.5%, 4차 -5.5%
+export const MAX_TRANCHE_SWING        = 4;
+export const TRANCHE_WEIGHTS_SWING    = [1, 2, 3, 4]; // 10%/20%/30%/40%
+export const TRANCHE_WEIGHT_SUM_SWING = 10;
+const STOP_FROM_FIRST_SWING = 0.94; // -6%
+
+// 하위호환 별칭 — 기존에 이 이름으로 import하던 곳(단타 전용 계산부)은 그대로 동작.
+// 새 코드는 스타일을 구분해야 하면 아래 _trancheCfg()를 사용할 것.
+export const TRANCHE_TRIGGERS   = TRANCHE_TRIGGERS_DAY;
+export const MAX_TRANCHE        = MAX_TRANCHE_DAY;
+export const TRANCHE_WEIGHTS    = TRANCHE_WEIGHTS_DAY;
+export const TRANCHE_WEIGHT_SUM = TRANCHE_WEIGHT_SUM_DAY;
+
+// 스타일별 분할매수 설정 조회 — day/swing 분기가 필요한 모든 곳에서 이걸로 통일
+export function _trancheCfg(style) {
+    return style === 'swing'
+        ? { triggers: TRANCHE_TRIGGERS_SWING, max: MAX_TRANCHE_SWING, weights: TRANCHE_WEIGHTS_SWING, sum: TRANCHE_WEIGHT_SUM_SWING, stopFromFirst: STOP_FROM_FIRST_SWING }
+        : { triggers: TRANCHE_TRIGGERS_DAY,   max: MAX_TRANCHE_DAY,   weights: TRANCHE_WEIGHTS_DAY,   sum: TRANCHE_WEIGHT_SUM_DAY,   stopFromFirst: STOP_FROM_FIRST_DAY };
+}
 
 // ─── 롱 익절 전략 ────────────────────────────────────────────────────
 // 단타: +1% / +2.5% / +5% + 트레일 -0.5%  (리스크 0.8% → R:R 3:1)
@@ -155,7 +179,8 @@ export async function paperOpenTrade(env, { userId, symbol, category, style, dir
     // 기본: 롱 진입가 -0.8% / 숏 진입가 +0.8% (단타용 타이트 손절)
     // stopPrice 제공 시(스윙/일봉 신호의 ATR 기준 손절) 방향이 올바르면 그대로 사용 —
     // 일봉 변동폭엔 고정 -0.8%가 너무 타이트해 정상 노이즈에도 바로 청산되기 때문.
-    const fixedStop = dir === 'short' ? price * (2 - STOP_FROM_FIRST) : price * STOP_FROM_FIRST;
+    const stopFromFirst = _trancheCfg(style).stopFromFirst;
+    const fixedStop = dir === 'short' ? price * (2 - stopFromFirst) : price * stopFromFirst;
     const stopValid = stopPrice > 0 && (dir === 'short' ? stopPrice > price : stopPrice < price);
     const stop = stopValid ? stopPrice : fixedStop;
 
@@ -220,9 +245,10 @@ export async function paperAddTranche(env, trade, price, trancheAmount) {
     const newTotalQty      = trade.total_qty + qty;
     const newTotalInvested = trade.total_invested + amount;
     const newAvgPrice      = newTotalInvested / newTotalQty;
+    const stopFromFirst = _trancheCfg(trade.style).stopFromFirst;
     const newStop = trade.dir === 'short'
-        ? trade.first_price * (2 - STOP_FROM_FIRST)
-        : trade.first_price * STOP_FROM_FIRST;
+        ? trade.first_price * (2 - stopFromFirst)
+        : trade.first_price * stopFromFirst;
     const now = Date.now();
 
     // batch — trade 갱신 + fill 삽입 + 잔고 차감을 원자적으로 실행
@@ -458,7 +484,8 @@ async function _manageOne(env, pos, price) {
     // 프리마켓(ET 9:30 이전)은 거래량이 얇아 가격 노이즈로 손절이 잘못 걸리기 쉬움 —
     // 이 시간대엔 손절 체크를 보류하고, 정규장 개장(9:30) 이후 첫 틱부터 평소처럼 즉시 재개.
     const isPreMarketNow = _etTotalMin() < 9 * 60 + 30;
-    const stopPx = pos.stop_price ?? (isShort ? pos.avg_price * (2 - STOP_FROM_FIRST) : pos.avg_price * STOP_FROM_FIRST);
+    const stopFromFirst = _trancheCfg(pos.style).stopFromFirst;
+    const stopPx = pos.stop_price ?? (isShort ? pos.avg_price * (2 - stopFromFirst) : pos.avg_price * stopFromFirst);
     const hitStop = isShort ? price >= stopPx : price <= stopPx;
     if (pos.avg_price && hitStop && !isPreMarketNow) {
         await paperClosePosition(env, pos, price, 'stop');
@@ -493,18 +520,19 @@ async function _manageOne(env, pos, price) {
         }
     }
 
-    // ── 추가 분할 (2차) — 롱: 하락 시 / 숏: 상승 시 ──────────────
-    if (pos.tranche_count < MAX_TRANCHE && !pos.tp1_done) {
-        const nextTrigger = TRANCHE_TRIGGERS[pos.tranche_count];
+    // ── 추가 분할 (2차~) — 롱: 하락 시 / 숏: 상승 시 ──────────────
+    const tcfg = _trancheCfg(pos.style);
+    if (pos.tranche_count < tcfg.max && !pos.tp1_done) {
+        const nextTrigger = tcfg.triggers[pos.tranche_count];
         const triggerHit  = isShort
-            ? price >= pos.first_price * (2 - nextTrigger)  // 숏: 진입 후 +0.2% 반등
-            : price <= pos.first_price * nextTrigger;        // 롱: 진입 후 -0.2% 하락
+            ? price >= pos.first_price * (2 - nextTrigger)  // 숏: 진입 후 반등
+            : price <= pos.first_price * nextTrigger;        // 롱: 진입 후 하락
         if (nextTrigger > 0 && triggerHit) {
             const acct = await env.DB.prepare('SELECT day_balance,day_position_size,swing_balance,swing_position_size FROM paper_account WHERE user_id=?')
                 .bind(pos.user_id).first();
             const posSize = acct?.[_posSizeField(pos.style)] || (pos.style === 'day' ? 10000 : 23000);
             const poolBalance = acct?.[_balanceField(pos.style)] || 0;
-            const trancheAmount = posSize * TRANCHE_WEIGHTS[pos.tranche_count] / TRANCHE_WEIGHT_SUM;
+            const trancheAmount = posSize * tcfg.weights[pos.tranche_count] / tcfg.sum;
             if (acct && poolBalance >= trancheAmount) {
                 await paperAddTranche(env, pos, price, trancheAmount);
                 const updated = await env.DB.prepare('SELECT * FROM paper_trades WHERE id=?').bind(pos.id).first();

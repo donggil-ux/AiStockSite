@@ -34,7 +34,7 @@ import { logError, pruneOldErrors } from './utils/errors.js';
 import { snapshotHealth } from './cron.js';
 import { handleAdminStatus, handleAnalyzeNow, handleDtForwardTest, handleCatForwardTest } from './routes/admin.js';
 import { requireAdmin } from './utils/admin-auth.js';
-import { handleDailyTradingScan, handleDailyBacktest, handleDailyLiveStats, captureDailySignals, resolveDailySignals, sendDailyHealthSummary, captureCloseBetSignals } from './routes/daily-scanner.js';
+import { handleDailyTradingScan, handleDailyBacktest, handleDailyLiveStats, captureDailySignals, resolveDailySignals, sendDailyHealthSummary, captureCloseBetSignals, captureSwingCloseSignals } from './routes/daily-scanner.js';
 import { handlePaperTrading } from './routes/paper-trading.js';
 import { handleTgWebhook } from './routes/tg-commands.js';
 import { handleCatalystLiveStats, captureCatalystSignals, resolveCatalystSignals } from './routes/catalyst-track.js';
@@ -364,6 +364,13 @@ export async function runFiveMinJob(env, market, scheduledTime = Date.now()) {
             // 콘솔 로그만으로는 하루 한 번뿐인 이 틱이 실패해도 나중에 확인할 방법이 없어서 D1 + 텔레그램에도 남김
             try { await logError(env, { source: 'closebet', message: e.message, stack: e.stack }); } catch (_) {}
             try { await _tgDirect(env, `⚠️ 종가베팅 스캔 실패: ${e.message}`); } catch (_) {}
+        }
+        // 스윙 신규 진입 — 장마감 직전(ET 15:55~16:00) 한 틱에서만 실제 실행 (closebet과 동일 시간 게이트)
+        try { const sc = await captureSwingCloseSignals(env); if (!sc.skipped) console.log('[cron] swing-close', sc); }
+        catch (e) {
+            console.error('[cron] swing-close err', e.message);
+            try { await logError(env, { source: 'swing-close', message: e.message, stack: e.stack }); } catch (_) {}
+            try { await _tgDirect(env, `⚠️ 스윙 마감 스캔 실패: ${e.message}`); } catch (_) {}
         }
     }
     try { console.log(`[cron] ${market} price`, await checkPriceAlerts(env)); }
