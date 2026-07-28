@@ -109,6 +109,13 @@ function calcPnl(avgPrice, exitPrice, qty, dir) {
     return sign * (exitPrice - avgPrice) * qty;
 }
 
+// 토스증권 실제 수수료 체계 — 매매거래대금의 0.1% ($0.01 미만 절사), $10 미만 주문은 매수·매도 모두 무료
+// 나중에 실거래 연동 시 그대로 맞아떨어지도록 가상매매에도 동일 체계 적용
+function _calcFee(amount) {
+    if (amount < 10) return 0;
+    return Math.floor(amount * 0.001 * 100) / 100;
+}
+
 // 단타/스윙 자본 풀 분리 — 스타일별로 잔고·포지션사이즈가 서로 다른 컬럼을 씀
 // closebet(종가베팅)은 단타 풀을 공유 (별도 풀 없음)
 function _balanceField(style)  { return (style === 'day' || style === 'closebet') ? 'day_balance' : 'swing_balance'; }
@@ -144,6 +151,7 @@ export async function isSymbolBlocked(env, symbol) {
 export async function paperOpenTrade(env, { userId, symbol, category, style, dir, price, qty, signalId = null, grade = null, score = null, stopPrice = null, reason = null, mode = null, outlookDir = null }) {
     const now = Date.now();
     const amount = price * qty;
+    const fee = _calcFee(amount);
     // 기본: 롱 진입가 -0.8% / 숏 진입가 +0.8% (단타용 타이트 손절)
     // stopPrice 제공 시(스윙/일봉 신호의 ATR 기준 손절) 방향이 올바르면 그대로 사용 —
     // 일봉 변동폭엔 고정 -0.8%가 너무 타이트해 정상 노이즈에도 바로 청산되기 때문.
@@ -162,9 +170,10 @@ export async function paperOpenTrade(env, { userId, symbol, category, style, dir
         // batch — fill 삽입 + 잔고 차감 원자적 실행 (trade INSERT와 last_row_id 필요로 분리 불가)
         await env.DB.batch([
             env.DB.prepare(
-                'INSERT INTO paper_fills (trade_id,user_id,fill_type,price,qty,amount,pnl,filled_at) VALUES (?,?,?,?,?,?,0,?)'
-            ).bind(tradeId, userId, 'buy_t1', price, qty, amount, now),
-            ..._balanceDeltaStmts(env, userId, style, -amount, now),
+                'INSERT INTO paper_fills (trade_id,user_id,fill_type,price,qty,amount,fee,pnl,filled_at) VALUES (?,?,?,?,?,?,?,0,?)'
+            ).bind(tradeId, userId, 'buy_t1', price, qty, amount, fee, now),
+            ..._balanceDeltaStmts(env, userId, style, -(amount + fee), now),
+            env.DB.prepare('UPDATE paper_account SET total_pnl=total_pnl-?,updated_at=? WHERE user_id=?').bind(fee, now, userId),
         ]);
     }
     const isEtf = LEVERAGED_ETFS.has(symbol) || INVERSE_ETFS.has(symbol);
@@ -206,6 +215,7 @@ export async function paperAddTranche(env, trade, price, trancheAmount) {
     const qty = Math.floor(trancheAmount / price);
     if (qty < 1) return; // 1주 미만 — 추가 분할 스킵
     const amount = price * qty;
+    const fee = _calcFee(amount);
 
     const newTotalQty      = trade.total_qty + qty;
     const newTotalInvested = trade.total_invested + amount;
@@ -221,9 +231,10 @@ export async function paperAddTranche(env, trade, price, trancheAmount) {
             'UPDATE paper_trades SET tranche_count=?,avg_price=?,total_qty=?,total_invested=?,stop_price=?,updated_at=? WHERE id=?'
         ).bind(trancheNum, newAvgPrice, newTotalQty, newTotalInvested, newStop, now, trade.id),
         env.DB.prepare(
-            'INSERT INTO paper_fills (trade_id,user_id,fill_type,price,qty,amount,pnl,filled_at) VALUES (?,?,?,?,?,?,0,?)'
-        ).bind(trade.id, trade.user_id, fillType, price, qty, amount, now),
-        ..._balanceDeltaStmts(env, trade.user_id, trade.style, -amount, now),
+            'INSERT INTO paper_fills (trade_id,user_id,fill_type,price,qty,amount,fee,pnl,filled_at) VALUES (?,?,?,?,?,?,?,0,?)'
+        ).bind(trade.id, trade.user_id, fillType, price, qty, amount, fee, now),
+        ..._balanceDeltaStmts(env, trade.user_id, trade.style, -(amount + fee), now),
+        env.DB.prepare('UPDATE paper_account SET total_pnl=total_pnl-?,updated_at=? WHERE user_id=?').bind(fee, now, trade.user_id),
     ]);
     await notifyPaper(env, trade.user_id,
         `📈 가상매매 추가매수`,
@@ -239,7 +250,8 @@ export async function paperPartialExit(env, trade, price, fillType, ratio) {
     const qty = Math.floor(trade.total_qty * ratio);
     if (qty < 1) return; // 잔량 없으면 스킵
     const amount = price * qty;
-    const pnl = calcPnl(trade.avg_price, price, qty, trade.dir);
+    const fee = _calcFee(amount);
+    const pnl = calcPnl(trade.avg_price, price, qty, trade.dir) - fee;
     const now = Date.now();
 
     const tpField = fillType === 'sell_tp1' ? 'tp1_done' : fillType === 'sell_tp2' ? 'tp2_done' : 'tp3_done';
@@ -250,9 +262,9 @@ export async function paperPartialExit(env, trade, price, fillType, ratio) {
             `UPDATE paper_trades SET total_qty=total_qty-?,realized_pnl=realized_pnl+?,${tpField}=1,updated_at=? WHERE id=?`
         ).bind(qty, pnl, now, trade.id),
         env.DB.prepare(
-            'INSERT INTO paper_fills (trade_id,user_id,fill_type,price,qty,amount,pnl,filled_at) VALUES (?,?,?,?,?,?,?,?)'
-        ).bind(trade.id, trade.user_id, fillType, price, qty, amount, pnl, now),
-        ..._balanceDeltaStmts(env, trade.user_id, trade.style, amount, now),
+            'INSERT INTO paper_fills (trade_id,user_id,fill_type,price,qty,amount,fee,pnl,filled_at) VALUES (?,?,?,?,?,?,?,?,?)'
+        ).bind(trade.id, trade.user_id, fillType, price, qty, amount, fee, pnl, now),
+        ..._balanceDeltaStmts(env, trade.user_id, trade.style, amount - fee, now),
         env.DB.prepare(
             'UPDATE paper_account SET total_pnl=total_pnl+?,updated_at=? WHERE user_id=?'
         ).bind(pnl, now, trade.user_id),
@@ -271,7 +283,8 @@ export async function paperPartialExit(env, trade, price, fillType, ratio) {
 export async function paperClosePosition(env, trade, price, reason) {
     const qty     = trade.total_qty;
     const amount  = price * qty;
-    const thisPnl = calcPnl(trade.avg_price, price, qty, trade.dir); // 이번 청산분만
+    const fee     = _calcFee(amount);
+    const thisPnl = calcPnl(trade.avg_price, price, qty, trade.dir) - fee; // 이번 청산분만 (수수료 차감)
     const totalPnl = thisPnl + trade.realized_pnl;                   // 분할익절 누적 포함
     const now     = Date.now();
 
@@ -290,9 +303,9 @@ export async function paperClosePosition(env, trade, price, reason) {
             `UPDATE paper_trades SET status='closed',total_qty=0,realized_pnl=?,exit_price=?,exit_at=?,close_reason=?,updated_at=? WHERE id=?`
         ).bind(totalPnl, price, now, reason, now, trade.id),
         env.DB.prepare(
-            'INSERT INTO paper_fills (trade_id,user_id,fill_type,price,qty,amount,pnl,filled_at) VALUES (?,?,?,?,?,?,?,?)'
-        ).bind(trade.id, trade.user_id, fillType, price, qty, amount, thisPnl, now),
-        ..._balanceDeltaStmts(env, trade.user_id, trade.style, amount, now),
+            'INSERT INTO paper_fills (trade_id,user_id,fill_type,price,qty,amount,fee,pnl,filled_at) VALUES (?,?,?,?,?,?,?,?,?)'
+        ).bind(trade.id, trade.user_id, fillType, price, qty, amount, fee, thisPnl, now),
+        ..._balanceDeltaStmts(env, trade.user_id, trade.style, amount - fee, now),
         env.DB.prepare(
             'UPDATE paper_account SET total_pnl=total_pnl+?,updated_at=? WHERE user_id=?'
         ).bind(thisPnl, now, trade.user_id),
