@@ -12067,3 +12067,62 @@ body:not(.dark-mode):not([data-theme="dark"]) .sps-close       { background-colo
         z-index:800;
     }
 }
+
+/* ── 포트폴리오 사이드바 내부 — 토스증권 "내 투자" 패널 구조 재현 ──
+   색상 관례는 앱 전체와 통일(상승=초록/하락=빨강) — 토스 원본(상승=빨강)과
+   다르지만, 사이드바가 다른 화면과 동시에 노출되는 위젯이라 같은 값이 옆
+   화면과 다른 색으로 보이는 혼란을 피하기 위한 의도적 선택. */
+.ps-card{ padding:14px 14px 20px; }
+.ps-empty{ padding:24px 4px; text-align:center; color:var(--text3); font-size:13px; }
+.ps-empty-icon{ display:block; font-size:22px; margin-bottom:8px; opacity:.5; }
+
+.ps-head-row{ display:flex; align-items:center; justify-content:space-between; padding:2px 2px 12px; }
+.ps-acct-label{ font-size:14px; font-weight:800; color:var(--text); }
+.ps-more-btn{ background:none; border:none; color:var(--text3); font-size:15px; letter-spacing:1px; cursor:pointer; padding:4px 8px; border-radius:6px; }
+.ps-more-btn:hover{ background:var(--bg3); }
+
+.ps-balance-row{ display:flex; gap:8px; margin-bottom:14px; }
+.ps-balance-cell{ flex:1; background:var(--bg2); border-radius:10px; padding:10px 12px; }
+.ps-balance-label{ font-size:11px; color:var(--text3); margin-bottom:4px; }
+.ps-balance-val{ font-size:14px; font-weight:800; color:var(--text); }
+
+.ps-section-head{ display:flex; align-items:center; justify-content:space-between; padding:10px 2px; font-size:13px; font-weight:800; color:var(--text); cursor:pointer; user-select:none; }
+.ps-section-head--divider{ border-top:6px solid var(--bg2); margin-top:8px; }
+.ps-chevron{ color:var(--text3); font-size:11px; transition:transform .15s; }
+.ps-chevron.closed{ transform:rotate(-90deg); }
+
+.ps-total{ text-align:center; padding:10px 4px 16px; }
+.ps-total-pct{ font-size:28px; font-weight:900; letter-spacing:-0.5px; }
+.ps-total-sub{ font-size:12px; color:var(--text3); margin-top:5px; }
+
+.ps-list-controls{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:0 2px 8px; }
+.ps-sort-select{ flex:1; min-width:0; background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:6px 8px; font-size:11.5px; color:var(--text2); }
+.ps-view-toggle{ display:flex; background:var(--bg2); border-radius:8px; padding:2px; flex-shrink:0; }
+.ps-view-toggle button{ background:none; border:none; padding:5px 10px; font-size:11.5px; font-weight:700; color:var(--text3); border-radius:6px; cursor:pointer; }
+.ps-view-toggle button.active{ background:var(--bg4); color:var(--text); }
+
+.ps-pos-list{ display:flex; flex-direction:column; }
+.ps-pos-row{ display:flex; align-items:center; gap:10px; padding:10px 2px; border-bottom:1px solid var(--border); }
+.ps-pos-row:last-child{ border-bottom:none; }
+.ps-pos-main{ flex:1; min-width:0; }
+.ps-pos-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:3px; }
+.ps-pos-sym{ font-size:13.5px; font-weight:800; color:var(--text); }
+.ps-pos-val{ font-size:13px; font-weight:700; }
+.ps-pos-bottom{ display:flex; justify-content:space-between; align-items:center; }
+.ps-pos-qty{ font-size:11.5px; color:var(--text3); }
+.ps-pos-sub{ font-size:11.5px; }
+
+.ps-order-tabs{ display:flex; flex-direction:column; gap:8px; padding:0 2px 8px; }
+.ps-order-tab-group{ display:flex; gap:4px; }
+.ps-order-tab-group button{ background:var(--bg2); border:none; padding:6px 12px; font-size:12px; font-weight:700; color:var(--text3); border-radius:8px; cursor:pointer; }
+.ps-order-tab-group button.active{ background:var(--bg4); color:var(--text); }
+.ps-month-select{ align-self:flex-start; background:none; border:1px solid var(--border); border-radius:8px; padding:5px 8px; font-size:11.5px; color:var(--text2); }
+
+.ps-order-list{ display:flex; flex-direction:column; }
+.ps-order-row{ display:flex; align-items:center; gap:10px; padding:9px 2px; border-bottom:1px solid var(--border); }
+.ps-order-row:last-child{ border-bottom:none; }
+.ps-order-main{ flex:1; min-width:0; }
+.ps-order-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:2px; }
+.ps-order-sym{ font-size:13px; font-weight:800; color:var(--text); }
+.ps-order-amt{ font-size:13px; font-weight:700; }
+.ps-order-bottom{ display:flex; justify-content:space-between; font-size:11px; color:var(--text3); }

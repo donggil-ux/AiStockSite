@@ -8510,18 +8510,251 @@
     }
 
     // ── 데스크톱 전용 포트폴리오 사이드바 (≥1600px) ────────────────────
-    // 토스증권 데스크톱 웹처럼 화면 우측에 항상 고정 표시되는 계좌 요약 +
-    // 보유 포지션 + 최근 체결내역. 좁은 화면에서는 CSS로 완전히 숨김(styles.css).
-    // 기존 프로필 화면의 _renderPaperAccountSection/_loadPaperFills를 그대로
-    // 재사용 — 별도 렌더링 로직을 새로 만들지 않음.
-    let _portfolioSidebarStarted = false;
+    // 토스증권 데스크톱 웹 "내 투자" 패널 구조를 그대로 재현: 계좌 요약(현금/평가금
+    // 2단) + 내 투자(수익률 + 정렬/현재가·평가금 토글 + 보유 포지션) + 주문내역
+    // (대기/완료/조건주문 탭 + 월 선택). 색상은 앱 전체 관례(상승=초록/하락=빨강)를
+    // 그대로 따름 — 사용자 확인: 사이드바만 토스식(상승=빨강)으로 바꾸면 같은 화면에
+    // 동시에 보이는 다른 위젯과 색 의미가 어긋나서 혼란을 줄 수 있어 통일 유지.
+    let _psStarted = false;
+    let _psData = null;      // { d, openPos, priceMap } — 마지막 fetch 결과 캐시
+    let _psFills = [];       // /api/paper/fills 캐시 (주문내역 탭용)
+    let _psSort = 'ret_desc';        // 'ret_desc' | 'ret_asc' | 'name'
+    let _psViewMode = 'value';       // 'value'(평가금) | 'price'(현재가) — 토스 기본값과 동일하게 평가금
+    let _psOrderTab = 'done';        // 'pending' | 'done' | 'conditional'
+    let _psMonthKey = null;          // 'YYYY-MM', 초기값은 이번 달
+    let _psInvestOpen = true;
+    let _psOrdersOpen = true;
+
+    function _psRetPct(p, cur) {
+        if (!cur || !p.avg_price) return null;
+        const mult = p.dir === 'short' ? -1 : 1;
+        return (cur - p.avg_price) / p.avg_price * mult * 100;
+    }
+
+    window._psSetSort = function(v) { _psSort = v; _psRenderBody(); };
+    window._psSetView = function(v) { _psViewMode = v; _psRenderBody(); };
+    window._psSetOrderTab = function(v) { _psOrderTab = v; _psRenderBody(); };
+    window._psSetMonth = function(v) { _psMonthKey = v; _psRenderBody(); };
+    window._psToggleSection = function(key) {
+        if (key === 'invest') _psInvestOpen = !_psInvestOpen;
+        else _psOrdersOpen = !_psOrdersOpen;
+        _psRenderBody();
+    };
+
+    async function _renderPortfolioSidebar() {
+        const root = document.getElementById('portfolioSidebarAccount');
+        if (!root) return;
+        const user = window.Clerk?.user;
+        if (!user) {
+            root.innerHTML = `<div class="ps-card"><div class="ps-empty">로그인 후 이용할 수 있습니다.</div></div>`;
+            return;
+        }
+        if (!_psData) root.innerHTML = `<div class="ps-card"><div class="ps-empty">불러오는 중…</div></div>`;
+        try {
+            const token = await window.getAuthToken?.();
+            const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
+            const [accRes, fillsRes] = await Promise.all([
+                fetch(`${API_BASE}/api/paper/account`, { headers: authHeader }),
+                fetch(`${API_BASE}/api/paper/fills?limit=200`, { headers: authHeader }),
+            ]);
+            if (!accRes.ok) throw new Error('api error');
+            const d = await accRes.json();
+            const openPos = d.open_positions || [];
+            const priceMap = {};
+            await Promise.allSettled(openPos.map(async p => {
+                try {
+                    const pr = await fetch(`${API_BASE}/api/price/${encodeURIComponent(p.symbol)}`);
+                    if (pr.ok) { const pd = await pr.json(); priceMap[p.symbol] = pd.price || null; }
+                } catch (_) {}
+            }));
+            _psFills = fillsRes.ok ? ((await fillsRes.json()).fills || []) : [];
+            if (!_psMonthKey) {
+                const now = new Date();
+                _psMonthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+            }
+            _psData = { d, openPos, priceMap };
+            _psRenderBody();
+        } catch (e) {
+            root.innerHTML = `<div class="ps-card"><div class="ps-empty">로드 실패 — 잠시 후 다시 시도해주세요.</div></div>`;
+        }
+    }
+
+    function _psRenderBody() {
+        const root = document.getElementById('portfolioSidebarAccount');
+        if (!root || !_psData) return;
+        const { d, openPos, priceMap } = _psData;
+
+        const SEED = d.seed_amount ?? ((d.balance ?? 100000) - (d.total_pnl ?? 0));
+        const unrealizedTotal = openPos.reduce((s, p) => {
+            const cur = priceMap[p.symbol];
+            if (!cur || !p.total_qty) return s;
+            const mult = p.dir === 'short' ? -1 : 1;
+            return s + (cur - p.avg_price) * p.total_qty * mult;
+        }, 0);
+        const investedTotal = openPos.reduce((s, p) => s + (p.avg_price || 0) * (p.total_qty || 0), 0);
+        const marketValue = investedTotal + unrealizedTotal; // 보유 포지션 평가금액
+        const totalEquity = d.balance + marketValue;
+        const totalReturn = totalEquity - SEED;
+        const totalRetPct = totalReturn / SEED * 100;
+        const retColor = totalReturn >= 0 ? 'var(--green)' : 'var(--red)';
+        const retSign = totalReturn >= 0 ? '+' : '';
+
+        // 정렬
+        const sorted = [...openPos].sort((a, b) => {
+            if (_psSort === 'name') return a.symbol.localeCompare(b.symbol);
+            const ra = _psRetPct(a, priceMap[a.symbol]) ?? -Infinity;
+            const rb = _psRetPct(b, priceMap[b.symbol]) ?? -Infinity;
+            return _psSort === 'ret_asc' ? ra - rb : rb - ra;
+        });
+
+        const posRows = sorted.map(p => {
+            const cur = priceMap[p.symbol];
+            const mult = p.dir === 'short' ? -1 : 1;
+            const unrealAmt = cur && p.total_qty ? (cur - p.avg_price) * p.total_qty * mult : null;
+            const retPct = _psRetPct(p, cur);
+            const pnlColor = unrealAmt == null ? 'var(--text3)' : unrealAmt >= 0 ? 'var(--green)' : 'var(--red)';
+            const sym = escHtml(p.symbol);
+            const qtyStr = (p.total_qty || 0).toLocaleString(undefined, { maximumFractionDigits: 4 });
+            // 평가금: 총 평가액 + 평가손익($) / 현재가: 현재 주가 + 등락률(%)
+            const topRight = _psViewMode === 'value'
+                ? (cur ? '$' + (cur * p.total_qty).toFixed(cur * p.total_qty >= 100 ? 0 : 4) : '—')
+                : (cur ? '$' + cur.toFixed(2) : '—');
+            const subRight = _psViewMode === 'value'
+                ? (unrealAmt != null ? (unrealAmt >= 0 ? '+$' : '-$') + Math.abs(unrealAmt).toFixed(0) + (retPct != null ? ` (${retPct>=0?'+':''}${retPct.toFixed(2)}%)` : '') : '—')
+                : (retPct != null ? (retPct >= 0 ? '+' : '') + retPct.toFixed(2) + '%' : '—');
+            return `<div class="ps-pos-row">
+                ${_tickerLogo(sym, 36, '50%')}
+                <div class="ps-pos-main">
+                    <div class="ps-pos-top">
+                        <span class="ps-pos-sym">${sym}</span>
+                        <span class="ps-pos-val" style="color:${pnlColor}">${topRight}</span>
+                    </div>
+                    <div class="ps-pos-bottom">
+                        <span class="ps-pos-qty">${qtyStr}주</span>
+                        <span class="ps-pos-sub" style="color:${pnlColor}">${subRight}</span>
+                    </div>
+                </div>
+            </div>`;
+        }).join('') || `<div class="ps-empty">보유 포지션 없음</div>`;
+
+        // 주문내역 — 완료 탭만 실데이터(체결내역), 대기/조건주문은 페이퍼 계좌 특성상 항상 없음
+        const fillMeta = {
+            buy_t1:'1차 매수', buy_t2:'2차 매수', buy_t3:'3차 매수', buy_t4:'4차 매수',
+            sell_tp1:'TP1 익절', sell_tp2:'TP2 익절', sell_tp3:'TP3 익절', sell_trail:'트레일 청산',
+            sell_be_protect:'본전보호', sell_eod:'장마감 청산', sell_stop:'손절', sell_manual:'수동 청산',
+            sell_timeout:'타임아웃 청산', sell_overnight:'익일시가 청산',
+        };
+        const monthFills = _psFills.filter(f => {
+            const dt = new Date(f.filled_at);
+            const k = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
+            return k === _psMonthKey;
+        });
+        let orderListHtml;
+        if (_psOrderTab !== 'done') {
+            orderListHtml = `<div class="ps-empty"><span class="ps-empty-icon">📄</span>${_psOrderTab === 'pending' ? '대기 중인 주문이 없어요' : '조건주문이 없어요'}</div>`;
+        } else if (!monthFills.length) {
+            orderListHtml = `<div class="ps-empty"><span class="ps-empty-icon">📄</span>완료된 주문이 없어요</div>`;
+        } else {
+            orderListHtml = monthFills.map(f => {
+                const label = fillMeta[f.fill_type] || f.fill_type || '—';
+                const isBuy = (f.fill_type || '').startsWith('buy');
+                const pnlVal = f.pnl || 0;
+                const amtHtml = !isBuy && f.pnl != null
+                    ? `<span class="ps-order-amt" style="color:${pnlVal>=0?'var(--green)':'var(--red)'}">${pnlVal>=0?'+$':'-$'}${Math.abs(pnlVal).toFixed(0)}</span>`
+                    : `<span class="ps-order-amt" style="color:var(--text2)">-$${(f.amount||0).toFixed(0)}</span>`;
+                const dt = new Date(f.filled_at);
+                const dateStr = `${dt.getMonth()+1}/${dt.getDate()} ${dt.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
+                return `<div class="ps-order-row">
+                    ${_tickerLogo(escHtml(f.symbol||''), 32, '50%')}
+                    <div class="ps-order-main">
+                        <div class="ps-order-top"><span class="ps-order-sym">${escHtml(f.symbol||'')}</span>${amtHtml}</div>
+                        <div class="ps-order-bottom"><span>${label} · $${f.price?.toFixed(2)||'—'}</span><span>${dateStr}</span></div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // 월 선택 옵션 — 체결 데이터가 있는 달 + 이번 달은 항상 포함
+        const monthKeys = new Set(_psFills.map(f => { const dt = new Date(f.filled_at); return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`; }));
+        monthKeys.add(_psMonthKey);
+        const monthOptions = [...monthKeys].sort().reverse().map(k => {
+            const [y, m] = k.split('-');
+            return `<option value="${k}" ${k===_psMonthKey?'selected':''}>${y}년 ${parseInt(m,10)}월</option>`;
+        }).join('');
+
+        root.innerHTML = `
+        <div class="ps-card">
+            <div class="ps-head-row">
+                <span class="ps-acct-label">🐾 가상매매 계좌</span>
+                <button class="ps-more-btn" onclick="window._paperReset()" title="계좌 초기화">•••</button>
+            </div>
+            <div class="ps-balance-row">
+                <div class="ps-balance-cell">
+                    <div class="ps-balance-label">현금 잔고</div>
+                    <div class="ps-balance-val">$${Math.round(d.balance).toLocaleString()}</div>
+                </div>
+                <div class="ps-balance-cell">
+                    <div class="ps-balance-label">평가금액</div>
+                    <div class="ps-balance-val">$${Math.round(marketValue).toLocaleString()}</div>
+                </div>
+            </div>
+
+            <div class="ps-section-head" onclick="window._psToggleSection('invest')">
+                <span>내 투자</span><span class="ps-chevron ${_psInvestOpen?'':'closed'}">▾</span>
+            </div>
+            ${_psInvestOpen ? `
+            <div class="ps-invest-body">
+                <div class="ps-total">
+                    <div class="ps-total-pct" style="color:${retColor}">${retSign}${totalRetPct.toFixed(2)}%</div>
+                    <div class="ps-total-sub">${retSign}$${Math.abs(totalReturn).toFixed(0)} · 시드 $${SEED.toLocaleString()} 대비</div>
+                </div>
+                <div class="ps-list-controls">
+                    <select class="ps-sort-select" onchange="window._psSetSort(this.value)">
+                        <option value="ret_desc" ${_psSort==='ret_desc'?'selected':''}>총 수익률 높은 순</option>
+                        <option value="ret_asc" ${_psSort==='ret_asc'?'selected':''}>총 수익률 낮은 순</option>
+                        <option value="name" ${_psSort==='name'?'selected':''}>종목명순</option>
+                    </select>
+                    <div class="ps-view-toggle">
+                        <button class="${_psViewMode==='price'?'active':''}" onclick="window._psSetView('price')">현재가</button>
+                        <button class="${_psViewMode==='value'?'active':''}" onclick="window._psSetView('value')">평가금</button>
+                    </div>
+                </div>
+                <div class="ps-pos-list">${posRows}</div>
+            </div>` : ''}
+
+            <div class="ps-section-head ps-section-head--divider" onclick="window._psToggleSection('orders')">
+                <span>주문내역</span><span class="ps-chevron ${_psOrdersOpen?'':'closed'}">▾</span>
+            </div>
+            ${_psOrdersOpen ? `
+            <div class="ps-orders-body">
+                <div class="ps-order-tabs">
+                    <div class="ps-order-tab-group">
+                        <button class="${_psOrderTab==='pending'?'active':''}" onclick="window._psSetOrderTab('pending')">대기</button>
+                        <button class="${_psOrderTab==='done'?'active':''}" onclick="window._psSetOrderTab('done')">완료</button>
+                        <button class="${_psOrderTab==='conditional'?'active':''}" onclick="window._psSetOrderTab('conditional')">조건주문</button>
+                    </div>
+                    <select class="ps-month-select" onchange="window._psSetMonth(this.value)">${monthOptions}</select>
+                </div>
+                <div class="ps-order-list">${orderListHtml}</div>
+            </div>` : ''}
+        </div>`;
+    }
+
+    function _psClearAutoRefresh() { if (_psAutoRefreshTimer) { clearInterval(_psAutoRefreshTimer); _psAutoRefreshTimer = null; } }
+    let _psAutoRefreshTimer = null;
     function _startPortfolioSidebar() {
-        if (_portfolioSidebarStarted) return;
-        _portfolioSidebarStarted = true;
-        const go = () => _renderPaperAccountSection('portfolioSidebarAccount', 'portfolioSidebarHistory', true);
+        if (_psStarted) return;
+        _psStarted = true;
+        const go = () => _renderPortfolioSidebar();
         const ready = window.__authReady;
         if (ready && typeof ready.then === 'function') ready.then(go).catch(go);
         else go();
+        _psClearAutoRefresh();
+        _psAutoRefreshTimer = setInterval(() => {
+            const el = document.getElementById('portfolioSidebarAccount');
+            if (el && el.offsetParent !== null) _renderPortfolioSidebar();
+            else _psClearAutoRefresh();
+        }, 3 * 60 * 1000);
     }
     function _onResizeCheckPortfolioSidebar() {
         if (window.innerWidth >= 1600) {
