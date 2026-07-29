@@ -5,12 +5,12 @@ import { yfRequest } from './crumb.js';
 import { sendPush } from './vapid.js';
 import { LEVERAGED_ETFS, INVERSE_ETFS } from './paper-category.js';
 
-// ── 단타(day): 3분할 진입(1:3:6 비중) — 1차(10%) 즉시, 2차(30%) -0.2% 눌림, 3차(60%) -1.5% 추가 눌림
+// ── 단타(day): 3분할 진입(2:3:5 비중) — 1차(20%) 즉시, 2차(30%) -0.2% 눌림, 3차(50%) -1.5% 추가 눌림
 // 눌릴수록 더 크게 태우는 방식 — 최적가(3차)에 가장 큰 비중이 실림. 5분봉 스케일 눌림폭.
 // 3차까지 채운 뒤에도 더 빠지면 first_price -3%에서 손절 (물타기는 3번까지만 허용)
 export const TRANCHE_TRIGGERS_DAY   = [0, 0.998, 0.985]; // 1차 즉시, 2차 -0.2%, 3차 -1.5%
 export const MAX_TRANCHE_DAY        = 3;
-export const TRANCHE_WEIGHTS_DAY    = [1, 3, 6]; // 10%/30%/60%
+export const TRANCHE_WEIGHTS_DAY    = [2, 3, 5]; // 20%/30%/50%
 export const TRANCHE_WEIGHT_SUM_DAY = 10;
 const STOP_FROM_FIRST_DAY = 0.97; // -3% (3차 -1.5%보다 더 낮아야 3차가 먼저 실행됨)
 
