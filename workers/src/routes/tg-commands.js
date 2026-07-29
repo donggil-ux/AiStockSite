@@ -1,7 +1,7 @@
 // Telegram 봇 명령어 처리 — 매수/매도/포지션 조회
 // 보안: chatId 검증 (env.TELEGRAM_CHAT_ID 만 허용)
 import { paperOpenTrade, paperClosePosition, _tgDirect, isSymbolBlocked, MAX_TRANCHE, TRANCHE_TRIGGERS, TRANCHE_WEIGHTS, TRANCHE_WEIGHT_SUM, _etTotalMin, _trancheCfg } from '../utils/paper-engine.js';
-import { classifySymbol } from '../utils/paper-category.js';
+import { classifySymbol, INVERSE_ETFS } from '../utils/paper-category.js';
 import { smartDipScan, smartDipScanBounce, smartDipDiagnose } from '../utils/smart-dip.js';
 import { yfRequest } from '../utils/crumb.js';
 import { calcEMA, calcRSI, calcADXSeries, calcATR, lastVal } from '../utils/indicators.js';
@@ -1229,7 +1229,10 @@ async function _sendPositions(env) {
     const lines = await Promise.all(positions.map(async (p) => {
         const cur    = quotes[p.symbol]?.price;
         const isShort = p.dir === 'short';
-        const dir    = isShort ? '숏' : '롱';
+        // 표시용 방향 — 인버스 ETF(NVDS 등)는 실제로는 매수(롱) 체결이지만 원래 시그널의
+        // 관점 자체는 숏(NVDA 하락 베팅)이라 사용자에게는 숏으로 보여줌.
+        // mult(손익 계산)는 실제 체결 방향(p.dir) 그대로 둬야 함 — 표시만 바꾸는 것.
+        const dirLabel = (isShort || INVERSE_ETFS.has(p.symbol)) ? '숏' : '롱';
         const mult   = isShort ? -1 : 1;
         const qty    = p.total_qty ? p.total_qty.toFixed(0) : '?';
         const pnl    = cur ? ((cur - p.avg_price) * p.total_qty * mult).toFixed(0) : null;
@@ -1267,7 +1270,7 @@ async function _sendPositions(env) {
         }
 
         return [
-            `• <b>${p.symbol}</b> ${dir} [${p.style}]  ${trancheStr}  |  <b>${qty}주</b>`,
+            `• <b>${p.symbol}</b> ${dirLabel} [${p.style}]  ${trancheStr}  |  <b>${qty}주</b>`,
             `  평단 $${p.avg_price.toFixed(2)}  →  현재 ${curStr}`,
             [pnlStr, stopStr].filter(Boolean).join('  |  '),
             adviceStr,
