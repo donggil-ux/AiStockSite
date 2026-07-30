@@ -114,6 +114,55 @@ async function _fetchAnalystData(env, symbol) {
     } catch (_) { return null; }
 }
 
+// PER/PBR/EPS 밸류에이션 (Yahoo Finance summaryDetail + defaultKeyStatistics 모듈)
+// 저평가/적정/고평가 판단은 업종 조정 없는 일반적인 기준(rule of thumb)일 뿐
+// 절대적 기준은 아님 — 성장주는 PER이 항상 높게 나오는 등 예외가 흔함.
+async function _fetchValuationData(env, symbol) {
+    try {
+        const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=summaryDetail,defaultKeyStatistics`;
+        const data = await yfRequest(env.CACHE, url);
+        const sd = data?.quoteSummary?.result?.[0]?.summaryDetail;
+        const ks = data?.quoteSummary?.result?.[0]?.defaultKeyStatistics;
+        const per        = sd?.trailingPE?.raw ?? ks?.trailingPE?.raw ?? null;
+        const forwardPer = sd?.forwardPE?.raw ?? ks?.forwardPE?.raw ?? null;
+        const pbr        = ks?.priceToBook?.raw ?? null;
+        const eps        = ks?.trailingEps?.raw ?? null;
+        const forwardEps = ks?.forwardEps?.raw ?? null;
+        if (per == null && pbr == null && eps == null) return null;
+        return { per, forwardPer, pbr, eps, forwardEps };
+    } catch (_) { return null; }
+}
+function _classifyPER(per) {
+    if (per == null || per <= 0) return null;
+    if (per < 15) return '저평가';
+    if (per <= 25) return '적정';
+    return '고평가';
+}
+function _classifyPBR(pbr) {
+    if (pbr == null || pbr <= 0) return null;
+    if (pbr < 1) return '저평가';
+    if (pbr <= 3) return '적정';
+    return '고평가';
+}
+// EPS 자체는 절대 실적 지표라 "낮다/높다"보다 추세(trailing→forward 성장)로 평가
+function _classifyEpsGrowth(eps, forwardEps) {
+    if (eps == null || forwardEps == null || eps === 0) return null;
+    const growthPct = (forwardEps - eps) / Math.abs(eps) * 100;
+    const label = growthPct >= 10 ? '성장 우수' : growthPct >= 0 ? '성장 보통' : '성장 둔화';
+    return { growthPct, label };
+}
+function _buildValuationBlock(v) {
+    if (!v) return null;
+    const perLabel = _classifyPER(v.per);
+    const pbrLabel = _classifyPBR(v.pbr);
+    const epsG     = _classifyEpsGrowth(v.eps, v.forwardEps);
+    const lines = ['<b>💰 밸류에이션</b> (일반 기준 참고용 — 업종 미반영)'];
+    if (v.per != null) lines.push(`  PER ${v.per.toFixed(1)}${perLabel ? ` — ${perLabel}` : ''}${v.forwardPer != null ? `  (예상 PER ${v.forwardPer.toFixed(1)})` : ''}`);
+    if (v.pbr != null) lines.push(`  PBR ${v.pbr.toFixed(2)}${pbrLabel ? ` — ${pbrLabel}` : ''}`);
+    if (v.eps != null) lines.push(`  EPS $${v.eps.toFixed(2)}${v.forwardEps != null ? `  → 예상 $${v.forwardEps.toFixed(2)}` : ''}${epsG ? `  (${epsG.growthPct >= 0 ? '+' : ''}${epsG.growthPct.toFixed(1)}%, ${epsG.label})` : ''}`);
+    return lines.length > 1 ? lines.join('\n') : null;
+}
+
 // 공매도 잔고 현황 (Yahoo Finance defaultKeyStatistics 모듈 — 통상 반월 지연 데이터)
 async function _fetchShortInterest(env, symbol) {
     try {
@@ -606,7 +655,7 @@ async function _liveScan(env, customSymbols) {
 async function _analyzeSymbol(env, symbol) {
     try {
         const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=2d&interval=5m&includePrePost=true`;
-        const [data, quoteMap, acct, daily, tf15, tf60, news, options, analyst, shortInt] = await Promise.all([
+        const [data, quoteMap, acct, daily, tf15, tf60, news, options, analyst, shortInt, valuation] = await Promise.all([
             yfRequest(env.CACHE, chartUrl),
             _quotePrice(env, [symbol]),
             env.DB.prepare("SELECT day_balance, day_position_size FROM paper_account WHERE user_id=?")
@@ -618,6 +667,7 @@ async function _analyzeSymbol(env, symbol) {
             _fetchOptionsSummary(env, symbol).catch(() => null),
             _fetchAnalystData(env, symbol).catch(() => null),
             _fetchShortInterest(env, symbol).catch(() => null),
+            _fetchValuationData(env, symbol).catch(() => null),
         ]);
         const result = data?.chart?.result?.[0];
         if (!result) { await _tgDirect(env, `❌ ${symbol} 차트 데이터 없음`); return; }
@@ -700,6 +750,8 @@ async function _analyzeSymbol(env, symbol) {
                 shortInt.daysToCover != null ? `숏레이쇼 ${shortInt.daysToCover.toFixed(1)}일` : null,
             ].filter(Boolean).map(s => `  ${s}`).join('\n'),
         ].filter(Boolean).join('\n') : null;
+
+        const valuationBlock = _buildValuationBlock(valuation);
 
         // 신호 없음
         if (!sig) {
@@ -799,6 +851,7 @@ async function _analyzeSymbol(env, symbol) {
                 optionsBlock ? '' : null, optionsBlock,
                 analystBlock ? '' : null, analystBlock,
                 shortInterestBlock ? '' : null, shortInterestBlock,
+                valuationBlock ? '' : null, valuationBlock,
                 diagBlock ? '' : null, diagBlock,
                 '',
                 '⚪ 신호 없음 — 조건 미충족, 관망 권장',
@@ -852,6 +905,7 @@ async function _analyzeSymbol(env, symbol) {
             optionsBlock ? '' : null, optionsBlock,
             analystBlock ? '' : null, analystBlock,
             shortInterestBlock ? '' : null, shortInterestBlock,
+            valuationBlock ? '' : null, valuationBlock,
         ].filter(l => l !== null).join('\n'));
     } catch (e) {
         console.error('[tg-analyze]', symbol, e?.message);
