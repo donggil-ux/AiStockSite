@@ -3,7 +3,12 @@
 
 import { yfRequest } from './crumb.js';
 import { sendPush } from './vapid.js';
-import { LEVERAGED_ETFS, INVERSE_ETFS } from './paper-category.js';
+import { LEVERAGED_ETFS, INVERSE_ETFS, SINGLE_STOCK_LEV_ETFS } from './paper-category.js';
+
+// 한국 규정 변경(2026-07-30 시행) — 계좌 현금 3천만원 미만이면 단일 종목
+// 레버리지·인버스 ETF/ETP(NVDL/NVDS 등) 매매 금지. 원화 기준 계좌가 없어
+// 고정 환율(1,430원/달러)로 환산한 달러 금액을 그대로 상수에 고정.
+export const SINGLE_STOCK_ETF_CASH_MIN = 21000; // ≈3,000만원
 
 // ── 단타(day): 3분할 진입(2:3:5 비중) — 1차(20%) 즉시, 2차(30%) -0.2% 눌림, 3차(50%) -1.5% 추가 눌림
 // 눌릴수록 더 크게 태우는 방식 — 최적가(3차)에 가장 큰 비중이 실림. 5분봉 스케일 눌림폭.
@@ -169,10 +174,21 @@ export async function isSymbolBlocked(env, symbol) {
     return true;
 }
 
+// 단일 종목 레버리지·인버스 ETF 매매 자격 확인 — 계좌 총 현금이 최소 요건 미만이면 차단
+async function _singleStockEtfAllowed(env, userId, symbol) {
+    if (!SINGLE_STOCK_LEV_ETFS.has(symbol)) return true;
+    const acct = await env.DB.prepare('SELECT balance FROM paper_account WHERE user_id=?').bind(userId).first();
+    return (acct?.balance ?? 0) >= SINGLE_STOCK_ETF_CASH_MIN;
+}
+
 /**
  * 1차 분할 진입 — 새 paper_trade 생성
  */
 export async function paperOpenTrade(env, { userId, symbol, category, style, dir, price, qty, signalId = null, grade = null, score = null, stopPrice = null, reason = null, mode = null, outlookDir = null }) {
+    if (!(await _singleStockEtfAllowed(env, userId, symbol))) {
+        console.log(`[paper] ${symbol} 단일종목 레버리지/인버스 ETF — 계좌 현금 $${SINGLE_STOCK_ETF_CASH_MIN} 미만, 진입 차단`);
+        return { tradeId: null, userId, skipped: 'single_stock_etf_min_cash' };
+    }
     const now = Date.now();
     const amount = price * qty;
     const fee = _calcFee(amount);
@@ -235,6 +251,10 @@ export async function paperOpenTrade(env, { userId, symbol, category, style, dir
  * @param {number} trancheAmount - 이번 분할 매수 금액 (호출자가 계산해서 전달)
  */
 export async function paperAddTranche(env, trade, price, trancheAmount) {
+    if (!(await _singleStockEtfAllowed(env, trade.user_id, trade.symbol))) {
+        console.log(`[paper] ${trade.symbol} 단일종목 레버리지/인버스 ETF — 계좌 현금 $${SINGLE_STOCK_ETF_CASH_MIN} 미만, 추가매수 차단`);
+        return;
+    }
     const trancheNum = trade.tranche_count + 1;
     const fillType = `buy_t${trancheNum}`;
     const qty = Math.floor(trancheAmount / price);

@@ -45,6 +45,13 @@ export const STOCK_ETF_MAP = {
     MSFT: { long: 'MSFU', short: 'MSFD' },
 };
 
+// 단일 종목(개별 기업) 레버리지·인버스 ETF/ETP 전체 — STOCK_ETF_MAP에 매핑된 상품만 해당
+// (SOXL·TQQQ 같은 지수/섹터 레버리지 ETF는 제외 — 규제 대상 아님)
+// 한국 규정 변경: 계좌 현금 3천만원 미만이면 이 종목들 매매 금지 (paper-engine.js 게이트에서 사용)
+export const SINGLE_STOCK_LEV_ETFS = new Set(
+    Object.values(STOCK_ETF_MAP).flatMap(m => [m.long, m.short])
+);
+
 // 섹터 로테이션 (원칙 11) — 종목 → SPDR 섹터 ETF 매핑
 // 미포함 = 광범위 시장 ETF → 섹터 필터 제외
 export const SECTOR_MAP = {

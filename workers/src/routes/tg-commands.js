@@ -1,6 +1,6 @@
 // Telegram 봇 명령어 처리 — 매수/매도/포지션 조회
 // 보안: chatId 검증 (env.TELEGRAM_CHAT_ID 만 허용)
-import { paperOpenTrade, paperClosePosition, _tgDirect, isSymbolBlocked, MAX_TRANCHE, TRANCHE_TRIGGERS, TRANCHE_WEIGHTS, TRANCHE_WEIGHT_SUM, _etTotalMin, _trancheCfg } from '../utils/paper-engine.js';
+import { paperOpenTrade, paperClosePosition, _tgDirect, isSymbolBlocked, MAX_TRANCHE, TRANCHE_TRIGGERS, TRANCHE_WEIGHTS, TRANCHE_WEIGHT_SUM, _etTotalMin, _trancheCfg, SINGLE_STOCK_ETF_CASH_MIN } from '../utils/paper-engine.js';
 import { classifySymbol, INVERSE_ETFS } from '../utils/paper-category.js';
 import { smartDipScan, smartDipScanBounce, smartDipDiagnose } from '../utils/smart-dip.js';
 import { yfRequest } from '../utils/crumb.js';
@@ -575,7 +575,10 @@ async function _manualBuy(env, symbol) {
     });
 
     if (!result?.tradeId) {
-        await _tgDirect(env, `❌ ${symbol} 수동 매수 실패`);
+        const msg = result?.skipped === 'single_stock_etf_min_cash'
+            ? `❌ ${symbol} 매수 불가 — 단일 종목 레버리지/인버스 ETF는 계좌 현금 $${SINGLE_STOCK_ETF_CASH_MIN.toLocaleString()} 이상 보유 시에만 매매 가능`
+            : `❌ ${symbol} 수동 매수 실패`;
+        await _tgDirect(env, msg);
     }
 }
 
