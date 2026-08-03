@@ -392,11 +392,13 @@ export async function analyzeSignals(env, marketHint = 'ALL') {
         // 즐겨찾기(사용자 알림 직결)는 매 틱 전량 스캔. 기본 풀+디스커버리는 가상매매보다
         // 우선순위가 낮은 "알림용" 스캔이므로, 15분 경계 틱(dt-capture의 15m 스캔과 동일 주기)에만
         // 최대 10개까지만 실행 — 예산을 가상매매·포지션관리에 최대한 양보.
-        const isFifteenBoundary = new Date().getUTCMinutes() % 15 === 0;
-        const restPool = isFifteenBoundary
-            ? [...new Set([...DEFAULT_UNIVERSE, ...dynamic])].filter(s => !favSet.has(s)).slice(0, 10)
+        const isThirtyBoundary = new Date().getUTCMinutes() % 30 === 0;
+        const restPool = isThirtyBoundary
+            ? [...new Set([...DEFAULT_UNIVERSE, ...dynamic])].filter(s => !favSet.has(s)).slice(0, 3)
             : [];
-        const allSymbols = [...new Set([...favSymbols, ...restPool])].slice(0, 50);
+        // CPU 10ms 한도(무료 플랜) 초과로 5분 크론이 죽는 문제 대응 — 20으로 줄여도 여전히
+        // 넘는 날이 있어(금요일 하루 종일 정지) 12로 추가 축소 + discovery 주기도 15분→30분으로.
+        const allSymbols = [...new Set([...favSymbols, ...restPool])].slice(0, 12);
         if (!allSymbols.length) return { subscribers: subs.length, marketHint, fired: 0 };
 
         // 디스커버리 푸시 대상 구독자 (discovery 토글 ON + 조용시간 아님 + 시장필터)

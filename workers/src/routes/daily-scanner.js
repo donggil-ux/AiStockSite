@@ -96,7 +96,7 @@ export async function handleDailyTradingScan(req, env) {
         const dynamic = await _fetchDiscoverySymbols(env, market);
         // dynamic(당일 활발 종목)을 우선 배치 — base가 47개라 뒤에 두면 20개 컷에서 항상 밀려남
         // 1d는 하루 1틱만 도는 저빈도 스캔이라 예산 여유가 있어 유니버스를 넓힘(스윙 후보가 너무 적었음)
-        const universeCap = tf === '1d' ? 50 : 20;
+        const universeCap = tf === '1d' ? 50 : 12; // CPU 10ms 한도 대응 — 20도 여전히 넘어 12로 추가 축소
         const universe = [...new Set([...dynamic, ...base])].slice(0, universeCap);
 
         // 5m: 5d(300봉+ 확보) / 1d: 2y(EMA120·ADX14 계산에 최소 120봉 필요 — 6개월 미만이면 부족)
